@@ -1402,60 +1402,12 @@ function doPost(e) {
   </div>
 </div>
 
+<!-- Core API & State Modules -->
+<script src="js/config.js"></script>
+<script src="js/api/supabase.js"></script>
+<script src="js/core/session.js"></script>
+
 <script>
-// ── Supabase ──────────────────────────────────────────────────────────────
-const SUPA_URL = 'https://mjfclxcklkbgsivvvlfe.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
-const supa = {
-  async req(method, path, body) {
-    const r = await fetch(SUPA_URL + '/rest/v1/' + path, {
-      method,
-      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', Prefer: method === 'POST' ? 'return=representation' : '' },
-      body: body ? JSON.stringify(body) : undefined
-    });
-    if (!r.ok) { const e = await r.text(); throw new Error(e); }
-    return r.status === 204 ? null : r.json();
-  },
-  get:    function(p)    { return supa.req('GET',    p);    },
-  post:   function(p, b) { return supa.req('POST',   p, b); },
-  patch:  function(p, b) { return supa.req('PATCH',  p, b); },
-  delete: function(p)    { return supa.req('DELETE', p);    },
-  // ── Storage (for gallery images) ──────────────────────────────────────
-  async uploadFile(bucket, filePath, blob) {
-    const r = await fetch(SUPA_URL + '/storage/v1/object/' + bucket + '/' + filePath, {
-      method: 'POST',
-      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY,
-                 'Content-Type': blob.type || 'image/jpeg', 'x-upsert': 'true' },
-      body: blob
-    });
-    if (!r.ok) { const e = await r.text(); throw new Error(e); }
-    return r.json();
-  },
-  fileUrl(bucket, filePath) {
-    return SUPA_URL + '/storage/v1/object/public/' + bucket + '/' + filePath;
-  },
-  async deleteFile(bucket, filePath) {
-    const r = await fetch(SUPA_URL + '/storage/v1/object/' + bucket, {
-      method: 'DELETE',
-      headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY,
-                 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prefixes: [filePath] })
-    });
-    return r.ok;
-  }
-};
-
-// ── Session (persists across reloads via sessionStorage, clears on tab close)
-var _session = (function() {
-  try { return JSON.parse(sessionStorage.getItem('bb_session') || '{}'); } catch(e) { return {}; }
-})();
-function sessionSet(k, v) {
-  _session[k] = v;
-  try { sessionStorage.setItem('bb_session', JSON.stringify(_session)); } catch(e) {}
-}
-function sessionGet(k) { return (_session[k] !== undefined && _session[k] !== null) ? _session[k] : null; }
-
-const ADMIN_PASSWORD = 'bb2024admin';
 
 // ── Uniform items ──────────────────────────────────────────────────────────
 const DEFAULT_UNIFORM_ITEMS = [
