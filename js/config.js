@@ -3,12 +3,12 @@
  * Application Configuration & Constants
  */
 
-const SUPA_URL = 'https://mjfclxcklkbgsivvvlfe.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
+var SUPA_URL = 'https://mjfclxcklkbgsivvvlfe.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
 
-const ADMIN_PASSWORD = 'bb2024admin';
+var ADMIN_PASSWORD = 'bb2024admin';
 
-const NCO_RANKS = [
+var NCO_RANKS = [
   'Lance Corporal',
   'Corporal',
   'Sergeant',

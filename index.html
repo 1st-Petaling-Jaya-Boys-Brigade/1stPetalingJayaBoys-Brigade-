@@ -2040,8 +2040,7 @@ async function populateOrderBar(ic) {
 }
 
 // ── Uniform order form ─────────────────────────────────────────────────────
-var NCO_RANKS = ['Lance Corporal','Corporal','Sergeant','Staff Sergeant','Officer Cadet','2nd Lieutenant','Lieutenant'];
-function isNCO(rank) { return NCO_RANKS.indexOf(rank) !== -1; }
+function isNCO(rank) { return (window.NCO_RANKS || []).indexOf(rank) !== -1; }
 
 function renderOrderItems(memberRank) {
   var container = document.getElementById('uniform-items');

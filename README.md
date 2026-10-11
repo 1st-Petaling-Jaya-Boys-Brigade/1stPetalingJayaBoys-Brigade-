@@ -55,7 +55,7 @@ The application communicates with a Supabase PostgreSQL instance:
 
 | Table / Key | Type | Description |
 | :--- | :--- | :--- |
-| `bb_members` | Table | Member registry (Name, Rank, Squad, DOB, Password hash/data, Security Q&A). |
+| `bb_members` | Table | Member registry (Email, Name, Age, Section [Pre-Junior/Junior/Senior], Rank, Squad). Transitioning to privacy-first auth (TSK-005B) to eliminate IC/DOB collection. |
 | `bb_orders` | Table | Uniform and merchandise purchase orders, statuses, and receipt image URLs. |
 | `bb_tasks` | Table | Task board items, assignees, priorities, due dates, and statuses. |
 | `bb_announcements` | Table | Company news posts, rich-text HTML content, reactions, and timestamps. |
