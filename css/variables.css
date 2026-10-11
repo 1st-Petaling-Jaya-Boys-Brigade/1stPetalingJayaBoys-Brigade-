@@ -1,0 +1,14 @@
+/* ── DESIGN SYSTEM VARIABLES & TOKENS ── */
+:root {
+  --navy:   #0a1628;
+  --navy2:  #111e35;
+  --blue:   #1a3a6e;
+  --accent: #c8961e;
+  --gold:   #e8b830;
+  --light:  #f4f6fa;
+  --white:  #ffffff;
+  --red:    #c0392b;
+  --green:  #1a7a3a;
+  --text:   #1a1a2e;
+  --muted:  #7a8599;
+}

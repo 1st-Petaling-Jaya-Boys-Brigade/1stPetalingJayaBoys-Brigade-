@@ -1,0 +1,232 @@
+/* ── ADMIN OVERLAY & PANELS ── */
+.admin-row {
+  background: var(--navy2);
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.admin-row:hover {
+  border-color: rgba(200,150,30,0.28);
+}
+
+.admin-rank-badge {
+  background: linear-gradient(135deg,var(--accent),var(--gold));
+  color: var(--navy);
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.admin-info {
+  flex: 1;
+}
+
+.admin-name {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0f4ff;
+}
+
+.admin-sub {
+  font-size: 11px;
+  color: #5a6a82;
+  margin-top: 2px;
+}
+
+.admin-counter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-count-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-count-display {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 28px;
+  text-align: center;
+}
+
+.adm-sort-btn {
+  padding: 5px 12px;
+  border: 1.5px solid #2a3a50;
+  border-radius: 20px;
+  background: transparent;
+  color: #5a6a82;
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.adm-sort-btn:hover {
+  border-color: var(--accent);
+  color: var(--gold);
+}
+
+.active-sort {
+  border-color: var(--accent) !important;
+  background: rgba(200,150,30,0.1) !important;
+  color: var(--gold) !important;
+}
+
+.adm-section-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0d1a2e;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.adm-section-btn:hover {
+  border-color: rgba(200,150,30,0.3);
+  background: #111f36;
+}
+
+.adm-section-btn.active-section {
+  border-color: rgba(200,150,30,0.35);
+  background: #111f36;
+}
+
+.adm-sec-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.adm-sec-title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.adm-sec-sub {
+  font-size: 12px;
+  color: #5a6a82;
+  margin-top: 2px;
+}
+
+.adm-sec-arrow {
+  font-size: 22px;
+  color: #3a4a62;
+  transition: all 0.2s;
+}
+
+.adm-section-btn:hover .adm-sec-arrow {
+  color: var(--gold);
+  transform: translateX(3px);
+}
+
+.adm-section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.055);
+}
+
+.adm-section-title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.adm-section-desc {
+  font-size: 12px;
+  color: #4a5a72;
+  margin-top: 2px;
+}
+
+.adm-subtab {
+  background: transparent;
+  border: 1px solid #2a3a50;
+  color: #5a6a82;
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.adm-subtab:hover {
+  color: var(--gold);
+  border-color: var(--accent);
+}
+
+.active-subtab {
+  background: rgba(200,150,30,0.1) !important;
+  border-color: var(--accent) !important;
+  color: var(--gold) !important;
+}
+
+.adm-dept-tab {
+  background: transparent;
+  border: 1px solid #2a3a50;
+  color: #5a6a82;
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.adm-dept-tab:hover {
+  color: var(--gold);
+  border-color: var(--accent);
+}
+
+.active-dept-tab {
+  background: rgba(200,150,30,0.1) !important;
+  border-color: var(--accent) !important;
+  color: var(--gold) !important;
+}
