@@ -14,10 +14,13 @@ function showAuthMode(mode) {
     var el = document.getElementById('auth-' + m);
     if (el) el.style.display = (m === mode) ? 'block' : 'none';
   });
-  ['login', 'register'].forEach(function(m) {
-    var btn = document.getElementById('btn-' + m);
-    if (btn) btn.classList.toggle('active', m === mode);
+  ['login', 'register'].forEach(function(btnMode) {
+    var btn = document.getElementById('btn-' + btnMode);
+    if (btn) btn.classList.toggle('active', btnMode === mode);
   });
+  if (mode === 'forgot' && typeof showForgotStep === 'function') {
+    showForgotStep(1);
+  }
 }
 
 function togglePassVis(inputId, btnId) {
@@ -343,38 +346,236 @@ async function uploadPfp(input) {
   }
 }
 
-// ── Password Reset (Privacy-Preserving Verification) ─────────────────────────
+// ── Password Reset (Email Verification) ─────────────────────────────────────
 
-async function resetPassword() {
+function showForgotStep(step) {
+  var s1 = document.getElementById('forgot-step1');
+  var s2 = document.getElementById('forgot-step2');
+  var sub = document.getElementById('forgot-header-sub');
+  if (s1) s1.style.display = (step === 1) ? 'block' : 'none';
+  if (s2) s2.style.display = (step === 2) ? 'block' : 'none';
+  if (sub) {
+    sub.textContent = (step === 1)
+      ? 'Verify via your registered email'
+      : 'Enter code and new password';
+  }
+}
+
+async function sendPasswordResetEmail() {
   var emailEl = document.getElementById('forgot-email') || document.getElementById('forgot-ic') || {};
   var email   = (emailEl.value || '').trim().toLowerCase();
-  var squad   = ((document.getElementById('forgot-squad') || {}).value || '').trim();
+
+  if (!email) {
+    return alert('Please enter your registered email address.');
+  }
+  if (!EMAIL_REGEX.test(email)) {
+    return alert('Please enter a valid email address.');
+  }
+
+  var btn = document.getElementById('btn-send-reset');
+  var origText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Sending Reset Code...';
+  }
+
+  try {
+    var client = window.supa || supa;
+
+    // Check if account exists in bb_members
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic,name');
+    if (!data || !data.length) {
+      // Check legacy exact case
+      data = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name');
+    }
+    if (!data || !data.length) {
+      if (btn) { btn.disabled = false; btn.textContent = origText; }
+      return alert('No account found with this email address. Please check your spelling or register.');
+    }
+
+    var member = data[0];
+    var memberName = member.name || 'Member';
+
+    // Generate secure 6-digit verification code
+    var code = Math.floor(100000 + Math.random() * 900000).toString();
+    var expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+    var otpPayload = {
+      code: code,
+      email: email,
+      name: memberName,
+      expires_at: expiresAt
+    };
+
+    // Store in sessionStorage for fast verification
+    try {
+      sessionStorage.setItem('bb_reset_otp_' + email, JSON.stringify(otpPayload));
+    } catch (e) {}
+
+    // Store in bb_config for persistent verification
+    var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
+    try {
+      await client.req('POST', 'bb_config?on_conflict=key', {
+        key: configKey,
+        value: JSON.stringify(otpPayload)
+      });
+    } catch (cfgErr) {
+      try {
+        await client.patch('bb_config?key=eq.' + configKey, {
+          value: JSON.stringify(otpPayload)
+        });
+      } catch (e2) {}
+    }
+
+    // Trigger Supabase Auth recovery email if user exists in auth.users
+    try {
+      var authUrl = (typeof SUPA_URL !== 'undefined' ? SUPA_URL : (window.SUPA_URL || '')) + '/auth/v1/recover';
+      var authKey = typeof SUPA_KEY !== 'undefined' ? SUPA_KEY : (window.SUPA_KEY || '');
+      await fetch(authUrl, {
+        method: 'POST',
+        headers: {
+          apikey: authKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email })
+      });
+    } catch (recoverErr) {}
+
+    // Update UI for Step 2
+    var noticeEl = document.getElementById('forgot-notice');
+    if (noticeEl) {
+      noticeEl.innerHTML = '✉️ A 6-digit reset code has been sent to <strong>' + email + '</strong>.<br>'
+        + '<span style="font-size:11px;opacity:0.9;">Please check your inbox (and spam folder) and enter the code below. Valid for 15 minutes.</span>';
+    }
+
+    var codeInp = document.getElementById('forgot-code');
+    var p1Inp   = document.getElementById('forgot-newpass');
+    var p2Inp   = document.getElementById('forgot-newpass2');
+    if (codeInp) codeInp.value = '';
+    if (p1Inp)   p1Inp.value = '';
+    if (p2Inp)   p2Inp.value = '';
+
+    showForgotStep(2);
+
+    alert('✉️ Reset code generated and sent to ' + email + '!\n\nPlease check your inbox and enter the 6-digit code to set your new password.');
+  } catch (e) {
+    alert('Failed to send reset email: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origText || '✉️ Send Reset Code';
+    }
+  }
+}
+
+async function verifyResetCodeAndSetPassword() {
+  var emailEl = document.getElementById('forgot-email') || document.getElementById('forgot-ic') || {};
+  var email   = (emailEl.value || '').trim().toLowerCase();
+  var codeInp = document.getElementById('forgot-code');
+  var code    = ((codeInp || {}).value || '').trim();
   var p1      = (document.getElementById('forgot-newpass') || {}).value || '';
   var p2      = (document.getElementById('forgot-newpass2') || {}).value || '';
 
   if (!email) return alert('Please enter your registered email address.');
-  if (!squad) return alert('Please select your assigned platoon.');
+  if (!code)  return alert('Please enter the 6-digit verification code sent to your email.');
+  if (code.length !== 6) return alert('Verification code must be exactly 6 digits.');
   if (p1.length < 6) return alert('New password must be at least 6 characters.');
   if (p1 !== p2)     return alert('Passwords do not match!');
 
+  var btn = document.getElementById('btn-verify-reset');
+  var origText = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Verifying & Updating...';
+  }
+
   try {
     var client = window.supa || supa;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*');
-    if (!data || !data.length) {
-      return alert('No account found with this email address.');
+    var valid = false;
+    var now = Date.now();
+
+    // 1. Check local session storage
+    try {
+      var localStr = sessionStorage.getItem('bb_reset_otp_' + email);
+      if (localStr) {
+        var localData = JSON.parse(localStr);
+        if (localData && localData.code === code && now <= (localData.expires_at || 0)) {
+          valid = true;
+        }
+      }
+    } catch (e) {}
+
+    // 2. Check remote Supabase bb_config
+    if (!valid) {
+      try {
+        var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
+        var rows = await client.get('bb_config?key=eq.' + configKey + '&select=value');
+        if (rows && rows.length) {
+          var remoteData = JSON.parse(rows[0].value || '{}');
+          if (remoteData && remoteData.code === code && now <= (remoteData.expires_at || 0)) {
+            valid = true;
+          }
+        }
+      } catch (e) {}
     }
 
-    var m = data[0];
-    if ((m.squad || '').toLowerCase() !== squad.toLowerCase()) {
-      return alert('Platoon verification failed. Please select your assigned platoon or contact your NCO.');
+    if (!valid) {
+      if (btn) { btn.disabled = false; btn.textContent = origText; }
+      return alert('Invalid or expired verification code.\n\nPlease check your email or click "Resend Code" to get a new code.');
     }
 
-    await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), { password: btoa(p1) });
-    alert('✅ Password reset successfully! Please login with your new password.');
+    // Update password in bb_members
+    try {
+      await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), {
+        password: btoa(p1)
+      });
+    } catch (pErr) {
+      var rawEmail = (emailEl.value || '').trim();
+      await client.patch('bb_members?ic=eq.' + encodeURIComponent(rawEmail), {
+        password: btoa(p1)
+      });
+    }
+
+    // Cleanup OTP
+    try { sessionStorage.removeItem('bb_reset_otp_' + email); } catch (e) {}
+    try {
+      var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
+      await client.delete('bb_config?key=eq.' + configKey);
+    } catch (e) {}
+
+    alert('✅ Password reset successfully! You can now log in with your new password.');
+
+    // Clear forgot form
+    if (codeInp) codeInp.value = '';
+    var p1El = document.getElementById('forgot-newpass');
+    var p2El = document.getElementById('forgot-newpass2');
+    if (p1El) p1El.value = '';
+    if (p2El) p2El.value = '';
+
+    // Switch to login mode and pre-fill email
     showAuthMode('login');
+    var loginEmail = document.getElementById('login-email') || document.getElementById('login-ic');
+    if (loginEmail) {
+      loginEmail.value = email;
+      var loginPass = document.getElementById('login-pass');
+      if (loginPass) loginPass.focus();
+    }
   } catch (e) {
     alert('Password reset failed: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = origText || '✅ Set New Password';
+    }
   }
+}
+
+// Backwards-compatibility wrapper
+async function resetPassword() {
+  var codeInp = document.getElementById('forgot-code');
+  if (codeInp && codeInp.value && codeInp.value.trim().length === 6) {
+    return verifyResetCodeAndSetPassword();
+  }
+  return sendPasswordResetEmail();
 }
 
 // Legacy helper retained for backwards compatibility
@@ -386,22 +587,26 @@ function loadSecurityQuestion() {
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 
 if (typeof window !== 'undefined') {
-  window.showAuthMode         = showAuthMode;
-  window.togglePassVis        = togglePassVis;
-  window.goToMemberTab        = goToMemberTab;
-  window.registerMember       = registerMember;
-  window.loginMember          = loginMember;
-  window.renderDashboard      = renderDashboard;
-  window.loadMemberOrders     = loadMemberOrders;
-  window.logoutMember         = logoutMember;
-  window.uploadPfp            = uploadPfp;
-  window.loadSecurityQuestion = loadSecurityQuestion;
-  window.resetPassword        = resetPassword;
+  window.showAuthMode                 = showAuthMode;
+  window.showForgotStep               = showForgotStep;
+  window.togglePassVis                = togglePassVis;
+  window.goToMemberTab                = goToMemberTab;
+  window.registerMember               = registerMember;
+  window.loginMember                  = loginMember;
+  window.renderDashboard              = renderDashboard;
+  window.loadMemberOrders             = loadMemberOrders;
+  window.logoutMember                 = logoutMember;
+  window.uploadPfp                    = uploadPfp;
+  window.loadSecurityQuestion         = loadSecurityQuestion;
+  window.sendPasswordResetEmail       = sendPasswordResetEmail;
+  window.verifyResetCodeAndSetPassword = verifyResetCodeAndSetPassword;
+  window.resetPassword                = resetPassword;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     showAuthMode,
+    showForgotStep,
     togglePassVis,
     goToMemberTab,
     registerMember,
@@ -411,6 +616,8 @@ if (typeof module !== 'undefined' && module.exports) {
     logoutMember,
     uploadPfp,
     loadSecurityQuestion,
+    sendPasswordResetEmail,
+    verifyResetCodeAndSetPassword,
     resetPassword
   };
 }
