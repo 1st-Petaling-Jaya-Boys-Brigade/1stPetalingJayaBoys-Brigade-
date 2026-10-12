@@ -193,16 +193,16 @@ Always use the shared CSS variables from [`css/variables.css`](css/variables.css
 When opening a Pull Request on GitHub, copy and paste this simple checklist into the description:
 
 ```markdown
-### 📌 Task ID & Title
+### Task ID & Title
 - **Task ID**: TSK-00xxx
 - **Task Title**: [Title of your task]
 
-### 📝 Summary of Changes
+### Summary of Changes
 - Briefly explain what you added or changed (2–3 sentences).
 - Bullet point 1
 - Bullet point 2
 
-### 🧪 Verification & Testing Checklist
+### Verification & Testing Checklist
 - [ ] Tested in desktop browser (Chrome/Edge/Firefox).
 - [ ] Tested in mobile responsive view (F12 device toggle).
 - [ ] Opened F12 Console: Zero red error messages.
