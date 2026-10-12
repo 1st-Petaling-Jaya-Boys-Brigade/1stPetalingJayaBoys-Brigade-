@@ -66,7 +66,7 @@ async function registerMember() {
     return alert('Please enter a valid age (between 5 and 25).');
   }
   if (!rank)  return alert('Please select your rank.');
-  if (!squad) return alert('Please select your squad.');
+  if (!squad) return alert('Please select your platoon.');
   if (pass.length < 6) return alert('Password must be at least 6 characters.');
   if (pass !== pass2)  return alert('Passwords do not match!');
 
@@ -187,7 +187,7 @@ async function renderDashboard() {
     set('m-display-email', displayEmail);
     set('m-display-ic',   displayEmail); // Compatibility for legacy selectors
     set('m-rank-val',     m.rank || '—');
-    set('m-squad-val',    m.squad ? 'Squad ' + m.squad : '—');
+    set('m-squad-val',    m.squad ? m.squad + ' Platoon' : '—');
     set('m-section-val',  m.att_section || m.section || sessionGet('section') || 'Senior');
 
     // Display age if calculated or from birth year
@@ -353,7 +353,7 @@ async function resetPassword() {
   var p2      = (document.getElementById('forgot-newpass2') || {}).value || '';
 
   if (!email) return alert('Please enter your registered email address.');
-  if (!squad) return alert('Please select your assigned squad.');
+  if (!squad) return alert('Please select your assigned platoon.');
   if (p1.length < 6) return alert('New password must be at least 6 characters.');
   if (p1 !== p2)     return alert('Passwords do not match!');
 
@@ -366,7 +366,7 @@ async function resetPassword() {
 
     var m = data[0];
     if ((m.squad || '').toLowerCase() !== squad.toLowerCase()) {
-      return alert('Squad verification failed. Please select your assigned squad or contact your NCO.');
+      return alert('Platoon verification failed. Please select your assigned platoon or contact your NCO.');
     }
 
     await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), { password: btoa(p1) });

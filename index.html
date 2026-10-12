@@ -203,21 +203,20 @@
         <div style="text-align:center;margin:20px 0 16px;">
           <div style="font-size:36px;">🔑</div>
           <div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text);margin-top:6px;">Reset Password</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;">Verify your registered email and squad</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">Verify your registered email and platoon</div>
         </div>
         <div class="form-group">
           <label class="form-label">Registered Email</label>
           <input class="form-input" id="forgot-email" type="email" placeholder="e.g. member@1stpjbb.org.my" autocomplete="email"/>
         </div>
         <div class="form-group">
-          <label class="form-label">Assigned Squad</label>
+          <label class="form-label">Assigned Platoon</label>
           <select class="form-select" id="forgot-squad">
-            <option value="">Select your squad...</option>
+            <option value="">Select your platoon...</option>
             <option>Alpha</option>
             <option>Zulu</option>
             <option>Papa</option>
             <option>Hotel</option>
-            <option>Charlie</option>
           </select>
         </div>
         <div class="form-group">
@@ -277,14 +276,13 @@
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Squad</label>
+            <label class="form-label">Platoon</label>
             <select class="form-select" id="reg-squad">
-              <option value="">Select squad...</option>
+              <option value="">Select platoon...</option>
               <option>Alpha</option>
               <option>Zulu</option>
               <option>Papa</option>
               <option>Hotel</option>
-              <option>Charlie</option>
             </select>
           </div>
         </div>
@@ -338,7 +336,7 @@
             <div class="chip-value" id="m-section-val">—</div>
           </div>
           <div class="mic-detail-chip">
-            <div class="chip-label">Squad</div>
+            <div class="chip-label">Platoon</div>
             <div class="chip-value" id="m-squad-val">—</div>
           </div>
           <div class="mic-detail-chip">
@@ -748,7 +746,7 @@
           <div class="adm-sec-icon" style="background:rgba(200,150,30,0.15);color:var(--gold);">👥</div>
           <div>
             <div class="adm-section-title">Members</div>
-            <div class="adm-section-desc">Add, edit, assign rank, squad and department</div>
+            <div class="adm-section-desc">Add, edit, assign rank, platoon and department</div>
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
@@ -759,7 +757,7 @@
           <span style="font-size:11px;color:#556;align-self:center;margin-right:2px;font-weight:700;letter-spacing:1px;">SORT:</span>
           <button class="adm-sort-btn active-sort" id="sort-name"    onclick="setAdminSort('name')">Name</button>
           <button class="adm-sort-btn"              id="sort-age"     onclick="setAdminSort('age')">Age</button>
-          <button class="adm-sort-btn"              id="sort-squad"   onclick="setAdminSort('squad')">Squad</button>
+          <button class="adm-sort-btn"              id="sort-squad"   onclick="setAdminSort('squad')">Platoon</button>
           <button class="adm-sort-btn"              id="sort-rank"    onclick="setAdminSort('rank')">Rank</button>
           <button class="adm-sort-btn"              id="sort-joined"  onclick="setAdminSort('joined')">Joined</button>
         </div>
@@ -785,9 +783,9 @@
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label" style="color:#8898bb;">Squad</label>
+                <label class="form-label" style="color:#8898bb;">Platoon</label>
                 <select class="form-select" id="em-squad" style="background:#0a1628;color:#fff;border-color:#2a3a50;">
-                  <option value="">No squad</option>
+                  <option value="">No platoon</option>
                   <option>Alpha</option><option>Zulu</option><option>Papa</option><option>Hotel</option>
                 </select>
               </div>
@@ -1148,7 +1146,7 @@
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
             <input class="form-input" id="adm-att-search" type="text" placeholder="Search member..." oninput="renderAttRoles()" style="background:#0a1628;color:#fff;border-color:#2a3a50;flex:1;min-width:140px;"/>
-            <select id="adm-att-filter-squad" onchange="renderAttRoles()" style="background:#0a1628;color:#fff;border:1.5px solid #2a3a50;border-radius:10px;padding:10px 10px;font-size:13px;flex:1;min-width:110px;"><option value="">All Squads</option><option value="Alpha">Alpha</option><option value="Papa">Papa</option><option value="Zulu">Zulu</option><option value="Hotel">Hotel</option></select>
+            <select id="adm-att-filter-squad" onchange="renderAttRoles()" style="background:#0a1628;color:#fff;border:1.5px solid #2a3a50;border-radius:10px;padding:10px 10px;font-size:13px;flex:1;min-width:110px;"><option value="">All Platoons</option><option value="Alpha">Alpha</option><option value="Papa">Papa</option><option value="Zulu">Zulu</option><option value="Hotel">Hotel</option></select>
             <select id="adm-att-filter-section" onchange="renderAttRoles()" style="background:#0a1628;color:#fff;border:1.5px solid #2a3a50;border-radius:10px;padding:10px 10px;font-size:13px;flex:1;min-width:110px;"><option value="">All Sections</option><option value="Brass">Brass</option><option value="Woodwind">Woodwind</option><option value="Percussion">Percussion</option></select>
           </div>
           <div id="adm-att-roles-list"><div style="text-align:center;padding:20px;color:#556;font-size:13px;">Loading...</div></div>
@@ -2049,8 +2047,8 @@ async function populateOrderBar(ic) {
     if (nameEl)  nameEl.textContent  = m.name;
     if (rankEl)  rankEl.textContent  = m.rank || '';
     sessionSet('rank', m.rank || '');
-    if (squadIl) squadIl.textContent = m.squad ? m.squad + ' Squad \xb7' : '';
-    if (squadEl) squadEl.textContent = m.squad ? 'Squad ' + m.squad : '\u2014';
+    if (squadIl) squadIl.textContent = m.squad ? m.squad + ' Platoon \xb7' : '';
+    if (squadEl) squadEl.textContent = m.squad ? m.squad + ' Platoon' : '\u2014';
     // Load profile picture from Supabase Storage
     try {
       var pfpUrl = supa.fileUrl('avatars', ic + '.jpg');
@@ -2468,7 +2466,7 @@ async function renderFormResponses() {
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'
         + '<div>'
         + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:#fff;">' + (o.member_name || o.ic) + '</div>'
-        + '<div style="font-size:11px;color:#8898bb;margin-top:2px;">' + (o.rank ? o.rank + ' \xb7 ' : '') + (o.squad ? 'Squad ' + o.squad : '') + '</div>'
+        + '<div style="font-size:11px;color:#8898bb;margin-top:2px;">' + (o.rank ? o.rank + ' \xb7 ' : '') + (o.squad ? o.squad + ' Platoon' : '') + '</div>'
         + '</div>'
         + '<div style="text-align:right;">'
         + '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:600;color:#42a5f5;background:rgba(66,165,245,0.1);padding:3px 10px;border-radius:20px;margin-bottom:4px;">' + formName + '</div>'
@@ -3635,9 +3633,9 @@ async function renderAdminList() {
       var ageStr = age !== null ? age + ' years' : '\u2014';
 
       if (_adminSortBy === 'squad') {
-        var sq = m.squad || 'No Squad';
+        var sq = m.squad || 'No Platoon';
         if (sq !== lastSquad) {
-          html += '<div style="font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2px;text-transform:uppercase;padding:10px 4px 4px;">Squad ' + sq + '</div>';
+          html += '<div style="font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2px;text-transform:uppercase;padding:10px 4px 4px;">' + (m.squad ? sq + ' Platoon' : 'No Platoon') + '</div>';
           lastSquad = sq;
         }
       }
@@ -3645,7 +3643,7 @@ async function renderAdminList() {
       html += '<div class="admin-row" data-edit-ic="' + m.ic + '" style="cursor:pointer;">'
         + '<div style="flex:1;">'
           + '<div class="admin-name">' + m.name + '</div>'
-          + '<div class="admin-sub">IC: ' + m.ic + ' \xb7 ' + (m.squad ? 'Squad ' + m.squad : 'No squad') + ' \xb7 ' + (m.rank||'No rank') + '</div>'
+          + '<div class="admin-sub">ID: ' + m.ic + ' \xb7 ' + (m.squad ? m.squad + ' Platoon' : 'No platoon') + ' \xb7 ' + (m.rank||'No rank') + '</div>'
         + '</div>'
         + '<div style="text-align:right;flex-shrink:0;">'
           + '<div class="admin-rank-badge">' + (m.rank||'\u2014') + '</div>'
@@ -4394,7 +4392,7 @@ async function checkAttendanceAccess() {
   if (panel) panel.style.display = 'block';
 
   // Role label
-  var roleName = { section_leader: 'Section Leader', squad_leader: 'Squad Leader' };
+  var roleName = { section_leader: 'Section Leader', squad_leader: 'Platoon Leader' };
   var lbl = document.getElementById('att-role-label');
   var dsc = document.getElementById('att-role-desc');
   if (lbl) lbl.textContent = roleName[_attUserRole] || _attUserRole;
@@ -4499,7 +4497,7 @@ function renderAttAfternoonList() {
   var c = document.getElementById('att-afternoon-list'); if (!c) return;
   if (!_attCurrentWeek) { c.innerHTML = '<div style="text-align:center;padding:20px;color:#556;font-size:13px;">Select a week above.</div>'; return; }
   var members = getFilteredMembers('afternoon');
-  if (!members.length) { c.innerHTML = '<div style="text-align:center;padding:20px;color:#556;font-size:13px;">No members in your squad.</div>'; return; }
+  if (!members.length) { c.innerHTML = '<div style="text-align:center;padding:20px;color:#556;font-size:13px;">No members in your platoon.</div>'; return; }
   c.innerHTML = members.map(function(m) { return buildParadeRow(m, _attRecords[m.ic] || {}); }).join('');
   attachParadeListeners();
 }
@@ -4853,7 +4851,7 @@ async function renderAttRoles() {
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
         + '<div style="flex:1;min-width:110px;">'
         +   '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:600;color:#f0f4ff;">' + m.name + '</div>'
-        +   '<div style="font-size:11px;color:#5a6a82;">' + (m.rank||'') + (m.squad?' \xb7 Squad '+m.squad:'') + '</div>'
+        +   '<div style="font-size:11px;color:#5a6a82;">' + (m.rank||'') + (m.squad?' \xb7 ' + m.squad + ' Platoon':'') + '</div>'
         + '</div>'
         // Band section assignment
         + '<select id="attsec-'+sid+'" onchange="setAttSection(\''+m.ic+'\',this.value)"'
@@ -4866,13 +4864,13 @@ async function renderAttRoles() {
         +   ' style="background:#122040;color:#fff;border:1.5px solid #2a3a50;border-radius:8px;padding:7px 9px;font-size:12px;" title="Attendance Role">'
         +   '<option value=""'+(!info.role?' selected':'')+'>No Role</option>'
         +   '<option value="section_leader"'+(info.role==='section_leader'?' selected':'')+'>🎼 Section Leader</option>'
-        +   '<option value="squad_leader"'+(info.role==='squad_leader'?' selected':'')+'>🪖 Squad Leader</option>'
+        +   '<option value="squad_leader"'+(info.role==='squad_leader'?' selected':'')+'>🪖 Platoon Leader</option>'
         + '</select>'
         // Group: section dropdown for section leaders, squad dropdown for squad leaders
         + '<select id="attgrp-'+sid+'" onchange="setAttRole(\''+m.ic+'\',document.getElementById(\'attrol-'+sid+'\').value,this.value)"'
-        +   ' style="background:#122040;color:#fff;border:1.5px solid #2a3a50;border-radius:8px;padding:7px 9px;font-size:12px;" title="Section or Squad">'
+        +   ' style="background:#122040;color:#fff;border:1.5px solid #2a3a50;border-radius:8px;padding:7px 9px;font-size:12px;" title="Section or Platoon">'
         +   (info.role==='squad_leader'
-              ? ['','Alpha','Papa','Zulu','Hotel'].map(function(v){ return '<option value="'+v+'"'+((info.group||'')===(v)?' selected':'')+'>'+(v||'— Squad —')+'</option>'; }).join('')
+              ? ['','Alpha','Papa','Zulu','Hotel'].map(function(v){ return '<option value="'+v+'"'+((info.group||'')===(v)?' selected':'')+'>'+(v||'— Platoon —')+'</option>'; }).join('')
               : ['','Brass','Woodwind','Percussion'].map(function(v){ return '<option value="'+v+'"'+((info.group||'')===(v)?' selected':'')+'>'+(v||'— Section —')+'</option>'; }).join('')
             )
         + '</select>'
