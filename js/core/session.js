@@ -6,7 +6,18 @@
 var _session = (function() {
   try {
     if (typeof sessionStorage !== 'undefined') {
-      return JSON.parse(sessionStorage.getItem('bb_session') || '{}');
+      var s = sessionStorage.getItem('bb_session');
+      if (s) return JSON.parse(s);
+    }
+    if (typeof localStorage !== 'undefined') {
+      var l = localStorage.getItem('bb_session');
+      if (l) {
+        var parsed = JSON.parse(l);
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('bb_session', l);
+        }
+        return parsed;
+      }
     }
     return {};
   } catch (e) {
@@ -24,6 +35,16 @@ function sessionSet(key, value) {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem('bb_session', JSON.stringify(_session));
     }
+    if (typeof localStorage !== 'undefined') {
+      var isRemember = _session['remember'] === true || localStorage.getItem('bb_remember') === 'true';
+      if (key === 'remember' && value === false) {
+        localStorage.removeItem('bb_session');
+        localStorage.removeItem('bb_remember');
+      } else if (isRemember) {
+        localStorage.setItem('bb_session', JSON.stringify(_session));
+        localStorage.setItem('bb_remember', 'true');
+      }
+    }
   } catch (e) {
     console.warn('Session storage unavailable:', e);
   }
@@ -38,13 +59,24 @@ function sessionGet(key) {
 }
 
 function sessionClear() {
-  _session = {};
+  for (var k in _session) {
+    if (Object.prototype.hasOwnProperty.call(_session, k)) {
+      delete _session[k];
+    }
+  }
   try {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem('bb_session');
     }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('bb_session');
+      localStorage.removeItem('bb_remember');
+    }
   } catch (e) {
     console.warn('Session storage unavailable:', e);
+  }
+  if (typeof window !== 'undefined') {
+    window._session = _session;
   }
 }
 

@@ -193,6 +193,10 @@
             <button type="button" onclick="togglePassVis('login-pass','login-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="login-eye">👁️</button>
           </div>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer;">
+          <input type="checkbox" id="login-remember" name="remember" checked style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"/>
+          <label for="login-remember" style="font-size:13px;color:#556;cursor:pointer;user-select:none;font-weight:500;">Remember me on this device</label>
+        </div>
         <button type="submit" class="submit-btn gold">🔓 Login</button>
         <p style="text-align:center;margin-top:10px;font-size:12px;"><a href="#" onclick="showAuthMode('forgot')" style="color:var(--accent);font-weight:700;">🔑 Forgot Password?</a></p>
         <p style="text-align:center;margin-top:6px;font-size:12px;color:#888;">No account? <a href="#" onclick="showAuthMode('register')" style="color:var(--accent);font-weight:700;">Register here</a></p>
@@ -311,6 +315,10 @@
             <input class="form-input" id="reg-pass2" name="confirm-password" type="password" placeholder="Repeat password" autocomplete="new-password" style="padding-right:44px;"/>
             <button type="button" onclick="togglePassVis('reg-pass2','reg-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="reg-eye2">👁️</button>
           </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer;">
+          <input type="checkbox" id="reg-remember" name="remember" checked style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"/>
+          <label for="reg-remember" style="font-size:13px;color:#556;cursor:pointer;user-select:none;font-weight:500;">Remember me on this device</label>
         </div>
         <button type="submit" class="submit-btn gold">✅ Create Account</button>
         <p style="text-align:center;margin-top:14px;font-size:12px;color:#888;">Already a member? <a href="#" onclick="showAuthMode('login')" style="color:var(--accent);font-weight:700;">Login here</a></p>
@@ -4277,11 +4285,18 @@ window.addEventListener('load', function() {
     var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
     checkAttendanceTabVisibility(ic);
   }
-  if (window.location.hash === '#admin') openAdmin();
+  handleHashNavigation();
 });
-window.addEventListener('hashchange', function() {
-  if (window.location.hash === '#admin') openAdmin();
-});
+
+function handleHashNavigation() {
+  var hash = (window.location.hash || '').replace('#', '');
+  if (hash === 'admin') {
+    openAdmin();
+  } else if (['member', 'order', 'tasks', 'badges', 'attendance', 'home'].indexOf(hash) !== -1) {
+    switchTabNav(hash);
+  }
+}
+window.addEventListener('hashchange', handleHashNavigation);
 document.addEventListener('DOMContentLoaded', function() {
   var drop = document.getElementById('gallery-drop');
   if (!drop) return;
