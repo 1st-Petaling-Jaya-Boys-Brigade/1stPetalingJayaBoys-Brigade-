@@ -27,7 +27,7 @@ This guide outlines our team workflow, coding standards, Git safety rules, and d
 ### Getting the Code
 ```bash
 # 1. Clone the repository
-git clone https://github.com/logistics1stpjbb/1stPetalingJayaBoys-Brigade-.git
+git clone https://github.com/1st-Petaling-Jaya-Boys-Brigade/1stPetalingJayaBoys-Brigade-.git
 
 # 2. Enter directory
 cd 1stPetalingJayaBoys-Brigade-
@@ -91,7 +91,7 @@ flowchart LR
 6. **Open a Pull Request**:
    - Go to the repository on GitHub.
    - Click **"Compare & pull request"**.
-   - Fill out the PR summary (see template below) and request review from **Jeshua**.
+   - Fill out the PR summary (see template below) and request review from the **Lead Engineer**.
 
 ---
 
@@ -105,30 +105,30 @@ To eliminate merge conflicts, each developer owns dedicated domain files. **Avoi
 ├── README.md                   # Project overview & database documentation
 ├── CONTRIBUTING.md             # Developer guidelines & coding standards
 ├── assets/                     # Brand logos, icons, photos
-├── css/                        # [Cpl Asher]
+├── css/                        # [Engineer 2 / Styling]
 │   ├── variables.css           # Color tokens, fonts, root variables
 │   ├── base.css                # Typography, reset, utility classes
 │   ├── nav.css                 # Sticky navigation, side drawer
 │   ├── components.css          # Cards, buttons, form inputs, pills
 │   └── admin.css               # Admin console styling & data tables
 └── js/
-    ├── config.js               # [Jeshua] Global configs & API endpoints
+    ├── config.js               # [Lead Engineer] Global configs & API endpoints
     ├── api/
-    │   ├── supabase.js         # [Jeshua] Supabase REST & Storage client
-    │   └── sheets.js           # [Jeshua] Google Sheets sync webhook
+    │   ├── supabase.js         # [Lead Engineer] Supabase REST & Storage client
+    │   └── sheets.js           # [Lead Engineer] Google Sheets sync webhook
     ├── core/
-    │   ├── session.js          # [Jeshua] Session storage manager
-    │   └── ui.js               # [Cpl Asher] Toast notifications & modals
+    │   ├── session.js          # [Lead Engineer] Session storage manager
+    │   └── ui.js               # [Engineer 2] Toast notifications & modals
     └── modules/
-        ├── member.js           # [Jeshua] Member hub, auth & profile
-        ├── orders.js           # [Cpl Asher] Uniform catalog, cart & checkout
-        ├── forms.js            # [Cpl Asher] Custom form builder
-        ├── tasks.js            # [Cpl Asher] NCO tasks board & kanban
-        ├── attendance.js       # [Jeshua] Band & Parade attendance scoring
-        ├── badges.js           # [LCpl Joash] Awards & President's badge tracker
-        ├── announcements.js    # [LCpl Joash] Company news feed & reactions
-        ├── gallery.js          # [LCpl Joash] Photo gallery & lightbox
-        └── admin.js            # [Jeshua] Master back-office controller
+        ├── member.js           # [Lead Engineer] Member hub, auth & profile
+        ├── orders.js           # [Engineer 2] Uniform catalog, cart & checkout
+        ├── forms.js            # [Engineer 2] Custom form builder
+        ├── tasks.js            # [Engineer 2] NCO tasks board & kanban
+        ├── attendance.js       # [Lead Engineer] Band & Parade attendance scoring
+        ├── badges.js           # [Engineer 3] Awards & President's badge tracker
+        ├── announcements.js    # [Engineer 3] Company news feed & reactions
+        ├── gallery.js          # [Engineer 3] Photo gallery & lightbox
+        └── admin.js            # [Lead Engineer] Master back-office controller
 ```
 
 ---
