@@ -182,7 +182,10 @@
 
       <!-- LOGIN -->
       <div id="auth-login">
-        <div class="form-group" style="margin-top:20px;"><label class="form-label">IC Number</label><input class="form-input" id="login-ic" type="text" placeholder="e.g. 050123-10-1234"/></div>
+        <div class="form-group" style="margin-top:20px;">
+          <label class="form-label">Email Address</label>
+          <input class="form-input" id="login-email" type="email" placeholder="e.g. member@1stpjbb.org.my" autocomplete="email"/>
+        </div>
         <div class="form-group">
           <label class="form-label">Password</label>
           <div style="position:relative;">
@@ -200,37 +203,66 @@
         <div style="text-align:center;margin:20px 0 16px;">
           <div style="font-size:36px;">🔑</div>
           <div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text);margin-top:6px;">Reset Password</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;">Answer your security question to reset</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">Verify your registered email and squad</div>
         </div>
-        <div class="form-group"><label class="form-label">IC Number</label><input class="form-input" id="forgot-ic" type="text" placeholder="e.g. 050123-10-1234"/></div>
-        <button class="submit-btn" style="margin-bottom:8px;" onclick="loadSecurityQuestion()">➡️ Next</button>
-        <div id="forgot-step2" style="display:none;">
-          <div class="note-box" id="forgot-question-box" style="margin-bottom:14px;font-size:13px;"></div>
-          <div class="form-group"><label class="form-label">Your Answer</label><input class="form-input" id="forgot-answer" type="text" placeholder="Type your answer..."/></div>
-          <div class="form-group">
-            <label class="form-label">New Password</label>
-            <div style="position:relative;">
-              <input class="form-input" id="forgot-newpass" type="password" placeholder="New password" style="padding-right:44px;"/>
-              <button type="button" onclick="togglePassVis('forgot-newpass','f-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="f-eye">👁️</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirm Password</label>
-            <div style="position:relative;">
-              <input class="form-input" id="forgot-newpass2" type="password" placeholder="Repeat password" style="padding-right:44px;"/>
-              <button type="button" onclick="togglePassVis('forgot-newpass2','f-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="f-eye2">👁️</button>
-            </div>
-          </div>
-          <button class="submit-btn gold" onclick="resetPassword()">✅ Reset Password</button>
+        <div class="form-group">
+          <label class="form-label">Registered Email</label>
+          <input class="form-input" id="forgot-email" type="email" placeholder="e.g. member@1stpjbb.org.my" autocomplete="email"/>
         </div>
+        <div class="form-group">
+          <label class="form-label">Assigned Squad</label>
+          <select class="form-select" id="forgot-squad">
+            <option value="">Select your squad...</option>
+            <option>Alpha</option>
+            <option>Zulu</option>
+            <option>Papa</option>
+            <option>Hotel</option>
+            <option>Charlie</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <div style="position:relative;">
+            <input class="form-input" id="forgot-newpass" type="password" placeholder="New password (min 6 chars)" style="padding-right:44px;"/>
+            <button type="button" onclick="togglePassVis('forgot-newpass','f-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="f-eye">👁️</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <div style="position:relative;">
+            <input class="form-input" id="forgot-newpass2" type="password" placeholder="Repeat password" style="padding-right:44px;"/>
+            <button type="button" onclick="togglePassVis('forgot-newpass2','f-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="f-eye2">👁️</button>
+          </div>
+        </div>
+        <button class="submit-btn gold" onclick="resetPassword()">✅ Reset Password</button>
         <p style="text-align:center;margin-top:14px;font-size:12px;color:#888;"><a href="#" onclick="showAuthMode('login')" style="color:var(--accent);font-weight:700;">← Back to Login</a></p>
       </div>
 
       <!-- REGISTER -->
       <div id="auth-register" style="display:none;">
-        <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="reg-fullname" type="text" placeholder="e.g. Lee Chong Wei"/></div>
-        <div class="form-group"><label class="form-label">IC Number (MyKad)</label><input class="form-input" id="reg-ic" type="text" placeholder="e.g. 050123-10-1234"/></div>
-        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="reg-dob" type="date"/></div>
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input class="form-input" id="reg-fullname" type="text" placeholder="e.g. Lee Chong Wei"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input class="form-input" id="reg-email" type="email" placeholder="e.g. member@1stpjbb.org.my" autocomplete="email"/>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Section</label>
+            <select class="form-select" id="reg-section">
+              <option value="">Select section...</option>
+              <option value="Pre-Junior">Pre-Junior (Ages 6 - 8)</option>
+              <option value="Junior">Junior (Ages 9 - 11)</option>
+              <option value="Senior">Senior (Ages 12 - 18)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Age</label>
+            <input class="form-input" id="reg-age" type="number" min="5" max="25" placeholder="e.g. 14"/>
+          </div>
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Rank</label>
@@ -252,13 +284,14 @@
               <option>Zulu</option>
               <option>Papa</option>
               <option>Hotel</option>
+              <option>Charlie</option>
             </select>
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
           <div style="position:relative;">
-            <input class="form-input" id="reg-pass" type="password" placeholder="Create a password (min 6 chars)" style="padding-right:44px;"/>
+            <input class="form-input" id="reg-pass" type="password" placeholder="Create password (min 6 chars)" style="padding-right:44px;"/>
             <button type="button" onclick="togglePassVis('reg-pass','reg-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="reg-eye">👁️</button>
           </div>
         </div>
@@ -269,18 +302,6 @@
             <button type="button" onclick="togglePassVis('reg-pass2','reg-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;" id="reg-eye2">👁️</button>
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Security Question</label>
-          <select class="form-select" id="reg-question">
-            <option value="">-- Select a question --</option>
-            <option>What is the name of your first pet?</option>
-            <option>What city were you born in?</option>
-            <option>What was the name of your primary school?</option>
-            <option>What is your favourite food?</option>
-            <option>What is your favourite teacher's name?</option>
-          </select>
-        </div>
-        <div class="form-group"><label class="form-label">Your Answer</label><input class="form-input" id="reg-answer" type="text" placeholder="Type your answer..."/></div>
         <button class="submit-btn gold" onclick="registerMember()">✅ Create Account</button>
         <p style="text-align:center;margin-top:14px;font-size:12px;color:#888;">Already a member? <a href="#" onclick="showAuthMode('login')" style="color:var(--accent);font-weight:700;">Login here</a></p>
       </div>
@@ -304,13 +325,18 @@
             <div>
               <div class="mic-label">BB MEMBER</div>
               <div class="mic-name" id="m-display-name">—</div>
-              <div class="mic-ic" id="m-display-ic">IC: —</div>
+              <div class="mic-ic" id="m-display-email" style="font-size:12px;color:var(--gold);opacity:0.9;">—</div>
+              <span id="m-display-ic" style="display:none;"></span>
             </div>
           </div>
           <img src="assets/logo.png" style="width:44px;height:44px;object-fit:contain;" alt="BB"/>
         </div>
 
-        <div class="mic-details-row">
+        <div class="mic-details-row" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(70px, 1fr));gap:6px;">
+          <div class="mic-detail-chip">
+            <div class="chip-label">Section</div>
+            <div class="chip-value" id="m-section-val">—</div>
+          </div>
           <div class="mic-detail-chip">
             <div class="chip-label">Squad</div>
             <div class="chip-value" id="m-squad-val">—</div>
@@ -320,7 +346,11 @@
             <div class="chip-value" id="m-rank-val">—</div>
           </div>
           <div class="mic-detail-chip">
-            <div class="chip-label">Member Since</div>
+            <div class="chip-label">Age</div>
+            <div class="chip-value" id="m-age-val">—</div>
+          </div>
+          <div class="mic-detail-chip">
+            <div class="chip-label">Joined</div>
             <div class="chip-value" id="m-since-val">—</div>
           </div>
         </div>

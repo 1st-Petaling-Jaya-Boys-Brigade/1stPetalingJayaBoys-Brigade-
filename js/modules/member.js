@@ -1,9 +1,10 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Member Hub & Authentication Module (TSK-005A)
+ * Privacy-First Member Hub & Authentication Module (TSK-005B)
  *
- * Handles member registration, login, dashboard view,
- * avatar uploads, password reset, and member order history.
+ * Implements privacy-first authentication (Email + Password),
+ * member onboarding (Section, Age, Rank, Squad), profile dashboard,
+ * avatar uploads, order history, and privacy-preserving password reset.
  */
 
 // ── Auth View Toggles ────────────────────────────────────────────────────────
@@ -41,77 +42,119 @@ function goToMemberTab() {
   }
 }
 
-// ── Registration & Login ────────────────────────────────────────────────────
+// ── Registration & Login (Privacy-First) ────────────────────────────────────
+
+var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function registerMember() {
-  var name     = (document.getElementById('reg-fullname') || {}).value || '';
-  var ic       = ((document.getElementById('reg-ic') || {}).value || '').trim().replace(/\s/g, '');
-  var dob      = (document.getElementById('reg-dob') || {}).value || '';
-  var rank     = (document.getElementById('reg-rank') || {}).value || '';
-  var squad    = (document.getElementById('reg-squad') || {}).value || '';
-  var pass     = (document.getElementById('reg-pass') || {}).value || '';
-  var pass2    = (document.getElementById('reg-pass2') || {}).value || '';
-  var question = (document.getElementById('reg-question') || {}).value || '';
-  var answer   = ((document.getElementById('reg-answer') || {}).value || '').trim().toLowerCase();
+  var name    = ((document.getElementById('reg-fullname') || {}).value || '').trim();
+  var emailEl = document.getElementById('reg-email') || document.getElementById('reg-ic') || {};
+  var email   = (emailEl.value || '').trim().toLowerCase();
+  var section = ((document.getElementById('reg-section') || {}).value || '').trim();
+  var ageRaw  = ((document.getElementById('reg-age') || {}).value || '').trim();
+  var rank    = ((document.getElementById('reg-rank') || {}).value || '').trim();
+  var squad   = ((document.getElementById('reg-squad') || {}).value || '').trim();
+  var pass    = (document.getElementById('reg-pass') || {}).value || '';
+  var pass2   = (document.getElementById('reg-pass2') || {}).value || '';
 
-  name = name.trim();
-  if (!name)           return alert('Please enter your full name.');
-  if (!ic)             return alert('Please enter your IC number.');
-  if (!dob)            return alert('Please enter your date of birth.');
-  if (!rank)           return alert('Please select your rank.');
-  if (!squad)          return alert('Please select your squad.');
+  if (!name) return alert('Please enter your full name.');
+  if (!email || !EMAIL_REGEX.test(email)) return alert('Please enter a valid email address.');
+  if (!section) return alert('Please select your section (Pre-Junior, Junior, or Senior).');
+  
+  var parsedAge = parseInt(ageRaw, 10);
+  if (!ageRaw || isNaN(parsedAge) || parsedAge < 5 || parsedAge > 25) {
+    return alert('Please enter a valid age (between 5 and 25).');
+  }
+  if (!rank)  return alert('Please select your rank.');
+  if (!squad) return alert('Please select your squad.');
   if (pass.length < 6) return alert('Password must be at least 6 characters.');
   if (pass !== pass2)  return alert('Passwords do not match!');
-  if (!question)       return alert('Please select a security question.');
-  if (!answer)         return alert('Please answer the security question.');
 
   try {
     var client = window.supa || supa;
-    var existing = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=ic');
-    if (existing && existing.length) return alert('An account with this IC already exists.');
+    var existing = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic');
+    if (existing && existing.length) {
+      return alert('An account with this email address already exists. Please login instead.');
+    }
 
-    await client.post('bb_members', {
-      ic: ic,
+    // Calculate approximate birth year for section/attendance calculations
+    var birthYear = new Date().getFullYear() - parsedAge;
+    var approxDob = birthYear + '-01-01';
+
+    var memberPayload = {
+      ic: email, // Email serves as the privacy-safe primary identifier
       name: name,
       rank: rank,
       squad: squad,
-      date_of_birth: dob,
+      att_section: section, // Maps to Pre-Junior / Junior / Senior
+      date_of_birth: approxDob,
       password: btoa(pass),
-      security_question: question,
-      security_answer: answer,
+      security_question: null,
+      security_answer: null,
       joined_at: new Date().toISOString()
-    });
+    };
 
-    sessionSet('ic', ic);
+    await client.post('bb_members', memberPayload);
+
+    // Save session state
+    sessionSet('email', email);
+    sessionSet('ic', email);
+    sessionSet('name', name);
+    sessionSet('rank', rank);
+    sessionSet('squad', squad);
+    sessionSet('section', section);
+    sessionSet('age', parsedAge);
+    sessionSet('joined', memberPayload.joined_at);
+
     renderDashboard();
 
     if (typeof checkTasksAccess === 'function') checkTasksAccess();
-    if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(ic);
+    if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(email);
 
-    alert('✅ Account created! Welcome, ' + name + '!');
+    alert('✅ Account created! Welcome to 1st PJ Boys\' Brigade, ' + name + '!');
   } catch (e) {
     alert('Registration failed: ' + e.message);
   }
 }
 
 async function loginMember() {
-  var ic   = ((document.getElementById('login-ic') || {}).value || '').trim().replace(/\s/g, '');
+  var idEl = document.getElementById('login-email') || document.getElementById('login-ic') || {};
+  var identifier = (idEl.value || '').trim();
   var pass = (document.getElementById('login-pass') || {}).value || '';
-  if (!ic || !pass) return alert('Please fill in all fields.');
+  if (!identifier || !pass) return alert('Please enter your email and password.');
 
   try {
     var client = window.supa || supa;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=*');
-    if (!data || !data.length) return alert('No account found with this IC number.');
+    var queryEmail = identifier.toLowerCase();
+
+    // Query by email / identifier
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(queryEmail) + '&select=*');
+    if (!data || !data.length) {
+      // Fallback: try exact case for legacy accounts
+      data = await client.get('bb_members?ic=eq.' + encodeURIComponent(identifier) + '&select=*');
+    }
+    if (!data || !data.length) {
+      return alert('No account found with this email address.');
+    }
 
     var m = data[0];
-    if (atob(m.password || '') !== pass) return alert('Incorrect password!');
+    if (atob(m.password || '') !== pass) {
+      return alert('Incorrect password!');
+    }
 
-    sessionSet('ic', ic);
+    var userEmail = (m.ic && m.ic.indexOf('@') !== -1) ? m.ic : (m.email || m.ic);
+    sessionSet('email', userEmail);
+    sessionSet('ic', m.ic);
+    sessionSet('rank', m.rank || '');
+    sessionSet('squad', m.squad || '');
+    sessionSet('name', m.name || '');
+    sessionSet('section', m.att_section || m.section || 'Senior');
+    sessionSet('joined', m.joined_at || '');
+
     renderDashboard();
 
     if (typeof checkTasksAccess === 'function') checkTasksAccess();
-    if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(ic);
+    if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
   } catch (e) {
     alert('Login failed: ' + e.message);
   }
@@ -120,8 +163,8 @@ async function loginMember() {
 // ── Member Dashboard & Profile ──────────────────────────────────────────────
 
 async function renderDashboard() {
-  var ic = sessionGet('ic');
-  if (!ic) return;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  if (!id) return;
 
   var authBox = document.getElementById('m-auth');
   var dashBox = document.getElementById('m-dashboard');
@@ -130,26 +173,43 @@ async function renderDashboard() {
 
   try {
     var client = window.supa || supa;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=*');
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
     if (!data || !data.length) return;
 
     var m = data[0];
-    var set = function(id, val) {
-      var el = document.getElementById(id);
+    var set = function(elemId, val) {
+      var el = document.getElementById(elemId);
       if (el) el.textContent = val;
     };
 
-    set('m-display-name', m.name);
-    set('m-display-ic',   'IC: ' + m.ic);
-    set('m-rank-val',     m.rank  || '—');
-    sessionSet('rank',   m.rank || '');
-    sessionSet('joined', m.joined_at || '');
+    var displayEmail = (m.ic && m.ic.indexOf('@') !== -1) ? m.ic : (m.email || m.ic);
+    set('m-display-name', m.name || '—');
+    set('m-display-email', displayEmail);
+    set('m-display-ic',   displayEmail); // Compatibility for legacy selectors
+    set('m-rank-val',     m.rank || '—');
     set('m-squad-val',    m.squad ? 'Squad ' + m.squad : '—');
-    set('m-since-val',    m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+    set('m-section-val',  m.att_section || m.section || sessionGet('section') || 'Senior');
 
-    // Load profile picture from Supabase Storage
+    // Display age if calculated or from birth year
+    var ageVal = '—';
+    if (sessionGet('age')) {
+      ageVal = sessionGet('age') + ' yrs';
+    } else if (m.date_of_birth) {
+      var bYear = parseInt((m.date_of_birth || '').split('-')[0], 10);
+      if (!isNaN(bYear) && bYear > 1990) {
+        ageVal = (new Date().getFullYear() - bYear) + ' yrs';
+      }
+    }
+    set('m-age-val', ageVal);
+
+    sessionSet('rank', m.rank || '');
+    sessionSet('joined', m.joined_at || '');
+    set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+
+    // Load profile avatar from Supabase Storage
     try {
-      var pfpUrl = client.fileUrl('avatars', ic + '.jpg');
+      var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+      var pfpUrl = client.fileUrl('avatars', cleanFileName);
       var testImg = new Image();
       testImg.onload = function() {
         var img = document.getElementById('m-pfp-img');
@@ -162,24 +222,24 @@ async function renderDashboard() {
 
     loadMemberOrders();
 
-    var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
+    var bt = document.getElementById('tab-badges');  if (bt) bt.style.display = 'block';
     var sb = document.getElementById('snav-badges'); if (sb) sb.style.display = 'flex';
 
-    if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(ic);
+    if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
   } catch (e) {
     console.error('Failed to render dashboard:', e);
   }
 }
 
 async function loadMemberOrders() {
-  var ic        = sessionGet('ic');
+  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
   var container = document.getElementById('member-orders-list');
-  if (!ic || !container) return;
+  if (!id || !container) return;
 
   container.innerHTML = '<div style="color:#556;font-size:13px;text-align:center;padding:16px;"><span class="spinner"></span> Loading...</div>';
   try {
     var client = window.supa || supa;
-    var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(ic) + '&order=created_at.desc');
+    var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');
     if (!orders || !orders.length) {
       container.innerHTML = '<div style="color:#556;font-size:13px;text-align:center;padding:16px;">No orders yet.</div>';
       return;
@@ -240,8 +300,10 @@ function logoutMember() {
   if (typeof sessionClear === 'function') {
     sessionClear();
   } else {
+    sessionSet('email', null);
     sessionSet('ic', null);
     sessionSet('rank', '');
+    sessionSet('squad', '');
     sessionSet('joined', '');
   }
 
@@ -263,14 +325,15 @@ function logoutMember() {
 async function uploadPfp(input) {
   var file = input.files[0];
   if (!file) return;
-  var ic = sessionGet('ic');
-  if (!ic) return;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  if (!id) return;
 
   try {
     var client = window.supa || supa;
     var blob = new Blob([await file.arrayBuffer()], { type: file.type });
-    await client.uploadFile('avatars', ic + '.jpg', blob);
-    var pfpUrl = client.fileUrl('avatars', ic + '.jpg') + '?t=' + Date.now();
+    var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    await client.uploadFile('avatars', cleanFileName, blob);
+    var pfpUrl = client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
     var img = document.getElementById('m-pfp-img');
     var ph  = document.getElementById('m-pfp-ph');
     if (img) { img.src = pfpUrl; img.style.display = 'block'; }
@@ -280,47 +343,44 @@ async function uploadPfp(input) {
   }
 }
 
-// ── Password Reset & Security Questions ─────────────────────────────────────
-
-async function loadSecurityQuestion() {
-  var ic = ((document.getElementById('forgot-ic') || {}).value || '').trim().replace(/\s/g, '');
-  if (!ic) return alert('Please enter your IC number.');
-
-  try {
-    var client = window.supa || supa;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=security_question');
-    if (!data || !data.length) return alert('No account found with this IC.');
-
-    var box = document.getElementById('forgot-question-box');
-    if (box) box.textContent = '❓ ' + data[0].security_question;
-    var s2 = document.getElementById('forgot-step2');
-    if (s2) s2.style.display = 'block';
-  } catch (e) {
-    alert('Failed: ' + e.message);
-  }
-}
+// ── Password Reset (Privacy-Preserving Verification) ─────────────────────────
 
 async function resetPassword() {
-  var ic  = ((document.getElementById('forgot-ic') || {}).value || '').trim().replace(/\s/g, '');
-  var ans = ((document.getElementById('forgot-answer') || {}).value || '').trim().toLowerCase();
-  var p1  = (document.getElementById('forgot-newpass') || {}).value || '';
-  var p2  = (document.getElementById('forgot-newpass2') || {}).value || '';
+  var emailEl = document.getElementById('forgot-email') || document.getElementById('forgot-ic') || {};
+  var email   = (emailEl.value || '').trim().toLowerCase();
+  var squad   = ((document.getElementById('forgot-squad') || {}).value || '').trim();
+  var p1      = (document.getElementById('forgot-newpass') || {}).value || '';
+  var p2      = (document.getElementById('forgot-newpass2') || {}).value || '';
 
-  if (p1.length < 6) return alert('Password must be at least 6 characters.');
+  if (!email) return alert('Please enter your registered email address.');
+  if (!squad) return alert('Please select your assigned squad.');
+  if (p1.length < 6) return alert('New password must be at least 6 characters.');
   if (p1 !== p2)     return alert('Passwords do not match!');
 
   try {
     var client = window.supa || supa;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=security_answer');
-    if (!data || !data.length) return alert('Account not found.');
-    if (data[0].security_answer !== ans) return alert('Incorrect answer!');
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*');
+    if (!data || !data.length) {
+      return alert('No account found with this email address.');
+    }
 
-    await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), { password: btoa(p1) });
-    alert('✅ Password reset! Please login.');
+    var m = data[0];
+    if ((m.squad || '').toLowerCase() !== squad.toLowerCase()) {
+      return alert('Squad verification failed. Please select your assigned squad or contact your NCO.');
+    }
+
+    await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), { password: btoa(p1) });
+    alert('✅ Password reset successfully! Please login with your new password.');
     showAuthMode('login');
   } catch (e) {
-    alert('Failed: ' + e.message);
+    alert('Password reset failed: ' + e.message);
   }
+}
+
+// Legacy helper retained for backwards compatibility
+function loadSecurityQuestion() {
+  var step2 = document.getElementById('forgot-step2');
+  if (step2) step2.style.display = 'block';
 }
 
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
