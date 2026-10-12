@@ -1,6 +1,6 @@
 # Contributing to the 1st Petaling Jaya Boys' Brigade Web Portal
 
-Welcome to the **1st PJ Boys' Brigade Web Portal** development team! ⚓💻
+Welcome to the **1st PJ Boys' Brigade Web Portal** development team! 
 
 This guide outlines our team workflow, coding standards, Git safety rules, and design tokens to keep our codebase fast, modular, and regression-free.
 
