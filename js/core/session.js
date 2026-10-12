@@ -16,6 +16,10 @@ var _session = (function() {
 
 function sessionSet(key, value) {
   _session[key] = value;
+  // If setting email, also alias to 'ic' if ic is not explicitly set, ensuring seamless backward compatibility
+  if (key === 'email' && (!_session['ic'] || _session['ic'] === value)) {
+    _session['ic'] = value;
+  }
   try {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem('bb_session', JSON.stringify(_session));
@@ -26,6 +30,10 @@ function sessionSet(key, value) {
 }
 
 function sessionGet(key) {
+  // If requesting legacy 'ic', fall back to 'email' if 'ic' is not present
+  if (key === 'ic') {
+    return _session['ic'] || _session['email'] || null;
+  }
   return (_session[key] !== undefined && _session[key] !== null) ? _session[key] : null;
 }
 
