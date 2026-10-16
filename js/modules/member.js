@@ -99,7 +99,11 @@ async function registerMember() {
 
     await client.post('bb_members', memberPayload);
 
-    // Save session state
+    // Save session state with Remember Me preference
+    var remEl = document.getElementById('reg-remember');
+    var rememberMe = remEl ? remEl.checked : true;
+    sessionSet('remember', rememberMe);
+
     sessionSet('email', email);
     sessionSet('ic', email);
     sessionSet('name', name);
@@ -114,7 +118,11 @@ async function registerMember() {
     if (typeof checkTasksAccess === 'function') checkTasksAccess();
     if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(email);
 
-    alert('✅ Account created! Welcome to 1st PJ Boys\' Brigade, ' + name + '!');
+    // Immediately reload and land directly on the member portal without blocking alert
+    if (window.location.hash !== '#member') {
+      window.location.hash = '#member';
+    }
+    window.location.reload();
   } catch (e) {
     alert('Registration failed: ' + e.message);
   }
@@ -146,6 +154,10 @@ async function loginMember() {
     }
 
     var userEmail = (m.ic && m.ic.indexOf('@') !== -1) ? m.ic : (m.email || m.ic);
+    var rememberEl = document.getElementById('login-remember');
+    var rememberMe = rememberEl ? rememberEl.checked : true;
+    sessionSet('remember', rememberMe);
+
     sessionSet('email', userEmail);
     sessionSet('ic', m.ic);
     sessionSet('rank', m.rank || '');
@@ -158,6 +170,9 @@ async function loginMember() {
 
     if (typeof checkTasksAccess === 'function') checkTasksAccess();
     if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
+
+    var passEl = document.getElementById('login-pass');
+    if (passEl) passEl.value = '';
   } catch (e) {
     alert('Login failed: ' + e.message);
   }
