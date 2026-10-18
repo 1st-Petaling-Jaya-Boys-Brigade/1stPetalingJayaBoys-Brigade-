@@ -1,4 +1,4 @@
-/* ── BASE & GLOBAL LAYOUT ── */
+/* ── BASE & GLOBAL MODERN LAYOUT ── */
 * {
   margin: 0;
   padding: 0;
@@ -6,22 +6,33 @@
 }
 
 body {
-  background: var(--navy);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
   min-height: 100vh;
-  font-family: 'Roboto', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
+  transition: background-color 0.25s ease, color 0.25s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Page Containers */
 .page {
   display: none;
   width: 100%;
-  max-width: 620px;
+  max-width: 680px;
   justify-content: center;
-  padding: 28px 14px 48px;
-  padding-bottom: 80px !important;
+  padding: 24px 16px 110px;
+  animation: fadeInPage 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 1024px) {
+  .page {
+    max-width: 980px;
+    padding: 32px 24px 110px;
+  }
 }
 
 .page.active {
@@ -30,80 +41,109 @@ body {
   align-items: center;
 }
 
-/* Page Typography */
+@keyframes fadeInPage {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Page Typography (Clean, Contemporary, High-Contrast) */
 .page-title {
   font-family: 'Oswald', sans-serif;
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
-  color: var(--gold);
+  color: var(--text-primary);
   text-transform: uppercase;
-  line-height: 1;
-  margin-bottom: 2px;
-  letter-spacing: 1px;
+  line-height: 1.1;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
 }
 
 .page-subtitle {
   font-family: 'Oswald', sans-serif;
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 600;
-  color: #6a7a99;
+  color: var(--accent);
   text-transform: uppercase;
-  letter-spacing: 3px;
+  letter-spacing: 2.5px;
   margin-bottom: 6px;
 }
 
 .page-desc {
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+  margin-bottom: 22px;
+  line-height: 1.5;
 }
 
 /* Section Headers */
 .section-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .section-header .s-title {
   font-family: 'Oswald', sans-serif;
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .section-header .s-badge {
-  background: rgba(200,150,30,0.1);
-  border: 1px solid rgba(200,150,30,0.22);
-  border-radius: 20px;
-  padding: 3px 10px;
+  background: var(--platoon-zulu-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 2px;
+  color: var(--accent);
+  letter-spacing: 1.5px;
   text-transform: uppercase;
 }
 
 .divider {
   border: none;
-  border-top: 1px solid rgba(255,255,255,0.07);
-  margin: 18px 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: 20px 0;
 }
+
+/* Modern Platoon Chips (Image 2 style) */
+.platoon-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.platoon-chip.alpha, .platoon-alpha { background: var(--platoon-alpha-bg); color: var(--platoon-alpha-color); }
+.platoon-chip.zulu,  .platoon-zulu  { background: var(--platoon-zulu-bg);  color: var(--platoon-zulu-color); }
+.platoon-chip.papa,  .platoon-papa  { background: var(--platoon-papa-bg);  color: var(--platoon-papa-color); }
+.platoon-chip.hotel, .platoon-hotel { background: var(--platoon-hotel-bg); color: var(--platoon-hotel-color); }
 
 /* Spinner Animation */
 .spinner {
   display: inline-block;
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(200,150,30,0.25);
-  border-top-color: var(--gold);
+  border: 2.5px solid var(--border-subtle);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: spin 0.65s linear infinite;
   vertical-align: middle;
 }
 
@@ -113,7 +153,8 @@ body {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -121,6 +162,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(200,150,30,0.25);
-  border-radius: 4px;
+  background: var(--border-card);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }

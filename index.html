@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="css/nav.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/admin.css">
+<script src="js/core/theme.js"></script>
 </head>
 <body>
 
@@ -18,15 +19,20 @@
 <nav class="nav">
   <div class="nav-inner">
     <div class="nav-logo">
-      <img src="assets/logo.png" style="width:32px;height:32px;object-fit:contain;border-radius:6px;" alt="BB Logo"/>
+      <img src="assets/logo.png" style="width:34px;height:34px;object-fit:contain;border-radius:8px;" alt="BB Logo"/>
       <div>
         <div class="nav-name">1st Petaling Jaya</div>
         <div class="nav-sub">Boys Brigade</div>
       </div>
     </div>
-    <button class="nav-menu-btn" id="nav-menu-btn" onclick="toggleSidebar()" aria-label="Menu">
-      <span></span><span></span><span></span>
-    </button>
+    <div class="nav-actions">
+      <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle Light / Dark mode" type="button">
+        <span class="theme-toggle-icon">🌙</span>
+      </button>
+      <button class="nav-menu-btn" id="nav-menu-btn" onclick="toggleSidebar()" aria-label="Menu" type="button">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
   </div>
 </nav>
 
@@ -40,16 +46,19 @@
   <button class="tab-btn"        id="tab-attendance" onclick="switchTab('attendance',this)">Attendance</button>
 </div>
 
-<!-- ── BOTTOM NAV ── -->
+<!-- ── BOTTOM NAV (Floating Mobile Dock) ── -->
 <nav class="bottom-nav" id="bottom-nav">
   <div class="bottom-nav-inner">
-    <button class="bnav-btn active" id="bnav-home"  onclick="switchTabNav('home')">
+    <button class="bnav-btn active" id="bnav-home"   onclick="switchTabNav('home')">
       <span class="bnav-icon">🏠</span><span class="bnav-label">Home</span>
     </button>
-    <button class="bnav-btn" id="bnav-member" onclick="switchTabNav('member')">
+    <button class="bnav-btn"        id="bnav-order"  onclick="switchTabNav('order')">
+      <span class="bnav-icon">📋</span><span class="bnav-label">Forms</span>
+    </button>
+    <button class="bnav-btn"        id="bnav-member" onclick="switchTabNav('member')">
       <span class="bnav-icon">🪪</span><span class="bnav-label">Member</span>
     </button>
-    <button class="bnav-btn" id="bnav-more"   onclick="toggleSidebar()">
+    <button class="bnav-btn"        id="bnav-more"   onclick="toggleSidebar()">
       <span class="bnav-icon">☰</span><span class="bnav-label">More</span>
     </button>
   </div>
@@ -60,7 +69,7 @@
   <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
   <div class="sidebar-panel">
     <div class="sidebar-header">
-      <img src="assets/logo.png" alt="BB Logo" style="width:36px;height:36px;object-fit:contain;border-radius:8px;"/>
+      <img src="assets/logo.png" alt="BB Logo" style="width:38px;height:38px;object-fit:contain;border-radius:10px;"/>
       <div class="sidebar-header-text">
         <div class="sh-name">1st Petaling Jaya</div>
         <div class="sh-sub">Member Portal</div>
@@ -86,6 +95,18 @@
       </button>
       <button class="sidebar-item" id="snav-attendance" onclick="switchTabNav('attendance');closeSidebar()" style="display:none;">
         <span class="si-icon">📊</span><span class="si-label">Attendance</span><span class="si-badge">Leader</span>
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      <div class="sidebar-theme-toggle" onclick="toggleTheme()" role="button" tabindex="0">
+        <span style="font-size:13px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+          <span class="theme-toggle-icon">🌙</span>
+          <span class="theme-toggle-text">Dark Mode</span>
+        </span>
+        <span style="font-size:11px;color:var(--accent);font-weight:700;">Toggle</span>
+      </div>
+      <button class="sidebar-admin-btn" onclick="openAdmin();closeSidebar()" type="button">
+        ⚙️ Admin Console
       </button>
     </div>
   </div>
@@ -1571,8 +1592,8 @@ function switchTabNav(tab) {
 
 // Sync bottom nav + sidebar active states
 function syncNavState(tab) {
-  // Bottom nav — only home + member in the bar now; everything else → highlight "More"
-  var mainTabs = ['home','member'];
+  // Bottom nav — home, order, member in the dock; other tabs highlight "More"
+  var mainTabs = ['home', 'order', 'member'];
   document.querySelectorAll('.bnav-btn').forEach(function(b) { b.classList.remove('active'); });
   var bnav = document.getElementById('bnav-' + tab);
   if (bnav) {
