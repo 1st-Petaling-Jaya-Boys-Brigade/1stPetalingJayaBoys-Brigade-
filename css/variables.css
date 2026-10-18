@@ -1,14 +1,121 @@
-/* ── DESIGN SYSTEM VARIABLES & TOKENS ── */
+/* ── 1ST PJ BOYS' BRIGADE MODERN DESIGN SYSTEM TOKENS ── */
+
+:root,
+[data-theme="dark"] {
+  /* Canvas & Surfaces (Modern Charcoal / Dark Grey Palette) */
+  --bg-canvas: #121418;
+  --bg-card: #1c1f26;
+  --bg-card-hover: #252932;
+  --bg-card-subtle: #171920;
+  --bg-input: #171920;
+  --bg-nav: rgba(18, 20, 24, 0.90);
+  --bg-dock: rgba(28, 31, 38, 0.95);
+
+  /* Typography */
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --text-inverse: #121418;
+
+  /* Brand Accents */
+  --brand-navy: #121418;
+  --brand-gold: #f5c542;
+  --brand-amber: #eab308;
+  --brand-blue: #3b82f6;
+
+  /* Borders & Shadows */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-card: rgba(255, 255, 255, 0.12);
+  --border-focus: #f5c542;
+  --shadow-card: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  --shadow-dock: 0 12px 36px rgba(0, 0, 0, 0.55);
+  --shadow-elevated: 0 20px 45px -10px rgba(0, 0, 0, 0.6);
+
+  /* Platoon Theme Colors (Soft Modern Pastels) */
+  --platoon-alpha-bg: rgba(59, 130, 246, 0.15);
+  --platoon-alpha-color: #60a5fa;
+  --platoon-zulu-bg: rgba(245, 197, 66, 0.15);
+  --platoon-zulu-color: #fbbf24;
+  --platoon-papa-bg: rgba(239, 68, 68, 0.15);
+  --platoon-papa-color: #f87171;
+  --platoon-hotel-bg: rgba(16, 185, 129, 0.15);
+  --platoon-hotel-color: #34d399;
+
+  /* Legacy Backward-Compatibility Mappings */
+  --navy: var(--bg-canvas);
+  --navy2: var(--bg-card);
+  --blue: var(--brand-blue);
+  --accent: var(--brand-amber);
+  --gold: var(--brand-gold);
+  --light: var(--bg-card);
+  --white: #ffffff;
+  --red: #ef4444;
+  --green: #10b981;
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+}
+
+[data-theme="light"] {
+  /* Canvas & Surfaces (Modern Light Grey Palette) */
+  --bg-canvas: #eaedf2;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-card-subtle: #f0f3f8;
+  --bg-input: #ffffff;
+  --bg-nav: rgba(234, 237, 242, 0.92);
+  --bg-dock: rgba(17, 24, 39, 0.95);
+
+  /* Typography */
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-inverse: #ffffff;
+
+  /* Brand Accents */
+  --brand-navy: #111827;
+  --brand-gold: #b45309;
+  --brand-amber: #d97706;
+  --brand-blue: #2563eb;
+
+  /* Borders & Shadows */
+  --border-subtle: rgba(0, 0, 0, 0.07);
+  --border-card: #d8dee6;
+  --border-focus: #d97706;
+  --shadow-card: 0 6px 20px -4px rgba(17, 24, 39, 0.06), 0 2px 6px -1px rgba(17, 24, 39, 0.04);
+  --shadow-dock: 0 16px 40px rgba(0, 0, 0, 0.25);
+  --shadow-elevated: 0 20px 40px -10px rgba(17, 24, 39, 0.12);
+
+  /* Platoon Theme Colors (Crisp Light Pastels) */
+  --platoon-alpha-bg: #eff6ff;
+  --platoon-alpha-color: #1d4ed8;
+  --platoon-zulu-bg: #fffbeb;
+  --platoon-zulu-color: #b45309;
+  --platoon-papa-bg: #fef2f2;
+  --platoon-papa-color: #b91c1c;
+  --platoon-hotel-bg: #ecfdf5;
+  --platoon-hotel-color: #047857;
+
+  /* Legacy Backward-Compatibility Mappings */
+  --navy: var(--bg-canvas);
+  --navy2: var(--bg-card);
+  --blue: var(--brand-blue);
+  --accent: var(--brand-amber);
+  --gold: var(--brand-gold);
+  --light: var(--bg-card);
+  --white: #ffffff;
+  --red: #dc2626;
+  --green: #059669;
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
+}
+
+/* ── Geometry & Layout Tokens ── */
 :root {
-  --navy:   #0a1628;
-  --navy2:  #111e35;
-  --blue:   #1a3a6e;
-  --accent: #c8961e;
-  --gold:   #e8b830;
-  --light:  #f4f6fa;
-  --white:  #ffffff;
-  --red:    #c0392b;
-  --green:  #1a7a3a;
-  --text:   #1a1a2e;
-  --muted:  #7a8599;
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-pill: 9999px;
+  --transition-smooth: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
