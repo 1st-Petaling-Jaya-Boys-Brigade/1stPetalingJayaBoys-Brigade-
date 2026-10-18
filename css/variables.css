@@ -2,23 +2,23 @@
 
 :root,
 [data-theme="dark"] {
-  /* Canvas & Surfaces */
-  --bg-canvas: #0a1120;
-  --bg-card: #111d33;
-  --bg-card-hover: #162542;
-  --bg-card-subtle: #0d1729;
-  --bg-input: #0e192c;
-  --bg-nav: rgba(10, 17, 32, 0.88);
-  --bg-dock: rgba(13, 23, 41, 0.92);
+  /* Canvas & Surfaces (Modern Charcoal / Dark Grey Palette) */
+  --bg-canvas: #121418;
+  --bg-card: #1c1f26;
+  --bg-card-hover: #252932;
+  --bg-card-subtle: #171920;
+  --bg-input: #171920;
+  --bg-nav: rgba(18, 20, 24, 0.90);
+  --bg-dock: rgba(28, 31, 38, 0.95);
 
   /* Typography */
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-inverse: #0a1120;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --text-inverse: #121418;
 
   /* Brand Accents */
-  --brand-navy: #0a1628;
+  --brand-navy: #121418;
   --brand-gold: #f5c542;
   --brand-amber: #eab308;
   --brand-blue: #3b82f6;
@@ -27,8 +27,8 @@
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-card: rgba(255, 255, 255, 0.12);
   --border-focus: #f5c542;
-  --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-  --shadow-dock: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  --shadow-dock: 0 12px 36px rgba(0, 0, 0, 0.55);
   --shadow-elevated: 0 20px 45px -10px rgba(0, 0, 0, 0.6);
 
   /* Platoon Theme Colors (Soft Modern Pastels) */
@@ -56,34 +56,34 @@
 }
 
 [data-theme="light"] {
-  /* Canvas & Surfaces */
-  --bg-canvas: #f4f6fb;
+  /* Canvas & Surfaces (Modern Light Grey Palette) */
+  --bg-canvas: #eaedf2;
   --bg-card: #ffffff;
   --bg-card-hover: #f8fafc;
-  --bg-card-subtle: #edf2f7;
+  --bg-card-subtle: #f0f3f8;
   --bg-input: #ffffff;
-  --bg-nav: rgba(255, 255, 255, 0.9);
-  --bg-dock: rgba(17, 24, 39, 0.94);
+  --bg-nav: rgba(234, 237, 242, 0.92);
+  --bg-dock: rgba(17, 24, 39, 0.95);
 
   /* Typography */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
   --text-inverse: #ffffff;
 
   /* Brand Accents */
-  --brand-navy: #0f172a;
+  --brand-navy: #111827;
   --brand-gold: #b45309;
   --brand-amber: #d97706;
   --brand-blue: #2563eb;
 
   /* Borders & Shadows */
-  --border-subtle: rgba(0, 0, 0, 0.06);
-  --border-card: rgba(0, 0, 0, 0.08);
+  --border-subtle: rgba(0, 0, 0, 0.07);
+  --border-card: #d8dee6;
   --border-focus: #d97706;
-  --shadow-card: 0 10px 30px -4px rgba(15, 23, 42, 0.06), 0 2px 8px -2px rgba(15, 23, 42, 0.04);
-  --shadow-dock: 0 16px 40px rgba(0, 0, 0, 0.22);
-  --shadow-elevated: 0 20px 40px -10px rgba(15, 23, 42, 0.12);
+  --shadow-card: 0 6px 20px -4px rgba(17, 24, 39, 0.06), 0 2px 6px -1px rgba(17, 24, 39, 0.04);
+  --shadow-dock: 0 16px 40px rgba(0, 0, 0, 0.25);
+  --shadow-elevated: 0 20px 40px -10px rgba(17, 24, 39, 0.12);
 
   /* Platoon Theme Colors (Crisp Light Pastels) */
   --platoon-alpha-bg: #eff6ff;

@@ -29,10 +29,10 @@ function togglePassVis(inputId, btnId) {
   if (!inp) return;
   if (inp.type === 'password') {
     inp.type = 'text';
-    if (btn) btn.textContent = '🙈';
+    if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
   } else {
     inp.type = 'password';
-    if (btn) btn.textContent = '👁️';
+    if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
   }
 }
 
@@ -224,6 +224,9 @@ async function renderDashboard() {
     sessionSet('joined', m.joined_at || '');
     set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
+    set('sidebar-user-name', m.name || 'Member');
+    set('sidebar-user-badge', (m.rank ? m.rank : '') + (m.squad ? ' · ' + m.squad + ' Sq' : (m.att_section || 'Member')));
+
     // Load profile avatar from Supabase Storage
     try {
       var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
@@ -234,6 +237,10 @@ async function renderDashboard() {
         var ph  = document.getElementById('m-pfp-ph');
         if (img) { img.src = pfpUrl; img.style.display = 'block'; }
         if (ph)  ph.style.display = 'none';
+        var sImg = document.getElementById('sidebar-user-avatar-img');
+        var sPh  = document.getElementById('sidebar-user-avatar-ph');
+        if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
+        if (sPh)  sPh.style.display = 'none';
       };
       testImg.src = pfpUrl + '?t=' + Date.now();
     } catch (e) {}
@@ -254,12 +261,12 @@ async function loadMemberOrders() {
   var container = document.getElementById('member-orders-list');
   if (!id || !container) return;
 
-  container.innerHTML = '<div style="color:#556;font-size:13px;text-align:center;padding:16px;"><span class="spinner"></span> Loading...</div>';
+  container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;"><span class="spinner"></span> Loading...</div>';
   try {
     var client = window.supa || supa;
     var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');
     if (!orders || !orders.length) {
-      container.innerHTML = '<div style="color:#556;font-size:13px;text-align:center;padding:16px;">No orders yet.</div>';
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No orders yet.</div>';
       return;
     }
 
@@ -278,13 +285,13 @@ async function loadMemberOrders() {
       try {
         var items = JSON.parse(o.items || '{}');
         if (items.form_name) {
-          itemLines = '<div style="font-size:12px;color:#8898bb;">' + items.form_name + '</div>';
+          itemLines = '<div style="font-size:12px;color:var(--text-secondary);">' + items.form_name + '</div>';
         } else {
           Object.entries(items).forEach(function(kv) {
             var prod = itemsList.find(function(i) { return i.key === kv[0]; });
             var v    = kv[1];
             var subtotal = v.price && v.qty ? ' — RM ' + (v.price * v.qty).toFixed(2) : '';
-            itemLines += '<div style="display:flex;justify-content:space-between;font-size:12px;color:#8898bb;padding:3px 0;">'
+            itemLines += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding:3px 0;">'
               + '<span>' + (prod ? prod.name : kv[0]) + (v.size ? ' (' + v.size + ')' : '') + '</span>'
               + '<span>x' + v.qty + subtotal + '</span></div>';
           });
@@ -292,20 +299,20 @@ async function loadMemberOrders() {
       } catch (e) {}
 
       var ssHtml = o.payment_screenshot
-        ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#66bb6a;">✓ Payment screenshot uploaded</div>'
-        : '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#e8b830;">⚠ No payment screenshot</div>';
+        ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--green);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Payment screenshot uploaded</div>'
+        : '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--accent);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg> No payment screenshot</div>';
 
-      html += '<div style="background:#122040;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.06);">'
+      html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
         + '<div>'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:700;color:#fff;">' + o.order_number + '</div>'
-        + '<div style="font-size:11px;color:#556;margin-top:1px;">' + created + '</div>'
+        + '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:700;color:var(--text-primary);">' + o.order_number + '</div>'
+        + '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + created + '</div>'
         + '</div>'
         + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:\'Oswald\',sans-serif;text-align:center;">' + sl + '</div>'
         + '</div>'
-        + '<div style="border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;">' + itemLines + '</div>'
+        + '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' + itemLines + '</div>'
         + ssHtml
-        + (o.notes ? '<div style="font-size:11px;color:#556;margin-top:6px;">Note: ' + o.notes + '</div>' : '')
+        + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' + o.notes + '</div>' : '')
         + '</div>';
     });
     container.innerHTML = html;
@@ -336,6 +343,15 @@ function logoutMember() {
   var dashBox = document.getElementById('m-dashboard');
   if (authBox) authBox.style.display = 'block';
   if (dashBox) dashBox.style.display = 'none';
+
+  var sn = document.getElementById('sidebar-user-name');
+  var sb = document.getElementById('sidebar-user-badge');
+  if (sn) sn.textContent = 'Guest Member';
+  if (sb) sb.textContent = 'Login / Register';
+  var sImg = document.getElementById('sidebar-user-avatar-img');
+  var sPh  = document.getElementById('sidebar-user-avatar-ph');
+  if (sImg) sImg.style.display = 'none';
+  if (sPh)  sPh.style.display = 'flex';
 
   showAuthMode('login');
 }
@@ -458,7 +474,7 @@ async function sendPasswordResetEmail() {
     // Update UI for Step 2
     var noticeEl = document.getElementById('forgot-notice');
     if (noticeEl) {
-      noticeEl.innerHTML = '✉️ A 6-digit reset code has been sent to <strong>' + email + '</strong>.<br>'
+      noticeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> A 6-digit reset code has been sent to <strong>' + email + '</strong>.</span><br>'
         + '<span style="font-size:11px;opacity:0.9;">Please check your inbox (and spam folder) and enter the code below. Valid for 15 minutes.</span>';
     }
 
@@ -471,13 +487,13 @@ async function sendPasswordResetEmail() {
 
     showForgotStep(2);
 
-    alert('✉️ Reset code generated and sent to ' + email + '!\n\nPlease check your inbox and enter the 6-digit code to set your new password.');
+    alert('Reset code generated and sent to ' + email + '!\n\nPlease check your inbox and enter the 6-digit code to set your new password.');
   } catch (e) {
     alert('Failed to send reset email: ' + e.message);
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = origText || '✉️ Send Reset Code';
+      btn.textContent = origText || 'Send Reset Code';
     }
   }
 }
@@ -500,7 +516,7 @@ async function verifyResetCodeAndSetPassword() {
   var origText = btn ? btn.textContent : '';
   if (btn) {
     btn.disabled = true;
-    btn.textContent = '⏳ Verifying & Updating...';
+    btn.textContent = 'Verifying & Updating...';
   }
 
   try {
@@ -557,7 +573,7 @@ async function verifyResetCodeAndSetPassword() {
       await client.delete('bb_config?key=eq.' + configKey);
     } catch (e) {}
 
-    alert('✅ Password reset successfully! You can now log in with your new password.');
+    alert('Password reset successfully! You can now log in with your new password.');
 
     // Clear forgot form
     if (codeInp) codeInp.value = '';
@@ -579,7 +595,7 @@ async function verifyResetCodeAndSetPassword() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = origText || '✅ Set New Password';
+      btn.textContent = origText || 'Set New Password';
     }
   }
 }

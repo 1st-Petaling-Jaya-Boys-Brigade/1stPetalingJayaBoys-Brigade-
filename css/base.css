@@ -29,9 +29,15 @@ body {
 }
 
 @media (min-width: 1024px) {
+  body {
+    padding-left: 260px;
+    align-items: stretch;
+  }
   .page {
-    max-width: 980px;
-    padding: 32px 24px 110px;
+    max-width: 1080px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 36px 80px;
   }
 }
 

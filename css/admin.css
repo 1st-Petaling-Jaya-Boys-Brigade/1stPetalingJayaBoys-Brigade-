@@ -1,29 +1,30 @@
 /* ── ADMIN OVERLAY & PANELS ── */
 .admin-row {
-  background: var(--navy2);
-  border: 1px solid rgba(255,255,255,0.055);
-  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
   padding: 14px 16px;
   margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 12px;
-  transition: border-color 0.2s;
+  transition: var(--transition-smooth);
   cursor: pointer;
 }
 
 .admin-row:hover {
-  border-color: rgba(200,150,30,0.28);
+  border-color: var(--border-focus);
+  background: var(--bg-card-hover);
 }
 
 .admin-rank-badge {
   background: linear-gradient(135deg,var(--accent),var(--gold));
-  color: var(--navy);
+  color: #111827;
   font-family: 'Oswald', sans-serif;
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -36,12 +37,12 @@
   font-family: 'Oswald', sans-serif;
   font-size: 16px;
   font-weight: 600;
-  color: #f0f4ff;
+  color: var(--text-primary);
 }
 
 .admin-sub {
   font-size: 11px;
-  color: #5a6a82;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -54,14 +55,22 @@
 .admin-count-btn {
   width: 28px;
   height: 28px;
-  border-radius: 7px;
-  border: none;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-subtle);
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: var(--transition-smooth);
+}
+
+.admin-count-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-focus);
 }
 
 .admin-count-display {
@@ -74,18 +83,18 @@
 }
 
 .adm-sort-btn {
-  padding: 5px 12px;
-  border: 1.5px solid #2a3a50;
-  border-radius: 20px;
-  background: transparent;
-  color: #5a6a82;
+  padding: 6px 14px;
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-pill);
+  background: var(--bg-card-subtle);
+  color: var(--text-secondary);
   font-family: 'Oswald', sans-serif;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 1px;
   text-transform: uppercase;
-  transition: all 0.2s;
+  transition: var(--transition-smooth);
 }
 
 .adm-sort-btn:hover {
@@ -95,7 +104,7 @@
 
 .active-sort {
   border-color: var(--accent) !important;
-  background: rgba(200,150,30,0.1) !important;
+  background: rgba(200,150,30,0.12) !important;
   color: var(--gold) !important;
 }
 
@@ -103,58 +112,71 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #0d1a2e;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
   padding: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transition-smooth);
+  margin-bottom: 8px;
 }
 
 .adm-section-btn:hover {
-  border-color: rgba(200,150,30,0.3);
-  background: #111f36;
+  border-color: var(--border-focus);
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
 }
 
 .adm-section-btn.active-section {
-  border-color: rgba(200,150,30,0.35);
-  background: #111f36;
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
 }
 
 .adm-sec-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
   flex-shrink: 0;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.adm-sec-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .adm-sec-title {
   font-family: 'Oswald', sans-serif;
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   letter-spacing: 0.5px;
 }
 
 .adm-sec-sub {
   font-size: 12px;
-  color: #5a6a82;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
 .adm-sec-arrow {
-  font-size: 22px;
-  color: #3a4a62;
-  transition: all 0.2s;
+  font-size: 20px;
+  color: var(--text-muted);
+  transition: var(--transition-smooth);
 }
 
 .adm-section-btn:hover .adm-sec-arrow {
-  color: var(--gold);
-  transform: translateX(3px);
+  color: var(--accent);
+  transform: translateX(4px);
 }
 
 .adm-section-header {
@@ -163,35 +185,35 @@
   gap: 14px;
   margin-bottom: 20px;
   padding-bottom: 14px;
-  border-bottom: 1px solid rgba(255,255,255,0.055);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .adm-section-title {
   font-family: 'Oswald', sans-serif;
   font-size: 20px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .adm-section-desc {
   font-size: 12px;
-  color: #4a5a72;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
 .adm-subtab {
-  background: transparent;
-  border: 1px solid #2a3a50;
-  color: #5a6a82;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
   font-family: 'Oswald', sans-serif;
   font-size: 12px;
   font-weight: 700;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   letter-spacing: 1px;
   text-transform: uppercase;
-  transition: all 0.2s;
+  transition: var(--transition-smooth);
 }
 
 .adm-subtab:hover {
@@ -200,24 +222,24 @@
 }
 
 .active-subtab {
-  background: rgba(200,150,30,0.1) !important;
+  background: rgba(200,150,30,0.12) !important;
   border-color: var(--accent) !important;
   color: var(--gold) !important;
 }
 
 .adm-dept-tab {
-  background: transparent;
-  border: 1px solid #2a3a50;
-  color: #5a6a82;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
   font-family: 'Oswald', sans-serif;
   font-size: 12px;
   font-weight: 700;
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   letter-spacing: 1px;
   text-transform: uppercase;
-  transition: all 0.2s;
+  transition: var(--transition-smooth);
 }
 
 .adm-dept-tab:hover {
@@ -226,7 +248,7 @@
 }
 
 .active-dept-tab {
-  background: rgba(200,150,30,0.1) !important;
+  background: rgba(200,150,30,0.12) !important;
   border-color: var(--accent) !important;
   color: var(--gold) !important;
 }

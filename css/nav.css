@@ -188,8 +188,22 @@
 }
 
 .bnav-btn .bnav-icon {
-  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   line-height: 1;
+}
+
+.bnav-btn .bnav-icon svg {
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .bnav-btn .bnav-label {
@@ -206,12 +220,16 @@
 /* Active Floating Pill Highlight */
 .bnav-btn.active {
   background: #ffffff !important;
-  color: #0f172a !important;
+  color: #111827 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .bnav-btn.active .bnav-label {
-  color: #0f172a !important;
+  color: #111827 !important;
+}
+
+.bnav-btn.active .bnav-icon svg {
+  stroke: #111827 !important;
 }
 
 /* ── SIDEBAR OVERLAY ── */
@@ -330,7 +348,6 @@
 }
 
 .sidebar-item .si-icon {
-  font-size: 18px;
   width: 36px;
   height: 36px;
   display: flex;
@@ -338,13 +355,24 @@
   justify-content: center;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
-  background: var(--bg-input);
+  background: var(--bg-card-subtle);
   border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.sidebar-item .si-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .sidebar-item.active .si-icon {
   background: var(--accent);
-  color: #fff;
+  color: #ffffff;
   border-color: transparent;
 }
 
@@ -425,3 +453,116 @@
   color: #fff;
   border-color: transparent;
 }
+
+/* ── SIDEBAR USER PROFILE CARD (Desktop Ref style) ── */
+.sidebar-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  margin-bottom: 8px;
+}
+
+.sidebar-user-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-card);
+  transform: translateY(-1px);
+}
+
+.suc-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-card-subtle);
+  border: 1.5px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.suc-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.suc-name {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.suc-badge {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.suc-action {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+/* ── RESPONSIVE DESKTOP DOCKED SIDEBAR (min-width: 1024px) ── */
+@media (min-width: 1024px) {
+  .nav {
+    margin-left: 260px;
+    width: calc(100% - 260px);
+  }
+
+  .nav-menu-btn {
+    display: none !important;
+  }
+
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    right: auto;
+    inset: auto;
+    height: 100vh;
+    pointer-events: all;
+    z-index: 210;
+  }
+
+  .sidebar-backdrop {
+    display: none !important;
+  }
+
+  .sidebar-panel {
+    position: static;
+    width: 260px;
+    height: 100vh;
+    max-width: none;
+    transform: none !important;
+    border-left: none;
+    border-right: 1px solid var(--border-card);
+    background: var(--bg-card);
+    box-shadow: none;
+  }
+}
+
