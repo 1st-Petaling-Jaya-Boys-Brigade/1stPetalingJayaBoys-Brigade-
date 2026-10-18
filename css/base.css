@@ -24,7 +24,7 @@ body {
   width: 100%;
   max-width: 680px;
   justify-content: center;
-  padding: 24px 16px 110px;
+  padding: 20px 16px 125px;
   animation: fadeInPage 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
