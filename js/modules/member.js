@@ -337,7 +337,6 @@ function logoutMember() {
   var at = document.getElementById('tab-attendance');  if (at) at.style.display = 'none';
   var sat = document.getElementById('snav-attendance'); if (sat) sat.style.display = 'none';
   var sba = document.getElementById('snav-badges');     if (sba) sba.style.display = 'none';
-  var sta = document.getElementById('snav-tasks');      if (sta) sta.style.display = 'none';
 
   var authBox = document.getElementById('m-auth');
   var dashBox = document.getElementById('m-dashboard');

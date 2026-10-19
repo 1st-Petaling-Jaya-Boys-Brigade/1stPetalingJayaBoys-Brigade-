@@ -94,14 +94,14 @@
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
         <span class="si-label">Member</span>
       </button>
+      <button class="sidebar-item" id="snav-tasks" onclick="switchTabNav('tasks');closeSidebar()">
+        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="13" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg></span>
+        <span class="si-label">Weekly Parade</span>
+      </button>
       <div class="sidebar-section-label" style="margin-top:8px;">Members Only</div>
       <button class="sidebar-item" id="snav-badges" onclick="switchTabNav('badges');closeSidebar()" style="display:none;">
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>
         <span class="si-label">My Badges</span>
-      </button>
-      <button class="sidebar-item" id="snav-tasks" onclick="switchTabNav('tasks');closeSidebar()" style="display:none;">
-        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-        <span class="si-label">Tasks</span>
       </button>
       <button class="sidebar-item" id="snav-attendance" onclick="switchTabNav('attendance');closeSidebar()" style="display:none;">
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg></span>
@@ -172,7 +172,7 @@
       </div>
       <div class="hq-title">Weekly Parade</div>
       <div class="hq-desc">Saturdays 1:30 PM &ndash; 6:00 PM at Trinity Methodist Church PJ.</div>
-      <div class="hq-link">Company Info &rarr;</div>
+      <div class="hq-link">View Schedule &rarr;</div>
     </div>
   </div>
 
@@ -514,10 +514,157 @@
       <button class="submit-btn gold" onclick="goToMemberTab()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>
     </div>
 
-    <!-- No department assigned -->
-    <div class="dark-card" id="tasks-no-dept" style="display:none;text-align:center;padding:40px 20px;">
-      <div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--text-muted);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-      <div style="font-family:'Oswald',sans-serif;font-size:24px;font-weight:700;color:var(--text-primary);">Nothing here yet</div>
+    <!-- Weekly Parade Schedule -->
+    <div class="dark-card" id="tasks-no-dept" style="display:block;margin-bottom:16px;">
+      <div class="section-header" style="margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="13" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg></span>
+          <div>
+            <div class="s-title" style="font-size:22px;">Weekly Parade Schedule</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Saturdays &bull; Trinity Methodist Church PJ (TMCPJ)</div>
+          </div>
+        </div>
+        <div class="s-badge" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);font-size:12px;padding:4px 10px;border-radius:20px;font-weight:700;">Every Saturday</div>
+      </div>
+
+      <!-- Schedule Table / Timeline -->
+      <div class="schedule-table" style="display:flex;flex-direction:column;gap:8px;">
+
+        <!-- 1. Band -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Band</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Brass, woodwinds &amp; percussion rehearsal</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            9:30 AM &ndash; 11:30 AM
+          </div>
+        </div>
+
+        <!-- 2. Lunch -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Lunch</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Fellowship &amp; lunch break</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            12:00 PM &ndash; 1:00 PM
+          </div>
+        </div>
+
+        <!-- 3. Fall-in -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Fall-in</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Company muster, attendance &amp; uniform inspection</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            2:15 PM &ndash; 2:30 PM
+          </div>
+        </div>
+
+        <!-- 4. Worship -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Worship</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Praise, worship &amp; opening prayer</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            2:30 PM &ndash; 3:00 PM
+          </div>
+        </div>
+
+        <!-- 5. CE -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">CE (Christian Education)</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Biblical teachings &amp; squad discussions</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            3:00 PM &ndash; 4:00 PM
+          </div>
+        </div>
+
+        <!-- 6. Badge Class -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Badge Class</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Target &amp; proficiency badge curriculum</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            4:00 PM &ndash; 5:00 PM
+          </div>
+        </div>
+
+        <!-- 7. Drill -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Drill</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Squad drill movements, foot drill &amp; marching commands</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            5:00 PM &ndash; 5:45 PM
+          </div>
+        </div>
+
+        <!-- 8. Dismissal -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--green);flex-shrink:0;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Dismissal</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Final announcements, vespers &amp; dismissal</div>
+            </div>
+          </div>
+          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--green);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+            5:45 PM
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Info Footer -->
+      <div style="margin-top:14px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+        <svg class="ui-icon" style="flex-shrink:0;color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>All members are expected to fall in promptly at <strong>2:15 PM</strong> in the designated Uniform of the Day (UOD). Band members report at <strong>9:30 AM</strong>.</span>
+      </div>
     </div>
 
     <!-- Tasks board -->
@@ -2875,29 +3022,24 @@ function switchTaskTab(tab, btn) {
 
 async function checkTasksAccess() {
   var ic = sessionGet('ic');
-  var tab = document.getElementById('tab-tasks');
-  ['tasks-gate','tasks-no-dept','tasks-board'].forEach(function(id) {
-    var el = document.getElementById(id); if (el) el.style.display = 'none';
-  });
-  if (!ic) { if (tab) tab.style.display = 'none'; var g = document.getElementById('tasks-gate'); if (g) g.style.display = 'block'; return; }
+  var nd = document.getElementById('tasks-no-dept');  if (nd) nd.style.display = 'block';
+  var gate = document.getElementById('tasks-gate');   if (gate) gate.style.display = 'none';
+  var board = document.getElementById('tasks-board'); if (board) board.style.display = 'none';
+
+  if (!ic) return;
   try {
     var data = await supa.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,department');
     var m    = data && data[0];
     var dept = m && m.department;
-    if (!dept || !DEPT_CONFIG[dept]) {
-      if (tab) tab.style.display = 'none';
-      var nd = document.getElementById('tasks-no-dept'); if (nd) nd.style.display = 'block';
-      return;
+    if (dept && DEPT_CONFIG[dept]) {
+      var cfg = DEPT_CONFIG[dept];
+      var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
+      var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Task Board';
+      var db  = document.getElementById('tasks-dept-badge');
+      if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
+      if (board) board.style.display = 'block';
+      await renderTasksBoard(dept);
     }
-    if (tab) tab.style.display = 'block';
-    var stab = document.getElementById('snav-tasks'); if (stab) stab.style.display = 'flex';
-    var cfg = DEPT_CONFIG[dept];
-    var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
-    var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Task Board';
-    var db  = document.getElementById('tasks-dept-badge');
-    if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
-    var board = document.getElementById('tasks-board'); if (board) board.style.display = 'block';
-    await renderTasksBoard(dept);
   } catch(e) { console.error(e); }
 }
 
