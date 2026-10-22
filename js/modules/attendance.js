@@ -487,7 +487,7 @@ async function renderAdminMasterSheetPanel() {
         }).join('') +
       '</div>' +
 
-      '<!-- Platoon Averages Summary (No Hotel) -->' +
+      '<!-- Platoon Averages Summary -->' +
       '<div style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.03);border:1px solid var(--border-card);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--text-secondary);margin-bottom:2px;flex-wrap:wrap;">' +
         '<strong style="color:var(--text-primary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Platoon Averages:</strong>' +
         pltAverages.map(function(pa) {
@@ -514,7 +514,7 @@ async function renderAdminMasterSheetPanel() {
         '2. Click <strong>Extensions &gt; Apps Script</strong>.<br>' +
         '3. Replace any existing code with the snippet below and click <strong>Save</strong> (disk icon).<br>' +
         '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, click <strong>Enable Auto-Sync (Every 30 Mins)</strong> or <strong>Enable Auto-Sync on Edit (Real-Time)</strong>.<br>' +
-        '5. <em>Done!</em> Your spreadsheet will now automatically sync attendance and leaderboard scores to the portal in the background without needing manual clicks.' +
+        '5. The spreadsheet will automatically sync attendance and leaderboard scores to the portal in the background.' +
       '</div>' +
 
       '<div style="display:flex;justify-content:flex-end;margin-bottom:6px;">' +
@@ -538,17 +538,41 @@ function escapeHtml(str) {
 async function copyAppsScriptSnippet() {
   var pre = document.getElementById('gas-snippet-pre');
   if (!pre) return;
-  try {
-    await navigator.clipboard.writeText(pre.textContent);
-    var btn = document.getElementById('btn-copy-gas');
+  var codeText = pre.textContent || pre.innerText || '';
+
+  var success = false;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(codeText);
+      success = true;
+    } catch (e) {}
+  }
+
+  if (!success) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = codeText;
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      success = document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e2) {}
+  }
+
+  var btn = document.getElementById('btn-copy-gas');
+  if (success) {
     if (btn) {
-      btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+      btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied';
       setTimeout(function() {
         btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Code';
       }, 2500);
     }
-  } catch(e) {
-    alert('Please select and copy the code manually.');
+  } else {
+    alert('Please select and copy the code manually from the box below.');
   }
 }
 
@@ -565,7 +589,7 @@ async function triggerMasterSheetFetch() {
     }
     _masterAttendanceCache = null;
     await renderAdminMasterSheetPanel();
-    alert('Master Sheet data synced successfully!');
+    alert('Master Sheet data synced successfully.');
   } catch (err) {
     alert('Sync note: ' + err.message + '\n\nTip: You can click "BB Portal > Sync Attendance to Portal Now" inside your Google Sheet at any time to push updates instantly.');
   } finally {
