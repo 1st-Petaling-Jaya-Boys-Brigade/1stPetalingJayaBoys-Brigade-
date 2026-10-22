@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="css/nav.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/admin.css">
-<script src="js/core/theme.js"></script>
+<script src="js/core/theme.js?v=20261022c"></script>
 </head>
 <body>
 
@@ -1465,6 +1465,7 @@
 <script src="js/config.js?v=20261022c"></script>
 <script src="js/api/supabase.js?v=20261022c"></script>
 <script src="js/core/session.js?v=20261022c"></script>
+<script src="js/core/utils.js?v=20261022c"></script>
 <script src="js/modules/member.js?v=20261022c"></script>
 <script src="js/api/sheets.js?v=20261022c"></script>
 <script src="js/modules/attendance.js?v=20261022c"></script>
@@ -1741,7 +1742,8 @@ async function renderAdminPresidentsReqs() {
       var idx  = parseInt(btn.getAttribute('data-del-req'));
       var reqs = await getPresidentsReqs();
       var name = reqs[idx] ? reqs[idx].badgeMatch : '';
-      if (!confirm('Remove "' + name + '" from requirements?')) return;
+      var ok = await showConfirmModal('Remove "' + name + '" from requirements?');
+      if (!ok) return;
       reqs.splice(idx, 1);
       await savePresidentsReqs(reqs);
       renderAdminPresidentsReqs();
@@ -1767,21 +1769,20 @@ async function addPresidentsReq() {
   setReqTier('any');
 }
 
-async function renderPresidentsTracker(ic) {
+async function renderPresidentsTracker(ic, preloadedSaved) {
   var container = document.getElementById('presidents-tracker');
   if (!container) return;
-  var saved = {};
-  try {
-    var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
-    if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
-  } catch(e) {}
-  var defs  = await getBadgeDefs();
-
-  function migrateE(r) {
-    if (!r) return { basic:false, basicDate:'', advanced:false, advancedDate:'' };
-    if (typeof r.earned !== 'undefined') return { basic:r.earned, basicDate:r.date||'', advanced:false, advancedDate:'' };
-    return { basic:r.basic||false, basicDate:r.basicDate||'', advanced:r.advanced||false, advancedDate:r.advancedDate||'' };
+  var saved = preloadedSaved || (window._memberBadgesCache && window._memberBadgesCache[ic]) || null;
+  if (!saved) {
+    try {
+      var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+      if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
+      else saved = {};
+      if (!window._memberBadgesCache) window._memberBadgesCache = {};
+      window._memberBadgesCache[ic] = saved;
+    } catch(e) { saved = {}; }
   }
+  var defs  = await getBadgeDefs();
 
   // Count repeatable badge instances (service years)
   function countServiceBadges() {
@@ -1791,7 +1792,7 @@ async function renderPresidentsTracker(ic) {
       var repData = saved[b.id + '_rep'];
       if (repData && repData.count) count += repData.count;
       else {
-        var old = migrateE(saved[b.id]);
+        var old = migrateEntry(saved[b.id]);
         if (old.basic || old.advanced) count++;
       }
     });
@@ -1818,7 +1819,7 @@ async function renderPresidentsTracker(ic) {
     var items = defs
       .filter(function(b) { return b.cat === catName && b.name !== '(Add badges below)' && !b.repeatable; })
       .map(function(b) {
-        var entry = migrateE(saved[b.id]);
+        var entry = migrateEntry(saved[b.id]);
         return { badge: b, entry: entry };
       });
     if (items.length) {
@@ -1858,7 +1859,7 @@ async function renderPresidentsTracker(ic) {
   var compResults = COMPULSORY.map(function(c) {
     var badge = defs.find(function(b) { return b.name.toLowerCase().indexOf(c.badgeMatch.toLowerCase()) !== -1 && !b.repeatable; });
     if (!badge) return { label: c.label, done: false, missing: true };
-    var entry = migrateE(saved[badge.id]);
+    var entry = migrateEntry(saved[badge.id]);
     var done = c.tier === 'advanced' ? entry.advanced
              : c.tier === 'basic'    ? (entry.basic || entry.advanced)
              : (entry.basic || entry.advanced);
@@ -2293,27 +2294,6 @@ function setFormType(type) {
   });
 }
 
-function renderUniformProductsPreview() {
-  var container = document.getElementById('uniform-products-preview');
-  if (!container) return;
-  if (!UNIFORM_ITEMS.length) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No products yet. Go to Products tab to add items.</div>';
-    return;
-  }
-  var html = '';
-  UNIFORM_ITEMS.forEach(function(item) {
-    var imgHtml = item.image
-      ? '<img src="' + item.image + '" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' + item.name + '"/>'
-      : '<div style="width:40px;height:40px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg></div>';
-    html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle);">'
-      + imgHtml
-      + '<div style="flex:1;">'
-      + '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' + item.name + '</div>'
-      + '<div style="font-size:11px;color:var(--text-secondary);">RM ' + (item.price ? parseFloat(item.price).toFixed(2) : 'TBA') + (item.sizes && item.sizes.length ? ' · ' + item.sizes.join(', ') : '') + '</div>'
-      + '</div></div>';
-  });
-  container.innerHTML = html;
-}
 
 function addFormField() {
   _fbFields.push({ id: 'f' + Date.now(), label: '', type: 'text', required: false });
@@ -2398,9 +2378,11 @@ function editForm(id) {
   renderFbFields();
 }
 
-function deleteForm(id) {
+async function deleteForm(id) {
   var f = _customForms.find(function(x) { return x.id === id; });
-  if (!f || !confirm('Delete form "' + f.name + '"?')) return;
+  if (!f) return;
+  var ok = await showConfirmModal('Delete form "' + f.name + '"?');
+  if (!ok) return;
   _customForms = _customForms.filter(function(x) { return x.id !== id; });
   saveCustomForms();
   renderAdminForms();
@@ -2519,11 +2501,12 @@ async function renderFormResponses() {
     });
     list.innerHTML = html;
     list.querySelectorAll('[data-del-resp]').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        if (!confirm('Delete this response?')) return;
+      btn.addEventListener('click', async function() {
+        var ok = await showConfirmModal('Delete this response?');
+        if (!ok) return;
         supa.delete('bb_orders?order_number=eq.' + encodeURIComponent(btn.getAttribute('data-del-resp')))
-          .then(function() { renderFormResponses(); })
-          .catch(function(e) { alert('Failed: ' + e.message); });
+          .then(function() { renderFormResponses(); showToast('Response deleted.', 'info'); })
+          .catch(function(e) { showToast('Failed: ' + e.message, 'error'); });
       });
     });
   } catch(e) { list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>'; }
@@ -3073,14 +3056,20 @@ var DEFAULT_BB_BADGES = [
   { id:'bb13', name:'Music & Worship',    cat:'Arts',       hasAdvanced:false }
 ];
 
-async function getBadgeDefs() {
+var _badgeDefsCache = null;
+var _memberBadgesCache = {};
+
+async function getBadgeDefs(force) {
+  if (_badgeDefsCache && !force) return _badgeDefsCache;
   try {
     var rows = await supa.get('bb_config?key=eq.bb_badge_defs&select=value');
-    if (rows && rows.length) { var v = JSON.parse(rows[0].value); if (v && v.length) return v; }
+    if (rows && rows.length) { var v = JSON.parse(rows[0].value); if (v && v.length) { _badgeDefsCache = v; return v; } }
   } catch(e) {}
+  _badgeDefsCache = DEFAULT_BB_BADGES;
   return DEFAULT_BB_BADGES;
 }
 async function saveBadgeDefs(defs) {
+  _badgeDefsCache = defs;
   try {
     await supa.req('POST', 'bb_config?on_conflict=key', { key: 'bb_badge_defs', value: JSON.stringify(defs) });
   } catch(e) {
@@ -3090,6 +3079,9 @@ async function saveBadgeDefs(defs) {
 
 // ── Badge upsert helper ───────────────────────────────────────────────────
 async function upsertMemberBadges(ic, saved) {
+  if (!ic) return;
+  if (!window._memberBadgesCache) window._memberBadgesCache = {};
+  window._memberBadgesCache[ic] = saved;
   try {
     var existing = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=id');
     if (existing && existing.length) {
@@ -3100,41 +3092,34 @@ async function upsertMemberBadges(ic, saved) {
   } catch(e) { console.error('upsertMemberBadges:', e); }
 }
 
-function migrateEntry(raw) {
-  if (!raw) return { basic:false, basicDate:'', advanced:false, advancedDate:'' };
-  if (typeof raw.earned !== 'undefined') return { basic:raw.earned, basicDate:raw.date||'', advanced:false, advancedDate:'' };
-  return { basic:raw.basic||false, basicDate:raw.basicDate||'', advanced:raw.advanced||false, advancedDate:raw.advancedDate||'' };
-}
-
-async function loadBadges(ic) {
-  var saved = {};
-  try {
-    var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
-    if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
-  } catch(e) {}
+async function loadBadges(ic, preloadedSaved) {
+  var saved = preloadedSaved || (window._memberBadgesCache && window._memberBadgesCache[ic]) || null;
+  if (!saved) {
+    try {
+      var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+      if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
+      else saved = {};
+      if (!window._memberBadgesCache) window._memberBadgesCache = {};
+      window._memberBadgesCache[ic] = saved;
+    } catch(e) { saved = {}; }
+  }
   var defs = await getBadgeDefs();
   var container = document.getElementById('badges-list');
   if (!container) return;
   var cats = [];
   defs.forEach(function(b) { if (cats.indexOf(b.cat) === -1) cats.push(b.cat); });
   if (!cats.length) { container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No badges defined yet.</div>'; return; }
-
-
   var html = '';
-
   cats.forEach(function(cat) {
     var catBadges = defs.filter(function(b) { return b.cat === cat && b.name !== '(Add badges below)'; });
     if (!catBadges.length) return;
     html += '<div style="margin-bottom:20px;">';
     html += '<div data-cat-label="1" style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:10px;">' + cat + '</div>';
-
     catBadges.forEach(function(b) {
       var imgHtml = b.image
         ? '<img src="' + b.image + '" style="width:36px;height:36px;object-fit:cover;border-radius:8px;flex-shrink:0;border:1px solid rgba(200,150,30,0.3);"/>'
         : '';
-
       if (b.repeatable) {
-        // Repeatable badge: counter with +/- and one date field per instance
         var repData = saved[b.id + '_rep'];
         if (!repData || typeof repData !== 'object' || Array.isArray(repData)) {
           var old = migrateEntry(saved[b.id]);
@@ -3142,15 +3127,12 @@ async function loadBadges(ic) {
         }
         var count = repData.count || 0;
         var dates = repData.dates || [];
-
         html += '<div data-badge-card="1" data-badge-name="' + b.name.toLowerCase() + '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:8px;">';
         html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
           + imgHtml
           + '<div style="flex:1;font-size:13px;font-weight:600;color:var(--text-primary);">' + b.name + '</div>'
           + '<span style="font-size:9px;font-weight:700;background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:20px;">Repeatable</span>'
           + '</div>';
-
-        // Counter
         html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:' + (count > 0 ? '12px' : '0') + ';">';
         html += '<button data-rep-dec="' + b.id + '" data-ic="' + ic + '" style="width:32px;height:32px;border-radius:50%;background:var(--bg-card-subtle);border:1.5px solid var(--border-card);color:var(--text-secondary);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">&minus;</button>';
         html += '<div style="text-align:center;min-width:40px;">'
@@ -3159,8 +3141,6 @@ async function loadBadges(ic) {
           + '</div>';
         html += '<button data-rep-inc="' + b.id + '" data-ic="' + ic + '" style="width:32px;height:32px;border-radius:50%;background:rgba(245,197,66,0.15);border:1.5px solid rgba(245,197,66,0.35);color:var(--brand-gold);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>';
         html += '</div>';
-
-        // Date per instance
         if (count > 0) {
           html += '<div style="display:flex;flex-direction:column;gap:6px;">';
           for (var di = 0; di < count; di++) {
@@ -3172,34 +3152,25 @@ async function loadBadges(ic) {
           }
           html += '</div>';
         }
-
         html += '</div>';
-
       } else {
-        // Normal badge
         var entry = migrateEntry(saved[b.id]);
-        // Determine tier mode: 'none', 'basic', or 'both'
         var tierMode = b.tier || (b.hasAdvanced ? 'both' : 'basic');
-
         var bBg   = entry.basic    ? 'rgba(245,197,66,0.18)' : 'transparent';
         var bBord = entry.basic    ? 'var(--gold)'           : 'var(--border-card)';
         var bTxt  = entry.basic    ? 'var(--brand-gold)'     : 'var(--text-muted)';
         var aBg   = entry.advanced ? 'rgba(239,68,68,0.15)'  : 'transparent';
         var aBord = entry.advanced ? 'var(--red)'            : 'var(--border-card)';
         var aTxt  = entry.advanced ? 'var(--red)'            : 'var(--text-muted)';
-        // For 'none' tier, treat as a simple earned/not-earned using the basic field
         var earnedNone = entry.basic || entry.advanced;
         var nBg   = earnedNone ? 'rgba(245,197,66,0.18)' : 'transparent';
         var nBord = earnedNone ? 'var(--gold)'           : 'var(--border-card)';
-
         html += '<div data-badge-card="1" data-badge-name="' + b.name.toLowerCase() + '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:8px;">';
         html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
           + imgHtml
           + '<div style="font-size:13px;font-weight:600;color:var(--text-primary);">' + b.name + '</div>'
           + '</div>';
-
         if (tierMode === 'none') {
-          // Single earned checkbox, no level label
           html += '<div style="display:flex;align-items:center;gap:10px;">';
           html += '<div data-badge-id="' + b.id + '" data-tier="basic" data-ic="' + ic + '" '
             + 'style="width:22px;height:22px;border-radius:6px;border:2px solid ' + nBord + ';background:' + nBg + ';'
@@ -3211,7 +3182,6 @@ async function loadBadges(ic) {
             + (earnedNone ? '' : 'opacity:0.4;') + '"/>';
           html += '</div>';
         } else {
-          // Basic row
           html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:' + (tierMode === 'both' ? '6px' : '0') + ';">';
           html += '<div data-badge-id="' + b.id + '" data-tier="basic" data-ic="' + ic + '" '
             + 'style="width:22px;height:22px;border-radius:6px;border:2px solid ' + bBord + ';background:' + bBg + ';'
@@ -3222,8 +3192,6 @@ async function loadBadges(ic) {
             + 'style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:7px;padding:4px 8px;font-size:11px;'
             + (entry.basic ? '' : 'opacity:0.4;') + '"/>';
           html += '</div>';
-
-          // Advanced row only if 'both'
           if (tierMode === 'both') {
             html += '<div style="display:flex;align-items:center;gap:10px;">';
             html += '<div data-badge-id="' + b.id + '" data-tier="advanced" data-ic="' + ic + '" '
@@ -3237,15 +3205,12 @@ async function loadBadges(ic) {
             html += '</div>';
           }
         }
-
         html += '</div>';
       }
     });
     html += '</div>';
   });
-
   container.innerHTML = html;
-
   container.querySelectorAll('[data-badge-id]').forEach(function(el) {
     el.addEventListener('click', function() {
       toggleBadge(el.getAttribute('data-badge-id'), el.getAttribute('data-ic'), el.getAttribute('data-tier'));
@@ -3260,11 +3225,16 @@ async function loadBadges(ic) {
 }
 
 async function adjustRepBadge(badgeId, ic, delta) {
-  var saved = {};
-  try {
-    var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
-    if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
-  } catch(e) {}
+  if (!window._memberBadgesCache) window._memberBadgesCache = {};
+  var saved = window._memberBadgesCache[ic] || null;
+  if (!saved) {
+    try {
+      var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+      if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
+      else saved = {};
+      window._memberBadgesCache[ic] = saved;
+    } catch(e) { saved = {}; }
+  }
   var repData = saved[badgeId + '_rep'];
   if (!repData || typeof repData !== 'object' || Array.isArray(repData)) {
     var old = migrateEntry(saved[badgeId]);
@@ -3274,36 +3244,39 @@ async function adjustRepBadge(badgeId, ic, delta) {
   var dates    = (repData.dates || []).slice(0, newCount);
   while (dates.length < newCount) dates.push('');
   saved[badgeId + '_rep'] = { count: newCount, dates: dates };
-  await upsertMemberBadges(ic, saved);
-  loadBadges(ic);
-  renderPresidentsTracker(ic);
+  window._memberBadgesCache[ic] = saved;
+  upsertMemberBadges(ic, saved);
+  loadBadges(ic, saved);
+  renderPresidentsTracker(ic, saved);
 }
 
-
 async function toggleBadge(badgeId, ic, tier) {
-  var saved = {};
-  try {
-    var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
-    if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
-  } catch(e) {}
+  if (!window._memberBadgesCache) window._memberBadgesCache = {};
+  var saved = window._memberBadgesCache[ic] || null;
+  if (!saved) {
+    try {
+      var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+      if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
+      else saved = {};
+      window._memberBadgesCache[ic] = saved;
+    } catch(e) {}
+  }
   var entry = migrateEntry(saved[badgeId]);
   if (tier === 'advanced') entry.advanced = !entry.advanced;
   else entry.basic = !entry.basic;
   saved[badgeId] = entry;
-  await upsertMemberBadges(ic, saved);
-  loadBadges(ic);
-  renderPresidentsTracker(ic);
+  window._memberBadgesCache[ic] = saved;
+  upsertMemberBadges(ic, saved);
+  loadBadges(ic, saved);
+  renderPresidentsTracker(ic, saved);
 }
 
 async function saveBadges() {
   var ic = sessionGet('ic');
   if (!ic) return;
   var defs = await getBadgeDefs();
-  var saved = {};
-  try {
-    var brows = await supa.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
-    if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
-  } catch(e) {}
+  if (!window._memberBadgesCache) window._memberBadgesCache = {};
+  var saved = window._memberBadgesCache[ic] || {};
   defs.forEach(function(b) {
     if (b.repeatable) {
       var repData = saved[b.id + '_rep'] || { count: 0, dates: [] };
@@ -3323,9 +3296,10 @@ async function saveBadges() {
       saved[b.id] = entry;
     }
   });
+  window._memberBadgesCache[ic] = saved;
   await upsertMemberBadges(ic, saved);
-  renderPresidentsTracker(ic);
-  alert('\u2705 Badges saved!');
+  renderPresidentsTracker(ic, saved);
+  showToast('Badges saved successfully!', 'success');
 }
 
 async function renderAdminBadges() {
@@ -3436,7 +3410,8 @@ async function renderAdminBadges() {
   container.querySelectorAll('[data-del-cat]').forEach(function(btn) {
     btn.addEventListener('click', async function() {
       var cat = btn.getAttribute('data-del-cat');
-      if (!confirm('Delete the "' + cat + '" section and all its badges?')) return;
+      var ok = await showConfirmModal('Delete the "' + cat + '" section and all its badges?');
+      if (!ok) return;
       await saveBadgeDefs((await getBadgeDefs()).filter(function(b) { return b.cat !== cat; }));
       renderAdminBadges();
     });
@@ -3446,7 +3421,9 @@ async function renderAdminBadges() {
       var id    = btn.getAttribute('data-del-badge');
       var defs  = await getBadgeDefs();
       var badge = defs.find(function(b) { return b.id === id; });
-      if (!badge || !confirm('Delete badge "' + badge.name + '"?')) return;
+      if (!badge) return;
+      var ok = await showConfirmModal('Delete badge "' + badge.name + '"?');
+      if (!ok) return;
       await saveBadgeDefs(defs.filter(function(b) { return b.id !== id; }));
       renderAdminBadges();
     });
@@ -3544,7 +3521,6 @@ function switchAdminSection(section) {
   if (section === 'attendance')    { if (typeof renderAdminMasterSheetPanel === 'function') renderAdminMasterSheetPanel(); }
 }
 
-function switchAdminTab(tab) { switchAdminSection(tab); }
 
 function switchFormSubtab(sub) {
   ['formbuilder','formresponses'].forEach(function(s) {
@@ -3582,7 +3558,6 @@ function switchUniformSubtab(sub) {
   if (sub === 'orders')   renderAdminOrders();
 }
 
-function switchOrderSubtab(sub) { switchFormSubtab(sub); }
 
 function switchDeptTab(dept) {
   ['all','logistics','secretariat','media'].forEach(function(d) {
@@ -3797,9 +3772,8 @@ async function deleteMemberAccount(ic, name, e) {
   if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
   if (!ic) return;
   var display = name ? ('member "' + name + '" (' + ic + ')') : ('member account (' + ic + ')');
-  if (!confirm('Are you sure you want to permanently delete ' + display + '?' + '\n\n' + 'This will delete their account profile and login credentials. This action cannot be undone.')) {
-    return;
-  }
+  var ok = await showConfirmModal('Are you sure you want to permanently delete ' + display + '? This will delete their account profile and login credentials. This action cannot be undone.', 'Delete Member Account');
+  if (!ok) return;
   // 1. Instant optimistic DOM removal for immediate visual feedback
   var rowEl = document.querySelector('.admin-row[data-edit-ic="' + ic + '"]');
   if (rowEl) {
@@ -3938,10 +3912,11 @@ async function renderAdminOrders() {
       btn.addEventListener('click', function() { updateOrderStatus(btn.getAttribute('data-order-num'), btn.getAttribute('data-order-status')); });
     });
     list.querySelectorAll('[data-del-sub]').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        if (!confirm('Delete this submission?')) return;
+      btn.addEventListener('click', async function() {
+        var ok = await showConfirmModal('Delete this submission?');
+        if (!ok) return;
         supa.delete('bb_orders?order_number=eq.' + encodeURIComponent(btn.getAttribute('data-del-sub')))
-          .then(function() { renderAdminOrders(); }).catch(function(e) { alert('Failed: ' + e.message); });
+          .then(function() { renderAdminOrders(); showToast('Submission deleted.', 'info'); }).catch(function(e) { showToast('Failed: ' + e.message, 'error'); });
       });
     });
   } catch(e) { list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>'; }
@@ -4040,9 +4015,10 @@ function editProduct(key) {
   var pn = document.getElementById('prod-name'); if (pn) pn.scrollIntoView({ behavior: 'smooth' });
 }
 
-function deleteProduct(key) {
+async function deleteProduct(key) {
   var item = UNIFORM_ITEMS.find(function(i) { return i.key === key; });
-  if (!confirm('Delete "' + (item ? item.name : key) + '"?')) return;
+  var ok = await showConfirmModal('Delete "' + (item ? item.name : key) + '"?');
+  if (!ok) return;
   UNIFORM_ITEMS.splice(UNIFORM_ITEMS.findIndex(function(i) { return i.key === key; }), 1);
   saveUniformItems();
   loadPrices();
@@ -4183,12 +4159,17 @@ function editAdminTask(id) {
 }
 
 async function deleteTask(id) {
-  if (!confirm('Delete this task?')) return;
-  try { await supa.delete('bb_tasks?id=eq.' + id); renderAdminTasks(_adminTaskFilter); }
-  catch(e) { alert('Failed to delete task.'); }
+  var ok = await showConfirmModal('Delete this task?');
+  if (!ok) return;
+  try {
+    await supa.delete('bb_tasks?id=eq.' + id);
+    renderAdminTasks(_adminTaskFilter);
+    showToast('Task deleted successfully.', 'success');
+  } catch(e) {
+    showToast('Failed to delete task.', 'error');
+  }
 }
 
-function filterAdminTasks(filter) { switchDeptTab(filter); }
 
 // ── Announcement rich text editor ─────────────────────────────────────────
 var _annSavedRange = null;

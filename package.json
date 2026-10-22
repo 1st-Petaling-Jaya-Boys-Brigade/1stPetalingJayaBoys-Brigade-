@@ -1,0 +1,17 @@
+{
+  "name": "1st-petaling-jaya-boys-brigade-portal",
+  "version": "1.0.0",
+  "description": "1st Petaling Jaya Boys' Brigade Member, Attendance, Uniform Store & Admin Portal",
+  "private": true,
+  "scripts": {
+    "test": "node scripts/verify-syntax.js",
+    "check": "node scripts/verify-syntax.js"
+  },
+  "keywords": [
+    "boys-brigade",
+    "portal",
+    "supabase"
+  ],
+  "author": "1st Petaling Jaya Boys' Brigade",
+  "license": "UNLICENSED"
+}
