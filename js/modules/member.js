@@ -246,6 +246,7 @@ async function renderDashboard() {
     } catch (e) {}
 
     loadMemberOrders();
+    if (typeof loadMemberAttendanceStats === 'function') loadMemberAttendanceStats(m.name);
 
     var bt = document.getElementById('tab-badges');  if (bt) bt.style.display = 'block';
     var sb = document.getElementById('snav-badges'); if (sb) sb.style.display = 'flex';
