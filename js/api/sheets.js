@@ -134,7 +134,7 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey) {
 // Paste this code into: Google Sheets > Extensions > Apps Script
 // Sets up a custom menu 'BB Portal' in your Master Spreadsheet.
 // Automatically syncs Platoon tabs (Alpha, Papa, Zulu, Hotel), Band, and Leaderboards
-// Includes Background Auto-Sync (Every 5 Mins / 10 Mins / 15 Mins / 30 Mins / On Edit)
+// Includes Immediate Auto-Sync (On Edit & Change) and Scheduled Auto-Sync (5m / 10m / 15m / 30m)
 // ==============================================================================
 
 var PORTAL_SUPABASE_URL = '${url}';
@@ -148,11 +148,11 @@ function onOpen() {
     .createMenu('BB Portal')
     .addItem('Sync Attendance to Portal Now', 'manualSyncToPortal')
     .addSeparator()
+    .addItem('Enable Immediate Auto-Sync (On Edit & Change)', 'setupAutoSyncImmediate')
     .addItem('Enable Auto-Sync (Every 5 Mins)', 'setupAutoSync5Mins')
     .addItem('Enable Auto-Sync (Every 10 Mins)', 'setupAutoSync10Mins')
     .addItem('Enable Auto-Sync (Every 15 Mins)', 'setupAutoSync15Mins')
     .addItem('Enable Auto-Sync (Every 30 Mins)', 'setupAutoSync30Mins')
-    .addItem('Enable Auto-Sync on Edit (Real-Time)', 'setupAutoSyncOnEdit')
     .addItem('Check Auto-Sync Status', 'checkAutoSyncStatus')
     .addItem('Disable Auto-Sync', 'disableAutoSync')
     .addSeparator()
@@ -179,47 +179,39 @@ function autoSyncMasterAttendance() {
 }
 
 /**
- * Real-time onEdit handler (debounced with a 2-minute cooldown)
+ * Immediate edit & change handler: syncs to portal without delay or cooldown
  */
-function autoSyncOnEditTrigger(e) {
+function autoSyncImmediateTrigger(e) {
   try {
-    var sheetName = '';
-    if (e && e.range) {
-      sheetName = e.range.getSheet().getName();
-    }
-    if (sheetName) {
-      var sLow = sheetName.toLowerCase();
-      var isRelevant = sLow.indexOf('alpha') !== -1 ||
-                       sLow.indexOf('papa') !== -1 ||
-                       sLow.indexOf('zulu') !== -1 ||
-                       sLow.indexOf('hotel') !== -1 ||
-                       sLow.indexOf('band') !== -1 ||
-                       sLow.indexOf('leaderboard') !== -1;
-      if (!isRelevant) return;
-    }
-
-    var cache = CacheService.getScriptCache();
-    if (cache.get('bb_portal_edit_cooldown')) {
-      Logger.log('Edit detected, but sync is on cooldown (max once every 2 minutes).');
-      return;
-    }
-    cache.put('bb_portal_edit_cooldown', '1', 30); // 30-second cooldown for near-instant sync
     syncMasterAttendanceToPortal(true);
   } catch (err) {
-    Logger.log('autoSyncOnEditTrigger error: ' + err.message);
+    Logger.log('autoSyncImmediateTrigger error: ' + err.message);
   }
 }
 
+function autoSyncOnEditTrigger(e) {
+  autoSyncImmediateTrigger(e);
+}
+
 /**
- * Enables auto-sync every 30 minutes in the background
+ * Enables immediate auto-sync on every edit and spreadsheet change
  */
-function setupAutoSync30Mins() {
+function setupAutoSyncImmediate() {
   disableAutoSync(true);
-  ScriptApp.newTrigger('autoSyncMasterAttendance')
-    .timeBased()
-    .everyMinutes(30)
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ScriptApp.newTrigger('autoSyncImmediateTrigger')
+    .forSpreadsheet(ss)
+    .onEdit()
     .create();
-  notifyUser('Auto-Sync Enabled: Google Sheets will automatically sync to the BB Portal every 30 minutes in the background.');
+  ScriptApp.newTrigger('autoSyncImmediateTrigger')
+    .forSpreadsheet(ss)
+    .onChange()
+    .create();
+  notifyUser('Auto-Sync Enabled: Google Sheets will immediately sync to the BB Portal whenever any cell is edited or changed.');
+}
+
+function setupAutoSyncOnEdit() {
+  setupAutoSyncImmediate();
 }
 
 /**
@@ -259,16 +251,15 @@ function setupAutoSync15Mins() {
 }
 
 /**
- * Enables real-time auto-sync whenever attendance or leaderboard sheets are edited
+ * Enables auto-sync every 30 minutes in the background
  */
-function setupAutoSyncOnEdit() {
+function setupAutoSync30Mins() {
   disableAutoSync(true);
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ScriptApp.newTrigger('autoSyncOnEditTrigger')
-    .forSpreadsheet(ss)
-    .onEdit()
+  ScriptApp.newTrigger('autoSyncMasterAttendance')
+    .timeBased()
+    .everyMinutes(30)
     .create();
-  notifyUser('Real-Time Auto-Sync Enabled: Edits to Platoon, Band, or Leaderboard tabs will automatically sync to the portal (debounced to max once every 2 minutes).');
+  notifyUser('Auto-Sync Enabled: Google Sheets will automatically sync to the BB Portal every 30 minutes in the background.');
 }
 
 /**
@@ -279,14 +270,14 @@ function checkAutoSyncStatus() {
   var active = [];
   for (var i = 0; i < triggers.length; i++) {
     var fn = triggers[i].getHandlerFunction();
-    if (fn === 'autoSyncMasterAttendance' || fn === 'autoSyncOnEditTrigger' || fn === 'syncMasterAttendanceToPortal') {
+    if (fn === 'autoSyncMasterAttendance' || fn === 'autoSyncOnEditTrigger' || fn === 'autoSyncImmediateTrigger' || fn === 'syncMasterAttendanceToPortal') {
       active.push(fn + ' [' + triggers[i].getEventType() + ']');
     }
   }
   if (active.length > 0) {
     notifyUser('Active Auto-Sync Triggers (' + active.length + '):\\n\\n' + active.join('\\n') + '\\n\\nAuto-sync is active and running in the background.');
   } else {
-    notifyUser('Auto-Sync is currently DISABLED.\\n\\nTo enable, click:\\nBB Portal > Enable Auto-Sync (Every 30 Mins)');
+    notifyUser('Auto-Sync is currently DISABLED.\\n\\nTo enable, click:\\nBB Portal > Enable Immediate Auto-Sync (On Edit & Change)');
   }
 }
 
@@ -298,7 +289,7 @@ function disableAutoSync(silent) {
   var removed = 0;
   for (var i = 0; i < triggers.length; i++) {
     var fn = triggers[i].getHandlerFunction();
-    if (fn === 'autoSyncMasterAttendance' || fn === 'autoSyncOnEditTrigger' || fn === 'syncMasterAttendanceToPortal') {
+    if (fn === 'autoSyncMasterAttendance' || fn === 'autoSyncOnEditTrigger' || fn === 'autoSyncImmediateTrigger' || fn === 'syncMasterAttendanceToPortal') {
       ScriptApp.deleteTrigger(triggers[i]);
       removed++;
     }

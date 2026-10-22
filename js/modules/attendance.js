@@ -9,7 +9,7 @@
  */
 
 var MASTER_ATTENDANCE_KEY = 'bb_master_attendance';
-var MASTER_ATTENDANCE_CACHE_TTL = 3 * 60 * 1000; // 3-minute auto-refresh TTL
+var MASTER_ATTENDANCE_CACHE_TTL = 10 * 1000; // 10-second cache TTL for responsive real-time updates
 var _masterAttendanceCache = null;
 var _masterAttendanceCacheTime = 0;
 
@@ -513,7 +513,7 @@ async function renderAdminMasterSheetPanel() {
         '1. Open your <strong>Master Attendance Google Sheet</strong>.<br>' +
         '2. Click <strong>Extensions &gt; Apps Script</strong>.<br>' +
         '3. Replace any existing code with the snippet below and click <strong>Save</strong> (disk icon).<br>' +
-        '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, choose an Auto-Sync schedule (5 Mins, 10 Mins, 15 Mins, 30 Mins, or Real-Time on Edit).<br>' +
+        '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, click <strong>Enable Immediate Auto-Sync (On Edit &amp; Change)</strong> (approve Google authorization when prompted), or set a background trigger.<br>' +
         '5. The spreadsheet will automatically sync attendance and leaderboard scores to the portal in the background.' +
       '</div>' +
 
