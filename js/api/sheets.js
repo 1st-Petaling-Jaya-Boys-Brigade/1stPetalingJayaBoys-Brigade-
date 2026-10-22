@@ -134,6 +134,7 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey) {
 // Paste this code into: Google Sheets > Extensions > Apps Script
 // Sets up a custom menu 'BB Portal' in your Master Spreadsheet.
 // Automatically syncs Platoon tabs (Alpha, Papa, Zulu, Hotel), Band, and Leaderboards!
+// Includes Background Auto-Sync (Every 30 Mins / 15 Mins / On Edit)!
 // ==============================================================================
 
 var PORTAL_SUPABASE_URL = '${url}';
@@ -145,15 +146,158 @@ var PORTAL_SUPABASE_KEY = '${key}';
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('BB Portal')
-    .addItem('Sync Attendance to Portal Now', 'syncMasterAttendanceToPortal')
+    .addItem('Sync Attendance to Portal Now', 'manualSyncToPortal')
+    .addSeparator()
+    .addItem('Enable Auto-Sync (Every 30 Mins)', 'setupAutoSync30Mins')
+    .addItem('Enable Auto-Sync (Every 15 Mins)', 'setupAutoSync15Mins')
+    .addItem('Enable Auto-Sync on Edit (Real-Time)', 'setupAutoSyncOnEdit')
+    .addItem('Check Auto-Sync Status', 'checkAutoSyncStatus')
+    .addItem('Disable Auto-Sync', 'disableAutoSync')
+    .addSeparator()
     .addItem('Test Portal Connection', 'testPortalConnection')
     .addToUi();
 }
 
 /**
- * Main Sync Function: Reads all Platoon tabs, Band Attendance, and Squad Leaderboards
+ * Manual sync triggered from the BB Portal menu
  */
-function syncMasterAttendanceToPortal() {
+function manualSyncToPortal() {
+  syncMasterAttendanceToPortal(false);
+}
+
+/**
+ * Automatic background sync handler (invoked by time-driven trigger)
+ */
+function autoSyncMasterAttendance() {
+  try {
+    syncMasterAttendanceToPortal(true);
+  } catch (err) {
+    Logger.log('autoSyncMasterAttendance error: ' + err.message);
+  }
+}
+
+/**
+ * Real-time onEdit handler (debounced with a 2-minute cooldown)
+ */
+function autoSyncOnEditTrigger(e) {
+  try {
+    var sheetName = '';
+    if (e && e.range) {
+      sheetName = e.range.getSheet().getName();
+    }
+    if (sheetName) {
+      var sLow = sheetName.toLowerCase();
+      var isRelevant = sLow.indexOf('alpha') !== -1 ||
+                       sLow.indexOf('papa') !== -1 ||
+                       sLow.indexOf('zulu') !== -1 ||
+                       sLow.indexOf('hotel') !== -1 ||
+                       sLow.indexOf('band') !== -1 ||
+                       sLow.indexOf('leaderboard') !== -1;
+      if (!isRelevant) return;
+    }
+
+    var cache = CacheService.getScriptCache();
+    if (cache.get('bb_portal_edit_cooldown')) {
+      Logger.log('Edit detected, but sync is on cooldown (max once every 2 minutes).');
+      return;
+    }
+    cache.put('bb_portal_edit_cooldown', '1', 120); // 120-second cooldown
+    syncMasterAttendanceToPortal(true);
+  } catch (err) {
+    Logger.log('autoSyncOnEditTrigger error: ' + err.message);
+  }
+}
+
+/**
+ * Enables auto-sync every 30 minutes in the background
+ */
+function setupAutoSync30Mins() {
+  disableAutoSync(true);
+  ScriptApp.newTrigger('autoSyncMasterAttendance')
+    .timeBased()
+    .everyMinutes(30)
+    .create();
+  notifyUser('Auto-Sync Enabled: Google Sheets will automatically sync to the BB Portal every 30 minutes in the background.');
+}
+
+/**
+ * Enables auto-sync every 15 minutes in the background
+ */
+function setupAutoSync15Mins() {
+  disableAutoSync(true);
+  ScriptApp.newTrigger('autoSyncMasterAttendance')
+    .timeBased()
+    .everyMinutes(15)
+    .create();
+  notifyUser('Auto-Sync Enabled: Google Sheets will automatically sync to the BB Portal every 15 minutes in the background.');
+}
+
+/**
+ * Enables real-time auto-sync whenever attendance or leaderboard sheets are edited
+ */
+function setupAutoSyncOnEdit() {
+  disableAutoSync(true);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ScriptApp.newTrigger('autoSyncOnEditTrigger')
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+  notifyUser('Real-Time Auto-Sync Enabled: Edits to Platoon, Band, or Leaderboard tabs will automatically sync to the portal (debounced to max once every 2 minutes).');
+}
+
+/**
+ * Checks all active auto-sync triggers and notifies user
+ */
+function checkAutoSyncStatus() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var active = [];
+  for (var i = 0; i < triggers.length; i++) {
+    var fn = triggers[i].getHandlerFunction();
+    if (fn === 'autoSyncMasterAttendance' || fn === 'autoSyncOnEditTrigger' || fn === 'syncMasterAttendanceToPortal') {
+      active.push(fn + ' [' + triggers[i].getEventType() + ']');
+    }
+  }
+  if (active.length > 0) {
+    notifyUser('Active Auto-Sync Triggers (' + active.length + '):\n\n' + active.join('\n') + '\n\nAuto-sync is ACTIVE and running automatically in the background!');
+  } else {
+    notifyUser('Auto-Sync is currently DISABLED.\n\nTo enable, click:\nBB Portal > Enable Auto-Sync (Every 30 Mins)');
+  }
+}
+
+/**
+ * Disables all auto-sync triggers
+ */
+function disableAutoSync(silent) {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    var fn = triggers[i].getHandlerFunction();
+    if (fn === 'autoSyncMasterAttendance' || fn === 'autoSyncOnEditTrigger' || fn === 'syncMasterAttendanceToPortal') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      removed++;
+    }
+  }
+  if (!silent) {
+    notifyUser('Auto-Sync Disabled: Removed ' + removed + ' active trigger(s). Attendance will now only sync when manually clicked.');
+  }
+}
+
+/**
+ * Safe notification helper that handles both manual UI and headless background runs
+ */
+function notifyUser(msg) {
+  try {
+    SpreadsheetApp.getUi().alert(msg);
+  } catch (e) {
+    Logger.log(msg);
+  }
+}
+
+/**
+ * Main Sync Function: Reads all Platoon tabs, Band Attendance, and Squad Leaderboards
+ * @param {boolean} [isBackground=false] When true, suppresses modal popups for headless execution
+ */
+function syncMasterAttendanceToPortal(isBackground) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var members = {};
   var squads = {};
@@ -381,7 +525,9 @@ function syncMasterAttendanceToPortal() {
 
   var memberCount = Object.keys(members).length;
   if (memberCount === 0) {
-    SpreadsheetApp.getUi().alert('Notice: Could not find member rows in Platoon tabs. Please make sure sheet names match "Platoon Alpha", "Platoon Papa", etc.');
+    var noMembersMsg = 'Notice: Could not find member rows in Platoon tabs. Please make sure sheet names match "Platoon Alpha", "Platoon Papa", etc.';
+    Logger.log(noMembersMsg);
+    if (!isBackground) notifyUser(noMembersMsg);
     return;
   }
 
@@ -416,9 +562,17 @@ function syncMasterAttendanceToPortal() {
   var code = response.getResponseCode();
 
   if (code >= 200 && code < 300) {
-    SpreadsheetApp.getUi().alert('Success: Synced ' + memberCount + ' members and squad leaderboards across ' + scannedSheets.length + ' tabs to the 1st PJ BB Portal!');
+    var successMsg = 'Success: Synced ' + memberCount + ' members and squad leaderboards across ' + scannedSheets.length + ' tabs to the 1st PJ BB Portal!';
+    Logger.log(successMsg);
+    if (!isBackground) {
+      notifyUser(successMsg);
+    }
   } else {
-    SpreadsheetApp.getUi().alert('Sync Failed (HTTP ' + code + '):\n' + response.getContentText());
+    var errorMsg = 'Sync Failed (HTTP ' + code + '):\n' + response.getContentText();
+    Logger.log(errorMsg);
+    if (!isBackground) {
+      notifyUser(errorMsg);
+    }
   }
 }
 
@@ -429,12 +583,12 @@ function testPortalConnection() {
       muteHttpExceptions: true
     });
     if (res.getResponseCode() === 200) {
-      SpreadsheetApp.getUi().alert('Connection Successful: Google Sheets is connected to the 1st PJ BB Portal database.');
+      notifyUser('Connection Successful: Google Sheets is connected to the 1st PJ BB Portal database.');
     } else {
-      SpreadsheetApp.getUi().alert('Connection returned code ' + res.getResponseCode() + '. Check Supabase URL & Key.');
+      notifyUser('Connection returned code ' + res.getResponseCode() + '. Check Supabase URL & Key.');
     }
-  } catch(e) {
-    SpreadsheetApp.getUi().alert('Connection failed: ' + e.message);
+  } catch (e) {
+    notifyUser('Connection failed: ' + e.message);
   }
 }
 

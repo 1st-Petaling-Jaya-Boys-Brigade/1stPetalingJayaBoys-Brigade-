@@ -9,7 +9,9 @@
  */
 
 var MASTER_ATTENDANCE_KEY = 'bb_master_attendance';
+var MASTER_ATTENDANCE_CACHE_TTL = 3 * 60 * 1000; // 3-minute auto-refresh TTL
 var _masterAttendanceCache = null;
+var _masterAttendanceCacheTime = 0;
 
 // ── Data Ingestion & Caching ────────────────────────────────────────────────
 
@@ -29,16 +31,20 @@ function normalizeMemberName(name) {
  * @returns {Promise<Object|null>}
  */
 async function getMasterAttendanceData(forceRefresh) {
-  if (!forceRefresh && _masterAttendanceCache) {
+  var now = Date.now();
+  if (!forceRefresh && _masterAttendanceCache && (now - _masterAttendanceCacheTime < MASTER_ATTENDANCE_CACHE_TTL)) {
     return _masterAttendanceCache;
   }
 
-  // Check sessionStorage cache
+  // Check sessionStorage cache with TTL
   if (!forceRefresh && typeof sessionStorage !== 'undefined') {
     try {
-      var cached = sessionStorage.getItem('bb_master_att_cache');
-      if (cached) {
-        _masterAttendanceCache = JSON.parse(cached);
+      var cachedStr = sessionStorage.getItem('bb_master_att_cache');
+      var cachedTimeStr = sessionStorage.getItem('bb_master_att_cache_time');
+      var cachedTime = cachedTimeStr ? parseInt(cachedTimeStr, 10) : 0;
+      if (cachedStr && (now - cachedTime < MASTER_ATTENDANCE_CACHE_TTL)) {
+        _masterAttendanceCache = JSON.parse(cachedStr);
+        _masterAttendanceCacheTime = cachedTime;
         return _masterAttendanceCache;
       }
     } catch (e) {}
@@ -52,8 +58,12 @@ async function getMasterAttendanceData(forceRefresh) {
     if (rows && rows.length && rows[0].value) {
       var parsed = JSON.parse(rows[0].value);
       _masterAttendanceCache = parsed;
+      _masterAttendanceCacheTime = now;
       if (typeof sessionStorage !== 'undefined') {
-        try { sessionStorage.setItem('bb_master_att_cache', JSON.stringify(parsed)); } catch (e2) {}
+        try {
+          sessionStorage.setItem('bb_master_att_cache', JSON.stringify(parsed));
+          sessionStorage.setItem('bb_master_att_cache_time', String(now));
+        } catch (e2) {}
       }
       return parsed;
     }
@@ -351,8 +361,12 @@ function renderEmptyAttendanceState(name, lastSynced) {
  */
 async function refreshMemberAttendanceStats() {
   _masterAttendanceCache = null;
+  _masterAttendanceCacheTime = 0;
   if (typeof sessionStorage !== 'undefined') {
-    try { sessionStorage.removeItem('bb_master_att_cache'); } catch (e) {}
+    try {
+      sessionStorage.removeItem('bb_master_att_cache');
+      sessionStorage.removeItem('bb_master_att_cache_time');
+    } catch (e) {}
   }
   await loadMemberAttendanceStats();
 }
@@ -485,15 +499,22 @@ async function renderAdminMasterSheetPanel() {
 
     '<!-- Configuration & Apps Script Instructions -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;box-shadow:var(--shadow-card);">' +
-      '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px;display:flex;align-items:center;gap:6px;">' +
-        '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
-        'Google Apps Script Setup (1-Time Setup)' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
+        '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+          'Google Apps Script Setup &amp; Background Auto-Sync' +
+        '</div>' +
+        '<span style="font-size:10px;background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+          '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>' +
+          'Auto-Sync Capable' +
+        '</span>' +
       '</div>' +
       '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">' +
         '1. Open your <strong>Master Attendance Google Sheet</strong>.<br>' +
         '2. Click <strong>Extensions &gt; Apps Script</strong>.<br>' +
-        '3. Replace any existing code with the snippet below and click <strong>Save</strong>.<br>' +
-        '4. Reload your Google Sheet. You will see a new menu: <strong>BB Portal &gt; Sync Attendance to Portal Now</strong>.' +
+        '3. Replace any existing code with the snippet below and click <strong>Save</strong> (disk icon).<br>' +
+        '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, click <strong>Enable Auto-Sync (Every 30 Mins)</strong> or <strong>Enable Auto-Sync on Edit (Real-Time)</strong>.<br>' +
+        '5. <em>Done!</em> Your spreadsheet will now automatically sync attendance and leaderboard scores to the portal in the background without needing manual clicks.' +
       '</div>' +
 
       '<div style="display:flex;justify-content:flex-end;margin-bottom:6px;">' +
