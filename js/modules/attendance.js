@@ -374,12 +374,57 @@ async function renderAdminMasterSheetPanel() {
   var syncDate = data && data.lastSynced ? new Date(data.lastSynced).toLocaleString() : 'Never synced';
   var sheetName = data && data.sheetTitle ? data.sheetTitle : 'Google Master Sheet';
 
-  var platoons = data && data.platoons ? data.platoons : {};
-  var sortedPlatoons = ['Alpha', 'Papa', 'Zulu', 'Hotel'].sort(function(a, b) {
-    var pA = platoons[a] ? platoons[a].totalPoints : 0;
-    var pB = platoons[b] ? platoons[b].totalPoints : 0;
-    return pB - pA;
+  var rawSquads = (data && data.squads) ? data.squads : null;
+  var squadList = [];
+  if (rawSquads && Object.keys(rawSquads).length > 0) {
+    Object.keys(rawSquads).forEach(function(k) {
+      if (k.toLowerCase().indexOf('hotel') === -1) {
+        squadList.push(rawSquads[k]);
+      }
+    });
+  } else {
+    squadList = [
+      { name: 'PAPA 1',  points: 161, rank: 1, platoon: 'Papa' },
+      { name: 'PAPA 2',  points: 161, rank: 1, platoon: 'Papa' },
+      { name: 'ZULU 1',  points: 160, rank: 3, platoon: 'Zulu' },
+      { name: 'ALPHA 2', points: 155, rank: 4, platoon: 'Alpha' },
+      { name: 'ALPHA 1', points: 149, rank: 5, platoon: 'Alpha' },
+      { name: 'ZULU 2',  points: 144, rank: 6, platoon: 'Zulu' }
+    ];
+  }
+
+  squadList.sort(function(a, b) {
+    return (b.points || 0) - (a.points || 0);
   });
+
+  var curRank = 1;
+  for (var i = 0; i < squadList.length; i++) {
+    if (i > 0 && squadList[i].points < squadList[i - 1].points) {
+      curRank = i + 1;
+    }
+    squadList[i].displayRank = curRank;
+  }
+
+  function getPlatoonStyle(sqName) {
+    var upper = String(sqName || '').toUpperCase();
+    if (upper.indexOf('ALPHA') !== -1) return { color: 'var(--brand-gold, #f5c542)', plt: 'Alpha' };
+    if (upper.indexOf('PAPA')  !== -1) return { color: 'var(--blue, #3b82f6)',       plt: 'Papa' };
+    if (upper.indexOf('ZULU')  !== -1) return { color: 'var(--green, #10b981)',      plt: 'Zulu' };
+    return { color: 'var(--accent)', plt: 'Squad' };
+  }
+
+  // Calculate platoon averages (excluding Hotel)
+  var pltSums = {};
+  squadList.forEach(function(sq) {
+    var p = getPlatoonStyle(sq.name).plt;
+    if (!pltSums[p]) pltSums[p] = { sum: 0, count: 0 };
+    pltSums[p].sum += (sq.points || 0);
+    pltSums[p].count += 1;
+  });
+
+  var pltAverages = Object.keys(pltSums).map(function(p) {
+    return { name: p, avg: Math.round(pltSums[p].sum / (pltSums[p].count || 1)) };
+  }).sort(function(a, b) { return b.avg - a.avg; });
 
   var supaUrl = (typeof SUPA_URL !== 'undefined') ? SUPA_URL : (typeof window.SUPA_URL !== 'undefined' ? window.SUPA_URL : 'YOUR_SUPABASE_PROJECT_URL');
   var supaKey = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window.SUPA_KEY !== 'undefined' ? window.SUPA_KEY : 'YOUR_SUPABASE_ANON_KEY');
@@ -406,26 +451,35 @@ async function renderAdminMasterSheetPanel() {
         '</button>' +
       '</div>' +
 
-      '<!-- Platoon Standings Summary -->' +
+      '<!-- Squad Standings Summary -->' +
       '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">' +
-        'Platoon Leaderboard (' + memberCount + ' Synced Members)' +
+        'Squad Leader Board (' + memberCount + ' Synced Members)' +
       '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:8px;">' +
-        sortedPlatoons.map(function(plt) {
-          var pInfo = platoons[plt] || { totalPoints: 0, memberCount: 0, rank: '-' };
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:8px;margin-bottom:10px;">' +
+        squadList.map(function(sq) {
+          var st = getPlatoonStyle(sq.name);
           return (
             '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;">' +
               '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<span style="font-size:12px;font-weight:700;color:var(--text-primary);">' + plt + '</span>' +
-                '<span style="font-size:10px;font-weight:700;color:var(--accent);">#' + (pInfo.rank || '-') + '</span>' +
+                '<span style="font-size:12px;font-weight:700;color:var(--text-primary);">' + sq.name + '</span>' +
+                '<span style="font-size:10px;font-weight:700;color:var(--accent);">#' + (sq.displayRank || sq.rank || '-') + '</span>' +
               '</div>' +
-              '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--green);margin-top:2px;">' +
-                (pInfo.totalPoints || 0) + ' pts' +
+              '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' +
+                (sq.points || 0) + ' pts' +
               '</div>' +
-              '<div style="font-size:10px;color:var(--text-muted);">' + (pInfo.memberCount || 0) + ' boys</div>' +
+              '<div style="font-size:10px;color:var(--text-muted);">' + st.plt + ' Platoon</div>' +
             '</div>'
           );
         }).join('') +
+      '</div>' +
+
+      '<!-- Platoon Averages Summary (No Hotel) -->' +
+      '<div style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.03);border:1px solid var(--border-card);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--text-secondary);margin-bottom:2px;flex-wrap:wrap;">' +
+        '<strong style="color:var(--text-primary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Platoon Averages:</strong>' +
+        pltAverages.map(function(pa) {
+          var st = getPlatoonStyle(pa.name);
+          return '<span>' + pa.name + ': <strong style="color:' + st.color + ';">' + pa.avg + ' pts</strong></span>';
+        }).join('<span style="color:rgba(255,255,255,0.2);">&bull;</span>') +
       '</div>' +
     '</div>' +
 
