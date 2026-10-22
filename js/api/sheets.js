@@ -128,17 +128,16 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey) {
   var url = supaUrl || 'YOUR_SUPABASE_PROJECT_URL';
   var key = supaKey || 'YOUR_SUPABASE_ANON_KEY';
 
-  return `// ══════════════════════════════════════════════════════════════════════════════
-// 1st Petaling Jaya Boys' Brigade — Master Attendance Sheet Ingestion Script
+  return `// ==============================================================================
+// 1st Petaling Jaya Boys' Brigade - Master Attendance Sheet Ingestion Script
 // 
 // Paste this code into: Google Sheets > Extensions > Apps Script
 // Sets up a custom menu 'BB Portal' in your Master Spreadsheet.
-// Automatically syncs Attendance %, Uniform Points & Platoon Scores to the Web Portal!
-// ══════════════════════════════════════════════════════════════════════════════
+// Automatically syncs Platoon tabs (Alpha, Papa, Zulu, Hotel), Band, and Leaderboards!
+// ==============================================================================
 
 var PORTAL_SUPABASE_URL = '${url}';
 var PORTAL_SUPABASE_KEY = '${key}';
-var MASTER_SUMMARY_TAB  = 'Master Summary'; // Change if your summary tab has a different name
 
 /**
  * Adds custom menu when the Google Sheet opens
@@ -152,128 +151,213 @@ function onOpen() {
 }
 
 /**
- * Main Sync Function: Reads Master Summary tab and uploads records to Portal
+ * Main Sync Function: Reads all Platoon tabs, Band Attendance, and Squad Leaderboards
  */
 function syncMasterAttendanceToPortal() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(MASTER_SUMMARY_TAB);
-  
-  if (!sheet) {
-    // Try to find any sheet containing 'summary' or 'master'
-    var sheets = ss.getSheets();
-    for (var i = 0; i < sheets.length; i++) {
-      var sname = sheets[i].getName().toLowerCase();
-      if (sname.indexOf('summary') !== -1 || sname.indexOf('master') !== -1) {
-        sheet = sheets[i];
+  var members = {};
+  var platoons = {
+    'Alpha': { totalPoints: 0, memberCount: 0, rank: 0 },
+    'Papa':  { totalPoints: 0, memberCount: 0, rank: 0 },
+    'Zulu':  { totalPoints: 0, memberCount: 0, rank: 0 },
+    'Hotel': { totalPoints: 0, memberCount: 0, rank: 0 }
+  };
+  var squads = {};
+  var scannedSheets = [];
+
+  // 1. Process Platoon Tabs (Alpha, Papa, Zulu, Hotel)
+  var platoonList = ['Alpha', 'Papa', 'Zulu', 'Hotel'];
+  platoonList.forEach(function(plt) {
+    var sheet = ss.getSheetByName('Platoon ' + plt) || ss.getSheetByName(plt);
+    if (!sheet) return;
+    scannedSheets.push(sheet.getName());
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 9) return;
+
+    // Scan for header row (contains 'name' and 'points')
+    var headerRowIdx = -1;
+    var colMap = {
+      name: -1, rank: -1, squad: -1,
+      totalPts: -1, bandPts: -1, bandAtt: -1,
+      paradePts: -1, paradeAtt: -1, uniformPts: -1
+    };
+
+    for (var r = 0; r < Math.min(15, data.length); r++) {
+      var row = data[r].map(function(c) { return String(c || '').toLowerCase().trim(); });
+      var nIdx = row.findIndex(function(h) { return h === 'name' || h === 'member name' || h === 'nama'; });
+      if (nIdx !== -1) {
+        headerRowIdx = r;
+        colMap.name = nIdx;
+        colMap.rank = row.findIndex(function(h) { return h === 'rank'; });
+        colMap.squad = row.findIndex(function(h) { return h === 'squad'; });
+        colMap.totalPts = row.findIndex(function(h) { return h.indexOf("total member's points") !== -1 || h.indexOf('total member points') !== -1; });
+        colMap.bandPts = row.findIndex(function(h) { return h.indexOf('total band points') !== -1; });
+        colMap.bandAtt = row.findIndex(function(h) { return h.indexOf('band attendance') !== -1; });
+        colMap.paradePts = row.findIndex(function(h) { return h.indexOf('total parade points') !== -1; });
+        colMap.paradeAtt = row.findIndex(function(h) { return h.indexOf('total parade attendance') !== -1 || h.indexOf('parade attendance') !== -1; });
+        colMap.uniformPts = row.findIndex(function(h) { return h.indexOf('total uniform points') !== -1 || h.indexOf('uniform points') !== -1; });
         break;
       }
     }
-  }
-  
-  if (!sheet) {
-    SpreadsheetApp.getUi().alert('Error: Could not find tab "' + MASTER_SUMMARY_TAB + '". Please verify the tab name in Apps Script.');
-    return;
-  }
 
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) {
-    SpreadsheetApp.getUi().alert('The sheet has no rows to sync.');
-    return;
-  }
+    if (headerRowIdx === -1 || colMap.name === -1) return;
 
-  // 1. Map Header Column Positions
-  var headers = data[0].map(function(h) { return String(h).trim().toLowerCase(); });
-  var colMap = findColumnIndices(headers);
+    for (var r = headerRowIdx + 1; r < data.length; r++) {
+      var row = data[r];
+      var rawName = String(row[colMap.name] || '').trim();
+      if (!rawName || rawName.toLowerCase() === 'name') continue;
 
-  if (colMap.name === -1) {
-    SpreadsheetApp.getUi().alert('Error: Could not locate a "Member Name" or "Name" column in Row 1.');
-    return;
-  }
+      var normKey = normalizeMemberKey(rawName);
+      var rank = colMap.rank !== -1 ? String(row[colMap.rank] || '').trim() : '';
+      var squad = colMap.squad !== -1 ? String(row[colMap.squad] || '').trim() : (plt + ' Platoon');
+      var totalPts = colMap.totalPts !== -1 ? parseNumber(row[colMap.totalPts]) : 0;
+      var bandPts = colMap.bandPts !== -1 ? parseNumber(row[colMap.bandPts]) : 0;
+      var bandAttPct = colMap.bandAtt !== -1 ? parsePercentage(row[colMap.bandAtt]) : 0;
+      var paradePts = colMap.paradePts !== -1 ? parseNumber(row[colMap.paradePts]) : 0;
+      var paradeAttPct = colMap.paradeAtt !== -1 ? parsePercentage(row[colMap.paradeAtt]) : 0;
+      var uniformPts = colMap.uniformPts !== -1 ? parseNumber(row[colMap.uniformPts]) : 0;
 
-  // 2. Process Member Rows
-  var members = {};
-  var platoons = {
-    'Alpha': { totalPoints: 0, memberCount: 0 },
-    'Papa':  { totalPoints: 0, memberCount: 0 },
-    'Zulu':  { totalPoints: 0, memberCount: 0 },
-    'Hotel': { totalPoints: 0, memberCount: 0 }
-  };
+      members[normKey] = {
+        name: rawName,
+        rank: rank,
+        platoon: plt,
+        squad: squad,
+        paradeAttendance: {
+          percentage: paradeAttPct
+        },
+        bandAttendance: {
+          percentage: bandAttPct
+        },
+        points: {
+          uniform: Math.round(uniformPts * 10) / 10,
+          paradeAtt: Math.round(paradePts),
+          bandAtt: Math.round(bandPts),
+          total: Math.round(totalPts || (uniformPts + paradePts + bandPts))
+        },
+        lastUpdated: new Date().toISOString()
+      };
 
-  for (var r = 1; r < data.length; r++) {
-    var row = data[r];
-    var rawName = String(row[colMap.name] || '').trim();
-    if (!rawName) continue;
+      if (platoons[plt]) {
+        platoons[plt].totalPoints += members[normKey].points.total;
+        platoons[plt].memberCount += 1;
+      }
+    }
+  });
 
-    var normKey = normalizeMemberKey(rawName);
-    var platoon = standardizePlatoon(String(row[colMap.platoon] || ''));
-    var section = String(row[colMap.section] || 'Senior').trim();
+  // 2. Process Band Attendance Tab
+  var bandSheet = ss.getSheetByName('Band Attendance 2026') || ss.getSheetByName('Band Attendance');
+  if (bandSheet) {
+    scannedSheets.push(bandSheet.getName());
+    var bData = bandSheet.getDataRange().getValues();
+    var bHeaderRow = -1;
+    var bColMap = { name: 0, section: 1, squad: 2, points: 3, att: 4 };
 
-    // Attendance % and counts
-    var paradeAttPct = parsePercentage(row[colMap.paradeAttPct]);
-    var paradeAttCount = parseInt(row[colMap.paradeAttCount], 10) || 0;
-    var paradeTotal = parseInt(row[colMap.paradeTotal], 10) || 0;
-
-    var bandAttPct = parsePercentage(row[colMap.bandAttPct]);
-    var bandAttCount = parseInt(row[colMap.bandAttCount], 10) || 0;
-    var bandTotal = parseInt(row[colMap.bandTotal], 10) || 0;
-
-    // Points
-    var uniformPts = parseFloat(row[colMap.uniformPts]) || 0;
-    var uniformAvg = parseFloat(row[colMap.uniformAvg]) || (paradeAttCount > 0 ? (uniformPts / paradeAttCount) : 0);
-    var paradePts  = parseFloat(row[colMap.paradePts])  || (paradeAttCount * 2);
-    var bandPts    = parseFloat(row[colMap.bandPts])    || (bandAttCount * 2);
-    var totalPts   = parseFloat(row[colMap.totalPts])   || (uniformPts + paradePts + bandPts);
-
-    // Aggregate into Platoon totals
-    if (platoons[platoon]) {
-      platoons[platoon].totalPoints += totalPts;
-      platoons[platoon].memberCount += 1;
+    for (var r = 0; r < Math.min(10, bData.length); r++) {
+      var row = bData[r].map(function(c) { return String(c || '').toLowerCase().trim(); });
+      var nIdx = row.findIndex(function(h) { return h.indexOf('name') !== -1; });
+      if (nIdx !== -1) {
+        bHeaderRow = r;
+        bColMap.name = nIdx;
+        bColMap.section = row.findIndex(function(h) { return h.indexOf('section') !== -1 || h.indexOf('instrument') !== -1; });
+        bColMap.squad = row.findIndex(function(h) { return h.indexOf('squad') !== -1; });
+        bColMap.points = row.findIndex(function(h) { return h.indexOf('band points') !== -1 || h.indexOf('points') !== -1; });
+        bColMap.att = row.findIndex(function(h) { return h.indexOf('band attendance') !== -1 || h.indexOf('attendance') !== -1; });
+        break;
+      }
     }
 
-    members[normKey] = {
-      name: rawName,
-      platoon: platoon,
-      section: section,
-      paradeAttendance: {
-        percentage: paradeAttPct,
-        presentCount: paradeAttCount,
-        totalParades: paradeTotal
-      },
-      bandAttendance: {
-        percentage: bandAttPct,
-        presentCount: bandAttCount,
-        totalSessions: bandTotal
-      },
-      points: {
-        uniform: Math.round(uniformPts * 10) / 10,
-        uniformAvg: Math.round(uniformAvg * 10) / 10,
-        paradeAtt: Math.round(paradePts),
-        bandAtt: Math.round(bandPts),
-        total: Math.round(totalPts)
-      },
-      lastUpdated: new Date().toISOString()
-    };
+    if (bHeaderRow !== -1) {
+      for (var r = bHeaderRow + 1; r < bData.length; r++) {
+        var row = bData[r];
+        var rawName = String(row[bColMap.name] || '').trim();
+        if (!rawName || rawName.toLowerCase() === 'name') continue;
+
+        var normKey = normalizeMemberKey(rawName);
+        var section = bColMap.section !== -1 ? String(row[bColMap.section] || '').trim() : '';
+        var bPts = bColMap.points !== -1 ? parseNumber(row[bColMap.points]) : 0;
+        var bAtt = bColMap.att !== -1 ? parsePercentage(row[bColMap.att]) : 0;
+
+        if (members[normKey]) {
+          members[normKey].bandSection = section;
+          if (!members[normKey].points.bandAtt && bPts) members[normKey].points.bandAtt = Math.round(bPts);
+          if (!members[normKey].bandAttendance.percentage && bAtt) members[normKey].bandAttendance.percentage = bAtt;
+        } else {
+          members[normKey] = {
+            name: rawName,
+            rank: '',
+            platoon: 'Band',
+            squad: bColMap.squad !== -1 ? String(row[bColMap.squad] || '').trim() : '',
+            bandSection: section,
+            paradeAttendance: { percentage: 0 },
+            bandAttendance: { percentage: bAtt },
+            points: { uniform: 0, paradeAtt: 0, bandAtt: Math.round(bPts), total: Math.round(bPts) },
+            lastUpdated: new Date().toISOString()
+          };
+        }
+      }
+    }
   }
 
-  // 3. Compute Platoon Rankings
+  // 3. Process Squad Leaderboard Tab
+  var lbSheet = ss.getSheetByName('Squad Leaderboard [Post Enrolment]') ||
+                ss.getSheetByName('Squad Leaderboard [Pre Enrolment]') ||
+                ss.getSheetByName('Squad Leaderboard');
+  if (lbSheet) {
+    scannedSheets.push(lbSheet.getName());
+    var lbData = lbSheet.getDataRange().getValues();
+    for (var r = 0; r < lbData.length; r++) {
+      var row = lbData[r];
+      for (var c = 0; c < row.length; c++) {
+        var cellVal = String(row[c] || '').trim();
+        var m = cellVal.match(/^(ALPHA|PAPA|ZULU|HOTEL)\s*([0-9]+)$/i);
+        if (m) {
+          var squadName = (m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()) + ' ' + m[2];
+          var pts = 0;
+          for (var nc = c + 1; nc < row.length; nc++) {
+            var nVal = parseNumber(row[nc]);
+            if (nVal > 0) { pts = nVal; break; }
+          }
+          if (pts > 0) {
+            squads[squadName] = { name: squadName, points: pts };
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Compute Squad Ranks
+  var sortedSquads = Object.keys(squads).sort(function(a, b) {
+    return squads[b].points - squads[a].points;
+  });
+  sortedSquads.forEach(function(sqName, idx) {
+    squads[sqName].rank = idx + 1;
+  });
+
+  // 5. Compute Platoon Ranks
   var sortedPlatoons = Object.keys(platoons).sort(function(a, b) {
     return platoons[b].totalPoints - platoons[a].totalPoints;
   });
-
-  sortedPlatoons.forEach(function(pltName, rankIdx) {
-    platoons[pltName].rank = rankIdx + 1;
+  sortedPlatoons.forEach(function(pltName, idx) {
+    platoons[pltName].rank = idx + 1;
   });
 
+  var memberCount = Object.keys(members).length;
+  if (memberCount === 0) {
+    SpreadsheetApp.getUi().alert('Notice: Could not find member rows in Platoon tabs. Please make sure sheet names contain "Platoon Alpha", "Platoon Papa", etc.');
+    return;
+  }
+
+  // 6. Build Payload & Push to Supabase bb_config
   var payload = {
     lastSynced: new Date().toISOString(),
     sheetTitle: ss.getName(),
-    tabName: sheet.getName(),
-    totalMembers: Object.keys(members).length,
-    platoons: platoons,
-    members: members
+    scannedSheets: scannedSheets,
+    members: members,
+    squads: squads,
+    platoons: platoons
   };
 
-  // 4. POST payload to Supabase
   var postUrl = PORTAL_SUPABASE_URL + '/rest/v1/bb_config?on_conflict=key';
   var options = {
     method: 'post',
@@ -285,7 +369,8 @@ function syncMasterAttendanceToPortal() {
     },
     payload: JSON.stringify({
       key: 'bb_master_attendance',
-      value: JSON.stringify(payload)
+      value: JSON.stringify(payload),
+      updated_at: new Date().toISOString()
     }),
     muteHttpExceptions: true
   };
@@ -294,15 +379,12 @@ function syncMasterAttendanceToPortal() {
   var code = response.getResponseCode();
 
   if (code >= 200 && code < 300) {
-    SpreadsheetApp.getUi().alert('Success: Synced ' + Object.keys(members).length + ' members & platoon standings to the 1st PJ BB Portal.');
+    SpreadsheetApp.getUi().alert('Success: Synced ' + memberCount + ' members and leaderboards across ' + scannedSheets.length + ' tabs to the 1st PJ BB Portal!');
   } else {
-    SpreadsheetApp.getUi().alert('Sync Failed (HTTP ' + code + '):\\n' + response.getContentText());
+    SpreadsheetApp.getUi().alert('Sync Failed (HTTP ' + code + '):\n' + response.getContentText());
   }
 }
 
-/**
- * Test portal connection
- */
 function testPortalConnection() {
   try {
     var res = UrlFetchApp.fetch(PORTAL_SUPABASE_URL + '/rest/v1/bb_config?key=eq.bb_master_attendance&select=key', {
@@ -319,71 +401,27 @@ function testPortalConnection() {
   }
 }
 
-// ── Web App GET Endpoint (Allows Portal to fetch data anytime) ──────────────
-
-function doGet(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(MASTER_SUMMARY_TAB);
-  if (!sheet) {
-    return ContentService.createTextOutput(JSON.stringify({ error: 'Summary tab not found' }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-  // Runs sync and returns JSON output
-  syncMasterAttendanceToPortal();
-  return ContentService.createTextOutput(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }))
-    .setMimeType(ContentService.MimeType.JSON);
+function parseNumber(val) {
+  if (val === null || val === undefined || val === '' || val === 'N/A') return 0;
+  if (typeof val === 'number') return val;
+  var s = String(val).replace(/[^0-9.-]/g, '');
+  var num = parseFloat(s);
+  return isNaN(num) ? 0 : num;
 }
 
-// ── Internal Parsing Utilities ──────────────────────────────────────────────
-
-function findColumnIndices(headers) {
-  function matchCol(patterns) {
-    for (var i = 0; i < headers.length; i++) {
-      for (var p = 0; p < patterns.length; p++) {
-        if (headers[i].indexOf(patterns[p]) !== -1) return i;
-      }
-    }
-    return -1;
+function parsePercentage(val) {
+  if (val === null || val === undefined || val === '' || val === 'N/A') return 0;
+  if (typeof val === 'number') {
+    if (val <= 2.0 && val > 0) return Math.round(val * 10000) / 100;
+    return Math.round(val * 100) / 100;
   }
-
-  return {
-    name:           matchCol(['name', 'member', 'nama', 'member name']),
-    platoon:        matchCol(['platoon', 'squad', 'group']),
-    section:        matchCol(['section', 'division']),
-    paradeAttPct:   matchCol(['parade %', 'parade att %', 'att %', 'attendance %', 'overall att']),
-    paradeAttCount: matchCol(['parade present', 'parade count', 'parades attended', 'attended']),
-    paradeTotal:    matchCol(['total parades', 'parade total', 'total weeks']),
-    bandAttPct:     matchCol(['band %', 'band att %', 'band attendance %']),
-    bandAttCount:   matchCol(['band present', 'band count', 'band attended']),
-    bandTotal:      matchCol(['total band', 'band total']),
-    uniformPts:     matchCol(['uniform pts', 'uniform points', 'total uniform', 'uniform']),
-    uniformAvg:     matchCol(['uniform avg', 'avg uniform']),
-    paradePts:      matchCol(['parade pts', 'parade points']),
-    bandPts:        matchCol(['band pts', 'band points']),
-    totalPts:       matchCol(['total pts', 'total points', 'total score', 'points'])
-  };
+  var s = String(val).replace('%', '').trim();
+  var num = parseFloat(s);
+  return isNaN(num) ? 0 : Math.round(num * 100) / 100;
 }
 
 function normalizeMemberKey(name) {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function standardizePlatoon(val) {
-  var s = String(val || '').toLowerCase();
-  if (s.indexOf('alpha') !== -1) return 'Alpha';
-  if (s.indexOf('papa')  !== -1) return 'Papa';
-  if (s.indexOf('zulu')  !== -1) return 'Zulu';
-  if (s.indexOf('hotel') !== -1) return 'Hotel';
-  return 'Alpha'; // Default fallback
-}
-
-function parsePercentage(val) {
-  if (typeof val === 'number') {
-    return val <= 1.0 ? Math.round(val * 1000) / 10 : Math.round(val * 10) / 10;
-  }
-  var str = String(val || '').replace('%', '').trim();
-  var num = parseFloat(str) || 0;
-  return Math.round(num * 10) / 10;
 }
 `;
 }
