@@ -5,7 +5,8 @@
 -- Supabase Row-Level Security (RLS) & Child Data Isolation Policy
 --
 -- Protects Company Data & Minor Members:
---   1. Enables strict Row-Level Security (RLS) across all core database tables:
+--   1. Ensures required privacy columns (email, age, section, department) exist.
+--   2. Enables strict Row-Level Security (RLS) across all core database tables:
 --      - bb_members
 --      - bb_orders
 --      - bb_tasks
@@ -13,10 +14,20 @@
 --      - bb_member_badges
 --      - bb_announcements
 --      - bb_gallery
---   2. Prevents unauthorized mass dumping, scraping, and catastrophic DELETE
+--   3. Prevents unauthorized mass dumping, scraping, and catastrophic DELETE
 --      via the public Supabase anon key.
---   3. Isolates child/minor profiles and enforces soft-deletion protection.
+--   4. Isolates child/minor profiles and enforces soft-deletion protection.
 -- ==============================================================================
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- SECTION 0: PRE-REQUISITE SCHEMA ALIGNMENT
+-- ──────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE IF EXISTS bb_members ADD COLUMN IF NOT EXISTS email text;
+ALTER TABLE IF EXISTS bb_members ADD COLUMN IF NOT EXISTS age integer;
+ALTER TABLE IF EXISTS bb_members ADD COLUMN IF NOT EXISTS section text;
+ALTER TABLE IF EXISTS bb_members ADD COLUMN IF NOT EXISTS department text;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bb_members_email_lower ON bb_members (lower(email));
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- SECTION 1: ENABLE RLS ON ALL TABLES
@@ -34,7 +45,6 @@ ALTER TABLE IF EXISTS bb_gallery ENABLE ROW LEVEL SECURITY;
 -- SECTION 2: POLICIES FOR bb_members (Child Data & Member Privacy)
 -- ──────────────────────────────────────────────────────────────────────────────
 
--- Drop legacy or conflicting policies if present
 DROP POLICY IF EXISTS "bb_members_select_active" ON bb_members;
 DROP POLICY IF EXISTS "bb_members_insert_registration" ON bb_members;
 DROP POLICY IF EXISTS "bb_members_update_profile" ON bb_members;
@@ -70,7 +80,6 @@ WITH CHECK (
 );
 
 -- 2.4 DELETE: Block unauthenticated blanket hard-deletions via public API
--- Account terminations must use soft-deletion (department = 'deleted') or service_role
 CREATE POLICY "bb_members_delete_restrict"
 ON bb_members FOR DELETE
 TO authenticated
@@ -85,13 +94,11 @@ DROP POLICY IF EXISTS "bb_orders_insert_checkout" ON bb_orders;
 DROP POLICY IF EXISTS "bb_orders_update_status" ON bb_orders;
 DROP POLICY IF EXISTS "bb_orders_delete_targeted" ON bb_orders;
 
--- 3.1 SELECT: Allow reading orders for member history and admin order fulfillment
 CREATE POLICY "bb_orders_select_all"
 ON bb_orders FOR SELECT
 TO anon, authenticated
 USING (true);
 
--- 3.2 INSERT: Allow members to place uniform and supply orders
 CREATE POLICY "bb_orders_insert_checkout"
 ON bb_orders FOR INSERT
 TO anon, authenticated
@@ -99,14 +106,12 @@ WITH CHECK (
   order_number IS NOT NULL AND length(trim(order_number)) > 0
 );
 
--- 3.3 UPDATE: Allow admin to update order statuses (Pending, Paid, Ready, Completed)
 CREATE POLICY "bb_orders_update_status"
 ON bb_orders FOR UPDATE
 TO anon, authenticated
 USING (true)
 WITH CHECK (true);
 
--- 3.4 DELETE: Allow deleting targeted orders by specific order_number, block blanket truncate
 CREATE POLICY "bb_orders_delete_targeted"
 ON bb_orders FOR DELETE
 TO anon, authenticated
@@ -123,13 +128,11 @@ DROP POLICY IF EXISTS "bb_tasks_insert_new" ON bb_tasks;
 DROP POLICY IF EXISTS "bb_tasks_update_status" ON bb_tasks;
 DROP POLICY IF EXISTS "bb_tasks_delete_by_id" ON bb_tasks;
 
--- 4.1 SELECT: Allow company NCOs and officers to view tasks
 CREATE POLICY "bb_tasks_select_all"
 ON bb_tasks FOR SELECT
 TO anon, authenticated
 USING (true);
 
--- 4.2 INSERT: Allow creating new departmental tasks
 CREATE POLICY "bb_tasks_insert_new"
 ON bb_tasks FOR INSERT
 TO anon, authenticated
@@ -137,14 +140,12 @@ WITH CHECK (
   title IS NOT NULL AND length(trim(title)) > 0
 );
 
--- 4.3 UPDATE: Allow updating task status (To Do, In Progress, Done) and details
 CREATE POLICY "bb_tasks_update_status"
 ON bb_tasks FOR UPDATE
 TO anon, authenticated
 USING (true)
 WITH CHECK (true);
 
--- 4.4 DELETE: Allow removing specific tasks by ID, block mass wipe
 CREATE POLICY "bb_tasks_delete_by_id"
 ON bb_tasks FOR DELETE
 TO anon, authenticated
@@ -159,13 +160,11 @@ DROP POLICY IF EXISTS "bb_config_insert_upsert" ON bb_config;
 DROP POLICY IF EXISTS "bb_config_update_key" ON bb_config;
 DROP POLICY IF EXISTS "bb_config_delete_deny" ON bb_config;
 
--- 5.1 SELECT: Allow portal to read schedules, badges, forms, and attendance cache
 CREATE POLICY "bb_config_select_public"
 ON bb_config FOR SELECT
 TO anon, authenticated
 USING (true);
 
--- 5.2 INSERT / UPSERT: Allow admin and Google Apps Script sync to update config entries
 CREATE POLICY "bb_config_insert_upsert"
 ON bb_config FOR INSERT
 TO anon, authenticated
@@ -173,7 +172,6 @@ WITH CHECK (
   key IS NOT NULL AND length(trim(key)) > 0
 );
 
--- 5.3 UPDATE: Allow modifying config values for known keys
 CREATE POLICY "bb_config_update_key"
 ON bb_config FOR UPDATE
 TO anon, authenticated
@@ -182,7 +180,6 @@ WITH CHECK (
   key IS NOT NULL AND length(trim(key)) > 0
 );
 
--- 5.4 DELETE: Strictly disallow deleting configuration keys via public API
 CREATE POLICY "bb_config_delete_deny"
 ON bb_config FOR DELETE
 TO anon, authenticated
@@ -270,11 +267,7 @@ USING (id IS NOT NULL);
 -- ──────────────────────────────────────────────────────────────────────────────
 -- VERIFICATION QUERY
 -- ──────────────────────────────────────────────────────────────────────────────
--- Run this query after applying to verify that Row-Level Security is active:
---
--- SELECT tablename, rowsecurity
--- FROM pg_tables
--- WHERE schemaname = 'public'
---   AND tablename IN ('bb_members', 'bb_orders', 'bb_tasks', 'bb_config', 'bb_member_badges', 'bb_announcements', 'bb_gallery');
---
--- All rows must return rowsecurity = true.
+SELECT tablename, rowsecurity
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN ('bb_members', 'bb_orders', 'bb_tasks', 'bb_config', 'bb_member_badges', 'bb_announcements', 'bb_gallery');
