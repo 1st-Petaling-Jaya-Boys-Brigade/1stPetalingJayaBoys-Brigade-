@@ -132,7 +132,7 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey) {
 // 1st Petaling Jaya Boys' Brigade — Master Attendance Sheet Ingestion Script
 // 
 // Paste this code into: Google Sheets > Extensions > Apps Script
-// Sets up a custom menu '🎖️ BB Portal' in your Master Spreadsheet.
+// Sets up a custom menu 'BB Portal' in your Master Spreadsheet.
 // Automatically syncs Attendance %, Uniform Points & Platoon Scores to the Web Portal!
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -145,9 +145,9 @@ var MASTER_SUMMARY_TAB  = 'Master Summary'; // Change if your summary tab has a 
  */
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('🎖️ BB Portal')
-    .addItem('📤 Sync Attendance to Portal Now', 'syncMasterAttendanceToPortal')
-    .addItem('⚙️ Test Portal Connection', 'testPortalConnection')
+    .createMenu('BB Portal')
+    .addItem('Sync Attendance to Portal Now', 'syncMasterAttendanceToPortal')
+    .addItem('Test Portal Connection', 'testPortalConnection')
     .addToUi();
 }
 
@@ -294,7 +294,7 @@ function syncMasterAttendanceToPortal() {
   var code = response.getResponseCode();
 
   if (code >= 200 && code < 300) {
-    SpreadsheetApp.getUi().alert('✅ Success! Synced ' + Object.keys(members).length + ' members & platoon standings to the 1st PJ BB Portal.');
+    SpreadsheetApp.getUi().alert('Success: Synced ' + Object.keys(members).length + ' members & platoon standings to the 1st PJ BB Portal.');
   } else {
     SpreadsheetApp.getUi().alert('Sync Failed (HTTP ' + code + '):\\n' + response.getContentText());
   }
@@ -310,12 +310,12 @@ function testPortalConnection() {
       muteHttpExceptions: true
     });
     if (res.getResponseCode() === 200) {
-      SpreadsheetApp.getUi().alert('✅ Connection Successful! Google Sheets is connected to the 1st PJ BB Portal database.');
+      SpreadsheetApp.getUi().alert('Connection Successful: Google Sheets is connected to the 1st PJ BB Portal database.');
     } else {
-      SpreadsheetApp.getUi().alert('⚠️ Connection returned code ' + res.getResponseCode() + '. Check Supabase URL & Key.');
+      SpreadsheetApp.getUi().alert('Connection returned code ' + res.getResponseCode() + '. Check Supabase URL & Key.');
     }
   } catch(e) {
-    SpreadsheetApp.getUi().alert('❌ Connection failed: ' + e.message);
+    SpreadsheetApp.getUi().alert('Connection failed: ' + e.message);
   }
 }
 

@@ -371,7 +371,7 @@ async function renderAdminMasterSheetPanel() {
         '1. Open your <strong>Master Attendance Google Sheet</strong>.<br>' +
         '2. Click <strong>Extensions &gt; Apps Script</strong>.<br>' +
         '3. Replace any existing code with the snippet below and click <strong>Save</strong>.<br>' +
-        '4. Reload your Google Sheet. You will see a new menu: <strong>🎖️ BB Portal &gt; 📤 Sync Attendance to Portal Now</strong>.' +
+        '4. Reload your Google Sheet. You will see a new menu: <strong>BB Portal &gt; Sync Attendance to Portal Now</strong>.' +
       '</div>' +
 
       '<div style="display:flex;justify-content:flex-end;margin-bottom:6px;">' +
@@ -424,7 +424,7 @@ async function triggerMasterSheetFetch() {
     await renderAdminMasterSheetPanel();
     alert('Master Sheet data synced successfully!');
   } catch (err) {
-    alert('Sync note: ' + err.message + '\n\nTip: You can click "🎖️ BB Portal > 📤 Sync Attendance to Portal Now" inside your Google Sheet at any time to push updates instantly.');
+    alert('Sync note: ' + err.message + '\n\nTip: You can click "BB Portal > Sync Attendance to Portal Now" inside your Google Sheet at any time to push updates instantly.');
   } finally {
     if (btn) {
       btn.disabled = false;
