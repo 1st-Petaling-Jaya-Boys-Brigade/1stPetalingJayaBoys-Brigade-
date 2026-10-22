@@ -1,0 +1,4 @@
+# 1st Petaling Jaya Boys' Brigade Portal
+# Private Internal Portal - Strict Search Engine Exclusion
+User-agent: *
+Disallow: /
