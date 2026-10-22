@@ -70,7 +70,7 @@ async function saveMasterSheetConfig(cfgOverride) {
   }
 
   if (typeof alert === 'function') {
-    alert('Master Sheet configuration saved!');
+    alert('Master Sheet configuration saved.');
   }
 }
 
@@ -133,8 +133,8 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey) {
 // 
 // Paste this code into: Google Sheets > Extensions > Apps Script
 // Sets up a custom menu 'BB Portal' in your Master Spreadsheet.
-// Automatically syncs Platoon tabs (Alpha, Papa, Zulu, Hotel), Band, and Leaderboards!
-// Includes Background Auto-Sync (Every 30 Mins / 15 Mins / On Edit)!
+// Automatically syncs Platoon tabs (Alpha, Papa, Zulu, Hotel), Band, and Leaderboards
+// Includes Background Auto-Sync (Every 5 Mins / 10 Mins / 15 Mins / 30 Mins / On Edit)
 // ==============================================================================
 
 var PORTAL_SUPABASE_URL = '${url}';
@@ -148,8 +148,10 @@ function onOpen() {
     .createMenu('BB Portal')
     .addItem('Sync Attendance to Portal Now', 'manualSyncToPortal')
     .addSeparator()
-    .addItem('Enable Auto-Sync (Every 30 Mins)', 'setupAutoSync30Mins')
+    .addItem('Enable Auto-Sync (Every 5 Mins)', 'setupAutoSync5Mins')
+    .addItem('Enable Auto-Sync (Every 10 Mins)', 'setupAutoSync10Mins')
     .addItem('Enable Auto-Sync (Every 15 Mins)', 'setupAutoSync15Mins')
+    .addItem('Enable Auto-Sync (Every 30 Mins)', 'setupAutoSync30Mins')
     .addItem('Enable Auto-Sync on Edit (Real-Time)', 'setupAutoSyncOnEdit')
     .addItem('Check Auto-Sync Status', 'checkAutoSyncStatus')
     .addItem('Disable Auto-Sync', 'disableAutoSync')
@@ -201,7 +203,7 @@ function autoSyncOnEditTrigger(e) {
       Logger.log('Edit detected, but sync is on cooldown (max once every 2 minutes).');
       return;
     }
-    cache.put('bb_portal_edit_cooldown', '1', 120); // 120-second cooldown
+    cache.put('bb_portal_edit_cooldown', '1', 30); // 30-second cooldown for near-instant sync
     syncMasterAttendanceToPortal(true);
   } catch (err) {
     Logger.log('autoSyncOnEditTrigger error: ' + err.message);
@@ -218,6 +220,30 @@ function setupAutoSync30Mins() {
     .everyMinutes(30)
     .create();
   notifyUser('Auto-Sync Enabled: Google Sheets will automatically sync to the BB Portal every 30 minutes in the background.');
+}
+
+/**
+ * Enables auto-sync every 5 minutes in the background
+ */
+function setupAutoSync5Mins() {
+  disableAutoSync(true);
+  ScriptApp.newTrigger('autoSyncMasterAttendance')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+  notifyUser('Auto-Sync Enabled: Google Sheets will automatically sync to the BB Portal every 5 minutes in the background.');
+}
+
+/**
+ * Enables auto-sync every 10 minutes in the background
+ */
+function setupAutoSync10Mins() {
+  disableAutoSync(true);
+  ScriptApp.newTrigger('autoSyncMasterAttendance')
+    .timeBased()
+    .everyMinutes(10)
+    .create();
+  notifyUser('Auto-Sync Enabled: Google Sheets will automatically sync to the BB Portal every 10 minutes in the background.');
 }
 
 /**
@@ -258,9 +284,9 @@ function checkAutoSyncStatus() {
     }
   }
   if (active.length > 0) {
-    notifyUser('Active Auto-Sync Triggers (' + active.length + '):\n\n' + active.join('\n') + '\n\nAuto-sync is ACTIVE and running automatically in the background!');
+    notifyUser('Active Auto-Sync Triggers (' + active.length + '):\\n\\n' + active.join('\\n') + '\\n\\nAuto-sync is active and running in the background.');
   } else {
-    notifyUser('Auto-Sync is currently DISABLED.\n\nTo enable, click:\nBB Portal > Enable Auto-Sync (Every 30 Mins)');
+    notifyUser('Auto-Sync is currently DISABLED.\\n\\nTo enable, click:\\nBB Portal > Enable Auto-Sync (Every 30 Mins)');
   }
 }
 
@@ -443,7 +469,7 @@ function syncMasterAttendanceToPortal(isBackground) {
     }
   }
 
-  // 3. Process Squad Leaderboard Tab (DO NOT sum individual members, read exact scores!)
+  // 3. Process Squad Leaderboard Tab (reads recorded squad scores)
   var lbSheet = ss.getSheetByName('Squad Leaderboard [Post Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard [Pre Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard');
@@ -455,7 +481,7 @@ function syncMasterAttendanceToPortal(isBackground) {
       for (var c = 0; c < row.length; c++) {
         var cellVal = String(row[c] || '').trim();
         // Competing squads: ALPHA 1, ALPHA 2, PAPA 1, PAPA 2, ZULU 1, ZULU 2
-        var m = cellVal.match(/^(ALPHA|PAPA|ZULU)\s*([0-9]+)$/i);
+        var m = cellVal.match(/^(ALPHA|PAPA|ZULU)\\s*([0-9]+)$/i);
         if (m) {
           var squadName = (m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()) + ' ' + m[2];
           var pts = 0;
@@ -500,7 +526,7 @@ function syncMasterAttendanceToPortal(isBackground) {
     squads[sqName].rank = curRank;
   });
 
-  // 5. Compute Platoon Averages (No Hotel!)
+  // 5. Compute Platoon Averages (excluding Hotel Platoon)
   var platoons = {};
   ['Papa', 'Alpha', 'Zulu'].forEach(function(plt) {
     var pSquads = Object.keys(squads).filter(function(k) { return squads[k].platoon === plt; });
@@ -562,13 +588,13 @@ function syncMasterAttendanceToPortal(isBackground) {
   var code = response.getResponseCode();
 
   if (code >= 200 && code < 300) {
-    var successMsg = 'Success: Synced ' + memberCount + ' members and squad leaderboards across ' + scannedSheets.length + ' tabs to the 1st PJ BB Portal!';
+    var successMsg = 'Success: Synced ' + memberCount + ' members and squad leaderboards across ' + scannedSheets.length + ' tabs to the 1st PJ BB Portal.';
     Logger.log(successMsg);
     if (!isBackground) {
       notifyUser(successMsg);
     }
   } else {
-    var errorMsg = 'Sync Failed (HTTP ' + code + '):\n' + response.getContentText();
+    var errorMsg = 'Sync Failed (HTTP ' + code + '):\\n' + response.getContentText();
     Logger.log(errorMsg);
     if (!isBackground) {
       notifyUser(errorMsg);
