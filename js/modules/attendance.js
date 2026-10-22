@@ -513,7 +513,7 @@ async function renderAdminMasterSheetPanel() {
         '1. Open your <strong>Master Attendance Google Sheet</strong>.<br>' +
         '2. Click <strong>Extensions &gt; Apps Script</strong>.<br>' +
         '3. Replace any existing code with the snippet below and click <strong>Save</strong> (disk icon).<br>' +
-        '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, click <strong>Enable Auto-Sync (Every 30 Mins)</strong> or <strong>Enable Auto-Sync on Edit (Real-Time)</strong>.<br>' +
+        '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, choose an Auto-Sync schedule (5 Mins, 10 Mins, 15 Mins, 30 Mins, or Real-Time on Edit).<br>' +
         '5. The spreadsheet will automatically sync attendance and leaderboard scores to the portal in the background.' +
       '</div>' +
 
