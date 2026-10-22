@@ -149,6 +149,9 @@ async function loginMember() {
     }
 
     var m = data[0];
+    if (m.department === 'deleted' || m.department === 'archived_deleted') {
+      return alert('This account has been deleted. Please contact an officer or administrator.');
+    }
     if (atob(m.password || '') !== pass) {
       return alert('Incorrect password!');
     }
@@ -414,14 +417,14 @@ async function sendPasswordResetEmail() {
     var client = window.supa || supa;
 
     // Check if account exists in bb_members
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic,name');
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic,name,department');
     if (!data || !data.length) {
       // Check legacy exact case
-      data = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name');
+      data = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name,department');
     }
-    if (!data || !data.length) {
+    if (!data || !data.length || data[0].department === 'deleted' || data[0].department === 'archived_deleted') {
       if (btn) { btn.disabled = false; btn.textContent = origText; }
-      return alert('No account found with this email address. Please check your spelling or register.');
+      return alert('No active account found with this email address.');
     }
 
     var member = data[0];

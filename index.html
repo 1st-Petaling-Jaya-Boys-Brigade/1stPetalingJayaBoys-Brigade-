@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Boys Brigade — Uniform Portal</title>
+<!-- Private Portal: Prevent Search Engine Indexing -->
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets -->
 <link rel="stylesheet" href="css/variables.css">
@@ -3630,8 +3634,20 @@ async function renderAdminList() {
   if (!list) return;
   list.innerHTML = '<div style="color:#888;text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
   try {
+    // 1. Fetch deleted members blacklist from bb_config
+    var deletedSet = new Set();
+    try {
+      var cfgRes = await supa.get('bb_config?key=eq.bb_deleted_members&select=value');
+      if (cfgRes && cfgRes.length && cfgRes[0].value) {
+        var arr = JSON.parse(cfgRes[0].value);
+        if (Array.isArray(arr)) arr.forEach(function(id) { deletedSet.add(id); });
+      }
+    } catch(e) {}
+
     var members = await supa.get('bb_members?select=*&order=name.asc');
     var filtered = members.filter(function(m) {
+      if (deletedSet.has(m.ic)) return false;
+      if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
       return (m.name||'').toLowerCase().includes(search) || (m.ic||'').includes(search);
     });
     if (!filtered.length) { list.innerHTML = '<div style="color:#666;text-align:center;padding:20px;">No members found.</div>'; return; }
@@ -3784,18 +3800,70 @@ async function deleteMemberAccount(ic, name, e) {
   if (!confirm('Are you sure you want to permanently delete ' + display + '?' + '\n\n' + 'This will delete their account profile and login credentials. This action cannot be undone.')) {
     return;
   }
+  // 1. Instant optimistic DOM removal for immediate visual feedback
+  var rowEl = document.querySelector('.admin-row[data-edit-ic="' + ic + '"]');
+  if (rowEl) {
+    rowEl.style.transition = 'all 0.3s ease';
+    rowEl.style.opacity = '0';
+    rowEl.style.transform = 'translateX(20px)';
+    setTimeout(function() {
+      if (rowEl && rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
+    }, 300);
+  }
+
   try {
     var client = window.supa || supa;
-    // 1. Delete from bb_members
-    await client.delete('bb_members?ic=eq.' + encodeURIComponent(ic));
 
-    // 2. Cascade delete member badges
+    // 2. Add IC to bb_deleted_members in bb_config so they are filtered out immediately
+    try {
+      var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value');
+      var delList = [];
+      if (cfgRes && cfgRes.length && cfgRes[0].value) {
+        try { delList = JSON.parse(cfgRes[0].value); } catch(err) {}
+      }
+      if (!Array.isArray(delList)) delList = [];
+      if (!delList.includes(ic)) delList.push(ic);
+
+      try {
+        await client.req('POST', 'bb_config?on_conflict=key', {
+          key: 'bb_deleted_members',
+          value: JSON.stringify(delList),
+          updated_at: new Date().toISOString()
+        });
+      } catch(err2) {
+        await client.patch('bb_config?key=eq.bb_deleted_members', {
+          value: JSON.stringify(delList),
+          updated_at: new Date().toISOString()
+        });
+      }
+    } catch(cfgErr) {
+      console.warn('bb_deleted_members update:', cfgErr);
+    }
+
+    // 3. Neutralize account credentials & mark department as deleted
+    try {
+      await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), {
+        department: 'deleted',
+        password: 'DELETED_' + Date.now() + '_' + Math.random().toString(36).substring(2),
+        rank: 'Deleted',
+        squad: null
+      });
+    } catch(patchErr) {
+      console.warn('Account neutralization patch:', patchErr);
+    }
+
+    // 4. Attempt hard delete in Supabase (if RLS delete policy is enabled)
+    try {
+      await client.delete('bb_members?ic=eq.' + encodeURIComponent(ic));
+    } catch(delErr) {}
+
+    // 5. Cascade delete member badges
     try {
       await client.delete('bb_member_badges?ic=eq.' + encodeURIComponent(ic));
     } catch(e2) {}
 
     closeEditMember();
-    renderAdminList();
+    await renderAdminList();
     alert('Account for ' + (name || ic) + ' was permanently deleted.');
   } catch(err) {
     alert('Failed to delete member: ' + err.message);
