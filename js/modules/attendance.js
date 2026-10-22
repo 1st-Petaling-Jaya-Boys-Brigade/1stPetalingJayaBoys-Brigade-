@@ -117,6 +117,7 @@ async function loadMemberAttendanceStats(memberName) {
   var data = await getMasterAttendanceData();
   var record = await getMemberAttendanceRecord(name);
   var platoons = (data && data.platoons) ? data.platoons : {};
+  var squads   = (data && data.squads) ? data.squads : {};
 
   if (!record) {
     // Clean Empty State when not yet synced or member not found
@@ -125,18 +126,31 @@ async function loadMemberAttendanceStats(memberName) {
   }
 
   // Member found — Render full breakdown
-  container.innerHTML = renderAttendanceBreakdownHTML(record, platoons, data ? data.lastSynced : null);
+  container.innerHTML = renderAttendanceBreakdownHTML(record, platoons, squads, data ? data.lastSynced : null);
 }
 
 /**
  * HTML Builder for the populated member attendance & points breakdown
  */
-function renderAttendanceBreakdownHTML(rec, platoons, lastSynced) {
+function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
   var parade = rec.paradeAttendance || { percentage: 0, presentCount: 0, totalParades: 0 };
   var band   = rec.bandAttendance   || { percentage: 0, presentCount: 0, totalSessions: 0 };
   var points = rec.points           || { uniform: 0, uniformAvg: 0, paradeAtt: 0, bandAtt: 0, total: 0 };
   var pltName = rec.platoon || 'Alpha';
   var pltInfo = platoons[pltName] || { totalPoints: 0, rank: '-' };
+
+  // Match squad standing
+  var sqName = rec.squad || '';
+  var sqInfo = null;
+  if (squads && sqName) {
+    sqInfo = squads[sqName] || squads[sqName.toUpperCase()];
+    if (!sqInfo) {
+      var normSq = sqName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      Object.keys(squads).forEach(function(k) {
+        if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === normSq) sqInfo = squads[k];
+      });
+    }
+  }
 
   // Attendance rate color badges
   function rateColor(pct) {
@@ -188,7 +202,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, lastSynced) {
 
       '<!-- Band Attendance -->' +
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Band Attendance</div>' +
+        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' + (rec.bandSection ? 'Band Attendance &middot; ' + rec.bandSection : 'Band Attendance') + '</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px;">' +
           '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + bColor.text + ';">' + (band.totalSessions > 0 ? band.percentage + '%' : 'N/A') + '</span>' +
           '<span style="font-size:11px;color:var(--text-muted);">' + (band.totalSessions > 0 ? (band.presentCount || 0) + '/' + band.totalSessions : 'Non-band') + '</span>' +
@@ -246,6 +260,12 @@ function renderAttendanceBreakdownHTML(rec, platoons, lastSynced) {
       '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
         'Your contribution: <strong>' + points.total + ' pts</strong> towards ' + pltName + ' Platoon\'s total score in the company leaderboard.' +
       '</div>' +
+      (sqInfo ? (
+        '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
+          '<span style="color:var(--text-secondary);">Squad <strong>' + sqInfo.name + '</strong> Leaderboard Standing:</span>' +
+          '<span style="font-family:\'Oswald\',sans-serif;font-weight:700;color:var(--accent);font-size:12px;">Rank #' + sqInfo.rank + ' (' + sqInfo.points + ' pts)</span>' +
+        '</div>'
+      ) : '') +
     '</div>'
   );
 }
