@@ -125,8 +125,8 @@ async function fetchMasterAttendanceFromGAS(scriptUrl) {
  * @returns {string}
  */
 function getGoogleAppsScriptTemplate(supaUrl, supaKey) {
-  var url = supaUrl || 'YOUR_SUPABASE_PROJECT_URL';
-  var key = supaKey || 'YOUR_SUPABASE_ANON_KEY';
+  var url = supaUrl || 'https://mjfclxcklkbgsivvvlfe.supabase.co';
+  var key = supaKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
 
   return `// ==============================================================================
 // 1st Petaling Jaya Boys' Brigade - Master Attendance Sheet Ingestion Script
@@ -312,7 +312,6 @@ function notifyUser(msg) {
 
 /**
  * Main Sync Function: Reads all Platoon tabs, Band Attendance, and Squad Leaderboards
- * @param {boolean} [isBackground=false] When true, suppresses modal popups for headless execution
  */
 function syncMasterAttendanceToPortal(isBackground) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -320,17 +319,16 @@ function syncMasterAttendanceToPortal(isBackground) {
   var squads = {};
   var scannedSheets = [];
 
-  // 1. Process Platoon Tabs (Alpha, Papa, Zulu, Hotel)
-  var platoonList = ['Alpha', 'Papa', 'Zulu', 'Hotel'];
-  platoonList.forEach(function(plt) {
+  // 1. Process Platoon Tabs: Alpha, Papa, Zulu, Hotel
+  var platoonNames = ['Alpha', 'Papa', 'Zulu', 'Hotel'];
+  platoonNames.forEach(function(plt) {
     var sheet = ss.getSheetByName('Platoon ' + plt) || ss.getSheetByName(plt);
     if (!sheet) return;
-    scannedSheets.push(sheet.getName());
 
+    scannedSheets.push(sheet.getName());
     var data = sheet.getDataRange().getValues();
     if (data.length < 9) return;
 
-    // Scan for header row (Row 8 has 'Name', 'Rank', 'Squad', 'Total member\'s points', etc.)
     var headerRowIdx = -1;
     var colMap = {
       name: -1, rank: -1, squad: -1,
@@ -373,10 +371,8 @@ function syncMasterAttendanceToPortal(isBackground) {
       var paradeAttPct = colMap.paradeAtt !== -1 ? parsePercentage(row[colMap.paradeAtt]) : 0;
       var uniformPts = colMap.uniformPts !== -1 ? parseNumber(row[colMap.uniformPts]) : 0;
 
-      // Calculate uniform average if parade points exist (parade days = paradePts / 2)
       var paradeDays = paradePts > 0 ? (paradePts / 2) : 0;
       var uniformAvg = paradeDays > 0 ? Math.round((uniformPts / paradeDays) * 10) / 10 : 0;
-
       var isBand = (bandPts > 0 || bandAttPct > 0);
 
       members[normKey] = {
@@ -386,12 +382,8 @@ function syncMasterAttendanceToPortal(isBackground) {
         squad: squad,
         isBandMember: isBand,
         bandSection: '',
-        paradeAttendance: {
-          percentage: paradeAttPct
-        },
-        bandAttendance: {
-          percentage: bandAttPct
-        },
+        paradeAttendance: { percentage: paradeAttPct },
+        bandAttendance: { percentage: bandAttPct },
         points: {
           uniform: Math.round(uniformPts * 10) / 10,
           uniformAvg: uniformAvg,
@@ -404,7 +396,7 @@ function syncMasterAttendanceToPortal(isBackground) {
     }
   });
 
-  // 2. Process Band Attendance Tab (Band Attendance 2026)
+  // 2. Process Band Attendance Tab
   var bandSheet = ss.getSheetByName('Band Attendance 2026') || ss.getSheetByName('Band Attendance');
   if (bandSheet) {
     scannedSheets.push(bandSheet.getName());
@@ -460,7 +452,7 @@ function syncMasterAttendanceToPortal(isBackground) {
     }
   }
 
-  // 3. Process Squad Leaderboard Tab (reads recorded squad scores)
+  // 3. Process Squad Leaderboard Tab
   var lbSheet = ss.getSheetByName('Squad Leaderboard [Post Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard [Pre Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard');
@@ -471,7 +463,6 @@ function syncMasterAttendanceToPortal(isBackground) {
       var row = lbData[r];
       for (var c = 0; c < row.length; c++) {
         var cellVal = String(row[c] || '').trim();
-        // Competing squads: ALPHA 1, ALPHA 2, PAPA 1, PAPA 2, ZULU 1, ZULU 2
         var m = cellVal.match(/^(ALPHA|PAPA|ZULU)\\s*([0-9]+)$/i);
         if (m) {
           var squadName = (m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()) + ' ' + m[2];
@@ -504,7 +495,7 @@ function syncMasterAttendanceToPortal(isBackground) {
     };
   }
 
-  // 4. Compute Squad Ranks (with ties handled)
+  // 4. Compute Squad Ranks
   var sortedSquadNames = Object.keys(squads).sort(function(a, b) {
     return (squads[b].points || 0) - (squads[a].points || 0);
   });
@@ -630,8 +621,7 @@ function parsePercentage(val) {
 
 function normalizeMemberKey(name) {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-`;
+}`;
 }
 
 if (typeof window !== 'undefined') {
