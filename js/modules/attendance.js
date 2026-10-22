@@ -210,12 +210,12 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
           '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
             '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-            'Officers &amp; Instructors (Hotel)' +
+            'HQ NCOs (Hotel)' +
           '</div>' +
           '<span style="font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;">Non-competing</span>' +
         '</div>' +
         '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
-          'Total individual performance: <strong>' + points.total + ' pts</strong>. Hotel Platoon is non-competing on the company squad leaderboard.' +
+          'Total individual performance: <strong>' + points.total + ' pts</strong>. Hotel Platoon (HQ NCOs) is non-competing on the company squad leaderboard.' +
         '</div>' +
       '</div>';
   } else {
