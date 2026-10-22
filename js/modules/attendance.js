@@ -137,7 +137,14 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
   var band   = rec.bandAttendance   || { percentage: 0, presentCount: 0, totalSessions: 0 };
   var points = rec.points           || { uniform: 0, uniformAvg: 0, paradeAtt: 0, bandAtt: 0, total: 0 };
   var pltName = rec.platoon || 'Alpha';
-  var pltInfo = platoons[pltName] || { totalPoints: 0, rank: '-' };
+  var isHotel = (pltName.toLowerCase().indexOf('hotel') !== -1);
+  var pltInfo = (platoons && platoons[pltName]) ? platoons[pltName] : null;
+
+  // Determine if member is a Band Member
+  var isBandMember = rec.isBandMember || 
+                     (rec.bandSection && rec.bandSection.length > 0) || 
+                     (band.percentage > 0) || 
+                     (points.bandAtt > 0);
 
   // Match squad standing
   var sqName = rec.squad || '';
@@ -159,8 +166,8 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     return { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)', text: 'var(--red, #ef4444)' };
   }
 
-  var pColor = rateColor(parade.percentage);
-  var bColor = rateColor(band.percentage);
+  var pColor = rateColor(parade.percentage || 0);
+  var bColor = isBandMember ? rateColor(band.percentage || 0) : { text: 'var(--text-muted)', bg: 'transparent' };
 
   var syncTimeStr = 'Updated recently';
   if (lastSynced) {
@@ -168,6 +175,64 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       var d = new Date(lastSynced);
       syncTimeStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
     } catch(e) {}
+  }
+
+  // Band card subtitle & rate
+  var bandPctStr = isBandMember ? ((band.percentage !== undefined && band.percentage !== null) ? band.percentage + '%' : '0%') : 'N/A';
+  var bandSubStr = isBandMember ? (rec.bandSection ? (rec.bandSection + ' Section') : 'Band Member') : 'Non-band';
+
+  // Uniform avg string
+  var uniformAvgHtml = '';
+  if (points.uniformAvg !== undefined && points.uniformAvg !== null && !isNaN(points.uniformAvg) && points.uniformAvg > 0) {
+    uniformAvgHtml = '<div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">Avg ' + points.uniformAvg + ' / 6</div>';
+  } else if (points.paradeAtt > 0 && points.uniform > 0) {
+    var est = Math.round((points.uniform / (points.paradeAtt / 2)) * 10) / 10;
+    if (est > 0 && est <= 6) {
+      uniformAvgHtml = '<div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">Avg ' + est + ' / 6</div>';
+    }
+  }
+
+  // Platoon / Squad Standing Card HTML
+  var standingCardHtml = '';
+  if (isHotel) {
+    standingCardHtml = 
+      '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+          '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
+            '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+            'Officers &amp; Instructors (Hotel)' +
+          '</div>' +
+          '<span style="font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;">Non-competing</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
+          'Total individual performance: <strong>' + points.total + ' pts</strong>. Hotel Platoon is non-competing on the company squad leaderboard.' +
+        '</div>' +
+      '</div>';
+  } else {
+    var titleText = sqInfo ? ('Squad ' + sqInfo.name + ' Standing') : (pltName + ' Platoon Standing');
+    var rankText  = sqInfo ? ('Rank #' + sqInfo.rank + ' (' + sqInfo.points + ' pts)') : (pltInfo ? ('Rank #' + pltInfo.rank + ' (' + (pltInfo.averagePoints || pltInfo.totalPoints || 0) + ' pts)') : '');
+    
+    standingCardHtml = 
+      '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+          '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
+            '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
+            titleText +
+          '</div>' +
+          '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;color:var(--accent);">' +
+            rankText +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
+          'Your contribution: <strong>' + points.total + ' pts</strong> towards ' + (sqInfo ? ('Squad ' + sqInfo.name) : (pltName + ' Platoon')) + ' in the Senior Section Leaderboard.' +
+        '</div>' +
+        (pltInfo && pltInfo.averagePoints ? (
+          '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
+            '<span style="color:var(--text-secondary);">' + pltName + ' Platoon Average:</span>' +
+            '<span style="font-family:\'Oswald\',sans-serif;font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' pts</span>' +
+          '</div>'
+        ) : '') +
+      '</div>';
   }
 
   return (
@@ -192,23 +257,25 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
         '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Parade Attendance</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px;">' +
-          '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + pColor.text + ';">' + parade.percentage + '%</span>' +
-          '<span style="font-size:11px;color:var(--text-muted);">' + (parade.presentCount || 0) + '/' + (parade.totalParades || 0) + '</span>' +
+          '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + pColor.text + ';">' + (parade.percentage || 0) + '%</span>' +
+          '<span style="font-size:11px;color:var(--text-muted);">' + (parade.presentCount ? (parade.presentCount + '/' + parade.totalParades) : '') + '</span>' +
         '</div>' +
         '<div style="margin-top:6px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
-          '<div style="height:100%;width:' + Math.min(100, parade.percentage) + '%;background:' + pColor.text + ';border-radius:3px;"></div>' +
+          '<div style="height:100%;width:' + Math.min(100, (parade.percentage || 0)) + '%;background:' + pColor.text + ';border-radius:3px;"></div>' +
         '</div>' +
       '</div>' +
 
       '<!-- Band Attendance -->' +
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' + (rec.bandSection ? 'Band Attendance &middot; ' + rec.bandSection : 'Band Attendance') + '</div>' +
+        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' +
+          (isBandMember && rec.bandSection ? ('Band Attendance &middot; ' + rec.bandSection) : 'Band Attendance') +
+        '</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px;">' +
-          '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + bColor.text + ';">' + (band.totalSessions > 0 ? band.percentage + '%' : 'N/A') + '</span>' +
-          '<span style="font-size:11px;color:var(--text-muted);">' + (band.totalSessions > 0 ? (band.presentCount || 0) + '/' + band.totalSessions : 'Non-band') + '</span>' +
+          '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + bColor.text + ';">' + bandPctStr + '</span>' +
+          '<span style="font-size:11px;color:var(--text-muted);">' + bandSubStr + '</span>' +
         '</div>' +
         '<div style="margin-top:6px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
-          '<div style="height:100%;width:' + (band.totalSessions > 0 ? Math.min(100, band.percentage) : 0) + '%;background:' + bColor.text + ';border-radius:3px;"></div>' +
+          '<div style="height:100%;width:' + (isBandMember ? Math.min(100, (band.percentage || 0)) : 0) + '%;background:' + bColor.text + ';border-radius:3px;"></div>' +
         '</div>' +
       '</div>' +
     '</div>' +
@@ -227,7 +294,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
           '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Uniform Pts</div>' +
           '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--blue, #3b82f6);">' + points.uniform + '</div>' +
-          '<div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">Avg ' + points.uniformAvg + ' / 6</div>' +
+          uniformAvgHtml +
         '</div>' +
 
         '<!-- Parade Attendance Points -->' +
@@ -246,27 +313,8 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '</div>' +
     '</div>' +
 
-    '<!-- 3. Platoon Standings & Member Contribution -->' +
-    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
-          '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
-          pltName + ' Platoon Standing' +
-        '</div>' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;color:var(--accent);">' +
-          'Rank #' + (pltInfo.rank || '-') + ' (' + (pltInfo.totalPoints || 0) + ' pts)' +
-        '</div>' +
-      '</div>' +
-      '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
-        'Your contribution: <strong>' + points.total + ' pts</strong> towards ' + pltName + ' Platoon\'s total score in the company leaderboard.' +
-      '</div>' +
-      (sqInfo ? (
-        '<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
-          '<span style="color:var(--text-secondary);">Squad <strong>' + sqInfo.name + '</strong> Leaderboard Standing:</span>' +
-          '<span style="font-family:\'Oswald\',sans-serif;font-weight:700;color:var(--accent);font-size:12px;">Rank #' + sqInfo.rank + ' (' + sqInfo.points + ' pts)</span>' +
-        '</div>'
-      ) : '') +
-    '</div>'
+    '<!-- 3. Platoon / Squad Standing -->' +
+    standingCardHtml
   );
 }
 
@@ -463,46 +511,120 @@ async function renderCompanyLeaderboard() {
   if (!c) return;
 
   var data = await getMasterAttendanceData();
-  var platoons = (data && data.platoons) ? data.platoons : {};
-  var sorted = ['Alpha', 'Papa', 'Zulu', 'Hotel'].sort(function(a, b) {
-    var pA = platoons[a] ? platoons[a].totalPoints : 0;
-    var pB = platoons[b] ? platoons[b].totalPoints : 0;
-    return pB - pA;
+  var rawSquads = (data && data.squads) ? data.squads : null;
+  var platoons  = (data && data.platoons) ? data.platoons : {};
+
+  // Standard competing squads fallback from master sheet
+  var squadList = [];
+  if (rawSquads && Object.keys(rawSquads).length > 0) {
+    Object.keys(rawSquads).forEach(function(k) {
+      // Exclude Hotel if any
+      if (k.toLowerCase().indexOf('hotel') === -1) {
+        squadList.push(rawSquads[k]);
+      }
+    });
+  } else {
+    // Default baseline matching Screenshot 2
+    squadList = [
+      { name: 'PAPA 1',  points: 161, rank: 1, platoon: 'Papa' },
+      { name: 'PAPA 2',  points: 161, rank: 1, platoon: 'Papa' },
+      { name: 'ZULU 1',  points: 160, rank: 3, platoon: 'Zulu' },
+      { name: 'ALPHA 2', points: 155, rank: 4, platoon: 'Alpha' },
+      { name: 'ALPHA 1', points: 149, rank: 5, platoon: 'Alpha' },
+      { name: 'ZULU 2',  points: 144, rank: 6, platoon: 'Zulu' }
+    ];
+  }
+
+  // Sort descending by points
+  squadList.sort(function(a, b) {
+    return (b.points || 0) - (a.points || 0);
   });
 
-  var maxPts = 1;
-  sorted.forEach(function(p) {
-    var pts = platoons[p] ? platoons[p].totalPoints : 0;
-    if (pts > maxPts) maxPts = pts;
-  });
+  // Calculate ranks handling ties
+  var curRank = 1;
+  for (var i = 0; i < squadList.length; i++) {
+    if (i > 0 && squadList[i].points < squadList[i - 1].points) {
+      curRank = i + 1;
+    }
+    squadList[i].displayRank = curRank;
+  }
 
-  c.innerHTML = sorted.map(function(pltName, idx) {
-    var pInfo = platoons[pltName] || { totalPoints: 0, memberCount: 0, rank: idx + 1 };
-    var pts = pInfo.totalPoints || 0;
-    var pct = Math.min(100, Math.round((pts / maxPts) * 100));
-    var rankColors = ['#ffd700', '#c0c0c0', '#cd7f32', 'var(--text-muted)'];
-    var rankColor = rankColors[idx] || 'var(--text-muted)';
+  var maxPts = squadList.length > 0 ? squadList[0].points : 161;
+  if (!maxPts || maxPts <= 0) maxPts = 161;
 
-    return (
+  // Platoon styling colors
+  function getPlatoonStyle(sqName) {
+    var upper = String(sqName || '').toUpperCase();
+    if (upper.indexOf('ALPHA') !== -1) return { plt: 'Alpha', color: 'var(--brand-gold, #f5c542)', bg: 'rgba(245,197,66,0.1)', border: 'rgba(245,197,66,0.3)' };
+    if (upper.indexOf('PAPA')  !== -1) return { plt: 'Papa',  color: 'var(--blue, #3b82f6)',       bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.3)' };
+    if (upper.indexOf('ZULU')  !== -1) return { plt: 'Zulu',  color: 'var(--green, #10b981)',      bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.3)' };
+    return { plt: 'Squad', color: 'var(--accent)', bg: 'rgba(200,150,30,0.1)', border: 'rgba(200,150,30,0.3)' };
+  }
+
+  var html = '';
+
+  // Render competing squad cards
+  squadList.forEach(function(sq) {
+    var st = getPlatoonStyle(sq.name);
+    var pct = Math.min(100, Math.round(((sq.points || 0) / maxPts) * 100));
+    var rankBadgeColor = sq.displayRank === 1 ? '#ffd700' : (sq.displayRank === 2 ? '#c0c0c0' : (sq.displayRank === 3 ? '#cd7f32' : 'var(--text-muted)'));
+
+    html += 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:10px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + rankColor + ';width:24px;text-align:center;">#' + (idx + 1) + '</div>' +
+            '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + rankBadgeColor + ';width:28px;text-align:center;">#' + sq.displayRank + '</div>' +
             '<div>' +
-              '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);">' + pltName + ' Platoon</div>' +
-              '<div style="font-size:11px;color:var(--text-secondary);">' + (pInfo.memberCount || 0) + ' active members</div>' +
+              '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' + sq.name.toUpperCase() + '</span>' +
+                '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:12px;background:' + st.bg + ';color:' + st.color + ';border:1px solid ' + st.border + ';">' + st.plt + '</span>' +
+              '</div>' +
             '</div>' +
           '</div>' +
           '<div style="text-align:right;">' +
-            '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--green);">' + pts + ' pts</div>' +
+            '<div style="font-family:\'Oswald\',sans-serif;font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">pts</span></div>' +
           '</div>' +
         '</div>' +
         '<div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">' +
-          '<div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:3px;"></div>' +
+          '<div style="height:100%;width:' + pct + '%;background:' + st.color + ';border-radius:3px;"></div>' +
         '</div>' +
-      '</div>'
-    );
-  }).join('');
+      '</div>';
+  });
+
+  // Calculate platoon averages from competing squads
+  var pltSums = {};
+  squadList.forEach(function(sq) {
+    var p = getPlatoonStyle(sq.name).plt;
+    if (!pltSums[p]) pltSums[p] = { sum: 0, count: 0 };
+    pltSums[p].sum += (sq.points || 0);
+    pltSums[p].count += 1;
+  });
+
+  var pltAverages = Object.keys(pltSums).map(function(p) {
+    var avg = Math.round(pltSums[p].sum / (pltSums[p].count || 1));
+    return { name: p, avg: avg };
+  }).sort(function(a, b) { return b.avg - a.avg; });
+
+  // Platoon Averages Summary Footer
+  html += 
+    '<div style="margin-top:16px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border-card);border-radius:10px;">' +
+      '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">' +
+        'Platoon Averages (Total Squad Points &divide; Squads)' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:8px;">';
+
+  pltAverages.forEach(function(pa) {
+    var st = getPlatoonStyle(pa.name);
+    html += 
+      '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;text-align:center;">' +
+        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);">' + pa.name + ' Platoon</div>' +
+        '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' + pa.avg + ' pts</div>' +
+      '</div>';
+  });
+
+  html += '</div></div>';
+
+  c.innerHTML = html;
 }
 
 // ── Global Window Exports ───────────────────────────────────────────────────

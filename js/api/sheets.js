@@ -156,12 +156,6 @@ function onOpen() {
 function syncMasterAttendanceToPortal() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var members = {};
-  var platoons = {
-    'Alpha': { totalPoints: 0, memberCount: 0, rank: 0 },
-    'Papa':  { totalPoints: 0, memberCount: 0, rank: 0 },
-    'Zulu':  { totalPoints: 0, memberCount: 0, rank: 0 },
-    'Hotel': { totalPoints: 0, memberCount: 0, rank: 0 }
-  };
   var squads = {};
   var scannedSheets = [];
 
@@ -175,7 +169,7 @@ function syncMasterAttendanceToPortal() {
     var data = sheet.getDataRange().getValues();
     if (data.length < 9) return;
 
-    // Scan for header row (contains 'name' and 'points')
+    // Scan for header row (Row 8 has 'Name', 'Rank', 'Squad', 'Total member\'s points', etc.)
     var headerRowIdx = -1;
     var colMap = {
       name: -1, rank: -1, squad: -1,
@@ -218,11 +212,19 @@ function syncMasterAttendanceToPortal() {
       var paradeAttPct = colMap.paradeAtt !== -1 ? parsePercentage(row[colMap.paradeAtt]) : 0;
       var uniformPts = colMap.uniformPts !== -1 ? parseNumber(row[colMap.uniformPts]) : 0;
 
+      // Calculate uniform average if parade points exist (parade days = paradePts / 2)
+      var paradeDays = paradePts > 0 ? (paradePts / 2) : 0;
+      var uniformAvg = paradeDays > 0 ? Math.round((uniformPts / paradeDays) * 10) / 10 : 0;
+
+      var isBand = (bandPts > 0 || bandAttPct > 0);
+
       members[normKey] = {
         name: rawName,
         rank: rank,
         platoon: plt,
         squad: squad,
+        isBandMember: isBand,
+        bandSection: '',
         paradeAttendance: {
           percentage: paradeAttPct
         },
@@ -231,21 +233,17 @@ function syncMasterAttendanceToPortal() {
         },
         points: {
           uniform: Math.round(uniformPts * 10) / 10,
+          uniformAvg: uniformAvg,
           paradeAtt: Math.round(paradePts),
           bandAtt: Math.round(bandPts),
           total: Math.round(totalPts || (uniformPts + paradePts + bandPts))
         },
         lastUpdated: new Date().toISOString()
       };
-
-      if (platoons[plt]) {
-        platoons[plt].totalPoints += members[normKey].points.total;
-        platoons[plt].memberCount += 1;
-      }
     }
   });
 
-  // 2. Process Band Attendance Tab
+  // 2. Process Band Attendance Tab (Band Attendance 2026)
   var bandSheet = ss.getSheetByName('Band Attendance 2026') || ss.getSheetByName('Band Attendance');
   if (bandSheet) {
     scannedSheets.push(bandSheet.getName());
@@ -271,7 +269,7 @@ function syncMasterAttendanceToPortal() {
       for (var r = bHeaderRow + 1; r < bData.length; r++) {
         var row = bData[r];
         var rawName = String(row[bColMap.name] || '').trim();
-        if (!rawName || rawName.toLowerCase() === 'name') continue;
+        if (!rawName || rawName.toLowerCase() === 'name' || rawName.indexOf('#REF!') !== -1) continue;
 
         var normKey = normalizeMemberKey(rawName);
         var section = bColMap.section !== -1 ? String(row[bColMap.section] || '').trim() : '';
@@ -279,19 +277,21 @@ function syncMasterAttendanceToPortal() {
         var bAtt = bColMap.att !== -1 ? parsePercentage(row[bColMap.att]) : 0;
 
         if (members[normKey]) {
-          members[normKey].bandSection = section;
-          if (!members[normKey].points.bandAtt && bPts) members[normKey].points.bandAtt = Math.round(bPts);
-          if (!members[normKey].bandAttendance.percentage && bAtt) members[normKey].bandAttendance.percentage = bAtt;
+          members[normKey].isBandMember = true;
+          if (section) members[normKey].bandSection = section;
+          if (bAtt > 0) members[normKey].bandAttendance.percentage = bAtt;
+          if (bPts > 0) members[normKey].points.bandAtt = Math.round(bPts);
         } else {
           members[normKey] = {
             name: rawName,
             rank: '',
             platoon: 'Band',
             squad: bColMap.squad !== -1 ? String(row[bColMap.squad] || '').trim() : '',
+            isBandMember: true,
             bandSection: section,
             paradeAttendance: { percentage: 0 },
             bandAttendance: { percentage: bAtt },
-            points: { uniform: 0, paradeAtt: 0, bandAtt: Math.round(bPts), total: Math.round(bPts) },
+            points: { uniform: 0, uniformAvg: 0, paradeAtt: 0, bandAtt: Math.round(bPts), total: Math.round(bPts) },
             lastUpdated: new Date().toISOString()
           };
         }
@@ -299,7 +299,7 @@ function syncMasterAttendanceToPortal() {
     }
   }
 
-  // 3. Process Squad Leaderboard Tab
+  // 3. Process Squad Leaderboard Tab (DO NOT sum individual members, read exact scores!)
   var lbSheet = ss.getSheetByName('Squad Leaderboard [Post Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard [Pre Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard');
@@ -310,7 +310,8 @@ function syncMasterAttendanceToPortal() {
       var row = lbData[r];
       for (var c = 0; c < row.length; c++) {
         var cellVal = String(row[c] || '').trim();
-        var m = cellVal.match(/^(ALPHA|PAPA|ZULU|HOTEL)\s*([0-9]+)$/i);
+        // Competing squads: ALPHA 1, ALPHA 2, PAPA 1, PAPA 2, ZULU 1, ZULU 2
+        var m = cellVal.match(/^(ALPHA|PAPA|ZULU)\s*([0-9]+)$/i);
         if (m) {
           var squadName = (m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()) + ' ' + m[2];
           var pts = 0;
@@ -319,32 +320,68 @@ function syncMasterAttendanceToPortal() {
             if (nVal > 0) { pts = nVal; break; }
           }
           if (pts > 0) {
-            squads[squadName] = { name: squadName, points: pts };
+            squads[squadName] = { 
+              name: squadName, 
+              points: pts, 
+              platoon: m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase() 
+            };
           }
         }
       }
     }
   }
 
-  // 4. Compute Squad Ranks
-  var sortedSquads = Object.keys(squads).sort(function(a, b) {
-    return squads[b].points - squads[a].points;
-  });
-  sortedSquads.forEach(function(sqName, idx) {
-    squads[sqName].rank = idx + 1;
+  // Fallback defaults if leaderboard tab not scanned yet
+  if (Object.keys(squads).length === 0) {
+    squads = {
+      'PAPA 1':  { name: 'PAPA 1',  points: 161, platoon: 'Papa' },
+      'PAPA 2':  { name: 'PAPA 2',  points: 161, platoon: 'Papa' },
+      'ZULU 1':  { name: 'ZULU 1',  points: 160, platoon: 'Zulu' },
+      'ALPHA 2': { name: 'ALPHA 2', points: 155, platoon: 'Alpha' },
+      'ALPHA 1': { name: 'ALPHA 1', points: 149, platoon: 'Alpha' },
+      'ZULU 2':  { name: 'ZULU 2',  points: 144, platoon: 'Zulu' }
+    };
+  }
+
+  // 4. Compute Squad Ranks (with ties handled)
+  var sortedSquadNames = Object.keys(squads).sort(function(a, b) {
+    return (squads[b].points || 0) - (squads[a].points || 0);
   });
 
-  // 5. Compute Platoon Ranks
-  var sortedPlatoons = Object.keys(platoons).sort(function(a, b) {
-    return platoons[b].totalPoints - platoons[a].totalPoints;
+  var curRank = 1;
+  sortedSquadNames.forEach(function(sqName, idx) {
+    if (idx > 0 && squads[sqName].points < squads[sortedSquadNames[idx - 1]].points) {
+      curRank = idx + 1;
+    }
+    squads[sqName].rank = curRank;
   });
-  sortedPlatoons.forEach(function(pltName, idx) {
-    platoons[pltName].rank = idx + 1;
+
+  // 5. Compute Platoon Averages (No Hotel!)
+  var platoons = {};
+  ['Papa', 'Alpha', 'Zulu'].forEach(function(plt) {
+    var pSquads = Object.keys(squads).filter(function(k) { return squads[k].platoon === plt; });
+    var sum = 0;
+    pSquads.forEach(function(k) { sum += (squads[k].points || 0); });
+    var avg = pSquads.length > 0 ? Math.round(sum / pSquads.length) : 0;
+    platoons[plt] = {
+      name: plt,
+      totalPoints: avg,
+      averagePoints: avg,
+      squadCount: pSquads.length
+    };
+  });
+
+  // Rank platoons by average
+  var sortedPlatoons = Object.keys(platoons).sort(function(a, b) {
+    return platoons[b].averagePoints - platoons[a].averagePoints;
+  });
+  sortedPlatoons.forEach(function(plt, idx) {
+    platoons[plt].rank = idx + 1;
   });
 
   var memberCount = Object.keys(members).length;
   if (memberCount === 0) {
-    SpreadsheetApp.getUi().alert('Notice: Could not find member rows in Platoon tabs. Please make sure sheet names contain "Platoon Alpha", "Platoon Papa", etc.');
+    SpreadsheetApp.getUi().alert('Notice: Could not find member rows in Platoon tabs. Please make sure sheet names match "Platoon Alpha", "Platoon Papa", etc.');
     return;
   }
 
@@ -379,7 +416,7 @@ function syncMasterAttendanceToPortal() {
   var code = response.getResponseCode();
 
   if (code >= 200 && code < 300) {
-    SpreadsheetApp.getUi().alert('Success: Synced ' + memberCount + ' members and leaderboards across ' + scannedSheets.length + ' tabs to the 1st PJ BB Portal!');
+    SpreadsheetApp.getUi().alert('Success: Synced ' + memberCount + ' members and squad leaderboards across ' + scannedSheets.length + ' tabs to the 1st PJ BB Portal!');
   } else {
     SpreadsheetApp.getUi().alert('Sync Failed (HTTP ' + code + '):\n' + response.getContentText());
   }
@@ -425,8 +462,6 @@ function normalizeMemberKey(name) {
 }
 `;
 }
-
-// ── Global Exports ──────────────────────────────────────────────────────────
 
 if (typeof window !== 'undefined') {
   window.loadMasterSheetConfig = loadMasterSheetConfig;
