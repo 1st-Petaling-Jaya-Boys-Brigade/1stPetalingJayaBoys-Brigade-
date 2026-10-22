@@ -3748,7 +3748,8 @@ async function saveEditMember() {
     if (!originalIc) {
       var existing = await supa.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=ic');
       if (existing && existing.length) return alert('A member with this IC already exists.');
-      await supa.post('bb_members', { ic: ic, name: name, rank: rank, squad: squad, department: department, date_of_birth: date_of_birth, password: btoa(ic), joined_at: joined_at || new Date().toISOString() });
+      var defaultHash = (typeof hashPassword === 'function') ? await hashPassword(ic) : btoa(ic);
+      await supa.post('bb_members', { ic: ic, name: name, rank: rank, squad: squad, department: department, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() });
       alert('\u2705 Member added!\n\nDefault password is their IC number: ' + ic);
     } else {
       var updates = { name: name, rank: rank, squad: squad, department: department };

@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Core Utilities, Data Normalization & UI Notification System
+ * Core Utilities, Data Normalization, Cryptographic Security & UI System
  */
 
 /**
@@ -58,6 +58,133 @@ function migrateEntry(raw) {
 }
 // Alias for backward compatibility
 var migrateBadgeEntry = migrateEntry;
+
+/**
+ * Converts a byte array (Uint8Array) into a hex string
+ * @param {Uint8Array} bytes
+ * @returns {string}
+ */
+function bytesToHex(bytes) {
+  var hex = [];
+  for (var i = 0; i < bytes.length; i++) {
+    var b = bytes[i].toString(16);
+    hex.push(b.length === 1 ? '0' + b : b);
+  }
+  return hex.join('');
+}
+
+/**
+ * Converts a hex string into a Uint8Array
+ * @param {string} hex
+ * @returns {Uint8Array}
+ */
+function hexToBytes(hex) {
+  var bytes = new Uint8Array(hex.length / 2);
+  for (var i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Hashes a plaintext password using Web Crypto API PBKDF2-HMAC-SHA-256 (TSK-029)
+ * Generates a unique 128-bit cryptographically secure salt per user.
+ * Output Format: 'pbkdf2:sha256:100000:<saltHex>:<hashHex>'
+ * @param {string} password - Plaintext password to hash
+ * @param {string} [saltHex] - Optional 16-byte hex salt (used during verification)
+ * @returns {Promise<string>}
+ */
+async function hashPassword(password, saltHex) {
+  var iterations = 100000;
+  var cryptoObj = null;
+
+  if (typeof window !== 'undefined' && window.crypto) {
+    cryptoObj = window.crypto;
+  } else if (typeof crypto !== 'undefined') {
+    cryptoObj = crypto.webcrypto ? crypto.webcrypto : crypto;
+  }
+
+  if (!cryptoObj || !cryptoObj.subtle) {
+    throw new Error('Web Crypto API is not supported in this runtime environment.');
+  }
+
+  var salt;
+  if (saltHex) {
+    salt = hexToBytes(saltHex);
+  } else {
+    salt = new Uint8Array(16);
+    cryptoObj.getRandomValues(salt);
+    saltHex = bytesToHex(salt);
+  }
+
+  var enc = new TextEncoder();
+  var keyMaterial = await cryptoObj.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+
+  var derivedBits = await cryptoObj.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: iterations,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+
+  var hashHex = bytesToHex(new Uint8Array(derivedBits));
+  return 'pbkdf2:sha256:' + iterations + ':' + saltHex + ':' + hashHex;
+}
+
+/**
+ * Verifies password against stored credentials (supports PBKDF2 and legacy Base64 auto-migration)
+ * @param {string} password - User entered plaintext password
+ * @param {string} storedHash - Stored string from database
+ * @returns {Promise<{ valid: boolean, needsUpgrade: boolean }>}
+ */
+async function verifyPassword(password, storedHash) {
+  if (!storedHash || !password) return { valid: false, needsUpgrade: false };
+
+  // 1. PBKDF2 verification
+  if (storedHash.startsWith('pbkdf2:sha256:')) {
+    var parts = storedHash.split(':');
+    if (parts.length === 5) {
+      var saltHex = parts[3];
+      var expectedHash = parts[4];
+      try {
+        var computed = await hashPassword(password, saltHex);
+        var computedHash = computed.split(':')[4];
+        return {
+          valid: computedHash === expectedHash,
+          needsUpgrade: false
+        };
+      } catch (e) {
+        console.error('PBKDF2 verification error:', e);
+        return { valid: false, needsUpgrade: false };
+      }
+    }
+  }
+
+  // 2. Legacy Base64 check (enables seamless on-the-fly upgrade without user disruption)
+  try {
+    var decoded = null;
+    if (typeof atob === 'function') {
+      decoded = atob(storedHash);
+    } else if (typeof Buffer !== 'undefined') {
+      decoded = Buffer.from(storedHash, 'base64').toString('utf8');
+    }
+    if (decoded && decoded === password) {
+      return { valid: true, needsUpgrade: true };
+    }
+  } catch (e) {}
+
+  return { valid: false, needsUpgrade: false };
+}
 
 /**
  * Modern non-blocking Toast notification system
@@ -167,6 +294,7 @@ function showConfirmModal(message, title) {
 
 // Seamless non-blocking alert wrapper for improved UX across all modules
 (function() {
+  if (typeof window === 'undefined') return;
   var _origAlert = window.alert;
   window.alert = function(msg) {
     if (typeof showToast === 'function') {
@@ -181,6 +309,14 @@ function showConfirmModal(message, title) {
   };
 })();
 
+// Attach to window if in browser
+if (typeof window !== 'undefined') {
+  window.bytesToHex = bytesToHex;
+  window.hexToBytes = hexToBytes;
+  window.hashPassword = hashPassword;
+  window.verifyPassword = verifyPassword;
+}
+
 // Export for module systems if present
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -188,6 +324,10 @@ if (typeof module !== 'undefined' && module.exports) {
     formatDate: formatDate,
     migrateEntry: migrateEntry,
     migrateBadgeEntry: migrateBadgeEntry,
+    bytesToHex: bytesToHex,
+    hexToBytes: hexToBytes,
+    hashPassword: hashPassword,
+    verifyPassword: verifyPassword,
     showToast: showToast,
     showConfirmModal: showConfirmModal
   };

@@ -91,7 +91,7 @@ async function registerMember() {
       squad: squad,
       att_section: section, // Maps to Pre-Junior / Junior / Senior
       date_of_birth: approxDob,
-      password: btoa(pass),
+      password: await hashPassword(pass),
       security_question: null,
       security_answer: null,
       joined_at: new Date().toISOString()
@@ -152,8 +152,20 @@ async function loginMember() {
     if (m.department === 'deleted' || m.department === 'archived_deleted') {
       return alert('This account has been deleted. Please contact an officer or administrator.');
     }
-    if (atob(m.password || '') !== pass) {
+    var check = await verifyPassword(pass, m.password || '');
+    if (!check.valid) {
       return alert('Incorrect password!');
+    }
+
+    // Auto-migrate legacy Base64 credentials to PBKDF2/SHA-256 on successful login
+    if (check.needsUpgrade) {
+      try {
+        var upgradedHash = await hashPassword(pass);
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(m.ic), { password: upgradedHash });
+        console.log('Seamlessly upgraded member credentials to PBKDF2/SHA-256');
+      } catch (upgErr) {
+        console.warn('Password upgrade note:', upgErr);
+      }
     }
 
     var userEmail = (m.ic && m.ic.indexOf('@') !== -1) ? m.ic : (m.email || m.ic);
@@ -557,15 +569,16 @@ async function verifyResetCodeAndSetPassword() {
       return alert('Invalid or expired verification code.\n\nPlease check your email or click "Resend Code" to get a new code.');
     }
 
-    // Update password in bb_members
+    // Update password in bb_members using cryptographic PBKDF2/SHA-256 hashing
+    var newHash = await hashPassword(p1);
     try {
       await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), {
-        password: btoa(p1)
+        password: newHash
       });
     } catch (pErr) {
       var rawEmail = (emailEl.value || '').trim();
       await client.patch('bb_members?ic=eq.' + encodeURIComponent(rawEmail), {
-        password: btoa(p1)
+        password: newHash
       });
     }
 
