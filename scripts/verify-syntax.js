@@ -13,7 +13,9 @@ const jsFiles = [
   'js/api/supabase.js',
   'js/api/sheets.js',
   'js/modules/member.js',
-  'js/modules/attendance.js'
+  'js/modules/attendance.js',
+  'js/modules/announcements.js',
+  'js/modules/gallery.js'
 ];
 
 let failed = false;

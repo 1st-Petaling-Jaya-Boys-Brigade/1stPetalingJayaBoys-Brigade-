@@ -4,7 +4,7 @@
   "description": "1st Petaling Jaya Boys' Brigade Member, Attendance, Uniform Store & Admin Portal",
   "private": true,
   "scripts": {
-    "test": "node scripts/verify-syntax.js",
+    "test": "node scripts/verify-syntax.js && node scripts/test-modules.js",
     "check": "node scripts/verify-syntax.js"
   },
   "keywords": [
