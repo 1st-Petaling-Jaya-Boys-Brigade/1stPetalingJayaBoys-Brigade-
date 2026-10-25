@@ -46,11 +46,12 @@ async function loadResources() {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
           // Filter out any legacy non-working placeholder docs
+          var LEGACY_PLACEHOLDER_IDS = ['res_handbook', 'res_drill', 'res_founders', 'res_songs', 'res_leave_form'];
           var realDocs = parsed.filter(function(r) {
             if (!r || !r.url) return false;
-            var isPlaceholder = r.url.indexOf('bbpj1.org/docs/') !== -1 ||
-                                r.url === 'https://docs.google.com/document/d/1BBPJ1LeaveOfAbsenceForm/edit' ||
-                                (r.id && r.id.startsWith('res_') && !r.id.startsWith('res_upload_') && isNaN(r.id.replace('res_', '')));
+            var isPlaceholder = (r.id && LEGACY_PLACEHOLDER_IDS.indexOf(r.id) !== -1) ||
+                                (r.url && r.url.indexOf('bbpj1.org/docs/') !== -1) ||
+                                (r.url === 'https://docs.google.com/document/d/1BBPJ1LeaveOfAbsenceForm/edit');
             return !isPlaceholder;
           });
 
@@ -116,7 +117,7 @@ function handleResourceUrlInput(val) {
  * @param {Array} list
  */
 async function saveResources(list) {
-  if (Array.isArray(list)) {
+  if (Array.isArray(list) && list !== resources) {
     resources.length = 0;
     list.forEach(function(r) { resources.push(r); });
   }
@@ -648,7 +649,32 @@ async function addOrUpdateResource() {
 }
 
 /**
- * Handles uploading a PDF or document file to Supabase Storage
+ * Auto-detects category based on document title / filename
+ * @param {string} title
+ * @returns {string}
+ */
+function autoDetectCategory(title) {
+  var t = (title || '').toLowerCase();
+  if (t.indexOf('target') !== -1 || t.indexOf('badge') !== -1 || t.indexOf('syllabus') !== -1 || t.indexOf('syllabi') !== -1 || t.indexOf('award') !== -1) {
+    return 'Badges & Syllabi';
+  }
+  if (t.indexOf('drill') !== -1 || t.indexOf('manual') !== -1 || t.indexOf('handbook') !== -1 || t.indexOf('rule') !== -1 || t.indexOf('regulation') !== -1) {
+    return 'Handbooks & Manuals';
+  }
+  if (t.indexOf('form') !== -1 || t.indexOf('leave') !== -1 || t.indexOf('admin') !== -1 || t.indexOf('consent') !== -1 || t.indexOf('waiver') !== -1) {
+    return 'Forms & Administration';
+  }
+  if (t.indexOf('song') !== -1 || t.indexOf('hymn') !== -1 || t.indexOf('anchor') !== -1 || t.indexOf('praise') !== -1) {
+    return 'BB Songs & Hymns';
+  }
+  if (t.indexOf('band') !== -1 || t.indexOf('drum') !== -1 || t.indexOf('bugle') !== -1 || t.indexOf('music') !== -1) {
+    return 'Band & Music';
+  }
+  return 'Handbooks & Manuals';
+}
+
+/**
+ * Handles uploading a PDF or document file to Supabase Storage with Instant Auto-Publish
  * @param {HTMLInputElement} input
  * @returns {Promise<string>} Uploaded public URL
  */
@@ -658,6 +684,9 @@ async function handleResourceFileUpload(input) {
   var urlInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
   var typeInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
   var titleInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
+  var descInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-desc') : null;
+  var catInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-cat') : null;
+  var visInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-vis') : null;
   var statusEl = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
   var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
 
@@ -666,17 +695,17 @@ async function handleResourceFileUpload(input) {
   var formattedSize = formatFileSize(file.size);
   _lastUploadedFileSize = formattedSize;
 
-  // Auto-populate title if empty
-  if (titleInp && !titleInp.value.trim()) {
-    titleInp.value = cleanName.replace(/[_-]/g, ' ');
-  }
+  var autoTitle = cleanName.replace(/[_-]/g, ' ');
+  var detectedType = 'PDF';
+  if (ext === 'doc' || ext === 'docx') detectedType = 'DOC';
+  else if (ext === 'xls' || ext === 'xlsx') detectedType = 'SHEET';
+  else if (ext !== 'pdf') detectedType = 'LINK';
 
-  // Auto-detect type
+  if (titleInp && !titleInp.value.trim()) {
+    titleInp.value = autoTitle;
+  }
   if (typeInp) {
-    if (ext === 'pdf') typeInp.value = 'PDF';
-    else if (ext === 'doc' || ext === 'docx') typeInp.value = 'DOC';
-    else if (ext === 'xls' || ext === 'xlsx') typeInp.value = 'SHEET';
-    else typeInp.value = 'LINK';
+    typeInp.value = detectedType;
   }
 
   _isUploadingResource = true;
@@ -712,35 +741,72 @@ async function handleResourceFileUpload(input) {
     var uploadedUrl = '';
 
     if (typeof supa !== 'undefined' && supa.uploadFile) {
-      // Primary: upload to 'gallery' bucket with 'resources/' prefix (known configured bucket)
       try {
         await supa.uploadFile('gallery', 'resources/' + fname, blob);
         uploadedUrl = supa.fileUrl('gallery', 'resources/' + fname);
       } catch (galleryErr) {
-        // Fallback: try root of 'gallery'
         try {
           await supa.uploadFile('gallery', fname, blob);
           uploadedUrl = supa.fileUrl('gallery', fname);
         } catch (galleryRootErr) {
-          // Fallback: try 'resources' bucket if specifically configured
           await supa.uploadFile('resources', fname, blob);
           uploadedUrl = supa.fileUrl('resources', fname);
         }
       }
     }
 
-    if (uploadedUrl) {
-      if (urlInp) urlInp.value = uploadedUrl;
+    if (!uploadedUrl) {
+      throw new Error('Supabase Storage is unavailable.');
+    }
+
+    if (urlInp) urlInp.value = uploadedUrl;
+
+    var editId = submitBtn ? submitBtn.getAttribute('data-edit-id') : null;
+
+    if (editId) {
       if (statusEl) {
         var safeFileName = (typeof escapeHtml === 'function') ? escapeHtml(file.name) : file.name;
         statusEl.innerHTML = '<span style="color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;">'
-          + '&#10003; Uploaded "' + safeFileName + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + ' ready to save</span>';
+          + '&#10003; Uploaded "' + safeFileName + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + ' ready to update</span>';
       }
-      if (typeof showToast === 'function') showToast('File uploaded successfully! Click Save Resource to finish.', 'success');
+      if (typeof showToast === 'function') showToast('New file attached! Click Save Changes to confirm.', 'success');
       return uploadedUrl;
-    } else {
-      throw new Error('Supabase Storage is unavailable.');
     }
+
+    // Instant Auto-Publish for new uploads:
+    var finalTitle = (titleInp && titleInp.value.trim()) ? titleInp.value.trim() : autoTitle;
+    var finalCat = (catInp && catInp.value && catInp.value !== 'All') ? catInp.value : autoDetectCategory(finalTitle);
+    var finalDesc = (descInp && descInp.value.trim()) ? descInp.value.trim() : ('Official company document for ' + finalTitle + '.');
+    var finalVis = (visInp && visInp.value) ? visInp.value : 'all';
+
+    var newDoc = {
+      id: 'res_' + Date.now(),
+      title: finalTitle,
+      description: finalDesc,
+      category: finalCat,
+      fileType: detectedType,
+      url: uploadedUrl,
+      visibility: finalVis,
+      fileSize: formattedSize || 'PDF Document',
+      updatedAt: new Date().toISOString().split('T')[0]
+    };
+
+    resources.unshift(newDoc);
+    await saveResources(resources);
+
+    cancelEditResource();
+
+    if (statusEl) {
+      var safeNameUploaded = (typeof escapeHtml === 'function') ? escapeHtml(finalTitle) : finalTitle;
+      statusEl.innerHTML = '<span style="color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;">'
+        + '&#10003; Published "' + safeNameUploaded + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + ' to Resources!</span>';
+    }
+
+    if (typeof showToast === 'function') {
+      showToast('✓ "' + finalTitle + '" uploaded & published to Resources!', 'success');
+    }
+
+    return uploadedUrl;
   } catch (err) {
     console.error('handleResourceFileUpload error:', err);
     if (statusEl) {
@@ -754,8 +820,8 @@ async function handleResourceFileUpload(input) {
     _isUploadingResource = false;
     if (submitBtn) {
       submitBtn.disabled = false;
-      var editId = submitBtn.getAttribute('data-edit-id');
-      submitBtn.textContent = editId ? 'Save Changes' : 'Save Resource';
+      var curEditId = submitBtn.getAttribute('data-edit-id');
+      submitBtn.textContent = curEditId ? 'Save Changes' : 'Save Resource';
     }
   }
 }
@@ -837,6 +903,7 @@ if (typeof window !== 'undefined') {
   window.resetResourcesToDefaults  = resetResourcesToDefaults;
   window.formatFileSize            = formatFileSize;
   window.handleResourceUrlInput    = handleResourceUrlInput;
+  window.autoDetectCategory        = autoDetectCategory;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -861,6 +928,7 @@ if (typeof module !== 'undefined' && module.exports) {
     clearAllResources: clearAllResources,
     resetResourcesToDefaults: resetResourcesToDefaults,
     formatFileSize: formatFileSize,
-    handleResourceUrlInput: handleResourceUrlInput
+    handleResourceUrlInput: handleResourceUrlInput,
+    autoDetectCategory: autoDetectCategory
   };
 }
