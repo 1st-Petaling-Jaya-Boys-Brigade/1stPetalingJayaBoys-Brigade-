@@ -178,7 +178,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(document.getElementById('adm-res-type').value, 'DOC', 'Detects Google Doc URL');
   console.log('  ✔ handleResourceUrlInput auto-detects Drive and Doc badges from URLs');
 
-  // 4. File Upload Handler
+  // 4. File Upload Handler (Instant Auto-Publish)
   const mockDocFile = {
     name: 'Drill_Manual_2026.pdf',
     size: 1.8 * 1024 * 1024,
@@ -187,11 +187,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   };
   const uploadedUrl = await resourcesModule.handleResourceFileUpload({ files: [mockDocFile] });
   assert.ok(uploadedUrl.includes('gallery'), 'Uploaded URL should be from storage');
-  assert.strictEqual(document.getElementById('adm-res-title').value, 'Drill Manual 2026', 'Auto-populates title from filename');
-  assert.strictEqual(document.getElementById('adm-res-type').value, 'PDF', 'Auto-detects PDF type badge');
-  assert.strictEqual(document.getElementById('adm-res-url').value, uploadedUrl, 'Populates admin URL field');
-  assert.ok(document.getElementById('adm-res-upload-status').innerHTML.includes('Uploaded'), 'Shows upload success status');
-  console.log('  ✔ handleResourceFileUpload uploads document, detects type/title, and updates status UI');
+  assert.strictEqual(resourcesModule.resources.length, 1, 'Auto-publishes new resource immediately to catalog');
+  assert.strictEqual(resourcesModule.resources[0].title, 'Drill Manual 2026', 'Auto-populates title from filename');
+  assert.strictEqual(resourcesModule.resources[0].fileType, 'PDF', 'Auto-detects PDF type badge');
+  assert.strictEqual(resourcesModule.resources[0].category, 'Handbooks & Manuals', 'Auto-detects category from filename');
+  assert.strictEqual(resourcesModule.resources[0].fileSize, '1.8 MB', 'Captures formatted file size');
+  assert.strictEqual(resourcesModule.autoDetectCategory('Target Workbook 2026.pdf'), 'Badges & Syllabi', 'Detects target workbook category');
+  assert.ok(document.getElementById('adm-res-upload-status').innerHTML.includes('Published'), 'Shows publish success status');
+  console.log('  ✔ handleResourceFileUpload uploads document, detects type/title, auto-publishes to catalog, and updates status UI');
 
   // 5. Admin adds real company resource
   const realDocument = {
