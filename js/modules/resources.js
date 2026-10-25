@@ -7,97 +7,8 @@
  * with role-based visibility (All, NCOs, Officers) and Supabase/Drive integration.
  */
 
-// ── Default Company Resources ──────────────────────────────────────────────
-var DEFAULT_COMPANY_RESOURCES = [
-  {
-    id: 'res_handbook',
-    title: "1st Petaling Jaya BB Member Handbook",
-    description: "Official guide for members and recruits covering company history, rank structure, parade etiquette, uniform regulations, and attendance requirements.",
-    category: "Handbooks & Manuals",
-    fileType: "PDF",
-    url: "https://bbpj1.org/docs/1st_PJ_Member_Handbook.pdf",
-    visibility: "all",
-    fileSize: "2.4 MB",
-    updatedAt: "2026-10-25"
-  },
-  {
-    id: 'res_drill_manual',
-    title: "BB Malaysia Drill & Ceremonial Manual",
-    description: "National squad drill syllabus, foot drill commands, marching cadences, turnings, inspection formats, and colour party ceremonial protocols.",
-    category: "Handbooks & Manuals",
-    fileType: "PDF",
-    url: "https://bbpj1.org/docs/BB_Malaysia_Drill_Manual.pdf",
-    visibility: "all",
-    fileSize: "4.1 MB",
-    updatedAt: "2026-10-25"
-  },
-  {
-    id: 'res_founders_syllabus',
-    title: "Founder's Badge Record Book & Expedition Syllabus",
-    description: "Candidate requirements, community service verification log, 30km expedition checklist, and NCO leadership criteria for the Founder's Award.",
-    category: "Badges & Syllabi",
-    fileType: "PDF",
-    url: "https://bbpj1.org/docs/Founders_Badge_Syllabus.pdf",
-    visibility: "nco",
-    fileSize: "1.8 MB",
-    updatedAt: "2026-10-25"
-  },
-  {
-    id: 'res_presidents_guide',
-    title: "President's Award Candidate Guide & Viva Matrix",
-    description: "National syllabus for Senior NCOs including Brigade knowledge questions, community impact project framework, and Viva Voce preparation.",
-    category: "Badges & Syllabi",
-    fileType: "PDF",
-    url: "https://bbpj1.org/docs/Presidents_Award_Candidate_Guide.pdf",
-    visibility: "nco",
-    fileSize: "3.2 MB",
-    updatedAt: "2026-10-25"
-  },
-  {
-    id: 'res_songs_hymns',
-    title: "The Anchor Song & BB Vesper (Lyrics & Sheet Music)",
-    description: "Official sheet music, 4-part vocal harmony, piano chords, and lyrics for The Anchor Song ('Will Your Anchor Hold') and the BB Evening Vesper.",
-    category: "BB Songs & Hymns",
-    fileType: "PDF",
-    url: "https://bbpj1.org/docs/BB_Songs_and_Vesper.pdf",
-    visibility: "all",
-    fileSize: "850 KB",
-    updatedAt: "2026-10-25"
-  },
-  {
-    id: 'res_leave_form',
-    title: "Parade Official Leave of Absence (LOA) Form",
-    description: "Required documentation for planned parade absences, school co-curricular clashes, or physical injury light-duty medical exemptions.",
-    category: "Forms & Administration",
-    fileType: "DOC",
-    url: "https://docs.google.com/document/d/1BBPJ1LeaveOfAbsenceForm/edit",
-    visibility: "all",
-    fileSize: "Google Doc",
-    updatedAt: "2026-10-25"
-  },
-  {
-    id: 'res_nco_handbook',
-    title: "NCO Leadership & Company Operations Manual",
-    description: "Operational guidelines for Lance Corporals, Corporals, and Sergeants covering parade duty rosters, squad inspection rubrics, and dispute resolution.",
-    category: "Handbooks & Manuals",
-    fileType: "PDF",
-    url: "https://bbpj1.org/docs/1st_PJ_NCO_Operations_Manual.pdf",
-    visibility: "nco",
-    fileSize: "1.5 MB",
-    updatedAt: "2026-10-25"
-  },
-  {
-    id: 'res_band_scores',
-    title: "Company Brass Band Repertoire & Bugle Calls",
-    description: "Score sheets for Saturday band rehearsals: General Salute, National Anthem (Negaraku), The Royal Salute, and Company Marching Cadences.",
-    category: "Band & Music",
-    fileType: "PDF",
-    url: "https://bbpj1.org/docs/1st_PJ_Band_Scores_2026.pdf",
-    visibility: "all",
-    fileSize: "5.2 MB",
-    updatedAt: "2026-10-25"
-  }
-];
+// ── Default Resources (Empty by default; managed via Admin Console) ────────
+var DEFAULT_COMPANY_RESOURCES = [];
 
 // ── State ──────────────────────────────────────────────────────────────────
 var resources = [];
@@ -114,9 +25,18 @@ var RESOURCE_CATEGORIES = [
   'Band & Music'
 ];
 
+var STANDARD_NCO_RANKS = [
+  'Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant',
+  'Warrant Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Officer'
+];
+
+var STANDARD_OFFICER_RANKS = [
+  'Warrant Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Officer'
+];
+
 // ── Data Ingestion & Persistence ───────────────────────────────────────────
 /**
- * Loads resources from Supabase bb_config, falling back to defaults
+ * Loads resources from Supabase bb_config, filtering out any legacy placeholder docs
  */
 async function loadResources() {
   try {
@@ -124,20 +44,28 @@ async function loadResources() {
       var rows = await supa.get('bb_config?key=eq.bb_resources&select=value');
       if (rows && rows.length && rows[0].value) {
         var parsed = JSON.parse(rows[0].value);
-        if (Array.isArray(parsed) && parsed.length) {
+        if (Array.isArray(parsed)) {
+          // Filter out any legacy non-working placeholder docs
+          var realDocs = parsed.filter(function(r) {
+            if (!r || !r.url) return false;
+            var isPlaceholder = r.url.indexOf('bbpj1.org/docs/') !== -1 ||
+                                r.url === 'https://docs.google.com/document/d/1BBPJ1LeaveOfAbsenceForm/edit' ||
+                                (r.id && r.id.startsWith('res_') && !r.id.startsWith('res_upload_') && isNaN(r.id.replace('res_', '')));
+            return !isPlaceholder;
+          });
+
           resources.length = 0;
-          parsed.forEach(function(r) { resources.push(r); });
+          realDocs.forEach(function(r) { resources.push(r); });
+
+          // If legacy placeholders were found in bb_config, automatically purge them
+          if (realDocs.length !== parsed.length) {
+            saveResources(realDocs);
+          }
         }
       }
     }
   } catch (e) {
     console.warn('loadResources error:', e);
-  }
-
-  // Fallback to default resources if database had no data yet
-  if (!resources.length) {
-    resources.length = 0;
-    DEFAULT_COMPANY_RESOURCES.forEach(function(r) { resources.push(Object.assign({}, r)); });
   }
 
   if (typeof window !== 'undefined') {
@@ -182,15 +110,6 @@ async function saveResources(list) {
   renderResourcesPage();
   renderAdminResourcesList();
 }
-
-var STANDARD_NCO_RANKS = [
-  'Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant',
-  'Warrant Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Officer'
-];
-
-var STANDARD_OFFICER_RANKS = [
-  'Warrant Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Officer'
-];
 
 // ── Role & Permission Checking ─────────────────────────────────────────────
 /**
@@ -268,13 +187,26 @@ function renderResourcesPage() {
     pillsEl.innerHTML = phtml;
   }
 
-  // Filter resources
+  // 1. Check if total repository is currently empty
+  if (!resources.length) {
+    if (countEl) countEl.textContent = '0 resources';
+    var isAdmin = (typeof sessionGet === 'function' && sessionGet('adminAuthed') === true);
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
+      + '<div style="font-size:38px;margin-bottom:12px;">📚</div>'
+      + '<div style="font-family:\'Oswald\',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">No Company Resources Uploaded Yet</div>'
+      + '<div style="font-size:13px;max-width:440px;margin:0 auto;line-height:1.6;">Official handbooks, drill manuals, syllabi, and administrative forms will appear here once uploaded by company administrators.</div>'
+      + (isAdmin ? '<button type="button" onclick="switchAdminSection(\'resources\')" class="portal-btn portal-btn-primary" style="margin-top:16px;">Open Admin Upload Console &rarr;</button>' : '')
+      + '</div>';
+    return;
+  }
+
+  // 2. Filter resources
   var filtered = resources.filter(function(r) {
-    // 1. Category match
+    // Category match
     if (_activeResourceCategory !== 'All' && r.category !== _activeResourceCategory) {
       return false;
     }
-    // 2. Search query match
+    // Search query match
     if (_resourceSearchQuery) {
       var t = (r.title || '').toLowerCase();
       var d = (r.description || '').toLowerCase();
@@ -294,6 +226,7 @@ function renderResourcesPage() {
     countEl.textContent = 'Showing ' + filtered.length + ' of ' + resources.length + ' resources';
   }
 
+  // 3. Filtered empty state (search returned 0 results)
   if (!filtered.length) {
     container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
       + '<div style="font-size:32px;margin-bottom:8px;">📂</div>'
@@ -449,13 +382,13 @@ function renderAdminResourcesList() {
   if (!container) return;
 
   if (!resources.length) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px;">No resources created yet. Add one above or reset to defaults.</div>';
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:24px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:10px;">No company resources uploaded yet. Use the form above to add PDF documents or link Google Drive files.</div>';
     return;
   }
 
   var html = '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;letter-spacing:1px;">EXISTING COMPANY RESOURCES (' + resources.length + ')</div>';
 
-  resources.forEach(function(r, idx) {
+  resources.forEach(function(r) {
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(r.title || '') : r.title;
     var safeCat   = (typeof escapeHtml === 'function') ? escapeHtml(r.category || '') : r.category;
     var safeType  = (typeof escapeHtml === 'function') ? escapeHtml(r.fileType || '') : r.fileType;
@@ -703,13 +636,13 @@ async function deleteResource(id) {
 }
 
 /**
- * Resets the resources repository back to the official default documents
+ * Clears all resources from the repository
  */
-async function resetResourcesToDefaults() {
+async function clearAllResources() {
   var confirmed = false;
-  var msg = 'Reset resources to official defaults? This will restore the 8 default handbooks, manuals, and syllabi.';
+  var msg = 'Are you sure you want to remove all company resources? This action cannot be undone.';
   if (typeof showConfirmModal === 'function') {
-    confirmed = await showConfirmModal(msg, 'Reset to Defaults');
+    confirmed = await showConfirmModal(msg, 'Clear All Resources');
   } else if (typeof window !== 'undefined' && window.confirm) {
     confirmed = window.confirm(msg);
   } else {
@@ -717,10 +650,12 @@ async function resetResourcesToDefaults() {
   }
   if (!confirmed) return;
 
-  var clonedDefaults = JSON.parse(JSON.stringify(DEFAULT_COMPANY_RESOURCES));
-  await saveResources(clonedDefaults);
-  if (typeof showToast === 'function') showToast('Resources reset to default catalog.', 'success');
+  await saveResources([]);
+  if (typeof showToast === 'function') showToast('All resources cleared.', 'info');
 }
+
+// Backwards compatibility alias
+var resetResourcesToDefaults = clearAllResources;
 
 // ── Global Window Exports ──────────────────────────────────────────────────
 if (typeof window !== 'undefined') {
@@ -740,6 +675,7 @@ if (typeof window !== 'undefined') {
   window.addOrUpdateResource       = addOrUpdateResource;
   window.handleResourceFileUpload  = handleResourceFileUpload;
   window.deleteResource            = deleteResource;
+  window.clearAllResources         = clearAllResources;
   window.resetResourcesToDefaults  = resetResourcesToDefaults;
 }
 
@@ -762,6 +698,7 @@ if (typeof module !== 'undefined' && module.exports) {
     addOrUpdateResource: addOrUpdateResource,
     handleResourceFileUpload: handleResourceFileUpload,
     deleteResource: deleteResource,
+    clearAllResources: clearAllResources,
     resetResourcesToDefaults: resetResourcesToDefaults
   };
 }
