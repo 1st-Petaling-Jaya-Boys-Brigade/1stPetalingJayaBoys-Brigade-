@@ -178,23 +178,38 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(document.getElementById('adm-res-type').value, 'DOC', 'Detects Google Doc URL');
   console.log('  ✔ handleResourceUrlInput auto-detects Drive and Doc badges from URLs');
 
-  // 4. File Upload Handler (Instant Auto-Publish)
+  // 4. File Selection & Upload Button Flow
   const mockDocFile = {
     name: 'Drill_Manual_2026.pdf',
     size: 1.8 * 1024 * 1024,
     type: 'application/pdf',
     arrayBuffer: async () => new ArrayBuffer(16)
   };
-  const uploadedUrl = await resourcesModule.handleResourceFileUpload({ files: [mockDocFile] });
-  assert.ok(uploadedUrl.includes('gallery'), 'Uploaded URL should be from storage');
-  assert.strictEqual(resourcesModule.resources.length, 1, 'Auto-publishes new resource immediately to catalog');
-  assert.strictEqual(resourcesModule.resources[0].title, 'Drill Manual 2026', 'Auto-populates title from filename');
-  assert.strictEqual(resourcesModule.resources[0].fileType, 'PDF', 'Auto-detects PDF type badge');
-  assert.strictEqual(resourcesModule.resources[0].category, 'Handbooks & Manuals', 'Auto-detects category from filename');
-  assert.strictEqual(resourcesModule.resources[0].fileSize, '1.8 MB', 'Captures formatted file size');
+
+  // Step A: User chooses a file - stages file and auto-populates metadata WITHOUT uploading yet
+  const fileInputEl = document.getElementById('adm-res-file');
+  fileInputEl.files = [mockDocFile];
+  document.getElementById('adm-res-title').value = '';
+  resourcesModule.handleResourceFileSelect(fileInputEl);
+
+  assert.strictEqual(document.getElementById('adm-res-title').value, 'Drill Manual 2026', 'Auto-populates title from filename');
+  assert.strictEqual(document.getElementById('adm-res-type').value, 'PDF', 'Auto-detects PDF type badge');
+  assert.strictEqual(document.getElementById('adm-res-cat').value, 'Handbooks & Manuals', 'Auto-detects category from filename');
   assert.strictEqual(resourcesModule.autoDetectCategory('Target Workbook 2026.pdf'), 'Badges & Syllabi', 'Detects target workbook category');
-  assert.ok(document.getElementById('adm-res-upload-status').innerHTML.includes('Published'), 'Shows publish success status');
-  console.log('  ✔ handleResourceFileUpload uploads document, detects type/title, auto-publishes to catalog, and updates status UI');
+  assert.ok(document.getElementById('adm-res-upload-status').innerHTML.includes('Selected:'), 'Shows staged file preview status');
+  assert.strictEqual(resourcesModule.resources.length, 0, 'Does NOT upload or publish yet before user presses upload button');
+  console.log('  ✔ handleResourceFileSelect stages file, auto-detects title/category, and does not upload before button press');
+
+  // Step B: User presses "Upload Document" button - uploads to storage and publishes to catalog
+  await resourcesModule.addOrUpdateResource();
+  assert.strictEqual(resourcesModule.resources.length, 1, 'Publishes resource after user presses Upload Document');
+  assert.strictEqual(resourcesModule.resources[0].title, 'Drill Manual 2026');
+  assert.strictEqual(resourcesModule.resources[0].fileType, 'PDF');
+  assert.strictEqual(resourcesModule.resources[0].category, 'Handbooks & Manuals');
+  assert.strictEqual(resourcesModule.resources[0].fileSize, '1.8 MB');
+  assert.ok(resourcesModule.resources[0].url.includes('gallery'), 'Uploaded URL is generated from Supabase Storage');
+  assert.strictEqual(document.getElementById('adm-res-submit-btn').textContent, 'Upload Document', 'Button resets to Upload Document');
+  console.log('  ✔ addOrUpdateResource uploads file, publishes document, and resets button to Upload Document');
 
   // 5. Admin adds real company resource
   const realDocument = {
