@@ -33,7 +33,7 @@ let lastDeleted = null;
 global.supa = {
   get: async (path) => {
     if (path.includes('bb_resources')) {
-      return []; // Return empty to test default fallback
+      return []; // Return empty by default (no placeholder docs)
     }
     return [
       { id: '1', title: 'Test Notice', body: '<b>Meeting on Saturday</b>', date: '25 OCT 2026', reactions: { '👍': ['other@bb.org'] } }
@@ -141,13 +141,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('\nTesting Resources Module (TSK-034)...');
   const resourcesModule = require('../js/modules/resources.js');
 
-  // 1. Load Resources (Defaults Fallback)
+  // 1. Load Resources (Empty by default, zero non-working placeholders)
   await resourcesModule.loadResources();
-  assert.strictEqual(resourcesModule.resources.length, 8, 'Should initialize 8 default company resources');
-  assert.strictEqual(resourcesModule.resources[0].title, "1st Petaling Jaya BB Member Handbook");
-  console.log('  ✔ loadResources initializes official default documents when database is empty');
+  assert.strictEqual(resourcesModule.resources.length, 0, 'Should start with 0 placeholder resources');
+  console.log('  ✔ loadResources initializes empty clean catalog without placeholder documents');
 
-  // 2. Role-Based Visibility Checks
+  // 2. Admin adds real company resource
+  const realDocument = {
+    id: 'res_123',
+    title: 'BB Official Parade Rules 2026',
+    description: 'Parade regulations uploaded by company officers.',
+    category: 'Handbooks & Manuals',
+    fileType: 'PDF',
+    url: 'https://storage.supabase.com/resources/parade_rules.pdf',
+    visibility: 'all',
+    fileSize: '1.2 MB',
+    updatedAt: '2026-10-25'
+  };
+  await resourcesModule.saveResources([realDocument]);
+  assert.strictEqual(resourcesModule.resources.length, 1, 'Should have 1 resource after saving');
+  assert.strictEqual(resourcesModule.resources[0].title, 'BB Official Parade Rules 2026');
+  console.log('  ✔ saveResources successfully stores documents in bb_config');
+
+  // 3. Role-Based Visibility Checks
   mockRank = 'Recruit';
   mockAdmin = false;
   assert.strictEqual(resourcesModule.hasResourceAccess('all'), true, 'Recruit can access public resources');
@@ -167,16 +183,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(resourcesModule.hasResourceAccess('officer'), true, 'Admin can access Officer resources regardless of rank');
   console.log('  ✔ hasResourceAccess correctly enforces Public / NCO / Officer role restrictions');
 
-  // 3. Delete Resource
-  await resourcesModule.deleteResource('res_handbook');
-  assert.strictEqual(resourcesModule.resources.length, 7, 'Resource should be deleted from active list');
-  assert.strictEqual(resourcesModule.resources.find(r => r.id === 'res_handbook'), undefined);
+  // 4. Delete Resource
+  await resourcesModule.deleteResource('res_123');
+  assert.strictEqual(resourcesModule.resources.length, 0, 'Resource should be deleted from active list');
   console.log('  ✔ deleteResource removes resource from list and saves update');
 
-  // 4. Reset to Defaults
-  await resourcesModule.resetResourcesToDefaults();
-  assert.strictEqual(resourcesModule.resources.length, 8, 'Reset to defaults should restore all 8 documents');
-  console.log('  ✔ resetResourcesToDefaults restores official document catalog');
+  // 5. Clear All Resources
+  await resourcesModule.saveResources([realDocument]);
+  assert.strictEqual(resourcesModule.resources.length, 1);
+  await resourcesModule.clearAllResources();
+  assert.strictEqual(resourcesModule.resources.length, 0, 'clearAllResources should empty the catalog');
+  console.log('  ✔ clearAllResources empties the document repository');
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {
