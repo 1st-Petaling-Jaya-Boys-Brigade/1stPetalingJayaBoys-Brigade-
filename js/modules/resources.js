@@ -510,7 +510,7 @@ function openEditResource(id) {
   }
 
   if (submitBtn) {
-    submitBtn.textContent = 'Save Changes';
+    submitBtn.textContent = 'Update Document';
     submitBtn.disabled = false;
     submitBtn.setAttribute('data-edit-id', id);
   }
@@ -540,9 +540,55 @@ function cancelEditResource() {
   _lastUploadedFileSize = '';
 
   if (submitBtn) {
-    submitBtn.textContent = 'Save Resource';
+    submitBtn.textContent = 'Upload Document';
     submitBtn.disabled = false;
     submitBtn.removeAttribute('data-edit-id');
+  }
+}
+
+/**
+ * Stages and previews a selected file from the file input without uploading immediately.
+ * Upload only occurs when the user clicks the "Upload Document" button.
+ * @param {HTMLInputElement} input
+ */
+function handleResourceFileSelect(input) {
+  if (!input || !input.files || !input.files.length) return;
+  var file = input.files[0];
+  var titleInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
+  var catInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-cat') : null;
+  var typeInp  = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
+  var statusEl = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
+
+  var ext = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
+  var cleanName = file.name.replace(/\.[^/.]+$/, "");
+  var autoTitle = cleanName.replace(/[_-]/g, ' ');
+  var formattedSize = formatFileSize(file.size);
+  _lastUploadedFileSize = formattedSize;
+
+  var detectedType = 'PDF';
+  if (ext === 'doc' || ext === 'docx') detectedType = 'DOC';
+  else if (ext === 'xls' || ext === 'xlsx') detectedType = 'SHEET';
+  else if (ext !== 'pdf') detectedType = 'LINK';
+
+  // Auto-populate title if currently empty
+  if (titleInp && !titleInp.value.trim()) {
+    titleInp.value = autoTitle;
+  }
+
+  // Auto-detect type
+  if (typeInp) {
+    typeInp.value = detectedType;
+  }
+
+  // Auto-detect category if default or empty
+  if (catInp && (!catInp.value || catInp.value === 'Handbooks & Manuals' || catInp.value === 'All')) {
+    catInp.value = autoDetectCategory(titleInp && titleInp.value ? titleInp.value : autoTitle);
+  }
+
+  if (statusEl) {
+    var safeName = (typeof escapeHtml === 'function') ? escapeHtml(file.name) : file.name;
+    statusEl.innerHTML = '<span style="color:#10b981;font-size:11px;display:inline-flex;align-items:center;gap:4px;">'
+      + '&#128196; Selected: <b>' + safeName + '</b>' + (formattedSize ? ' (' + formattedSize + ')' : '') + ' &mdash; Click &quot;Upload Document&quot; below to publish.</span>';
   }
 }
 
@@ -564,6 +610,7 @@ async function addOrUpdateResource() {
     return;
   }
 
+  var editId = submitBtn ? submitBtn.getAttribute('data-edit-id') : null;
   var title = (titleInp ? titleInp.value : '').trim();
   var desc  = (descInp ? descInp.value : '').trim();
   var cat   = (catInp ? catInp.value : 'Handbooks & Manuals').trim();
@@ -571,26 +618,35 @@ async function addOrUpdateResource() {
   var type  = (typeInp ? typeInp.value : 'PDF').trim().toUpperCase();
   var vis   = (visInp ? visInp.value : 'all').trim().toLowerCase();
 
-  var editId = submitBtn ? submitBtn.getAttribute('data-edit-id') : null;
+  // If title is empty, check if a file was selected to derive title
+  if (!title && fileInp && fileInp.files && fileInp.files.length > 0) {
+    var fName = fileInp.files[0].name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, ' ');
+    title = fName;
+    if (titleInp) titleInp.value = fName;
+  }
 
   if (!title) {
-    if (typeof showToast === 'function') showToast('Please enter a resource title.', 'warning');
+    if (typeof showToast === 'function') showToast('Please enter a document title.', 'warning');
     else alert('Please enter a title.');
     return;
   }
 
-  // If URL is empty, but user selected a file in the file input, upload it now
-  if (!url && fileInp && fileInp.files && fileInp.files.length > 0) {
+  // If user selected a file in the file input, upload it now upon pressing the button
+  if (fileInp && fileInp.files && fileInp.files.length > 0) {
     try {
       url = await handleResourceFileUpload(fileInp);
     } catch (uploadErr) {
-      return; // Upload error was already reported
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = editId ? 'Update Document' : 'Upload Document';
+      }
+      return;
     }
   }
 
   if (!url) {
-    if (typeof showToast === 'function') showToast('Please upload a file or enter a document URL.', 'warning');
-    else alert('Please upload a file or enter a document URL.');
+    if (typeof showToast === 'function') showToast('Please select a file to upload or enter a document URL.', 'warning');
+    else alert('Please select a file to upload or enter a document URL.');
     return;
   }
 
@@ -603,7 +659,10 @@ async function addOrUpdateResource() {
     else finalFileSize = 'Online Document';
   }
 
-  if (submitBtn) submitBtn.disabled = true;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = editId ? 'Updating...' : 'Publishing...';
+  }
 
   try {
     if (editId) {
@@ -621,12 +680,12 @@ async function addOrUpdateResource() {
         item.updatedAt = new Date().toISOString().split('T')[0];
       }
       await saveResources(resources);
-      if (typeof showToast === 'function') showToast('Resource updated successfully!', 'success');
+      if (typeof showToast === 'function') showToast('Document updated successfully!', 'success');
     } else {
       var newRes = {
         id: 'res_' + Date.now(),
         title: title,
-        description: desc,
+        description: desc || ('Official company document for ' + title + '.'),
         category: cat,
         fileType: type,
         url: url,
@@ -634,9 +693,9 @@ async function addOrUpdateResource() {
         fileSize: finalFileSize,
         updatedAt: new Date().toISOString().split('T')[0]
       };
-      resources.push(newRes);
+      resources.unshift(newRes);
       await saveResources(resources);
-      if (typeof showToast === 'function') showToast('Resource added successfully!', 'success');
+      if (typeof showToast === 'function') showToast('✓ Document uploaded and published successfully!', 'success');
     }
 
     cancelEditResource();
@@ -644,7 +703,11 @@ async function addOrUpdateResource() {
     console.error('addOrUpdateResource error:', e);
     if (typeof showToast === 'function') showToast('Failed to save resource: ' + (e.message || 'Database error'), 'error');
   } finally {
-    if (submitBtn) submitBtn.disabled = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      var curEdit = submitBtn.getAttribute('data-edit-id');
+      submitBtn.textContent = curEdit ? 'Update Document' : 'Upload Document';
+    }
   }
 }
 
@@ -674,53 +737,34 @@ function autoDetectCategory(title) {
 }
 
 /**
- * Handles uploading a PDF or document file to Supabase Storage with Instant Auto-Publish
- * @param {HTMLInputElement} input
+ * Uploads a selected PDF or document file to Supabase Storage
+ * @param {HTMLInputElement|{files: File[]}} input
  * @returns {Promise<string>} Uploaded public URL
  */
 async function handleResourceFileUpload(input) {
   if (!input || !input.files || !input.files.length) return '';
   var file = input.files[0];
-  var urlInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
-  var typeInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
-  var titleInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
-  var descInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-desc') : null;
-  var catInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-cat') : null;
-  var visInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-vis') : null;
-  var statusEl = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
+  var urlInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
+  var statusEl  = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
   var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
 
   var ext = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
-  var cleanName = file.name.replace(/\.[^/.]+$/, "");
   var formattedSize = formatFileSize(file.size);
   _lastUploadedFileSize = formattedSize;
-
-  var autoTitle = cleanName.replace(/[_-]/g, ' ');
-  var detectedType = 'PDF';
-  if (ext === 'doc' || ext === 'docx') detectedType = 'DOC';
-  else if (ext === 'xls' || ext === 'xlsx') detectedType = 'SHEET';
-  else if (ext !== 'pdf') detectedType = 'LINK';
-
-  if (titleInp && !titleInp.value.trim()) {
-    titleInp.value = autoTitle;
-  }
-  if (typeInp) {
-    typeInp.value = detectedType;
-  }
 
   _isUploadingResource = true;
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Uploading File...';
+    submitBtn.textContent = 'Uploading Document...';
   }
   if (statusEl) {
     var safeName = (typeof escapeHtml === 'function') ? escapeHtml(file.name) : file.name;
     statusEl.innerHTML = '<span style="color:var(--accent);display:inline-flex;align-items:center;gap:6px;">'
       + '<span style="display:inline-block;width:11px;height:11px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></span> '
-      + 'Uploading "' + safeName + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + '... Please wait</span>';
+      + 'Uploading "' + safeName + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + '...</span>';
   }
 
-  if (typeof showToast === 'function') showToast('Uploading document: ' + file.name + '...', 'info');
+  if (typeof showToast === 'function') showToast('Uploading ' + file.name + ' to Storage...', 'info');
 
   try {
     var fname = 'doc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6) + '.' + ext;
@@ -760,69 +804,18 @@ async function handleResourceFileUpload(input) {
     }
 
     if (urlInp) urlInp.value = uploadedUrl;
-
-    var editId = submitBtn ? submitBtn.getAttribute('data-edit-id') : null;
-
-    if (editId) {
-      if (statusEl) {
-        var safeFileName = (typeof escapeHtml === 'function') ? escapeHtml(file.name) : file.name;
-        statusEl.innerHTML = '<span style="color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;">'
-          + '&#10003; Uploaded "' + safeFileName + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + ' ready to update</span>';
-      }
-      if (typeof showToast === 'function') showToast('New file attached! Click Save Changes to confirm.', 'success');
-      return uploadedUrl;
-    }
-
-    // Instant Auto-Publish for new uploads:
-    var finalTitle = (titleInp && titleInp.value.trim()) ? titleInp.value.trim() : autoTitle;
-    var finalCat = (catInp && catInp.value && catInp.value !== 'All') ? catInp.value : autoDetectCategory(finalTitle);
-    var finalDesc = (descInp && descInp.value.trim()) ? descInp.value.trim() : ('Official company document for ' + finalTitle + '.');
-    var finalVis = (visInp && visInp.value) ? visInp.value : 'all';
-
-    var newDoc = {
-      id: 'res_' + Date.now(),
-      title: finalTitle,
-      description: finalDesc,
-      category: finalCat,
-      fileType: detectedType,
-      url: uploadedUrl,
-      visibility: finalVis,
-      fileSize: formattedSize || 'PDF Document',
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-
-    resources.unshift(newDoc);
-    await saveResources(resources);
-
-    cancelEditResource();
-
-    if (statusEl) {
-      var safeNameUploaded = (typeof escapeHtml === 'function') ? escapeHtml(finalTitle) : finalTitle;
-      statusEl.innerHTML = '<span style="color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;">'
-        + '&#10003; Published "' + safeNameUploaded + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + ' to Resources!</span>';
-    }
-
-    if (typeof showToast === 'function') {
-      showToast('✓ "' + finalTitle + '" uploaded & published to Resources!', 'success');
-    }
-
     return uploadedUrl;
   } catch (err) {
     console.error('handleResourceFileUpload error:', err);
     if (statusEl) {
       var errMsg = (typeof escapeHtml === 'function') ? escapeHtml(err.message || 'Upload failed') : (err.message || 'Upload failed');
       statusEl.innerHTML = '<span style="color:var(--red);display:inline-flex;align-items:center;gap:4px;">'
-        + '&#10007; Upload failed: ' + errMsg + '. You can paste a Google Drive link below instead.</span>';
+        + '&#10007; Upload failed: ' + errMsg + '.</span>';
     }
     if (typeof showToast === 'function') showToast('Upload failed: ' + (err.message || 'Storage error'), 'error');
     throw err;
   } finally {
     _isUploadingResource = false;
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      var curEditId = submitBtn.getAttribute('data-edit-id');
-      submitBtn.textContent = curEditId ? 'Save Changes' : 'Save Resource';
-    }
   }
 }
 
@@ -897,6 +890,7 @@ if (typeof window !== 'undefined') {
   window.openEditResource          = openEditResource;
   window.cancelEditResource        = cancelEditResource;
   window.addOrUpdateResource       = addOrUpdateResource;
+  window.handleResourceFileSelect  = handleResourceFileSelect;
   window.handleResourceFileUpload  = handleResourceFileUpload;
   window.deleteResource            = deleteResource;
   window.clearAllResources         = clearAllResources;
@@ -923,6 +917,7 @@ if (typeof module !== 'undefined' && module.exports) {
     openEditResource: openEditResource,
     cancelEditResource: cancelEditResource,
     addOrUpdateResource: addOrUpdateResource,
+    handleResourceFileSelect: handleResourceFileSelect,
     handleResourceFileUpload: handleResourceFileUpload,
     deleteResource: deleteResource,
     clearAllResources: clearAllResources,
