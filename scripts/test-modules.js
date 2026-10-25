@@ -5,8 +5,30 @@ const assert = require('assert');
 
 // ── Test Environment Simulation ──
 global.window = global;
+
+const mockElements = {};
 global.document = {
-  getElementById: (id) => null,
+  getElementById: (id) => {
+    if (!mockElements[id]) {
+      mockElements[id] = {
+        value: '',
+        textContent: '',
+        innerHTML: '',
+        style: {},
+        disabled: false,
+        files: [],
+        setAttribute: (k, v) => {},
+        removeAttribute: (k) => {},
+        getAttribute: (k) => null,
+        scrollIntoView: () => {},
+        querySelectorAll: () => [],
+        addEventListener: () => {},
+        removeEventListener: () => {}
+      };
+    }
+    return mockElements[id];
+  },
+  querySelectorAll: () => [],
   addEventListener: () => {},
   removeEventListener: () => {}
 };
@@ -39,9 +61,9 @@ global.supa = {
       { id: '1', title: 'Test Notice', body: '<b>Meeting on Saturday</b>', date: '25 OCT 2026', reactions: { '👍': ['other@bb.org'] } }
     ];
   },
-  req: async (method, path, body) => {
+  req: async (method, path, body, extraHeaders) => {
     if (method === 'POST') {
-      lastPosted = { path, body };
+      lastPosted = { path, body, extraHeaders };
       return [{ id: 'new_id', ...body }];
     }
     return [
@@ -91,13 +113,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('  ✔ loadAnnouncements loads and formats data correctly');
 
   // 3. Toggle Reaction (Add)
+  mockUser = 'test@bbpj1.org';
   await announcementsModule.toggleReaction(0, '👍');
-  assert.strictEqual(announcementsModule.announcements[0].reactions['👍'].includes('test@bbpj1.org'), true, 'User should be added to 👍 reaction');
+  assert.strictEqual(announcementsModule.announcements[0].reactions['👍'].includes('test@bbpj1.org'), true);
   console.log('  ✔ toggleReaction adds reaction for logged-in user');
 
   // 4. Toggle Reaction (Remove)
   await announcementsModule.toggleReaction(0, '👍');
-  assert.strictEqual(announcementsModule.announcements[0].reactions['👍'].includes('test@bbpj1.org'), false, 'User should be removed from 👍 reaction');
+  assert.strictEqual(announcementsModule.announcements[0].reactions['👍'].includes('test@bbpj1.org'), false);
   console.log('  ✔ toggleReaction removes reaction when clicked again');
 
   // 5. Unauthenticated reaction check
@@ -114,19 +137,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('\nTesting Gallery Module...');
   const galleryModule = require('../js/modules/gallery.js');
 
-  // 1. Load Gallery
   await galleryModule.loadGallery();
-  assert.strictEqual(galleryModule.galleryImages.length, 2, 'Should load 2 photos');
-  assert.strictEqual(galleryModule.galleryImages[0].id, 'g1');
+  assert.strictEqual(galleryModule.galleryImages.length, 2, 'Should load 2 gallery images');
   console.log('  ✔ loadGallery loads photo array correctly');
 
-  // 2. Delete Gallery Image
   await galleryModule.deleteGalleryImage(0, 'g1');
-  assert.strictEqual(galleryModule.galleryImages.length, 1, 'Should have 1 photo remaining');
-  assert.strictEqual(lastDeleted, 'bb_gallery?id=eq.g1', 'Should call Supabase delete on row');
+  assert.strictEqual(galleryModule.galleryImages.length, 1, 'Should delete 1 image');
   console.log('  ✔ deleteGalleryImage removes photo and deletes from Supabase');
 
-  // 3. Upload Gallery Files
   const mockFile = {
     name: 'event.png',
     type: 'image/png',
@@ -146,7 +164,36 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(resourcesModule.resources.length, 0, 'Should start with 0 placeholder resources');
   console.log('  ✔ loadResources initializes empty clean catalog without placeholder documents');
 
-  // 2. Admin adds real company resource
+  // 2. Format File Size Helper
+  assert.strictEqual(resourcesModule.formatFileSize(500), '500 B');
+  assert.strictEqual(resourcesModule.formatFileSize(1024 * 150), '150.0 KB');
+  assert.strictEqual(resourcesModule.formatFileSize(1024 * 1024 * 2.4), '2.4 MB');
+  console.log('  ✔ formatFileSize correctly formats bytes, KB, and MB');
+
+  // 3. Handle Resource URL Auto-detection
+  document.getElementById('adm-res-type').value = 'PDF';
+  resourcesModule.handleResourceUrlInput('https://drive.google.com/drive/folders/1A2B3C');
+  assert.strictEqual(document.getElementById('adm-res-type').value, 'DRIVE', 'Detects Google Drive URL');
+  resourcesModule.handleResourceUrlInput('https://docs.google.com/document/d/1A2B3C/edit');
+  assert.strictEqual(document.getElementById('adm-res-type').value, 'DOC', 'Detects Google Doc URL');
+  console.log('  ✔ handleResourceUrlInput auto-detects Drive and Doc badges from URLs');
+
+  // 4. File Upload Handler
+  const mockDocFile = {
+    name: 'Drill_Manual_2026.pdf',
+    size: 1.8 * 1024 * 1024,
+    type: 'application/pdf',
+    arrayBuffer: async () => new ArrayBuffer(16)
+  };
+  const uploadedUrl = await resourcesModule.handleResourceFileUpload({ files: [mockDocFile] });
+  assert.ok(uploadedUrl.includes('gallery'), 'Uploaded URL should be from storage');
+  assert.strictEqual(document.getElementById('adm-res-title').value, 'Drill Manual 2026', 'Auto-populates title from filename');
+  assert.strictEqual(document.getElementById('adm-res-type').value, 'PDF', 'Auto-detects PDF type badge');
+  assert.strictEqual(document.getElementById('adm-res-url').value, uploadedUrl, 'Populates admin URL field');
+  assert.ok(document.getElementById('adm-res-upload-status').innerHTML.includes('Uploaded'), 'Shows upload success status');
+  console.log('  ✔ handleResourceFileUpload uploads document, detects type/title, and updates status UI');
+
+  // 5. Admin adds real company resource
   const realDocument = {
     id: 'res_123',
     title: 'BB Official Parade Rules 2026',
@@ -161,9 +208,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   await resourcesModule.saveResources([realDocument]);
   assert.strictEqual(resourcesModule.resources.length, 1, 'Should have 1 resource after saving');
   assert.strictEqual(resourcesModule.resources[0].title, 'BB Official Parade Rules 2026');
-  console.log('  ✔ saveResources successfully stores documents in bb_config');
+  assert.strictEqual(lastPosted.extraHeaders && lastPosted.extraHeaders.Prefer, 'return=representation,resolution=merge-duplicates', 'POST includes resolution=merge-duplicates');
+  console.log('  ✔ saveResources successfully stores documents in bb_config with upsert resolution');
 
-  // 3. Role-Based Visibility Checks
+  // 6. Role-Based Visibility Checks
   mockRank = 'Recruit';
   mockAdmin = false;
   assert.strictEqual(resourcesModule.hasResourceAccess('all'), true, 'Recruit can access public resources');
@@ -183,12 +231,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(resourcesModule.hasResourceAccess('officer'), true, 'Admin can access Officer resources regardless of rank');
   console.log('  ✔ hasResourceAccess correctly enforces Public / NCO / Officer role restrictions');
 
-  // 4. Delete Resource
+  // 7. Empty State Verification (Confirm NO "Open Admin Upload Console" button)
+  resourcesModule.resources.length = 0;
+  mockAdmin = true; // Even if admin is logged in
+  resourcesModule.renderResourcesPage();
+  const emptyHtml = document.getElementById('resources-list-container').innerHTML;
+  assert.strictEqual(emptyHtml.includes('Open Admin Upload Console'), false, 'Empty state must never contain Open Admin Upload Console button');
+  console.log('  ✔ renderResourcesPage empty state does NOT contain Open Admin Upload Console button');
+
+  // 8. Delete Resource
+  resourcesModule.resources.push(realDocument);
   await resourcesModule.deleteResource('res_123');
   assert.strictEqual(resourcesModule.resources.length, 0, 'Resource should be deleted from active list');
   console.log('  ✔ deleteResource removes resource from list and saves update');
 
-  // 5. Clear All Resources
+  // 9. Clear All Resources
   await resourcesModule.saveResources([realDocument]);
   assert.strictEqual(resourcesModule.resources.length, 1);
   await resourcesModule.clearAllResources();

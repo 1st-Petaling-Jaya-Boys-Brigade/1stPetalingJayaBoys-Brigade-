@@ -1586,10 +1586,11 @@
             <div style="margin-bottom:8px;">
               <label class="form-label" style="font-size:11px;">Option A: Upload PDF / Document File</label>
               <input type="file" id="adm-res-file" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="handleResourceFileUpload(this)" style="font-size:12px;color:var(--text-secondary);width:100%;"/>
+              <div id="adm-res-upload-status" style="margin-top:6px;font-size:11px;min-height:16px;"></div>
             </div>
             <div>
               <label class="form-label" style="font-size:11px;" for="adm-res-url">Option B: Document URL (Supabase, Google Drive, or Web Link)</label>
-              <input class="form-input" id="adm-res-url" type="url" placeholder="https://drive.google.com/... or https://..."/>
+              <input class="form-input" id="adm-res-url" type="url" placeholder="https://drive.google.com/... or https://..." oninput="if(typeof handleResourceUrlInput==='function')handleResourceUrlInput(this.value)"/>
             </div>
           </div>
 
@@ -1627,7 +1628,7 @@
 
 <!-- Core API & State Modules -->
 <script src="js/config.js?v=20261022c"></script>
-<script src="js/api/supabase.js?v=20261022c"></script>
+<script src="js/api/supabase.js?v=20261025b"></script>
 <script src="js/core/session.js?v=20261022c"></script>
 <script src="js/core/utils.js?v=20261022c"></script>
 <script src="js/modules/member.js?v=20261022c"></script>
@@ -1635,7 +1636,7 @@
 <script src="js/modules/attendance.js?v=20261022c"></script>
 <script src="js/modules/announcements.js?v=20261025a"></script>
 <script src="js/modules/gallery.js?v=20261025a"></script>
-<script src="js/modules/resources.js?v=20261025a"></script>
+<script src="js/modules/resources.js?v=20261025b"></script>
 
 <script>
 
