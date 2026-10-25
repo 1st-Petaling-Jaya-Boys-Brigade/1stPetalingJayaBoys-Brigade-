@@ -15,7 +15,8 @@ const jsFiles = [
   'js/modules/member.js',
   'js/modules/attendance.js',
   'js/modules/announcements.js',
-  'js/modules/gallery.js'
+  'js/modules/gallery.js',
+  'js/modules/resources.js'
 ];
 
 let failed = false;

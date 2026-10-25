@@ -53,6 +53,7 @@
   <button class="tab-btn"        id="tab-tasks"      onclick="switchTab('tasks',this)">Tasks</button>
   <button class="tab-btn"        id="tab-badges"     onclick="switchTab('badges',this)">Badges</button>
   <button class="tab-btn"        id="tab-attendance" onclick="switchTab('attendance',this)">Squad Leader Board</button>
+  <button class="tab-btn"        id="tab-resources"  onclick="switchTab('resources',this)">Resources</button>
 </div>
 
 <!-- ── BOTTOM NAV (Floating Mobile Dock) ── -->
@@ -114,6 +115,10 @@
       <button class="sidebar-item" id="snav-attendance" onclick="switchTabNav('attendance');closeSidebar()">
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
         <span class="si-label">Squad Leader Board</span><span class="si-badge" style="background:rgba(200,150,30,0.15);color:var(--accent);border-color:rgba(200,150,30,0.3);">Standings</span>
+      </button>
+      <button class="sidebar-item" id="snav-resources" onclick="switchTabNav('resources');closeSidebar()">
+        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg></span>
+        <span class="si-label">Company Resources</span><span class="si-badge" style="background:rgba(59,130,246,0.15);color:var(--blue);border-color:rgba(59,130,246,0.3);">Files</span>
       </button>
     </div>
     <div class="sidebar-footer">
@@ -181,6 +186,14 @@
       <div class="hq-title">Weekly Parade</div>
       <div class="hq-desc">Saturdays 1:30 PM &ndash; 6:00 PM at Trinity Methodist Church PJ.</div>
       <div class="hq-link">View Schedule &rarr;</div>
+    </div>
+    <div class="hq-card" onclick="switchTabNav('resources')" role="button" tabindex="0">
+      <div class="hq-icon" style="color:var(--brand-blue);">
+        <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+      </div>
+      <div class="hq-title">Company Resources</div>
+      <div class="hq-desc">BB Member Handbook, Drill Manual, and official award syllabi.</div>
+      <div class="hq-link">Browse Files &rarr;</div>
     </div>
   </div>
 
@@ -823,6 +836,50 @@
   </div>
 </div>
 
+<!-- ───────── COMPANY RESOURCES (TSK-034) ───────── -->
+<div class="page" id="page-resources">
+  <div style="width:100%;">
+
+    <div class="card page-header-card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(59,130,246,0.12);color:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+        </div>
+        <div>
+          <div class="page-title" style="margin:0;">Company Resources</div>
+          <div class="page-subtitle" style="margin:0;">Official Handbooks, Drill Manuals, Syllabi &amp; Reference Files</div>
+        </div>
+      </div>
+      <div class="page-desc">Access official manuals, badge record books, songs, and administrative forms for 1st Petaling Jaya Boys' Brigade.</div>
+
+      <!-- Search & Category Filters -->
+      <div style="margin-top:16px;">
+        <div style="position:relative;margin-bottom:12px;">
+          <input type="text" id="resource-search-input" class="form-input" placeholder="Search by document title, syllabus, keyword or file type..." oninput="searchResources(this.value)" style="padding-left:38px;"/>
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+        </div>
+
+        <div class="resource-cat-pills" id="resources-category-pills"></div>
+        <div style="font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+          <span id="resources-count">Loading resources...</span>
+          <span>Role-restricted documents require member login</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div id="resources-list-container" class="resources-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-muted);">
+        <div class="spinner" style="margin:0 auto 10px;"></div>
+        Loading company resources...
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ADMIN OVERLAY -->
 <div id="admin-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);z-index:999;overflow-y:auto;padding:0;">
   <div style="max-width:640px;margin:0 auto;padding:24px 16px 60px;">
@@ -948,6 +1005,18 @@
             <div>
               <div class="adm-sec-title">Attendance &amp; Roles</div>
               <div class="adm-sec-sub">Assign instrument/squad leader roles &amp; configure Google Sheets sync</div>
+            </div>
+          </div>
+          <div class="adm-sec-arrow">›</div>
+        </div>
+
+        <!-- Section: Company Resources (TSK-034) -->
+        <div class="adm-section-btn" id="sec-btn-resources" onclick="switchAdminSection('resources')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="adm-sec-icon" style="background:rgba(59,130,246,0.12);color:var(--blue);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg></div>
+            <div>
+              <div class="adm-sec-title">Company Resources</div>
+              <div class="adm-sec-sub">Upload PDFs &amp; manage handbooks, manuals &amp; links</div>
             </div>
           </div>
           <div class="adm-sec-arrow">›</div>
@@ -1461,6 +1530,97 @@
         </div>
       </div>
 
+      <!-- ── RESOURCES SECTION (TSK-034) ────────────────────────── -->
+      <div id="adm-section-resources" style="display:none;">
+        <div class="adm-section-header">
+          <div class="adm-sec-icon" style="background:rgba(59,130,246,0.15);color:var(--blue);">
+            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+          </div>
+          <div>
+            <div class="adm-section-title">Company Resources Hub</div>
+            <div class="adm-section-desc">Upload handbooks, drill manuals, syllabi &amp; links</div>
+          </div>
+        </div>
+
+        <!-- Add / Edit Resource Form Card -->
+        <div class="card" id="adm-res-form-card" style="margin-bottom:16px;">
+          <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Add / Edit Company Document</span>
+            <button type="button" onclick="cancelEditResource()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;">Clear Form</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adm-res-title">Document Title</label>
+            <input class="form-input" id="adm-res-title" type="text" placeholder="e.g. Recruit Target Badge Syllabus 2026"/>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adm-res-desc">Description / Instructions</label>
+            <textarea class="form-input" id="adm-res-desc" rows="2" placeholder="Brief summary of what this document covers..." style="resize:vertical;"></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="adm-res-cat">Category</label>
+              <select class="form-select" id="adm-res-cat">
+                <option value="Handbooks & Manuals">Handbooks &amp; Manuals</option>
+                <option value="Badges & Syllabi">Badges &amp; Syllabi</option>
+                <option value="Forms & Administration">Forms &amp; Administration</option>
+                <option value="BB Songs & Hymns">BB Songs &amp; Hymns</option>
+                <option value="Band & Music">Band &amp; Music</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="adm-res-vis">Role Visibility</label>
+              <select class="form-select" id="adm-res-vis">
+                <option value="all">Public (All Members &amp; Recruits)</option>
+                <option value="nco">NCOs Only (Lance Cpl &amp; Above)</option>
+                <option value="officer">Officers &amp; Admins Only</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- File Upload or External Link -->
+          <div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:14px;">
+            <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">Document Source</div>
+            <div style="margin-bottom:8px;">
+              <label class="form-label" style="font-size:11px;">Option A: Upload PDF / Document File</label>
+              <input type="file" id="adm-res-file" accept=".pdf,.doc,.docx,.xls,.xlsx" onchange="handleResourceFileUpload(this)" style="font-size:12px;color:var(--text-secondary);width:100%;"/>
+            </div>
+            <div>
+              <label class="form-label" style="font-size:11px;" for="adm-res-url">Option B: Document URL (Supabase, Google Drive, or Web Link)</label>
+              <input class="form-input" id="adm-res-url" type="url" placeholder="https://drive.google.com/... or https://..."/>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adm-res-type">File Type Badge</label>
+            <select class="form-select" id="adm-res-type">
+              <option value="PDF">PDF Document</option>
+              <option value="DOC">Word / Google Doc</option>
+              <option value="DRIVE">Google Drive Folder / File</option>
+              <option value="LINK">External Link</option>
+            </select>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button type="button" class="submit-btn gold" id="adm-res-submit-btn" onclick="addOrUpdateResource()" style="flex:1;margin:0;">
+              Save Resource
+            </button>
+            <button type="button" onclick="cancelEditResource()" class="portal-btn portal-btn-secondary">
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <!-- Existing Resources List -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:12px;color:var(--text-muted);">Manage or remove existing documents</div>
+          <button type="button" onclick="resetResourcesToDefaults()" style="background:none;border:1px solid var(--border-card);color:var(--accent);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:600;">Reset to Defaults</button>
+        </div>
+        <div id="adm-resources-list"></div>
+      </div>
+
     </div><!-- end admin-panel -->
   </div>
 </div>
@@ -1475,6 +1635,7 @@
 <script src="js/modules/attendance.js?v=20261022c"></script>
 <script src="js/modules/announcements.js?v=20261025a"></script>
 <script src="js/modules/gallery.js?v=20261025a"></script>
+<script src="js/modules/resources.js?v=20261025a"></script>
 
 <script>
 
@@ -1581,6 +1742,7 @@ function switchTab(tab, btn) {
   if (tab === 'tasks')      checkTasksAccess();
   if (tab === 'badges')     checkBadgesAccess();
   if (tab === 'attendance') { if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard(); }
+  if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
 }
 
 // switchTabNav — called by bottom nav and sidebar buttons
@@ -3243,7 +3405,7 @@ async function renderAdminBadges() {
 
 
 // ── Admin ──────────────────────────────────────────────────────────────────
-var ADMIN_SECTIONS = ['members','orders','uniform','tasks','announcements','badges','gallery','attendance'];
+var ADMIN_SECTIONS = ['members','orders','uniform','tasks','announcements','badges','gallery','attendance','resources'];
 
 function openAdmin() {
   document.getElementById('admin-overlay').style.display = 'block';
@@ -3277,6 +3439,7 @@ function adminLogin() {
   backToAdminHome();
   renderGallery();
   renderAnnouncements();
+  if (typeof loadResources === 'function') loadResources();
 }
 
 function backToAdminHome() {
@@ -3303,6 +3466,7 @@ function switchAdminSection(section) {
   if (section === 'badges')        switchBadgeSubtab('badgedefs');
   if (section === 'gallery')       renderGallery();
   if (section === 'attendance')    { if (typeof renderAdminMasterSheetPanel === 'function') renderAdminMasterSheetPanel(); }
+  if (section === 'resources')     { if (typeof renderAdminResourcesPanel === 'function') renderAdminResourcesPanel(); }
 }
 
 
@@ -4070,6 +4234,7 @@ window.addEventListener('load', function() {
   loadPaymentInfo();
   loadGallery();
   loadAnnouncements();
+  if (typeof loadResources === 'function') loadResources();
   loadCustomForms();
   renderOrderItems();
   var ic = sessionGet('ic');
@@ -4087,7 +4252,7 @@ function handleHashNavigation() {
   var hash = (window.location.hash || '').replace('#', '');
   if (hash === 'admin') {
     openAdmin();
-  } else if (['member', 'order', 'tasks', 'badges', 'attendance', 'home'].indexOf(hash) !== -1) {
+  } else if (['member', 'order', 'tasks', 'badges', 'attendance', 'home', 'resources'].indexOf(hash) !== -1) {
     switchTabNav(hash);
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Automated Unit & Integration Tests for Announcements & Gallery Modules
+ * Automated Unit & Integration Tests for Announcements, Gallery, and Resources Modules
  */
 const assert = require('assert');
 
@@ -12,10 +12,18 @@ global.document = {
 };
 
 // Mock Session & Utils
-global.sessionGet = (k) => 'test@bbpj1.org';
+let mockUser = 'test@bbpj1.org';
+let mockRank = 'Recruit';
+let mockAdmin = false;
+global.sessionGet = (k) => {
+  if (k === 'rank') return mockRank;
+  if (k === 'adminAuthed') return mockAdmin;
+  return mockUser;
+};
 global.escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 global.showToast = (msg, type) => {};
 global.showConfirmModal = async (msg, title) => true;
+global.isNCO = (rank) => ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant'].indexOf(rank) !== -1;
 
 // Mock Supabase
 let lastPatched = null;
@@ -24,11 +32,18 @@ let lastDeleted = null;
 
 global.supa = {
   get: async (path) => {
+    if (path.includes('bb_resources')) {
+      return []; // Return empty to test default fallback
+    }
     return [
       { id: '1', title: 'Test Notice', body: '<b>Meeting on Saturday</b>', date: '25 OCT 2026', reactions: { '👍': ['other@bb.org'] } }
     ];
   },
-  req: async (method, path) => {
+  req: async (method, path, body) => {
+    if (method === 'POST') {
+      lastPosted = { path, body };
+      return [{ id: 'new_id', ...body }];
+    }
     return [
       { id: 'g1', url: 'https://example.com/photo1.jpg' },
       { id: 'g2', url: 'https://example.com/photo2.jpg' }
@@ -68,8 +83,8 @@ assert.strictEqual(cleanSafe.includes('<script>'), false, 'Sanitizer should remo
 assert.strictEqual(cleanSafe.includes('onerror'), false, 'Sanitizer should remove inline onerror event handlers');
 console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
-// 2. Load Announcements
 (async () => {
+  // 2. Load Announcements
   await announcementsModule.loadAnnouncements();
   assert.strictEqual(announcementsModule.announcements.length, 1, 'Should load 1 announcement');
   assert.strictEqual(announcementsModule.announcements[0].title, 'Test Notice');
@@ -86,7 +101,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('  ✔ toggleReaction removes reaction when clicked again');
 
   // 5. Unauthenticated reaction check
-  global.sessionGet = () => null;
+  mockUser = null;
   let toastTriggered = false;
   global.showToast = (msg, type) => {
     if (type === 'warning') toastTriggered = true;
@@ -121,6 +136,47 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(galleryModule.galleryImages.length, 2, 'Should add newly uploaded photo to array');
   assert.strictEqual(lastPosted.path, 'bb_gallery', 'Should insert into bb_gallery table');
   console.log('  ✔ uploadGalleryFiles uploads to storage and inserts database record');
+
+  // ── Load Resources Module (TSK-034) ──
+  console.log('\nTesting Resources Module (TSK-034)...');
+  const resourcesModule = require('../js/modules/resources.js');
+
+  // 1. Load Resources (Defaults Fallback)
+  await resourcesModule.loadResources();
+  assert.strictEqual(resourcesModule.resources.length, 8, 'Should initialize 8 default company resources');
+  assert.strictEqual(resourcesModule.resources[0].title, "1st Petaling Jaya BB Member Handbook");
+  console.log('  ✔ loadResources initializes official default documents when database is empty');
+
+  // 2. Role-Based Visibility Checks
+  mockRank = 'Recruit';
+  mockAdmin = false;
+  assert.strictEqual(resourcesModule.hasResourceAccess('all'), true, 'Recruit can access public resources');
+  assert.strictEqual(resourcesModule.hasResourceAccess('nco'), false, 'Recruit cannot access NCO resources');
+  assert.strictEqual(resourcesModule.hasResourceAccess('officer'), false, 'Recruit cannot access Officer resources');
+
+  mockRank = 'Corporal';
+  assert.strictEqual(resourcesModule.hasResourceAccess('nco'), true, 'Corporal can access NCO resources');
+  assert.strictEqual(resourcesModule.hasResourceAccess('officer'), false, 'Corporal cannot access Officer resources');
+
+  mockRank = 'Lieutenant';
+  assert.strictEqual(resourcesModule.hasResourceAccess('nco'), true, 'Lieutenant can access NCO resources');
+  assert.strictEqual(resourcesModule.hasResourceAccess('officer'), true, 'Lieutenant can access Officer resources');
+
+  mockRank = 'Recruit';
+  mockAdmin = true;
+  assert.strictEqual(resourcesModule.hasResourceAccess('officer'), true, 'Admin can access Officer resources regardless of rank');
+  console.log('  ✔ hasResourceAccess correctly enforces Public / NCO / Officer role restrictions');
+
+  // 3. Delete Resource
+  await resourcesModule.deleteResource('res_handbook');
+  assert.strictEqual(resourcesModule.resources.length, 7, 'Resource should be deleted from active list');
+  assert.strictEqual(resourcesModule.resources.find(r => r.id === 'res_handbook'), undefined);
+  console.log('  ✔ deleteResource removes resource from list and saves update');
+
+  // 4. Reset to Defaults
+  await resourcesModule.resetResourcesToDefaults();
+  assert.strictEqual(resourcesModule.resources.length, 8, 'Reset to defaults should restore all 8 documents');
+  console.log('  ✔ resetResourcesToDefaults restores official document catalog');
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {
