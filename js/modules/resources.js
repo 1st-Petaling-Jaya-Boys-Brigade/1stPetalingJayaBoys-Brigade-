@@ -79,6 +79,38 @@ async function loadResources() {
   }
 }
 
+var _isUploadingResource = false;
+var _lastUploadedFileSize = '';
+
+/**
+ * Formats byte size into human-readable format
+ * @param {number} bytes
+ * @returns {string}
+ */
+function formatFileSize(bytes) {
+  if (!bytes || isNaN(bytes) || bytes <= 0) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/**
+ * Auto-detects resource type badge when a document URL is entered or pasted
+ * @param {string} val
+ */
+function handleResourceUrlInput(val) {
+  var url = (val || '').trim();
+  var typeInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
+  if (!typeInp || !url) return;
+  if (url.indexOf('drive.google.com') !== -1 || url.indexOf('docs.google.com') !== -1) {
+    if (url.indexOf('/document/') !== -1) typeInp.value = 'DOC';
+    else if (url.indexOf('/spreadsheets/') !== -1) typeInp.value = 'SHEET';
+    else typeInp.value = 'DRIVE';
+  } else if (url.toLowerCase().endsWith('.pdf')) {
+    typeInp.value = 'PDF';
+  }
+}
+
 /**
  * Persists the current resources list to Supabase bb_config
  * @param {Array} list
@@ -97,14 +129,35 @@ async function saveResources(list) {
 
   try {
     if (typeof supa !== 'undefined') {
+      var saved = false;
       if (supa.req) {
-        await supa.req('POST', 'bb_config?on_conflict=key', { key: 'bb_resources', value: serialized });
-      } else if (supa.patch) {
-        await supa.patch('bb_config?key=eq.bb_resources', { value: serialized });
+        try {
+          await supa.req('POST', 'bb_config?on_conflict=key', { key: 'bb_resources', value: serialized }, {
+            Prefer: 'return=representation,resolution=merge-duplicates'
+          });
+          saved = true;
+        } catch (postErr) {
+          console.warn('saveResources POST error, trying PATCH fallback:', postErr);
+        }
+      }
+      if (!saved && supa.patch) {
+        try {
+          var patchRes = await supa.patch('bb_config?key=eq.bb_resources', { value: serialized });
+          if (Array.isArray(patchRes) && patchRes.length === 0 && supa.post) {
+            await supa.post('bb_config', { key: 'bb_resources', value: serialized });
+          }
+          saved = true;
+        } catch (patchErr) {
+          console.error('saveResources PATCH error:', patchErr);
+        }
+      }
+      if (!saved) {
+        throw new Error('Could not persist resources to Supabase bb_config');
       }
     }
   } catch (e) {
     console.error('saveResources error:', e);
+    throw e;
   }
 
   renderResourcesPage();
@@ -190,13 +243,11 @@ function renderResourcesPage() {
   // 1. Check if total repository is currently empty
   if (!resources.length) {
     if (countEl) countEl.textContent = '0 resources';
-    var isAdmin = (typeof sessionGet === 'function' && sessionGet('adminAuthed') === true);
-    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
+        container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
       + '<div style="font-size:38px;margin-bottom:12px;">📚</div>'
       + '<div style="font-family:\'Oswald\',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">No Company Resources Uploaded Yet</div>'
       + '<div style="font-size:13px;max-width:440px;margin:0 auto;line-height:1.6;">Official handbooks, drill manuals, syllabi, and administrative forms will appear here once uploaded by company administrators.</div>'
-      + (isAdmin ? '<button type="button" onclick="switchAdminSection(\'resources\')" class="portal-btn portal-btn-primary" style="margin-top:16px;">Open Admin Upload Console &rarr;</button>' : '')
-      + '</div>';
+            + '</div>';
     return;
   }
 
@@ -436,13 +487,14 @@ function openEditResource(id) {
   var item = resources.find(function(r) { return r.id === id; });
   if (!item) return;
 
-  var titleInp = document.getElementById('adm-res-title');
-  var descInp  = document.getElementById('adm-res-desc');
-  var catInp   = document.getElementById('adm-res-cat');
-  var urlInp   = document.getElementById('adm-res-url');
-  var typeInp  = document.getElementById('adm-res-type');
-  var visInp   = document.getElementById('adm-res-vis');
-  var submitBtn = document.getElementById('adm-res-submit-btn');
+  var titleInp  = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
+  var descInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-desc') : null;
+  var catInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-cat') : null;
+  var urlInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
+  var typeInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
+  var visInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-vis') : null;
+  var statusEl  = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
+  var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
 
   if (titleInp) titleInp.value = item.title || '';
   if (descInp)  descInp.value  = item.description || '';
@@ -451,32 +503,44 @@ function openEditResource(id) {
   if (typeInp)  typeInp.value  = item.fileType || 'PDF';
   if (visInp)   visInp.value   = item.visibility || 'all';
 
+  _lastUploadedFileSize = item.fileSize || '';
+  if (statusEl) {
+    statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:11px;">Current file: ' + (item.fileSize ? item.fileSize : 'Attached Link') + '</span>';
+  }
+
   if (submitBtn) {
     submitBtn.textContent = 'Save Changes';
+    submitBtn.disabled = false;
     submitBtn.setAttribute('data-edit-id', id);
   }
 
-  var formCard = document.getElementById('adm-res-form-card');
-  if (formCard) formCard.scrollIntoView({ behavior: 'smooth' });
+  var formCard = (typeof document !== 'undefined') ? document.getElementById('adm-res-form-card') : null;
+  if (formCard && formCard.scrollIntoView) {
+    formCard.scrollIntoView({ behavior: 'smooth' });
+  }
 }
 
 /**
  * Clears form and restores Add Resource mode
  */
 function cancelEditResource() {
-  var titleInp = document.getElementById('adm-res-title');
-  var descInp  = document.getElementById('adm-res-desc');
-  var urlInp   = document.getElementById('adm-res-url');
-  var fileInp  = document.getElementById('adm-res-file');
-  var submitBtn = document.getElementById('adm-res-submit-btn');
+  var titleInp  = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
+  var descInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-desc') : null;
+  var urlInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
+  var fileInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-file') : null;
+  var statusEl  = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
+  var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
 
   if (titleInp) titleInp.value = '';
   if (descInp)  descInp.value  = '';
   if (urlInp)   urlInp.value   = '';
   if (fileInp)  fileInp.value  = '';
+  if (statusEl) statusEl.innerHTML = '';
+  _lastUploadedFileSize = '';
 
   if (submitBtn) {
     submitBtn.textContent = 'Save Resource';
+    submitBtn.disabled = false;
     submitBtn.removeAttribute('data-edit-id');
   }
 }
@@ -485,13 +549,19 @@ function cancelEditResource() {
  * Adds or updates a resource from the Admin form
  */
 async function addOrUpdateResource() {
-  var titleInp  = document.getElementById('adm-res-title');
-  var descInp   = document.getElementById('adm-res-desc');
-  var catInp    = document.getElementById('adm-res-cat');
-  var urlInp    = document.getElementById('adm-res-url');
-  var typeInp   = document.getElementById('adm-res-type');
-  var visInp    = document.getElementById('adm-res-vis');
-  var submitBtn = document.getElementById('adm-res-submit-btn');
+  var titleInp  = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
+  var descInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-desc') : null;
+  var catInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-cat') : null;
+  var urlInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
+  var typeInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
+  var visInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-vis') : null;
+  var fileInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-file') : null;
+  var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
+
+  if (_isUploadingResource) {
+    if (typeof showToast === 'function') showToast('Please wait for document upload to finish.', 'warning');
+    return;
+  }
 
   var title = (titleInp ? titleInp.value : '').trim();
   var desc  = (descInp ? descInp.value : '').trim();
@@ -507,10 +577,29 @@ async function addOrUpdateResource() {
     else alert('Please enter a title.');
     return;
   }
+
+  // If URL is empty, but user selected a file in the file input, upload it now
+  if (!url && fileInp && fileInp.files && fileInp.files.length > 0) {
+    try {
+      url = await handleResourceFileUpload(fileInp);
+    } catch (uploadErr) {
+      return; // Upload error was already reported
+    }
+  }
+
   if (!url) {
-    if (typeof showToast === 'function') showToast('Please enter a document URL or upload a file.', 'warning');
-    else alert('Please enter a document URL.');
+    if (typeof showToast === 'function') showToast('Please upload a file or enter a document URL.', 'warning');
+    else alert('Please upload a file or enter a document URL.');
     return;
+  }
+
+  // Compute file size label
+  var finalFileSize = _lastUploadedFileSize;
+  if (!finalFileSize) {
+    if (type === 'DRIVE') finalFileSize = 'Google Drive';
+    else if (type === 'DOC') finalFileSize = 'Word Document';
+    else if (type === 'PDF') finalFileSize = 'PDF Document';
+    else finalFileSize = 'Online Document';
   }
 
   if (submitBtn) submitBtn.disabled = true;
@@ -525,8 +614,12 @@ async function addOrUpdateResource() {
         item.url = url;
         item.fileType = type;
         item.visibility = vis;
+        if (_lastUploadedFileSize) {
+          item.fileSize = _lastUploadedFileSize;
+        }
         item.updatedAt = new Date().toISOString().split('T')[0];
       }
+      await saveResources(resources);
       if (typeof showToast === 'function') showToast('Resource updated successfully!', 'success');
     } else {
       var newRes = {
@@ -537,18 +630,18 @@ async function addOrUpdateResource() {
         fileType: type,
         url: url,
         visibility: vis,
-        fileSize: type === 'PDF' ? 'PDF File' : 'Document Link',
+        fileSize: finalFileSize,
         updatedAt: new Date().toISOString().split('T')[0]
       };
       resources.push(newRes);
+      await saveResources(resources);
       if (typeof showToast === 'function') showToast('Resource added successfully!', 'success');
     }
 
-    await saveResources(resources);
     cancelEditResource();
   } catch (e) {
     console.error('addOrUpdateResource error:', e);
-    if (typeof showToast === 'function') showToast('Failed to save resource.', 'error');
+    if (typeof showToast === 'function') showToast('Failed to save resource: ' + (e.message || 'Database error'), 'error');
   } finally {
     if (submitBtn) submitBtn.disabled = false;
   }
@@ -557,19 +650,24 @@ async function addOrUpdateResource() {
 /**
  * Handles uploading a PDF or document file to Supabase Storage
  * @param {HTMLInputElement} input
+ * @returns {Promise<string>} Uploaded public URL
  */
 async function handleResourceFileUpload(input) {
-  if (!input || !input.files || !input.files.length) return;
+  if (!input || !input.files || !input.files.length) return '';
   var file = input.files[0];
-  var urlInp = document.getElementById('adm-res-url');
-  var typeInp = document.getElementById('adm-res-type');
-  var titleInp = document.getElementById('adm-res-title');
+  var urlInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
+  var typeInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
+  var titleInp = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
+  var statusEl = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
+  var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
 
   var ext = (file.name.split('.').pop() || 'pdf').toLowerCase().replace(/[^a-z0-9]/g, '');
   var cleanName = file.name.replace(/\.[^/.]+$/, "");
+  var formattedSize = formatFileSize(file.size);
+  _lastUploadedFileSize = formattedSize;
 
   // Auto-populate title if empty
-  if (titleInp && !titleInp.value) {
+  if (titleInp && !titleInp.value.trim()) {
     titleInp.value = cleanName.replace(/[_-]/g, ' ');
   }
 
@@ -581,33 +679,84 @@ async function handleResourceFileUpload(input) {
     else typeInp.value = 'LINK';
   }
 
-  if (typeof showToast === 'function') showToast('Uploading document...', 'info');
+  _isUploadingResource = true;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Uploading File...';
+  }
+  if (statusEl) {
+    var safeName = (typeof escapeHtml === 'function') ? escapeHtml(file.name) : file.name;
+    statusEl.innerHTML = '<span style="color:var(--accent);display:inline-flex;align-items:center;gap:6px;">'
+      + '<span style="display:inline-block;width:11px;height:11px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;"></span> '
+      + 'Uploading "' + safeName + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + '... Please wait</span>';
+  }
+
+  if (typeof showToast === 'function') showToast('Uploading document: ' + file.name + '...', 'info');
 
   try {
     var fname = 'doc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6) + '.' + ext;
-    var blob  = new Blob([await file.arrayBuffer()], { type: file.type || 'application/pdf' });
+    var mimeType = file.type;
+    if (!mimeType) {
+      if (ext === 'pdf') mimeType = 'application/pdf';
+      else if (ext === 'doc') mimeType = 'application/msword';
+      else if (ext === 'docx') mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      else if (ext === 'xls') mimeType = 'application/vnd.ms-excel';
+      else if (ext === 'xlsx') mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      else mimeType = 'application/octet-stream';
+    }
 
-    var bucketName = 'resources';
+    var blob = (typeof Blob !== 'undefined' && file instanceof Blob)
+      ? file
+      : new Blob([await file.arrayBuffer()], { type: mimeType });
+
     var uploadedUrl = '';
 
     if (typeof supa !== 'undefined' && supa.uploadFile) {
+      // Primary: upload to 'gallery' bucket with 'resources/' prefix (known configured bucket)
       try {
-        await supa.uploadFile(bucketName, fname, blob);
-        uploadedUrl = supa.fileUrl(bucketName, fname);
-      } catch (uploadErr) {
-        // Fallback to 'gallery' bucket if 'resources' bucket is not created
-        await supa.uploadFile('gallery', fname, blob);
-        uploadedUrl = supa.fileUrl('gallery', fname);
+        await supa.uploadFile('gallery', 'resources/' + fname, blob);
+        uploadedUrl = supa.fileUrl('gallery', 'resources/' + fname);
+      } catch (galleryErr) {
+        // Fallback: try root of 'gallery'
+        try {
+          await supa.uploadFile('gallery', fname, blob);
+          uploadedUrl = supa.fileUrl('gallery', fname);
+        } catch (galleryRootErr) {
+          // Fallback: try 'resources' bucket if specifically configured
+          await supa.uploadFile('resources', fname, blob);
+          uploadedUrl = supa.fileUrl('resources', fname);
+        }
       }
     }
 
-    if (uploadedUrl && urlInp) {
-      urlInp.value = uploadedUrl;
-      if (typeof showToast === 'function') showToast('File uploaded successfully!', 'success');
+    if (uploadedUrl) {
+      if (urlInp) urlInp.value = uploadedUrl;
+      if (statusEl) {
+        var safeFileName = (typeof escapeHtml === 'function') ? escapeHtml(file.name) : file.name;
+        statusEl.innerHTML = '<span style="color:#10b981;font-weight:600;display:inline-flex;align-items:center;gap:4px;">'
+          + '&#10003; Uploaded "' + safeFileName + '"' + (formattedSize ? ' (' + formattedSize + ')' : '') + ' ready to save</span>';
+      }
+      if (typeof showToast === 'function') showToast('File uploaded successfully! Click Save Resource to finish.', 'success');
+      return uploadedUrl;
+    } else {
+      throw new Error('Supabase Storage is unavailable.');
     }
   } catch (err) {
     console.error('handleResourceFileUpload error:', err);
-    if (typeof showToast === 'function') showToast('Upload failed: ' + err.message, 'error');
+    if (statusEl) {
+      var errMsg = (typeof escapeHtml === 'function') ? escapeHtml(err.message || 'Upload failed') : (err.message || 'Upload failed');
+      statusEl.innerHTML = '<span style="color:var(--red);display:inline-flex;align-items:center;gap:4px;">'
+        + '&#10007; Upload failed: ' + errMsg + '. You can paste a Google Drive link below instead.</span>';
+    }
+    if (typeof showToast === 'function') showToast('Upload failed: ' + (err.message || 'Storage error'), 'error');
+    throw err;
+  } finally {
+    _isUploadingResource = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      var editId = submitBtn.getAttribute('data-edit-id');
+      submitBtn.textContent = editId ? 'Save Changes' : 'Save Resource';
+    }
   }
 }
 
@@ -630,9 +779,14 @@ async function deleteResource(id) {
   }
   if (!confirmed) return;
 
-  var updated = resources.filter(function(r) { return r.id !== id; });
-  await saveResources(updated);
-  if (typeof showToast === 'function') showToast('Resource deleted.', 'success');
+  try {
+    var updated = resources.filter(function(r) { return r.id !== id; });
+    await saveResources(updated);
+    if (typeof showToast === 'function') showToast('Resource deleted.', 'success');
+  } catch (err) {
+    console.error('deleteResource error:', err);
+    if (typeof showToast === 'function') showToast('Failed to delete resource: ' + (err.message || 'Database error'), 'error');
+  }
 }
 
 /**
@@ -650,10 +804,14 @@ async function clearAllResources() {
   }
   if (!confirmed) return;
 
-  await saveResources([]);
-  if (typeof showToast === 'function') showToast('All resources cleared.', 'info');
+  try {
+    await saveResources([]);
+    if (typeof showToast === 'function') showToast('All resources cleared.', 'info');
+  } catch (err) {
+    console.error('clearAllResources error:', err);
+    if (typeof showToast === 'function') showToast('Failed to clear resources: ' + (err.message || 'Database error'), 'error');
+  }
 }
-
 // Backwards compatibility alias
 var resetResourcesToDefaults = clearAllResources;
 
@@ -677,6 +835,8 @@ if (typeof window !== 'undefined') {
   window.deleteResource            = deleteResource;
   window.clearAllResources         = clearAllResources;
   window.resetResourcesToDefaults  = resetResourcesToDefaults;
+  window.formatFileSize            = formatFileSize;
+  window.handleResourceUrlInput    = handleResourceUrlInput;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -699,6 +859,8 @@ if (typeof module !== 'undefined' && module.exports) {
     handleResourceFileUpload: handleResourceFileUpload,
     deleteResource: deleteResource,
     clearAllResources: clearAllResources,
-    resetResourcesToDefaults: resetResourcesToDefaults
+    resetResourcesToDefaults: resetResourcesToDefaults,
+    formatFileSize: formatFileSize,
+    handleResourceUrlInput: handleResourceUrlInput
   };
 }

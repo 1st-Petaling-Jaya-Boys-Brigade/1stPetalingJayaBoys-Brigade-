@@ -7,18 +7,32 @@ const supa = {
   /**
    * Generic PostgREST HTTP Request helper
    */
-  async req(method, path, body) {
+  async req(method, path, body, extraHeaders) {
     const url = (typeof SUPA_URL !== 'undefined' ? SUPA_URL : (typeof window !== 'undefined' ? window.SUPA_URL : '')) + '/rest/v1/' + path;
     const key = (typeof SUPA_KEY !== 'undefined' ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : ''));
 
+    let preferHeader = '';
+    if (method === 'POST') {
+      preferHeader = path.indexOf('on_conflict') !== -1
+        ? 'return=representation,resolution=merge-duplicates'
+        : 'return=representation';
+    }
+
+    const headers = {
+      apikey: key,
+      Authorization: 'Bearer ' + key,
+      'Content-Type': 'application/json'
+    };
+    if (preferHeader) {
+      headers['Prefer'] = preferHeader;
+    }
+    if (extraHeaders && typeof extraHeaders === 'object') {
+      Object.assign(headers, extraHeaders);
+    }
+
     const r = await fetch(url, {
       method,
-      headers: {
-        apikey: key,
-        Authorization: 'Bearer ' + key,
-        'Content-Type': 'application/json',
-        Prefer: method === 'POST' ? 'return=representation' : ''
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined
     });
 
@@ -52,12 +66,14 @@ const supa = {
     const url = (typeof SUPA_URL !== 'undefined' ? SUPA_URL : (typeof window !== 'undefined' ? window.SUPA_URL : '')) + '/storage/v1/object/' + bucket + '/' + filePath;
     const key = (typeof SUPA_KEY !== 'undefined' ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : ''));
 
+    const contentType = (blob && blob.type) ? blob.type : 'application/octet-stream';
+
     const r = await fetch(url, {
       method: 'POST',
       headers: {
         apikey: key,
         Authorization: 'Bearer ' + key,
-        'Content-Type': blob.type || 'image/jpeg',
+        'Content-Type': contentType,
         'x-upsert': 'true'
       },
       body: blob
