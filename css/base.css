@@ -30,7 +30,7 @@ body {
 
 @media (min-width: 1024px) {
   body {
-    padding-left: 260px;
+    padding-left: 275px;
     align-items: stretch;
   }
   .page {

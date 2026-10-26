@@ -71,6 +71,7 @@ async function getJson(url) {
     };
 
     await new Promise((resolve) => ws.onopen = resolve);
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
     function sendCmd(method, params = {}) {
       const id = idCounter++;
@@ -83,9 +84,22 @@ async function getJson(url) {
       });
     }
 
+    async function evalWithRetry(expression, awaitPromise = false) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          return await sendCmd('Runtime.evaluate', { expression, awaitPromise });
+        } catch (err) {
+          if (attempt < 4 && err && err.message && err.message.includes('Execution context was destroyed')) {
+            await new Promise(r => setTimeout(r, 400));
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
+
     // Wait until document.readyState === 'complete' and #hq-carousel-wrapper exists
-    await sendCmd('Runtime.evaluate', {
-      expression: `new Promise((resolve) => {
+    await evalWithRetry(`new Promise((resolve) => {
         function checkReady() {
           if (document.readyState === 'complete' && document.getElementById('hq-carousel-wrapper')) {
             resolve(true);
@@ -94,9 +108,7 @@ async function getJson(url) {
           }
         }
         checkReady();
-      })`,
-      awaitPromise: true
-    });
+      })`, true);
 
     // 1. Verify layout elements exist & unpack getBoundingClientRect
     const evalResult1 = await sendCmd('Runtime.evaluate', {
@@ -471,6 +483,60 @@ async function getJson(url) {
     assert.strictEqual(clearResult.noResDisplay, 'none', 'Empty state must be hidden');
     assert.strictEqual(clearResult.clearBtnDisplay, 'none', 'Clear button must be hidden');
     console.log('  ✔ clearFormSearch clears input, restores all cards, and hides empty state');
+
+    // 12. Test Parade Times, Text Sharpness, and Sidebar Navigation
+    console.log('\n[Parade Times, Text Crispness, & Sidebar Nav Verification]');
+    const evalParadeAndNav = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        if (typeof switchTab === 'function') {
+          switchTab('home');
+        }
+
+        const cards = Array.from(document.querySelectorAll('#hq-carousel-track .hq-card'));
+        const paradeCard = cards.find(c => c.textContent.includes('Weekly Parade'));
+        const paradeDesc = paradeCard ? paradeCard.querySelector('.hq-desc').textContent : '';
+
+        const attItem = document.getElementById('snav-attendance');
+        const resItem = document.getElementById('snav-resources');
+        const attLabel = attItem ? attItem.querySelector('.si-label').textContent.trim() : '';
+        const resLabel = resItem ? resItem.querySelector('.si-label').textContent.trim() : '';
+        const attBadge = attItem ? attItem.querySelector('.si-badge') : null;
+        const resBadge = resItem ? resItem.querySelector('.si-badge') : null;
+        const attStyle = attItem ? window.getComputedStyle(attItem.querySelector('.si-label')) : null;
+
+        const cardStyle = window.getComputedStyle(cards[0]);
+        const trackStyle = window.getComputedStyle(document.getElementById('hq-carousel-track'));
+
+        return {
+          paradeDesc,
+          attLabel,
+          resLabel,
+          hasAttBadge: !!attBadge,
+          hasResBadge: !!resBadge,
+          whiteSpace: attStyle ? attStyle.whiteSpace : null,
+          trackWillChange: trackStyle.willChange,
+          fontSmoothing: cardStyle.webkitFontSmoothing
+        };
+      })()`,
+      returnByValue: true
+    });
+    const pnInfo = evalParadeAndNav.result.value;
+    console.log('  Weekly Parade Card Desc:', pnInfo.paradeDesc);
+    assert.ok(pnInfo.paradeDesc.includes('2:15 PM') && pnInfo.paradeDesc.includes('6:00 PM'), 'Parade time must be 2:15 PM – 6:00 PM');
+    assert.ok(pnInfo.paradeDesc.includes('Band 9:30 AM') && pnInfo.paradeDesc.includes('11:30 AM'), 'Band time must be 9:30 AM – 11:30 AM');
+    console.log('  ✔ Weekly parade card accurately reflects updated Parade (2:15PM-6PM) and Band (9:30AM-11:30AM) times');
+
+    console.log('  Sidebar Nav Labels -> Attendance:', pnInfo.attLabel, 'Resources:', pnInfo.resLabel);
+    assert.strictEqual(pnInfo.attLabel, 'Leaderboard', 'Sidebar item must be renamed to Leaderboard');
+    assert.strictEqual(pnInfo.resLabel, 'Resources', 'Sidebar item must be renamed to Resources');
+    assert.strictEqual(pnInfo.hasAttBadge, false, 'Standings badge must be removed');
+    assert.strictEqual(pnInfo.hasResBadge, false, 'Files badge must be removed');
+    assert.strictEqual(pnInfo.whiteSpace, 'nowrap', 'Sidebar label must stay on a single line');
+    console.log('  ✔ Sidebar navigation cleanly displays Leaderboard and Resources on one line without pills');
+
+    assert.notStrictEqual(pnInfo.trackWillChange, 'transform', 'Track will-change must not force permanent compositor layer');
+    assert.strictEqual(pnInfo.fontSmoothing, 'antialiased', 'Cards must use antialiased font smoothing for razor sharpness');
+    console.log('  ✔ Quick access carousel cards have optimal crisp font smoothing');
 
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
