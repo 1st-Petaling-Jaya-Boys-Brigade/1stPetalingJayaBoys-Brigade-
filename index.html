@@ -13,11 +13,11 @@
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- Modular Stylesheets (Cache-Busted v20261026g) -->
+<!-- Modular Stylesheets (Cache-Busted v20261026h) -->
 <link rel="stylesheet" href="css/variables.css?v=20261026f">
 <link rel="stylesheet" href="css/base.css?v=20261026f">
 <link rel="stylesheet" href="css/nav.css?v=20261026f">
-<link rel="stylesheet" href="css/components.css?v=20261026f">
+<link rel="stylesheet" href="css/components.css?v=20261026h">
 <link rel="stylesheet" href="css/admin.css?v=20261026f">
 <style id="hq-carousel-critical-css">
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
@@ -228,6 +228,63 @@
   border-radius: 4px !important;
   background: var(--accent, #eab308) !important;
   opacity: 1 !important;
+}
+</style>
+<style id="forms-search-critical-css">
+.forms-search-wrap {
+  position: relative;
+  margin-bottom: 16px;
+  width: 100%;
+}
+.forms-search-input {
+  width: 100% !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  font-family: inherit !important;
+  padding: 11px 40px 11px 42px !important;
+  transition: var(--transition-smooth) !important;
+  box-shadow: var(--shadow-subtle) !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+}
+.forms-search-input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.16) !important;
+  background: var(--bg-card-subtle) !important;
+}
+.forms-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.forms-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.forms-search-clear:hover {
+  color: var(--accent) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
 <script src="js/core/theme.js?v=20261022c"></script>
@@ -503,8 +560,36 @@
         <div id="order-member-squad" style="font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;color:#121418;padding:3px 10px;border-radius:6px;background:var(--gold);"></div>
       </div>
 
-      <!-- Forms list — renders dynamically -->
-      <div id="forms-hub"></div>
+      <!-- Forms hub (search bar & list) -->
+      <div id="forms-hub" style="width:100%;">
+        <!-- Forms Search Bar -->
+        <div class="forms-search-wrap" id="forms-search-wrap" style="position:relative;margin-bottom:16px;">
+          <span class="forms-search-icon" aria-hidden="true">
+            <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </span>
+          <input type="text" id="form-search-input" class="form-input forms-search-input" placeholder="Search forms by name or description..." oninput="filterForms(this.value)" onkeydown="if(event.key==='Escape'){clearFormSearch();event.preventDefault();}" autocomplete="off" spellcheck="false" aria-label="Search forms" style="padding-left:42px;padding-right:40px;width:100%;height:44px;"/>
+          <button type="button" id="form-search-clear" class="forms-search-clear" onclick="clearFormSearch()" aria-label="Clear search" title="Clear search">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <!-- Search Status / Count -->
+        <div id="forms-search-status" style="display:none;font-size:12px;color:var(--text-secondary);margin-bottom:12px;padding:0 2px;justify-content:space-between;align-items:center;">
+          <span id="forms-search-count"></span>
+          <button type="button" onclick="clearFormSearch()" style="background:none;border:none;color:var(--accent);font-size:12px;cursor:pointer;padding:0;text-decoration:underline;">Reset Search</button>
+        </div>
+
+        <!-- Dynamic Forms Cards List -->
+        <div id="forms-list"></div>
+
+        <!-- No Matching Forms Empty State -->
+        <div id="forms-no-results" style="display:none;text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);margin-bottom:16px;">
+          <div style="font-size:32px;margin-bottom:8px;">🔍</div>
+          <div id="forms-no-results-title" style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No matching forms found</div>
+          <div id="forms-no-results-desc" style="font-size:13px;color:var(--text-secondary);max-width:360px;margin:0 auto 14px;line-height:1.5;">Check for typos or try searching with different keywords.</div>
+          <button type="button" onclick="clearFormSearch()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:'Oswald',sans-serif;transition:var(--transition-smooth);">Clear Search</button>
+        </div>
+      </div>
 
       <!-- Inline form view -->
       <div id="inline-form-view" style="display:none;"></div>
@@ -3386,7 +3471,17 @@ function renderFormsHub() {
   var all = [
     { id: '__uniform__', name: 'Uniform Order', desc: 'Order BB uniform items', type: 'uniform', iconSvg: uniformSvg }
   ].concat(_customForms.filter(function(f) { return f.active !== false; }));
-  if (!all.length) { hub.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:30px;font-size:13px;">No forms available.</div>'; return; }
+  
+  var list = document.getElementById('forms-list') || hub;
+  var searchWrap = document.getElementById('forms-search-wrap');
+
+  if (!all.length) {
+    if (searchWrap) searchWrap.style.display = 'none';
+    list.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:30px;font-size:13px;">No forms available.</div>';
+    return;
+  }
+  if (searchWrap) searchWrap.style.display = 'block';
+
   var bgMap = { builtin: 'rgba(16,185,129,0.12)', uniform: 'rgba(245,197,66,0.12)', link: 'rgba(59,130,246,0.12)' };
   var colorMap = { builtin: 'var(--green)', uniform: 'var(--brand-gold)', link: 'var(--brand-blue)' };
   var html = '';
@@ -3394,15 +3489,93 @@ function renderFormsHub() {
     var icon = f.iconSvg || (f.type === 'link' ? linkSvg : docSvg);
     var bg   = bgMap[f.type] || 'rgba(245,197,66,0.08)';
     var clr  = colorMap[f.type] || 'var(--brand-gold)';
-    html += '<div class="form-card-hub" data-open-form="' + escapeHtml(f.id) + '">'
+    var safeName = (typeof escapeHtml === 'function') ? escapeHtml(f.name || '') : (f.name || '');
+    var safeDesc = (typeof escapeHtml === 'function') ? escapeHtml(f.desc || '') : (f.desc || '');
+    var safeType = (typeof escapeHtml === 'function') ? escapeHtml(f.type || '') : (f.type || '');
+    var safeId   = (typeof escapeHtml === 'function') ? escapeHtml(f.id || '') : (f.id || '');
+    html += '<div class="form-card-hub" data-open-form="' + safeId + '" data-form-name="' + safeName.toLowerCase() + '" data-form-desc="' + safeDesc.toLowerCase() + '" data-form-type="' + safeType.toLowerCase() + '">'
       + '<div class="form-card-icon" style="background:' + bg + ';color:' + clr + ';">' + icon + '</div>'
-      + '<div style="flex:1;"><div class="form-card-name">' + escapeHtml(f.name) + '</div><div class="form-card-desc">' + escapeHtml(f.desc||'') + '</div></div>'
+      + '<div style="flex:1;"><div class="form-card-name">' + safeName + '</div><div class="form-card-desc">' + safeDesc + '</div></div>'
       + '<div class="form-card-arrow">\u203a</div></div>';
   });
-  hub.innerHTML = html;
-  hub.querySelectorAll('[data-open-form]').forEach(function(el) {
+  list.innerHTML = html;
+  list.querySelectorAll('[data-open-form]').forEach(function(el) {
     el.addEventListener('click', function() { openFormForMember(el.getAttribute('data-open-form')); });
   });
+
+  // Re-apply current search filter if any
+  var searchInput = document.getElementById('form-search-input');
+  if (searchInput && searchInput.value) {
+    filterForms(searchInput.value);
+  } else {
+    var clearBtn = document.getElementById('form-search-clear');
+    var statusEl = document.getElementById('forms-search-status');
+    var noResEl = document.getElementById('forms-no-results');
+    if (clearBtn) clearBtn.style.display = 'none';
+    if (statusEl) statusEl.style.display = 'none';
+    if (noResEl) noResEl.style.display = 'none';
+  }
+}
+
+function filterForms(query) {
+  var q = (query || '').toLowerCase().trim();
+  var list = document.getElementById('forms-list') || document.getElementById('forms-hub');
+  var clearBtn = document.getElementById('form-search-clear');
+  var statusEl = document.getElementById('forms-search-status');
+  var countEl = document.getElementById('forms-search-count');
+  var noResEl = document.getElementById('forms-no-results');
+  var noResTitle = document.getElementById('forms-no-results-title');
+
+  if (clearBtn) {
+    clearBtn.style.display = (query && query.length > 0) ? 'flex' : 'none';
+  }
+
+  if (!list) return;
+  var cards = list.querySelectorAll('.form-card-hub');
+  var total = cards.length;
+  var matchedCount = 0;
+
+  cards.forEach(function(card) {
+    var name = card.getAttribute('data-form-name') || '';
+    var desc = card.getAttribute('data-form-desc') || '';
+    var type = card.getAttribute('data-form-type') || '';
+    var match = !q || name.indexOf(q) !== -1 || desc.indexOf(q) !== -1 || type.indexOf(q) !== -1;
+    card.style.display = match ? 'flex' : 'none';
+    if (match) matchedCount++;
+  });
+
+  if (q) {
+    if (statusEl) {
+      statusEl.style.display = 'flex';
+      if (countEl) countEl.textContent = 'Showing ' + matchedCount + ' of ' + total + ' forms';
+    }
+    if (noResEl) {
+      if (matchedCount === 0) {
+        noResEl.style.display = 'block';
+        if (noResTitle) noResTitle.textContent = 'No forms match "' + ((typeof escapeHtml === 'function') ? escapeHtml(query.trim()) : query.trim()) + '"';
+      } else {
+        noResEl.style.display = 'none';
+      }
+    }
+  } else {
+    if (statusEl) statusEl.style.display = 'none';
+    if (noResEl) noResEl.style.display = 'none';
+  }
+}
+
+function clearFormSearch() {
+  var input = document.getElementById('form-search-input');
+  if (input) {
+    input.value = '';
+    try { input.focus(); } catch(e) {}
+  }
+  filterForms('');
+}
+
+if (typeof window !== 'undefined') {
+  window.renderFormsHub = renderFormsHub;
+  window.filterForms = filterForms;
+  window.clearFormSearch = clearFormSearch;
 }
 
 function openFormForMember(formId) {

@@ -368,6 +368,110 @@ async function getJson(url) {
     assert.ok(heightDiff <= 2, 'Left column and Right column must have matching heights (diff <= 2px)');
     console.log('  ✔ Left column and Right column achieve exact visual height alignment with calendar widget!');
 
+    // 11. Test Forms Tab Search Bar in Browser
+    console.log('\n[Forms Tab Search Bar Verification]');
+    const evalFormsInit = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        if (typeof sessionSet === 'function') {
+          sessionSet('ic', '010101-14-1234');
+          sessionSet('name', 'Joshua Koh');
+          sessionSet('rank', 'Sergeant');
+          sessionSet('squad', 'Hotel Platoon');
+        }
+        if (typeof switchTab === 'function') {
+          switchTab('order');
+        }
+        const searchInput = document.getElementById('form-search-input');
+        const searchWrap = document.getElementById('forms-search-wrap');
+        const formsHub = document.getElementById('forms-hub');
+        const cards = document.querySelectorAll('#forms-list .form-card-hub');
+        return {
+          hubDisplay: formsHub ? formsHub.style.display : null,
+          wrapDisplay: searchWrap ? searchWrap.style.display : null,
+          hasInput: !!searchInput,
+          placeholder: searchInput ? searchInput.placeholder : '',
+          cardCount: cards.length
+        };
+      })()`,
+      returnByValue: true
+    });
+    const formsInit = evalFormsInit.result.value;
+    console.log('  Forms hub active -> Cards count:', formsInit.cardCount, 'Placeholder:', formsInit.placeholder);
+    assert.strictEqual(formsInit.hasInput, true, 'Search input must exist in DOM');
+    assert.ok(formsInit.cardCount >= 1, 'At least default Uniform Order card must be present');
+    console.log('  ✔ Forms hub renders search input and active form cards');
+
+    // Filter by 'Uniform'
+    const evalFilterUniform = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const inp = document.getElementById('form-search-input');
+        inp.value = 'Uniform';
+        filterForms('Uniform');
+        const cards = Array.from(document.querySelectorAll('#forms-list .form-card-hub'));
+        const visible = cards.filter(c => c.style.display !== 'none');
+        const clearBtn = document.getElementById('form-search-clear');
+        const statusEl = document.getElementById('forms-search-status');
+        return {
+          total: cards.length,
+          visible: visible.length,
+          clearBtnDisplay: clearBtn.style.display,
+          statusDisplay: statusEl.style.display
+        };
+      })()`,
+      returnByValue: true
+    });
+    const filterUniform = evalFilterUniform.result.value;
+    console.log('  Filter "Uniform" -> Visible:', filterUniform.visible, 'of', filterUniform.total);
+    assert.strictEqual(filterUniform.visible, 1, 'Exactly 1 Uniform Order card should match');
+    assert.strictEqual(filterUniform.clearBtnDisplay, 'flex', 'Clear button must be visible');
+    console.log('  ✔ Search query filters visible cards and reveals clear button');
+
+    // Filter by non-matching query
+    const evalFilterNoMatch = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const inp = document.getElementById('form-search-input');
+        inp.value = 'xyznonexistent123';
+        filterForms('xyznonexistent123');
+        const cards = Array.from(document.querySelectorAll('#forms-list .form-card-hub'));
+        const visible = cards.filter(c => c.style.display !== 'none');
+        const noRes = document.getElementById('forms-no-results');
+        return {
+          visible: visible.length,
+          noResDisplay: noRes.style.display
+        };
+      })()`,
+      returnByValue: true
+    });
+    const filterNoMatch = evalFilterNoMatch.result.value;
+    assert.strictEqual(filterNoMatch.visible, 0, 'No cards should match non-existent query');
+    assert.strictEqual(filterNoMatch.noResDisplay, 'block', 'Empty state must be displayed');
+    console.log('  ✔ Zero match query displays empty state prompt');
+
+    // Clear search
+    const evalClearSearch = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        clearFormSearch();
+        const inp = document.getElementById('form-search-input');
+        const cards = Array.from(document.querySelectorAll('#forms-list .form-card-hub'));
+        const visible = cards.filter(c => c.style.display !== 'none');
+        const noRes = document.getElementById('forms-no-results');
+        const clearBtn = document.getElementById('form-search-clear');
+        return {
+          val: inp.value,
+          visible: visible.length,
+          noResDisplay: noRes.style.display,
+          clearBtnDisplay: clearBtn.style.display
+        };
+      })()`,
+      returnByValue: true
+    });
+    const clearResult = evalClearSearch.result.value;
+    assert.strictEqual(clearResult.val, '', 'Search input must be empty after clear');
+    assert.ok(clearResult.visible >= 1, 'All forms must be restored after clear');
+    assert.strictEqual(clearResult.noResDisplay, 'none', 'Empty state must be hidden');
+    assert.strictEqual(clearResult.clearBtnDisplay, 'none', 'Clear button must be hidden');
+    console.log('  ✔ clearFormSearch clears input, restores all cards, and hides empty state');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {
