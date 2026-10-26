@@ -410,6 +410,9 @@
   font-weight: 600;
   color: var(--text-secondary);
   letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-item.active .si-label {
@@ -552,8 +555,8 @@
 /* ── RESPONSIVE DESKTOP DOCKED SIDEBAR (min-width: 1024px) ── */
 @media (min-width: 1024px) {
   .nav {
-    margin-left: 260px;
-    width: calc(100% - 260px);
+    margin-left: 275px;
+    width: calc(100% - 275px);
   }
 
   .nav-menu-btn {
@@ -569,7 +572,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: 260px;
+    width: 275px;
     right: auto;
     inset: auto;
     height: 100vh;
@@ -583,7 +586,7 @@
 
   .sidebar-panel {
     position: static;
-    width: 260px;
+    width: 275px;
     height: 100vh;
     max-width: none;
     transform: none !important;
