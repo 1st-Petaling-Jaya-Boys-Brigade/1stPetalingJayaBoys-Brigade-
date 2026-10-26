@@ -581,6 +581,77 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(calWidgetContainer.innerHTML.includes('cal-preview-card'), 'renderCalendarWidget must render preview card');
   console.log('  ✔ renderCalendarWidget generates complete interactive calendar widget DOM');
 
+  // ── Quick Access Cards Carousel Tests (TSK-CAROUSEL) ──
+  console.log('\nTesting Quick Access Cards Carousel...');
+  const fsMod = require('fs');
+  const pathMod = require('path');
+  const indexHtml = fsMod.readFileSync(pathMod.resolve(__dirname, '../index.html'), 'utf8');
+  assert.ok(indexHtml.includes('hq-carousel-wrapper'), 'index.html must contain hq-carousel-wrapper');
+  assert.ok(indexHtml.includes('hq-carousel-track'), 'index.html must contain hq-carousel-track');
+  assert.ok(indexHtml.includes('cycleQuickCards'), 'index.html must implement cycleQuickCards');
+  assert.ok(indexHtml.includes('setQuickCardsPage'), 'index.html must implement setQuickCardsPage');
+
+  // Verify carousel logic
+  const carouselScriptMatch = indexHtml.match(/\/\/ ── Quick Access Carousel Controller[\s\S]*?window\.getHqTotalPages = getHqTotalPages;\s*}/);
+  assert.ok(carouselScriptMatch, 'Carousel controller script block found in index.html');
+  eval(carouselScriptMatch[0]);
+
+  // 1. Desktop mode: 2 cards per page, 2 total pages
+  global.window.innerWidth = 1024;
+  assert.strictEqual(getHqCardsPerPage(), 2, 'Desktop must display 2 cards per view');
+  assert.strictEqual(getHqTotalPages(), 2, 'Desktop must have 2 total pages for 4 cards');
+
+  // 2. Mobile mode: 1 card per page, 4 total pages
+  global.window.innerWidth = 480;
+  assert.strictEqual(getHqCardsPerPage(), 1, 'Mobile must display 1 card per view');
+  assert.strictEqual(getHqTotalPages(), 4, 'Mobile must have 4 total pages for 4 cards');
+
+  // Reset to desktop for navigation tests
+  global.window.innerWidth = 1024;
+  _hqCurrentPage = 0;
+
+  // Track DOM mock
+  const mockTrack = document.getElementById('hq-carousel-track');
+  const mockDotsContainer = document.getElementById('hq-carousel-dots');
+  const mockDot0 = document.getElementById('hq-dot-0');
+  const mockDot1 = document.getElementById('hq-dot-1');
+
+  mockDotsContainer.querySelectorAll = () => [mockDot0, mockDot1];
+  mockDot0.classList = { add: () => {}, remove: () => {} };
+  mockDot1.classList = { add: () => {}, remove: () => {} };
+
+  // Page 0 initial state
+  updateQuickCardsCarousel();
+  assert.strictEqual(mockTrack.style.transform, 'translateX(calc(-0% - 0px))', 'Page 0 must translate by 0%');
+
+  // Cycle forward to Page 1
+  cycleQuickCards(1);
+  assert.strictEqual(_hqCurrentPage, 1, 'cycleQuickCards(1) must advance to page 1');
+  assert.strictEqual(mockTrack.style.transform, 'translateX(calc(-100% - 14px))', 'Page 1 must translate by -100% - 14px');
+
+  // Cycle forward from Page 1 should wrap around to Page 0
+  cycleQuickCards(1);
+  assert.strictEqual(_hqCurrentPage, 0, 'cycleQuickCards(1) from page 1 must wrap around to page 0');
+  assert.strictEqual(mockTrack.style.transform, 'translateX(calc(-0% - 0px))', 'Page 0 wrap-around transform');
+
+  // Cycle backward from Page 0 should wrap around to Page 1
+  cycleQuickCards(-1);
+  assert.strictEqual(_hqCurrentPage, 1, 'cycleQuickCards(-1) from page 0 must wrap around to page 1');
+  assert.strictEqual(mockTrack.style.transform, 'translateX(calc(-100% - 14px))');
+
+  // Direct page setter
+  setQuickCardsPage(0);
+  assert.strictEqual(_hqCurrentPage, 0, 'setQuickCardsPage(0) sets page to 0');
+  setQuickCardsPage(1);
+  assert.strictEqual(_hqCurrentPage, 1, 'setQuickCardsPage(1) sets page to 1');
+  setQuickCardsPage(99); // out of bounds should be ignored
+  assert.strictEqual(_hqCurrentPage, 1, 'Out-of-bounds page index must be ignored');
+
+  console.log('  ✔ getHqCardsPerPage and getHqTotalPages accurately calculate responsive page distribution');
+  console.log('  ✔ cycleQuickCards smoothly navigates and wraps around card pages');
+  console.log('  ✔ setQuickCardsPage bounds checks and directly navigates to valid card tabs');
+  console.log('  ✔ updateQuickCardsCarousel applies exact pixel-aligned translateX transform to card track');
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {
   console.error('\n✖ Test failed:', err);
