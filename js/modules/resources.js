@@ -298,7 +298,8 @@ function renderResourcesPage() {
     var safeSize   = (typeof escapeHtml === 'function') ? escapeHtml(r.fileSize || '') : r.fileSize;
     var safeDate   = (typeof escapeHtml === 'function') ? escapeHtml(r.updatedAt || '') : r.updatedAt;
     var rawUrl     = r.url || '#';
-    var safeUrl    = (typeof escapeHtml === 'function') ? escapeHtml(rawUrl) : rawUrl;
+    var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '#') : rawUrl;
+    var safeUrl    = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
 
     // File Type Styling & Icon
     var typeBadge = getFileTypeBadgeHtml(r.fileType);
@@ -445,7 +446,9 @@ function renderAdminResourcesList() {
     var safeCat   = (typeof escapeHtml === 'function') ? escapeHtml(r.category || '') : r.category;
     var safeType  = (typeof escapeHtml === 'function') ? escapeHtml(r.fileType || '') : r.fileType;
     var safeVis   = (typeof escapeHtml === 'function') ? escapeHtml(r.visibility || 'all') : r.visibility;
-    var safeUrl   = (typeof escapeHtml === 'function') ? escapeHtml(r.url || '#') : r.url;
+    var rawAdminUrl = r.url || '#';
+    var validAdminUrl = (typeof safeUrl === 'function') ? safeUrl(rawAdminUrl, '#') : rawAdminUrl;
+    var safeUrl   = (typeof escapeHtml === 'function') ? escapeHtml(validAdminUrl) : validAdminUrl;
 
     html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;">'
       + '<div style="flex:1;min-width:0;">'
@@ -611,10 +614,16 @@ async function addOrUpdateResource() {
   }
 
   var editId = submitBtn ? submitBtn.getAttribute('data-edit-id') : null;
-  var title = (titleInp ? titleInp.value : '').trim();
-  var desc  = (descInp ? descInp.value : '').trim();
-  var cat   = (catInp ? catInp.value : 'Handbooks & Manuals').trim();
-  var url   = (urlInp ? urlInp.value : '').trim();
+  var rawTitle = (titleInp ? titleInp.value : '').trim();
+  var rawDesc  = (descInp ? descInp.value : '').trim();
+  var rawCat   = (catInp ? catInp.value : 'Handbooks & Manuals').trim();
+  var title    = (typeof sanitizeText === 'function') ? sanitizeText(rawTitle, 150) : rawTitle;
+  var desc     = (typeof sanitizeText === 'function') ? sanitizeText(rawDesc, 300) : rawDesc;
+  var cat      = (typeof sanitizeText === 'function') ? sanitizeText(rawCat, 60) : rawCat;
+  var url      = (urlInp ? urlInp.value : '').trim();
+  if (url && typeof safeUrl === 'function') {
+    url = safeUrl(url, url);
+  }
   var type  = (typeInp ? typeInp.value : 'PDF').trim().toUpperCase();
   var vis   = (visInp ? visInp.value : 'all').trim().toLowerCase();
 

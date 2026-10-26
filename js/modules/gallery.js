@@ -58,19 +58,20 @@ function renderGallery() {
   var admHtml = '';
 
   galleryImages.forEach(function(item, i) {
-    var url = (typeof item === 'string') ? item : (item.url || '');
-    var id  = (typeof item === 'object' && item && item.id) ? item.id : '';
+    var rawUrl = (typeof item === 'string') ? item : (item.url || '');
+    var id     = (typeof item === 'object' && item && item.id) ? item.id : '';
 
-    var safeUrl = (typeof escapeHtml === 'function') ? escapeHtml(url) : url;
+    var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '') : rawUrl;
+    var safeUrlStr   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
 
     // Public grid item with clickable lightbox preview
     pubHtml += '<div class="gallery-img-wrap" data-lightbox-idx="' + i + '" style="cursor:pointer;" title="Click to preview photo">'
-      + '<img src="' + safeUrl + '" alt="Photo ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'"/>'
+      + '<img src="' + safeUrlStr + '" alt="Photo ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'"/>'
       + '</div>';
 
     // Admin grid item with delete button
     admHtml += '<div class="gallery-img-wrap">'
-      + '<img src="' + safeUrl + '" alt="Photo ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'"/>'
+      + '<img src="' + safeUrlStr + '" alt="Photo ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'"/>'
       + '<button type="button" class="del-btn" data-gi="' + i + '" data-gid="' + id + '" title="Delete Photo" aria-label="Delete Photo">&times;</button>'
       + '</div>';
   });
@@ -109,10 +110,11 @@ function openGalleryLightbox(idx) {
   if (typeof document === 'undefined') return;
   var item = galleryImages[idx];
   if (!item) return;
-  var url = (typeof item === 'string') ? item : item.url;
-  if (!url) return;
+  var rawUrl = (typeof item === 'string') ? item : item.url;
+  if (!rawUrl) return;
 
-  var safeUrl = (typeof escapeHtml === 'function') ? escapeHtml(url) : url;
+  var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '') : rawUrl;
+  var safeUrlStr   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
 
   // Remove existing lightbox if present
   var existing = document.getElementById('gallery-lightbox-modal');
@@ -123,7 +125,7 @@ function openGalleryLightbox(idx) {
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,18,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;backdrop-filter:blur(6px);animation:fadeIn 0.2s ease;';
 
   modal.innerHTML = '<div style="position:relative;max-width:92vw;max-height:92vh;display:flex;align-items:center;justify-content:center;" onclick="event.stopPropagation();">'
-    + '<img src="' + safeUrl + '" alt="Photo preview" style="max-width:100%;max-height:86vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.1);"/>'
+    + '<img src="' + safeUrlStr + '" alt="Photo preview" style="max-width:100%;max-height:86vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.1);"/>'
     + '<button type="button" aria-label="Close Preview" style="position:absolute;top:-14px;right:-14px;background:var(--accent,#c8961e);color:#0a0c10;border:2px solid #fff;border-radius:50%;width:34px;height:34px;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.4);line-height:1;">&times;</button>'
     + '</div>';
 
