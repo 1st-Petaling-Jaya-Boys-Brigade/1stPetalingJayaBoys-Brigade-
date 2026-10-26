@@ -164,39 +164,65 @@
         <div class="hero-desc">Welcome to the official portal for uniform orders, announcements, and member registration.</div>
       </div>
 
-      <!-- Quick Dashboard Tiles (Desktop/Mobile Overview) -->
-      <div class="home-quick-grid">
-        <div class="hq-card" onclick="switchTabNav('order')" role="button" tabindex="0">
-          <div class="hq-icon" style="color:var(--accent);">
-            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <!-- Quick Dashboard Carousel (TSK-CAROUSEL: 2 cards visible, aligned with calendar) -->
+      <div class="hq-carousel-wrapper" id="hq-carousel-wrapper" aria-label="Quick Access Carousel">
+        <div class="hq-carousel-container">
+          <button type="button" class="hq-carousel-arrow hq-arrow-prev" id="hq-carousel-prev" onclick="cycleQuickCards(-1)" aria-label="Previous cards" title="Previous cards">
+            <svg class="hq-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+
+          <div class="hq-carousel-viewport" id="hq-carousel-viewport" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Quick Action Cards">
+            <div class="hq-carousel-track" id="hq-carousel-track">
+              <!-- Card 1: Forms & Store -->
+              <div class="hq-card" onclick="switchTabNav('order')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="0">
+                <div class="hq-icon" style="color:var(--accent);">
+                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <div class="hq-title">Forms &amp; Store</div>
+                <div class="hq-desc">Uniform catalog, order tracking, and dynamic event forms.</div>
+                <div class="hq-link">Access Forms &rarr;</div>
+              </div>
+
+              <!-- Card 2: Member Hub -->
+              <div class="hq-card" onclick="switchTabNav('member')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="1">
+                <div class="hq-icon" style="color:var(--brand-blue);">
+                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div class="hq-title">Member Hub</div>
+                <div class="hq-desc">Member credentials, rank, section, and order history.</div>
+                <div class="hq-link">View Member &rarr;</div>
+              </div>
+
+              <!-- Card 3: Weekly Parade -->
+              <div class="hq-card" onclick="switchTabNav('tasks')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="2">
+                <div class="hq-icon" style="color:var(--green);">
+                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
+                </div>
+                <div class="hq-title">Weekly Parade</div>
+                <div class="hq-desc">Saturdays 1:30 PM &ndash; 6:00 PM at Trinity Methodist Church PJ.</div>
+                <div class="hq-link">View Schedule &rarr;</div>
+              </div>
+
+              <!-- Card 4: Company Resources -->
+              <div class="hq-card" onclick="switchTabNav('resources')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="3">
+                <div class="hq-icon" style="color:var(--brand-blue);">
+                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+                </div>
+                <div class="hq-title">Company Resources</div>
+                <div class="hq-desc">BB Member Handbook, Drill Manual, and official award syllabi.</div>
+                <div class="hq-link">Browse Files &rarr;</div>
+              </div>
+            </div>
           </div>
-          <div class="hq-title">Forms &amp; Store</div>
-          <div class="hq-desc">Uniform catalog, order tracking, and dynamic event forms.</div>
-          <div class="hq-link">Access Forms &rarr;</div>
+
+          <button type="button" class="hq-carousel-arrow hq-arrow-next" id="hq-carousel-next" onclick="cycleQuickCards(1)" aria-label="Next cards" title="Next cards">
+            <svg class="hq-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
         </div>
-        <div class="hq-card" onclick="switchTabNav('member')" role="button" tabindex="0">
-          <div class="hq-icon" style="color:var(--brand-blue);">
-            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </div>
-          <div class="hq-title">Member Hub</div>
-          <div class="hq-desc">Member credentials, rank, section, and order history.</div>
-          <div class="hq-link">View Member &rarr;</div>
-        </div>
-        <div class="hq-card" onclick="switchTabNav('tasks')" role="button" tabindex="0">
-          <div class="hq-icon" style="color:var(--green);">
-            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
-          </div>
-          <div class="hq-title">Weekly Parade</div>
-          <div class="hq-desc">Saturdays 1:30 PM &ndash; 6:00 PM at Trinity Methodist Church PJ.</div>
-          <div class="hq-link">View Schedule &rarr;</div>
-        </div>
-        <div class="hq-card" onclick="switchTabNav('resources')" role="button" tabindex="0">
-          <div class="hq-icon" style="color:var(--brand-blue);">
-            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
-          </div>
-          <div class="hq-title">Company Resources</div>
-          <div class="hq-desc">BB Member Handbook, Drill Manual, and official award syllabi.</div>
-          <div class="hq-link">Browse Files &rarr;</div>
+
+        <div class="hq-carousel-dots-bar" id="hq-carousel-dots" role="tablist" aria-label="Card Pages">
+          <button type="button" class="hq-dot active" id="hq-dot-0" onclick="setQuickCardsPage(0)" role="tab" aria-selected="true" aria-label="Page 1: Forms &amp; Member Hub" title="Forms &amp; Member Hub"></button>
+          <button type="button" class="hq-dot" id="hq-dot-1" onclick="setQuickCardsPage(1)" role="tab" aria-selected="false" aria-label="Page 2: Weekly Parade &amp; Resources" title="Weekly Parade &amp; Resources"></button>
         </div>
       </div>
     </div>
@@ -2034,7 +2060,10 @@ function switchTab(tab, btn) {
   if (tab === 'badges')     checkBadgesAccess();
   if (tab === 'attendance') { if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard(); }
   if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
-  if (tab === 'home')       { if (typeof renderCalendarWidget === 'function') renderCalendarWidget(); }
+  if (tab === 'home')       {
+    if (typeof renderCalendarWidget === 'function') renderCalendarWidget();
+    if (typeof updateQuickCardsCarousel === 'function') updateQuickCardsCarousel();
+  }
 }
 
 // switchTabNav — called by bottom nav and sidebar buttons
@@ -2042,6 +2071,135 @@ function switchTabNav(tab) {
   var fakeBtn = document.getElementById('tab-' + tab);
   switchTab(tab, fakeBtn);
 }
+
+// ── Quick Access Carousel Controller (TSK-CAROUSEL) ────────────────────────
+var _hqCurrentPage = 0;
+var _hqTouchStartX = 0;
+var _hqTouchEndX = 0;
+
+function getHqCardsPerPage() {
+  return (typeof window !== 'undefined' && window.innerWidth <= 600) ? 1 : 2;
+}
+
+function getHqTotalPages() {
+  var totalCards = 4;
+  return Math.ceil(totalCards / getHqCardsPerPage());
+}
+
+function syncCarouselDots() {
+  var dotsContainer = document.getElementById('hq-carousel-dots');
+  if (!dotsContainer) return;
+  var totalPages = getHqTotalPages();
+  var currentDots = dotsContainer.querySelectorAll('.hq-dot');
+  if (currentDots.length !== totalPages) {
+    var html = '';
+    var pageTitlesDesktop = ['Forms & Member Hub', 'Weekly Parade & Resources'];
+    var pageTitlesMobile = ['Forms & Store', 'Member Hub', 'Weekly Parade', 'Company Resources'];
+    for (var i = 0; i < totalPages; i++) {
+      var title = (totalPages === 2) ? (pageTitlesDesktop[i] || 'Page ' + (i + 1)) : (pageTitlesMobile[i] || 'Page ' + (i + 1));
+      html += '<button type="button" class="hq-dot' + (i === _hqCurrentPage ? ' active' : '') + '" id="hq-dot-' + i + '" onclick="setQuickCardsPage(' + i + ')" role="tab" aria-selected="' + (i === _hqCurrentPage ? 'true' : 'false') + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(title) : title) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(title) : title) + '"></button>';
+    }
+    dotsContainer.innerHTML = html;
+  }
+}
+
+function updateQuickCardsCarousel() {
+  var track = document.getElementById('hq-carousel-track');
+  if (!track) return;
+  var totalPages = getHqTotalPages();
+  if (_hqCurrentPage >= totalPages) _hqCurrentPage = 0;
+  if (_hqCurrentPage < 0) _hqCurrentPage = totalPages - 1;
+
+  syncCarouselDots();
+
+  var gap = 14;
+  var translateVal = 'translateX(calc(-' + (_hqCurrentPage * 100) + '% - ' + (_hqCurrentPage * gap) + 'px))';
+  track.style.transform = translateVal;
+
+  var dotsContainer = document.getElementById('hq-carousel-dots');
+  if (dotsContainer) {
+    var dots = dotsContainer.querySelectorAll('.hq-dot');
+    dots.forEach(function(dot, idx) {
+      if (idx === _hqCurrentPage) {
+        dot.classList.add('active');
+        dot.setAttribute('aria-selected', 'true');
+      } else {
+        dot.classList.remove('active');
+        dot.setAttribute('aria-selected', 'false');
+      }
+    });
+  }
+}
+
+function cycleQuickCards(dir) {
+  var totalPages = getHqTotalPages();
+  _hqCurrentPage = (_hqCurrentPage + dir + totalPages) % totalPages;
+  updateQuickCardsCarousel();
+}
+
+function setQuickCardsPage(page) {
+  var totalPages = getHqTotalPages();
+  if (page >= 0 && page < totalPages) {
+    _hqCurrentPage = page;
+    updateQuickCardsCarousel();
+  }
+}
+
+function initQuickCardsCarousel() {
+  var viewport = document.getElementById('hq-carousel-viewport');
+  if (!viewport) return;
+
+  // Touch swipe support
+  viewport.addEventListener('touchstart', function(e) {
+    if (e.touches && e.touches.length > 0) {
+      _hqTouchStartX = e.touches[0].clientX;
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchend', function(e) {
+    if (e.changedTouches && e.changedTouches.length > 0) {
+      _hqTouchEndX = e.changedTouches[0].clientX;
+      var diffX = _hqTouchEndX - _hqTouchStartX;
+      if (Math.abs(diffX) > 40) {
+        if (diffX < 0) {
+          cycleQuickCards(1);
+        } else {
+          cycleQuickCards(-1);
+        }
+      }
+    }
+  }, { passive: true });
+
+  // Keyboard navigation
+  viewport.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      cycleQuickCards(1);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      cycleQuickCards(-1);
+    }
+  });
+
+  // Window resize handler
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', function() {
+      updateQuickCardsCarousel();
+    });
+  }
+
+  updateQuickCardsCarousel();
+}
+
+if (typeof window !== 'undefined') {
+  window.cycleQuickCards = cycleQuickCards;
+  window.setQuickCardsPage = setQuickCardsPage;
+  window.updateQuickCardsCarousel = updateQuickCardsCarousel;
+  window.initQuickCardsCarousel = initQuickCardsCarousel;
+  window.getHqCardsPerPage = getHqCardsPerPage;
+  window.getHqTotalPages = getHqTotalPages;
+}
+
 
 // Sync bottom nav + sidebar active states
 function syncNavState(tab) {
@@ -4658,6 +4816,7 @@ window.addEventListener('load', function() {
   loadGallery();
   loadAnnouncements();
   if (typeof loadResources === 'function') loadResources();
+  if (typeof initQuickCardsCarousel === 'function') initQuickCardsCarousel();
   loadCustomForms();
   renderOrderItems();
   var ic = sessionGet('ic');
