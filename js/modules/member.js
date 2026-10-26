@@ -50,7 +50,8 @@ function goToMemberTab() {
 var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function registerMember() {
-  var name    = ((document.getElementById('reg-fullname') || {}).value || '').trim();
+  var rawName = ((document.getElementById('reg-fullname') || {}).value || '').trim();
+  var name    = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 100) : rawName;
   var emailEl = document.getElementById('reg-email') || document.getElementById('reg-ic') || {};
   var email   = (emailEl.value || '').trim().toLowerCase();
   var section = ((document.getElementById('reg-section') || {}).value || '').trim();
@@ -301,34 +302,35 @@ async function loadMemberOrders() {
       try {
         var items = JSON.parse(o.items || '{}');
         if (items.form_name) {
-          itemLines = '<div style="font-size:12px;color:var(--text-secondary);">' + items.form_name + '</div>';
+          itemLines = '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(items.form_name) + '</div>';
         } else {
           Object.entries(items).forEach(function(kv) {
             var prod = itemsList.find(function(i) { return i.key === kv[0]; });
             var v    = kv[1];
             var subtotal = v.price && v.qty ? ' — RM ' + (v.price * v.qty).toFixed(2) : '';
             itemLines += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding:3px 0;">'
-              + '<span>' + (prod ? prod.name : kv[0]) + (v.size ? ' (' + v.size + ')' : '') + '</span>'
-              + '<span>x' + v.qty + subtotal + '</span></div>';
+              + '<span>' + (prod ? escapeHtml(prod.name) : escapeHtml(kv[0])) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + '</span>'
+              + '<span>x' + escapeHtml(v.qty) + subtotal + '</span></div>';
           });
         }
       } catch (e) {}
 
-      var ssHtml = o.payment_screenshot
+      var validatedSs = o.payment_screenshot ? ((typeof safeUrl === 'function') ? safeUrl(o.payment_screenshot, '') : o.payment_screenshot) : '';
+      var ssHtml = validatedSs
         ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--green);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Payment screenshot uploaded</div>'
         : '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--accent);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg> No payment screenshot</div>';
 
       html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
         + '<div>'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:700;color:var(--text-primary);">' + o.order_number + '</div>'
+        + '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
         + '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + created + '</div>'
         + '</div>'
         + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:\'Oswald\',sans-serif;text-align:center;">' + sl + '</div>'
         + '</div>'
         + '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' + itemLines + '</div>'
         + ssHtml
-        + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' + o.notes + '</div>' : '')
+        + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) + '</div>' : '')
         + '</div>';
     });
     container.innerHTML = html;
@@ -489,7 +491,7 @@ async function sendPasswordResetEmail() {
     // Update UI for Step 2
     var noticeEl = document.getElementById('forgot-notice');
     if (noticeEl) {
-      noticeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> A 6-digit reset code has been sent to <strong>' + email + '</strong>.</span><br>'
+      noticeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> A 6-digit reset code has been sent to <strong>' + escapeHtml(email) + '</strong>.</span><br>'
         + '<span style="font-size:11px;opacity:0.9;">Please check your inbox (and spam folder) and enter the code below. Valid for 15 minutes.</span>';
     }
 

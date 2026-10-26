@@ -1630,13 +1630,13 @@
 <script src="js/config.js?v=20261022c"></script>
 <script src="js/api/supabase.js?v=20261025c"></script>
 <script src="js/core/session.js?v=20261022c"></script>
-<script src="js/core/utils.js?v=20261022c"></script>
-<script src="js/modules/member.js?v=20261022c"></script>
+<script src="js/core/utils.js?v=20261026a"></script>
+<script src="js/modules/member.js?v=20261026a"></script>
 <script src="js/api/sheets.js?v=20261022c"></script>
-<script src="js/modules/attendance.js?v=20261022c"></script>
-<script src="js/modules/announcements.js?v=20261025a"></script>
-<script src="js/modules/gallery.js?v=20261025a"></script>
-<script src="js/modules/resources.js?v=20261025d"></script>
+<script src="js/modules/attendance.js?v=20261026a"></script>
+<script src="js/modules/announcements.js?v=20261026a"></script>
+<script src="js/modules/gallery.js?v=20261026a"></script>
+<script src="js/modules/resources.js?v=20261026a"></script>
 
 <script>
 
@@ -2285,21 +2285,22 @@ function renderOrderItems(memberRank) {
     var sizes = item.sizes && item.sizes.length ? item.sizes : [];
     var sizeButtons = '';
     sizes.forEach(function(s) {
-      sizeButtons += '<button class="size-btn" onclick="selectSize(\'' + item.key + '\',\'' + s + '\',this)">' + s + '</button>';
+      sizeButtons += '<button class="size-btn" onclick="selectSize(\'' + escapeHtml(item.key) + '\',\'' + escapeHtml(s) + '\',this)">' + escapeHtml(s) + '</button>';
     });
-    var imgHtml = item.image
-      ? '<img src="' + item.image + '" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' + item.name + '"/>'
+    var safeProdImg = item.image ? ((typeof safeUrl === 'function') ? safeUrl(item.image, '') : item.image) : '';
+    var imgHtml = safeProdImg
+      ? '<img src="' + escapeHtml(safeProdImg) + '" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' + escapeHtml(item.name) + '"/>'
       : '<span class="uniform-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></span>';
     var priceLabel = item.price ? 'RM ' + parseFloat(item.price).toFixed(2) : 'RM TBA';
     var sizeWrap = sizes.length
-      ? '<div id="' + item.key + '-size-wrap" style="display:none;margin-top:12px;"><div class="form-label">Size</div><div class="size-grid" id="' + item.key + '-size-grid">' + sizeButtons + '</div></div>'
+      ? '<div id="' + escapeHtml(item.key) + '-size-wrap" style="display:none;margin-top:12px;"><div class="form-label">Size</div><div class="size-grid" id="' + escapeHtml(item.key) + '-size-grid">' + sizeButtons + '</div></div>'
       : '';
-    html += '<div class="uniform-item" id="ui-' + item.key + '">'
-      + '<div class="uniform-item-header">' + imgHtml + '<div class="uniform-name">' + item.name + '</div><div class="uniform-price" id="' + item.key + '-price-label">' + priceLabel + '</div></div>'
+    html += '<div class="uniform-item" id="ui-' + escapeHtml(item.key) + '">'
+      + '<div class="uniform-item-header">' + imgHtml + '<div class="uniform-name">' + escapeHtml(item.name) + '</div><div class="uniform-price" id="' + escapeHtml(item.key) + '-price-label">' + priceLabel + '</div></div>'
       + '<div class="qty-ctrl">'
-      + '<button class="qty-btn" onclick="changeQty(\'' + item.key + '\',-1)">&#8722;</button>'
-      + '<div class="qty-display" id="' + item.key + '-qty">0</div>'
-      + '<button class="qty-btn" onclick="changeQty(\'' + item.key + '\',1)">+</button>'
+      + '<button class="qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',-1)">&#8722;</button>'
+      + '<div class="qty-display" id="' + escapeHtml(item.key) + '-qty">0</div>'
+      + '<button class="qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',1)">+</button>'
       + '<span style="font-size:12px;color:var(--muted);margin-left:4px;">pcs</span></div>'
       + sizeWrap + '</div>';
   });
@@ -2334,12 +2335,12 @@ function goToOrderReview() {
   if (!hasAny) { alert('Please add at least one item.'); return; }
   var html = '';
   lines.forEach(function(l) {
-    html += '<div class="review-row"><span class="review-label">' + l.name + '</span><span class="review-value">x' + l.qty + (l.size ? ' (' + l.size + ')' : '') + (l.subtotal ? ' \u2014 RM ' + l.subtotal.toFixed(2) : '') + '</span></div>';
+    html += '<div class="review-row"><span class="review-label">' + escapeHtml(l.name) + '</span><span class="review-value">x' + escapeHtml(l.qty) + (l.size ? ' (' + escapeHtml(l.size) + ')' : '') + (l.subtotal ? ' \u2014 RM ' + l.subtotal.toFixed(2) : '') + '</span></div>';
   });
   var total = lines.reduce(function(s, l) { return s + l.subtotal; }, 0);
   html += '<hr style="border:none;border-top:1px dashed #eee;margin:10px 0;"><div class="review-row"><span class="review-label">Total</span><span class="review-value" style="color:var(--accent);font-size:16px;">RM ' + total.toFixed(2) + '</span></div>';
   var notes = reGetValue('order-notes') || '';
-  if (notes.trim()) html += '<div class="review-row"><span class="review-label">Notes</span><span class="review-value">' + notes.trim() + '</span></div>';
+  if (notes.trim()) html += '<div class="review-row"><span class="review-label">Notes</span><span class="review-value">' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(notes.trim()) : escapeHtml(notes.trim())) + '</span></div>';
   var rc = document.getElementById('review-content');
   if (rc) rc.innerHTML = html;
   // Show payment instructions if set
@@ -2410,7 +2411,7 @@ async function submitOrder() {
     await supa.post('bb_orders', {
       order_number: orderNum, ic: ic,
       member_name: memberData.name || ic, rank: memberData.rank || '', squad: memberData.squad || '',
-      items: JSON.stringify(items), notes: reGetValue('order-notes') || '',
+      items: JSON.stringify(items), notes: (typeof sanitizeHtml === 'function') ? sanitizeHtml(reGetValue('order-notes') || '') : (reGetValue('order-notes') || ''),
       status: 'pending', created_at: new Date().toISOString(),
       payment_screenshot: screenshot || null
     });
@@ -2510,17 +2511,18 @@ function clearFormBuilder() {
 }
 
 function saveForm() {
-  var name   = (document.getElementById('fb-name') || {}).value || '';
-  var desc   = reGetValue('fb-desc') || '';
-  var editId = (document.getElementById('fb-edit-id') || {}).value || '';
-  var type   = _currentFormType;
-  name = name.trim();
+  var rawName = (document.getElementById('fb-name') || {}).value || '';
+  var name    = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 120) : rawName.trim();
+  var rawDesc = reGetValue('fb-desc') || '';
+  var desc    = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc.trim();
+  var editId  = (document.getElementById('fb-edit-id') || {}).value || '';
+  var type    = _currentFormType;
   if (!name) { alert('Please enter a form name.'); return; }
-  var formData = { id: editId || 'form_' + Date.now(), name: name, desc: desc.trim(), type: type, active: true };
+  var formData = { id: editId || 'form_' + Date.now(), name: name, desc: desc, type: type, active: true };
   if (type === 'link') {
-    var url = ((document.getElementById('fb-url') || {}).value || '').trim();
-    if (!url) { alert('Please enter a URL.'); return; }
-    formData.url = url;
+    var rawUrl = ((document.getElementById('fb-url') || {}).value || '').trim();
+    if (!rawUrl) { alert('Please enter a URL.'); return; }
+    formData.url = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '') : rawUrl;
   } else if (type === 'builtin') {
     if (!_fbFields.length) { alert('Please add at least one field.'); return; }
     formData.fields = JSON.parse(JSON.stringify(_fbFields));
@@ -2537,7 +2539,7 @@ function saveForm() {
 function editForm(id) {
   var f = _customForms.find(function(x) { return x.id === id; });
   if (!f) return;
-  var t = document.getElementById('fb-form-title'); if (t) t.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <span>Edit: ' + f.name + '</span>';
+  var t = document.getElementById('fb-form-title'); if (t) t.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <span>Edit: ' + escapeHtml(f.name) + '</span>';
   var n = document.getElementById('fb-name'); if (n) n.value = f.name;
   reSetValue('fb-desc', f.desc || '');
   var e = document.getElementById('fb-edit-id'); if (e) e.value = f.id;
@@ -2566,7 +2568,7 @@ function renderAdminForms() {
   var filter = document.getElementById('form-responses-filter');
   if (filter) {
     var opts = '<option value="">All forms</option>';
-    _customForms.forEach(function(f) { opts += '<option value="' + f.id + '">' + f.name + '</option>'; });
+    _customForms.forEach(function(f) { opts += '<option value="' + escapeHtml(f.id) + '">' + escapeHtml(f.name) + '</option>'; });
     filter.innerHTML = opts;
   }
   if (!_customForms.length) { container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;font-size:13px;">No forms yet.</div>'; return; }
@@ -2579,10 +2581,10 @@ function renderAdminForms() {
   _customForms.forEach(function(f) {
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);display:flex;align-items:center;gap:12px;">'
       + '<div style="width:42px;height:42px;border-radius:10px;background:rgba(200,150,30,0.1);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0;">' + (iconSvgs[f.type] || iconSvgs.builtin) + '</div>'
-      + '<div style="flex:1;"><div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:600;color:var(--text-primary);">' + f.name + '</div>'
-      + '<div style="font-size:11px;color:var(--text-secondary);">' + (typeLabel[f.type] || '') + (f.desc ? ' \xb7 ' + f.desc : '') + '</div></div>'
-      + '<button data-edit-form="' + f.id + '" title="Edit Form" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>'
-      + '<button data-del-form="' + f.id + '" title="Delete Form" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
+      + '<div style="flex:1;"><div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:600;color:var(--text-primary);">' + escapeHtml(f.name) + '</div>'
+      + '<div style="font-size:11px;color:var(--text-secondary);">' + (typeLabel[f.type] || '') + (f.desc ? ' \xb7 ' + escapeHtml(f.desc) : '') + '</div></div>'
+      + '<button data-edit-form="' + escapeHtml(f.id) + '" title="Edit Form" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>'
+      + '<button data-del-form="' + escapeHtml(f.id) + '" title="Delete Form" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
       + '</div>';
   });
   container.innerHTML = html;
@@ -2644,19 +2646,19 @@ async function renderFormResponses() {
       var answersHtml = '';
       Object.entries(answers).forEach(function(kv) {
         answersHtml += '<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-subtle);">'
-          + '<div style="font-size:11px;color:var(--text-secondary);min-width:120px;flex-shrink:0;">' + kv[0] + '</div>'
-          + '<div style="font-size:12px;color:var(--text-primary);flex:1;">' + (kv[1] || '<span style="color:var(--text-muted);font-style:italic;">—</span>') + '</div>'
+          + '<div style="font-size:11px;color:var(--text-secondary);min-width:120px;flex-shrink:0;">' + escapeHtml(kv[0]) + '</div>'
+          + '<div style="font-size:12px;color:var(--text-primary);flex:1;">' + (kv[1] ? escapeHtml(kv[1]) : '<span style="color:var(--text-muted);font-style:italic;">—</span>') + '</div>'
           + '</div>';
       });
       html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">'
         // Header: who + when
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'
         + '<div>'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);">' + (o.member_name || o.ic) + '</div>'
-        + '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + (o.rank ? o.rank + ' \xb7 ' : '') + (o.squad ? o.squad + ' Platoon' : '') + '</div>'
+        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.member_name || o.ic) + '</div>'
+        + '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + (o.rank ? escapeHtml(o.rank) + ' \xb7 ' : '') + (o.squad ? escapeHtml(o.squad) + ' Platoon' : '') + '</div>'
         + '</div>'
         + '<div style="text-align:right;">'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:600;color:var(--brand-blue);background:rgba(59,130,246,0.12);padding:3px 10px;border-radius:20px;margin-bottom:4px;">' + formName + '</div>'
+        + '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:600;color:var(--brand-blue);background:rgba(59,130,246,0.12);padding:3px 10px;border-radius:20px;margin-bottom:4px;">' + escapeHtml(formName) + '</div>'
         + '<div style="font-size:10px;color:var(--text-muted);">' + created + '</div>'
         + '</div></div>'
         // Answers
@@ -2664,7 +2666,7 @@ async function renderFormResponses() {
         + (answersHtml || '<div style="font-size:12px;color:var(--text-muted);font-style:italic;">No answers recorded.</div>')
         + '</div>'
         + '<div style="margin-top:8px;text-align:right;">'
-        + '<button data-del-resp="' + o.order_number + '" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete response</button>'
+        + '<button data-del-resp="' + escapeHtml(o.order_number) + '" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete response</button>'
         + '</div>'
         + '</div>';
     });
@@ -2702,9 +2704,9 @@ function renderFormsHub() {
     var icon = f.iconSvg || (f.type === 'link' ? linkSvg : docSvg);
     var bg   = bgMap[f.type] || 'rgba(245,197,66,0.08)';
     var clr  = colorMap[f.type] || 'var(--brand-gold)';
-    html += '<div class="form-card-hub" data-open-form="' + f.id + '">'
+    html += '<div class="form-card-hub" data-open-form="' + escapeHtml(f.id) + '">'
       + '<div class="form-card-icon" style="background:' + bg + ';color:' + clr + ';">' + icon + '</div>'
-      + '<div style="flex:1;"><div class="form-card-name">' + f.name + '</div><div class="form-card-desc">' + (f.desc||'') + '</div></div>'
+      + '<div style="flex:1;"><div class="form-card-name">' + escapeHtml(f.name) + '</div><div class="form-card-desc">' + escapeHtml(f.desc||'') + '</div></div>'
       + '<div class="form-card-arrow">\u203a</div></div>';
   });
   hub.innerHTML = html;
@@ -2724,7 +2726,7 @@ function openFormForMember(formId) {
   var all = [].concat(_customForms);
   var form = all.find(function(f) { return f.id === formId; });
   if (!form) return;
-  if (form.type === 'link') { window.open(form.url, '_blank'); return; }
+  if (form.type === 'link') { window.open((typeof safeUrl === 'function') ? safeUrl(form.url, '#') : form.url, '_blank'); return; }
   document.getElementById('forms-hub').style.display = 'none';
   document.getElementById('inline-form-view').style.display = 'block';
   renderBuiltinFormInline(form);
@@ -2752,12 +2754,12 @@ function renderBuiltinFormInline(form) {
     } else {
       inp = '<input class="form-input" type="' + (f.type||'text') + '" id="bff-' + i + '" placeholder="Your answer..." style="margin-top:6px;"/>';
     }
-    fieldsHtml += '<div class="form-group"><label class="form-label">' + f.label + req + '</label>' + inp + '</div>';
+    fieldsHtml += '<div class="form-group"><label class="form-label">' + escapeHtml(f.label) + req + '</label>' + inp + '</div>';
   });
   container.innerHTML = '<div class="dark-card">'
     + '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:\'Oswald\',sans-serif;font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>'
-    + '<div class="page-title">' + form.name + '</div>'
-    + (form.desc ? '<div class="page-desc">' + form.desc + '</div>' : '')
+    + '<div class="page-title">' + escapeHtml(form.name) + '</div>'
+    + (form.desc ? '<div class="page-desc">' + escapeHtml(form.desc) + '</div>' : '')
     + '<hr class="divider"/>' + fieldsHtml
     + '<button class="submit-btn gold btn-with-icon" data-submit-form="' + form.id + '" style="justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Submit</button>'
     + '<div class="success-box" id="builtin-success" style="display:none;"><div class="s-icon"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="s-title">Submitted!</div><div class="s-msg">Your form has been received.</div></div>'
@@ -2898,7 +2900,7 @@ async function renderTasksBoard(dept) {
         var overdue = status !== 'done' && due < today;
         dueHtml = '<span class="task-due' + (overdue ? ' overdue' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' + due.toLocaleDateString('en-MY', { day:'numeric', month:'short' }) + '</span>';
       }
-      var assignHtml = t.assignee_name ? '<span class="task-assignee"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:3px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' + t.assignee_name + '</span>' : '';
+      var assignHtml = t.assignee_name ? '<span class="task-assignee"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:3px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' + escapeHtml(t.assignee_name) + '</span>' : '';
       var sc = { todo:'var(--text-secondary)', inprogress:'var(--brand-blue)', done:'var(--green)' };
       var sl = { todo:'To Do', inprogress:'In Progress', done:'Done' };
       var stBtns = '<div style="display:flex;gap:6px;margin-top:10px;">';
@@ -2908,8 +2910,8 @@ async function renderTasksBoard(dept) {
       });
       stBtns += '</div>';
       html += '<div class="task-card" data-task-open="' + t.id + '">'
-        + '<div class="task-card-title">' + t.title + '</div>'
-        + (t.description ? '<div class="task-card-desc">' + (t.description.length > 80 ? t.description.slice(0,80) + '\u2026' : t.description) + '</div>' : '')
+        + '<div class="task-card-title">' + escapeHtml(t.title) + '</div>'
+        + (t.description ? '<div class="task-card-desc">' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(t.description.length > 80 ? t.description.slice(0,80) + '\u2026' : t.description) : escapeHtml(t.description)) + '</div>' : '')
         + '<div class="task-meta"><span class="task-pill ' + pc + '">' + pl + '</span>' + assignHtml + dueHtml + '</div>'
         + stBtns + '</div>';
     });
@@ -2937,7 +2939,9 @@ function openTaskDetail(id) {
   var descEl = document.getElementById('tdm-desc');
   if (descEl) {
     var desc = t.description || '';
-    descEl.innerHTML = (desc && desc.indexOf('<') !== -1) ? desc : (desc || '<span style="color:var(--text-muted);">No description.</span>');
+    descEl.innerHTML = (desc && desc.indexOf('<') !== -1)
+      ? ((typeof sanitizeHtml === 'function') ? sanitizeHtml(desc) : escapeHtml(desc))
+      : (desc ? escapeHtml(desc) : '<span style="color:var(--text-muted);">No description.</span>');
   }
   var pc = t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium';
   var pl = (t.priority || 'medium').charAt(0).toUpperCase() + (t.priority || 'medium').slice(1);
@@ -3061,10 +3065,11 @@ async function loadBadges(ic, preloadedSaved) {
     var catBadges = defs.filter(function(b) { return b.cat === cat && b.name !== '(Add badges below)'; });
     if (!catBadges.length) return;
     html += '<div style="margin-bottom:20px;">';
-    html += '<div data-cat-label="1" style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:10px;">' + cat + '</div>';
+    html += '<div data-cat-label="1" style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:10px;">' + escapeHtml(cat) + '</div>';
     catBadges.forEach(function(b) {
-      var imgHtml = b.image
-        ? '<img src="' + b.image + '" style="width:36px;height:36px;object-fit:cover;border-radius:8px;flex-shrink:0;border:1px solid rgba(200,150,30,0.3);"/>'
+      var safeBadgeImg = b.image ? ((typeof safeUrl === 'function') ? safeUrl(b.image, '') : b.image) : '';
+      var imgHtml = safeBadgeImg
+        ? '<img src="' + escapeHtml(safeBadgeImg) + '" style="width:36px;height:36px;object-fit:cover;border-radius:8px;flex-shrink:0;border:1px solid rgba(200,150,30,0.3);"/>'
         : '';
       if (b.repeatable) {
         var repData = saved[b.id + '_rep'];
@@ -3077,7 +3082,7 @@ async function loadBadges(ic, preloadedSaved) {
         html += '<div data-badge-card="1" data-badge-name="' + b.name.toLowerCase() + '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:8px;">';
         html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
           + imgHtml
-          + '<div style="flex:1;font-size:13px;font-weight:600;color:var(--text-primary);">' + b.name + '</div>'
+          + '<div style="flex:1;font-size:13px;font-weight:600;color:var(--text-primary);">' + escapeHtml(b.name) + '</div>'
           + '<span style="font-size:9px;font-weight:700;background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:20px;">Repeatable</span>'
           + '</div>';
         html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:' + (count > 0 ? '12px' : '0') + ';">';
@@ -3270,12 +3275,13 @@ async function renderAdminBadges() {
           var repLabel = b.repeatable
             ? '<span style="font-size:9px;font-weight:700;background:rgba(102,187,106,0.15);color:#66bb6a;border:1px solid rgba(102,187,106,0.3);padding:2px 7px;border-radius:20px;margin-left:4px;">Repeatable</span>'
             : '';
-          var imgThumb = b.image
-            ? '<img src="' + b.image + '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border-card);flex-shrink:0;"/>'
+          var safeBadgeImg = b.image ? ((typeof safeUrl === 'function') ? safeUrl(b.image, '') : b.image) : '';
+          var imgThumb = safeBadgeImg
+            ? '<img src="' + escapeHtml(safeBadgeImg) + '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border-card);flex-shrink:0;"/>'
             : '<div style="width:32px;height:32px;border-radius:6px;background:var(--bg-card-subtle);border:1px dashed var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>';
           return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border-subtle);">'
             + imgThumb
-            + '<div style="flex:1;"><span style="font-size:13px;color:var(--text-primary);">' + b.name + '</span>' + advLabel + repLabel + '</div>'
+            + '<div style="flex:1;"><span style="font-size:13px;color:var(--text-primary);">' + escapeHtml(b.name) + '</span>' + advLabel + repLabel + '</div>'
             + '<label title="Upload badge image" style="cursor:pointer;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:7px;padding:5px 8px;font-size:11px;color:var(--text-secondary);white-space:nowrap;position:relative;display:inline-flex;align-items:center;gap:4px;">'
               + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg><input type="file" accept="image/*" data-img-badge="' + b.id + '" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>'
             + '</label>'
@@ -3294,7 +3300,7 @@ async function renderAdminBadges() {
 
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--gold);">' + cat + '</div>'
+        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--gold);">' + escapeHtml(cat) + '</div>'
         + '<button data-del-cat="' + cat + '" style="background:#3a1a1a;border:1px solid #6a2a2a;color:#f66;padding:4px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">Delete section</button>'
       + '</div>' + rows
       + '<div style="display:flex;gap:8px;margin-top:10px;">'
@@ -3618,16 +3624,16 @@ async function renderAdminList() {
         }
       }
 
-      html += '<div class="admin-row" data-edit-ic="' + m.ic + '" style="cursor:pointer;display:flex;align-items:center;gap:10px;">'
+      html += '<div class="admin-row" data-edit-ic="' + escapeHtml(m.ic) + '" style="cursor:pointer;display:flex;align-items:center;gap:10px;">'
         + '<div style="flex:1;min-width:0;">'
-          + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + m.name + '</div>'
-          + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? m.ic : ('ID: ' + m.ic)) + ' \xb7 ' + (m.squad ? m.squad + ' Platoon' : 'No platoon') + ' \xb7 ' + (m.rank||'No rank') + '</div>'
+          + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(m.name) + '</div>'
+          + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(m.ic.indexOf('@') !== -1 ? m.ic : ('ID: ' + m.ic)) + ' \xb7 ' + (m.squad ? escapeHtml(m.squad) + ' Platoon' : 'No platoon') + ' \xb7 ' + escapeHtml(m.rank||'No rank') + '</div>'
         + '</div>'
         + '<div style="text-align:right;flex-shrink:0;">'
-          + '<div class="admin-rank-badge">' + (m.rank||'\u2014') + '</div>'
+          + '<div class="admin-rank-badge">' + escapeHtml(m.rank||'\u2014') + '</div>'
           + '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">' + ageStr + '</div>'
         + '</div>'
-        + '<button class="adm-row-del-btn" data-del-ic="' + m.ic + '" data-del-name="' + (m.name||'').replace(/"/g,'&quot;') + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:7px 10px;margin-left:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        + '<button class="adm-row-del-btn" data-del-ic="' + escapeHtml(m.ic) + '" data-del-name="' + escapeHtml(m.name||'') + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:7px 10px;margin-left:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'
           + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
         + '</button>'
         + '<div style="color:var(--text-muted);font-size:18px;margin-left:4px;">\u203a</div></div>';
@@ -3682,11 +3688,16 @@ function closeEditMember() { document.getElementById('edit-member-modal').style.
 
 async function saveEditMember() {
   var originalIc = (document.getElementById('em-original-ic') || {}).value || '';
-  var ic         = ((document.getElementById('em-ic') || {}).value || '').trim().replace(/\s/g,'');
-  var name       = ((document.getElementById('em-name') || {}).value || '').trim();
-  var rank       = (document.getElementById('em-rank') || {}).value || '';
-  var squad      = (document.getElementById('em-squad') || {}).value || '';
-  var department = (document.getElementById('em-dept') || {}).value || '';
+  var rawIc      = ((document.getElementById('em-ic') || {}).value || '').trim().replace(/\s/g,'');
+  var rawName    = ((document.getElementById('em-name') || {}).value || '').trim();
+  var rawRank    = (document.getElementById('em-rank') || {}).value || '';
+  var rawSquad   = (document.getElementById('em-squad') || {}).value || '';
+  var rawDept    = (document.getElementById('em-dept') || {}).value || '';
+  var ic         = (typeof sanitizeInput === 'function') ? sanitizeInput(rawIc, 100) : rawIc;
+  var name       = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 100) : rawName;
+  var rank       = (typeof sanitizeText === 'function') ? sanitizeText(rawRank, 50) : rawRank;
+  var squad      = (typeof sanitizeText === 'function') ? sanitizeText(rawSquad, 50) : rawSquad;
+  var department = (typeof sanitizeText === 'function') ? sanitizeText(rawDept, 50) : rawDept;
   var joinedRaw     = (document.getElementById('em-joined') || {}).value || '';
   var joined_at     = joinedRaw ? new Date(joinedRaw).toISOString() : null;
   var dobRaw        = (document.getElementById('em-dob') || {}).value || '';
@@ -3822,17 +3833,17 @@ async function renderAdminOrders() {
       try {
         var items = JSON.parse(o.items || '{}');
         if (items.form_name) {
-          itemsDisplay = '<div style="font-size:12px;color:var(--brand-blue);margin-bottom:6px;display:flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> ' + items.form_name + '</div>';
+          itemsDisplay = '<div style="font-size:12px;color:var(--brand-blue);margin-bottom:6px;display:flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> ' + escapeHtml(items.form_name) + '</div>';
           if (items.answers) {
             Object.entries(items.answers).forEach(function(kv) {
-              itemsDisplay += '<div style="font-size:11px;color:var(--text-secondary);">' + kv[0] + ': <span style="color:var(--text-primary);">' + kv[1] + '</span></div>';
+              itemsDisplay += '<div style="font-size:11px;color:var(--text-secondary);">' + escapeHtml(kv[0]) + ': <span style="color:var(--text-primary);">' + escapeHtml(kv[1]) + '</span></div>';
             });
           }
         } else {
           Object.entries(items).forEach(function(kv) {
             var prod = UNIFORM_ITEMS.find(function(i) { return i.key === kv[0]; });
             var v = kv[1];
-            itemsDisplay += '<div style="font-size:12px;color:var(--text-secondary);">' + (prod ? prod.name : kv[0]) + ' \xd7' + v.qty + (v.size ? ' (' + v.size + ')' : '') + '</div>';
+            itemsDisplay += '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(prod ? prod.name : kv[0]) + ' \xd7' + escapeHtml(v.qty) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + '</div>';
           });
         }
       } catch(e) {}
@@ -3841,20 +3852,22 @@ async function renderAdminOrders() {
       var created = o.created_at ? new Date(o.created_at).toLocaleDateString('en-MY', { day:'numeric', month:'short', year:'numeric' }) : '';
       var btns = SL.map(function(s) {
         var active = s === status;
-        return '<button data-order-num="' + o.order_number + '" data-order-status="' + s + '" style="padding:3px 10px;border:1.5px solid ' + (active ? SC[s] : 'var(--border-card)') + ';border-radius:6px;background:' + (active ? SC[s] + '22' : 'transparent') + ';color:' + (active ? SC[s] : 'var(--text-secondary)') + ';font-size:11px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;">' + s + '</button>';
+        return '<button data-order-num="' + escapeHtml(o.order_number) + '" data-order-status="' + s + '" style="padding:3px 10px;border:1.5px solid ' + (active ? SC[s] : 'var(--border-card)') + ';border-radius:6px;background:' + (active ? SC[s] + '22' : 'transparent') + ';color:' + (active ? SC[s] : 'var(--text-secondary)') + ';font-size:11px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;">' + s + '</button>';
       }).join('');
-      var screenshotHtml = o.payment_screenshot
-        ? '<div style="margin:10px 0;"><div style="font-size:10px;color:var(--text-secondary);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Payment Screenshot</div><img src="' + o.payment_screenshot + '" alt="TNG" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:10px;border:1px solid var(--border-card);cursor:pointer;display:block;" onclick="this.style.maxHeight=this.style.maxHeight===\'none\'?\'160px\':\'none\'"/><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Tap to expand</div></div>'
+      var safeScreenshot = o.payment_screenshot ? ((typeof safeUrl === 'function') ? safeUrl(o.payment_screenshot, '') : o.payment_screenshot) : '';
+      var screenshotHtml = safeScreenshot
+        ? '<div style="margin:10px 0;"><div style="font-size:10px;color:var(--text-secondary);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Payment Screenshot</div><img src="' + escapeHtml(safeScreenshot) + '" alt="TNG" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:10px;border:1px solid var(--border-card);cursor:pointer;display:block;" onclick="this.style.maxHeight=this.style.maxHeight===\'none\'?\'160px\':\'none\'"/><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Tap to expand</div></div>'
         : '<div style="font-size:11px;color:var(--text-muted);margin:6px 0 10px;font-style:italic;">No payment screenshot</div>';
       html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
-        + '<div><div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);">' + o.order_number + '</div>'
-        + '<div style="font-size:11px;color:var(--text-secondary);">' + (o.member_name||o.ic) + ' \xb7 ' + (o.rank||'') + ' \xb7 ' + created + '</div></div>'
+        + '<div><div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
+        + '<div style="font-size:11px;color:var(--text-secondary);">' + escapeHtml(o.member_name||o.ic) + ' \xb7 ' + escapeHtml(o.rank||'') + ' \xb7 ' + created + '</div></div>'
         + '<div style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:\'Oswald\',sans-serif;">' + status.toUpperCase() + '</div></div>'
         + '<div style="margin-bottom:4px;">' + itemsDisplay + '</div>'
         + screenshotHtml
+        + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin:6px 0;"><strong>Notes:</strong> ' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) + '</div>' : '')
         + '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + btns
-        + '<button data-del-sub="' + o.order_number + '" title="Delete submission" style="margin-left:auto;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
+        + '<button data-del-sub="' + escapeHtml(o.order_number) + '" title="Delete submission" style="margin-left:auto;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
         + '</div></div>';
     });
     list.innerHTML = html;
@@ -3884,19 +3897,20 @@ function renderAdminProducts() {
   if (!UNIFORM_ITEMS.length) { list.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:20px;font-size:13px;">No products yet. Add one above.</div>'; return; }
   var html = '';
   UNIFORM_ITEMS.forEach(function(item) {
-    var imgHtml = item.image
-      ? '<img src="' + item.image + '" style="width:50px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' + item.name + '"/>'
+    var safeProdImg = item.image ? ((typeof safeUrl === 'function') ? safeUrl(item.image, '') : item.image) : '';
+    var imgHtml = safeProdImg
+      ? '<img src="' + escapeHtml(safeProdImg) + '" style="width:50px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' + escapeHtml(item.name) + '"/>'
       : '<div style="width:50px;height:50px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></div>';
     var ncoBadge = item.ncoOnly
       ? ' <span style="font-size:9px;font-weight:700;background:rgba(245,197,66,0.2);color:var(--brand-gold);border:1px solid rgba(245,197,66,0.4);padding:2px 7px;border-radius:20px;letter-spacing:1px;">NCO ONLY</span>'
       : '';
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;border:1px solid var(--border-card);">'
       + imgHtml + '<div style="flex:1;">'
-      + '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' + item.name + ncoBadge + '</div>'
-      + '<div style="font-size:11px;color:var(--text-secondary);">RM ' + (item.price ? parseFloat(item.price).toFixed(2) : 'TBA') + (item.sizes && item.sizes.length ? ' &middot; ' + item.sizes.join(', ') : '') + '</div>'
+      + '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' + escapeHtml(item.name) + ncoBadge + '</div>'
+      + '<div style="font-size:11px;color:var(--text-secondary);">RM ' + (item.price ? parseFloat(item.price).toFixed(2) : 'TBA') + (item.sizes && item.sizes.length ? ' &middot; ' + item.sizes.map(escapeHtml).join(', ') : '') + '</div>'
       + '</div>'
-      + '<button data-edit-prod="' + item.key + '" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Edit</button>'
-      + '<button data-del-prod="' + item.key + '" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;">Del</button>'
+      + '<button data-edit-prod="' + escapeHtml(item.key) + '" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Edit</button>'
+      + '<button data-del-prod="' + escapeHtml(item.key) + '" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;">Del</button>'
       + '</div>';
   });
   list.innerHTML = html;
@@ -3926,11 +3940,13 @@ function clearProductForm() {
 }
 
 function saveProduct() {
-  var name     = ((document.getElementById('prod-name') || {}).value || '').trim();
+  var rawName  = ((document.getElementById('prod-name') || {}).value || '').trim();
+  var name     = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 100) : rawName;
   var price    = parseFloat((document.getElementById('prod-price') || {}).value) || 0;
   var sizesRaw = ((document.getElementById('prod-sizes') || {}).value || '').trim();
   var sizes    = sizesRaw ? sizesRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
-  var image    = (document.getElementById('prod-img-data') || {}).value || '';
+  var rawImage = (document.getElementById('prod-img-data') || {}).value || '';
+  var image    = (typeof safeUrl === 'function') ? safeUrl(rawImage, '') : rawImage;
   var editKey  = (document.getElementById('prod-edit-key') || {}).value || '';
   var ncoOnly = !!(document.getElementById('prod-nco-only') || {}).checked;
   if (!name) { alert('Please enter a product name.'); return; }
@@ -3997,8 +4013,10 @@ async function loadAssigneeOptions() {
 }
 
 async function saveTask() {
-  var title    = ((document.getElementById('task-title') || {}).value || '').trim();
-  var desc     = reGetValue('task-desc').replace(/<[^>]+>/g,'').trim() || reGetValue('task-desc');
+  var rawTitle = ((document.getElementById('task-title') || {}).value || '').trim();
+  var rawDesc  = reGetValue('task-desc') || '';
+  var title    = (typeof sanitizeText === 'function') ? sanitizeText(rawTitle, 200) : rawTitle;
+  var desc     = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
   var dept     = (document.getElementById('task-dept') || {}).value || '';
   var priority = (document.getElementById('task-priority') || {}).value || 'medium';
   var due      = (document.getElementById('task-due') || {}).value || '';
@@ -4052,12 +4070,12 @@ async function renderAdminTasks(filter) {
       }).join('');
       html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);flex:1;">' + t.title + '</div>'
-        + '<span class="dept-badge ' + dept.cls + '" style="font-size:10px;flex-shrink:0;">' + dept.label + '</span></div>'
-        + (t.description ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5;">' + t.description + '</div>' : '')
+        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);flex:1;">' + escapeHtml(t.title) + '</div>'
+        + '<span class="dept-badge ' + dept.cls + '" style="font-size:10px;flex-shrink:0;">' + escapeHtml(dept.label) + '</span></div>'
+        + (t.description ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5;">' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(t.description) : escapeHtml(t.description)) + '</div>' : '')
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
         + '<span class="task-pill ' + pc + '">' + (t.priority||'medium') + '</span>'
-        + (t.assignee_name ? '<span style="font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:3px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' + t.assignee_name + '</span>' : '')
+        + (t.assignee_name ? '<span style="font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:3px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' + escapeHtml(t.assignee_name) + '</span>' : '')
         + (t.due_date ? '<span style="font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:3px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' + new Date(t.due_date).toLocaleDateString('en-MY', { day:'numeric', month:'short', year:'numeric' }) + '</span>' : '')
         + '</div>'
         + '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">' + statusBtns
@@ -4186,7 +4204,7 @@ function reRestoreRange(editorId) {
 function reCmd(editorId, cmd) { reRestoreRange(editorId); document.execCommand(cmd, false, null); }
 function reInsertHr(editorId) { reRestoreRange(editorId); document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.15);margin:8px 0;"/>'); }
 function reColor(editorId, col) { reRestoreRange(editorId); document.execCommand('foreColor', false, col); }
-function reGetValue(editorId) { var el = document.getElementById(editorId); return el ? el.innerHTML.trim() : ''; }
+function reGetValue(editorId) { var el = document.getElementById(editorId); var val = el ? el.innerHTML.trim() : ''; return (typeof sanitizeHtml === 'function') ? sanitizeHtml(val) : val; }
 function reSetValue(editorId, html) { var el = document.getElementById(editorId); if (el) el.innerHTML = html || ''; }
 function reClearValue(editorId) { var el = document.getElementById(editorId); if (el) el.innerHTML = ''; }
 

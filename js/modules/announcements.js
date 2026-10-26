@@ -27,6 +27,12 @@ var _annSavedRange = null;
  * @returns {string}
  */
 function sanitizeAnnouncementHtml(dirtyHtml) {
+  if (typeof window !== 'undefined' && typeof window.sanitizeHtml === 'function') {
+    return window.sanitizeHtml(dirtyHtml);
+  }
+  if (typeof sanitizeHtml === 'function') {
+    return sanitizeHtml(dirtyHtml);
+  }
   if (!dirtyHtml || typeof dirtyHtml !== 'string') return '';
   if (typeof DOMParser === 'undefined') {
     // Regex fallback if DOMParser is unavailable (e.g. Node tests/environments)
@@ -332,8 +338,9 @@ async function addAnnouncement() {
   var bodyEl  = document.getElementById('ann-body-input');
   var btn     = document.getElementById('ann-post-btn');
 
-  var title   = (titleEl ? titleEl.value : '').trim();
-  var rawBody = (bodyEl ? bodyEl.innerHTML : '').trim();
+  var rawTitle = (titleEl ? titleEl.value : '').trim();
+  var title    = (typeof sanitizeInput === 'function') ? sanitizeInput(rawTitle, 200) : rawTitle;
+  var rawBody  = (bodyEl ? bodyEl.innerHTML : '').trim();
   var editIdx = btn ? parseInt(btn.getAttribute('data-edit-idx') || '-1', 10) : -1;
 
   if (!title || !rawBody || rawBody === '<br>' || rawBody === '<div><br></div>') {

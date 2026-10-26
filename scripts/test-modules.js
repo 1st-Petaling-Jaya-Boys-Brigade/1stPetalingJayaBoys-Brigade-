@@ -1,5 +1,5 @@
 /**
- * Automated Unit & Integration Tests for Announcements, Gallery, and Resources Modules
+ * Automated Unit & Integration Tests for Core Security Firewall, Announcements, Gallery, and Resources Modules
  */
 const assert = require('assert');
 
@@ -33,7 +33,15 @@ global.document = {
   removeEventListener: () => {}
 };
 
-// Mock Session & Utils
+// ── Load Core Utils & Security Firewall (TSK-031) ──
+const utils = require('../js/core/utils.js');
+global.escapeHtml     = utils.escapeHtml;
+global.safeUrl        = utils.safeUrl;
+global.sanitizeInput  = utils.sanitizeInput;
+global.sanitizeText   = utils.sanitizeText;
+global.sanitizeHtml   = utils.sanitizeHtml;
+
+// Mock Session & UI
 let mockUser = 'test@bbpj1.org';
 let mockRank = 'Recruit';
 let mockAdmin = false;
@@ -42,7 +50,6 @@ global.sessionGet = (k) => {
   if (k === 'adminAuthed') return mockAdmin;
   return mockUser;
 };
-global.escapeHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 global.showToast = (msg, type) => {};
 global.showConfirmModal = async (msg, title) => true;
 global.isNCO = (rank) => ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant'].indexOf(rank) !== -1;
@@ -93,6 +100,62 @@ global.supa = {
     return true;
   }
 };
+
+// ── Core Security Firewall Tests (TSK-031) ──
+console.log('Testing Core Security Firewall (TSK-031)...');
+
+// 1. escapeHtml tests
+const rawBadHtml = '<script>alert("XSS" & \'test\') / `eval`</script>';
+const escaped = utils.escapeHtml(rawBadHtml);
+assert.strictEqual(escaped.includes('<'), false, 'escapeHtml must encode <');
+assert.strictEqual(escaped.includes('>'), false, 'escapeHtml must encode >');
+assert.strictEqual(escaped.includes('"'), false, 'escapeHtml must encode "');
+assert.strictEqual(escaped.includes("'"), false, "escapeHtml must encode '");
+assert.strictEqual(escaped.includes('&amp;'), true, 'escapeHtml must encode &');
+assert.strictEqual(escaped.includes('&#x2F;'), true, 'escapeHtml must encode forward slash');
+assert.strictEqual(escaped.includes('&#96;'), true, 'escapeHtml must encode backtick');
+assert.strictEqual(utils.escapeHtml(null), '');
+assert.strictEqual(utils.escapeHtml(undefined), '');
+assert.strictEqual(utils.escapeHtml(123), '123');
+console.log('  ✔ escapeHtml properly encodes &, <, >, ", \', /, and ` across types');
+
+// 2. safeUrl tests
+assert.strictEqual(utils.safeUrl('javascript:alert(1)'), '#', 'safeUrl must block javascript: URI');
+assert.strictEqual(utils.safeUrl('JAVASCRIPT:alert(1)', 'fallback'), 'fallback', 'safeUrl must block case-insensitive javascript:');
+assert.strictEqual(utils.safeUrl('vbscript:msgbox(1)'), '#', 'safeUrl must block vbscript: URI');
+assert.strictEqual(utils.safeUrl('data:text/html,<script>alert(1)</script>'), '#', 'safeUrl must block data:text/html URI');
+assert.strictEqual(utils.safeUrl('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='), '#', 'safeUrl must block data:image/svg+xml with script risks');
+assert.strictEqual(utils.safeUrl('https://example.com/handbook.pdf'), 'https://example.com/handbook.pdf', 'safeUrl must allow https URLs');
+assert.strictEqual(utils.safeUrl('http://localhost:3000'), 'http://localhost:3000', 'safeUrl must allow http URLs');
+assert.strictEqual(utils.safeUrl('mailto:officer@bbpj1.org'), 'mailto:officer@bbpj1.org', 'safeUrl must allow mailto URLs');
+assert.strictEqual(utils.safeUrl('tel:+60123456789'), 'tel:+60123456789', 'safeUrl must allow tel URLs');
+assert.strictEqual(utils.safeUrl('/assets/logo.png'), '/assets/logo.png', 'safeUrl must allow absolute relative URLs');
+assert.strictEqual(utils.safeUrl('./manual.pdf'), './manual.pdf', 'safeUrl must allow dot relative URLs');
+assert.strictEqual(utils.safeUrl('#member'), '#member', 'safeUrl must allow anchor hashes');
+assert.strictEqual(utils.safeUrl('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'safeUrl must allow safe raster image base64 URIs');
+assert.strictEqual(utils.safeUrl(null, 'default'), 'default');
+assert.strictEqual(utils.safeUrl('', 'default'), 'default');
+console.log('  ✔ safeUrl strictly validates protocols and blocks javascript:, vbscript:, and SVG data URIs');
+
+// 3. sanitizeInput tests
+assert.strictEqual(utils.sanitizeInput('  John \x00Doe \x1F\x08 '), 'John Doe', 'sanitizeInput must strip null bytes and control chars');
+assert.strictEqual(utils.sanitizeInput('Super long input text string', 10), 'Super long', 'sanitizeInput must truncate to maxLength');
+console.log('  ✔ sanitizeInput cleans unprintable control characters and enforces length limits');
+
+// 4. sanitizeText tests
+assert.strictEqual(utils.sanitizeText('<b>Sergeant</b> <script>alert(1)</script>John'), 'Sergeant alert(1)John', 'sanitizeText must strip all HTML markup');
+console.log('  ✔ sanitizeText strips all HTML tags for plain-text storage');
+
+// 5. sanitizeHtml tests
+const dirtyRichText = '<p>Parade at <b>8:00 AM</b></p><script>evil()</script><iframe src="http://evil.com"></iframe><img src=x onerror=alert(1)><a href="javascript:alert(2)" onclick="steal()">Click</a>';
+const cleanRichText = utils.sanitizeHtml(dirtyRichText);
+assert.strictEqual(cleanRichText.includes('<script>'), false, 'sanitizeHtml must remove script tags');
+assert.strictEqual(cleanRichText.includes('<iframe>'), false, 'sanitizeHtml must remove iframe tags');
+assert.strictEqual(cleanRichText.includes('onerror'), false, 'sanitizeHtml must strip onerror event handlers');
+assert.strictEqual(cleanRichText.includes('onclick'), false, 'sanitizeHtml must strip onclick event handlers');
+assert.strictEqual(cleanRichText.includes('javascript:'), false, 'sanitizeHtml must strip javascript: URIs');
+assert.strictEqual(cleanRichText.includes('<b>8:00 AM</b>'), true, 'sanitizeHtml must preserve safe formatting');
+console.log('  ✔ sanitizeHtml eliminates dangerous tags and event handlers while preserving safe markup\n');
 
 // ── Load Announcements Module ──
 const announcementsModule = require('../js/modules/announcements.js');
