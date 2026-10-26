@@ -13,12 +13,195 @@
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css">
-<link rel="stylesheet" href="css/base.css">
-<link rel="stylesheet" href="css/nav.css">
-<link rel="stylesheet" href="css/components.css">
-<link rel="stylesheet" href="css/admin.css">
+<!-- Modular Stylesheets (Cache-Busted v20261026f) -->
+<link rel="stylesheet" href="css/variables.css?v=20261026f">
+<link rel="stylesheet" href="css/base.css?v=20261026f">
+<link rel="stylesheet" href="css/nav.css?v=20261026f">
+<link rel="stylesheet" href="css/components.css?v=20261026f">
+<link rel="stylesheet" href="css/admin.css?v=20261026f">
+<style id="hq-carousel-critical-css">
+/* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
+.home-hero-calendar-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  width: 100% !important;
+  margin-bottom: 16px !important;
+}
+@media (min-width: 1024px) {
+  .home-hero-calendar-row {
+    display: grid !important;
+    grid-template-columns: 1fr 345px !important;
+    gap: 20px !important;
+    align-items: stretch !important;
+    width: 100% !important;
+  }
+}
+.home-left-col {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  height: 100% !important;
+}
+.home-left-col .hero-banner {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin-bottom: 14px !important;
+}
+.home-right-col {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+.calendar-widget-card {
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+.hq-carousel-wrapper {
+  width: 100% !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin-bottom: 0 !important;
+}
+.hq-carousel-container {
+  position: relative !important;
+  width: 100% !important;
+  display: block !important;
+}
+.hq-carousel-viewport {
+  width: 100% !important;
+  overflow: hidden !important;
+  position: relative !important;
+  border-radius: var(--radius-lg, 14px) !important;
+  outline: none !important;
+}
+.hq-carousel-track {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  gap: 14px !important;
+  width: 100% !important;
+  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1) !important;
+  will-change: transform !important;
+}
+.hq-carousel-track .hq-card {
+  flex: 0 0 calc(50% - 7px) !important;
+  min-width: calc(50% - 7px) !important;
+  max-width: calc(50% - 7px) !important;
+  width: calc(50% - 7px) !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 142px !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: var(--radius-lg, 14px) !important;
+  padding: 16px 18px !important;
+  cursor: pointer !important;
+  transition: var(--transition-smooth) !important;
+  box-shadow: var(--shadow-card) !important;
+  user-select: none !important;
+}
+@media (max-width: 600px) {
+  .hq-carousel-track .hq-card {
+    flex: 0 0 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+.hq-carousel-track .hq-card:hover {
+  border-color: var(--accent) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-elevated) !important;
+}
+/* Floating Arrow Controls (matching LeetCode Image 2) */
+.hq-carousel-arrow {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: rgba(18, 24, 38, 0.88) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
+  color: var(--text-primary, #fff) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  z-index: 10 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  padding: 0 !important;
+  outline: none !important;
+}
+.hq-arrow-prev {
+  left: 8px !important;
+}
+.hq-arrow-next {
+  right: 8px !important;
+}
+.hq-carousel-arrow:hover {
+  background: rgba(30, 41, 59, 0.95) !important;
+  border-color: var(--accent, #eab308) !important;
+  color: var(--accent, #eab308) !important;
+  transform: translateY(-50%) scale(1.1) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6) !important;
+}
+.hq-carousel-arrow:active {
+  transform: translateY(-50%) scale(0.96) !important;
+}
+.hq-arrow-icon {
+  width: 18px !important;
+  height: 18px !important;
+  display: block !important;
+  pointer-events: none !important;
+}
+.hq-carousel-dots-bar {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-top: 10px !important;
+}
+.hq-dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: var(--text-muted, #94a3b8) !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+  opacity: 0.35 !important;
+  outline: none !important;
+}
+.hq-dot:hover {
+  opacity: 0.75 !important;
+}
+.hq-dot.active {
+  width: 20px !important;
+  border-radius: 4px !important;
+  background: var(--accent, #eab308) !important;
+  opacity: 1 !important;
+}
+</style>
 <script src="js/core/theme.js?v=20261022c"></script>
 </head>
 <body>
