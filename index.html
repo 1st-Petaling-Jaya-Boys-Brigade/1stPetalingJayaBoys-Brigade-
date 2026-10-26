@@ -1729,16 +1729,16 @@
   </div>
 </div>
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261022c"></script>
-<script src="js/api/supabase.js?v=20261025c"></script>
-<script src="js/core/session.js?v=20261022c"></script>
-<script src="js/core/utils.js?v=20261026b"></script>
-<script src="js/modules/member.js?v=20261026b"></script>
-<script src="js/api/sheets.js?v=20261022c"></script>
-<script src="js/modules/attendance.js?v=20261026b"></script>
-<script src="js/modules/announcements.js?v=20261026b"></script>
-<script src="js/modules/gallery.js?v=20261026b"></script>
-<script src="js/modules/resources.js?v=20261026b"></script>
+<script src="js/config.js?v=20261026c"></script>
+<script src="js/api/supabase.js?v=20261026c"></script>
+<script src="js/core/session.js?v=20261026c"></script>
+<script src="js/core/utils.js?v=20261026c"></script>
+<script src="js/modules/member.js?v=20261026c"></script>
+<script src="js/api/sheets.js?v=20261026c"></script>
+<script src="js/modules/attendance.js?v=20261026c"></script>
+<script src="js/modules/announcements.js?v=20261026c"></script>
+<script src="js/modules/gallery.js?v=20261026c"></script>
+<script src="js/modules/resources.js?v=20261026c"></script>
 
 <script>
 
@@ -2334,8 +2334,14 @@ function checkOrderAccess() {
   var loggedIn = document.getElementById('order-logged-in');
   if (!ic) { gate.style.display = 'block'; loggedIn.style.display = 'none'; return; }
   gate.style.display = 'none'; loggedIn.style.display = 'block';
+  var hub = document.getElementById('forms-hub');
+  var inline = document.getElementById('inline-form-view');
+  if (hub) hub.style.display = 'block';
+  if (inline) inline.style.display = 'none';
   populateOrderBar(ic);
-  loadCustomForms();
+  loadCustomForms().then(function() {
+    renderFormsHub();
+  });
   renderFormsHub();
   renderOrderItems(sessionGet('rank') || '');
 }
@@ -2789,8 +2795,10 @@ async function renderFormResponses() {
 // Leave Application removed
 
 function renderFormsHub() {
-  loadCustomForms();
   var hub = document.getElementById('forms-hub');
+  var inline = document.getElementById('inline-form-view');
+  if (hub) hub.style.display = 'block';
+  if (inline) inline.style.display = 'none';
   if (!hub) return;
   var uniformSvg = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>';
   var linkSvg = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>';
@@ -2835,10 +2843,13 @@ function openFormForMember(formId) {
 }
 
 function backToFormsHub() {
-  document.getElementById('forms-hub').style.display = 'block';
-  document.getElementById('inline-form-view').style.display = 'none';
+  var hub = document.getElementById('forms-hub');
+  var inline = document.getElementById('inline-form-view');
+  if (hub) hub.style.display = 'block';
+  if (inline) inline.style.display = 'none';
   UNIFORM_ITEMS.forEach(function(i) { itemQtys[i.key] = 0; delete itemSizes[i.key]; });
   updateTotal();
+  renderFormsHub();
 }
 
 function renderBuiltinFormInline(form) {

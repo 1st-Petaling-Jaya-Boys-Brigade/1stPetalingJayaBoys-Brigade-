@@ -219,8 +219,8 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         '</div>' +
       '</div>';
   } else {
-    var titleText = sqInfo ? ('Squad ' + escapeHtml(sqInfo.name) + ' Standing') : (escapeHtml(pltName) + ' Platoon Standing');
-    var rankText  = sqInfo ? ('Rank #' + escapeHtml(sqInfo.rank) + ' (' + escapeHtml(sqInfo.points) + ' pts)') : (pltInfo ? ('Rank #' + escapeHtml(pltInfo.rank) + ' (' + escapeHtml(pltInfo.averagePoints || pltInfo.totalPoints || 0) + ' pts)') : '');
+    var titleText = sqInfo ? ('Squad ' + escapeAttHtml(sqInfo.name) + ' Standing') : (escapeAttHtml(pltName) + ' Platoon Standing');
+    var rankText  = sqInfo ? ('Rank #' + escapeAttHtml(sqInfo.rank) + ' (' + escapeAttHtml(sqInfo.points) + ' pts)') : (pltInfo ? ('Rank #' + escapeAttHtml(pltInfo.rank) + ' (' + escapeAttHtml(pltInfo.averagePoints || pltInfo.totalPoints || 0) + ' pts)') : '');
     
     standingCardHtml = 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
@@ -234,11 +234,11 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           '</div>' +
         '</div>' +
         '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
-          'Your contribution: <strong>' + escapeHtml(points.total) + ' pts</strong> towards ' + (sqInfo ? ('Squad ' + escapeHtml(sqInfo.name)) : (escapeHtml(pltName) + ' Platoon')) + ' in the Senior Section Leaderboard.' +
+          'Your contribution: <strong>' + escapeAttHtml(points.total) + ' pts</strong> towards ' + (sqInfo ? ('Squad ' + escapeAttHtml(sqInfo.name)) : (escapeAttHtml(pltName) + ' Platoon')) + ' in the Senior Section Leaderboard.' +
         '</div>' +
         (pltInfo && pltInfo.averagePoints ? (
           '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
-            '<span style="color:var(--text-secondary);">' + escapeHtml(pltName) + ' Platoon Average:</span>' +
+            '<span style="color:var(--text-secondary);">' + escapeAttHtml(pltName) + ' Platoon Average:</span>' +
             '<span style="font-family:\'Oswald\',sans-serif;font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' pts</span>' +
           '</div>'
         ) : '') +
@@ -253,7 +253,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           '<svg class="ui-icon" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
           'Attendance &amp; Points' +
         '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">Master Sheet Sync &middot; ' + escapeHtml(syncTimeStr) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">Master Sheet Sync &middot; ' + escapeAttHtml(syncTimeStr) + '</div>' +
       '</div>' +
       '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:5px 12px;border-radius:8px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">' +
         '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
@@ -278,7 +278,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<!-- Band Attendance -->' +
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
         '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' +
-          (isBandMember && rec.bandSection ? ('Band Attendance &middot; ' + escapeHtml(rec.bandSection)) : 'Band Attendance') +
+          (isBandMember && rec.bandSection ? ('Band Attendance &middot; ' + escapeAttHtml(rec.bandSection)) : 'Band Attendance') +
         '</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px;">' +
           '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + bColor.text + ';">' + bandPctStr + '</span>' +
@@ -339,7 +339,7 @@ function renderEmptyAttendanceState(name, lastSynced) {
         'Attendance &amp; Points Overview' +
       '</div>' +
       '<div style="font-size:12px;color:var(--text-secondary);max-width:360px;margin:0 auto 14px;line-height:1.6;">' +
-        (name ? 'Records for <strong>' + escapeHtml(name) + '</strong> will appear here' : 'Your performance stats will appear here') +
+        (name ? 'Records for <strong>' + escapeAttHtml(name) + '</strong> will appear here' : 'Your performance stats will appear here') +
         ' once synced from the Company Master Attendance Sheet.' +
       '</div>' +
       '<div style="display:inline-flex;gap:8px;align-items:center;">' +
@@ -452,8 +452,8 @@ async function renderAdminMasterSheetPanel() {
             '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>' +
           '</div>' +
           '<div>' +
-            '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeHtml(sheetName) + '</div>' +
-            '<div style="font-size:11px;color:var(--text-muted);">Last Synced: ' + escapeHtml(syncDate) + '</div>' +
+            '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeAttHtml(sheetName) + '</div>' +
+            '<div style="font-size:11px;color:var(--text-muted);">Last Synced: ' + escapeAttHtml(syncDate) + '</div>' +
           '</div>' +
         '</div>' +
         '<button onclick="triggerMasterSheetFetch()" id="btn-adm-sync-sheet" style="background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
@@ -472,13 +472,13 @@ async function renderAdminMasterSheetPanel() {
           return (
             '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;">' +
               '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<span style="font-size:12px;font-weight:700;color:var(--text-primary);">' + escapeHtml(sq.name) + '</span>' +
+                '<span style="font-size:12px;font-weight:700;color:var(--text-primary);">' + escapeAttHtml(sq.name) + '</span>' +
                 '<span style="font-size:10px;font-weight:700;color:var(--accent);">#' + (sq.displayRank || sq.rank || '-') + '</span>' +
               '</div>' +
               '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' +
                 (sq.points || 0) + ' pts' +
               '</div>' +
-              '<div style="font-size:10px;color:var(--text-muted);">' + escapeHtml(st.plt) + ' Platoon</div>' +
+              '<div style="font-size:10px;color:var(--text-muted);">' + escapeAttHtml(st.plt) + ' Platoon</div>' +
             '</div>'
           );
         }).join('') +
@@ -489,7 +489,7 @@ async function renderAdminMasterSheetPanel() {
         '<strong style="color:var(--text-primary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Platoon Averages:</strong>' +
         pltAverages.map(function(pa) {
           var st = getPlatoonStyle(pa.name);
-          return '<span>' + escapeHtml(pa.name) + ': <strong style="color:' + st.color + ';">' + pa.avg + ' pts</strong></span>';
+          return '<span>' + escapeAttHtml(pa.name) + ': <strong style="color:' + st.color + ';">' + pa.avg + ' pts</strong></span>';
         }).join('<span style="color:rgba(255,255,255,0.2);">&bull;</span>') +
       '</div>' +
     '</div>' +
@@ -522,13 +522,13 @@ async function renderAdminMasterSheetPanel() {
       '</div>' +
 
       '<pre id="gas-snippet-pre" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:12px;font-size:11px;color:#66bb6a;font-family:monospace;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:0;">' +
-        escapeHtml(scriptCode) +
+        escapeAttHtml(scriptCode) +
       '</pre>' +
     '</div>';
 }
 
-function escapeHtml(str) {
-  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function') {
+function escapeAttHtml(str) {
+  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function' && window.escapeHtml !== escapeAttHtml) {
     return window.escapeHtml(str);
   }
   if (!str) return '';
@@ -537,9 +537,7 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/\//g, '&#x2F;')
-    .replace(/`/g, '&#96;');
+    .replace(/'/g, '&#39;');
 }
 
 async function copyAppsScriptSnippet() {

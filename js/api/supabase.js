@@ -59,6 +59,13 @@ const supa = {
     return supa.req('DELETE', path);
   },
 
+  upsert(table, body, onConflict) {
+    var conflictParam = onConflict ? ('?on_conflict=' + encodeURIComponent(onConflict)) : '';
+    return supa.req('POST', table + conflictParam, body, {
+      Prefer: 'return=representation,resolution=merge-duplicates'
+    });
+  },
+
   /**
    * Supabase Storage: Upload a file/blob to a bucket
    */

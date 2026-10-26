@@ -299,7 +299,7 @@ function renderResourcesPage() {
     var safeDate   = (typeof escapeHtml === 'function') ? escapeHtml(r.updatedAt || '') : r.updatedAt;
     var rawUrl     = r.url || '#';
     var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '#') : rawUrl;
-    var safeUrl    = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
+    var safeDocUrl   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
 
     // File Type Styling & Icon
     var typeBadge = getFileTypeBadgeHtml(r.fileType);
@@ -318,13 +318,13 @@ function renderResourcesPage() {
     var actionBtnHtml = '';
     if (accessible) {
       actionBtnHtml = '<div style="display:flex;gap:8px;margin-top:16px;">'
-        + '<a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" '
+        + '<a href="' + safeDocUrl + '" target="_blank" rel="noopener noreferrer" '
         + 'class="portal-btn portal-btn-primary" '
         + 'style="flex:1;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-align:center;">'
         + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
         + 'View Document'
         + '</a>'
-        + '<button type="button" class="portal-btn portal-btn-secondary" title="Copy Direct Link" onclick="copyResourceLink(\'' + safeUrl.replace(/'/g, "\\'") + '\', \'' + safeTitle.replace(/'/g, "\\'") + '\')" style="padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;">'
+        + '<button type="button" class="portal-btn portal-btn-secondary" title="Copy Direct Link" onclick="copyResourceLink(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'' + safeTitle.replace(/'/g, "\\'") + '\')" style="padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;">'
         + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
         + '</button>'
         + '</div>';
@@ -448,7 +448,7 @@ function renderAdminResourcesList() {
     var safeVis   = (typeof escapeHtml === 'function') ? escapeHtml(r.visibility || 'all') : r.visibility;
     var rawAdminUrl = r.url || '#';
     var validAdminUrl = (typeof safeUrl === 'function') ? safeUrl(rawAdminUrl, '#') : rawAdminUrl;
-    var safeUrl   = (typeof escapeHtml === 'function') ? escapeHtml(validAdminUrl) : validAdminUrl;
+    var safeAdminUrl = (typeof escapeHtml === 'function') ? escapeHtml(validAdminUrl) : validAdminUrl;
 
     html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;">'
       + '<div style="flex:1;min-width:0;">'
@@ -457,7 +457,7 @@ function renderAdminResourcesList() {
           + '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-card-subtle);color:var(--text-secondary);">' + safeType + '</span>'
           + '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(200,150,30,0.15);color:var(--accent);">' + safeVis.toUpperCase() + '</span>'
         + '</div>'
-        + '<div style="font-size:11px;color:var(--text-secondary);">' + safeCat + ' &bull; <a href="' + safeUrl + '" target="_blank" rel="noopener noreferrer" style="color:var(--brand-blue);text-decoration:none;">Open link &rarr;</a></div>'
+        + '<div style="font-size:11px;color:var(--text-secondary);">' + safeCat + ' &bull; <a href="' + safeAdminUrl + '" target="_blank" rel="noopener noreferrer" style="color:var(--brand-blue);text-decoration:none;">Open link &rarr;</a></div>'
       + '</div>'
       + '<div style="display:flex;gap:6px;flex-shrink:0;">'
         + '<button type="button" data-edit-res="' + r.id + '" title="Edit Resource" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;">Edit</button>'
