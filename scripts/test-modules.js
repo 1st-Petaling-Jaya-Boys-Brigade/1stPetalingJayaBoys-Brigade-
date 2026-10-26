@@ -41,6 +41,15 @@ global.sanitizeInput  = utils.sanitizeInput;
 global.sanitizeText   = utils.sanitizeText;
 global.sanitizeHtml   = utils.sanitizeHtml;
 
+// Mock localStorage
+let mockLocalStorage = {};
+global.localStorage = {
+  getItem: (k) => mockLocalStorage[k] || null,
+  setItem: (k, v) => { mockLocalStorage[k] = String(v); },
+  removeItem: (k) => { delete mockLocalStorage[k]; },
+  clear: () => { mockLocalStorage = {}; }
+};
+
 // Mock Session & UI
 let mockUser = 'test@bbpj1.org';
 let mockRank = 'Recruit';
@@ -501,6 +510,76 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   memberModule.closeChildSafetyModal();
   assert.strictEqual(mockModal.style.display, 'none', 'closeChildSafetyModal must hide policy modal');
   console.log('  ✔ openChildSafetyModal and closeChildSafetyModal properly manage modal visibility');
+
+  // ── Calendar Module Tests (TSK-CALENDAR) ──
+  console.log('Testing Company Calendar & Member Personal Schedule...');
+  const calendarModule = require('../js/modules/calendar.js');
+
+  // 1. Verify default 2026 calendar data
+  assert.ok(Array.isArray(calendarModule.DEFAULT_2026_CALENDAR), 'DEFAULT_2026_CALENDAR must be an array');
+  assert.ok(calendarModule.DEFAULT_2026_CALENDAR.length >= 48, 'Must contain at least 48 parade/event days');
+  const sampleEv = calendarModule.DEFAULT_2026_CALENDAR.find(x => x.date === '2026-06-28');
+  assert.ok(sampleEv, 'Must contain Enrolment Sunday (2026-06-28)');
+  assert.strictEqual(sampleEv.kit, 'Ceremonial', 'Enrolment Sunday must have Ceremonial kit');
+  assert.strictEqual(sampleEv.type, 'ceremonial');
+  console.log('  ✔ DEFAULT_2026_CALENDAR accurately pre-populated with official dates and kits');
+
+  // 2. Month matrix generation
+  const oct2026 = calendarModule.getMonthMatrix(2026, 9); // October (0-indexed: 9)
+  assert.ok(oct2026.length === 35 || oct2026.length === 42, 'Month matrix must contain 35 or 42 cells');
+  const oct1 = oct2026.find(c => c.dateKey === '2026-10-01');
+  assert.ok(oct1 && oct1.isCurrentMonth, 'Oct 1 must be present in current month');
+  console.log('  ✔ getMonthMatrix correctly generates calendar grid with overflow days');
+
+  // 3. Load & Save Calendar Events with Supabase
+  let loaded = await calendarModule.loadCalendarEvents();
+  assert.ok(Array.isArray(loaded) && loaded.length > 0, 'loadCalendarEvents should return events array');
+  
+  const testNewEvent = {
+    id: 'cal-test-1',
+    date: '2026-12-12',
+    title: 'Test Post-Christmas Gathering',
+    type: 'special',
+    kit: 'PT Kit',
+    time: '2:00 PM – 5:00 PM',
+    location: 'Church Hall',
+    srDetails: 'Fellowship games',
+    jrDetails: 'Party games',
+    notes: 'Optional event'
+  };
+  loaded.push(testNewEvent);
+  const saved = await calendarModule.saveCalendarEvents(loaded);
+  assert.strictEqual(saved, true, 'saveCalendarEvents should succeed');
+  assert.strictEqual(calendarModule.getCompanyEventsForDate('2026-12-12').length, 1);
+  console.log('  ✔ loadCalendarEvents and saveCalendarEvents persist company events with Supabase');
+
+  // 4. Personal Member Events & Reminders
+  mockSession['email'] = 'member@bbpj1.org';
+  const memRem = calendarModule.addPersonalEvent('2026-10-24', 'Submit Target Badge Workbook <script>', '2:00 PM', 'Check page 15-20');
+  assert.ok(memRem && memRem.id, 'addPersonalEvent should create reminder');
+  assert.strictEqual(memRem.title.includes('<script>'), false, 'addPersonalEvent must sanitize user input');
+  const memList = calendarModule.getMemberEventsForDate('2026-10-24');
+  assert.strictEqual(memList.length, 1, 'getMemberEventsForDate should return member reminder');
+  assert.strictEqual(memList[0].title, 'Submit Target Badge Workbook');
+
+  const delResult = calendarModule.deletePersonalEvent(memRem.id);
+  assert.strictEqual(delResult, true, 'deletePersonalEvent should return true');
+  assert.strictEqual(calendarModule.getMemberEventsForDate('2026-10-24').length, 0);
+  console.log('  ✔ addPersonalEvent and deletePersonalEvent manage member reminders with XSS protection');
+
+  // 5. Next Upcoming Parade
+  const nextParade = calendarModule.getNextUpcomingParade('2026-10-01');
+  assert.ok(nextParade, 'getNextUpcomingParade should find next scheduled parade');
+  assert.strictEqual(nextParade.date, '2026-10-03', 'Next parade from Oct 1 should be Founder Day Oct 3');
+  console.log('  ✔ getNextUpcomingParade accurately identifies upcoming parade dates');
+
+  // 6. Widget DOM rendering
+  const calWidgetContainer = document.getElementById('company-calendar-widget');
+  calendarModule.renderCalendarWidget('company-calendar-widget');
+  assert.ok(calWidgetContainer.innerHTML.includes('cal-widget-month-title'), 'renderCalendarWidget must render header');
+  assert.ok(calWidgetContainer.innerHTML.includes('cal-days-grid'), 'renderCalendarWidget must render days grid');
+  assert.ok(calWidgetContainer.innerHTML.includes('cal-preview-card'), 'renderCalendarWidget must render preview card');
+  console.log('  ✔ renderCalendarWidget generates complete interactive calendar widget DOM');
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {
