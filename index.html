@@ -153,47 +153,62 @@
 <!-- ───────── HOME ───────── -->
 <div class="page active" id="page-home">
 
-  <!-- Hero -->
-  <div class="hero-banner">
-    <img src="assets/logo.png" class="hero-bb-logo" style="background:transparent;box-shadow:none;padding:0;" alt="BB Logo"/>
-    <div class="hero-title">1st Petaling Jaya</div><div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;color:var(--text-primary);text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;">Boys Brigade Company</div>
-    <div class="hero-subtitle">Sure &amp; Stedfast</div>
-    <div class="hero-desc">Welcome to the official portal for uniform orders, announcements, and member registration.</div>
-  </div>
+  <!-- Hero Banner & Calendar Row -->
+  <div class="home-hero-calendar-row">
+    <div class="home-left-col">
+      <!-- Hero -->
+      <div class="hero-banner">
+        <img src="assets/logo.png" class="hero-bb-logo" style="background:transparent;box-shadow:none;padding:0;" alt="BB Logo"/>
+        <div class="hero-title">1st Petaling Jaya</div><div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;color:var(--text-primary);text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;">Boys Brigade Company</div>
+        <div class="hero-subtitle">Sure &amp; Stedfast</div>
+        <div class="hero-desc">Welcome to the official portal for uniform orders, announcements, and member registration.</div>
+      </div>
 
-  <!-- Quick Dashboard Tiles (Desktop/Mobile Overview) -->
-  <div class="home-quick-grid">
-    <div class="hq-card" onclick="switchTabNav('order')" role="button" tabindex="0">
-      <div class="hq-icon" style="color:var(--accent);">
-        <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <!-- Quick Dashboard Tiles (Desktop/Mobile Overview) -->
+      <div class="home-quick-grid">
+        <div class="hq-card" onclick="switchTabNav('order')" role="button" tabindex="0">
+          <div class="hq-icon" style="color:var(--accent);">
+            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="hq-title">Forms &amp; Store</div>
+          <div class="hq-desc">Uniform catalog, order tracking, and dynamic event forms.</div>
+          <div class="hq-link">Access Forms &rarr;</div>
+        </div>
+        <div class="hq-card" onclick="switchTabNav('member')" role="button" tabindex="0">
+          <div class="hq-icon" style="color:var(--brand-blue);">
+            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="hq-title">Member Hub</div>
+          <div class="hq-desc">Member credentials, rank, section, and order history.</div>
+          <div class="hq-link">View Member &rarr;</div>
+        </div>
+        <div class="hq-card" onclick="switchTabNav('tasks')" role="button" tabindex="0">
+          <div class="hq-icon" style="color:var(--green);">
+            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
+          </div>
+          <div class="hq-title">Weekly Parade</div>
+          <div class="hq-desc">Saturdays 1:30 PM &ndash; 6:00 PM at Trinity Methodist Church PJ.</div>
+          <div class="hq-link">View Schedule &rarr;</div>
+        </div>
+        <div class="hq-card" onclick="switchTabNav('resources')" role="button" tabindex="0">
+          <div class="hq-icon" style="color:var(--brand-blue);">
+            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
+          </div>
+          <div class="hq-title">Company Resources</div>
+          <div class="hq-desc">BB Member Handbook, Drill Manual, and official award syllabi.</div>
+          <div class="hq-link">Browse Files &rarr;</div>
+        </div>
       </div>
-      <div class="hq-title">Forms &amp; Store</div>
-      <div class="hq-desc">Uniform catalog, order tracking, and dynamic event forms.</div>
-      <div class="hq-link">Access Forms &rarr;</div>
     </div>
-    <div class="hq-card" onclick="switchTabNav('member')" role="button" tabindex="0">
-      <div class="hq-icon" style="color:var(--brand-blue);">
-        <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+
+    <!-- Calendar Widget (Red Highlight Area) -->
+    <div class="home-right-col">
+      <div id="company-calendar-widget" class="calendar-widget-card">
+        <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12px;">
+          <div class="spinner" style="margin:0 auto 10px;"></div>
+          Loading Company Calendar...
+        </div>
       </div>
-      <div class="hq-title">Member Hub</div>
-      <div class="hq-desc">Member credentials, rank, section, and order history.</div>
-      <div class="hq-link">View Member &rarr;</div>
-    </div>
-    <div class="hq-card" onclick="switchTabNav('tasks')" role="button" tabindex="0">
-      <div class="hq-icon" style="color:var(--green);">
-        <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
-      </div>
-      <div class="hq-title">Weekly Parade</div>
-      <div class="hq-desc">Saturdays 1:30 PM &ndash; 6:00 PM at Trinity Methodist Church PJ.</div>
-      <div class="hq-link">View Schedule &rarr;</div>
-    </div>
-    <div class="hq-card" onclick="switchTabNav('resources')" role="button" tabindex="0">
-      <div class="hq-icon" style="color:var(--brand-blue);">
-        <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
-      </div>
-      <div class="hq-title">Company Resources</div>
-      <div class="hq-desc">BB Member Handbook, Drill Manual, and official award syllabi.</div>
-      <div class="hq-link">Browse Files &rarr;</div>
     </div>
   </div>
 
@@ -1059,6 +1074,18 @@
           <div class="adm-sec-arrow">›</div>
         </div>
 
+      
+        <!-- Section: Company Calendar -->
+        <div class="adm-section-btn" id="sec-btn-calendar" onclick="switchAdminSection('calendar')">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="adm-sec-icon" style="background:rgba(234,179,8,0.12);color:var(--accent);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg></div>
+            <div>
+              <div class="adm-sec-title">Company Calendar</div>
+              <div class="adm-sec-sub">Edit parade schedules, uniform kits, CE &amp; badge classes</div>
+            </div>
+          </div>
+          <div class="adm-sec-arrow">›</div>
+        </div>
       </div><!-- end section nav -->
 
       <!-- ══════════════════════════════════════════════
@@ -1683,6 +1710,41 @@
         <div id="adm-resources-list"></div>
       </div>
 
+      <!-- ── CALENDAR SECTION ────────────────────────── -->
+      <div id="adm-section-calendar" style="display:none;">
+        <div class="adm-section-header">
+          <div class="adm-sec-icon" style="background:rgba(234,179,8,0.15);color:var(--accent);">
+            <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
+          </div>
+          <div>
+            <div class="adm-section-title">Company Calendar Manager</div>
+            <div class="adm-section-desc">Manage company parade dates, kits, senior &amp; junior badge schedules</div>
+          </div>
+        </div>
+
+        <!-- Admin Calendar Toolbar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button" class="portal-btn portal-btn-secondary" onclick="adminNavigateMonth(-1)" style="padding:6px 12px;font-size:12px;">&lsaquo; Prev Month</button>
+            <div id="adm-cal-month-title" style="font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:var(--text-primary);min-width:140px;text-align:center;">October 2026</div>
+            <button type="button" class="portal-btn portal-btn-secondary" onclick="adminNavigateMonth(1)" style="padding:6px 12px;font-size:12px;">Next Month &rsaquo;</button>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button type="button" class="portal-btn portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Parade / Event
+            </button>
+            <button type="button" class="portal-btn portal-btn-secondary" onclick="handleAdminResetToDefaultMaster()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;" title="Reset to authentic 2026 Google Doc Schedule">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Reset 2026 Master
+            </button>
+          </div>
+        </div>
+
+        <!-- Admin Grid View Container -->
+        <div id="adm-calendar-grid-container"></div>
+      </div>
+
     </div><!-- end admin-panel -->
   </div>
 </div>
@@ -1728,6 +1790,131 @@
     </div>
   </div>
 </div>
+<!-- ── CALENDAR DAY DETAILS MODAL (GOOGLE DOC BREAKDOWN) ────────────────── -->
+<div id="calendar-day-modal" class="portal-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:580px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;">
+      <div>
+        <div id="cdm-date-title" style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;"></div>
+        <div id="cdm-event-name" style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);line-height:1.2;"></div>
+      </div>
+      <button type="button" onclick="closeCalendarDayModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;line-height:1;" title="Close">&times;</button>
+    </div>
+
+    <div id="cdm-header-badges" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px;"></div>
+    <div id="cdm-venue-time" style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-card);"></div>
+
+    <!-- Senior Section Program -->
+    <div id="cdm-sr-schedule" style="display:none;"></div>
+
+    <!-- Junior Section Program -->
+    <div id="cdm-jr-schedule" style="display:none;"></div>
+
+    <!-- Remarks / Notes -->
+    <div id="cdm-notes-box" style="display:none;"></div>
+
+    <!-- Personal Member Reminders -->
+    <div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:14px;margin-top:16px;">
+      <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="display:flex;align-items:center;gap:6px;">📌 My Personal Reminders for this Day</span>
+      </div>
+      <div id="cdm-personal-reminders-list"></div>
+
+      <!-- Add Personal Reminder Form -->
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);display:flex;gap:6px;flex-wrap:wrap;">
+        <input type="text" id="cdm-rem-input" placeholder="e.g. Bring Target Badge book, Band rehearsal..." class="form-input" style="flex:1;min-width:180px;font-size:12px;padding:7px 10px;" />
+        <input type="text" id="cdm-rem-time" placeholder="Time (opt)" class="form-input" style="width:85px;font-size:12px;padding:7px 8px;" />
+        <button type="button" class="portal-btn portal-btn-primary" onclick="handleAddModalReminder()" style="font-size:12px;padding:7px 14px;">+ Add</button>
+      </div>
+    </div>
+
+    <div style="margin-top:18px;text-align:right;">
+      <button type="button" class="portal-btn portal-btn-secondary" onclick="closeCalendarDayModal()" style="font-size:12px;padding:8px 18px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN CALENDAR EVENT EDIT MODAL ────────────────── -->
+<div id="adm-event-edit-modal" class="portal-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--accent);">Add / Edit Parade Event</div>
+      <button type="button" onclick="closeAdminEventModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;">&times;</button>
+    </div>
+
+    <input type="hidden" id="adm-ev-id" />
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="adm-ev-date">Date</label>
+        <input type="date" id="adm-ev-date" class="form-input" required />
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="adm-ev-type">Event Type</label>
+        <select id="adm-ev-type" class="form-input">
+          <option value="parade">Regular Parade</option>
+          <option value="special">Special Event</option>
+          <option value="camp">Camp / Outing</option>
+          <option value="ceremonial">Ceremonial</option>
+          <option value="noparade">No Parade</option>
+          <option value="holiday">Public Holiday</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:10px;">
+      <label class="form-label" for="adm-ev-title">Event Title</label>
+      <input type="text" id="adm-ev-title" class="form-input" placeholder="e.g. Regular Parade / Enrolment Rehearsal" required />
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="adm-ev-kit">Uniform Kit</label>
+        <select id="adm-ev-kit" class="form-input">
+          <option value="PT Kit">🥋 PT Kit</option>
+          <option value="Day Dress">👔 Day Dress</option>
+          <option value="Drill Kit">🎖️ Drill Kit</option>
+          <option value="Ceremonial">🏅 Ceremonial</option>
+          <option value="Casual">👕 Casual</option>
+          <option value="None">⛔ No Kit / Free</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="adm-ev-time">Time</label>
+        <input type="text" id="adm-ev-time" class="form-input" placeholder="1:30 PM – 6:00 PM" />
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:10px;">
+      <label class="form-label" for="adm-ev-loc">Venue / Location</label>
+      <input type="text" id="adm-ev-loc" class="form-input" placeholder="Trinity Methodist Church PJ" />
+    </div>
+
+    <div class="form-group" style="margin-bottom:10px;">
+      <label class="form-label" for="adm-ev-sr">Senior Section Schedule Details</label>
+      <textarea id="adm-ev-sr" class="form-input" rows="2" placeholder="Worship · CE Topic · Badge Classes · Drill"></textarea>
+    </div>
+
+    <div class="form-group" style="margin-bottom:10px;">
+      <label class="form-label" for="adm-ev-jr">Junior Section Schedule Details</label>
+      <textarea id="adm-ev-jr" class="form-input" rows="2" placeholder="Games · Badge Tests · Activities"></textarea>
+    </div>
+
+    <div class="form-group" style="margin-bottom:14px;">
+      <label class="form-label" for="adm-ev-notes">Remarks &amp; Announcements</label>
+      <input type="text" id="adm-ev-notes" class="form-input" placeholder="Parents Briefing, deadlines, camp logistics..." />
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+      <button type="button" id="adm-ev-delete-btn" class="portal-btn portal-btn-danger" onclick="handleAdminDeleteEvent()" style="font-size:12px;padding:7px 14px;display:none;">Delete Event</button>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button type="button" class="portal-btn portal-btn-secondary" onclick="closeAdminEventModal()" style="font-size:12px;padding:7px 14px;">Cancel</button>
+        <button type="button" class="portal-btn portal-btn-primary" onclick="handleAdminSaveEvent()" style="font-size:12px;padding:7px 16px;">Save Event</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Core API & State Modules -->
 <script src="js/config.js?v=20261026c"></script>
 <script src="js/api/supabase.js?v=20261026c"></script>
@@ -1739,6 +1926,7 @@
 <script src="js/modules/announcements.js?v=20261026c"></script>
 <script src="js/modules/gallery.js?v=20261026c"></script>
 <script src="js/modules/resources.js?v=20261026c"></script>
+<script src="js/modules/calendar.js?v=20261026d"></script>
 
 <script>
 
@@ -1846,6 +2034,7 @@ function switchTab(tab, btn) {
   if (tab === 'badges')     checkBadgesAccess();
   if (tab === 'attendance') { if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard(); }
   if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
+  if (tab === 'home')       { if (typeof renderCalendarWidget === 'function') renderCalendarWidget(); }
 }
 
 // switchTabNav — called by bottom nav and sidebar buttons
@@ -3525,7 +3714,7 @@ async function renderAdminBadges() {
 
 
 // ── Admin ──────────────────────────────────────────────────────────────────
-var ADMIN_SECTIONS = ['members','orders','uniform','tasks','announcements','badges','gallery','attendance','resources'];
+var ADMIN_SECTIONS = ['members','orders','uniform','tasks','announcements','badges','gallery','attendance','resources','calendar'];
 
 function openAdmin() {
   document.getElementById('admin-overlay').style.display = 'block';
@@ -3560,6 +3749,7 @@ function adminLogin() {
   renderGallery();
   renderAnnouncements();
   if (typeof loadResources === 'function') loadResources();
+  if (typeof initCalendarModule === 'function') initCalendarModule();
 }
 
 function backToAdminHome() {
@@ -3587,6 +3777,7 @@ function switchAdminSection(section) {
   if (section === 'gallery')       renderGallery();
   if (section === 'attendance')    { if (typeof renderAdminMasterSheetPanel === 'function') renderAdminMasterSheetPanel(); }
   if (section === 'resources')     { if (typeof renderAdminResourcesPanel === 'function') renderAdminResourcesPanel(); }
+  if (section === 'calendar')      { if (typeof renderAdminCalendarGrid === 'function') renderAdminCalendarGrid(); }
 }
 
 
