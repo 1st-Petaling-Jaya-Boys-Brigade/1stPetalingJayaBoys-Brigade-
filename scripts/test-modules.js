@@ -2,6 +2,7 @@
  * Automated Unit & Integration Tests for Core Security Firewall, Announcements, Gallery, and Resources Modules
  */
 const assert = require('assert');
+const fs = require('fs');
 
 // ── Test Environment Simulation ──
 global.window = global;
@@ -651,6 +652,105 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('  ✔ cycleQuickCards smoothly navigates and wraps around card pages');
   console.log('  ✔ setQuickCardsPage bounds checks and directly navigates to valid card tabs');
   console.log('  ✔ updateQuickCardsCarousel applies exact pixel-aligned translateX transform to card track');
+
+  // ── Testing Forms Hub Search Bar ──────────────────────────────────────────
+  console.log('Testing Forms Hub Search Bar...');
+  const htmlSrc = fs.readFileSync('index.html', 'utf8');
+  const filterFormsMatch = htmlSrc.match(/function filterForms\(query\) \{[\s\S]*?\n\}/);
+  const clearFormSearchMatch = htmlSrc.match(/function clearFormSearch\(\) \{[\s\S]*?\n\}/);
+  assert(filterFormsMatch, 'filterForms function must be defined in index.html');
+  assert(clearFormSearchMatch, 'clearFormSearch function must be defined in index.html');
+
+  eval(filterFormsMatch[0]);
+  eval(clearFormSearchMatch[0]);
+
+  const mockFormCards = [
+    {
+      style: { display: 'flex' },
+      getAttribute: (attr) => {
+        if (attr === 'data-form-name') return 'uniform order';
+        if (attr === 'data-form-desc') return 'order bb uniform items';
+        if (attr === 'data-form-type') return 'uniform';
+        return null;
+      }
+    },
+    {
+      style: { display: 'flex' },
+      getAttribute: (attr) => {
+        if (attr === 'data-form-name') return 'leave form';
+        if (attr === 'data-form-desc') return '';
+        if (attr === 'data-form-type') return 'builtin';
+        return null;
+      }
+    },
+    {
+      style: { display: 'flex' },
+      getAttribute: (attr) => {
+        if (attr === 'data-form-name') return 'test form';
+        if (attr === 'data-form-desc') return 'this is a test form';
+        if (attr === 'data-form-type') return 'builtin';
+        return null;
+      }
+    }
+  ];
+
+  const mockFormsList = document.getElementById('forms-list');
+  mockFormsList.querySelectorAll = (sel) => {
+    if (sel === '.form-card-hub') return mockFormCards;
+    return [];
+  };
+
+  const mockSearchInput = document.getElementById('form-search-input');
+  const mockClearBtn = document.getElementById('form-search-clear');
+  const mockStatusEl = document.getElementById('forms-search-status');
+  const mockCountEl = document.getElementById('forms-search-count');
+  const mockNoResEl = document.getElementById('forms-no-results');
+  const mockNoResTitle = document.getElementById('forms-no-results-title');
+
+  // Test 1: Empty search query shows all forms
+  filterForms('');
+  assert.strictEqual(mockFormCards[0].style.display, 'flex');
+  assert.strictEqual(mockFormCards[1].style.display, 'flex');
+  assert.strictEqual(mockFormCards[2].style.display, 'flex');
+  assert.strictEqual(mockClearBtn.style.display, 'none');
+  assert.strictEqual(mockNoResEl.style.display, 'none');
+  console.log('  ✔ Empty query displays all active forms with clear button hidden');
+
+  // Test 2: Search by form title ('Leave')
+  filterForms('Leave');
+  assert.strictEqual(mockFormCards[0].style.display, 'none');
+  assert.strictEqual(mockFormCards[1].style.display, 'flex');
+  assert.strictEqual(mockFormCards[2].style.display, 'none');
+  assert.strictEqual(mockClearBtn.style.display, 'flex');
+  assert.strictEqual(mockStatusEl.style.display, 'flex');
+  assert.strictEqual(mockCountEl.textContent, 'Showing 1 of 3 forms');
+  console.log('  ✔ Search query filters by form title accurately');
+
+  // Test 3: Search by description keyword ('items')
+  filterForms('items');
+  assert.strictEqual(mockFormCards[0].style.display, 'flex');
+  assert.strictEqual(mockFormCards[1].style.display, 'none');
+  assert.strictEqual(mockFormCards[2].style.display, 'none');
+  console.log('  ✔ Search query filters by form description accurately');
+
+  // Test 4: Search query matching 0 forms shows empty state
+  filterForms('nonexistentform');
+  assert.strictEqual(mockFormCards[0].style.display, 'none');
+  assert.strictEqual(mockFormCards[1].style.display, 'none');
+  assert.strictEqual(mockFormCards[2].style.display, 'none');
+  assert.strictEqual(mockNoResEl.style.display, 'block');
+  assert.strictEqual(mockNoResTitle.textContent, 'No forms match "nonexistentform"');
+  console.log('  ✔ Zero match query properly displays empty state feedback');
+
+  // Test 5: clearFormSearch resets input and displays all forms
+  mockSearchInput.value = 'nonexistentform';
+  clearFormSearch();
+  assert.strictEqual(mockSearchInput.value, '');
+  assert.strictEqual(mockFormCards[0].style.display, 'flex');
+  assert.strictEqual(mockFormCards[1].style.display, 'flex');
+  assert.strictEqual(mockFormCards[2].style.display, 'flex');
+  assert.strictEqual(mockNoResEl.style.display, 'none');
+  console.log('  ✔ clearFormSearch resets search input, clears state, and restores all forms');
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {
