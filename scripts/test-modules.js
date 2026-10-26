@@ -45,11 +45,18 @@ global.sanitizeHtml   = utils.sanitizeHtml;
 let mockUser = 'test@bbpj1.org';
 let mockRank = 'Recruit';
 let mockAdmin = false;
+let mockSession = {};
 global.sessionGet = (k) => {
+  if (k in mockSession) return mockSession[k];
   if (k === 'rank') return mockRank;
   if (k === 'adminAuthed') return mockAdmin;
   return mockUser;
 };
+global.sessionSet = (k, v) => { mockSession[k] = v; };
+global.location = { hash: '', reload: () => {} };
+global.window.location = global.location;
+global.alert = (msg) => {};
+global.hashPassword = async (p) => 'hash_' + p;
 global.showToast = (msg, type) => {};
 global.showConfirmModal = async (msg, title) => true;
 global.isNCO = (rank) => ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant'].indexOf(rank) !== -1;
@@ -81,6 +88,10 @@ global.supa = {
   post: async (path, body) => {
     lastPosted = { path, body };
     return [{ id: 'new_id', ...body }];
+  },
+  upsert: async (path, body, onConflict) => {
+    lastPosted = { path, body, onConflict };
+    return [{ id: 'upserted_id', ...body }];
   },
   patch: async (path, body) => {
     lastPatched = { path, body };
@@ -332,6 +343,164 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   await resourcesModule.clearAllResources();
   assert.strictEqual(resourcesModule.resources.length, 0, 'clearAllResources should empty the catalog');
   console.log('  ✔ clearAllResources empties the document repository');
+
+  // ── Child Safety (COPPA/PDPA) & Parental Consent Governance Tests (TSK-032) ──
+  console.log('\nTesting Child Safety (COPPA/PDPA) & Parental Consent Governance (TSK-032)...');
+
+  const memberModule = require('../js/modules/member.js');
+
+  // 1. isMinorSection classification
+  assert.strictEqual(memberModule.isMinorSection('Pre-Junior', 7), true, 'Pre-Junior (age 7) must be identified as minor');
+  assert.strictEqual(memberModule.isMinorSection('pre-junior', 6), true, 'Case-insensitive Pre-Junior must be identified as minor');
+  assert.strictEqual(memberModule.isMinorSection('Junior', 10), true, 'Junior (age 10) must be identified as minor');
+  assert.strictEqual(memberModule.isMinorSection('junior', 11), true, 'Junior (age 11) must be identified as minor');
+  assert.strictEqual(memberModule.isMinorSection('Senior', 12), false, 'Senior (age 12) must not be minor');
+  assert.strictEqual(memberModule.isMinorSection('Senior', 16), false, 'Senior (age 16) must not be minor');
+  assert.strictEqual(memberModule.isMinorSection('Senior', 10), true, 'Any member under 12 must be identified as minor');
+  assert.strictEqual(memberModule.isMinorSection('', 15), false, 'Age 15 with empty section is not minor');
+  console.log('  ✔ isMinorSection correctly classifies Pre-Junior, Junior, and underage members as minors');
+
+  // 2. handleSectionChange UI toggling
+  const mockBox = document.getElementById('parent-consent-box');
+  const mockPName = document.getElementById('reg-parent-name');
+  const mockPContact = document.getElementById('reg-parent-contact');
+  const mockPConsent = document.getElementById('reg-parent-consent');
+  const mockSection = document.getElementById('reg-section');
+  const mockAge = document.getElementById('reg-age');
+
+  // Simulate selecting Pre-Junior
+  mockSection.value = 'Pre-Junior';
+  mockAge.value = '7';
+  memberModule.handleSectionChange();
+  assert.strictEqual(mockBox.style.display, 'block', 'parent-consent-box must be revealed for Pre-Junior');
+
+  // Simulate selecting Senior
+  mockSection.value = 'Senior';
+  mockAge.value = '15';
+  memberModule.handleSectionChange();
+  assert.strictEqual(mockBox.style.display, 'none', 'parent-consent-box must be hidden for Senior');
+  console.log('  ✔ handleSectionChange dynamically toggles parent-consent-box based on section and age');
+
+  // 3. Parental Consent & Data Minimization Validation during Registration
+  let lastAlertMsg = null;
+  global.alert = (msg) => { lastAlertMsg = msg; };
+
+  const mockFullname = document.getElementById('reg-fullname');
+  const mockEmail = document.getElementById('reg-email');
+  const mockRankInp = document.getElementById('reg-rank');
+  const mockSquadInp = document.getElementById('reg-squad');
+  const mockPass = document.getElementById('reg-pass');
+  const mockPass2 = document.getElementById('reg-pass2');
+  const mockMediaConsent = document.getElementById('reg-media-consent');
+
+  mockFullname.value = 'Junior Member';
+  mockEmail.value = 'junior@test.com';
+  mockSection.value = 'Junior';
+  mockAge.value = '10';
+  mockRankInp.value = 'Recruit';
+  mockSquadInp.value = 'Alpha';
+  mockPass.value = 'secret123';
+  mockPass2.value = 'secret123';
+
+  // Case A: Missing parent name
+  mockPName.value = '';
+  mockPContact.value = '+6012-3456789';
+  mockPConsent.checked = true;
+  await memberModule.registerMember();
+  assert.ok(lastAlertMsg && lastAlertMsg.includes('Parent or Legal Guardian Name is required'), 'Registration must block if parent name is missing');
+
+  // Case B: Missing parent contact
+  mockPName.value = 'Sarah Tan';
+  mockPContact.value = '';
+  mockPConsent.checked = true;
+  await memberModule.registerMember();
+  assert.ok(lastAlertMsg && lastAlertMsg.includes('Parent or Legal Guardian Contact'), 'Registration must block if parent contact is missing');
+
+  // Case C: Unchecked parental consent e-signature
+  mockPName.value = 'Sarah Tan';
+  mockPContact.value = '+6012-3456789';
+  mockPConsent.checked = false;
+  await memberModule.registerMember();
+  assert.ok(lastAlertMsg && lastAlertMsg.includes('Verified Parental or Legal Guardian Consent is strictly required'), 'Registration must block if consent checkbox is unchecked');
+  console.log('  ✔ registerMember strictly enforces verifiable parental consent for minor sections');
+
+  // Case D: Valid Pre-Junior / Junior Registration
+  mockPConsent.checked = true;
+  mockMediaConsent.checked = false; // Privacy-first default
+  lastPosted = null;
+  let lastUpsertedAudit = null;
+  global.supa.upsert = async (path, body, onConflict) => {
+    lastUpsertedAudit = { path, body, onConflict };
+    return [{ id: 'upsert_1', ...body }];
+  };
+  global.supa.get = async (path) => {
+    if (path.includes('bb_members?ic=')) return []; // No existing user
+    if (path.includes('bb_config?key=')) return [];
+    return [];
+  };
+
+  await memberModule.registerMember();
+
+  assert.ok(lastPosted && lastPosted.body, 'Registration payload must be posted to bb_members');
+  const payload = lastPosted.body;
+  assert.strictEqual(payload.name, 'Junior Member');
+  assert.strictEqual(payload.parent_name, 'Sarah Tan');
+  assert.strictEqual(payload.parent_contact, '+6012-3456789');
+  assert.strictEqual(payload.parental_consent_signed, true);
+  assert.ok(payload.parental_consent_date, 'Consent timestamp must be recorded');
+  assert.strictEqual(payload.media_consent, false, 'Media release must be false by default (privacy-first)');
+
+  // Verify strict data minimization: no IC/MyKad/MyKid field exists
+  assert.strictEqual(payload.nric, undefined, 'NRIC must never be collected or stored');
+  assert.strictEqual(payload.mykad, undefined, 'MyKad must never be collected or stored');
+  assert.strictEqual(payload.mykid, undefined, 'MyKid must never be collected or stored');
+  assert.strictEqual(payload.address, undefined, 'Home address must never be collected or stored');
+  console.log('  ✔ registerMember adheres to strict data minimization (No IC/MyKad/address) and privacy-first default media permission');
+
+  // Verify durable consent audit trail stored in bb_config
+  assert.ok(lastUpsertedAudit, 'Consent audit trail must be persisted to bb_config');
+  assert.strictEqual(lastUpsertedAudit.path, 'bb_config');
+  assert.ok(lastUpsertedAudit.body.key.startsWith('bb_consent_'), 'Audit key must start with bb_consent_');
+  const parsedAudit = JSON.parse(lastUpsertedAudit.body.value);
+  assert.strictEqual(parsedAudit.parent_name, 'Sarah Tan');
+  assert.strictEqual(parsedAudit.governance, 'COPPA/PDPA-2010');
+  console.log('  ✔ Verifiable parental consent audit trail persisted durably in bb_config');
+
+  // 4. fetchMemberConsent retrieval
+  global.supa.get = async (path) => {
+    if (path.includes('bb_config?key=')) {
+      return [{ value: JSON.stringify(parsedAudit) }];
+    }
+    return [];
+  };
+  const retrievedConsent = await memberModule.fetchMemberConsent('junior@test.com', null);
+  assert.ok(retrievedConsent, 'fetchMemberConsent must retrieve consent from bb_config');
+  assert.strictEqual(retrievedConsent.parent_name, 'Sarah Tan');
+  assert.strictEqual(retrievedConsent.parental_consent_signed, true);
+  console.log('  ✔ fetchMemberConsent retrieves consent records across storage fallbacks');
+
+  // 5. Senior Registration without requiring parental consent
+  mockFullname.value = 'Senior Member';
+  mockEmail.value = 'senior@test.com';
+  mockSection.value = 'Senior';
+  mockAge.value = '15';
+  mockPName.value = '';
+  mockPContact.value = '';
+  mockPConsent.checked = false;
+  lastPosted = null;
+
+  await memberModule.registerMember();
+  assert.ok(lastPosted && lastPosted.body, 'Senior member should register without blocking');
+  assert.strictEqual(lastPosted.body.parent_name, undefined, 'Senior member does not require parent fields');
+  console.log('  ✔ Senior section registration proceeds without parental consent roadblock');
+
+  // 6. Child Safety Policy Modal
+  const mockModal = document.getElementById('child-safety-modal');
+  memberModule.openChildSafetyModal();
+  assert.strictEqual(mockModal.style.display, 'block', 'openChildSafetyModal must reveal policy modal');
+  memberModule.closeChildSafetyModal();
+  assert.strictEqual(mockModal.style.display, 'none', 'closeChildSafetyModal must hide policy modal');
+  console.log('  ✔ openChildSafetyModal and closeChildSafetyModal properly manage modal visibility');
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {

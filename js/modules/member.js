@@ -45,6 +45,101 @@ function goToMemberTab() {
   }
 }
 
+// ── Child Safety (COPPA/PDPA) & Parental Consent Governance (TSK-032) ──────────
+
+function isMinorSection(section, age) {
+  if (!section && (age === undefined || age === null || age === '')) return false;
+  var s = String(section || '').trim().toLowerCase();
+  if (s === 'pre-junior' || s === 'junior') return true;
+  var numAge = parseInt(age, 10);
+  if (!isNaN(numAge) && numAge > 0 && numAge <= 11) return true;
+  return false;
+}
+
+function handleSectionChange() {
+  if (typeof document === 'undefined') return;
+  var secEl = document.getElementById('reg-section');
+  var ageEl = document.getElementById('reg-age');
+  var box   = document.getElementById('parent-consent-box');
+  if (!box) return;
+
+  var section = secEl ? secEl.value : '';
+  var age     = ageEl ? ageEl.value : '';
+
+  if (isMinorSection(section, age)) {
+    box.style.display = 'block';
+    var pName = document.getElementById('reg-parent-name');
+    var pContact = document.getElementById('reg-parent-contact');
+    var pConsent = document.getElementById('reg-parent-consent');
+    if (pName) pName.setAttribute('required', 'required');
+    if (pContact) pContact.setAttribute('required', 'required');
+    if (pConsent) pConsent.setAttribute('required', 'required');
+  } else {
+    box.style.display = 'none';
+    var pName = document.getElementById('reg-parent-name');
+    var pContact = document.getElementById('reg-parent-contact');
+    var pConsent = document.getElementById('reg-parent-consent');
+    if (pName) pName.removeAttribute('required');
+    if (pContact) pContact.removeAttribute('required');
+    if (pConsent) pConsent.removeAttribute('required');
+  }
+}
+
+function openChildSafetyModal(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  if (typeof document === 'undefined') return;
+  var modal = document.getElementById('child-safety-modal');
+  if (modal) modal.style.display = 'block';
+}
+
+function closeChildSafetyModal() {
+  if (typeof document === 'undefined') return;
+  var modal = document.getElementById('child-safety-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function fetchMemberConsent(email, memberObj) {
+  if (!email) return null;
+  if (memberObj && (memberObj.parent_name || memberObj.parental_consent_signed !== undefined)) {
+    return {
+      parent_name: memberObj.parent_name || '',
+      parent_contact: memberObj.parent_contact || '',
+      parental_consent_signed: !!memberObj.parental_consent_signed,
+      parental_consent_date: memberObj.parental_consent_date || null,
+      media_consent: !!memberObj.media_consent
+    };
+  }
+  try {
+    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    if (client && typeof client.get === 'function') {
+      var consentKey = 'bb_consent_' + String(email).replace(/[^a-zA-Z0-9_-]/g, '_');
+      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(consentKey) + '&select=value');
+      if (rows && rows.length && rows[0].value) {
+        var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        return parsed;
+      }
+    }
+  } catch (e) {}
+
+  if (typeof sessionGet === 'function' && (sessionGet('email') === email || sessionGet('ic') === email)) {
+    var pName = sessionGet('parent_name');
+    var pContact = sessionGet('parent_contact');
+    var pSigned = sessionGet('parental_consent_signed');
+    var pDate = sessionGet('parental_consent_date');
+    var pMedia = sessionGet('media_consent');
+    if (pName || pSigned) {
+      return {
+        parent_name: pName || '',
+        parent_contact: pContact || '',
+        parental_consent_signed: !!pSigned,
+        parental_consent_date: pDate || null,
+        media_consent: !!pMedia
+      };
+    }
+  }
+  return null;
+}
+
 // ── Registration & Login (Privacy-First) ────────────────────────────────────
 
 var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -74,6 +169,37 @@ async function registerMember() {
   if (pass.length < 6) return alert('Password must be at least 6 characters.');
   if (pass !== pass2)  return alert('Passwords do not match!');
 
+  // Child Safety Governance & Verifiable Parental Consent (TSK-032 / COPPA & PDPA 2010)
+  var isMinor = isMinorSection(section, parsedAge);
+  var parentName = '';
+  var parentContact = '';
+  var parentConsent = false;
+  var mediaConsent = false;
+  var consentTimestamp = null;
+
+  if (isMinor) {
+    var rawParentName    = ((document.getElementById('reg-parent-name') || {}).value || '').trim();
+    var rawParentContact = ((document.getElementById('reg-parent-contact') || {}).value || '').trim();
+    var pConsentEl       = document.getElementById('reg-parent-consent');
+    var pMediaEl         = document.getElementById('reg-media-consent');
+
+    parentName    = (typeof sanitizeText === 'function') ? sanitizeText(rawParentName, 100) : rawParentName;
+    parentContact = (typeof sanitizeInput === 'function') ? sanitizeInput(rawParentContact, 100) : rawParentContact;
+    parentConsent = pConsentEl ? !!pConsentEl.checked : false;
+    mediaConsent  = pMediaEl ? !!pMediaEl.checked : false;
+
+    if (!parentName) {
+      return alert('Parent or Legal Guardian Name is required for Pre-Junior and Junior members.');
+    }
+    if (!parentContact) {
+      return alert('Parent or Legal Guardian Contact (Phone or Email) is required for Pre-Junior and Junior members.');
+    }
+    if (!parentConsent) {
+      return alert('Verified Parental or Legal Guardian Consent is strictly required to register members under 12 years old.');
+    }
+    consentTimestamp = new Date().toISOString();
+  }
+
   try {
     var client = window.supa || supa;
     var existing = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic');
@@ -98,7 +224,59 @@ async function registerMember() {
       joined_at: new Date().toISOString()
     };
 
-    await client.post('bb_members', memberPayload);
+    if (isMinor) {
+      memberPayload.parent_name = parentName;
+      memberPayload.parent_contact = parentContact;
+      memberPayload.parental_consent_signed = true;
+      memberPayload.parental_consent_date = consentTimestamp;
+      memberPayload.media_consent = mediaConsent;
+    }
+
+    try {
+      await client.post('bb_members', memberPayload);
+    } catch (postErr) {
+      // If PostgreSQL table schema does not yet have child consent columns, fallback to base payload
+      if (isMinor) {
+        var basePayload = {
+          ic: memberPayload.ic,
+          name: memberPayload.name,
+          rank: memberPayload.rank,
+          squad: memberPayload.squad,
+          att_section: memberPayload.att_section,
+          date_of_birth: memberPayload.date_of_birth,
+          password: memberPayload.password,
+          security_question: null,
+          security_answer: null,
+          joined_at: memberPayload.joined_at
+        };
+        await client.post('bb_members', basePayload);
+      } else {
+        throw postErr;
+      }
+    }
+
+    // Always store verifiable audit trail record in bb_config for 100% durable governance
+    if (isMinor) {
+      try {
+        var auditRecord = {
+          email: email,
+          name: name,
+          section: section,
+          age: parsedAge,
+          parent_name: parentName,
+          parent_contact: parentContact,
+          parental_consent_signed: true,
+          parental_consent_date: consentTimestamp,
+          media_consent: mediaConsent,
+          governance: 'COPPA/PDPA-2010',
+          recorded_at: new Date().toISOString()
+        };
+        var consentKey = 'bb_consent_' + email.replace(/[^a-zA-Z0-9_-]/g, '_');
+        await client.upsert('bb_config', { key: consentKey, value: JSON.stringify(auditRecord) }, 'key');
+      } catch (cfgErr) {
+        console.warn('Child consent audit backup save failed:', cfgErr);
+      }
+    }
 
     // Save session state with Remember Me preference
     var remEl = document.getElementById('reg-remember');
@@ -113,6 +291,14 @@ async function registerMember() {
     sessionSet('section', section);
     sessionSet('age', parsedAge);
     sessionSet('joined', memberPayload.joined_at);
+
+    if (isMinor) {
+      sessionSet('parent_name', parentName);
+      sessionSet('parent_contact', parentContact);
+      sessionSet('parental_consent_signed', true);
+      sessionSet('parental_consent_date', consentTimestamp);
+      sessionSet('media_consent', mediaConsent);
+    }
 
     renderDashboard();
 
@@ -239,6 +425,53 @@ async function renderDashboard() {
     sessionSet('rank', m.rank || '');
     sessionSet('joined', m.joined_at || '');
     set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+
+    // Child Safety & Parental Consent Status (TSK-032)
+    var memberSection = m.att_section || m.section || sessionGet('section') || '';
+    var memberAge = sessionGet('age');
+    if (!memberAge && m.date_of_birth) {
+      var bYear = parseInt((m.date_of_birth || '').split('-')[0], 10);
+      if (!isNaN(bYear) && bYear > 1990) memberAge = new Date().getFullYear() - bYear;
+    }
+    var isMinor = isMinorSection(memberSection, memberAge);
+    var consentWrap = document.getElementById('m-consent-status-wrap');
+    if (consentWrap) {
+      if (isMinor) {
+        consentWrap.style.display = 'block';
+        var consentData = await fetchMemberConsent(id, m);
+        var isVerified = consentData && consentData.parental_consent_signed;
+        var mediaConsent = consentData && consentData.media_consent;
+        var consentDateStr = (consentData && consentData.parental_consent_date)
+          ? new Date(consentData.parental_consent_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+          : '';
+        var parentNameStr = (consentData && consentData.parent_name) ? (' by ' + (typeof escapeHtml === 'function' ? escapeHtml(consentData.parent_name) : consentData.parent_name)) : '';
+
+        var statusHtml = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
+          + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<div style="width:28px;height:28px;border-radius:50%;background:' + (isVerified ? 'rgba(74,222,128,0.15)' : 'rgba(234,179,8,0.15)') + ';display:flex;align-items:center;justify-content:center;color:' + (isVerified ? 'var(--green)' : 'var(--accent)') + ';">'
+              + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+            + '</div>'
+            + '<div>'
+              + '<div style="font-size:12px;font-weight:700;color:var(--text-primary);">'
+                + (isVerified ? ('Parental Consent Verified' + parentNameStr) : 'Parental Consent Pending Verification')
+              + '</div>'
+              + '<div style="font-size:11px;color:var(--text-muted);">'
+                + (isVerified ? ('E-signed on ' + (consentDateStr || 'Registration') + ' (PDPA/COPPA Compliant)') : 'Consent record missing. Contact Section Officer.')
+              + '</div>'
+            + '</div>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:6px;">'
+            + (mediaConsent
+                ? '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photo Consent Opted-In</span>'
+                : '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="2" x2="22" y1="2" y2="22"/></svg> Media Private (No Photos)</span>')
+            + '<a href="#" onclick="openChildSafetyModal(event)" style="font-size:11px;color:var(--accent);text-decoration:underline;margin-left:4px;">Policy</a>'
+          + '</div>'
+        + '</div>';
+        consentWrap.innerHTML = statusHtml;
+      } else {
+        consentWrap.style.display = 'none';
+      }
+    }
 
     set('sidebar-user-name', m.name || 'Member');
     set('sidebar-user-badge', (m.rank ? m.rank : '') + (m.squad ? ' · ' + m.squad + ' Sq' : (m.att_section || 'Member')));
@@ -636,6 +869,11 @@ function loadSecurityQuestion() {
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 
 if (typeof window !== 'undefined') {
+  window.isMinorSection               = isMinorSection;
+  window.handleSectionChange          = handleSectionChange;
+  window.openChildSafetyModal         = openChildSafetyModal;
+  window.closeChildSafetyModal        = closeChildSafetyModal;
+  window.fetchMemberConsent           = fetchMemberConsent;
   window.showAuthMode                 = showAuthMode;
   window.showForgotStep               = showForgotStep;
   window.togglePassVis                = togglePassVis;
@@ -654,6 +892,11 @@ if (typeof window !== 'undefined') {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    isMinorSection,
+    handleSectionChange,
+    openChildSafetyModal,
+    closeChildSafetyModal,
+    fetchMemberConsent,
     showAuthMode,
     showForgotStep,
     togglePassVis,
