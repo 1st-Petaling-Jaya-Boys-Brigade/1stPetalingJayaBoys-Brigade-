@@ -108,6 +108,7 @@ async function getJson(url) {
         }
 
         const wrapper = document.getElementById('hq-carousel-wrapper');
+        const container = document.getElementById('hq-carousel-container');
         const track = document.getElementById('hq-carousel-track');
         const viewport = document.getElementById('hq-carousel-viewport');
         const cards = track ? track.querySelectorAll('.hq-card') : [];
@@ -118,22 +119,29 @@ async function getJson(url) {
         const rightCol = document.querySelector('.home-right-col');
         const calWidget = document.getElementById('company-calendar-widget');
 
+        const prevStyle = window.getComputedStyle(prevBtn);
+        const nextStyle = window.getComputedStyle(nextBtn);
+
         return {
           hasWrapper: !!wrapper,
+          hasContainer: !!container,
           hasTrack: !!track,
           hasViewport: !!viewport,
           cardCount: cards.length,
           hasPrevBtn: !!prevBtn,
           hasNextBtn: !!nextBtn,
           dotsCount: dots.length,
+          containerRect: getBox(container),
           leftColRect: getBox(leftCol),
           rightColRect: getBox(rightCol),
           calWidgetRect: getBox(calWidget),
           viewportRect: getBox(viewport),
           card0Rect: getBox(cards[0]),
           card1Rect: getBox(cards[1]),
-          card2Rect: getBox(cards[2]),
-          card3Rect: getBox(cards[3])
+          prevOpacityDefault: prevStyle.opacity,
+          nextOpacityDefault: nextStyle.opacity,
+          prevVisibilityDefault: prevStyle.visibility,
+          nextVisibilityDefault: nextStyle.visibility
         };
       })()`,
       returnByValue: true
@@ -142,6 +150,7 @@ async function getJson(url) {
     const info = evalResult1.result.value;
     console.log('\n[Layout Verification]');
     console.log('  Wrapper found:', info.hasWrapper);
+    console.log('  Container found:', info.hasContainer);
     console.log('  Track found:', info.hasTrack);
     console.log('  Card count:', info.cardCount);
     console.log('  Dots count:', info.dotsCount);
@@ -162,7 +171,118 @@ async function getJson(url) {
     assert.ok(Math.abs(info.card1Rect.right - info.viewportRect.right) <= 2, 'Card 1 must end at viewport right edge');
     console.log('  ✔ Page 0 displays exactly 2 cards side-by-side in viewport (Forms & Store, Member Hub)');
 
-    // 2. Test cycling forward to Page 1
+    // 2. Test default arrow hidden state (when cursor is NOT on boxes)
+    console.log('\n[Directional Hover Arrow Verification]');
+    console.log('  Default Prev Opacity (Cursor outside):', info.prevOpacityDefault);
+    console.log('  Default Next Opacity (Cursor outside):', info.nextOpacityDefault);
+    assert.strictEqual(info.prevOpacityDefault, '0', 'Prev arrow must be hidden by default when cursor is not on box');
+    assert.strictEqual(info.nextOpacityDefault, '0', 'Next arrow must be hidden by default when cursor is not on box');
+    console.log('  ✔ Arrow buttons are completely hidden when cursor is not on the boxes');
+
+    // 3. Move cursor to Left Box: verify ONLY Left arrow appears
+    await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const container = document.getElementById('hq-carousel-container');
+        const r = container.getBoundingClientRect();
+        const evt = new MouseEvent('mousemove', {
+          clientX: r.left + (r.width * 0.25),
+          clientY: r.top + (r.height * 0.5),
+          bubbles: true
+        });
+        container.dispatchEvent(evt);
+      })()`
+    });
+    await new Promise(r => setTimeout(r, 250));
+
+    const evalHoverLeft = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const prevStyle = window.getComputedStyle(document.getElementById('hq-carousel-prev'));
+        const nextStyle = window.getComputedStyle(document.getElementById('hq-carousel-next'));
+        const container = document.getElementById('hq-carousel-container');
+        return {
+          hasHoverLeft: container.classList.contains('hover-left'),
+          hasHoverRight: container.classList.contains('hover-right'),
+          prevOpacity: prevStyle.opacity,
+          prevVisibility: prevStyle.visibility,
+          nextOpacity: nextStyle.opacity,
+          nextVisibility: nextStyle.visibility
+        };
+      })()`,
+      returnByValue: true
+    });
+    const leftHoverState = evalHoverLeft.result.value;
+    console.log('  Cursor on Left Box -> Prev Opacity:', leftHoverState.prevOpacity, 'Next Opacity:', leftHoverState.nextOpacity);
+    assert.strictEqual(leftHoverState.hasHoverLeft, true, 'Container should have hover-left class');
+    assert.strictEqual(leftHoverState.hasHoverRight, false, 'Container must NOT have hover-right class');
+    assert.strictEqual(leftHoverState.prevOpacity, '1', 'Left arrow MUST appear when cursor is on the left box');
+    assert.strictEqual(leftHoverState.nextOpacity, '0', 'Right arrow MUST remain hidden when cursor is on the left box');
+    console.log('  ✔ When cursor is on left box, ONLY left arrow button appears');
+
+    // 4. Move cursor to Right Box: verify ONLY Right arrow appears
+    await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const container = document.getElementById('hq-carousel-container');
+        const r = container.getBoundingClientRect();
+        const evt = new MouseEvent('mousemove', {
+          clientX: r.left + (r.width * 0.75),
+          clientY: r.top + (r.height * 0.5),
+          bubbles: true
+        });
+        container.dispatchEvent(evt);
+      })()`
+    });
+    await new Promise(r => setTimeout(r, 250));
+
+    const evalHoverRight = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const prevStyle = window.getComputedStyle(document.getElementById('hq-carousel-prev'));
+        const nextStyle = window.getComputedStyle(document.getElementById('hq-carousel-next'));
+        const container = document.getElementById('hq-carousel-container');
+        return {
+          hasHoverLeft: container.classList.contains('hover-left'),
+          hasHoverRight: container.classList.contains('hover-right'),
+          prevOpacity: prevStyle.opacity,
+          prevVisibility: prevStyle.visibility,
+          nextOpacity: nextStyle.opacity,
+          nextVisibility: nextStyle.visibility
+        };
+      })()`,
+      returnByValue: true
+    });
+    const rightHoverState = evalHoverRight.result.value;
+    console.log('  Cursor on Right Box -> Prev Opacity:', rightHoverState.prevOpacity, 'Next Opacity:', rightHoverState.nextOpacity);
+    assert.strictEqual(rightHoverState.hasHoverRight, true, 'Container should have hover-right class');
+    assert.strictEqual(rightHoverState.hasHoverLeft, false, 'Container must NOT have hover-left class');
+    assert.strictEqual(rightHoverState.nextOpacity, '1', 'Right arrow MUST appear when cursor is on the right box');
+    assert.strictEqual(rightHoverState.prevOpacity, '0', 'Left arrow MUST remain hidden when cursor is on the right box');
+    console.log('  ✔ When cursor is on right box, ONLY right arrow button appears');
+
+    // 5. Move cursor outside: verify BOTH arrows disappear
+    await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const container = document.getElementById('hq-carousel-container');
+        container.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+      })()`
+    });
+    await new Promise(r => setTimeout(r, 250));
+
+    const evalHoverLeave = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const prevStyle = window.getComputedStyle(document.getElementById('hq-carousel-prev'));
+        const nextStyle = window.getComputedStyle(document.getElementById('hq-carousel-next'));
+        return {
+          prevOpacity: prevStyle.opacity,
+          nextOpacity: nextStyle.opacity
+        };
+      })()`,
+      returnByValue: true
+    });
+    console.log('  Cursor leaves boxes -> Prev Opacity:', evalHoverLeave.result.value.prevOpacity, 'Next Opacity:', evalHoverLeave.result.value.nextOpacity);
+    assert.strictEqual(evalHoverLeave.result.value.prevOpacity, '0', 'Prev arrow hides on mouse leave');
+    assert.strictEqual(evalHoverLeave.result.value.nextOpacity, '0', 'Next arrow hides on mouse leave');
+    console.log('  ✔ When cursor leaves boxes, arrow buttons completely disappear');
+
+    // 6. Test cycling forward to Page 1
     const evalNext = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         document.getElementById('hq-carousel-next').click();
@@ -193,7 +313,7 @@ async function getJson(url) {
     assert.strictEqual(nextInfo.dot0Active, false, 'Dot 0 must become inactive');
     console.log('  ✔ Next button cycles to Page 1 (Weekly Parade, Company Resources)');
 
-    // 3. Test cycling forward again (wrap-around to Page 0)
+    // 7. Test cycling forward again (wrap-around to Page 0)
     const evalWrap = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         document.getElementById('hq-carousel-next').click();
@@ -210,7 +330,7 @@ async function getJson(url) {
     assert.strictEqual(wrapInfo.dot0Active, true, 'Dot 0 must become active again');
     console.log('  ✔ Next button wraps around from Page 1 back to Page 0');
 
-    // 4. Test cycling backward (wrap-around to Page 1)
+    // 8. Test cycling backward (wrap-around to Page 1)
     const evalPrevWrap = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         document.getElementById('hq-carousel-prev').click();
@@ -225,7 +345,7 @@ async function getJson(url) {
     assert.strictEqual(prevWrapInfo.page, 1, 'Prev button should wrap around backwards to page 1');
     console.log('  ✔ Prev button wraps around backwards from Page 0 to Page 1');
 
-    // 5. Test clicking Dot 0 directly
+    // 9. Test clicking Dot 0 directly
     const evalDotClick = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         document.getElementById('hq-dot-0').click();
@@ -239,8 +359,7 @@ async function getJson(url) {
     assert.strictEqual(evalDotClick.result.value.page, 0, 'Clicking dot 0 navigates directly to page 0');
     console.log('  ✔ Clicking pagination dot directly navigates to selected page');
 
-    // 6. Verify column alignment
-    // On desktop (1280px), left column and right column stretch to equal height
+    // 10. Verify column alignment
     const heightDiff = Math.abs(info.leftColRect.height - info.rightColRect.height);
     console.log('\n[Column Height Alignment Check]');
     console.log('  Left Col Height: ' + info.leftColRect.height.toFixed(1) + 'px');
