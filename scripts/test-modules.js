@@ -752,6 +752,41 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockNoResEl.style.display, 'none');
   console.log('  ✔ clearFormSearch resets search input, clears state, and restores all forms');
 
+  // ── Testing Developer Tooling & Linting (TSK-015) ──────────────────────────
+  console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  assert(pkg.scripts, 'package.json must contain scripts');
+  assert(pkg.scripts.dev, 'package.json must contain dev script');
+  assert(pkg.scripts['serve:static'], 'package.json must contain serve:static script');
+  assert(pkg.scripts.lint, 'package.json must contain lint script');
+  assert(pkg.scripts.format, 'package.json must contain format script');
+  assert(pkg.devDependencies, 'package.json must contain devDependencies');
+  assert(pkg.devDependencies.eslint, 'package.json must contain eslint devDependency');
+  assert(pkg.devDependencies.prettier, 'package.json must contain prettier devDependency');
+  assert(pkg.devDependencies.vite, 'package.json must contain vite devDependency');
+  console.log('  ✔ package.json properly configured with dev, lint, format, test, and devDependencies');
+
+  assert(fs.existsSync('.gitignore'), '.gitignore file must exist');
+  const gitignore = fs.readFileSync('.gitignore', 'utf8');
+  assert(gitignore.includes('node_modules/'), '.gitignore must ignore node_modules/');
+  assert(gitignore.includes('dist/'), '.gitignore must ignore dist/');
+  assert(gitignore.includes('.vite/'), '.gitignore must ignore .vite/');
+  console.log('  ✔ .gitignore properly protects repo from node_modules, build outputs, and caches');
+
+  assert(fs.existsSync('.prettierrc.json'), '.prettierrc.json configuration must exist');
+  assert(fs.existsSync('.prettierignore'), '.prettierignore must exist');
+  const prettierrc = JSON.parse(fs.readFileSync('.prettierrc.json', 'utf8'));
+  assert.strictEqual(prettierrc.semi, true, 'Prettier semi rule must be true');
+  assert.strictEqual(prettierrc.singleQuote, true, 'Prettier singleQuote rule must be true');
+  console.log('  ✔ Prettier configuration and ignore rules verified');
+
+  assert(fs.existsSync('eslint.config.mjs'), 'eslint.config.mjs configuration must exist');
+  console.log('  ✔ ESLint flat config verified');
+
+  assert(fs.existsSync('vite.config.mjs'), 'vite.config.mjs must exist');
+  assert(fs.existsSync('scripts/dev-server.js'), 'scripts/dev-server.js must exist');
+  console.log('  ✔ Vite and static development server entry points verified');
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {
   console.error('\n✖ Test failed:', err);

@@ -4,6 +4,14 @@
   "description": "1st Petaling Jaya Boys' Brigade Member, Attendance, Uniform Store & Admin Portal",
   "private": true,
   "scripts": {
+    "dev": "vite",
+    "serve": "vite preview",
+    "serve:static": "node scripts/dev-server.js",
+    "build": "vite build",
+    "lint": "eslint js/ scripts/",
+    "lint:fix": "eslint js/ scripts/ --fix",
+    "format": "prettier --write \"js/**/*.js\" \"scripts/**/*.js\" \"css/**/*.css\"",
+    "format:check": "prettier --check \"js/**/*.js\" \"scripts/**/*.js\" \"css/**/*.css\"",
     "test": "node scripts/verify-syntax.js && node scripts/test-modules.js",
     "check": "node scripts/verify-syntax.js"
   },
@@ -13,5 +21,11 @@
     "supabase"
   ],
   "author": "1st Petaling Jaya Boys' Brigade",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "eslint": "^10.13.0",
+    "globals": "^17.4.0",
+    "prettier": "^3.9.10",
+    "vite": "^8.3.5"
+  }
 }

@@ -39,9 +39,21 @@ git pull origin main
 ### Running Locally
 Because we use modern ES module architecture, opening `index.html` via `file:///` can cause browser security restrictions. Always serve it through a local HTTP server:
 
-- **Option A (VS Code)**: Right-click `index.html` -> Click **"Open with Live Server"**.
-- **Option B (Python)**: Run `python -m http.server 8000` in terminal and visit `http://localhost:8000`.
-- **Option C (Node.js)**: Run `npx serve .` and open the local URL shown.
+- **Option A (Vite Dev Server — Recommended)**: Run `npm run dev` for rapid local reload at `http://localhost:3000`.
+- **Option B (Zero-Dependency Node Static Server)**: Run `npm run serve:static` (runs instantly with Node.js, no extra setup).
+- **Option C (VS Code)**: Right-click `index.html` -> Click **"Open with Live Server"**.
+- **Option D (Python)**: Run `python -m http.server 8000` in terminal and visit `http://localhost:8000`.
+
+### Developer Tooling & Scripts (TSK-015)
+Run these standard npm scripts from your terminal:
+- `npm run dev`: Launch Vite development server at `http://localhost:3000`.
+- `npm run serve:static`: Launch zero-dependency Node static development server.
+- `npm run lint`: Run ESLint on all modular scripts and test suites.
+- `npm run lint:fix`: Automatically fix ESLint warnings and stylistic issues.
+- `npm run format`: Format JavaScript and CSS files using Prettier.
+- `npm run format:check`: Check code formatting consistency using Prettier.
+- `npm test`: Run automated syntax verification and module unit/integration test suite.
+- `npm run check`: Run fast syntax verification on all JS files and embedded scripts.
 
 ---
 
