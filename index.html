@@ -363,7 +363,7 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="reg-section">Section</label>
-            <select class="form-select" id="reg-section" name="section">
+            <select class="form-select" id="reg-section" name="section" onchange="handleSectionChange()">
               <option value="">Select section...</option>
               <option value="Pre-Junior">Pre-Junior (Ages 6 - 8)</option>
               <option value="Junior">Junior (Ages 9 - 11)</option>
@@ -372,7 +372,7 @@
           </div>
           <div class="form-group">
             <label class="form-label" for="reg-age">Age</label>
-            <input class="form-input" id="reg-age" name="age" type="number" min="5" max="25" placeholder="e.g. 14"/>
+            <input class="form-input" id="reg-age" name="age" type="number" min="5" max="25" placeholder="e.g. 14" oninput="handleSectionChange()"/>
           </div>
         </div>
         <div class="form-row">
@@ -397,6 +397,42 @@
               <option>Papa</option>
               <option>Hotel</option>
             </select>
+          </div>
+        </div>
+        <!-- Child Safety & Parental Consent Governance (TSK-032 / COPPA & PDPA 2010) -->
+        <div id="parent-consent-box" style="display:none;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.3);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--accent);letter-spacing:0.5px;text-transform:uppercase;">Parental Consent &amp; Child Safety (COPPA / PDPA)</span>
+          </div>
+          <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;line-height:1.4;">
+            For Pre-Junior (ages 6–8) and Junior (ages 9–11) members, Malaysian PDPA 2010 and child safety regulations require verified parental or legal guardian consent prior to account creation.
+          </p>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="reg-parent-name" style="font-size:12px;">Parent / Legal Guardian Full Name <span style="color:var(--red);">*</span></label>
+            <input class="form-input" id="reg-parent-name" name="parent_name" type="text" placeholder="e.g. David Tan" autocomplete="name" style="font-size:13px;padding:9px 12px;"/>
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="reg-parent-contact" style="font-size:12px;">Parent / Guardian Contact (Phone or Email) <span style="color:var(--red);">*</span></label>
+            <input class="form-input" id="reg-parent-contact" name="parent_contact" type="text" placeholder="e.g. +6012-3456789 or parent@email.com" autocomplete="tel email" style="font-size:13px;padding:9px 12px;"/>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;cursor:pointer;">
+            <input type="checkbox" id="reg-parent-consent" name="parent_consent" style="margin-top:3px;width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;"/>
+            <label for="reg-parent-consent" style="font-size:12px;color:var(--text-primary);cursor:pointer;user-select:none;line-height:1.4;font-weight:500;">
+              <strong>I am the parent / legal guardian</strong> of this child and hereby give verified consent for their registration, participation in 1st PJ Boys' Brigade activities, and minimal data processing under the Personal Data Protection Act 2010 (PDPA) and COPPA principles. <span style="color:var(--red);">*</span>
+            </label>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;cursor:pointer;">
+            <input type="checkbox" id="reg-media-consent" name="media_consent" style="margin-top:3px;width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;"/>
+            <label for="reg-media-consent" style="font-size:12px;color:var(--text-secondary);cursor:pointer;user-select:none;line-height:1.4;">
+              <strong>Media &amp; Photography Release (Optional):</strong> I give permission for my child to appear in official company parade photos, awards ceremonies, and the private gallery. <em style="color:var(--text-muted);">(Privacy-first default: leave unchecked if you prefer no public photos)</em>
+            </label>
+          </div>
+          <div style="margin-top:10px;padding-top:8px;border-top:1px dashed rgba(217,163,35,0.25);font-size:11px;color:var(--text-muted);">
+            <a href="#" onclick="openChildSafetyModal(event)" style="color:var(--accent);text-decoration:underline;display:inline-flex;align-items:center;gap:4px;">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              Read Child Safety &amp; Privacy Governance Policy (COPPA / PDPA)
+            </a>
           </div>
         </div>
         <div class="form-group">
@@ -469,6 +505,7 @@
             <div class="chip-value" id="m-since-val">—</div>
           </div>
         </div>
+        <div id="m-consent-status-wrap" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;"></div>
         <hr class="mic-divider">
         <div style="font-size:10px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;">Sure &amp; Stedfast</div>
       </div>
@@ -1075,7 +1112,7 @@
               <button onclick="closeEditMember()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:6px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
             <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="em-name" type="text"/></div>
-            <div class="form-group"><label class="form-label">IC Number</label><input class="form-input" id="em-ic" type="text"/></div>
+            <div class="form-group"><label class="form-label">Account Email / Member ID</label><input class="form-input" id="em-ic" type="text"/></div>
             <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="em-dob" type="date"/></div>
             <div class="form-row">
               <div class="form-group">
@@ -1102,6 +1139,30 @@
                 <option value="secretariat">Secretariat</option>
                 <option value="media">Media</option>
               </select>
+            </div>
+                        <!-- Child Safety & Parental Consent (COPPA/PDPA) -->
+            <div id="em-child-safety-box" style="margin-top:14px;padding:12px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;margin-bottom:14px;">
+              <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Child Safety &amp; Parental Consent (COPPA/PDPA)</span>
+              </div>
+              <div class="form-group" style="margin-bottom:8px;">
+                <label class="form-label" for="em-parent-name" style="font-size:11px;">Parent / Legal Guardian Name</label>
+                <input class="form-input" id="em-parent-name" type="text" placeholder="e.g. David Tan" style="padding:8px 12px;font-size:13px;"/>
+              </div>
+              <div class="form-group" style="margin-bottom:8px;">
+                <label class="form-label" for="em-parent-contact" style="font-size:11px;">Parent Contact (Phone / Email)</label>
+                <input class="form-input" id="em-parent-contact" type="text" placeholder="e.g. +6012-3456789" style="padding:8px 12px;font-size:13px;"/>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <input type="checkbox" id="em-parent-consent" style="width:16px;height:16px;accent-color:var(--accent);"/>
+                <label for="em-parent-consent" style="font-size:12px;color:var(--text-secondary);cursor:pointer;user-select:none;">Parental Consent E-Signed &amp; Verified</label>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <input type="checkbox" id="em-media-consent" style="width:16px;height:16px;accent-color:var(--accent);"/>
+                <label for="em-media-consent" style="font-size:12px;color:var(--text-secondary);cursor:pointer;user-select:none;">Media &amp; Photography Release Opt-In</label>
+              </div>
+              <div id="em-consent-meta" style="font-size:10px;color:var(--text-muted);margin-top:4px;"></div>
             </div>
             <div class="form-group"><label class="form-label">Member Since</label><input class="form-input" id="em-joined" type="date"/></div>
 
@@ -1626,17 +1687,58 @@
   </div>
 </div>
 
+<!-- Child Safety & Privacy Governance (COPPA/PDPA) Modal (TSK-032) -->
+<div id="child-safety-modal" role="dialog" aria-modal="true" aria-labelledby="csm-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);z-index:99999;overflow-y:auto;padding:30px 16px;">
+  <div style="max-width:540px;margin:20px auto;background:var(--bg-card);border-radius:18px;padding:26px;border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);color:var(--text-primary);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;" id="csm-title">
+        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Child Safety &amp; Privacy Governance</span>
+      </div>
+      <button type="button" onclick="closeChildSafetyModal()" aria-label="Close dialog" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:6px 12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">
+        <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;display:flex;flex-direction:column;gap:14px;max-height:60vh;overflow-y:auto;padding-right:6px;">
+      <div>
+        <strong style="color:var(--text-primary);display:block;margin-bottom:2px;">1. Strict Data Minimization</strong>
+        1st Petaling Jaya Boys' Brigade adheres strictly to data minimization principles under the Malaysian Personal Data Protection Act (PDPA 2010) and COPPA guidelines. We only collect the minimal information necessary to operate company records (member full name, login email, section, platoon, rank, and approximate age). We strictly do NOT collect National Identity Card (NRIC/MyKad/MyKid) numbers, home residential addresses, or minors' personal phone numbers.
+      </div>
+      <div>
+        <strong style="color:var(--text-primary);display:block;margin-bottom:2px;">2. Mandatory Parental / Legal Guardian Consent</strong>
+        For all minor members aged 11 and under (Pre-Junior and Junior Sections), verifiable parental or legal guardian consent is strictly required. Consent is captured via an electronic signature audit trail, logging the guardian's name, contact details, timestamp, and explicit affirmation.
+      </div>
+      <div>
+        <strong style="color:var(--text-primary);display:block;margin-bottom:2px;">3. Privacy-First Default Permissions (Media &amp; Photos)</strong>
+        We believe in privacy-by-default. Photography and media release permissions are optional and disabled by default. If a parent chooses not to opt-in, their child will not be featured in public photo galleries, social media posts, or promotional materials.
+      </div>
+      <div>
+        <strong style="color:var(--text-primary);display:block;margin-bottom:2px;">4. Purpose Limitation &amp; Zero Third-Party Sharing</strong>
+        Personal data is used exclusively for BB parade records, attendance tracking, awards/badge achievements, and official company communications. Information is never sold, leased, or shared with commercial entities or third-party advertisers.
+      </div>
+      <div>
+        <strong style="color:var(--text-primary);display:block;margin-bottom:2px;">5. Parental Right to Access &amp; Erasure</strong>
+        In accordance with Section 30 of the Malaysian PDPA 2010, parents and legal guardians have the full legal right to inspect, correct, export, or request the permanent deletion (erasure) of their child's account and personal data at any time by contacting Company Officers or the Company Captain.
+      </div>
+    </div>
+
+    <div style="margin-top:20px;display:flex;justify-content:flex-end;">
+      <button type="button" class="submit-btn gold" onclick="closeChildSafetyModal()" style="margin:0;width:auto;padding:8px 24px;">I Understand</button>
+    </div>
+  </div>
+</div>
 <!-- Core API & State Modules -->
 <script src="js/config.js?v=20261022c"></script>
 <script src="js/api/supabase.js?v=20261025c"></script>
 <script src="js/core/session.js?v=20261022c"></script>
-<script src="js/core/utils.js?v=20261026a"></script>
-<script src="js/modules/member.js?v=20261026a"></script>
+<script src="js/core/utils.js?v=20261026b"></script>
+<script src="js/modules/member.js?v=20261026b"></script>
 <script src="js/api/sheets.js?v=20261022c"></script>
-<script src="js/modules/attendance.js?v=20261026a"></script>
-<script src="js/modules/announcements.js?v=20261026a"></script>
-<script src="js/modules/gallery.js?v=20261026a"></script>
-<script src="js/modules/resources.js?v=20261026a"></script>
+<script src="js/modules/attendance.js?v=20261026b"></script>
+<script src="js/modules/announcements.js?v=20261026b"></script>
+<script src="js/modules/gallery.js?v=20261026b"></script>
+<script src="js/modules/resources.js?v=20261026b"></script>
 
 <script>
 
@@ -3615,6 +3717,19 @@ async function renderAdminList() {
     filtered.forEach(function(m) {
       var age    = calcAge(m.date_of_birth);
       var ageStr = age !== null ? age + ' years' : '\u2014';
+      var isMinor = (typeof isMinorSection === 'function') ? isMinorSection(m.att_section || m.section, age) : ((age !== null && age <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
+      var consentBadge = '';
+      if (isMinor) {
+        var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
+        if (hasConsent) {
+          consentBadge = ' <span title="Child Safety: Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
+        } else {
+          consentBadge = ' <span title="Child Safety: Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent Pending</span>';
+        }
+        if (m.media_consent === false) {
+          consentBadge += ' <span title="Privacy: Media release private / no public photos" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;vertical-align:middle;margin-left:2px;">No Media</span>';
+        }
+      }
 
       if (_adminSortBy === 'squad') {
         var sq = m.squad || 'No Platoon';
@@ -3626,7 +3741,7 @@ async function renderAdminList() {
 
       html += '<div class="admin-row" data-edit-ic="' + escapeHtml(m.ic) + '" style="cursor:pointer;display:flex;align-items:center;gap:10px;">'
         + '<div style="flex:1;min-width:0;">'
-          + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(m.name) + '</div>'
+          + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(m.name) + consentBadge + '</div>'
           + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(m.ic.indexOf('@') !== -1 ? m.ic : ('ID: ' + m.ic)) + ' \xb7 ' + (m.squad ? escapeHtml(m.squad) + ' Platoon' : 'No platoon') + ' \xb7 ' + escapeHtml(m.rank||'No rank') + '</div>'
         + '</div>'
         + '<div style="text-align:right;flex-shrink:0;">'
@@ -3658,8 +3773,11 @@ async function renderAdminList() {
 }
 
 function openAddMember() {
-  ['em-name','em-ic','em-joined','em-dob'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  ['em-name','em-ic','em-joined','em-dob','em-parent-name','em-parent-contact'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
   ['em-rank','em-squad','em-dept'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  var pc = document.getElementById('em-parent-consent'); if (pc) pc.checked = false;
+  var mc = document.getElementById('em-media-consent'); if (mc) mc.checked = false;
+  var cm = document.getElementById('em-consent-meta'); if (cm) cm.textContent = '';
   var ic = document.getElementById('em-ic'); if (ic) ic.readOnly = false;
   var ti = document.getElementById('em-modal-title'); if (ti) ti.textContent = '\u2795 Add New Member';
   var db = document.getElementById('em-delete-btn'); if (db) db.style.display = 'none';
@@ -3678,6 +3796,33 @@ function openEditMember(ic) {
   set('em-joined',       m.joined_at    ? m.joined_at.slice(0,10)    : '');
   set('em-dob',          m.date_of_birth ? m.date_of_birth.slice(0,10) : '');
   set('em-original-ic', m.ic);
+  set('em-parent-name', m.parent_name || '');
+  set('em-parent-contact', m.parent_contact || '');
+  var pc = document.getElementById('em-parent-consent'); if (pc) pc.checked = !!m.parental_consent_signed;
+  var mc = document.getElementById('em-media-consent'); if (mc) mc.checked = !!m.media_consent;
+  var cm = document.getElementById('em-consent-meta');
+  if (cm) {
+    if (m.parental_consent_date) {
+      cm.textContent = 'Consent recorded on ' + new Date(m.parental_consent_date).toLocaleString('en-MY');
+    } else {
+      cm.textContent = '';
+    }
+  }
+  if (!m.parent_name && !m.parental_consent_signed && typeof fetchMemberConsent === 'function') {
+    fetchMemberConsent(ic, m).then(function(cData) {
+      if (cData) {
+        var pn = document.getElementById('em-parent-name');
+        var pcon = document.getElementById('em-parent-contact');
+        if (pn && !pn.value) pn.value = cData.parent_name || '';
+        if (pcon && !pcon.value) pcon.value = cData.parent_contact || '';
+        if (pc) pc.checked = !!cData.parental_consent_signed;
+        if (mc) mc.checked = !!cData.media_consent;
+        if (cm && cData.parental_consent_date) {
+          cm.textContent = 'Consent recorded on ' + new Date(cData.parental_consent_date).toLocaleString('en-MY');
+        }
+      }
+    }).catch(function() {});
+  }
   var icEl = document.getElementById('em-ic'); if (icEl) icEl.readOnly = true;
   var ti   = document.getElementById('em-modal-title'); if (ti) ti.textContent = '\u270f\ufe0f Edit Member';
   var db   = document.getElementById('em-delete-btn'); if (db) db.style.display = 'inline-flex';
@@ -3702,21 +3847,74 @@ async function saveEditMember() {
   var joined_at     = joinedRaw ? new Date(joinedRaw).toISOString() : null;
   var dobRaw        = (document.getElementById('em-dob') || {}).value || '';
   var date_of_birth = dobRaw || null;
+  var rawPName      = ((document.getElementById('em-parent-name') || {}).value || '').trim();
+  var rawPContact   = ((document.getElementById('em-parent-contact') || {}).value || '').trim();
+  var parent_name   = (typeof sanitizeText === 'function') ? sanitizeText(rawPName, 100) : rawPName;
+  var parent_contact= (typeof sanitizeInput === 'function') ? sanitizeInput(rawPContact, 100) : rawPContact;
+  var pConsentCb    = document.getElementById('em-parent-consent');
+  var parental_consent_signed = pConsentCb ? !!pConsentCb.checked : false;
+  var mConsentCb    = document.getElementById('em-media-consent');
+  var media_consent = mConsentCb ? !!mConsentCb.checked : false;
   if (!name) return alert('Name cannot be empty.');
-  if (!ic)   return alert('IC number cannot be empty.');
+  if (!ic)   return alert('Account Email / ID cannot be empty.');
   try {
+    var consentTimestamp = parental_consent_signed ? new Date().toISOString() : null;
     if (!originalIc) {
       var existing = await supa.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=ic');
-      if (existing && existing.length) return alert('A member with this IC already exists.');
+      if (existing && existing.length) return alert('A member with this Account Email / ID already exists.');
       var defaultHash = (typeof hashPassword === 'function') ? await hashPassword(ic) : btoa(ic);
-      await supa.post('bb_members', { ic: ic, name: name, rank: rank, squad: squad, department: department, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() });
-      alert('\u2705 Member added!\n\nDefault password is their IC number: ' + ic);
+      var newPayload = { ic: ic, name: name, rank: rank, squad: squad, department: department, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() };
+      if (parent_name) newPayload.parent_name = parent_name;
+      if (parent_contact) newPayload.parent_contact = parent_contact;
+      if (parental_consent_signed) { newPayload.parental_consent_signed = true; newPayload.parental_consent_date = consentTimestamp; }
+      newPayload.media_consent = media_consent;
+      try {
+        await supa.post('bb_members', newPayload);
+      } catch(postErr) {
+        // Fallback without extended consent columns
+        await supa.post('bb_members', { ic: ic, name: name, rank: rank, squad: squad, department: department, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() });
+      }
+      alert('\u2705 Member added!\n\nDefault password is their Account Email/ID: ' + ic);
     } else {
       var updates = { name: name, rank: rank, squad: squad, department: department };
       if (joined_at)     updates.joined_at     = joined_at;
       if (date_of_birth) updates.date_of_birth = date_of_birth;
-      await supa.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), updates);
+      updates.parent_name = parent_name || null;
+      updates.parent_contact = parent_contact || null;
+      updates.parental_consent_signed = parental_consent_signed;
+      if (parental_consent_signed) updates.parental_consent_date = consentTimestamp;
+      updates.media_consent = media_consent;
+      try {
+        await supa.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), updates);
+      } catch(patchErr) {
+        // Fallback without extended consent columns if schema unmigrated
+        var baseUpdates = { name: name, rank: rank, squad: squad, department: department };
+        if (joined_at)     baseUpdates.joined_at     = joined_at;
+        if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
+        await supa.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
+      }
       alert('Member updated!');
+    }
+    // Always persist backup consent audit trail into bb_config
+    try {
+      var consentRecord = {
+        email: ic,
+        name: name,
+        parent_name: parent_name,
+        parent_contact: parent_contact,
+        parental_consent_signed: parental_consent_signed,
+        parental_consent_date: consentTimestamp,
+        media_consent: media_consent,
+        updated_at: new Date().toISOString()
+      };
+      var consentKey = 'bb_consent_' + ic.replace(/[^a-zA-Z0-9_-]/g, '_');
+      await supa.upsert('bb_config', { key: consentKey, value: JSON.stringify(consentRecord) }, 'key');
+    } catch(cfgErr) {}
+    if (window._adminMembers && window._adminMembers[ic]) {
+      window._adminMembers[ic].parent_name = parent_name;
+      window._adminMembers[ic].parent_contact = parent_contact;
+      window._adminMembers[ic].parental_consent_signed = parental_consent_signed;
+      window._adminMembers[ic].media_consent = media_consent;
     }
     closeEditMember();
     renderAdminList();
@@ -3758,6 +3956,10 @@ async function deleteMemberAccount(ic, name, e) {
       }
       if (!Array.isArray(delList)) delList = [];
       if (!delList.includes(ic)) delList.push(ic);
+      try {
+        var consentKey = 'bb_consent_' + ic.replace(/[^a-zA-Z0-9_-]/g, '_');
+        await client.delete('bb_config?key=eq.' + encodeURIComponent(consentKey));
+      } catch(e) {}
 
       try {
         await client.req('POST', 'bb_config?on_conflict=key', {
