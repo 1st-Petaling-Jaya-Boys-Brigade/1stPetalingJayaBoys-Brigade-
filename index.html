@@ -13,7 +13,7 @@
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- Modular Stylesheets (Cache-Busted v20261026f) -->
+<!-- Modular Stylesheets (Cache-Busted v20261026g) -->
 <link rel="stylesheet" href="css/variables.css?v=20261026f">
 <link rel="stylesheet" href="css/base.css?v=20261026f">
 <link rel="stylesheet" href="css/nav.css?v=20261026f">
@@ -128,18 +128,18 @@
   transform: translateY(-2px) !important;
   box-shadow: var(--shadow-elevated) !important;
 }
-/* Floating Arrow Controls (matching LeetCode Image 2) */
+/* Floating Arrow Controls (Directional Cursor Hover) */
 .hq-carousel-arrow {
   position: absolute !important;
   top: 50% !important;
-  transform: translateY(-50%) !important;
+  transform: translateY(-50%) scale(0.85) !important;
   width: 36px !important;
   height: 36px !important;
   border-radius: 50% !important;
-  background: rgba(18, 24, 38, 0.88) !important;
+  background: rgba(18, 24, 38, 0.92) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
   color: var(--text-primary, #fff) !important;
   display: flex !important;
   align-items: center !important;
@@ -147,9 +147,12 @@
   cursor: pointer !important;
   z-index: 10 !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease !important;
   padding: 0 !important;
   outline: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 .hq-arrow-prev {
   left: 8px !important;
@@ -157,15 +160,40 @@
 .hq-arrow-next {
   right: 8px !important;
 }
+/* Left arrow appears when cursor is on left box / left side */
+.hq-carousel-container.hover-left .hq-arrow-prev {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+/* Right arrow appears when cursor is on right box / right side */
+.hq-carousel-container.hover-right .hq-arrow-next {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
+}
 .hq-carousel-arrow:hover {
-  background: rgba(30, 41, 59, 0.95) !important;
+  background: rgba(30, 41, 59, 0.98) !important;
   border-color: var(--accent, #eab308) !important;
   color: var(--accent, #eab308) !important;
   transform: translateY(-50%) scale(1.1) !important;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
 .hq-carousel-arrow:active {
   transform: translateY(-50%) scale(0.96) !important;
+}
+.hq-carousel-arrow:focus-visible {
+  border-color: var(--accent, #eab308) !important;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.4) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  transform: translateY(-50%) scale(1) !important;
 }
 .hq-arrow-icon {
   width: 18px !important;
@@ -349,7 +377,7 @@
 
       <!-- Quick Dashboard Carousel (TSK-CAROUSEL: 2 cards visible, aligned with calendar) -->
       <div class="hq-carousel-wrapper" id="hq-carousel-wrapper" aria-label="Quick Access Carousel">
-        <div class="hq-carousel-container">
+        <div class="hq-carousel-container" id="hq-carousel-container">
           <button type="button" class="hq-carousel-arrow hq-arrow-prev" id="hq-carousel-prev" onclick="cycleQuickCards(-1)" aria-label="Previous cards" title="Previous cards">
             <svg class="hq-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
           </button>
@@ -2363,6 +2391,28 @@ function initQuickCardsCarousel() {
       cycleQuickCards(-1);
     }
   });
+
+  // Directional Hover Support (Arrows appear only when cursor is on the respective box)
+  var container = document.getElementById('hq-carousel-container');
+  if (container) {
+    container.addEventListener('mousemove', function(e) {
+      var rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      var x = e.clientX - rect.left;
+      var mid = rect.width / 2;
+      if (x < mid) {
+        container.classList.add('hover-left');
+        container.classList.remove('hover-right');
+      } else {
+        container.classList.add('hover-right');
+        container.classList.remove('hover-left');
+      }
+    });
+
+    container.addEventListener('mouseleave', function() {
+      container.classList.remove('hover-left', 'hover-right');
+    });
+  }
 
   // Window resize handler
   if (typeof window !== 'undefined') {
