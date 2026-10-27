@@ -90,7 +90,7 @@ function sanitizeText(str, maxLength) {
  * @param {object} [options]
  * @returns {string}
  */
-function sanitizeHtml(dirtyHtml, options) {
+function sanitizeHtml(dirtyHtml, _options) {
   if (!dirtyHtml || typeof dirtyHtml !== 'string') return '';
 
   if (typeof DOMParser !== 'undefined') {

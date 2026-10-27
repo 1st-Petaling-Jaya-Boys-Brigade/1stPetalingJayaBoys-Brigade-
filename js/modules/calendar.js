@@ -4,7 +4,7 @@
  * Pre-populated with official 2026 Master Calendar (Senior & Junior Sections)
  */
 
-(function(global) {
+(function(_global) {
   'use strict';
 
   // ── Authentic 2026 Company Calendar Dataset (Google Docs Master) ───────────
@@ -502,7 +502,7 @@
     _selectedDateStr = targetDate;
 
     var compEvents = getCompanyEventsForDate(targetDate);
-    var memEvents  = getMemberEventsForDate(targetDate);
+    var _memEvents = getMemberEventsForDate(targetDate);
     var ev = compEvents.length > 0 ? compEvents[0] : null;
 
     var dateObj = new Date(targetDate + 'T00:00:00');

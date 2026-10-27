@@ -18,9 +18,9 @@ global.document = {
         style: {},
         disabled: false,
         files: [],
-        setAttribute: (k, v) => {},
-        removeAttribute: (k) => {},
-        getAttribute: (k) => null,
+        setAttribute: (_k, _v) => {},
+        removeAttribute: (_k) => {},
+        getAttribute: (_k) => null,
         scrollIntoView: () => {},
         querySelectorAll: () => [],
         addEventListener: () => {},
@@ -65,16 +65,16 @@ global.sessionGet = (k) => {
 global.sessionSet = (k, v) => { mockSession[k] = v; };
 global.location = { hash: '', reload: () => {} };
 global.window.location = global.location;
-global.alert = (msg) => {};
+global.alert = (_msg) => {};
 global.hashPassword = async (p) => 'hash_' + p;
-global.showToast = (msg, type) => {};
-global.showConfirmModal = async (msg, title) => true;
+global.showToast = (_msg, _type) => {};
+global.showConfirmModal = async (_msg, _title) => true;
 global.isNCO = (rank) => ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant'].indexOf(rank) !== -1;
 
 // Mock Supabase
-let lastPatched = null;
+let _lastPatched = null;
 let lastPosted = null;
-let lastDeleted = null;
+let _lastDeleted = null;
 
 global.supa = {
   get: async (path) => {
@@ -104,20 +104,20 @@ global.supa = {
     return [{ id: 'upserted_id', ...body }];
   },
   patch: async (path, body) => {
-    lastPatched = { path, body };
+    _lastPatched = { path, body };
     return body;
   },
   delete: async (path) => {
-    lastDeleted = path;
+    _lastDeleted = path;
     return true;
   },
-  uploadFile: async (bucket, fname, blob) => {
+  uploadFile: async (bucket, fname, _blob) => {
     return { Key: bucket + '/' + fname };
   },
   fileUrl: (bucket, fname) => {
     return 'https://example.com/storage/' + bucket + '/' + fname;
   },
-  deleteFile: async (bucket, fname) => {
+  deleteFile: async (_bucket, _fname) => {
     return true;
   }
 };
@@ -782,6 +782,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   assert(fs.existsSync('eslint.config.mjs'), 'eslint.config.mjs configuration must exist');
   console.log('  ✔ ESLint flat config verified');
+  const { execSync } = require('child_process');
+  const lintOutput = execSync('npx eslint js/ scripts/', { encoding: 'utf8' });
+  assert.strictEqual(lintOutput.trim(), '', 'ESLint must pass with 0 errors and 0 warnings');
+  console.log('  ✔ ESLint verified: 0 errors and 0 warnings across all js/ and scripts/');
 
   assert(fs.existsSync('vite.config.mjs'), 'vite.config.mjs must exist');
   assert(fs.existsSync('scripts/dev-server.js'), 'scripts/dev-server.js must exist');
