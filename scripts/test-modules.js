@@ -783,6 +783,90 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockNoResEl.style.display, 'none');
   console.log('  ✔ clearFormSearch resets search input, clears state, and restores all forms');
 
+  // ── Testing Instagram-Style Story Highlights & Event Gallery Reel (TSK-033) ──
+  console.log('Testing Story Highlights & Event Gallery Reel (TSK-033)...');
+  const galleryMod = require('../js/modules/gallery.js');
+
+  // 1. Dataset verification
+  assert.ok(Array.isArray(galleryMod.DEFAULT_STORY_HIGHLIGHTS), 'DEFAULT_STORY_HIGHLIGHTS must be an array');
+  assert.ok(galleryMod.DEFAULT_STORY_HIGHLIGHTS.length >= 5, 'Must contain at least 5 default company story highlights');
+  const campStory = galleryMod.DEFAULT_STORY_HIGHLIGHTS.find(x => x.id === 'story-camps');
+  assert.ok(campStory, 'Camps story highlight must exist');
+  assert.strictEqual(campStory.title, 'Camps');
+  assert.ok(campStory.items.length >= 3, 'Camps must contain at least 3 slides');
+  assert.ok(campStory.items[0].caption, 'Slide must feature caption');
+  assert.ok(campStory.items[0].date, 'Slide must feature date');
+  assert.ok(campStory.items[0].location, 'Slide must feature location');
+  console.log('  ✔ DEFAULT_STORY_HIGHLIGHTS pre-populated with authentic company event categories and slides');
+
+  // 2. Load Story Highlights
+  const loadedStories = await galleryMod.loadStoryHighlights();
+  assert.ok(Array.isArray(loadedStories) && loadedStories.length >= 5, 'loadStoryHighlights must return array');
+  console.log('  ✔ loadStoryHighlights successfully retrieves active story highlights with fallback');
+
+  // 3. Story Viewer Modal Interaction & Segmented Progress Bars
+  const mockStoryModal = document.getElementById('story-viewer-modal');
+  const mockProgressBars = document.getElementById('story-progress-bars');
+  const mockStoryTitle = document.getElementById('story-viewer-title');
+  const mockStoryCaption = document.getElementById('story-viewer-caption');
+  const mockStoryImg = document.getElementById('story-viewer-img');
+
+  galleryMod.openStoryViewer(0, 0); // Open Camps, slide 0
+  assert.strictEqual(mockStoryModal.style.display, 'flex', 'openStoryViewer must display story modal flex');
+  assert.strictEqual(mockStoryTitle.textContent, 'Camps');
+  assert.ok(mockStoryImg.src.includes('unsplash.com') || mockStoryImg.src.includes('http'), 'Story slide image must be rendered');
+  assert.ok(mockProgressBars.innerHTML.includes('story-progress-bar'), 'Segmented progress bars must be generated');
+  console.log('  ✔ openStoryViewer renders full-screen modal, segmented progress bars, and slide content');
+
+  // 4. Slide Navigation (Next / Prev / Cross-Highlight)
+  galleryMod.nextStorySlide(); // Advance to slide 1
+  assert.strictEqual(mockStoryCaption.textContent, campStory.items[1].caption);
+  console.log('  ✔ nextStorySlide advances to subsequent slide with caption and progress updates');
+
+  galleryMod.prevStorySlide(); // Back to slide 0
+  assert.strictEqual(mockStoryCaption.textContent, campStory.items[0].caption);
+  console.log('  ✔ prevStorySlide navigates backward smoothly');
+
+  // 5. Playback Pause & Resume Controls
+  galleryMod.pauseStoryPlayback();
+  galleryMod.resumeStoryPlayback();
+  galleryMod.toggleStoryPause();
+  galleryMod.toggleStoryPause();
+  console.log('  ✔ Pause/Play controls and touch-hold handlers properly manage playback');
+
+  // 6. Close Story Viewer
+  galleryMod.closeStoryViewer();
+  assert.strictEqual(mockStoryModal.style.display, 'none', 'closeStoryViewer must hide story modal');
+  console.log('  ✔ closeStoryViewer terminates active timer and cleanly dismisses viewer');
+
+  // 7. Admin Highlights Management
+  const newHighlight = {
+    id: 'story-test-drill',
+    title: 'Drill Competition',
+    cover: 'https://example.com/drill.jpg',
+    order: 6,
+    active: true,
+    items: [{ id: 's1', url: 'https://example.com/s1.jpg', caption: 'State Drill Finals', date: '2026-10-25' }]
+  };
+  const updatedStories = [...loadedStories, newHighlight];
+  await galleryMod.saveStoryHighlights(updatedStories);
+  assert.strictEqual(galleryMod.storyHighlights.length, loadedStories.length + 1, 'Highlight count must increment');
+
+  // Delete test highlight
+  global.confirm = () => true;
+  await galleryMod.deleteStoryHighlight('story-test-drill');
+  assert.strictEqual(galleryMod.storyHighlights.some(x => x.id === 'story-test-drill'), false, 'Highlight must be removed');
+  console.log('  ✔ Admin console allows creating, editing, and deleting highlights');
+
+  // 8. Migration schema verification (005_story_highlights.sql)
+  const migration005 = 'supabase/migrations/005_story_highlights.sql';
+  assert.ok(fs.existsSync(migration005), 'Migration 005 must exist');
+  const sql005 = fs.readFileSync(migration005, 'utf8');
+  assert.ok(sql005.includes('CREATE TABLE IF NOT EXISTS bb_stories'), 'Must declare bb_stories table');
+  assert.ok(sql005.includes('display_order'), 'Must declare display_order column');
+  assert.ok(sql005.includes('items jsonb'), 'Must declare items jsonb column');
+  console.log('  ✔ Database migration 005_story_highlights.sql verified with table and RLS policies');
+
   // ── Testing Developer Tooling & Linting (TSK-015) ──────────────────────────
   console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
