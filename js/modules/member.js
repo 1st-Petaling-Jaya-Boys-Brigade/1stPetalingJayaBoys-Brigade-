@@ -140,6 +140,64 @@ async function fetchMemberConsent(email, memberObj) {
   return null;
 }
 
+/**
+ * Allows a parent/guardian of a minor member to update their media/photography release preference
+ * directly from the Member Hub dashboard (PDPA 2010 Right to Withdraw Consent / Purpose Limitation).
+ * @param {boolean} newConsent
+ */
+async function updateMemberMediaConsent(newConsent) {
+  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  if (!id) return;
+  try {
+    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var consentVal = !!newConsent;
+
+    if (client && typeof client.patch === 'function') {
+      try {
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { media_consent: consentVal });
+      } catch (patchErr) {
+        console.warn('Direct media_consent column update note:', patchErr);
+      }
+    }
+
+    // Update active session state
+    if (typeof sessionSet === 'function') {
+      sessionSet('media_consent', consentVal);
+    }
+
+    // Update durable audit trail in bb_config
+    if (client && typeof client.upsert === 'function') {
+      try {
+        var consentKey = 'bb_consent_' + id.replace(/[^a-zA-Z0-9_-]/g, '_');
+        var rows = (typeof client.get === 'function') ? await client.get('bb_config?key=eq.' + encodeURIComponent(consentKey) + '&select=value') : null;
+        var audit = (rows && rows.length && rows[0].value) ? (typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value) : { email: id };
+        audit.media_consent = consentVal;
+        audit.media_consent_updated_at = new Date().toISOString();
+        audit.governance = 'COPPA/PDPA-2010';
+        await client.upsert('bb_config', { key: consentKey, value: JSON.stringify(audit) }, 'key');
+      } catch (cfgErr) {
+        console.warn('Child consent audit backup update failed:', cfgErr);
+      }
+    }
+
+    var feedbackMsg = consentVal ? 'Media Release updated: Opted-in to official photos.' : 'Media Release updated: Marked as Media Private (No Photos).';
+    if (typeof showToast === 'function') {
+      showToast(feedbackMsg, 'success');
+    } else if (typeof alert === 'function') {
+      alert(feedbackMsg);
+    }
+    if (typeof renderDashboard === 'function') {
+      renderDashboard();
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') {
+      showToast('Failed to update media preference: ' + e.message, 'danger');
+    } else if (typeof alert === 'function') {
+      alert('Failed to update media preference: ' + e.message);
+    }
+  }
+}
+
 // ── Registration & Login (Privacy-First) ────────────────────────────────────
 
 var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -464,6 +522,7 @@ async function renderDashboard() {
             + (mediaConsent
                 ? '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photo Consent Opted-In</span>'
                 : '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="2" x2="22" y1="2" y2="22"/></svg> Media Private (No Photos)</span>')
+            + '<button type="button" onclick="updateMemberMediaConsent(!' + mediaConsent + ')" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600;" title="Update media release preference">' + (mediaConsent ? 'Withdraw Photo Consent' : 'Opt-In to Photos') + '</button>'
             + '<a href="#" onclick="openChildSafetyModal(event)" style="font-size:11px;color:var(--accent);text-decoration:underline;margin-left:4px;">Policy</a>'
           + '</div>'
         + '</div>';
@@ -878,6 +937,7 @@ if (typeof window !== 'undefined') {
   window.showForgotStep               = showForgotStep;
   window.togglePassVis                = togglePassVis;
   window.goToMemberTab                = goToMemberTab;
+  window.updateMemberMediaConsent     = updateMemberMediaConsent;
   window.registerMember               = registerMember;
   window.loginMember                  = loginMember;
   window.renderDashboard              = renderDashboard;
@@ -897,6 +957,7 @@ if (typeof module !== 'undefined' && module.exports) {
     openChildSafetyModal,
     closeChildSafetyModal,
     fetchMemberConsent,
+    updateMemberMediaConsent,
     showAuthMode,
     showForgotStep,
     togglePassVis,

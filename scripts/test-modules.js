@@ -512,6 +512,37 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockModal.style.display, 'none', 'closeChildSafetyModal must hide policy modal');
   console.log('  ✔ openChildSafetyModal and closeChildSafetyModal properly manage modal visibility');
 
+  // 7. updateMemberMediaConsent: Parental Right to Opt-In / Withdraw Media Consent (PDPA 2010)
+  mockSession['email'] = 'junior@test.com';
+  mockSession['ic'] = 'junior@test.com';
+  let patchedMedia = null;
+  global.supa.patch = async (path, body) => {
+    patchedMedia = { path, body };
+    return body;
+  };
+
+  // Opt-in to photo release
+  await memberModule.updateMemberMediaConsent(true);
+  assert.strictEqual(mockSession['media_consent'], true, 'Session media_consent must be true after opt-in');
+  assert.ok(patchedMedia && patchedMedia.body.media_consent === true, 'Supabase patch must update media_consent to true');
+
+  // Withdraw photo release (privacy-first opt-out)
+  await memberModule.updateMemberMediaConsent(false);
+  assert.strictEqual(mockSession['media_consent'], false, 'Session media_consent must be false after withdrawal');
+  assert.ok(patchedMedia && patchedMedia.body.media_consent === false, 'Supabase patch must update media_consent to false');
+  console.log('  ✔ updateMemberMediaConsent empowers parents to dynamically opt-in or withdraw media release');
+
+  // 8. Migration schema verification (004_child_safety_parental_consent.sql)
+  const migrationPath = 'supabase/migrations/004_child_safety_parental_consent.sql';
+  assert.ok(fs.existsSync(migrationPath), 'Migration 004 must exist');
+  const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+  assert.ok(migrationSql.includes('parent_name'), 'Migration must declare parent_name');
+  assert.ok(migrationSql.includes('parent_contact'), 'Migration must declare parent_contact');
+  assert.ok(migrationSql.includes('parental_consent_signed'), 'Migration must declare parental_consent_signed');
+  assert.ok(migrationSql.includes('media_consent'), 'Migration must declare media_consent');
+  assert.ok(migrationSql.includes('att_section'), 'Migration must declare att_section');
+  console.log('  ✔ Child Safety & Parental Consent database migration schema verified');
+
   // ── Calendar Module Tests (TSK-CALENDAR) ──
   console.log('Testing Company Calendar & Member Personal Schedule...');
   const calendarModule = require('../js/modules/calendar.js');
