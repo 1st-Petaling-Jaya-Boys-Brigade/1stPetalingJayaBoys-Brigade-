@@ -18,9 +18,10 @@ global.document = {
         style: {},
         disabled: false,
         files: [],
-        setAttribute: (_k, _v) => {},
+        _attrs: {},
+        setAttribute: function(k, v) { this._attrs[k] = String(v); },
         removeAttribute: (_k) => {},
-        getAttribute: (_k) => null,
+        getAttribute: function(k) { return this._attrs[k] || null; },
         scrollIntoView: () => {},
         querySelectorAll: () => [],
         addEventListener: () => {},
@@ -941,6 +942,40 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(sql005.includes('display_order'), 'Must declare display_order column');
   assert.ok(sql005.includes('items jsonb'), 'Must declare items jsonb column');
   console.log('  ✔ Database migration 005_story_highlights.sql verified with table and RLS policies');
+
+  // 9. Custom Per-Slide Duration & Progress Bar Speed Verification
+  const durationHighlight = {
+    id: 'highlight-durations-test',
+    title: 'Camp Highlights',
+    cover: 'https://example.com/cover.jpg',
+    order: 10,
+    active: true,
+    items: [
+      { id: 's_photo_5s', url: 'https://example.com/photo1.jpg', type: 'image', duration: 5, caption: 'Photo 5s' },
+      { id: 's_photo_10s', url: 'https://example.com/photo2.jpg', type: 'image', duration: 10, caption: 'Photo 10s' },
+      { id: 's_video_45s', url: 'https://drive.google.com/file/d/1AWZG2x90ffvHPw0rUESN38DXOmLrX3tC/view', type: 'video', duration: 45, caption: 'Video 45s' }
+    ]
+  };
+  galleryMod.storyHighlights.push(durationHighlight);
+  const durIdx = galleryMod.storyHighlights.length - 1;
+
+  // Open slide 0 (5s photo) -> duration must be 5000ms
+  galleryMod.openStoryViewer(durIdx, 0);
+  assert.strictEqual(galleryMod._storySlideDuration, 5000, 'Photo 1 must adopt 5-second duration');
+
+  // Open slide 1 (10s photo) -> duration must be 10000ms
+  galleryMod.openStoryViewer(durIdx, 1);
+  assert.strictEqual(galleryMod._storySlideDuration, 10000, 'Photo 2 must adopt 10-second duration');
+
+  // Open slide 2 (45s Drive video) -> duration must be 45000ms, autoplay enabled
+  galleryMod.openStoryViewer(durIdx, 2);
+  assert.strictEqual(galleryMod._storySlideDuration, 45000, 'Video must adopt 45-second duration');
+  assert.ok(mockIframeEl.src.includes('autoplay=1'), 'Drive video iframe must include autoplay=1');
+  assert.strictEqual(mockIframeEl.getAttribute('allow'), 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+
+  galleryMod.closeStoryViewer();
+  galleryMod.storyHighlights.pop();
+  console.log('  ✔ Custom slide duration and progress bar speed verified (5s photo, 10s photo, 45s video)');
 
   // ── Testing Google Apps Script & Master Sheet Endpoint Hardening (TSK-038) ──
   console.log('\nTesting Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)...');
