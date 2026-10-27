@@ -640,6 +640,63 @@ async function getJson(url) {
     assert.strictEqual(shInfo.hasAdminList, true, 'Admin console has Story Highlights management list');
     assert.strictEqual(shInfo.hasAdminModal, true, 'Admin console has Create/Edit Story Modal');
     console.log('  ✔ Admin console provides complete story highlight and slide management interface');
+    // 14b. Test Dedicated Gallery Tab & Video Media Support
+    console.log('\n[Dedicated Gallery Tab & Video Media Viewer]');
+    const evalGalleryTab = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        // Switch to gallery tab
+        if (typeof switchTabNav === 'function') {
+          switchTabNav('gallery');
+        }
+        const pageGallery = document.getElementById('page-gallery');
+        const isPageActive = pageGallery ? pageGallery.classList.contains('active') : false;
+        const snavGallery = document.getElementById('snav-gallery');
+        const isSnavActive = snavGallery ? snavGallery.classList.contains('active') : false;
+        const filterBar = document.getElementById('gallery-filter-bar');
+        const filterPills = filterBar ? filterBar.querySelectorAll('.gallery-filter-pill') : [];
+        const galleryReel = document.getElementById('gallery-story-highlights-reel');
+        const reelBubbles = galleryReel ? galleryReel.querySelectorAll('.story-highlight-item') : [];
+        const videoElement = document.getElementById('story-viewer-video');
+        const soundBtn = document.getElementById('story-btn-sound');
+
+        // Test opening a video slide (Brass Band highlight 2, slide 1)
+        if (typeof openStoryViewer === 'function') {
+          openStoryViewer(2, 1);
+        }
+        const videoDisplay = videoElement ? videoElement.style.display : 'none';
+        const soundBtnDisplay = soundBtn ? soundBtn.style.display : 'none';
+
+        // Close viewer
+        if (typeof closeStoryViewer === 'function') {
+          closeStoryViewer();
+        }
+
+        // Return back to home
+        if (typeof switchTabNav === 'function') {
+          switchTabNav('home');
+        }
+
+        return {
+          isPageActive,
+          isSnavActive,
+          filterPillCount: filterPills.length,
+          reelBubbleCount: reelBubbles.length,
+          videoDisplay,
+          soundBtnDisplay
+        };
+      })()`,
+      returnByValue: true
+    });
+    const gtInfo = evalGalleryTab.result.value;
+    assert.strictEqual(gtInfo.isPageActive, true, 'Navigating to gallery tab activates #page-gallery');
+    assert.strictEqual(gtInfo.isSnavActive, true, 'Gallery sidebar item reflects active state');
+    assert.ok(gtInfo.filterPillCount >= 3, 'Gallery features All, Photos, and Videos filter pills');
+    assert.ok(gtInfo.reelBubbleCount >= 5, 'Dedicated gallery tab renders complete story highlights reel');
+    assert.strictEqual(gtInfo.videoDisplay, 'block', 'Story viewer displays HTML5 video element on video slide');
+    assert.strictEqual(gtInfo.soundBtnDisplay, 'flex', 'Story viewer displays sound toggle button on video slide');
+    console.log('  ✔ Dedicated Gallery tab navigation, media filter pills, and reel verified');
+    console.log('  ✔ Story viewer renders HTML5 video viewport with sound toggle controls');
+
 
     // 15. Test Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)
     console.log('\n[Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)]');
