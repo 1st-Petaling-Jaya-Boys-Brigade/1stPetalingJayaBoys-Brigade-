@@ -57,6 +57,9 @@ async function getMasterAttendanceData(forceRefresh) {
     var rows = await client.get('bb_config?key=eq.' + MASTER_ATTENDANCE_KEY + '&select=value');
     if (rows && rows.length && rows[0].value) {
       var parsed = JSON.parse(rows[0].value);
+      if (typeof window !== 'undefined' && typeof window.sanitizeMasterAttendancePayload === 'function') {
+        parsed = window.sanitizeMasterAttendancePayload(parsed);
+      }
       _masterAttendanceCache = parsed;
       _masterAttendanceCacheTime = now;
       if (typeof sessionStorage !== 'undefined') {
@@ -437,10 +440,18 @@ async function renderAdminMasterSheetPanel() {
     return { name: p, avg: Math.round(pltSums[p].sum / (pltSums[p].count || 1)) };
   }).sort(function(a, b) { return b.avg - a.avg; });
 
+  var cfg = { sheetId: '', scriptUrl: '', syncToken: '' };
+  if (typeof window !== 'undefined' && typeof window.loadMasterSheetConfig === 'function') {
+    try { cfg = await window.loadMasterSheetConfig(); } catch (eCfg) {}
+  } else if (typeof window !== 'undefined' && typeof window.loadMasterSheetConfig === 'function') {
+    try { cfg = await window.loadMasterSheetConfig(); } catch (eCfg) {}
+  }
+
   var supaUrl = (typeof SUPA_URL !== 'undefined') ? SUPA_URL : (typeof window.SUPA_URL !== 'undefined' ? window.SUPA_URL : 'YOUR_SUPABASE_PROJECT_URL');
   var supaKey = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window.SUPA_KEY !== 'undefined' ? window.SUPA_KEY : 'YOUR_SUPABASE_ANON_KEY');
-  var scriptCode = (typeof window.getGoogleAppsScriptTemplate === 'function') 
-    ? window.getGoogleAppsScriptTemplate(supaUrl, supaKey) 
+  var getTemplateFn = (typeof window !== 'undefined' && typeof window.getGoogleAppsScriptTemplate === 'function') ? window.getGoogleAppsScriptTemplate : null;
+  var scriptCode = getTemplateFn 
+    ? getTemplateFn(supaUrl, supaKey, cfg.syncToken) 
     : '// Copy from js/api/sheets.js';
 
   container.innerHTML =
@@ -494,6 +505,57 @@ async function renderAdminMasterSheetPanel() {
       '</div>' +
     '</div>' +
 
+    '<!-- Master Sheet Security & Endpoint Hardening (TSK-038) -->' +
+    '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow-card);">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
+        '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+          'Endpoint Security &amp; Master Sheet Hardening' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+          '<span style="font-size:10px;background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+            '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>' +
+            'Zero-PII Whitelist' +
+          '</span>' +
+          '<span style="font-size:10px;background:rgba(197,155,39,0.12);color:var(--accent);border:1px solid rgba(197,155,39,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+            '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;"></span>' +
+            'Token Auth Enforced' +
+          '</span>' +
+          '<span style="font-size:10px;background:rgba(59,130,246,0.12);color:var(--blue);border:1px solid rgba(59,130,246,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+            '<span style="width:6px;height:6px;border-radius:50%;background:var(--blue);display:inline-block;"></span>' +
+            'Restricted Sharing' +
+          '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">' +
+        'To protect member privacy (PDPA / COPPA), the portal integration strips all sensitive PII (parent phone numbers, home addresses, IC numbers) and authenticates all sync requests with a shared-secret proxy token.' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+        '<div>' +
+          '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-script-url-input">Google Apps Script Web App URL</label>' +
+          '<input type="text" id="master-script-url-input" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" value="' + escapeAttHtml(cfg.scriptUrl || '') + '" style="font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" />' +
+        '</div>' +
+        '<div>' +
+          '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-sheet-id-input">Google Master Sheet ID (Optional)</label>' +
+          '<input type="text" id="master-sheet-id-input" class="form-input" placeholder="e.g. 1a2B3c4D5e6F7g..." value="' + escapeAttHtml(cfg.sheetId || '') + '" style="font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" />' +
+        '</div>' +
+      '</div>' +
+      '<div style="margin-bottom:14px;">' +
+        '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-sync-token-input">Shared-Secret Proxy Sync Token (Protects against unauthorized scraping)</label>' +
+        '<div style="display:flex;gap:8px;align-items:center;">' +
+          '<input type="text" id="master-sync-token-input" class="form-input" placeholder="bb_sec_..." value="' + escapeAttHtml(cfg.syncToken || '') + '" style="font-size:12px;padding:7px 10px;flex:1;font-family:monospace;box-sizing:border-box;" />' +
+          '<button type="button" onclick="generateNewMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Generate Token</button>' +
+          '<button type="button" onclick="copyMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Copy Token</button>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding-top:10px;border-top:1px solid var(--border-card);">' +
+        '<div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">' +
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+          'Ensure the Master Google Sheet is set to <strong>Restricted</strong> sharing (never "Anyone with link").' +
+        '</div>' +
+        '<button type="button" id="btn-save-master-config" onclick="handleSaveMasterConfig()" class="portal-btn portal-btn-primary" style="padding:7px 18px;font-size:12px;font-family:\'Oswald\',sans-serif;font-weight:700;">Save Configuration</button>' +
+      '</div>' +
+    '</div>' +
     '<!-- Configuration & Apps Script Instructions -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;box-shadow:var(--shadow-card);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
@@ -578,6 +640,57 @@ async function copyAppsScriptSnippet() {
     }
   } else {
     alert('Please select and copy the code manually from the box below.');
+  }
+}
+
+function generateNewMasterSyncToken() {
+  var genFn = (typeof window !== 'undefined' && typeof window.generateSecureSyncToken === 'function') ? window.generateSecureSyncToken : null;
+  if (genFn) {
+    var newToken = genFn();
+    var inp = document.getElementById('master-sync-token-input');
+    if (inp) inp.value = newToken;
+    if (typeof showToast === 'function') showToast('New secure sync token generated. Click Save Configuration to persist.', 'info');
+    else if (typeof alert === 'function') alert('New secure sync token generated. Click Save Configuration to persist.');
+  }
+}
+
+async function copyMasterSyncToken() {
+  var inp = document.getElementById('master-sync-token-input');
+  if (!inp || !inp.value) return;
+  var token = inp.value;
+  var success = false;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(token);
+      success = true;
+    } catch (e) {}
+  }
+  if (!success) {
+    try {
+      inp.select();
+      success = document.execCommand('copy');
+    } catch (e2) {}
+  }
+  if (typeof showToast === 'function') showToast('Sync token copied to clipboard!', 'success');
+  else if (typeof alert === 'function') alert('Sync token copied!');
+}
+
+async function handleSaveMasterConfig() {
+  var sid = ((document.getElementById('master-sheet-id-input') || {}).value || '').trim();
+  var url = ((document.getElementById('master-script-url-input') || {}).value || '').trim();
+  var tok = ((document.getElementById('master-sync-token-input') || {}).value || '').trim();
+
+  var saveFn = (typeof window !== 'undefined' && typeof window.saveMasterSheetConfig === 'function') ? window.saveMasterSheetConfig : null;
+  if (saveFn) {
+    await saveFn({
+      sheetId: sid,
+      scriptUrl: url,
+      syncToken: tok,
+      autoSync: true,
+      piiFiltered: true,
+      lastUpdated: new Date().toISOString()
+    });
+    await renderAdminMasterSheetPanel();
   }
 }
 
@@ -743,6 +856,9 @@ if (typeof window !== 'undefined') {
   window.renderAdminMasterSheetPanel = renderAdminMasterSheetPanel;
   window.triggerMasterSheetFetch = triggerMasterSheetFetch;
   window.copyAppsScriptSnippet = copyAppsScriptSnippet;
+  window.generateNewMasterSyncToken = generateNewMasterSyncToken;
+  window.copyMasterSyncToken = copyMasterSyncToken;
+  window.handleSaveMasterConfig = handleSaveMasterConfig;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -754,6 +870,9 @@ if (typeof module !== 'undefined' && module.exports) {
     refreshMemberAttendanceStats: refreshMemberAttendanceStats,
     renderCompanyLeaderboard: renderCompanyLeaderboard,
     renderAdminMasterSheetPanel: renderAdminMasterSheetPanel,
-    triggerMasterSheetFetch: triggerMasterSheetFetch
+    triggerMasterSheetFetch: triggerMasterSheetFetch,
+    generateNewMasterSyncToken: generateNewMasterSyncToken,
+    copyMasterSyncToken: copyMasterSyncToken,
+    handleSaveMasterConfig: handleSaveMasterConfig
   };
 }
