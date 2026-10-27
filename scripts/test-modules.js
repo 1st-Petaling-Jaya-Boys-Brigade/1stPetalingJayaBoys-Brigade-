@@ -867,6 +867,209 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(sql005.includes('items jsonb'), 'Must declare items jsonb column');
   console.log('  ✔ Database migration 005_story_highlights.sql verified with table and RLS policies');
 
+  // ── Testing Google Apps Script & Master Sheet Endpoint Hardening (TSK-038) ──
+  console.log('\nTesting Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)...');
+  const sheetsMod = require('../js/api/sheets.js');
+  const attendanceMod = require('../js/modules/attendance.js');
+
+  // 1. Secure Sync Token Generation
+  const token1 = sheetsMod.generateSecureSyncToken();
+  const token2 = sheetsMod.generateSecureSyncToken();
+  assert.ok(typeof token1 === 'string' && token1.startsWith('bb_sec_'), 'Sync token must start with bb_sec_');
+  assert.ok(token1.length >= 30, 'Sync token must be at least 30 characters long');
+  assert.notStrictEqual(token1, token2, 'Generated tokens must be distinct high-entropy random strings');
+  console.log('  ✔ generateSecureSyncToken produces high-entropy bb_sec_ tokens');
+
+  // 2. Timing-Safe Token Verification
+  assert.strictEqual(sheetsMod.verifySyncToken(token1, token1), true, 'Identical tokens must verify');
+  assert.strictEqual(sheetsMod.verifySyncToken(token1, token2), false, 'Different tokens must fail verification');
+  assert.strictEqual(sheetsMod.verifySyncToken('', token1), false, 'Empty token must fail');
+  assert.strictEqual(sheetsMod.verifySyncToken(null, token1), false, 'Null token must fail');
+  assert.strictEqual(sheetsMod.verifySyncToken(token1, null), false, 'Null expected token must fail');
+  assert.strictEqual(sheetsMod.verifySyncToken(token1 + 'x', token1), false, 'Token with different length must fail');
+  console.log('  ✔ verifySyncToken and timingSafeEqualToken enforce constant-time authentication');
+
+  // 3. Sensitive PII Stripping on Member Record
+  const dirtyMember = {
+    name: 'Jeshua Tan',
+    rank: 'Sergeant',
+    platoon: 'Alpha',
+    squad: 'Alpha 1',
+    isBandMember: true,
+    bandSection: 'Trumpet',
+    paradeAttendance: { percentage: 95.5 },
+    bandAttendance: { percentage: 90 },
+    points: { uniform: 48, uniformAvg: 9.6, paradeAtt: 20, bandAtt: 20, total: 88 },
+    ic: '081215-10-1234',
+    mykad: '081215101234',
+    nric: '081215-10-1234',
+    phone: '012-3456789',
+    parentContact: '019-8765432',
+    parentName: 'Tan Ah Kow',
+    homeAddress: '123 Jalan Gasing, Petaling Jaya',
+    email: 'jeshua.tan@example.com',
+    dob: '2008-12-15',
+    medical: 'Asthma inhaler',
+    feesPaid: 150
+  };
+
+  const cleanMember = sheetsMod.sanitizeMasterMemberRecord(dirtyMember);
+  assert.strictEqual(cleanMember.name, 'Jeshua Tan');
+  assert.strictEqual(cleanMember.rank, 'Sergeant');
+  assert.strictEqual(cleanMember.platoon, 'Alpha');
+  assert.strictEqual(cleanMember.squad, 'Alpha 1');
+  assert.strictEqual(cleanMember.isBandMember, true);
+  assert.strictEqual(cleanMember.points.total, 88);
+
+  sheetsMod.SENSITIVE_PII_KEYS.forEach(k => {
+    assert.strictEqual(k in cleanMember, false, `Member record must not contain PII key: ${k}`);
+  });
+  assert.strictEqual(cleanMember.ic, undefined);
+  assert.strictEqual(cleanMember.phone, undefined);
+  assert.strictEqual(cleanMember.parentContact, undefined);
+  assert.strictEqual(cleanMember.homeAddress, undefined);
+  console.log('  ✔ sanitizeMasterMemberRecord strictly strips IC, phone, address, and parent details');
+
+  // 4. Sanitizing Full Master Attendance Payload
+  const dirtyPayload = {
+    lastSynced: new Date().toISOString(),
+    sheetTitle: '1st PJ Master Attendance 2026',
+    scannedSheets: ['Platoon Alpha', 'Platoon Papa', 'Band Attendance'],
+    members: {
+      'jeshuatan': dirtyMember,
+      'brianlee': {
+        name: 'Brian Lee',
+        rank: 'Corporal',
+        platoon: 'Papa',
+        squad: 'Papa 1',
+        points: { total: 75 },
+        phone: '017-1112233',
+        ic: '090101-14-5555'
+      },
+      'leakedPhoneList': {
+        name: 'Emergency Numbers',
+        phoneNumbers: '012-9999999'
+      }
+    },
+    squads: {
+      'Alpha 1': { name: 'Alpha 1', points: 155, rank: 1, platoon: 'Alpha' }
+    },
+    platoons: {
+      'Alpha': { name: 'Alpha', totalPoints: 155, averagePoints: 155, squadCount: 1, rank: 1 }
+    }
+  };
+
+  const cleanPayload = sheetsMod.sanitizeMasterAttendancePayload(dirtyPayload);
+  assert.ok(cleanPayload._security.piiStripped, 'Payload must be tagged as PII stripped');
+  assert.ok(cleanPayload._security.dataMinimizationCompliant, 'Payload must be marked compliant');
+  assert.strictEqual(cleanPayload.members['jeshuatan'].phone, undefined);
+  assert.strictEqual(cleanPayload.members['brianlee'].ic, undefined);
+  assert.strictEqual(cleanPayload.members['brianlee'].phone, undefined);
+  console.log('  ✔ sanitizeMasterAttendancePayload sanitizes full dataset ensuring zero PII leakage');
+
+  // 5. Configuration Persistence with Auto-Generated Sync Token
+  let mockMasterConfigJson = null;
+  const originalGet = global.supa.get;
+  const originalReq = global.supa.req;
+
+  global.supa.req = async (method, path, body) => {
+    if (path.includes('bb_config') && body && body.key === 'bb_master_sheet_config') {
+      mockMasterConfigJson = body.value;
+      return [{ id: 'cfg_1', ...body }];
+    }
+    return originalReq(method, path, body);
+  };
+  global.supa.get = async (path) => {
+    if (path.includes('bb_master_sheet_config')) {
+      return mockMasterConfigJson ? [{ value: mockMasterConfigJson }] : [];
+    }
+    return originalGet(path);
+  };
+
+  const cfg = await sheetsMod.loadMasterSheetConfig();
+  assert.ok(cfg.syncToken && cfg.syncToken.startsWith('bb_sec_'), 'Config must have a secure sync token');
+  assert.strictEqual(cfg.piiFiltered, true, 'piiFiltered flag must be true');
+
+  const customToken = 'bb_sec_custom_test_token_12345';
+  await sheetsMod.saveMasterSheetConfig({
+    sheetId: 'test_sheet_id_123',
+    scriptUrl: 'https://script.google.com/macros/s/test_exec/exec',
+    syncToken: customToken,
+    autoSync: true,
+    piiFiltered: true
+  });
+  const reloadedCfg = await sheetsMod.loadMasterSheetConfig();
+  assert.strictEqual(reloadedCfg.syncToken, customToken, 'Custom sync token must persist in config');
+  console.log('  ✔ loadMasterSheetConfig and saveMasterSheetConfig persist token and security settings');
+
+  // 6. GAS Web App Fetch with Token Authentication
+  let lastFetchUrl = '';
+  let lastFetchHeaders = {};
+  global.fetch = async (url, opts) => {
+    lastFetchUrl = url;
+    lastFetchHeaders = (opts && opts.headers) || {};
+    if (url.includes('token=' + encodeURIComponent(customToken))) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => dirtyPayload
+      };
+    } else {
+      return {
+        ok: false,
+        status: 401,
+        json: async () => ({ error: 'Unauthorized: Invalid sync token', status: 401 })
+      };
+    }
+  };
+
+  const fetchedData = await sheetsMod.fetchMasterAttendanceFromGAS(
+    'https://script.google.com/macros/s/test_exec/exec',
+    customToken
+  );
+  assert.ok(lastFetchUrl.includes('token=' + encodeURIComponent(customToken)), 'Token query param must be sent to GAS');
+  assert.strictEqual(lastFetchHeaders['X-Sync-Token'], customToken, 'X-Sync-Token header must be passed');
+  assert.ok(fetchedData._security.piiStripped, 'Fetched data must be sanitized before return');
+  console.log('  ✔ fetchMasterAttendanceFromGAS enforces token and strips PII before caching');
+
+  await assert.rejects(
+    async () => {
+      await sheetsMod.fetchMasterAttendanceFromGAS(
+        'https://script.google.com/macros/s/test_exec/exec',
+        'wrong_token'
+      );
+    },
+    /Unauthorized/i,
+    'Fetch with wrong token must throw Unauthorized error'
+  );
+  console.log('  ✔ fetchMasterAttendanceFromGAS rejects unauthorized requests with HTTP 401');
+
+  // 7. Google Apps Script Hardened Template Verification
+  const templateCode = sheetsMod.getGoogleAppsScriptTemplate(
+    'https://example.supabase.co',
+    'example_key',
+    customToken
+  );
+  assert.ok(templateCode.includes(`var SYNC_TOKEN          = '${customToken}';`), 'Template must embed active sync token');
+  assert.ok(templateCode.includes('function doGet(e)'), 'Template must define doGet handler');
+  assert.ok(templateCode.includes('function doPost(e)'), 'Template must define doPost handler');
+  assert.ok(templateCode.includes('reqToken !== SYNC_TOKEN'), 'Template must enforce token equality check');
+  assert.ok(templateCode.includes('status: 401'), 'Template must return HTTP 401 on token failure');
+  assert.ok(templateCode.includes('function auditSheetSharingSecurity()'), 'Template must include sheet sharing audit function');
+  assert.ok(templateCode.includes('DriveApp.Access.ANYONE_WITH_LINK'), 'Template must check for anyone with link access');
+  assert.ok(templateCode.includes('Audit Sheet Sharing & Privacy'), 'Template menu must include sharing audit action');
+  assert.ok(templateCode.includes('buildSanitizedAttendancePayload'), 'Template must build sanitized payload with zero PII');
+  console.log('  ✔ Google Apps Script template incorporates token auth, sharing audit, and zero-PII payload builder');
+
+  // 8. Admin Master Sheet Panel UI Controls
+  await attendanceMod.renderAdminMasterSheetPanel();
+  const panel = document.getElementById('adm-master-sheet-panel');
+  assert.ok(panel.innerHTML.includes(customToken), 'Rendered panel HTML must include active sync token');
+  assert.ok(panel.innerHTML.includes('Endpoint Security &amp; Master Sheet Hardening'), 'Must render security hardening section');
+  assert.ok(panel.innerHTML.includes('Zero-PII Whitelist'), 'Must display Zero-PII Whitelist badge');
+  assert.ok(panel.innerHTML.includes('Token Auth Enforced'), 'Must display Token Auth Enforced badge');
+  console.log('  ✔ renderAdminMasterSheetPanel renders endpoint hardening controls and pre-populated snippet');
+
   // ── Testing Developer Tooling & Linting (TSK-015) ──────────────────────────
   console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));

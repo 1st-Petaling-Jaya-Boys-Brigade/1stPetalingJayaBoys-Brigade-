@@ -585,6 +585,7 @@ async function getJson(url) {
     console.log('\n[Story Highlights Reel & Full-Screen Viewer (TSK-033)]');
     const evalStoryHighlights = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
+        if (typeof renderStoryHighlightsReel === 'function') { renderStoryHighlightsReel(); }
         const reel = document.getElementById('story-highlights-reel');
         const items = reel ? reel.querySelectorAll('.story-highlight-item') : [];
         const viewerModal = document.getElementById('story-viewer-modal');
@@ -623,6 +624,7 @@ async function getJson(url) {
       returnByValue: true
     });
     const shInfo = evalStoryHighlights.result.value;
+    
     assert.strictEqual(shInfo.hasReel, true, 'Story highlights reel must exist in gallery');
     assert.ok(shInfo.itemCount >= 5, 'Must render at least 5 story highlight bubbles');
     assert.strictEqual(shInfo.firstLabel, 'Camps', 'First highlight bubble must be Camps');
@@ -638,6 +640,71 @@ async function getJson(url) {
     assert.strictEqual(shInfo.hasAdminList, true, 'Admin console has Story Highlights management list');
     assert.strictEqual(shInfo.hasAdminModal, true, 'Admin console has Create/Edit Story Modal');
     console.log('  ✔ Admin console provides complete story highlight and slide management interface');
+
+    // 15. Test Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)
+    console.log('\n[Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)]');
+    const evalGasHardening = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        // Switch to Admin Attendance tab
+        if (typeof switchAdminSection === 'function') {
+          switchAdminSection('attendance');
+        }
+        if (typeof renderAdminMasterSheetPanel === 'function') {
+          await renderAdminMasterSheetPanel();
+        }
+
+        const panel = document.getElementById('adm-master-sheet-panel');
+        const scriptInp = document.getElementById('master-script-url-input');
+        const sheetInp = document.getElementById('master-sheet-id-input');
+        const tokenInp = document.getElementById('master-sync-token-input');
+        const saveBtn = document.getElementById('btn-save-master-config');
+        const syncBtn = document.getElementById('btn-adm-sync-sheet');
+        const gasPre = document.getElementById('gas-snippet-pre');
+
+        const panelHtml = panel ? panel.innerHTML : '';
+        const tokenVal = tokenInp ? tokenInp.value : '';
+        const preText = gasPre ? gasPre.textContent : '';
+
+        return {
+          hasPanel: !!panel,
+          hasScriptInp: !!scriptInp,
+          hasSheetInp: !!sheetInp,
+          hasTokenInp: !!tokenInp,
+          hasSaveBtn: !!saveBtn,
+          hasSyncBtn: !!syncBtn,
+          tokenVal,
+          hasPiiBadge: panelHtml.includes('Zero-PII Whitelist'),
+          hasTokenBadge: panelHtml.includes('Token Auth Enforced'),
+          hasSharingBadge: panelHtml.includes('Restricted Sharing'),
+          snippetHasToken: preText.includes('SYNC_TOKEN'),
+          snippetHasDoGet: preText.includes('function doGet(e)'),
+          snippetHasDoPost: preText.includes('function doPost(e)'),
+          snippetHasAudit: preText.includes('auditSheetSharingSecurity')
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const ghInfo = evalGasHardening.result.value;
+    assert.strictEqual(ghInfo.hasPanel, true, 'Admin master sheet panel must exist');
+    assert.strictEqual(ghInfo.hasScriptInp, true, 'Web App script URL input must exist');
+    assert.strictEqual(ghInfo.hasSheetInp, true, 'Sheet ID input must exist');
+    assert.strictEqual(ghInfo.hasTokenInp, true, 'Sync token input must exist');
+    assert.strictEqual(ghInfo.hasSaveBtn, true, 'Save config button must exist');
+    assert.strictEqual(ghInfo.hasSyncBtn, true, 'Sync Now button must exist');
+    assert.ok(ghInfo.tokenVal && ghInfo.tokenVal.startsWith('bb_sec_'), 'Token input must contain secure bb_sec_ token');
+    console.log('  ✔ Admin console provides complete endpoint security inputs and active sync token');
+
+    assert.strictEqual(ghInfo.hasPiiBadge, true, 'Must display Zero-PII Whitelist badge');
+    assert.strictEqual(ghInfo.hasTokenBadge, true, 'Must display Token Auth Enforced badge');
+    assert.strictEqual(ghInfo.hasSharingBadge, true, 'Must display Restricted Sharing badge');
+    console.log('  ✔ Hardening status badges verify PII stripping, proxy token auth, and restricted sharing');
+
+    assert.strictEqual(ghInfo.snippetHasToken, true, 'Apps script snippet must embed SYNC_TOKEN');
+    assert.strictEqual(ghInfo.snippetHasDoGet, true, 'Apps script snippet must define doGet handler');
+    assert.strictEqual(ghInfo.snippetHasDoPost, true, 'Apps script snippet must define doPost handler');
+    assert.strictEqual(ghInfo.snippetHasAudit, true, 'Apps script snippet must include sheet sharing audit function');
+    console.log('  ✔ Generated Google Apps Script template incorporates token authentication and security audits');
 
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');

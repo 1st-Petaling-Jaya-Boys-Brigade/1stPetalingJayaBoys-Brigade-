@@ -596,6 +596,21 @@ function renderStoryHighlightsReel() {
   });
 }
 
+// Auto-initialize reel immediately from default highlights if DOM is available
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      renderStoryHighlightsReel();
+      renderAdminStoryHighlights();
+    });
+  } else {
+    setTimeout(function() {
+      renderStoryHighlightsReel();
+      renderAdminStoryHighlights();
+    }, 0);
+  }
+}
+
 /**
  * Opens the Fullscreen Story Viewer Modal for a specific highlight and slide
  */
