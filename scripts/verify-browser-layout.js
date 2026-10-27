@@ -581,6 +581,64 @@ async function getJson(url) {
     assert.strictEqual(csInfo.hasGalleryAdvisory, true, 'Gallery management must feature Child Safety & Media Release advisory');
     console.log('  ✔ Admin console provides full section governance and child safety advisory enforcement');
 
+    // 14. Test Instagram-Style Story Highlights & Event Gallery Reel (TSK-033)
+    console.log('\n[Story Highlights Reel & Full-Screen Viewer (TSK-033)]');
+    const evalStoryHighlights = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const reel = document.getElementById('story-highlights-reel');
+        const items = reel ? reel.querySelectorAll('.story-highlight-item') : [];
+        const viewerModal = document.getElementById('story-viewer-modal');
+        const adminList = document.getElementById('admin-story-highlights-list');
+        const adminModal = document.getElementById('adm-story-modal');
+
+        // Test opening story viewer
+        if (typeof openStoryViewer === 'function') {
+          openStoryViewer(0, 0);
+        }
+
+        const modalDisplay = viewerModal ? window.getComputedStyle(viewerModal).display : 'none';
+        const progressBars = document.querySelectorAll('.story-progress-bar');
+        const slideImg = document.getElementById('story-viewer-img');
+        const slideTitle = document.getElementById('story-viewer-title');
+
+        // Test closing story viewer
+        if (typeof closeStoryViewer === 'function') {
+          closeStoryViewer();
+        }
+        const closedDisplay = viewerModal ? viewerModal.style.display : '';
+
+        return {
+          hasReel: !!reel,
+          itemCount: items.length,
+          firstLabel: items.length > 0 ? items[0].querySelector('.story-highlight-label').textContent.trim() : '',
+          modalDisplay,
+          progressBarCount: progressBars.length,
+          hasImg: !!slideImg,
+          activeTitle: slideTitle ? slideTitle.textContent : '',
+          closedDisplay,
+          hasAdminList: !!adminList,
+          hasAdminModal: !!adminModal
+        };
+      })()`,
+      returnByValue: true
+    });
+    const shInfo = evalStoryHighlights.result.value;
+    assert.strictEqual(shInfo.hasReel, true, 'Story highlights reel must exist in gallery');
+    assert.ok(shInfo.itemCount >= 5, 'Must render at least 5 story highlight bubbles');
+    assert.strictEqual(shInfo.firstLabel, 'Camps', 'First highlight bubble must be Camps');
+    console.log('  ✔ Story highlights circular bubble reel renders with active categories:', shInfo.itemCount);
+
+    assert.strictEqual(shInfo.modalDisplay, 'flex', 'Opening story viewer displays modal');
+    assert.ok(shInfo.progressBarCount >= 3, 'Must render segmented progress bars matching slide count');
+    assert.strictEqual(shInfo.activeTitle, 'Camps', 'Modal header reflects active highlight category');
+    assert.strictEqual(shInfo.hasImg, true, 'Modal contains active slide media viewport');
+    assert.strictEqual(shInfo.closedDisplay, 'none', 'Closing story viewer hides modal');
+    console.log('  ✔ Story viewer opens full-screen with segmented progress bars and closes cleanly');
+
+    assert.strictEqual(shInfo.hasAdminList, true, 'Admin console has Story Highlights management list');
+    assert.strictEqual(shInfo.hasAdminModal, true, 'Admin console has Create/Edit Story Modal');
+    console.log('  ✔ Admin console provides complete story highlight and slide management interface');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {

@@ -565,6 +565,8 @@
       <div class="s-title">Photos &amp; Posts</div>
       <div class="s-badge">Latest</div>
     </div>
+    <!-- Instagram-Style Story Highlights Reel (TSK-033) -->
+    <div id="story-highlights-reel" class="story-highlights-reel"></div>
     <div id="gallery-grid" class="gallery-grid"></div>
     <div id="no-photos" style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No photos uploaded yet.</div>
 
@@ -1959,6 +1961,22 @@
             <div class="adm-section-desc">Photos shown on the home page</div>
           </div>
         </div>
+        <!-- Story Highlights Admin Management (TSK-033) -->
+        <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                <span>Story Highlights &amp; Event Reels</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Manage circular Instagram-style story highlights displayed above the photo gallery</div>
+            </div>
+            <button type="button" class="portal-btn portal-btn-primary" onclick="openCreateStoryModal()" style="font-size:12px;padding:6px 14px;">
+              + New Highlight
+            </button>
+          </div>
+          <div id="admin-story-highlights-list" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:10px;"></div>
+        </div>
         <div style="border:2px dashed var(--border-card);border-radius:12px;padding:24px;text-align:center;position:relative;cursor:pointer;background:var(--bg-card);margin-bottom:14px;" id="gallery-drop">
           <input type="file" id="gallery-file" accept="image/*" multiple style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="handleGalleryUpload(this)"/>
           <div style="margin-bottom:8px;display:flex;justify-content:center;color:var(--brand-gold);">
@@ -2166,6 +2184,83 @@
     </div>
   </div>
 </div>
+
+<!-- ── INSTAGRAM-STYLE FULLSCREEN STORY VIEWER MODAL (TSK-033) ── -->
+<div id="story-viewer-modal" class="story-viewer-modal" role="dialog" aria-modal="true" aria-label="Story Viewer">
+  <div class="story-viewer-card">
+    <!-- Top Segmented Progress Bar -->
+    <div class="story-progress-container" id="story-progress-bars"></div>
+
+    <!-- Header Overlay -->
+    <div class="story-header-overlay">
+      <div class="story-header-left">
+        <div class="story-header-avatar">
+          <img id="story-viewer-avatar" src="assets/logo.png" alt="Highlight cover" />
+        </div>
+        <div class="story-header-meta">
+          <span id="story-viewer-title" class="story-header-title">Camps</span>
+          <span id="story-viewer-date" class="story-header-date">Oct 2026</span>
+        </div>
+      </div>
+      <div class="story-header-controls">
+        <button type="button" class="story-btn-icon" id="story-btn-pause" onclick="toggleStoryPause()" title="Pause/Play" aria-label="Pause/Play">
+          <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button type="button" class="story-btn-icon" onclick="closeStoryViewer()" title="Close story" aria-label="Close story">&times;</button>
+      </div>
+    </div>
+
+    <!-- Media Area -->
+    <div class="story-media-container" id="story-media-wrap">
+      <img id="story-viewer-img" class="story-media-img" src="" alt="Story slide" />
+      <div class="story-nav-zones">
+        <div class="story-nav-left" onclick="prevStorySlide()" title="Previous slide"></div>
+        <div class="story-nav-right" onclick="nextStorySlide()" title="Next slide"></div>
+      </div>
+    </div>
+
+    <!-- Caption Overlay -->
+    <div class="story-caption-overlay">
+      <div id="story-viewer-pill" class="story-caption-pill" style="display:none;"></div>
+      <div id="story-viewer-caption" class="story-caption-text"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN CREATE / EDIT STORY HIGHLIGHT MODAL (TSK-033) ── -->
+<div id="adm-story-modal" class="portal-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--accent);" id="adm-story-modal-title">Create Story Highlight</div>
+      <button type="button" onclick="closeAdminStoryModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;">&times;</button>
+    </div>
+
+    <input type="hidden" id="adm-story-id" />
+
+    <div class="form-group" style="margin-bottom:10px;">
+      <label class="form-label" for="adm-story-title">Highlight Title <span style="color:var(--red);">*</span></label>
+      <input type="text" id="adm-story-title" class="form-input" placeholder="e.g. Boot Camp 2026, Awards Day, Brass Band" required />
+    </div>
+
+    <div class="form-group" style="margin-bottom:12px;">
+      <label class="form-label" for="adm-story-cover">Cover Image URL (Circular Bubble)</label>
+      <input type="text" id="adm-story-cover" class="form-input" placeholder="e.g. https://... or leave empty to use first slide" />
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <label class="form-label" style="margin-bottom:0;">Story Slides</label>
+      <button type="button" class="portal-btn portal-btn-secondary" onclick="addStorySlideRow('', '', '', '')" style="font-size:11px;padding:3px 10px;">+ Add Slide</button>
+    </div>
+
+    <div id="adm-story-slides-list" style="margin-bottom:14px;"></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button type="button" class="portal-btn portal-btn-secondary" onclick="closeAdminStoryModal()">Cancel</button>
+      <button type="button" class="portal-btn portal-btn-primary" onclick="saveStoryHighlightModal()">Save Highlight</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── CALENDAR DAY DETAILS MODAL (GOOGLE DOC BREAKDOWN) ────────────────── -->
 <div id="calendar-day-modal" class="portal-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:580px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);position:relative;">
@@ -4392,7 +4487,7 @@ function switchAdminSection(section) {
   if (section === 'tasks')         { switchDeptTab('all'); setTimeout(function(){ createRichEditor('task-desc-container','task-desc','Task details...',70); },50); }
   if (section === 'announcements') renderAdminAnnList();
   if (section === 'badges')        switchBadgeSubtab('badgedefs');
-  if (section === 'gallery')       renderGallery();
+  if (section === 'gallery')       { renderGallery(); if (typeof renderAdminStoryHighlights === 'function') renderAdminStoryHighlights(); }
   if (section === 'attendance')    { if (typeof renderAdminMasterSheetPanel === 'function') renderAdminMasterSheetPanel(); }
   if (section === 'resources')     { if (typeof renderAdminResourcesPanel === 'function') renderAdminResourcesPanel(); }
   if (section === 'calendar')      { if (typeof renderAdminCalendarGrid === 'function') renderAdminCalendarGrid(); }
@@ -5296,6 +5391,7 @@ window.addEventListener('load', function() {
   loadPrices();
   loadPaymentInfo();
   loadGallery();
+  if (typeof loadStoryHighlights === 'function') loadStoryHighlights();
   loadAnnouncements();
   if (typeof loadResources === 'function') loadResources();
   if (typeof initQuickCardsCarousel === 'function') initQuickCardsCarousel();
