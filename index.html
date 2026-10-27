@@ -2294,11 +2294,18 @@
     <div class="story-media-container" id="story-media-wrap">
       <img id="story-viewer-img" class="story-media-img" src="" alt="Story slide" />
       <video id="story-viewer-video" class="story-media-video" playsinline webkit-playsinline style="display:none;"></video>
-      <iframe id="story-viewer-iframe" class="story-media-iframe" style="display:none;" allow="autoplay; fullscreen; encrypted-media"></iframe>
-      <div class="story-nav-zones">
+      <iframe id="story-viewer-iframe" class="story-media-iframe" style="display:none;" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+      <div class="story-nav-zones" id="story-nav-zones">
         <div class="story-nav-left" onclick="prevStorySlide()" title="Previous slide"></div>
         <div class="story-nav-right" onclick="nextStorySlide()" title="Next slide"></div>
       </div>
+      <!-- Tactile Side Navigation Arrows (Ensures video center is 100% clickable for Drive & Reel playback) -->
+      <button type="button" class="story-arrow-btn story-arrow-prev" onclick="prevStorySlide()" title="Previous slide" aria-label="Previous slide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button type="button" class="story-arrow-btn story-arrow-next" onclick="nextStorySlide()" title="Next slide" aria-label="Next slide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>
 
     <!-- Caption Overlay -->

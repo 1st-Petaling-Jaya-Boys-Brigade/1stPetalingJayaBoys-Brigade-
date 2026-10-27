@@ -117,7 +117,12 @@ async function loadGallery() {
   try {
     var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
     if (client && client.req) {
-      var rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url,type');
+      var rows = null;
+      try {
+        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url,type');
+      } catch (errType) {
+        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url');
+      }
       galleryImages.length = 0;
       if (rows && rows.length) {
         rows.forEach(function(r) {
@@ -368,6 +373,7 @@ async function uploadGalleryFiles(files) {
 
   var successCount = 0;
   var failCount = 0;
+  var lastUploadError = '';
 
   for (var fi = 0; fi < validFiles.length; fi++) {
     var file = validFiles[fi];
@@ -377,11 +383,18 @@ async function uploadGalleryFiles(files) {
         var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
         var row = null;
         if (client && client.post) {
-          row = await client.post('bb_gallery', {
-            url: res.url,
-            type: res.type,
-            created_at: new Date().toISOString()
-          });
+          try {
+            row = await client.post('bb_gallery', {
+              url: res.url,
+              type: res.type,
+              created_at: new Date().toISOString()
+            });
+          } catch (errPostType) {
+            row = await client.post('bb_gallery', {
+              url: res.url,
+              created_at: new Date().toISOString()
+            });
+          }
         }
         var id = (row && row[0] && row[0].id) ? row[0].id : null;
         galleryImages.push({ id: id, url: res.url, type: res.type });
@@ -389,6 +402,7 @@ async function uploadGalleryFiles(files) {
       }
     } catch (e) {
       console.error('Gallery upload error for file ' + file.name + ':', e);
+      lastUploadError = e.message || 'Storage error';
       failCount++;
     }
   }
@@ -403,7 +417,7 @@ async function uploadGalleryFiles(files) {
     } else if (successCount > 0 && failCount > 0) {
       showToast('Uploaded ' + successCount + ' file' + (successCount > 1 ? 's' : '') + ' (' + failCount + ' failed).', 'warning');
     } else if (failCount > 0) {
-      showToast('Failed to upload media. Please check storage bucket permissions.', 'error');
+      showToast('Upload failed: ' + (lastUploadError || 'Please check storage bucket permissions.'), 'error');
     }
   }
 }
@@ -914,6 +928,9 @@ function updateStorySlideView() {
   if (isVid) {
     if (safeMediaUrl.indexOf('/preview') !== -1 || safeMediaUrl.indexOf('youtube') !== -1 || safeMediaUrl.indexOf('vimeo') !== -1) {
       // Embedded player (Google Drive Preview, YouTube)
+      var navZones = document.getElementById('story-nav-zones');
+      if (navZones) navZones.style.pointerEvents = 'none'; // Unblock clicks so user can tap play & sound directly!
+
       if (imgEl) imgEl.style.display = 'none';
       if (videoEl) {
         videoEl.style.display = 'none';
@@ -925,10 +942,13 @@ function updateStorySlideView() {
         iframeEl.style.display = 'block';
         iframeEl.src = safeMediaUrl;
       }
-      _storySlideDuration = 10000;
+      // Allow user to watch the complete video reel without 10-second cutoff
+      _storySlideDuration = 300000; // 5 minutes, advances on user next click
       startStoryTimer(_storySlideDuration);
     } else {
       // Direct HTML5 Video (MP4, WebM, MOV)
+      var navZonesVid = document.getElementById('story-nav-zones');
+      if (navZonesVid) navZonesVid.style.pointerEvents = 'auto';
       if (imgEl) imgEl.style.display = 'none';
       if (iframeEl) {
         iframeEl.style.display = 'none';
@@ -967,6 +987,8 @@ function updateStorySlideView() {
     }
   } else {
     // Standard Photo Slide
+    var navZonesPhoto = document.getElementById('story-nav-zones');
+    if (navZonesPhoto) navZonesPhoto.style.pointerEvents = 'auto';
     if (videoEl) {
       videoEl.style.display = 'none';
       if (typeof videoEl.pause === 'function') videoEl.pause();
@@ -999,9 +1021,18 @@ function updateStorySlideView() {
   var captionEl = document.getElementById('story-viewer-caption');
 
   if (pillEl) {
-    if (curSlide.location) {
+    var driveIdMatch = safeMediaUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    var driveFileId = driveIdMatch ? driveIdMatch[1] : null;
+
+    if (curSlide.location || driveFileId) {
       pillEl.style.display = 'inline-flex';
-      pillEl.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location);
+      var locHtml = curSlide.location
+        ? '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location)
+        : '';
+      var driveLinkHtml = driveFileId
+        ? '<a href="https://drive.google.com/file/d/' + driveFileId + '/view" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;margin-left:6px;display:inline-flex;align-items:center;gap:3px;pointer-events:auto;" title="Open high-res reel in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Reel &nearr;</a>'
+        : '';
+      pillEl.innerHTML = locHtml + driveLinkHtml;
     } else {
       pillEl.style.display = 'none';
     }
