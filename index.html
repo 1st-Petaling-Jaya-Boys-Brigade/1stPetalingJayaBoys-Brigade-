@@ -1504,6 +1504,15 @@
             <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="em-name" type="text"/></div>
             <div class="form-group"><label class="form-label">Account Email / Member ID</label><input class="form-input" id="em-ic" type="text"/></div>
             <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="em-dob" type="date"/></div>
+            <div class="form-group">
+              <label class="form-label" for="em-section">Section (PDPA/COPPA Governance)</label>
+              <select class="form-select" id="em-section" onchange="handleAdminSectionChange()">
+                <option value="">Select section...</option>
+                <option value="Pre-Junior">Pre-Junior (Ages 6 - 8)</option>
+                <option value="Junior">Junior (Ages 9 - 11)</option>
+                <option value="Senior">Senior (Ages 12 - 18)</option>
+              </select>
+            </div>
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Rank</label>
@@ -1957,6 +1966,10 @@
           </div>
           <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Click or drag photos here</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Multiple files supported</div>
+        </div>
+        <div style="margin-bottom:14px;padding:10px 14px;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);">
+          <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span><strong>Child Safety &amp; Media Release Advisory (COPPA/PDPA):</strong> Ensure photos featuring Pre-Junior (6–8) and Junior (9–11) members only include children whose parents have opted-in to the Media Release (labeled <em>Consent OK</em> in Member Management). Members with <em>No Media</em> flags must not appear in public photos.</span>
         </div>
         <div id="admin-gallery-grid" class="gallery-grid"></div>
       </div>
@@ -4579,9 +4592,26 @@ async function renderAdminList() {
   } catch(e) { list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>'; }
 }
 
+function handleAdminSectionChange() {
+  var sec = (document.getElementById('em-section') || {}).value || '';
+  var dob = (document.getElementById('em-dob') || {}).value || '';
+  var age = (typeof calcAge === 'function') ? calcAge(dob) : null;
+  var isMinor = (typeof isMinorSection === 'function') ? isMinorSection(sec, age) : (sec === 'Pre-Junior' || sec === 'Junior' || (age !== null && age <= 11));
+  var box = document.getElementById('em-child-safety-box');
+  if (box) {
+    if (isMinor) {
+      box.style.border = '1px solid rgba(217,163,35,0.45)';
+      box.style.background = 'rgba(217,163,35,0.08)';
+    } else {
+      box.style.border = '1px solid var(--border-card)';
+      box.style.background = 'var(--bg-card-subtle)';
+    }
+  }
+}
+
 function openAddMember() {
   ['em-name','em-ic','em-joined','em-dob','em-parent-name','em-parent-contact'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
-  ['em-rank','em-squad','em-dept'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
+  ['em-rank','em-squad','em-dept','em-section'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = ''; });
   var pc = document.getElementById('em-parent-consent'); if (pc) pc.checked = false;
   var mc = document.getElementById('em-media-consent'); if (mc) mc.checked = false;
   var cm = document.getElementById('em-consent-meta'); if (cm) cm.textContent = '';
@@ -4600,6 +4630,8 @@ function openEditMember(ic) {
   set('em-rank',  m.rank);
   set('em-squad', m.squad);
   set('em-dept',  m.department);
+  set('em-section', m.att_section || m.section || '');
+  handleAdminSectionChange();
   set('em-joined',       m.joined_at    ? m.joined_at.slice(0,10)    : '');
   set('em-dob',          m.date_of_birth ? m.date_of_birth.slice(0,10) : '');
   set('em-original-ic', m.ic);
@@ -4654,6 +4686,8 @@ async function saveEditMember() {
   var joined_at     = joinedRaw ? new Date(joinedRaw).toISOString() : null;
   var dobRaw        = (document.getElementById('em-dob') || {}).value || '';
   var date_of_birth = dobRaw || null;
+  var rawSec        = ((document.getElementById('em-section') || {}).value || '').trim();
+  var att_section   = (typeof sanitizeText === 'function') ? sanitizeText(rawSec, 50) : rawSec;
   var rawPName      = ((document.getElementById('em-parent-name') || {}).value || '').trim();
   var rawPContact   = ((document.getElementById('em-parent-contact') || {}).value || '').trim();
   var parent_name   = (typeof sanitizeText === 'function') ? sanitizeText(rawPName, 100) : rawPName;
@@ -4670,7 +4704,7 @@ async function saveEditMember() {
       var existing = await supa.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=ic');
       if (existing && existing.length) return alert('A member with this Account Email / ID already exists.');
       var defaultHash = (typeof hashPassword === 'function') ? await hashPassword(ic) : btoa(ic);
-      var newPayload = { ic: ic, name: name, rank: rank, squad: squad, department: department, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() };
+      var newPayload = { ic: ic, name: name, rank: rank, squad: squad, department: department, att_section: att_section || null, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() };
       if (parent_name) newPayload.parent_name = parent_name;
       if (parent_contact) newPayload.parent_contact = parent_contact;
       if (parental_consent_signed) { newPayload.parental_consent_signed = true; newPayload.parental_consent_date = consentTimestamp; }
@@ -4683,7 +4717,7 @@ async function saveEditMember() {
       }
       alert('\u2705 Member added!\n\nDefault password is their Account Email/ID: ' + ic);
     } else {
-      var updates = { name: name, rank: rank, squad: squad, department: department };
+      var updates = { name: name, rank: rank, squad: squad, department: department, att_section: att_section || null };
       if (joined_at)     updates.joined_at     = joined_at;
       if (date_of_birth) updates.date_of_birth = date_of_birth;
       updates.parent_name = parent_name || null;
@@ -4707,6 +4741,7 @@ async function saveEditMember() {
       var consentRecord = {
         email: ic,
         name: name,
+        section: att_section || (window._adminMembers && window._adminMembers[ic] && (window._adminMembers[ic].att_section || window._adminMembers[ic].section)) || '',
         parent_name: parent_name,
         parent_contact: parent_contact,
         parental_consent_signed: parental_consent_signed,

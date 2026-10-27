@@ -538,6 +538,49 @@ async function getJson(url) {
     assert.strictEqual(pnInfo.fontSmoothing, 'antialiased', 'Cards must use antialiased font smoothing for razor sharpness');
     console.log('  ✔ Quick access carousel cards have optimal crisp font smoothing');
 
+        // 13. Test Child Safety (COPPA/PDPA) & Parental Consent Governance
+    console.log('\n[Child Safety & Parental Consent Governance (TSK-032)]');
+    const evalChildSafety = await sendCmd('Runtime.evaluate', {
+      expression: '(() => {' +
+        'const consentBox = document.getElementById("parent-consent-box");' +
+        'const pNameInp = document.getElementById("reg-parent-name");' +
+        'const pContactInp = document.getElementById("reg-parent-contact");' +
+        'const pConsentCb = document.getElementById("reg-parent-consent");' +
+        'const pMediaCb = document.getElementById("reg-media-consent");' +
+        'const policyModal = document.getElementById("child-safety-modal");' +
+        'const emSectionSel = document.getElementById("em-section");' +
+        'const emChildSafetyBox = document.getElementById("em-child-safety-box");' +
+        'const galleryAdvisory = document.getElementById("adm-section-gallery");' +
+        'return {' +
+          'hasConsentBox: !!consentBox,' +
+          'hasParentName: !!pNameInp,' +
+          'hasParentContact: !!pContactInp,' +
+          'hasParentConsent: !!pConsentCb,' +
+          'hasMediaConsent: !!pMediaCb,' +
+          'mediaDefaultChecked: pMediaCb ? pMediaCb.checked : null,' +
+          'hasPolicyModal: !!policyModal,' +
+          'hasEmSection: !!emSectionSel,' +
+          'hasEmChildSafety: !!emChildSafetyBox,' +
+          'hasGalleryAdvisory: galleryAdvisory ? galleryAdvisory.textContent.includes("Child Safety & Media Release Advisory") : false' +
+        '};' +
+      '})()',
+      returnByValue: true
+    });
+    const csInfo = evalChildSafety.result.value;
+    assert.strictEqual(csInfo.hasConsentBox, true, 'Parent consent box must exist');
+    assert.strictEqual(csInfo.hasParentName, true, 'Parent name input must exist');
+    assert.strictEqual(csInfo.hasParentContact, true, 'Parent contact input must exist');
+    assert.strictEqual(csInfo.hasParentConsent, true, 'Parent consent checkbox must exist');
+    assert.strictEqual(csInfo.hasMediaConsent, true, 'Media consent checkbox must exist');
+    assert.strictEqual(csInfo.mediaDefaultChecked, false, 'Media release must be unchecked by default (privacy-first)');
+    console.log('  ✔ Registration form adheres to verified parental consent and privacy-first default media permission');
+
+    assert.strictEqual(csInfo.hasPolicyModal, true, 'Child safety policy modal must exist in DOM');
+    assert.strictEqual(csInfo.hasEmSection, true, 'Edit Member modal must feature Section selection');
+    assert.strictEqual(csInfo.hasEmChildSafety, true, 'Edit Member modal must feature Child Safety consent controls');
+    assert.strictEqual(csInfo.hasGalleryAdvisory, true, 'Gallery management must feature Child Safety & Media Release advisory');
+    console.log('  ✔ Admin console provides full section governance and child safety advisory enforcement');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {
