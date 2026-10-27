@@ -303,7 +303,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         '<!-- Uniform Points -->' +
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
           '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Uniform Pts</div>' +
-          '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--blue, #3b82f6);">' + points.uniform + '</div>' +
+          '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--blue, #3b82f6);">' + points.uniform + '</div>' + uniformAvgHtml +
         '</div>' +
 
         '<!-- Parade Attendance Points -->' +
@@ -379,7 +379,7 @@ async function renderAdminMasterSheetPanel() {
   if (!container) return;
 
   var data = await getMasterAttendanceData(true);
-  var cfg  = (typeof window.loadMasterSheetConfig === 'function') ? await window.loadMasterSheetConfig() : {};
+  var _cfg = (typeof window.loadMasterSheetConfig === 'function') ? await window.loadMasterSheetConfig() : {};
 
   var memberCount = data && data.totalMembers ? data.totalMembers : (data && data.members ? Object.keys(data.members).length : 0);
   var syncDate = data && data.lastSynced ? new Date(data.lastSynced).toLocaleString() : 'Never synced';
@@ -616,7 +616,7 @@ async function renderCompanyLeaderboard() {
 
   var data = await getMasterAttendanceData();
   var rawSquads = (data && data.squads) ? data.squads : null;
-  var platoons  = (data && data.platoons) ? data.platoons : {};
+  var _platoons = (data && data.platoons) ? data.platoons : {};
 
   // Standard competing squads fallback from master sheet
   var squadList = [];
