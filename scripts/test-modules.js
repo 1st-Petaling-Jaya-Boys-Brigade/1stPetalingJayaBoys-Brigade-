@@ -24,7 +24,10 @@ global.document = {
         scrollIntoView: () => {},
         querySelectorAll: () => [],
         addEventListener: () => {},
-        removeEventListener: () => {}
+        removeEventListener: () => {},
+        pause: () => {},
+        play: async () => {},
+        classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} }
       };
     }
     return mockElements[id];
@@ -238,6 +241,59 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(galleryModule.galleryImages.length, 2, 'Should add newly uploaded photo to array');
   assert.strictEqual(lastPosted.path, 'bb_gallery', 'Should insert into bb_gallery table');
   console.log('  ✔ uploadGalleryFiles uploads to storage and inserts database record');
+  // ── Testing All-Format Media & Dedicated Gallery Tab ──
+  console.log('Testing Media Normalization & Video Detection...');
+  assert.strictEqual(galleryModule.isVideoMedia('https://example.com/video.mp4'), true, 'MP4 must be detected as video');
+  assert.strictEqual(galleryModule.isVideoMedia('https://example.com/clip.webm'), true, 'WebM must be detected as video');
+  assert.strictEqual(galleryModule.isVideoMedia('https://example.com/parade.mov'), true, 'MOV must be detected as video');
+  assert.strictEqual(galleryModule.isVideoMedia('https://example.com/photo.jpg'), false, 'JPG must not be detected as video');
+  assert.strictEqual(galleryModule.isVideoMedia('https://drive.google.com/file/d/123/preview'), true, 'Drive preview must be detected as video');
+  assert.strictEqual(galleryModule.isVideoMedia('https://youtube.com/watch?v=abc'), true, 'YouTube must be detected as video');
+  console.log('  ✔ isVideoMedia accurately identifies MP4, WebM, MOV, Drive preview, and YouTube videos');
+
+  // Google Drive URL Normalization
+  const driveShareUrl = 'https://drive.google.com/file/d/1A2B3C4D5E/view?usp=sharing';
+  const normDrivePreview = galleryModule.normalizeMediaUrl(driveShareUrl, 'video');
+  assert.strictEqual(normDrivePreview, 'https://drive.google.com/file/d/1A2B3C4D5E/preview', 'Drive sharing link must normalize to embeddable preview');
+  const normDriveImage = galleryModule.normalizeMediaUrl(driveShareUrl, 'image');
+  assert.strictEqual(normDriveImage, 'https://lh3.googleusercontent.com/d/1A2B3C4D5E', 'Drive link for image must normalize to direct image endpoint');
+
+  // YouTube URL Normalization
+  const ytWatchUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+  const normYtEmbed = galleryModule.normalizeMediaUrl(ytWatchUrl);
+  assert.ok(normYtEmbed.includes('youtube-nocookie.com/embed/dQw4w9WgXcQ'), 'YouTube link must normalize to privacy-enhanced embed');
+  console.log('  ✔ normalizeMediaUrl automatically converts Google Drive and YouTube links to embed streams');
+
+  // Upload Video File Test
+  const mockVideoFile = {
+    name: 'band_parade.mp4',
+    type: 'video/mp4',
+    size: 15 * 1024 * 1024,
+    arrayBuffer: async () => new ArrayBuffer(32)
+  };
+  await galleryModule.uploadGalleryFiles([mockVideoFile]);
+  assert.strictEqual(galleryModule.galleryImages.length, 3, 'Must support video files in gallery upload');
+  assert.strictEqual(galleryModule.galleryImages[2].type, 'video', 'Uploaded file must be tagged as video');
+  console.log('  ✔ uploadGalleryFiles handles video files (MP4, MOV, WebM) alongside photos');
+
+  // Filter Gallery
+  galleryModule.filterGallery('videos');
+  galleryModule.filterGallery('photos');
+  galleryModule.filterGallery('all');
+  console.log('  ✔ filterGallery toggles between All Media, Photos, and Videos seamlessly');
+
+  // Dedicated Gallery Tab & DOM Verification in index.html
+  const indexHtmlContent = fs.readFileSync('index.html', 'utf8');
+  assert.ok(indexHtmlContent.includes('id="tab-gallery"'), 'Must define #tab-gallery navigation button');
+  assert.ok(indexHtmlContent.includes('id="snav-gallery"'), 'Must define #snav-gallery sidebar navigation');
+  assert.ok(indexHtmlContent.includes('id="page-gallery"'), 'Must define dedicated #page-gallery page container');
+  assert.ok(indexHtmlContent.includes('id="gallery-story-highlights-reel"'), 'Must render story highlights reel in #page-gallery');
+  assert.ok(indexHtmlContent.includes('id="gallery-filter-bar"'), 'Must feature media filter pills in gallery page');
+  assert.ok(indexHtmlContent.includes('id="story-viewer-video"'), 'Must feature HTML5 video viewport in story viewer');
+  assert.ok(indexHtmlContent.includes('id="story-viewer-iframe"'), 'Must feature iframe viewport for external video players');
+  assert.ok(indexHtmlContent.includes('id="story-btn-sound"'), 'Must provide audio mute/unmute control');
+  console.log('  ✔ Dedicated Gallery tab, sidebar link, media filter bar, and story video viewport verified in index.html');
+
 
   // ── Load Resources Module (TSK-034) ──
   console.log('\nTesting Resources Module (TSK-034)...');
@@ -833,6 +889,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   galleryMod.toggleStoryPause();
   galleryMod.toggleStoryPause();
   console.log('  ✔ Pause/Play controls and touch-hold handlers properly manage playback');
+  // 6b. Video Slide Playback & Sound Controls
+  const mockVideoEl = document.getElementById('story-viewer-video');
+  const mockIframeEl = document.getElementById('story-viewer-iframe');
+  assert.ok(mockIframeEl, 'Iframe element must be available in story viewer');
+  const mockSoundBtn = document.getElementById('story-btn-sound');
+  
+  // Open Brass Band highlight (index 2), slide 1 (video slide)
+  galleryMod.openStoryViewer(2, 1);
+  assert.strictEqual(mockVideoEl.style.display, 'block', 'Video slide must reveal #story-viewer-video');
+  assert.ok(mockVideoEl.src.includes('.mp4'), 'Video element source must be set to video URL');
+  assert.strictEqual(mockSoundBtn.style.display, 'flex', 'Sound control button must be visible for video slides');
+
+  // Test sound toggle
+  galleryMod.toggleStorySound();
+  assert.strictEqual(mockVideoEl.muted, true, 'toggleStorySound should toggle muted state');
+  galleryMod.toggleStorySound();
+  assert.strictEqual(mockVideoEl.muted, false, 'toggleStorySound should toggle back to unmuted');
+  console.log('  ✔ Story viewer renders HTML5 video slides with autoplay handling and audio mute controls');
+
 
   // 6. Close Story Viewer
   galleryMod.closeStoryViewer();

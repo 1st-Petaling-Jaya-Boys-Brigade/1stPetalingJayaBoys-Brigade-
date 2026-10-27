@@ -357,6 +357,7 @@
 <!-- Hidden tab buttons (keep for JS compatibility) -->
 <div style="display:none;">
   <button class="tab-btn active" id="tab-home"       onclick="switchTab('home',this)">Home</button>
+  <button class="tab-btn"        id="tab-gallery"    onclick="switchTab('gallery',this)">Gallery</button>
   <button class="tab-btn"        id="tab-order"      onclick="switchTab('order',this)">Forms</button>
   <button class="tab-btn"        id="tab-member"     onclick="switchTab('member',this)">Member</button>
   <button class="tab-btn"        id="tab-tasks"      onclick="switchTab('tasks',this)">Tasks</button>
@@ -403,6 +404,10 @@
       <button class="sidebar-item active" id="snav-home" onclick="switchTabNav('home');closeSidebar()">
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/></svg></span>
         <span class="si-label">Home</span>
+      </button>
+      <button class="sidebar-item" id="snav-gallery" onclick="switchTabNav('gallery');closeSidebar()">
+        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
+        <span class="si-label">Gallery</span>
       </button>
       <button class="sidebar-item" id="snav-order" onclick="switchTabNav('order');closeSidebar()">
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
@@ -558,18 +563,28 @@
     </div>
   </div>
 
-  <!-- Gallery / Instagram -->
+    <!-- Gallery & Stories Teaser (Home Page) -->
   <div class="dark-card" style="margin-bottom: 14px;">
-    <div class="section-header">
-      <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
-      <div class="s-title">Photos &amp; Posts</div>
-      <div class="s-badge">Latest</div>
+    <div class="section-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
+        <div class="s-title">Story Highlights &amp; Photos</div>
+        <div class="s-badge">Latest</div>
+      </div>
+      <button type="button" onclick="switchTabNav('gallery')" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;" title="View all photos, videos and highlights">
+        <span>Open Gallery</span> &rarr;
+      </button>
     </div>
     <!-- Instagram-Style Story Highlights Reel (TSK-033) -->
     <div id="story-highlights-reel" class="story-highlights-reel"></div>
-    <div id="gallery-grid" class="gallery-grid"></div>
-    <div id="no-photos" style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No photos uploaded yet.</div>
-
+    <div id="home-gallery-grid" class="gallery-grid"></div>
+    <div id="no-photos-home" style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;display:none;">No photos uploaded yet.</div>
+    <div style="margin-top:12px;text-align:center;">
+      <button type="button" onclick="switchTabNav('gallery')" class="portal-btn portal-btn-secondary" style="width:100%;justify-content:center;font-size:12px;padding:8px 14px;display:flex;align-items:center;gap:6px;">
+        <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+        <span>View Full Gallery &amp; Video Reels &rarr;</span>
+      </button>
+    </div>
   </div>
 
 </div>
@@ -851,7 +866,7 @@
                 <img id="m-pfp-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;border-radius:50%;"/>
               </div>
               <label for="pfp-upload" title="Change photo" style="position:absolute;bottom:0;right:0;background:var(--accent);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#ffffff;border:2px solid var(--bg-card);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></label>
-              <input type="file" id="pfp-upload" accept="image/*" style="display:none;" onchange="uploadPfp(this)"/>
+              <input type="file" id="pfp-upload" accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.jpg,.jpeg,.png,.webp,.gif" style="display:none;" onchange="uploadPfp(this)"/>
             </div>
             <div>
               <div class="mic-label">BB MEMBER</div>
@@ -1292,6 +1307,61 @@
         <div class="spinner" style="margin:0 auto 10px;"></div>
         Loading company resources...
       </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ───────── COMPANY GALLERY & HIGHLIGHTS ───────── -->
+<div class="page" id="page-gallery">
+  <div style="width:100%;">
+
+    <div class="card page-header-card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+            <circle cx="12" cy="13" r="3"/>
+          </svg>
+        </div>
+        <div>
+          <div class="page-title" style="margin:0;">Company Gallery</div>
+          <div class="page-subtitle" style="margin:0;">Moments, Milestones &amp; Event Stories of 1st Petaling Jaya</div>
+        </div>
+      </div>
+      <div class="page-desc">Explore our full company photo archives, video reels, and Instagram-style story highlights from annual boot camps, awards day, brass band contests, and ceremonial parades.</div>
+    </div>
+
+    <!-- Instagram-Style Story Highlights Section -->
+    <div class="dark-card" style="margin-bottom:14px;">
+      <div class="section-header" style="margin-bottom:10px;">
+        <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></span>
+        <div class="s-title">Story Highlights &amp; Reels</div>
+        <div class="s-badge">Tap to Watch</div>
+      </div>
+      <div id="gallery-story-highlights-reel" class="story-highlights-reel"></div>
+    </div>
+
+    <!-- Photo & Video Feed -->
+    <div class="dark-card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div class="section-header" style="margin-bottom:0;">
+          <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></span>
+          <div class="s-title">Photos &amp; Video Posts</div>
+          <div class="s-badge" id="gallery-media-count-badge">All Media</div>
+        </div>
+
+        <!-- Filter pills -->
+        <div class="gallery-filter-bar" id="gallery-filter-bar">
+          <button type="button" class="gallery-filter-pill active" id="gallery-filter-all" onclick="filterGallery('all', this)">All</button>
+          <button type="button" class="gallery-filter-pill" id="gallery-filter-photos" onclick="filterGallery('photos', this)">Photos</button>
+          <button type="button" class="gallery-filter-pill" id="gallery-filter-videos" onclick="filterGallery('videos', this)">Videos &amp; Reels</button>
+        </div>
+      </div>
+
+      <div id="gallery-grid" class="gallery-grid"></div>
+      <div id="no-photos" style="color:var(--text-muted);font-size:13px;text-align:center;padding:32px 16px;display:none;">No media uploaded yet.</div>
     </div>
 
   </div>
@@ -1982,8 +2052,15 @@
           <div style="margin-bottom:8px;display:flex;justify-content:center;color:var(--brand-gold);">
             <svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           </div>
-          <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Click or drag photos here</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);">Click or drag photos &amp; videos here</div>
+          <div style="font-size:11px;color:var(--accent);font-weight:600;margin-top:2px;">All formats supported (MP4, MOV, WEBM, JPG, PNG, WebP)</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Multiple files supported</div>
+        </div>
+                <div style="margin-bottom:14px;padding:10px 14px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.25);border-radius:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-secondary);">
+          <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#3b82f6;flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          <div>
+            <strong>Storage Best Practice:</strong> Photos and short clips (&lt; 20 MB) can be uploaded directly to Supabase. For high-resolution or long videos (&gt; 20 MB), upload to <strong>Google Drive</strong> (set share to <em>"Anyone with the link can view"</em>) or <strong>YouTube Unlisted</strong> and paste the link in Story Highlights to preserve free-tier storage quota.
+          </div>
         </div>
         <div style="margin-bottom:14px;padding:10px 14px;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);">
           <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -2203,6 +2280,9 @@
         </div>
       </div>
       <div class="story-header-controls">
+        <button type="button" class="story-btn-icon" id="story-btn-sound" onclick="toggleStorySound()" title="Mute/Unmute" aria-label="Mute/Unmute" style="display:none;">
+          <svg class="ui-icon-sm" id="story-sound-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
         <button type="button" class="story-btn-icon" id="story-btn-pause" onclick="toggleStoryPause()" title="Pause/Play" aria-label="Pause/Play">
           <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         </button>
@@ -2213,6 +2293,8 @@
     <!-- Media Area -->
     <div class="story-media-container" id="story-media-wrap">
       <img id="story-viewer-img" class="story-media-img" src="" alt="Story slide" />
+      <video id="story-viewer-video" class="story-media-video" playsinline webkit-playsinline style="display:none;"></video>
+      <iframe id="story-viewer-iframe" class="story-media-iframe" style="display:none;" allow="autoplay; fullscreen; encrypted-media"></iframe>
       <div class="story-nav-zones">
         <div class="story-nav-left" onclick="prevStorySlide()" title="Previous slide"></div>
         <div class="story-nav-right" onclick="nextStorySlide()" title="Next slide"></div>
@@ -2236,6 +2318,13 @@
     </div>
 
     <input type="hidden" id="adm-story-id" />
+    <div style="margin-bottom:12px;padding:10px 12px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;font-size:11.5px;color:var(--text-secondary);display:flex;align-items:flex-start;gap:8px;">
+      <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#3b82f6;flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div>
+        <strong>Storage Tip:</strong> Upload photos and short clips (&lt;25MB) directly or paste <strong>Google Drive</strong> / <strong>YouTube</strong> links for larger videos to preserve free Supabase storage quota.
+      </div>
+    </div>
+
 
     <div class="form-group" style="margin-bottom:10px;">
       <label class="form-label" for="adm-story-title">Highlight Title <span style="color:var(--red);">*</span></label>
@@ -2505,6 +2594,7 @@ function switchTab(tab, btn) {
   if (tab === 'badges')     checkBadgesAccess();
   if (tab === 'attendance') { if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard(); }
   if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
+  if (tab === 'gallery')    { if (typeof renderGallery === 'function') renderGallery(); }
   if (tab === 'home')       {
     if (typeof renderCalendarWidget === 'function') renderCalendarWidget();
     if (typeof updateQuickCardsCarousel === 'function') updateQuickCardsCarousel();
@@ -5412,7 +5502,7 @@ function handleHashNavigation() {
   var hash = (window.location.hash || '').replace('#', '');
   if (hash === 'admin') {
     openAdmin();
-  } else if (['member', 'order', 'tasks', 'badges', 'attendance', 'home', 'resources'].indexOf(hash) !== -1) {
+  } else if (['member', 'order', 'tasks', 'badges', 'attendance', 'home', 'resources', 'gallery'].indexOf(hash) !== -1) {
     switchTabNav(hash);
   }
 }
