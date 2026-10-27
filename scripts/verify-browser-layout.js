@@ -673,6 +673,11 @@ async function getJson(url) {
           closeStoryViewer();
         }
 
+        const videosPill = document.getElementById('gallery-filter-videos');
+        const videosPillText = videosPill ? videosPill.textContent.trim() : '';
+        const hlTitleEl = document.querySelector('#page-gallery .s-title');
+        const highlightsTitle = hlTitleEl ? hlTitleEl.textContent.trim() : '';
+
         // Return back to home
         if (typeof switchTabNav === 'function') {
           switchTabNav('home');
@@ -685,7 +690,9 @@ async function getJson(url) {
           reelBubbleCount: reelBubbles.length,
           hasMediaActive,
           hasArrowPrev,
-          hasArrowNext
+          hasArrowNext,
+          videosPillText,
+          highlightsTitle
         };
       })()`,
       returnByValue: true
@@ -693,6 +700,8 @@ async function getJson(url) {
     const gtInfo = evalGalleryTab.result.value;
     assert.strictEqual(gtInfo.isPageActive, true, 'Navigating to gallery tab activates #page-gallery');
     assert.strictEqual(gtInfo.isSnavActive, true, 'Gallery sidebar item reflects active state');
+    assert.strictEqual(gtInfo.videosPillText, 'Videos', 'Videos filter pill must say Videos without Reels');
+    assert.strictEqual(gtInfo.highlightsTitle, 'Highlights', 'Gallery section must say Highlights without Story/Reels');
     assert.ok(gtInfo.filterPillCount >= 3, 'Gallery features All, Photos, and Videos filter pills');
     assert.ok(gtInfo.reelBubbleCount >= 1, 'Dedicated gallery tab renders complete story highlights reel');
     assert.strictEqual(gtInfo.hasMediaActive, true, 'Story viewer displays active media viewport');

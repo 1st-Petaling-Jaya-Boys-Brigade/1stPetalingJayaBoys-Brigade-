@@ -38,7 +38,7 @@ function normalizeMediaUrl(rawUrl, preferType) {
   // 2. YouTube Links
   var ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
   if (ytMatch && ytMatch[1]) {
-    return 'https://www.youtube-nocookie.com/embed/' + ytMatch[1] + '?autoplay=1&enablejsapi=1&rel=0';
+    return 'https://www.youtube-nocookie.com/embed/' + ytMatch[1] + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1';
   }
 
   // 3. Vimeo Links
@@ -187,7 +187,7 @@ function renderGallery() {
   });
 
   if (countBadge) {
-    var filterLabel = _currentGalleryFilter === 'photos' ? 'Photos' : (_currentGalleryFilter === 'videos' ? 'Videos & Reels' : 'All Media');
+    var filterLabel = _currentGalleryFilter === 'photos' ? 'Photos' : (_currentGalleryFilter === 'videos' ? 'Videos' : 'All Media');
     countBadge.textContent = filtered.length + ' ' + filterLabel;
   }
 
@@ -796,7 +796,7 @@ function renderStoryHighlightsReel() {
       var safeCover = (typeof safeUrl === 'function') ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
       var title = (typeof escapeHtml === 'function') ? escapeHtml(sh.title) : sh.title;
 
-      html += '<button type="button" class="story-highlight-item" data-sh-idx="' + idx + '" title="Watch ' + title + ' Story Highlight" aria-label="Watch ' + title + ' Story Highlight">'
+      html += '<button type="button" class="story-highlight-item" data-sh-idx="' + idx + '" title="Watch ' + title + ' Highlight" aria-label="Watch ' + title + ' Highlight">'
         + '<div class="story-highlight-ring">'
           + '<div class="story-highlight-avatar">'
             + '<img src="' + safeCover + '" alt="' + title + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
@@ -858,6 +858,25 @@ function openStoryViewer(highlightIdx, slideIdx) {
 /**
  * Updates progress bars, media (photo or video), header metadata, and caption for the active slide
  */
+/**
+ * Applies CSS linear transition animation to the active highlight progress bar
+ * @param {number} durationMs - Total duration for the bar to fill
+ * @param {number} [remainingMs] - Remaining time if resuming from pause
+ */
+function applyStoryProgressAnimation(durationMs, remainingMs) {
+  if (typeof document === 'undefined') return;
+  var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
+  if (!currentFill) return;
+  var secs = ((remainingMs !== undefined && remainingMs !== null ? remainingMs : durationMs) / 1000);
+  currentFill.style.transition = 'none';
+  currentFill.style.width = '0%';
+  if (typeof currentFill.offsetWidth !== 'undefined') {
+    void currentFill.offsetWidth; // Force layout reflow
+  }
+  currentFill.style.transition = 'width ' + secs + 's linear';
+  currentFill.style.width = '100%';
+}
+
 function updateStorySlideView() {
   if (typeof document === 'undefined') return;
   var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
@@ -880,8 +899,12 @@ function updateStorySlideView() {
   var normUrl = normalizeMediaUrl(rawUrl, curSlide.type);
   var isVid = isVideoMedia(normUrl, curSlide.type);
 
-  // Set default duration based on media type
-  _storySlideDuration = isVid ? 8000 : 5000;
+  // Set duration based on admin configuration or media type
+  var defaultSec = isVid ? 30 : 5;
+  var slideDurationSec = (curSlide.duration && isFinite(curSlide.duration) && Number(curSlide.duration) > 0)
+    ? Number(curSlide.duration)
+    : defaultSec;
+  _storySlideDuration = slideDurationSec * 1000;
   _storyRemainingTime = _storySlideDuration;
 
   // 1. Render Segmented Progress Bars
@@ -890,20 +913,11 @@ function updateStorySlideView() {
     var pBarsHtml = '';
     for (var i = 0; i < curHighlight.items.length; i++) {
       var fillWidth = (i < _currentStorySlideIdx) ? '100%' : '0%';
-      var transitionStyle = (i === _currentStorySlideIdx) ? 'transition: width ' + (_storyRemainingTime / 1000) + 's linear;' : 'transition: none;';
       pBarsHtml += '<div class="story-progress-bar">'
-        + '<div class="story-progress-fill" id="story-fill-' + i + '" style="width:' + fillWidth + ';' + transitionStyle + '"></div>'
+        + '<div class="story-progress-fill" id="story-fill-' + i + '" style="width:' + fillWidth + ';transition:none;"></div>'
       + '</div>';
     }
     progressContainer.innerHTML = pBarsHtml;
-
-    // Trigger CSS fill on current bar
-    setTimeout(function() {
-      var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
-      if (currentFill) {
-        currentFill.style.width = '100%';
-      }
-    }, 20);
   }
 
   // 2. Header Meta
@@ -940,10 +954,17 @@ function updateStorySlideView() {
       if (soundBtn) soundBtn.style.display = 'none';
       if (iframeEl) {
         iframeEl.style.display = 'block';
-        iframeEl.src = safeMediaUrl;
+        var autoplayUrl = safeMediaUrl;
+        if (autoplayUrl.indexOf('autoplay=') === -1) {
+          autoplayUrl += (autoplayUrl.indexOf('?') === -1 ? '?' : '&') + 'autoplay=1';
+        }
+        iframeEl.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+        if (iframeEl.src !== autoplayUrl) {
+          iframeEl.src = autoplayUrl;
+        }
       }
-      // Allow user to watch the complete video reel without 10-second cutoff
-      _storySlideDuration = 300000; // 5 minutes, advances on user next click
+      // Linear progress bar based on configured video duration
+      applyStoryProgressAnimation(_storySlideDuration, _storyRemainingTime);
       startStoryTimer(_storySlideDuration);
     } else {
       // Direct HTML5 Video (MP4, WebM, MOV)
@@ -957,14 +978,33 @@ function updateStorySlideView() {
       if (soundBtn) soundBtn.style.display = 'flex';
       if (videoEl) {
         videoEl.style.display = 'block';
-        videoEl.src = safeMediaUrl;
+        videoEl.autoplay = true;
+        videoEl.playsInline = true;
+        if (videoEl.src !== safeMediaUrl) {
+          videoEl.src = safeMediaUrl;
+        }
         videoEl.currentTime = 0;
 
         // Auto-adapt story timer to video duration when metadata is ready
         videoEl.onloadedmetadata = function() {
-          if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 1) {
-            _storySlideDuration = Math.min(30000, Math.round(videoEl.duration * 1000));
-            startStoryTimer(_storySlideDuration);
+          if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
+            if (!curSlide.duration || Number(curSlide.duration) === 30) {
+              _storySlideDuration = Math.round(videoEl.duration * 1000);
+              _storyRemainingTime = _storySlideDuration;
+              startStoryTimer(_storySlideDuration);
+            }
+          }
+        };
+
+        // Frame-synchronized progress bar based on actual video playback
+        videoEl.ontimeupdate = function() {
+          if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
+            var pct = Math.min(100, (videoEl.currentTime / videoEl.duration) * 100);
+            var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
+            if (currentFill) {
+              currentFill.style.transition = 'none';
+              currentFill.style.width = pct + '%';
+            }
           }
         };
 
@@ -1004,6 +1044,7 @@ function updateStorySlideView() {
       imgEl.src = safeMediaUrl;
       imgEl.alt = curSlide.caption || curHighlight.title;
     }
+    applyStoryProgressAnimation(_storySlideDuration, _storyRemainingTime);
     startStoryTimer(_storySlideDuration);
   }
 
@@ -1030,7 +1071,7 @@ function updateStorySlideView() {
         ? '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location)
         : '';
       var driveLinkHtml = driveFileId
-        ? '<a href="https://drive.google.com/file/d/' + driveFileId + '/view" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;margin-left:6px;display:inline-flex;align-items:center;gap:3px;pointer-events:auto;" title="Open high-res reel in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Reel &nearr;</a>'
+        ? '<a href="https://drive.google.com/file/d/' + driveFileId + '/view" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;margin-left:6px;display:inline-flex;align-items:center;gap:3px;pointer-events:auto;" title="Open video in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Video &nearr;</a>'
         : '';
       pillEl.innerHTML = locHtml + driveLinkHtml;
     } else {
@@ -1075,7 +1116,7 @@ function startStoryTimer(duration) {
   var pauseBtn = document.getElementById('story-btn-pause');
   if (pauseBtn) {
     pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-    pauseBtn.title = 'Pause Story';
+    pauseBtn.title = 'Pause Highlight';
   }
 
   _storyTimer = setTimeout(function() {
@@ -1169,7 +1210,7 @@ function pauseStoryPlayback() {
   var pauseBtn = document.getElementById('story-btn-pause');
   if (pauseBtn) {
     pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
-    pauseBtn.title = 'Resume Story';
+    pauseBtn.title = 'Resume Highlight';
   }
 }
 
@@ -1184,13 +1225,20 @@ function resumeStoryPlayback() {
   var videoEl = document.getElementById('story-viewer-video');
   if (videoEl && videoEl.style.display !== 'none') {
     if (typeof videoEl.play === 'function') videoEl.play().catch(function() {});
+  } else {
+    var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
+    if (currentFill) {
+      currentFill.style.transition = 'width ' + (_storyRemainingTime / 1000) + 's linear';
+      currentFill.style.width = '100%';
+    }
   }
 
-  var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
-  if (currentFill) {
-    currentFill.style.transition = 'width ' + (_storyRemainingTime / 1000) + 's linear';
-    currentFill.style.width = '100%';
+  var pauseBtn = document.getElementById('story-btn-pause');
+  if (pauseBtn) {
+    pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    pauseBtn.title = 'Pause Highlight';
   }
+
   startStoryTimer(_storyRemainingTime);
 }
 
@@ -1317,13 +1365,15 @@ function openCreateStoryModal() {
   var titleInp = document.getElementById('adm-story-title');
   var coverInp = document.getElementById('adm-story-cover');
   var slidesList = document.getElementById('adm-story-slides-list');
+  var modalTitle = document.getElementById('adm-story-modal-title');
 
+  if (modalTitle) modalTitle.textContent = 'Create Highlight';
   if (idInp) idInp.value = '';
   if (titleInp) titleInp.value = '';
   if (coverInp) coverInp.value = '';
   if (slidesList) {
     slidesList.innerHTML = '';
-    addStorySlideRow('', '', '', '', 'auto');
+    addStorySlideRow('', '', '', '', 'auto', 5);
   }
 
   var modal = document.getElementById('adm-story-modal');
@@ -1342,7 +1392,9 @@ function openEditStoryModal(id) {
   var titleInp = document.getElementById('adm-story-title');
   var coverInp = document.getElementById('adm-story-cover');
   var slidesList = document.getElementById('adm-story-slides-list');
+  var modalTitle = document.getElementById('adm-story-modal-title');
 
+  if (modalTitle) modalTitle.textContent = 'Edit Highlight';
   if (idInp) idInp.value = sh.id;
   if (titleInp) titleInp.value = sh.title;
   if (coverInp) coverInp.value = sh.cover || '';
@@ -1351,10 +1403,10 @@ function openEditStoryModal(id) {
     slidesList.innerHTML = '';
     if (sh.items && sh.items.length) {
       sh.items.forEach(function(item) {
-        addStorySlideRow(item.url || '', item.caption || '', item.date || '', item.location || '', item.type || 'auto');
+        addStorySlideRow(item.url || '', item.caption || '', item.date || '', item.location || '', item.type || 'auto', item.duration);
       });
     } else {
-      addStorySlideRow('', '', '', '', 'auto');
+      addStorySlideRow('', '', '', '', 'auto', 5);
     }
   }
 
@@ -1379,7 +1431,7 @@ function closeAdminStoryModal() {
  * @param {string} location
  * @param {string} [type] - 'auto' | 'image' | 'video'
  */
-function addStorySlideRow(url, caption, date, location, type) {
+function addStorySlideRow(url, caption, date, location, type, duration) {
   if (typeof document === 'undefined') return;
   var container = document.getElementById('adm-story-slides-list');
   if (!container) return;
@@ -1387,15 +1439,22 @@ function addStorySlideRow(url, caption, date, location, type) {
   var currentRows = container.querySelectorAll('.adm-story-slide-row').length;
   var slideNum = currentRows + 1;
   var slideType = type || (isVideoMedia(url) ? 'video' : 'auto');
+  var defaultDur = (slideType === 'video') ? 30 : 5;
+  var slideDur = (duration && isFinite(duration) && Number(duration) > 0) ? Number(duration) : defaultDur;
 
   var div = document.createElement('div');
   div.className = 'adm-story-slide-row';
   div.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:10px;position:relative;';
 
-  div.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;">'
+  div.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;">'
     + '<span style="font-size:12px;font-weight:700;color:var(--accent);">Slide #' + slideNum + '</span>'
-    + '<div style="display:flex;align-items:center;gap:6px;">'
-      + '<select class="form-input adm-slide-type" style="font-size:11px;padding:3px 8px;width:auto;border-radius:6px;">'
+    + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+      + '<div style="display:inline-flex;align-items:center;gap:3px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:6px;padding:2px 6px;" title="Display duration in seconds">'
+        + '<span style="font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">Time:</span>'
+        + '<input type="number" class="form-input adm-slide-duration" min="1" max="600" step="1" value="' + slideDur + '" style="font-size:11px;padding:2px 4px;width:44px;text-align:center;border:none;background:transparent;color:var(--text-primary);" />'
+        + '<span style="font-size:10px;color:var(--text-muted);">s</span>'
+      + '</div>'
+      + '<select class="form-input adm-slide-type" style="font-size:11px;padding:3px 8px;width:auto;border-radius:6px;" onchange="handleSlideTypeChange(this)">'
         + '<option value="auto"' + (slideType === 'auto' ? ' selected' : '') + '>Auto Detect</option>'
         + '<option value="image"' + (slideType === 'image' ? ' selected' : '') + '>Photo</option>'
         + '<option value="video"' + (slideType === 'video' ? ' selected' : '') + '>Video</option>'
@@ -1422,6 +1481,25 @@ function addStorySlideRow(url, caption, date, location, type) {
 }
 
 /**
+ * Adjusts default duration when admin toggles slide format
+ * @param {HTMLSelectElement} sel
+ */
+function handleSlideTypeChange(sel) {
+  if (!sel) return;
+  var row = sel.closest('.adm-story-slide-row');
+  if (!row) return;
+  var durInp = row.querySelector('.adm-slide-duration');
+  if (durInp) {
+    var curVal = parseInt(durInp.value, 10);
+    if (sel.value === 'image' && curVal === 30) {
+      durInp.value = '5';
+    } else if (sel.value === 'video' && curVal === 5) {
+      durInp.value = '30';
+    }
+  }
+}
+
+/**
  * Handles slide-specific file uploads in the story creator modal
  * @param {HTMLInputElement} input
  */
@@ -1445,6 +1523,11 @@ async function handleSlideFileUpload(input) {
     if (res && res.url) {
       if (urlInput) urlInput.value = res.url;
       if (typeSelect) typeSelect.value = res.type;
+      var durInp = row.querySelector('.adm-slide-duration');
+      if (durInp) {
+        if (res.type === 'video' && parseInt(durInp.value, 10) === 5) durInp.value = '30';
+        else if (res.type === 'image' && parseInt(durInp.value, 10) === 30) durInp.value = '5';
+      }
       if (statusEl) {
         statusEl.innerHTML = '<span style="color:var(--green);font-weight:600;">Uploaded: ' + (typeof escapeHtml === 'function' ? escapeHtml(file.name) : file.name) + ' (' + res.type.toUpperCase() + ')</span>';
       }
@@ -1531,15 +1614,20 @@ async function saveStoryHighlightModal() {
     var locInp = r.querySelector('.adm-slide-loc');
     var typeInp = r.querySelector('.adm-slide-type');
 
+    var durInp = r.querySelector('.adm-slide-duration');
     var u = (urlInp ? urlInp.value : '').trim();
     if (u) {
       var normU = normalizeMediaUrl(u);
       var slideType = (typeInp && typeInp.value !== 'auto') ? typeInp.value : (isVideoMedia(normU) ? 'video' : 'image');
+      var parsedDur = durInp ? parseInt(durInp.value, 10) : 0;
+      var defaultDur = slideType === 'video' ? 30 : 5;
+      var slideDurationSec = (parsedDur > 0 && isFinite(parsedDur)) ? parsedDur : defaultDur;
 
       slides.push({
         id: 's_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
         url: (typeof safeUrl === 'function') ? safeUrl(normU, '') : normU,
         type: slideType,
+        duration: slideDurationSec,
         caption: (typeof sanitizeText === 'function') ? sanitizeText((capInp ? capInp.value : '').trim(), 140) : (capInp ? capInp.value : '').trim(),
         date: (typeof sanitizeText === 'function') ? sanitizeText((dateInp ? dateInp.value : '').trim(), 50) : (dateInp ? dateInp.value : '').trim(),
         location: (typeof sanitizeText === 'function') ? sanitizeText((locInp ? locInp.value : '').trim(), 60) : (locInp ? locInp.value : '').trim()
@@ -1552,6 +1640,7 @@ async function saveStoryHighlightModal() {
       id: 's_' + Date.now(),
       url: cover || 'assets/logo.png',
       type: isVideoMedia(cover) ? 'video' : 'image',
+      duration: isVideoMedia(cover) ? 30 : 5,
       caption: title,
       date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
       location: '1st Petaling Jaya'
@@ -1580,9 +1669,9 @@ async function saveStoryHighlightModal() {
   closeAdminStoryModal();
 
   if (typeof showToast === 'function') {
-    showToast('Story Highlight "' + title + '" saved successfully!', 'success');
+    showToast('Highlight "' + title + '" saved successfully!', 'success');
   } else {
-    alert('Story Highlight saved successfully!');
+    alert('Highlight saved successfully!');
   }
 }
 
@@ -1595,9 +1684,9 @@ async function deleteStoryHighlight(id) {
 
   var confirmed = true;
   if (typeof showConfirmModal === 'function') {
-    confirmed = await showConfirmModal('Are you sure you want to delete the story highlight "' + target.title + '"?');
+    confirmed = await showConfirmModal('Are you sure you want to delete the highlight "' + target.title + '"?');
   } else if (typeof confirm === 'function') {
-    confirmed = confirm('Delete story highlight "' + target.title + '"?');
+    confirmed = confirm('Delete highlight "' + target.title + '"?');
   }
 
   if (!confirmed) return;
@@ -1646,6 +1735,9 @@ if (typeof window !== 'undefined') {
   window.addStorySlideRow       = addStorySlideRow;
   window.saveStoryHighlightModal = saveStoryHighlightModal;
   window.deleteStoryHighlight   = deleteStoryHighlight;
+  window.handleSlideTypeChange  = handleSlideTypeChange;
+  window.applyStoryProgressAnimation = applyStoryProgressAnimation;
+  window.getStorySlideDuration  = function() { return _storySlideDuration; };
 
   window.loadGallery            = loadGallery;
   window.renderGallery          = renderGallery;
@@ -1668,6 +1760,9 @@ if (typeof module !== 'undefined' && module.exports) {
     toggleStorySound: toggleStorySound,
     handleSlideFileUpload: handleSlideFileUpload,
     handleSlideUrlInput: handleSlideUrlInput,
+    handleSlideTypeChange: handleSlideTypeChange,
+    applyStoryProgressAnimation: applyStoryProgressAnimation,
+    getStorySlideDuration: function() { return _storySlideDuration; },
 
     loadStoryHighlights: loadStoryHighlights,
     saveStoryHighlights: saveStoryHighlights,
@@ -1696,6 +1791,7 @@ if (typeof module !== 'undefined' && module.exports) {
     initGalleryDropZone: initGalleryDropZone
   };
 
+  Object.defineProperty(module.exports, '_storySlideDuration', { get: function() { return _storySlideDuration; }, configurable: true });
   Object.defineProperty(module.exports, 'storyHighlights', {
     get: function() { return storyHighlights; },
     set: function(v) { storyHighlights = v; },

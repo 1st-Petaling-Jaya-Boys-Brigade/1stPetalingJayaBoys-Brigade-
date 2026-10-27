@@ -568,7 +568,7 @@
     <div class="section-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
-        <div class="s-title">Story Highlights &amp; Photos</div>
+        <div class="s-title">Highlights &amp; Photos</div>
         <div class="s-badge">Latest</div>
       </div>
       <button type="button" onclick="switchTabNav('gallery')" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;" title="View all photos, videos and highlights">
@@ -582,7 +582,7 @@
     <div style="margin-top:12px;text-align:center;">
       <button type="button" onclick="switchTabNav('gallery')" class="portal-btn portal-btn-secondary" style="width:100%;justify-content:center;font-size:12px;padding:8px 14px;display:flex;align-items:center;gap:6px;">
         <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-        <span>View Full Gallery &amp; Video Reels &rarr;</span>
+        <span>View Full Gallery &rarr;</span>
       </button>
     </div>
   </div>
@@ -1330,14 +1330,14 @@
           <div class="page-subtitle" style="margin:0;">Moments, Milestones &amp; Event Stories of 1st Petaling Jaya</div>
         </div>
       </div>
-      <div class="page-desc">Explore our full company photo archives, video reels, and Instagram-style story highlights from annual boot camps, awards day, brass band contests, and ceremonial parades.</div>
+      <div class="page-desc">Explore our full company photo and video archives, and highlights from annual boot camps, awards day, brass band contests, and ceremonial parades.</div>
     </div>
 
     <!-- Instagram-Style Story Highlights Section -->
     <div class="dark-card" style="margin-bottom:14px;">
       <div class="section-header" style="margin-bottom:10px;">
         <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></span>
-        <div class="s-title">Story Highlights &amp; Reels</div>
+        <div class="s-title">Highlights</div>
         <div class="s-badge">Tap to Watch</div>
       </div>
       <div id="gallery-story-highlights-reel" class="story-highlights-reel"></div>
@@ -1356,7 +1356,7 @@
         <div class="gallery-filter-bar" id="gallery-filter-bar">
           <button type="button" class="gallery-filter-pill active" id="gallery-filter-all" onclick="filterGallery('all', this)">All</button>
           <button type="button" class="gallery-filter-pill" id="gallery-filter-photos" onclick="filterGallery('photos', this)">Photos</button>
-          <button type="button" class="gallery-filter-pill" id="gallery-filter-videos" onclick="filterGallery('videos', this)">Videos &amp; Reels</button>
+          <button type="button" class="gallery-filter-pill" id="gallery-filter-videos" onclick="filterGallery('videos', this)">Videos</button>
         </div>
       </div>
 
@@ -2037,9 +2037,9 @@
             <div>
               <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                <span>Story Highlights &amp; Event Reels</span>
+                <span>Highlights</span>
               </div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Manage circular Instagram-style story highlights displayed above the photo gallery</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Manage circular highlights displayed above the photo gallery</div>
             </div>
             <button type="button" class="portal-btn portal-btn-primary" onclick="openCreateStoryModal()" style="font-size:12px;padding:6px 14px;">
               + New Highlight
@@ -2059,7 +2059,7 @@
                 <div style="margin-bottom:14px;padding:10px 14px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.25);border-radius:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-secondary);">
           <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#3b82f6;flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           <div>
-            <strong>Storage Best Practice:</strong> Photos and short clips (&lt; 20 MB) can be uploaded directly to Supabase. For high-resolution or long videos (&gt; 20 MB), upload to <strong>Google Drive</strong> (set share to <em>"Anyone with the link can view"</em>) or <strong>YouTube Unlisted</strong> and paste the link in Story Highlights to preserve free-tier storage quota.
+            <strong>Storage Best Practice:</strong> Photos and short clips (&lt; 20 MB) can be uploaded directly to Supabase. For high-resolution or long videos (&gt; 20 MB), upload to <strong>Google Drive</strong> (set share to <em>"Anyone with the link can view"</em>) or <strong>YouTube Unlisted</strong> and paste the link in Highlights to preserve free-tier storage quota.
           </div>
         </div>
         <div style="margin-bottom:14px;padding:10px 14px;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);">
@@ -2263,7 +2263,7 @@
 </div>
 
 <!-- ── INSTAGRAM-STYLE FULLSCREEN STORY VIEWER MODAL (TSK-033) ── -->
-<div id="story-viewer-modal" class="story-viewer-modal" role="dialog" aria-modal="true" aria-label="Story Viewer">
+<div id="story-viewer-modal" class="story-viewer-modal" role="dialog" aria-modal="true" aria-label="Highlight Viewer">
   <div class="story-viewer-card">
     <!-- Top Segmented Progress Bar -->
     <div class="story-progress-container" id="story-progress-bars"></div>
@@ -2286,7 +2286,7 @@
         <button type="button" class="story-btn-icon" id="story-btn-pause" onclick="toggleStoryPause()" title="Pause/Play" aria-label="Pause/Play">
           <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
         </button>
-        <button type="button" class="story-btn-icon" onclick="closeStoryViewer()" title="Close story" aria-label="Close story">&times;</button>
+        <button type="button" class="story-btn-icon" onclick="closeStoryViewer()" title="Close" aria-label="Close">&times;</button>
       </div>
     </div>
 
@@ -2320,7 +2320,7 @@
 <div id="adm-story-modal" class="portal-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--accent);" id="adm-story-modal-title">Create Story Highlight</div>
+      <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--accent);" id="adm-story-modal-title">Create Highlight</div>
       <button type="button" onclick="closeAdminStoryModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;">&times;</button>
     </div>
 
@@ -2344,7 +2344,7 @@
     </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <label class="form-label" style="margin-bottom:0;">Story Slides</label>
+      <label class="form-label" style="margin-bottom:0;">Highlight Slides</label>
       <button type="button" class="portal-btn portal-btn-secondary" onclick="addStorySlideRow('', '', '', '')" style="font-size:11px;padding:3px 10px;">+ Add Slide</button>
     </div>
 
