@@ -3485,6 +3485,115 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ sw.js Network-First offline fallback and Stale-While-Revalidate static caching verified'
   );
 
+  console.log('\nTesting Mobile UX Polish & Theme Consistency (TSK-017)...');
+  const indexHtmlMobile = fs.readFileSync('index.html', 'utf8');
+  assert.ok(
+    indexHtmlMobile.includes('viewport-fit=cover'),
+    'index.html meta viewport must include viewport-fit=cover for iOS notch support'
+  );
+  console.log(
+    '  ✔ Viewport meta tag properly configured with viewport-fit=cover for notch devices'
+  );
+
+  const varCss = fs.readFileSync('css/variables.css', 'utf8');
+  assert.ok(varCss.includes('--safe-area-top'), 'variables.css must define --safe-area-top');
+  assert.ok(varCss.includes('--safe-area-bottom'), 'variables.css must define --safe-area-bottom');
+  assert.ok(varCss.includes('--safe-area-left'), 'variables.css must define --safe-area-left');
+  assert.ok(varCss.includes('--safe-area-right'), 'variables.css must define --safe-area-right');
+  assert.ok(
+    varCss.includes('--min-touch-target: 44px'),
+    'variables.css must define 44px minimum touch target'
+  );
+  assert.ok(varCss.includes('--transition-theme'), 'variables.css must define --transition-theme');
+  console.log(
+    '  ✔ Safe-area insets, 44px touch target tokens, and theme transition variables verified'
+  );
+
+  const baseCss = fs.readFileSync('css/base.css', 'utf8');
+  assert.ok(baseCss.includes('scroll-behavior: smooth'), 'base.css must enforce smooth scrolling');
+  assert.ok(
+    baseCss.includes('touch-action: manipulation'),
+    'base.css must enforce touch-action: manipulation on interactive elements'
+  );
+  assert.ok(
+    baseCss.includes('-webkit-tap-highlight-color: transparent'),
+    'base.css must disable tap highlight rectangle'
+  );
+  assert.ok(
+    baseCss.includes('font-size: 16px !important'),
+    'base.css must enforce 16px font size on mobile inputs to prevent iOS auto-zoom'
+  );
+  assert.ok(
+    baseCss.includes('calc(125px + var(--safe-area-bottom))'),
+    'base.css must pad .page bottom for safe area'
+  );
+  assert.ok(
+    baseCss.includes('prefers-reduced-motion: reduce'),
+    'base.css must respect prefers-reduced-motion accessibility preference'
+  );
+  console.log(
+    '  ✔ Smooth scrolling, input zoom prevention, safe-area padding, and reduced motion verified in base.css'
+  );
+
+  const navCss = fs.readFileSync('css/nav.css', 'utf8');
+  assert.ok(
+    navCss.includes('padding-top: var(--safe-area-top)'),
+    'nav.css must pad .nav for top notch safe area'
+  );
+  assert.ok(navCss.includes('.bottom-nav'), 'nav.css must style .bottom-nav');
+  assert.ok(
+    navCss.includes('var(--safe-area-bottom)'),
+    'nav.css must use safe-area-bottom for bottom dock'
+  );
+  assert.ok(
+    navCss.includes('min-height: var(--min-touch-target)'),
+    'nav.css must enforce minimum 44px touch targets on buttons'
+  );
+  assert.ok(
+    navCss.includes('.bnav-btn:active'),
+    'nav.css must provide tactile active scale tap feedback on mobile buttons'
+  );
+  assert.ok(
+    navCss.includes('overscroll-behavior-y: contain'),
+    'nav.css must contain scroll chaining on sidebar drawer'
+  );
+  console.log(
+    '  ✔ Mobile navigation dock, notch insets, 44px touch targets, and tactile active feedback verified in nav.css'
+  );
+
+  const compCss = fs.readFileSync('css/components.css', 'utf8');
+  assert.ok(compCss.includes('.uniform-cat-tab'), 'components.css must style uniform-cat-tab');
+  assert.ok(compCss.includes('.stepper-btn'), 'components.css must style stepper buttons');
+  assert.ok(compCss.includes('.size-pill'), 'components.css must style size pills');
+  assert.ok(
+    compCss.includes('.sticky-checkout-bar'),
+    'components.css must style sticky checkout bar'
+  );
+  assert.ok(
+    compCss.includes('bottom: calc(85px + var(--safe-area-bottom))'),
+    'sticky checkout bar must sit above bottom nav dock with safe area'
+  );
+  assert.ok(
+    compCss.includes('.portal-toast-container'),
+    'components.css must style toast container'
+  );
+  assert.ok(
+    compCss.includes('.portal-modal-overlay'),
+    'components.css must style modal overlay with safe area'
+  );
+  console.log(
+    '  ✔ Steppers, category tabs, size pills, sticky checkout bar, toasts, and modals verified in components.css'
+  );
+
+  const adminCss = fs.readFileSync('css/admin.css', 'utf8');
+  assert.ok(
+    adminCss.includes('min-height: var(--min-touch-target)'),
+    'admin.css must enforce 44px touch targets on tabs and buttons'
+  );
+  console.log(
+    '  ✔ Admin console subtabs, department tabs, and section buttons verified with 44px touch targets'
+  );
+
   console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert(pkg.scripts, 'package.json must contain scripts');

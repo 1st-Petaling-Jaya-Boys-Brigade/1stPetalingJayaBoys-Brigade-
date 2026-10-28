@@ -762,8 +762,10 @@
 }
 .stepper-btn,
 .qty-btn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   border-radius: 8px;
   border: 1.5px solid var(--border-card);
   background: var(--bg-card);
@@ -777,6 +779,20 @@
   transition: var(--transition-smooth);
   user-select: none;
   line-height: 1;
+  position: relative;
+  touch-action: manipulation;
+}
+
+.stepper-btn::before,
+.qty-btn::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+}
+
+.stepper-btn:active,
+.qty-btn:active {
+  transform: scale(0.92);
 }
 .stepper-btn:hover,
 .qty-btn:hover {
@@ -800,7 +816,7 @@
 /* Sticky Checkout Summary Bar */
 .sticky-checkout-bar {
   position: sticky;
-  bottom: 16px;
+  bottom: calc(85px + var(--safe-area-bottom));
   z-index: 45;
   margin-top: 18px;
   background: rgba(20, 24, 32, 0.94);
@@ -809,6 +825,8 @@
   border: 1.5px solid rgba(245, 197, 66, 0.45);
   border-radius: 16px;
   padding: 12px 18px;
+  padding-left: max(18px, var(--safe-area-left));
+  padding-right: max(18px, var(--safe-area-right));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -817,6 +835,12 @@
     0 10px 30px rgba(0, 0, 0, 0.55),
     0 0 20px rgba(245, 197, 66, 0.12);
   transition: var(--transition-smooth);
+}
+
+@media (min-width: 1024px) {
+  .sticky-checkout-bar {
+    bottom: 20px;
+  }
 }
 .checkout-bar-left {
   display: flex;
@@ -858,8 +882,10 @@
 .checkout-cta-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   padding: 10px 20px;
+  min-height: var(--min-touch-target);
   border-radius: 10px;
   border: none;
   background: var(--accent);
@@ -873,6 +899,11 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.checkout-cta-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .checkout-cta-btn:hover {
   background: #ffd54f;
@@ -2508,9 +2539,29 @@
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
-  padding: 0;
+  padding: 8px;
+  min-width: var(--min-touch-target);
+  min-height: var(--min-touch-target);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
   margin-left: 4px;
-  transition: color 0.15s;
+  touch-action: manipulation;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+
+@media (max-width: 640px) {
+  .portal-toast-container {
+    top: auto;
+    bottom: calc(85px + var(--safe-area-bottom));
+    right: max(16px, var(--safe-area-right));
+    left: max(16px, var(--safe-area-left));
+    width: auto;
+    max-width: 100%;
+  }
 }
 .portal-toast-close:hover {
   color: var(--text-primary);
