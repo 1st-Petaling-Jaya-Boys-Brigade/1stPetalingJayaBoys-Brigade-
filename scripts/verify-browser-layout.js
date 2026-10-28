@@ -6,11 +6,13 @@ const assert = require('assert');
 
 async function getJson(url) {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
-    }).on('error', reject);
+    http
+      .get(url, res => {
+        let data = '';
+        res.on('data', chunk => (data += chunk));
+        res.on('end', () => resolve(JSON.parse(data)));
+      })
+      .on('error', reject);
   });
 }
 
@@ -28,14 +30,18 @@ async function getJson(url) {
   const htmlUrl = 'file:///' + path.resolve('index.html').replace(/\\/g, '/');
 
   console.log('Launching headless Edge on port ' + port + '...');
-  const edgeProc = spawn(edgePath, [
-    '--headless=new',
-    '--remote-debugging-port=' + port,
-    '--user-data-dir=' + tempProfile,
-    '--window-size=1280,900',
-    '--disable-gpu',
-    htmlUrl
-  ], { stdio: 'ignore' });
+  const edgeProc = spawn(
+    edgePath,
+    [
+      '--headless=new',
+      '--remote-debugging-port=' + port,
+      '--user-data-dir=' + tempProfile,
+      '--window-size=1280,900',
+      '--disable-gpu',
+      htmlUrl
+    ],
+    { stdio: 'ignore' }
+  );
 
   try {
     let targets = null;
@@ -45,7 +51,9 @@ async function getJson(url) {
       try {
         targets = await getJson(`http://127.0.0.1:${port}/json/list`);
         if (targets) {
-          pageTarget = targets.find(t => t.type === 'page' && t.url.toLowerCase().includes('index.html'));
+          pageTarget = targets.find(
+            t => t.type === 'page' && t.url.toLowerCase().includes('index.html')
+          );
           if (pageTarget) break;
         }
       } catch (e) {}
@@ -62,7 +70,7 @@ async function getJson(url) {
     let idCounter = 1;
     const callbacks = new Map();
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       const msg = JSON.parse(event.data);
       if (msg.id && callbacks.has(msg.id)) {
         callbacks.get(msg.id)(msg);
@@ -70,13 +78,13 @@ async function getJson(url) {
       }
     };
 
-    await new Promise((resolve) => ws.onopen = resolve);
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise(resolve => (ws.onopen = resolve));
+    await new Promise(resolve => setTimeout(resolve, 600));
 
     function sendCmd(method, params = {}) {
       const id = idCounter++;
       return new Promise((resolve, reject) => {
-        callbacks.set(id, (msg) => {
+        callbacks.set(id, msg => {
           if (msg.error) reject(msg.error);
           else resolve(msg.result);
         });
@@ -89,7 +97,12 @@ async function getJson(url) {
         try {
           return await sendCmd('Runtime.evaluate', { expression, awaitPromise });
         } catch (err) {
-          if (attempt < 4 && err && err.message && err.message.includes('Execution context was destroyed')) {
+          if (
+            attempt < 4 &&
+            err &&
+            err.message &&
+            err.message.includes('Execution context was destroyed')
+          ) {
             await new Promise(r => setTimeout(r, 400));
             continue;
           }
@@ -99,7 +112,8 @@ async function getJson(url) {
     }
 
     // Wait until document.readyState === 'complete' and #hq-carousel-wrapper exists
-    await evalWithRetry(`new Promise((resolve) => {
+    await evalWithRetry(
+      `new Promise((resolve) => {
         function checkReady() {
           if (document.readyState === 'complete' && document.getElementById('hq-carousel-wrapper')) {
             resolve(true);
@@ -108,7 +122,9 @@ async function getJson(url) {
           }
         }
         checkReady();
-      })`, true);
+      })`,
+      true
+    );
 
     // 1. Verify layout elements exist & unpack getBoundingClientRect
     const evalResult1 = await sendCmd('Runtime.evaluate', {
@@ -170,8 +186,16 @@ async function getJson(url) {
     console.log('  Viewport width:', info.viewportRect.width.toFixed(1) + 'px');
     console.log('  Card 0 width:', info.card0Rect.width.toFixed(1) + 'px');
     console.log('  Card 1 width:', info.card1Rect.width.toFixed(1) + 'px');
-    console.log('  Card 0 left:', info.card0Rect.left.toFixed(1) + 'px, Viewport left:', info.viewportRect.left.toFixed(1) + 'px');
-    console.log('  Card 1 right:', info.card1Rect.right.toFixed(1) + 'px, Viewport right:', info.viewportRect.right.toFixed(1) + 'px');
+    console.log(
+      '  Card 0 left:',
+      info.card0Rect.left.toFixed(1) + 'px, Viewport left:',
+      info.viewportRect.left.toFixed(1) + 'px'
+    );
+    console.log(
+      '  Card 1 right:',
+      info.card1Rect.right.toFixed(1) + 'px, Viewport right:',
+      info.viewportRect.right.toFixed(1) + 'px'
+    );
 
     assert.strictEqual(info.hasWrapper, true, 'Carousel wrapper must be rendered');
     assert.strictEqual(info.cardCount, 4, 'Must have 4 total quick action cards');
@@ -180,16 +204,32 @@ async function getJson(url) {
     assert.strictEqual(info.dotsCount, 2, 'Desktop must display 2 dots');
 
     // Verify 2 cards are in view on Page 0
-    assert.ok(Math.abs(info.card0Rect.left - info.viewportRect.left) <= 2, 'Card 0 must start at viewport left edge');
-    assert.ok(Math.abs(info.card1Rect.right - info.viewportRect.right) <= 2, 'Card 1 must end at viewport right edge');
-    console.log('  ✔ Page 0 displays exactly 2 cards side-by-side in viewport (Forms & Store, Member Hub)');
+    assert.ok(
+      Math.abs(info.card0Rect.left - info.viewportRect.left) <= 2,
+      'Card 0 must start at viewport left edge'
+    );
+    assert.ok(
+      Math.abs(info.card1Rect.right - info.viewportRect.right) <= 2,
+      'Card 1 must end at viewport right edge'
+    );
+    console.log(
+      '  ✔ Page 0 displays exactly 2 cards side-by-side in viewport (Forms & Store, Member Hub)'
+    );
 
     // 2. Test default arrow hidden state (when cursor is NOT on boxes)
     console.log('\n[Directional Hover Arrow Verification]');
     console.log('  Default Prev Opacity (Cursor outside):', info.prevOpacityDefault);
     console.log('  Default Next Opacity (Cursor outside):', info.nextOpacityDefault);
-    assert.strictEqual(info.prevOpacityDefault, '0', 'Prev arrow must be hidden by default when cursor is not on box');
-    assert.strictEqual(info.nextOpacityDefault, '0', 'Next arrow must be hidden by default when cursor is not on box');
+    assert.strictEqual(
+      info.prevOpacityDefault,
+      '0',
+      'Prev arrow must be hidden by default when cursor is not on box'
+    );
+    assert.strictEqual(
+      info.nextOpacityDefault,
+      '0',
+      'Next arrow must be hidden by default when cursor is not on box'
+    );
     console.log('  ✔ Arrow buttons are completely hidden when cursor is not on the boxes');
 
     // 3. Move cursor to Left Box: verify ONLY Left arrow appears
@@ -224,11 +264,28 @@ async function getJson(url) {
       returnByValue: true
     });
     const leftHoverState = evalHoverLeft.result.value;
-    console.log('  Cursor on Left Box -> Prev Opacity:', leftHoverState.prevOpacity, 'Next Opacity:', leftHoverState.nextOpacity);
+    console.log(
+      '  Cursor on Left Box -> Prev Opacity:',
+      leftHoverState.prevOpacity,
+      'Next Opacity:',
+      leftHoverState.nextOpacity
+    );
     assert.strictEqual(leftHoverState.hasHoverLeft, true, 'Container should have hover-left class');
-    assert.strictEqual(leftHoverState.hasHoverRight, false, 'Container must NOT have hover-right class');
-    assert.strictEqual(leftHoverState.prevOpacity, '1', 'Left arrow MUST appear when cursor is on the left box');
-    assert.strictEqual(leftHoverState.nextOpacity, '0', 'Right arrow MUST remain hidden when cursor is on the left box');
+    assert.strictEqual(
+      leftHoverState.hasHoverRight,
+      false,
+      'Container must NOT have hover-right class'
+    );
+    assert.strictEqual(
+      leftHoverState.prevOpacity,
+      '1',
+      'Left arrow MUST appear when cursor is on the left box'
+    );
+    assert.strictEqual(
+      leftHoverState.nextOpacity,
+      '0',
+      'Right arrow MUST remain hidden when cursor is on the left box'
+    );
     console.log('  ✔ When cursor is on left box, ONLY left arrow button appears');
 
     // 4. Move cursor to Right Box: verify ONLY Right arrow appears
@@ -263,11 +320,32 @@ async function getJson(url) {
       returnByValue: true
     });
     const rightHoverState = evalHoverRight.result.value;
-    console.log('  Cursor on Right Box -> Prev Opacity:', rightHoverState.prevOpacity, 'Next Opacity:', rightHoverState.nextOpacity);
-    assert.strictEqual(rightHoverState.hasHoverRight, true, 'Container should have hover-right class');
-    assert.strictEqual(rightHoverState.hasHoverLeft, false, 'Container must NOT have hover-left class');
-    assert.strictEqual(rightHoverState.nextOpacity, '1', 'Right arrow MUST appear when cursor is on the right box');
-    assert.strictEqual(rightHoverState.prevOpacity, '0', 'Left arrow MUST remain hidden when cursor is on the right box');
+    console.log(
+      '  Cursor on Right Box -> Prev Opacity:',
+      rightHoverState.prevOpacity,
+      'Next Opacity:',
+      rightHoverState.nextOpacity
+    );
+    assert.strictEqual(
+      rightHoverState.hasHoverRight,
+      true,
+      'Container should have hover-right class'
+    );
+    assert.strictEqual(
+      rightHoverState.hasHoverLeft,
+      false,
+      'Container must NOT have hover-left class'
+    );
+    assert.strictEqual(
+      rightHoverState.nextOpacity,
+      '1',
+      'Right arrow MUST appear when cursor is on the right box'
+    );
+    assert.strictEqual(
+      rightHoverState.prevOpacity,
+      '0',
+      'Left arrow MUST remain hidden when cursor is on the right box'
+    );
     console.log('  ✔ When cursor is on right box, ONLY right arrow button appears');
 
     // 5. Move cursor outside: verify BOTH arrows disappear
@@ -290,9 +368,22 @@ async function getJson(url) {
       })()`,
       returnByValue: true
     });
-    console.log('  Cursor leaves boxes -> Prev Opacity:', evalHoverLeave.result.value.prevOpacity, 'Next Opacity:', evalHoverLeave.result.value.nextOpacity);
-    assert.strictEqual(evalHoverLeave.result.value.prevOpacity, '0', 'Prev arrow hides on mouse leave');
-    assert.strictEqual(evalHoverLeave.result.value.nextOpacity, '0', 'Next arrow hides on mouse leave');
+    console.log(
+      '  Cursor leaves boxes -> Prev Opacity:',
+      evalHoverLeave.result.value.prevOpacity,
+      'Next Opacity:',
+      evalHoverLeave.result.value.nextOpacity
+    );
+    assert.strictEqual(
+      evalHoverLeave.result.value.prevOpacity,
+      '0',
+      'Prev arrow hides on mouse leave'
+    );
+    assert.strictEqual(
+      evalHoverLeave.result.value.nextOpacity,
+      '0',
+      'Next arrow hides on mouse leave'
+    );
     console.log('  ✔ When cursor leaves boxes, arrow buttons completely disappear');
 
     // 6. Test cycling forward to Page 1
@@ -369,7 +460,11 @@ async function getJson(url) {
       })()`,
       returnByValue: true
     });
-    assert.strictEqual(evalDotClick.result.value.page, 0, 'Clicking dot 0 navigates directly to page 0');
+    assert.strictEqual(
+      evalDotClick.result.value.page,
+      0,
+      'Clicking dot 0 navigates directly to page 0'
+    );
     console.log('  ✔ Clicking pagination dot directly navigates to selected page');
 
     // 10. Verify column alignment
@@ -378,8 +473,13 @@ async function getJson(url) {
     console.log('  Left Col Height: ' + info.leftColRect.height.toFixed(1) + 'px');
     console.log('  Right Col Height: ' + info.rightColRect.height.toFixed(1) + 'px');
     console.log('  Height delta: ' + heightDiff.toFixed(1) + 'px');
-    assert.ok(heightDiff <= 2, 'Left column and Right column must have matching heights (diff <= 2px)');
-    console.log('  ✔ Left column and Right column achieve exact visual height alignment with calendar widget!');
+    assert.ok(
+      heightDiff <= 2,
+      'Left column and Right column must have matching heights (diff <= 2px)'
+    );
+    console.log(
+      '  ✔ Left column and Right column achieve exact visual height alignment with calendar widget!'
+    );
 
     // 11. Test Forms Tab Search Bar in Browser
     console.log('\n[Forms Tab Search Bar Verification]');
@@ -409,7 +509,12 @@ async function getJson(url) {
       returnByValue: true
     });
     const formsInit = evalFormsInit.result.value;
-    console.log('  Forms hub active -> Cards count:', formsInit.cardCount, 'Placeholder:', formsInit.placeholder);
+    console.log(
+      '  Forms hub active -> Cards count:',
+      formsInit.cardCount,
+      'Placeholder:',
+      formsInit.placeholder
+    );
     assert.strictEqual(formsInit.hasInput, true, 'Search input must exist in DOM');
     assert.ok(formsInit.cardCount >= 1, 'At least default Uniform Order card must be present');
     console.log('  ✔ Forms hub renders search input and active form cards');
@@ -523,26 +628,54 @@ async function getJson(url) {
     });
     const pnInfo = evalParadeAndNav.result.value;
     console.log('  Weekly Parade Card Desc:', pnInfo.paradeDesc);
-    assert.ok(pnInfo.paradeDesc.includes('2:15 PM') && pnInfo.paradeDesc.includes('6:00 PM'), 'Parade time must be 2:15 PM – 6:00 PM');
-    assert.ok(pnInfo.paradeDesc.includes('Band 9:30 AM') && pnInfo.paradeDesc.includes('11:30 AM'), 'Band time must be 9:30 AM – 11:30 AM');
-    console.log('  ✔ Weekly parade card accurately reflects updated Parade (2:15PM-6PM) and Band (9:30AM-11:30AM) times');
+    assert.ok(
+      pnInfo.paradeDesc.includes('2:15 PM') && pnInfo.paradeDesc.includes('6:00 PM'),
+      'Parade time must be 2:15 PM – 6:00 PM'
+    );
+    assert.ok(
+      pnInfo.paradeDesc.includes('Band 9:30 AM') && pnInfo.paradeDesc.includes('11:30 AM'),
+      'Band time must be 9:30 AM – 11:30 AM'
+    );
+    console.log(
+      '  ✔ Weekly parade card accurately reflects updated Parade (2:15PM-6PM) and Band (9:30AM-11:30AM) times'
+    );
 
-    console.log('  Sidebar Nav Labels -> Attendance:', pnInfo.attLabel, 'Resources:', pnInfo.resLabel);
-    assert.strictEqual(pnInfo.attLabel, 'Leaderboard', 'Sidebar item must be renamed to Leaderboard');
+    console.log(
+      '  Sidebar Nav Labels -> Attendance:',
+      pnInfo.attLabel,
+      'Resources:',
+      pnInfo.resLabel
+    );
+    assert.strictEqual(
+      pnInfo.attLabel,
+      'Leaderboard',
+      'Sidebar item must be renamed to Leaderboard'
+    );
     assert.strictEqual(pnInfo.resLabel, 'Resources', 'Sidebar item must be renamed to Resources');
     assert.strictEqual(pnInfo.hasAttBadge, false, 'Standings badge must be removed');
     assert.strictEqual(pnInfo.hasResBadge, false, 'Files badge must be removed');
     assert.strictEqual(pnInfo.whiteSpace, 'nowrap', 'Sidebar label must stay on a single line');
-    console.log('  ✔ Sidebar navigation cleanly displays Leaderboard and Resources on one line without pills');
+    console.log(
+      '  ✔ Sidebar navigation cleanly displays Leaderboard and Resources on one line without pills'
+    );
 
-    assert.notStrictEqual(pnInfo.trackWillChange, 'transform', 'Track will-change must not force permanent compositor layer');
-    assert.strictEqual(pnInfo.fontSmoothing, 'antialiased', 'Cards must use antialiased font smoothing for razor sharpness');
+    assert.notStrictEqual(
+      pnInfo.trackWillChange,
+      'transform',
+      'Track will-change must not force permanent compositor layer'
+    );
+    assert.strictEqual(
+      pnInfo.fontSmoothing,
+      'antialiased',
+      'Cards must use antialiased font smoothing for razor sharpness'
+    );
     console.log('  ✔ Quick access carousel cards have optimal crisp font smoothing');
 
-        // 13. Test Child Safety (COPPA/PDPA) & Parental Consent Governance
+    // 13. Test Child Safety (COPPA/PDPA) & Parental Consent Governance
     console.log('\n[Child Safety & Parental Consent Governance (TSK-032)]');
     const evalChildSafety = await sendCmd('Runtime.evaluate', {
-      expression: '(() => {' +
+      expression:
+        '(() => {' +
         'const consentBox = document.getElementById("parent-consent-box");' +
         'const pNameInp = document.getElementById("reg-parent-name");' +
         'const pContactInp = document.getElementById("reg-parent-contact");' +
@@ -553,18 +686,18 @@ async function getJson(url) {
         'const emChildSafetyBox = document.getElementById("em-child-safety-box");' +
         'const galleryAdvisory = document.getElementById("adm-section-gallery");' +
         'return {' +
-          'hasConsentBox: !!consentBox,' +
-          'hasParentName: !!pNameInp,' +
-          'hasParentContact: !!pContactInp,' +
-          'hasParentConsent: !!pConsentCb,' +
-          'hasMediaConsent: !!pMediaCb,' +
-          'mediaDefaultChecked: pMediaCb ? pMediaCb.checked : null,' +
-          'hasPolicyModal: !!policyModal,' +
-          'hasEmSection: !!emSectionSel,' +
-          'hasEmChildSafety: !!emChildSafetyBox,' +
-          'hasGalleryAdvisory: galleryAdvisory ? galleryAdvisory.textContent.includes("Child Safety & Media Release Advisory") : false' +
+        'hasConsentBox: !!consentBox,' +
+        'hasParentName: !!pNameInp,' +
+        'hasParentContact: !!pContactInp,' +
+        'hasParentConsent: !!pConsentCb,' +
+        'hasMediaConsent: !!pMediaCb,' +
+        'mediaDefaultChecked: pMediaCb ? pMediaCb.checked : null,' +
+        'hasPolicyModal: !!policyModal,' +
+        'hasEmSection: !!emSectionSel,' +
+        'hasEmChildSafety: !!emChildSafetyBox,' +
+        'hasGalleryAdvisory: galleryAdvisory ? galleryAdvisory.textContent.includes("Child Safety & Media Release Advisory") : false' +
         '};' +
-      '})()',
+        '})()',
       returnByValue: true
     });
     const csInfo = evalChildSafety.result.value;
@@ -573,14 +706,34 @@ async function getJson(url) {
     assert.strictEqual(csInfo.hasParentContact, true, 'Parent contact input must exist');
     assert.strictEqual(csInfo.hasParentConsent, true, 'Parent consent checkbox must exist');
     assert.strictEqual(csInfo.hasMediaConsent, true, 'Media consent checkbox must exist');
-    assert.strictEqual(csInfo.mediaDefaultChecked, false, 'Media release must be unchecked by default (privacy-first)');
-    console.log('  ✔ Registration form adheres to verified parental consent and privacy-first default media permission');
+    assert.strictEqual(
+      csInfo.mediaDefaultChecked,
+      false,
+      'Media release must be unchecked by default (privacy-first)'
+    );
+    console.log(
+      '  ✔ Registration form adheres to verified parental consent and privacy-first default media permission'
+    );
 
     assert.strictEqual(csInfo.hasPolicyModal, true, 'Child safety policy modal must exist in DOM');
-    assert.strictEqual(csInfo.hasEmSection, true, 'Edit Member modal must feature Section selection');
-    assert.strictEqual(csInfo.hasEmChildSafety, true, 'Edit Member modal must feature Child Safety consent controls');
-    assert.strictEqual(csInfo.hasGalleryAdvisory, true, 'Gallery management must feature Child Safety & Media Release advisory');
-    console.log('  ✔ Admin console provides full section governance and child safety advisory enforcement');
+    assert.strictEqual(
+      csInfo.hasEmSection,
+      true,
+      'Edit Member modal must feature Section selection'
+    );
+    assert.strictEqual(
+      csInfo.hasEmChildSafety,
+      true,
+      'Edit Member modal must feature Child Safety consent controls'
+    );
+    assert.strictEqual(
+      csInfo.hasGalleryAdvisory,
+      true,
+      'Gallery management must feature Child Safety & Media Release advisory'
+    );
+    console.log(
+      '  ✔ Admin console provides full section governance and child safety advisory enforcement'
+    );
 
     // 14. Test Instagram-Style Story Highlights & Event Gallery Reel (TSK-033)
     console.log('\n[Story Highlights Reel & Full-Screen Viewer (TSK-033)]');
@@ -632,18 +785,36 @@ async function getJson(url) {
     assert.strictEqual(shInfo.hasReel, true, 'Story highlights reel must exist in gallery');
     assert.ok(shInfo.itemCount >= 1, 'Must render story highlight bubbles');
     assert.ok(shInfo.firstLabel.length > 0, 'First highlight bubble must have a title');
-    console.log('  ✔ Story highlights circular bubble reel renders with active categories:', shInfo.itemCount);
+    console.log(
+      '  ✔ Story highlights circular bubble reel renders with active categories:',
+      shInfo.itemCount
+    );
 
     assert.strictEqual(shInfo.modalDisplay, 'flex', 'Opening story viewer displays modal');
-    assert.ok(shInfo.progressBarCount >= 1, 'Must render segmented progress bars matching slide count');
-    assert.strictEqual(shInfo.activeTitle, shInfo.firstLabel, 'Modal header reflects active highlight category');
+    assert.ok(
+      shInfo.progressBarCount >= 1,
+      'Must render segmented progress bars matching slide count'
+    );
+    assert.strictEqual(
+      shInfo.activeTitle,
+      shInfo.firstLabel,
+      'Modal header reflects active highlight category'
+    );
     assert.strictEqual(shInfo.hasImg, true, 'Modal contains active slide media viewport');
     assert.strictEqual(shInfo.closedDisplay, 'none', 'Closing story viewer hides modal');
-    console.log('  ✔ Story viewer opens full-screen with segmented progress bars and closes cleanly');
+    console.log(
+      '  ✔ Story viewer opens full-screen with segmented progress bars and closes cleanly'
+    );
 
-    assert.strictEqual(shInfo.hasAdminList, true, 'Admin console has Story Highlights management list');
+    assert.strictEqual(
+      shInfo.hasAdminList,
+      true,
+      'Admin console has Story Highlights management list'
+    );
     assert.strictEqual(shInfo.hasAdminModal, true, 'Admin console has Create/Edit Story Modal');
-    console.log('  ✔ Admin console provides complete story highlight and slide management interface');
+    console.log(
+      '  ✔ Admin console provides complete story highlight and slide management interface'
+    );
     // 14b. Test Dedicated Gallery Tab & Video Media Support
     console.log('\n[Dedicated Gallery Tab & Video Media Viewer]');
     const evalGalleryTab = await sendCmd('Runtime.evaluate', {
@@ -702,18 +873,42 @@ async function getJson(url) {
       returnByValue: true
     });
     const gtInfo = evalGalleryTab.result.value;
-    assert.strictEqual(gtInfo.isPageActive, true, 'Navigating to gallery tab activates #page-gallery');
+    assert.strictEqual(
+      gtInfo.isPageActive,
+      true,
+      'Navigating to gallery tab activates #page-gallery'
+    );
     assert.strictEqual(gtInfo.isSnavActive, true, 'Gallery sidebar item reflects active state');
-    assert.strictEqual(gtInfo.videosPillText, 'Videos', 'Videos filter pill must say Videos without Reels');
-    assert.strictEqual(gtInfo.highlightsTitle, 'Highlights', 'Gallery section must say Highlights without Story/Reels');
+    assert.strictEqual(
+      gtInfo.videosPillText,
+      'Videos',
+      'Videos filter pill must say Videos without Reels'
+    );
+    assert.strictEqual(
+      gtInfo.highlightsTitle,
+      'Highlights',
+      'Gallery section must say Highlights without Story/Reels'
+    );
     assert.ok(gtInfo.filterPillCount >= 3, 'Gallery features All, Photos, and Videos filter pills');
-    assert.ok(gtInfo.reelBubbleCount >= 1, 'Dedicated gallery tab renders complete story highlights reel');
+    assert.ok(
+      gtInfo.reelBubbleCount >= 1,
+      'Dedicated gallery tab renders complete story highlights reel'
+    );
     assert.strictEqual(gtInfo.hasMediaActive, true, 'Story viewer displays active media viewport');
-    assert.strictEqual(gtInfo.hasArrowPrev, true, 'Story viewer features prev arrow navigation button');
-    assert.strictEqual(gtInfo.hasArrowNext, true, 'Story viewer features next arrow navigation button');
+    assert.strictEqual(
+      gtInfo.hasArrowPrev,
+      true,
+      'Story viewer features prev arrow navigation button'
+    );
+    assert.strictEqual(
+      gtInfo.hasArrowNext,
+      true,
+      'Story viewer features next arrow navigation button'
+    );
     console.log('  ✔ Dedicated Gallery tab navigation, media filter pills, and reel verified');
-    console.log('  ✔ Story viewer renders interactive video viewport with unblocked tactile arrow navigation');
-
+    console.log(
+      '  ✔ Story viewer renders interactive video viewport with unblocked tactile arrow navigation'
+    );
 
     // 15. Test Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)
     console.log('\n[Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)]');
@@ -766,22 +961,43 @@ async function getJson(url) {
     assert.strictEqual(ghInfo.hasTokenInp, true, 'Sync token input must exist');
     assert.strictEqual(ghInfo.hasSaveBtn, true, 'Save config button must exist');
     assert.strictEqual(ghInfo.hasSyncBtn, true, 'Sync Now button must exist');
-    assert.ok(ghInfo.tokenVal && ghInfo.tokenVal.startsWith('bb_sec_'), 'Token input must contain secure bb_sec_ token');
-    console.log('  ✔ Admin console provides complete endpoint security inputs and active sync token');
+    assert.ok(
+      ghInfo.tokenVal && ghInfo.tokenVal.startsWith('bb_sec_'),
+      'Token input must contain secure bb_sec_ token'
+    );
+    console.log(
+      '  ✔ Admin console provides complete endpoint security inputs and active sync token'
+    );
 
     assert.strictEqual(ghInfo.hasPiiBadge, true, 'Must display Zero-PII Whitelist badge');
     assert.strictEqual(ghInfo.hasTokenBadge, true, 'Must display Token Auth Enforced badge');
     assert.strictEqual(ghInfo.hasSharingBadge, true, 'Must display Restricted Sharing badge');
-    console.log('  ✔ Hardening status badges verify PII stripping, proxy token auth, and restricted sharing');
+    console.log(
+      '  ✔ Hardening status badges verify PII stripping, proxy token auth, and restricted sharing'
+    );
 
     assert.strictEqual(ghInfo.snippetHasToken, true, 'Apps script snippet must embed SYNC_TOKEN');
-    assert.strictEqual(ghInfo.snippetHasDoGet, true, 'Apps script snippet must define doGet handler');
-    assert.strictEqual(ghInfo.snippetHasDoPost, true, 'Apps script snippet must define doPost handler');
-    assert.strictEqual(ghInfo.snippetHasAudit, true, 'Apps script snippet must include sheet sharing audit function');
-    console.log('  ✔ Generated Google Apps Script template incorporates token authentication and security audits');
+    assert.strictEqual(
+      ghInfo.snippetHasDoGet,
+      true,
+      'Apps script snippet must define doGet handler'
+    );
+    assert.strictEqual(
+      ghInfo.snippetHasDoPost,
+      true,
+      'Apps script snippet must define doPost handler'
+    );
+    assert.strictEqual(
+      ghInfo.snippetHasAudit,
+      true,
+      'Apps script snippet must include sheet sharing audit function'
+    );
+    console.log(
+      '  ✔ Generated Google Apps Script template incorporates token authentication and security audits'
+    );
 
     // 16. Test Badges Tab and President's Tracker in Browser (TSK-008)
-    console.log('\n[Badges Tab & President\'s Award Tracker Verification (TSK-008)]');
+    console.log("\n[Badges Tab & President's Award Tracker Verification (TSK-008)]");
     const evalBadgesInit = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         if (typeof sessionSet === 'function') {
@@ -816,12 +1032,24 @@ async function getJson(url) {
     });
     const badgesInit = evalBadgesInit.result.value;
     assert.strictEqual(badgesInit.gateDisplay, 'none', 'Badges gate must be hidden when logged in');
-    assert.strictEqual(badgesInit.loggedInDisplay, 'block', 'Badges logged-in panel must be displayed');
+    assert.strictEqual(
+      badgesInit.loggedInDisplay,
+      'block',
+      'Badges logged-in panel must be displayed'
+    );
     assert.strictEqual(badgesInit.hasTracker, true, 'President tracker container must exist');
-    assert.ok(badgesInit.trackerHtml.includes("President's Award"), 'Tracker must render President\'s Award header');
-    assert.ok(badgesInit.trackerHtml.includes('Service Years'), 'Tracker must render Service Years section');
+    assert.ok(
+      badgesInit.trackerHtml.includes("President's Award"),
+      "Tracker must render President's Award header"
+    );
+    assert.ok(
+      badgesInit.trackerHtml.includes('Service Years'),
+      'Tracker must render Service Years section'
+    );
     assert.strictEqual(badgesInit.hasSearch, true, 'Badge search input must exist');
-    console.log('  ✔ Badges tab, search input, and President\'s Award tracker render cleanly in browser');
+    console.log(
+      "  ✔ Badges tab, search input, and President's Award tracker render cleanly in browser"
+    );
 
     // 17. Test Weekly Parade Schedule & NCO Tasks Kanban Board in Browser (TSK-009)
     console.log('\n[Weekly Parade Schedule & NCO Tasks Board Verification (TSK-009)]');
@@ -857,20 +1085,56 @@ async function getJson(url) {
       returnByValue: true
     });
     const tasksInit = evalTasksInit.result.value;
-    assert.strictEqual(tasksInit.hasScheduleCard, true, 'Weekly parade schedule card must exist in DOM');
-    assert.ok(tasksInit.scheduleText.includes('PARADE') || tasksInit.scheduleText.includes('FALL-IN') || tasksInit.scheduleText.includes('Band Practice') || tasksInit.scheduleText.includes('1:00 PM'), 'Schedule card must display parade schedule details');
-    assert.strictEqual(tasksInit.hasBoard, true, 'NCO task board container must exist under parade tab');
+    assert.strictEqual(
+      tasksInit.hasScheduleCard,
+      true,
+      'Weekly parade schedule card must exist in DOM'
+    );
+    assert.ok(
+      tasksInit.scheduleText.includes('PARADE') ||
+        tasksInit.scheduleText.includes('FALL-IN') ||
+        tasksInit.scheduleText.includes('Band Practice') ||
+        tasksInit.scheduleText.includes('1:00 PM'),
+      'Schedule card must display parade schedule details'
+    );
+    assert.strictEqual(
+      tasksInit.hasBoard,
+      true,
+      'NCO task board container must exist under parade tab'
+    );
     assert.strictEqual(tasksInit.hasColTodo, true, 'Todo Kanban column must exist');
     assert.strictEqual(tasksInit.hasColInprog, true, 'In-progress Kanban column must exist');
     assert.strictEqual(tasksInit.hasColDone, true, 'Done Kanban column must exist');
     assert.strictEqual(tasksInit.hasDetailModal, true, 'Task detail modal must exist');
-    assert.strictEqual(tasksInit.hasSwitchTaskTab, true, 'switchTaskTab function must be available');
-    assert.strictEqual(tasksInit.hasRenderTasksBoard, true, 'renderTasksBoard function must be available');
-    assert.strictEqual(tasksInit.hasCheckTasksAccess, true, 'checkTasksAccess function must be available');
-    assert.strictEqual(tasksInit.hasOpenTaskDetail, true, 'openTaskDetail function must be available');
+    assert.strictEqual(
+      tasksInit.hasSwitchTaskTab,
+      true,
+      'switchTaskTab function must be available'
+    );
+    assert.strictEqual(
+      tasksInit.hasRenderTasksBoard,
+      true,
+      'renderTasksBoard function must be available'
+    );
+    assert.strictEqual(
+      tasksInit.hasCheckTasksAccess,
+      true,
+      'checkTasksAccess function must be available'
+    );
+    assert.strictEqual(
+      tasksInit.hasOpenTaskDetail,
+      true,
+      'openTaskDetail function must be available'
+    );
     assert.strictEqual(tasksInit.hasSaveTask, true, 'saveTask function must be available');
-    assert.strictEqual(tasksInit.hasRenderAdminTasks, true, 'renderAdminTasks function must be available');
-    console.log('  ✔ Weekly parade schedule and NCO Kanban board verified in headless Edge browser');
+    assert.strictEqual(
+      tasksInit.hasRenderAdminTasks,
+      true,
+      'renderAdminTasks function must be available'
+    );
+    console.log(
+      '  ✔ Weekly parade schedule and NCO Kanban board verified in headless Edge browser'
+    );
 
     // 18. Uniform Order Grid Form & Product Card Redesign Verification (TSK-006B)
     console.log('\n[Uniform Order Grid & Product Card Redesign Verification (TSK-006B)]');
@@ -939,18 +1203,54 @@ async function getJson(url) {
     assert.strictEqual(uniformGrid.hasGrid, true, 'Product grid container must exist');
     assert.ok(uniformGrid.cardCount >= 1, 'Grid must render uniform product cards from catalog');
     assert.strictEqual(uniformGrid.hasStickyBar, true, 'Sticky checkout summary bar must exist');
-    assert.strictEqual(uniformGrid.firstCardHasMedia, true, 'Product card must feature thumbnail preview media');
+    assert.strictEqual(
+      uniformGrid.firstCardHasMedia,
+      true,
+      'Product card must feature thumbnail preview media'
+    );
     assert.strictEqual(uniformGrid.firstCardHasPrice, true, 'Product card must feature price tag');
-    assert.strictEqual(uniformGrid.firstCardHasStepper, true, 'Product card must feature increment/decrement stepper');
-    assert.strictEqual(uniformGrid.firstCardHasQtyClass, true, 'Product card must receive has-qty styling when quantity > 0');
+    assert.strictEqual(
+      uniformGrid.firstCardHasStepper,
+      true,
+      'Product card must feature increment/decrement stepper'
+    );
+    assert.strictEqual(
+      uniformGrid.firstCardHasQtyClass,
+      true,
+      'Product card must receive has-qty styling when quantity > 0'
+    );
     assert.ok(uniformGrid.sizePillsCount >= 2, 'Shirt card must feature size selector pills');
-    assert.strictEqual(uniformGrid.firstPillSelected, true, 'Selected size pill must receive selected active styling');
-    assert.strictEqual(uniformGrid.checkoutCountText, '1 item', 'Sticky checkout bar must display item count');
-    assert.ok(uniformGrid.checkoutTotalText.includes('RM'), 'Sticky checkout bar must display live currency total');
-    assert.strictEqual(uniformGrid.ctaBtnActive, true, 'Sticky checkout review button must be enabled when items are selected');
-    assert.ok(uniformGrid.visibleAfterFilter >= 1, 'Category filter must display matching product cards');
-    assert.strictEqual(uniformGrid.gridDisplay, 'grid', 'Uniform items container must have CSS grid display');
-    console.log('  ✔ Responsive uniform product card grid, category tabs, size pills, and sticky checkout bar verified in browser');
+    assert.strictEqual(
+      uniformGrid.firstPillSelected,
+      true,
+      'Selected size pill must receive selected active styling'
+    );
+    assert.strictEqual(
+      uniformGrid.checkoutCountText,
+      '1 item',
+      'Sticky checkout bar must display item count'
+    );
+    assert.ok(
+      uniformGrid.checkoutTotalText.includes('RM'),
+      'Sticky checkout bar must display live currency total'
+    );
+    assert.strictEqual(
+      uniformGrid.ctaBtnActive,
+      true,
+      'Sticky checkout review button must be enabled when items are selected'
+    );
+    assert.ok(
+      uniformGrid.visibleAfterFilter >= 1,
+      'Category filter must display matching product cards'
+    );
+    assert.strictEqual(
+      uniformGrid.gridDisplay,
+      'grid',
+      'Uniform items container must have CSS grid display'
+    );
+    console.log(
+      '  ✔ Responsive uniform product card grid, category tabs, size pills, and sticky checkout bar verified in browser'
+    );
 
     // ── Modern Toast Notification & Confirmation Modal Verification (TSK-012) ──
     console.log('\n[Modern Toast Notification & Modal System Verification (TSK-012)]');
@@ -974,13 +1274,31 @@ async function getJson(url) {
       returnByValue: true
     });
     const toastResult = evalToast.result.value;
-    assert.strictEqual(toastResult.hasContainer, true, 'Toast container must be created in browser DOM');
-    assert.strictEqual(toastResult.containerAriaLive, 'polite', 'Toast container must have aria-live="polite"');
-    assert.strictEqual(toastResult.hasToast, true, 'Toast element with portal-toast-success must be rendered');
+    assert.strictEqual(
+      toastResult.hasContainer,
+      true,
+      'Toast container must be created in browser DOM'
+    );
+    assert.strictEqual(
+      toastResult.containerAriaLive,
+      'polite',
+      'Toast container must have aria-live="polite"'
+    );
+    assert.strictEqual(
+      toastResult.hasToast,
+      true,
+      'Toast element with portal-toast-success must be rendered'
+    );
     assert.strictEqual(toastResult.toastRole, 'alert', 'Toast element must have role="alert"');
-    assert.strictEqual(toastResult.toastBody, 'Browser test success toast notification', 'Toast body must match message');
+    assert.strictEqual(
+      toastResult.toastBody,
+      'Browser test success toast notification',
+      'Toast body must match message'
+    );
     assert.strictEqual(toastResult.hasCloseBtn, true, 'Toast close button must be present');
-    console.log('  ✔ Modern non-blocking toast renders in DOM with SVG icon, close button, and aria labels');
+    console.log(
+      '  ✔ Modern non-blocking toast renders in DOM with SVG icon, close button, and aria labels'
+    );
 
     // 2. Test toast manual close dismissal
     const evalDismiss = await sendCmd('Runtime.evaluate', {
@@ -996,7 +1314,11 @@ async function getJson(url) {
       returnByValue: true
     });
     const dismissResult = evalDismiss.result.value;
-    assert.strictEqual(dismissResult.hasHideClass, true, 'Clicking toast close button must apply portal-toast-hide animation');
+    assert.strictEqual(
+      dismissResult.hasHideClass,
+      true,
+      'Clicking toast close button must apply portal-toast-hide animation'
+    );
     console.log('  ✔ Clicking close button triggers smooth exit animation');
 
     // 3. Test accessible confirmation modal dialog resolving true on Confirm
@@ -1024,13 +1346,35 @@ async function getJson(url) {
       returnByValue: true
     });
     const modalConfirmResult = evalModalConfirm.result.value;
-    assert.strictEqual(modalConfirmResult.stateBefore.hasOverlay, true, 'Confirmation overlay must be added to DOM');
-    assert.strictEqual(modalConfirmResult.stateBefore.overlayRole, 'dialog', 'Overlay must feature role="dialog"');
+    assert.strictEqual(
+      modalConfirmResult.stateBefore.hasOverlay,
+      true,
+      'Confirmation overlay must be added to DOM'
+    );
+    assert.strictEqual(
+      modalConfirmResult.stateBefore.overlayRole,
+      'dialog',
+      'Overlay must feature role="dialog"'
+    );
     assert.strictEqual(modalConfirmResult.stateBefore.hasCard, true, 'Modal card must be present');
-    assert.strictEqual(modalConfirmResult.stateBefore.titleText, 'Browser Test Dialog', 'Header title must match');
-    assert.strictEqual(modalConfirmResult.stateBefore.okBtnText, 'Proceed', 'Custom button label must match');
-    assert.strictEqual(modalConfirmResult.resolvedValue, true, 'Clicking Confirm must resolve Promise to true');
-    console.log('  ✔ showConfirmModal renders accessible dialog card and resolves Promise on user confirmation');
+    assert.strictEqual(
+      modalConfirmResult.stateBefore.titleText,
+      'Browser Test Dialog',
+      'Header title must match'
+    );
+    assert.strictEqual(
+      modalConfirmResult.stateBefore.okBtnText,
+      'Proceed',
+      'Custom button label must match'
+    );
+    assert.strictEqual(
+      modalConfirmResult.resolvedValue,
+      true,
+      'Clicking Confirm must resolve Promise to true'
+    );
+    console.log(
+      '  ✔ showConfirmModal renders accessible dialog card and resolves Promise on user confirmation'
+    );
 
     // 4. Test non-blocking window.alert wrapper
     const evalAlertWrapper = await sendCmd('Runtime.evaluate', {
@@ -1046,8 +1390,14 @@ async function getJson(url) {
       returnByValue: true
     });
     const alertWrapperResult = evalAlertWrapper.result.value;
-    assert.strictEqual(alertWrapperResult.hasToast, true, 'window.alert wrapper must convert native alerts to non-blocking toast');
-    console.log('  ✔ Non-blocking window.alert wrapper translates calls to modern toast notifications seamlessly');
+    assert.strictEqual(
+      alertWrapperResult.hasToast,
+      true,
+      'window.alert wrapper must convert native alerts to non-blocking toast'
+    );
+    console.log(
+      '  ✔ Non-blocking window.alert wrapper translates calls to modern toast notifications seamlessly'
+    );
 
     // ── Admin Console Master Controller Verification (TSK-011) ──
     console.log('\n[Admin Console Master Controller Verification (TSK-011)]');
@@ -1172,24 +1522,274 @@ async function getJson(url) {
 
     const adminResult = evalAdminController.result.value;
     assert.strictEqual(adminResult.hasOpenAdmin, true, 'openAdmin must be exported globally');
-    assert.strictEqual(adminResult.hasSwitchAdminSection, true, 'switchAdminSection must be exported globally');
-    assert.strictEqual(adminResult.hasOpenAddMember, true, 'openAddMember must be exported globally');
+    assert.strictEqual(
+      adminResult.hasSwitchAdminSection,
+      true,
+      'switchAdminSection must be exported globally'
+    );
+    assert.strictEqual(
+      adminResult.hasOpenAddMember,
+      true,
+      'openAddMember must be exported globally'
+    );
     assert.strictEqual(adminResult.hasSaveTask, true, 'saveTask must be exported globally');
-    assert.strictEqual(adminResult.passAttributes.type, 'text', 'admin-pass must be type="text" to prevent browser password manager popup');
-    assert.strictEqual(adminResult.passAttributes.hasFormParent, false, 'admin-pass must not be wrapped in form tag');
-    assert.strictEqual(adminResult.passAttributes.autocomplete, 'off', 'admin-pass must have autocomplete="off"');
-    assert.strictEqual(adminResult.passAttributes.lpIgnore, 'true', 'admin-pass must have data-lpignore="true"');
+    assert.strictEqual(
+      adminResult.passAttributes.type,
+      'text',
+      'admin-pass must be type="text" to prevent browser password manager popup'
+    );
+    assert.strictEqual(
+      adminResult.passAttributes.hasFormParent,
+      false,
+      'admin-pass must not be wrapped in form tag'
+    );
+    assert.strictEqual(
+      adminResult.passAttributes.autocomplete,
+      'off',
+      'admin-pass must have autocomplete="off"'
+    );
+    assert.strictEqual(
+      adminResult.passAttributes.lpIgnore,
+      'true',
+      'admin-pass must have data-lpignore="true"'
+    );
     assert.strictEqual(adminResult.unmasked, 'none', 'toggleAdminPassVis must unmask password');
     assert.strictEqual(adminResult.remasked, 'disc', 'toggleAdminPassVis must remask password');
-    assert.strictEqual(adminResult.openState.overlayVisible, true, 'openAdmin must display admin overlay');
-    assert.strictEqual(adminResult.authedState.adminPanelVisible, true, 'adminLogin must unlock admin panel');
-    assert.strictEqual(adminResult.membersState.membersVisible, true, 'switchAdminSection must reveal members section');
-    assert.strictEqual(adminResult.tasksState.tasksVisible, true, 'switchAdminSection must reveal tasks section');
-    assert.strictEqual(adminResult.modalOpenState.modalVisible, true, 'openAddMember must display member modal');
-    assert.strictEqual(adminResult.modalCloseState.modalHidden, true, 'closeEditMember must hide member modal');
-    assert.strictEqual(adminResult.homeState.backBarHidden, true, 'backToAdminHome must hide back bar');
-    assert.strictEqual(adminResult.closeState.overlayHidden, true, 'closeAdmin must dismiss admin overlay');
-    console.log('  ✔ Admin console back-office navigation, section routing, and member/task modal controls verified in browser');
+    assert.strictEqual(
+      adminResult.openState.overlayVisible,
+      true,
+      'openAdmin must display admin overlay'
+    );
+    assert.strictEqual(
+      adminResult.authedState.adminPanelVisible,
+      true,
+      'adminLogin must unlock admin panel'
+    );
+    assert.strictEqual(
+      adminResult.membersState.membersVisible,
+      true,
+      'switchAdminSection must reveal members section'
+    );
+    assert.strictEqual(
+      adminResult.tasksState.tasksVisible,
+      true,
+      'switchAdminSection must reveal tasks section'
+    );
+    assert.strictEqual(
+      adminResult.modalOpenState.modalVisible,
+      true,
+      'openAddMember must display member modal'
+    );
+    assert.strictEqual(
+      adminResult.modalCloseState.modalHidden,
+      true,
+      'closeEditMember must hide member modal'
+    );
+    assert.strictEqual(
+      adminResult.homeState.backBarHidden,
+      true,
+      'backToAdminHome must hide back bar'
+    );
+    assert.strictEqual(
+      adminResult.closeState.overlayHidden,
+      true,
+      'closeAdmin must dismiss admin overlay'
+    );
+    console.log(
+      '  ✔ Admin console back-office navigation, section routing, and member/task modal controls verified in browser'
+    );
+
+    // ── Modern App Shell & Top Header Controls Verification ──
+    console.log('\n[Modern App Shell & Top Header Controls Verification]');
+    const evalAppShellHeader = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        // 1. Verify app shell container layout
+        const layout = document.querySelector('.app-shell-layout');
+        const sidebar = document.querySelector('.sidebar-overlay');
+        const main = document.querySelector('.app-main');
+        const nav = document.querySelector('.nav');
+
+        // 2. Verify top-right header elements
+        const searchBtn = document.getElementById('nav-search-trigger');
+        const notifBtn = document.getElementById('nav-notif-btn');
+        const notifCard = document.getElementById('notif-dropdown-card');
+        const pointsBadge = document.getElementById('nav-points-badge');
+        const profileBtn = document.getElementById('nav-profile-btn');
+
+        // 3. Test Notification Dropdown toggle
+        const initialNotifDisplay = notifCard ? notifCard.style.display : 'none';
+        if (typeof window.toggleNotificationDropdown === 'function') window.toggleNotificationDropdown(true);
+        const openedNotifDisplay = notifCard ? notifCard.style.display : '';
+        const unreadCount = document.getElementById('notif-unread-count');
+        const unreadCountVal = unreadCount ? unreadCount.textContent : '';
+
+        // Test Mark All As Read
+        if (typeof window.markAllNotificationsRead === 'function') window.markAllNotificationsRead();
+        const readCountVal = unreadCount ? unreadCount.textContent : '';
+        if (typeof window.closeNotificationDropdown === 'function') window.closeNotificationDropdown();
+        const closedNotifDisplay = notifCard ? notifCard.style.display : '';
+
+        // 4. Test Global Search Palette
+        const searchModal = document.getElementById('global-search-modal');
+        const searchInput = document.getElementById('global-search-input');
+        if (typeof window.openGlobalSearch === 'function') window.openGlobalSearch();
+        const searchOpenedDisplay = searchModal ? searchModal.style.display : '';
+        if (typeof window.closeGlobalSearch === 'function') window.closeGlobalSearch();
+        const searchClosedDisplay = searchModal ? searchModal.style.display : '';
+
+        // 5. Scroll page and verify sidebar stays docked at left: 0 and top: 60
+        window.scrollTo(0, 600);
+        const sidebarRectAfterScroll = sidebar ? sidebar.getBoundingClientRect() : null;
+        const panel = document.querySelector('.sidebar-panel');
+        const panelFound = !!panel;
+        const panelTag = panel ? panel.tagName : '';
+        const panelClientWidth = panel ? panel.clientWidth : -1;
+        const panelComputed = panel ? {
+          borderRightStyle: window.getComputedStyle(panel).getPropertyValue('border-right-style'),
+          borderRightWidth: window.getComputedStyle(panel).getPropertyValue('border-right-width'),
+          borderRadius: window.getComputedStyle(panel).getPropertyValue('border-top-left-radius'),
+          position: window.getComputedStyle(panel).getPropertyValue('position'),
+          display: window.getComputedStyle(panel).getPropertyValue('display')
+        } : null;
+
+        return {
+          hasLayout: !!layout,
+          hasSidebar: !!sidebar,
+          hasMain: !!main,
+          hasNav: !!nav,
+          hasSearchBtn: !!searchBtn,
+          hasNotifBtn: !!notifBtn,
+          hasPointsBadge: !!pointsBadge,
+          hasProfileBtn: !!profileBtn,
+          initialNotifDisplay,
+          openedNotifDisplay,
+          unreadCountVal,
+          readCountVal,
+          closedNotifDisplay,
+          searchOpenedDisplay,
+          searchClosedDisplay,
+          sidebarLeftAfterScroll: sidebarRectAfterScroll ? Math.round(sidebarRectAfterScroll.left) : -1,
+          sidebarTopAfterScroll: sidebarRectAfterScroll ? Math.round(sidebarRectAfterScroll.top) : -1,
+          hasSidebarHeader: !!document.querySelector('.sidebar-header'),
+          panelFound,
+          panelTag,
+          panelClientWidth,
+          panelComputed
+        };
+      })()`,
+      returnByValue: true
+    });
+
+    const appShellResult = evalAppShellHeader.result.value;
+    assert.strictEqual(appShellResult.hasLayout, true, 'App shell unified layout must be present');
+    assert.strictEqual(
+      appShellResult.hasSearchBtn,
+      true,
+      'Search trigger pill must be present in header'
+    );
+    assert.strictEqual(
+      appShellResult.hasNotifBtn,
+      true,
+      'Notification bell trigger must be present in header'
+    );
+    assert.strictEqual(
+      appShellResult.hasPointsBadge,
+      true,
+      'Points badge must be present in header'
+    );
+    assert.strictEqual(
+      appShellResult.hasProfileBtn,
+      true,
+      'Profile avatar button must be present in header'
+    );
+    assert.strictEqual(
+      appShellResult.openedNotifDisplay,
+      'block',
+      'toggleNotificationDropdown must reveal notification card'
+    );
+    assert.strictEqual(
+      appShellResult.closedNotifDisplay,
+      'none',
+      'closeNotificationDropdown must hide notification card'
+    );
+    assert.strictEqual(
+      appShellResult.readCountVal,
+      '0',
+      'markAllNotificationsRead must reset unread counter to 0'
+    );
+    assert.strictEqual(
+      appShellResult.searchOpenedDisplay,
+      'flex',
+      'openGlobalSearch must display search palette modal'
+    );
+    assert.strictEqual(
+      appShellResult.searchClosedDisplay,
+      'none',
+      'closeGlobalSearch must dismiss search palette modal'
+    );
+    assert.strictEqual(
+      appShellResult.sidebarLeftAfterScroll,
+      0,
+      'Sidebar must stay fixed at left: 0 after scrolling down'
+    );
+    assert.strictEqual(
+      appShellResult.sidebarTopAfterScroll,
+      60,
+      'Sidebar must stay fixed at top: 60 after scrolling down'
+    );
+    console.log('  panel diagnostic:', {
+      found: appShellResult.panelFound,
+      tag: appShellResult.panelTag,
+      width: appShellResult.panelClientWidth,
+      computed: appShellResult.panelComputed
+    });
+    assert.strictEqual(
+      appShellResult.panelFound,
+      true,
+      'Sidebar panel must be present in DOM'
+    );
+    assert.strictEqual(
+      appShellResult.hasSidebarHeader,
+      false,
+      'Redundant sidebar header (1st Petaling Jaya / Member Portal) must be removed from sidebar'
+    );
+    assert.strictEqual(
+      appShellResult.panelComputed ? appShellResult.panelComputed.borderRightStyle : '',
+      'solid',
+      'Sidebar panel must have solid right border'
+    );
+    assert.strictEqual(
+      appShellResult.panelComputed ? appShellResult.panelComputed.borderRadius : '',
+      '0px',
+      'Sidebar panel must have 0 border-radius (not a floating card/box)'
+    );
+    console.log(
+      '  ✔ Modern app shell container with fixed viewport sidebar, search pill, notification box, points badge, and profile button verified in browser'
+    );
+
+    // Optionally capture visual verification screenshots if requested
+    if (process.env.CAPTURE_SCREENSHOTS) {
+      await sendCmd('Runtime.evaluate', {
+        expression: `(() => {
+          if (typeof window.switchTabNav === 'function') window.switchTabNav('home');
+          window.scrollTo(0, 800);
+        })()`
+      });
+      await new Promise(r => setTimeout(r, 200));
+
+      const scrolledShot = await sendCmd('Page.captureScreenshot', { format: 'png' });
+      if (scrolledShot && scrolledShot.data) {
+        fs.writeFileSync('scripts/desktop-app-shell-scrolled.png', Buffer.from(scrolledShot.data, 'base64'));
+      }
+
+      await sendCmd('Runtime.evaluate', { expression: `window.scrollTo(0, 0);` });
+      await new Promise(r => setTimeout(r, 200));
+
+      const topShot = await sendCmd('Page.captureScreenshot', { format: 'png' });
+      if (topShot && topShot.data) {
+        fs.writeFileSync('scripts/desktop-app-shell-top.png', Buffer.from(topShot.data, 'base64'));
+      }
+    }
 
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
@@ -1199,9 +1799,9 @@ async function getJson(url) {
   } finally {
     try {
       edgeProc.kill();
-    } catch(e) {}
+    } catch (e) {}
     try {
       fs.rmSync(tempProfile, { recursive: true, force: true });
-    } catch(e) {}
+    } catch (e) {}
   }
 })();

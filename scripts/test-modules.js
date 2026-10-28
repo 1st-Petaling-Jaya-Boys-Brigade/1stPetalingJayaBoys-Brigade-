@@ -2968,11 +2968,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
   assert.strictEqual(
     foundIds.length,
-    364,
-    'All 361 core DOM IDs plus semantic landmarks (app-main, site-header) and offline indicator must be preserved in index.html'
+    385,
+    'All 361 core DOM IDs plus semantic landmarks (app-main, site-header), offline indicator, and 21 layout/header controls must be preserved in index.html'
   );
   console.log(
-    '  ✔ Exactly 364 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator)'
+    '  ✔ Exactly 385 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls)'
   );
 
   console.log('\nTesting Client-side Validation & Concurrency Safety (TSK-014)...');
@@ -3633,6 +3633,90 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert(fs.existsSync('vite.config.mjs'), 'vite.config.mjs must exist');
   assert(fs.existsSync('scripts/dev-server.js'), 'scripts/dev-server.js must exist');
   console.log('  ✔ Vite and static development server entry points verified');
+
+  {
+    console.log('\nTesting Modern App Shell Layout & Top Header Controls...');
+    assert.ok(
+      indexHtmlStr.includes('class="app-shell-layout" id="app-shell-layout"'),
+      'app-shell-layout wrapper must exist in index.html'
+    );
+    assert.ok(
+      indexHtmlStr.includes('id="nav-search-trigger"'),
+      'nav-search-trigger button must exist'
+    );
+    assert.ok(indexHtmlStr.includes('id="nav-notif-btn"'), 'nav-notif-btn button must exist');
+    assert.ok(indexHtmlStr.includes('id="notif-dropdown-card"'), 'notif-dropdown-card must exist');
+    assert.ok(indexHtmlStr.includes('id="nav-points-badge"'), 'nav-points-badge must exist');
+    assert.ok(indexHtmlStr.includes('id="nav-profile-btn"'), 'nav-profile-btn must exist');
+    assert.ok(indexHtmlStr.includes('id="global-search-modal"'), 'global-search-modal must exist');
+    assert.ok(indexHtmlStr.includes('id="global-search-input"'), 'global-search-input must exist');
+    assert.ok(
+      indexHtmlStr.includes('id="global-search-results"'),
+      'global-search-results must exist'
+    );
+
+    // Verify CSS responsive and layout rules in css/base.css and css/nav.css
+    const baseCss = fs.readFileSync('css/base.css', 'utf8');
+    assert.ok(
+      !baseCss.includes('padding-left: 275px;'),
+      'Desktop body padding-left: 275px must be removed from base.css'
+    );
+    assert.ok(baseCss.includes('.app-main {'), '.app-main flex styling must exist in base.css');
+
+    const navCss = fs.readFileSync('css/nav.css', 'utf8');
+    assert.ok(
+      navCss.includes('.app-shell-layout'),
+      '.app-shell-layout styling must exist in nav.css'
+    );
+    assert.ok(
+      navCss.includes('.nav-search-pill'),
+      '.nav-search-pill styling must exist in nav.css'
+    );
+    assert.ok(
+      navCss.includes('.notif-dropdown-card'),
+      '.notif-dropdown-card styling must exist in nav.css'
+    );
+    assert.ok(
+      navCss.includes('.nav-points-badge'),
+      '.nav-points-badge styling must exist in nav.css'
+    );
+    assert.ok(
+      navCss.includes('.nav-profile-btn'),
+      '.nav-profile-btn styling must exist in nav.css'
+    );
+
+    // Verify search modal CSS in css/components.css
+    const compCss = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(
+      compCss.includes('.search-palette-card'),
+      '.search-palette-card styling must exist in components.css'
+    );
+
+    // Verify JS functions exported / bound to window in index.html
+    assert.ok(
+      indexHtmlStr.includes('window.openGlobalSearch'),
+      'window.openGlobalSearch must be defined'
+    );
+    assert.ok(
+      indexHtmlStr.includes('window.closeGlobalSearch'),
+      'window.closeGlobalSearch must be defined'
+    );
+    assert.ok(
+      indexHtmlStr.includes('window.toggleNotificationDropdown'),
+      'window.toggleNotificationDropdown must be defined'
+    );
+    assert.ok(
+      indexHtmlStr.includes('window.renderNotifications'),
+      'window.renderNotifications must be defined'
+    );
+    assert.ok(
+      indexHtmlStr.includes('window.updateNavUserHeader'),
+      'window.updateNavUserHeader must be defined'
+    );
+    console.log(
+      '  ✔ Modern app shell layout and top header controls verified across HTML, CSS, and JS'
+    );
+  }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
 })().catch(err => {
