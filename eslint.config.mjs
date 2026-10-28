@@ -131,6 +131,7 @@ export default [
         renderAnnouncements: 'readonly',
         loadResources: 'readonly',
         initCalendarModule: 'readonly',
+        renderUniformProductsPreview: 'readonly',
         switchFormSubtab: 'readonly',
         switchUniformSubtab: 'readonly',
         renderAdminAnnList: 'readonly',

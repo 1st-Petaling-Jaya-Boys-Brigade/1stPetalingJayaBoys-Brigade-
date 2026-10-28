@@ -2992,11 +2992,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
   assert.strictEqual(
     foundIds.length,
-    385,
-    'All 361 core DOM IDs plus semantic landmarks (app-main, site-header), offline indicator, and 21 layout/header controls must be preserved in index.html'
+    386,
+    'All 361 core DOM IDs plus semantic landmarks, offline indicator, uniform products preview, and layout/header controls must be preserved in index.html'
   );
   console.log(
-    '  ✔ Exactly 385 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls)'
+    '  ✔ Exactly 386 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview)'
   );
 
   console.log('\nTesting Client-side Validation & Concurrency Safety (TSK-014)...');
