@@ -1646,6 +1646,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(formsMod._fbFields.length >= 1, 'addFormField must push a new field');
   console.log('  ✔ Dynamic Form Builder manages form types and custom fields');
 
+  // BUG-010: renderBuiltinFormInline scoped input ID validation
+  const testForm1 = {
+    id: 'camp_2026',
+    name: 'Camp 2026',
+    fields: [
+      { label: 'Dietary', type: 'text', required: true },
+      { label: 'T-Shirt', type: 'select', options: 'S, M, L' }
+    ]
+  };
+  const testFormContainer = document.createElement('div');
+  testFormContainer.id = 'builtin-form-view';
+  document.body.appendChild(testFormContainer);
+  formsMod.renderBuiltinFormInline(testForm1);
+
+  const scopedDietaryInput = document.getElementById('bff-camp_2026-0');
+  const scopedShirtInput = document.getElementById('bff-camp_2026-1');
+  assert.ok(scopedDietaryInput, 'Input element must have scoped ID bff-camp_2026-0');
+  assert.ok(scopedShirtInput, 'Input element must have scoped ID bff-camp_2026-1');
+
+  const validationRes = formsMod.validateFormAnswers(testForm1, { 'bff-camp_2026-0': 'Halal' });
+  assert.strictEqual(validationRes.valid, true, 'validateFormAnswers resolves answer by scoped ID key');
+  console.log('  ✔ renderBuiltinFormInline scopes input IDs by form.id preventing collisions (BUG-010)');
+
   // 2. Forms Hub Search & Filtering
   const filterForms = formsMod.filterForms;
   const clearFormSearch = formsMod.clearFormSearch;

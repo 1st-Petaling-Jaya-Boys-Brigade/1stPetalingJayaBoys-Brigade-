@@ -348,14 +348,17 @@ function renderBuiltinFormInline(form) {
   var container = document.getElementById('inline-form-view');
   if (!container) return;
 
+  // Scope input element IDs to form.id to prevent collision across multiple forms (BUG-010)
+  var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
   var fieldsHtml = '';
   (form.fields || []).forEach(function (f, i) {
+    var fieldId = 'bff-' + formKey + '-' + i;
     var req = f.required ? ' <span style="color:var(--red);">*</span>' : '';
     var inp = '';
     if (f.type === 'textarea') {
       inp =
-        '<textarea class="form-textarea" id="bff-' +
-        i +
+        '<textarea class="form-textarea" id="' +
+        fieldId +
         '" placeholder="Your answer..." style="margin-top:6px;"></textarea>';
     } else if (f.type === 'select') {
       var opts = '<option value="">Select...</option>';
@@ -364,8 +367,8 @@ function renderBuiltinFormInline(form) {
         if (t) opts += '<option>' + escapeHtml(t) + '</option>';
       });
       inp =
-        '<select class="form-select" id="bff-' +
-        i +
+        '<select class="form-select" id="' +
+        fieldId +
         '" style="margin-top:6px;">' +
         opts +
         '</select>';
@@ -373,8 +376,8 @@ function renderBuiltinFormInline(form) {
       inp =
         '<input class="form-input" type="' +
         (f.type || 'text') +
-        '" id="bff-' +
-        i +
+        '" id="' +
+        fieldId +
         '" placeholder="Your answer..." style="margin-top:6px;"/>';
     }
     fieldsHtml +=
@@ -427,6 +430,10 @@ function validateFormAnswers(form, answersMap) {
   for (var i = 0; i < fields.length; i++) {
     var f = fields[i];
     var val = answers[f.label] !== undefined ? String(answers[f.label]).trim() : '';
+    var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : '';
+    if (val === '' && formKey && answers['bff-' + formKey + '-' + i] !== undefined) {
+      val = String(answers['bff-' + formKey + '-' + i]).trim();
+    }
     if (val === '' && answers['bff-' + i] !== undefined) {
       val = String(answers['bff-' + i]).trim();
     }
@@ -493,11 +500,15 @@ async function submitBuiltinForm(form) {
     return;
   }
 
+  var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
   var rawAnswers = {};
   var cleanAnswers = {};
 
   (form.fields || []).forEach(function (f, i) {
-    var el = typeof document !== 'undefined' ? document.getElementById('bff-' + i) : null;
+    var scopedId = 'bff-' + formKey + '-' + i;
+    var el = typeof document !== 'undefined'
+      ? (document.getElementById(scopedId) || document.getElementById('bff-' + i))
+      : null;
     var val = el ? el.value.trim() : '';
     rawAnswers[f.label] = val;
     // Input sanitization
@@ -513,7 +524,10 @@ async function submitBuiltinForm(form) {
 
   // Update DOM field border styling
   (form.fields || []).forEach(function (f, i) {
-    var el = typeof document !== 'undefined' ? document.getElementById('bff-' + i) : null;
+    var scopedId = 'bff-' + formKey + '-' + i;
+    var el = typeof document !== 'undefined'
+      ? (document.getElementById(scopedId) || document.getElementById('bff-' + i))
+      : null;
     if (el) {
       if (validation.errors[f.label]) {
         el.style.borderColor = '#f66';
@@ -580,7 +594,10 @@ async function submitBuiltinForm(form) {
         if (sb.scrollIntoView) sb.scrollIntoView({ behavior: 'smooth' });
       }
       (form.fields || []).forEach(function (f, i) {
-        var el = document.getElementById('bff-' + i);
+        var scopedId = 'bff-' + formKey + '-' + i;
+        var el = typeof document !== 'undefined'
+          ? (document.getElementById(scopedId) || document.getElementById('bff-' + i))
+          : null;
         if (el) el.value = '';
       });
     }
