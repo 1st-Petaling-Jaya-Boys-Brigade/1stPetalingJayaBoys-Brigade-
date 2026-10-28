@@ -139,6 +139,8 @@ export default [
         renderAdminMasterSheetPanel: 'readonly',
         renderAdminResourcesPanel: 'readonly',
         renderAdminCalendarGrid: 'readonly',
+        syncToSheets: 'readonly',
+        syncAttendanceToSheets: 'readonly',
         isMinorSection: 'readonly',
         fetchMemberConsent: 'readonly'
       }

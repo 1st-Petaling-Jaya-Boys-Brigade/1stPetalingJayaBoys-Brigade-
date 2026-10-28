@@ -2465,6 +2465,44 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ fetchMasterAttendanceFromGAS rejects unauthorized requests with HTTP 401');
 
+  // BUG-007: syncToSheets real CORS response handling & false-positive elimination
+  const syncSuccessRes = await sheetsMod.syncToSheets(
+    [{ name: 'John Doe', ic: '080101-14-1234', present: 1 }],
+    'https://script.google.com/macros/s/test_exec/exec',
+    customToken
+  );
+  assert.strictEqual(syncSuccessRes.success, true, 'syncToSheets resolves with success on HTTP 200');
+
+  // Verify false-positive rejection on 401/403
+  await assert.rejects(
+    async () => {
+      await sheetsMod.syncToSheets(
+        [{ name: 'John Doe', present: 1 }],
+        'https://script.google.com/macros/s/test_exec/exec',
+        'bad_token'
+      );
+    },
+    /rejected|unauthorized/i,
+    'syncToSheets must reject on 401/403 instead of false positive'
+  );
+
+  // Verify false-positive rejection on network error
+  const origFetch = global.fetch;
+  global.fetch = async () => { throw new Error('Network offline'); };
+  await assert.rejects(
+    async () => {
+      await sheetsMod.syncToSheets(
+        [{ name: 'John Doe' }],
+        'https://script.google.com/macros/s/test_exec/exec',
+        customToken
+      );
+    },
+    /Network connection error/i,
+    'syncToSheets must reject on network error instead of false-positive toast'
+  );
+  global.fetch = origFetch;
+  console.log('  ✔ syncToSheets eliminates mode: no-cors and verifies real response status (BUG-007)');
+
   // 7. Google Apps Script Hardened Template Verification
   const templateCode = sheetsMod.getGoogleAppsScriptTemplate(
     'https://example.supabase.co',
