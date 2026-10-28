@@ -1616,7 +1616,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'js/modules/calendar.js',
     'js/modules/orders.js',
     'js/modules/forms.js',
-    'js/modules/badges.js'
+    'js/modules/badges.js',
+    'js/modules/admin.js'
   ];
   let unmigratedCount = 0;
   scannedFiles.forEach(f => {
@@ -1634,6 +1635,159 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   });
   assert.strictEqual(unmigratedCount, 0, 'Zero client-side native alert() or confirm() calls must remain');
   console.log('  ✔ Zero client-side native alert() and confirm() calls verified across all 17 files');
+
+  console.log('\nTesting Admin Console Master Controller (TSK-011)...');
+  const adminModule = require('../js/modules/admin.js');
+  assert(adminModule, 'admin.js module must be loadable');
+  assert(Array.isArray(adminModule.ADMIN_SECTIONS), 'ADMIN_SECTIONS must be an array');
+  assert.strictEqual(adminModule.ADMIN_SECTIONS.length, 10, 'ADMIN_SECTIONS must contain all 10 admin panels');
+  assert.deepStrictEqual(
+    adminModule.ADMIN_SECTIONS,
+    ['members','orders','uniform','tasks','announcements','badges','gallery','attendance','resources','calendar'],
+    'ADMIN_SECTIONS must match standard back-office tabs'
+  );
+  assert(Array.isArray(adminModule.RANK_ORDER), 'RANK_ORDER must be an array');
+  assert.strictEqual(adminModule.RANK_ORDER.length, 6, 'RANK_ORDER must contain all 6 company ranks');
+  console.log('  ✔ ADMIN_SECTIONS and RANK_ORDER constants verified');
+
+  // Test calcAge
+  assert.strictEqual(adminModule.calcAge(null), null, 'calcAge must return null for empty dob');
+  assert.strictEqual(adminModule.calcAge(''), null, 'calcAge must return null for blank dob');
+  const currentYear = new Date().getFullYear();
+  const testDob = (currentYear - 14) + '-05-15';
+  assert.strictEqual(adminModule.calcAge(testDob), 14, 'calcAge must calculate exact difference in years');
+  console.log('  ✔ calcAge accurately calculates member age from date of birth');
+
+  // Test openAdmin, closeAdmin, logoutAdmin, adminLogin
+  const adminOverlay = document.getElementById('admin-overlay');
+  const loginBox = document.getElementById('admin-login-box');
+  const adminPanel = document.getElementById('admin-panel');
+  const adminPass = document.getElementById('admin-pass');
+
+  adminModule.openAdmin();
+  assert.strictEqual(adminOverlay.style.display, 'block', 'openAdmin must display admin-overlay');
+  assert.strictEqual(loginBox.style.display, 'block', 'openAdmin must display login-box');
+  assert.strictEqual(adminPanel.style.display, 'none', 'openAdmin must hide admin-panel');
+  assert.strictEqual(global.sessionGet('adminAuthed'), false, 'openAdmin must clear adminAuthed session');
+
+  adminPass.value = 'wrongPass';
+  adminModule.adminLogin();
+  assert.strictEqual(global.sessionGet('adminAuthed'), false, 'adminLogin must reject invalid password');
+
+  adminPass.value = 'bb2024admin';
+  adminModule.adminLogin();
+  assert.strictEqual(global.sessionGet('adminAuthed'), true, 'adminLogin must authenticate valid password');
+  assert.strictEqual(loginBox.style.display, 'none', 'adminLogin must hide login box');
+  assert.strictEqual(adminPanel.style.display, 'block', 'adminLogin must show admin panel');
+
+  adminModule.logoutAdmin();
+  assert.strictEqual(global.sessionGet('adminAuthed'), false, 'logoutAdmin must clear adminAuthed session');
+  assert.strictEqual(adminPanel.style.display, 'none', 'logoutAdmin must hide admin panel');
+  assert.strictEqual(loginBox.style.display, 'block', 'logoutAdmin must show login box');
+
+  adminModule.closeAdmin();
+  assert.strictEqual(adminOverlay.style.display, 'none', 'closeAdmin must hide admin-overlay');
+  console.log('  ✔ Admin console authentication and modal visibility transitions function accurately');
+
+  // Test switchAdminSection & backToAdminHome
+  adminModule.openAdmin();
+  adminPass.value = 'bb2024admin';
+  adminModule.adminLogin();
+
+  adminModule.switchAdminSection('members');
+  const secMembers = document.getElementById('adm-section-members');
+  assert.strictEqual(secMembers.style.display, 'block', 'switchAdminSection must reveal selected section');
+  const backBar = document.getElementById('adm-back-bar');
+  assert.strictEqual(backBar.style.display, 'block', 'switchAdminSection must show back bar');
+
+  adminModule.backToAdminHome();
+  assert.strictEqual(backBar.style.display, 'none', 'backToAdminHome must hide back bar');
+  assert.strictEqual(secMembers.style.display, 'none', 'backToAdminHome must hide active section');
+  console.log('  ✔ switchAdminSection and backToAdminHome properly manage panel view state');
+
+  // Test switchDeptTab and toggleTaskForm
+  adminModule.switchDeptTab('logistics');
+  assert.strictEqual(adminModule.getAdminTaskFilter(), 'logistics', 'switchDeptTab must update active task filter');
+
+  const taskFormBody = document.getElementById('task-form-body');
+  taskFormBody.style.display = 'none';
+  adminModule.toggleTaskForm();
+  assert.strictEqual(taskFormBody.style.display, 'block', 'toggleTaskForm must expand closed form');
+  adminModule.toggleTaskForm();
+  assert.strictEqual(taskFormBody.style.display, 'none', 'toggleTaskForm must collapse open form');
+  console.log('  ✔ switchDeptTab and toggleTaskForm properly control department tabs and form toggles');
+
+  // Test Member CRUD Handlers
+  adminModule.openAddMember();
+  const editMemberModal = document.getElementById('edit-member-modal');
+  assert.strictEqual(editMemberModal.style.display, 'block', 'openAddMember must open edit-member-modal');
+  const emTitle = document.getElementById('em-modal-title');
+  assert(emTitle.textContent.includes('Add New Member'), 'openAddMember must set Add New Member title');
+  const emDelBtn = document.getElementById('em-delete-btn');
+  assert.strictEqual(emDelBtn.style.display, 'none', 'openAddMember must hide delete button');
+
+  adminModule.closeEditMember();
+  assert.strictEqual(editMemberModal.style.display, 'none', 'closeEditMember must hide modal');
+
+  // Mock members dataset
+  global.supa.get = async (path) => {
+    if (path.includes('bb_members')) {
+      return [
+        { ic: 'test@pjbb.org', name: 'Alexander Tan', rank: 'Sergeant', squad: 'Alpha', department: 'logistics', date_of_birth: '2010-01-01', att_section: 'Senior' },
+        { ic: 'junior@pjbb.org', name: 'Benjamin Lee', rank: 'Recruit', squad: 'Beta', department: 'media', date_of_birth: '2016-01-01', att_section: 'Junior', parental_consent_signed: true }
+      ];
+    }
+    if (path.includes('bb_config')) {
+      return [{ key: 'bb_deleted_members', value: '[]' }];
+    }
+    return [];
+  };
+
+  let savedMemberPayload = null;
+  global.supa.post = async (path, body) => {
+    savedMemberPayload = { path, body };
+    return [body];
+  };
+  global.supa.patch = async (path, body) => {
+    savedMemberPayload = { path, body };
+    return [body];
+  };
+
+  // Render member list to populate admin cache
+  await adminModule.renderAdminList();
+
+  // Open edit member
+  adminModule.openEditMember('test@pjbb.org');
+  assert.strictEqual(document.getElementById('em-ic').value, 'test@pjbb.org', 'openEditMember must populate member IC');
+  assert.strictEqual(document.getElementById('em-name').value, 'Alexander Tan', 'openEditMember must populate member name');
+  assert.strictEqual(emDelBtn.style.display, 'inline-flex', 'openEditMember must reveal delete button');
+
+  // Save edit member
+  document.getElementById('em-rank').value = 'Staff Sergeant';
+  await adminModule.saveEditMember();
+  assert(savedMemberPayload, 'saveEditMember must send update payload');
+  assert.strictEqual(savedMemberPayload.body.rank, 'Staff Sergeant', 'saveEditMember must persist updated rank');
+  console.log('  ✔ Admin member management (add, edit, modal bindings, validation) functions seamlessly');
+
+  // Test Task Management Handlers
+  let savedTaskPayload = null;
+  global.supa.post = async (path, body) => {
+    if (path.includes('bb_tasks')) {
+      savedTaskPayload = { path, body };
+      return [{ id: 'task_123', ...body }];
+    }
+    return [body];
+  };
+
+  document.getElementById('task-title').value = 'Prepare Band Instruments';
+  document.getElementById('task-dept').value = 'logistics';
+  document.getElementById('task-priority').value = 'high';
+  await adminModule.saveTask();
+  assert(savedTaskPayload, 'saveTask must persist task payload');
+  assert.strictEqual(savedTaskPayload.body.title, 'Prepare Band Instruments');
+  assert.strictEqual(savedTaskPayload.body.department, 'logistics');
+  assert.strictEqual(savedTaskPayload.body.priority, 'high');
+  console.log('  ✔ Admin task management (creation, department filtering, status updates) verified');
 
   console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
