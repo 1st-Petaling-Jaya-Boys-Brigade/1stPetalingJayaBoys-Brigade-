@@ -206,6 +206,9 @@ global.hashPassword = async (p) => 'hash_' + p;
 global.showToast = (_msg, _type) => {};
 global.showConfirmModal = async (_msg, _title) => true;
 global.isNCO = (rank) => ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant'].indexOf(rank) !== -1;
+global.reGetValue = (id) => (document.getElementById(id) || {}).value || '';
+global.reSetValue = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+global.reClearValue = (id) => { const el = document.getElementById(id); if (el) el.value = ''; };
 
 // Mock Supabase
 let _lastPatched = null;
@@ -1187,6 +1190,137 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(mockReqTierVal.value, 'any', 'setReqTier must update req-tier-val input to any');
   }
   console.log('  ✔ setReqTier updates active requirement tier state');
+
+  // ── Testing NCO Tasks & Kanban Board Module (TSK-009) ──────────────────────
+  console.log('Testing NCO Tasks & Kanban Board Module (TSK-009)...');
+  const tasksMod = require('../js/modules/tasks.js');
+
+  // 1. Department Configuration
+  assert.ok(tasksMod.DEPT_CONFIG, 'DEPT_CONFIG must exist');
+  assert.strictEqual(tasksMod.DEPT_CONFIG.logistics.label, 'Logistics');
+  assert.strictEqual(tasksMod.DEPT_CONFIG.secretariat.label, 'Secretariat');
+  assert.strictEqual(tasksMod.DEPT_CONFIG.media.label, 'Media');
+  console.log('  ✔ DEPT_CONFIG defines logistics, secretariat, and media department metadata');
+
+  // 2. Role-Based NCO Access Checks (checkIsNCO)
+  assert.strictEqual(tasksMod.checkIsNCO('Lance Corporal'), true);
+  assert.strictEqual(tasksMod.checkIsNCO('Corporal'), true);
+  assert.strictEqual(tasksMod.checkIsNCO('Sergeant'), true);
+  assert.strictEqual(tasksMod.checkIsNCO('Staff Sergeant'), true);
+  assert.strictEqual(tasksMod.checkIsNCO('Private'), false);
+  assert.strictEqual(tasksMod.checkIsNCO('Recruit'), false);
+  assert.strictEqual(tasksMod.checkIsNCO(''), false);
+  assert.strictEqual(tasksMod.checkIsNCO(null), false);
+  console.log('  ✔ checkIsNCO accurately verifies NCO rank requirements');
+
+  // 3. Mobile Kanban Tab Switcher
+  tasksMod.switchTaskTab('inprogress');
+  console.log('  ✔ switchTaskTab toggles mobile column views');
+
+  // 4. Mock Database & Board Rendering (renderTasksBoard)
+  const mockTasks = [
+    { id: 't1', title: 'Prepare Company Colors', description: 'Inspect flag poles and belts', department: 'logistics', priority: 'high', status: 'todo', assignee_name: 'Sgt Tan', due_date: '2026-10-31' },
+    { id: 't2', title: 'Parade Attendance Sheet', description: 'Print squad rosters for platoon commanders', department: 'secretariat', priority: 'medium', status: 'inprogress', assignee_name: 'Cpl Lim', due_date: '2026-11-01' },
+    { id: 't3', title: 'Highlight Reel Upload', description: 'Upload camp footage to portal gallery', department: 'media', priority: 'low', status: 'done', assignee_name: 'L/Cpl Wong', due_date: '2026-10-25' }
+  ];
+
+  const originalSupaGet = global.supa.get;
+  const originalSupaPost = global.supa.post;
+  const originalSupaPatch = global.supa.patch;
+  const originalSupaDelete = global.supa.delete;
+
+  global.supa.get = async (url) => {
+    if (url.includes('bb_tasks')) {
+      if (url.includes('department=eq.')) {
+        const dept = url.match(/department=eq\.([^&]+)/)[1];
+        return mockTasks.filter(t => t.department === dept);
+      }
+      return mockTasks;
+    }
+    if (url.includes('bb_members')) {
+      return [{ ic: '080101-14-1234', name: 'Sgt Tan', department: 'logistics', rank: 'Sergeant' }];
+    }
+    return [];
+  };
+
+  await tasksMod.renderTasksBoard('logistics');
+  const colTodo = document.getElementById('col-todo');
+  const countTodo = document.getElementById('count-todo');
+  assert.ok(colTodo.innerHTML.includes('Prepare Company Colors'), 'Todo column must render logistics task');
+  assert.strictEqual(countTodo.textContent, '(1)', 'Todo count badge must show (1)');
+  console.log('  ✔ renderTasksBoard renders department tasks into respective Kanban columns');
+
+  // 5. Task Detail Inspection Modal (openTaskDetail & closeTaskDetail)
+  tasksMod.openTaskDetail('t1');
+  const tdmTitle = document.getElementById('tdm-title');
+  const tdmModal = document.getElementById('task-detail-modal');
+  assert.strictEqual(tdmTitle.textContent, 'Prepare Company Colors', 'Task detail modal must display task title');
+  assert.strictEqual(tdmModal.style.display, 'block', 'Task detail modal must be displayed');
+  tasksMod.closeTaskDetail();
+  assert.strictEqual(tdmModal.style.display, 'none', 'closeTaskDetail must hide the modal');
+  console.log('  ✔ openTaskDetail and closeTaskDetail manage task inspection modal');
+
+  // 6. Member & Admin Status Transitions
+  let patchedStatus = null;
+  global.supa.patch = async (url, payload) => {
+    if (url.includes('bb_tasks') && payload.status) {
+      patchedStatus = payload.status;
+      const tid = url.match(/id=eq\.([^&]+)/)[1];
+      const t = mockTasks.find(x => x.id === tid);
+      if (t) t.status = payload.status;
+    }
+    return { ok: true };
+  };
+
+  await tasksMod.memberUpdateTaskStatus('t1', 'inprogress', 'logistics');
+  assert.strictEqual(patchedStatus, 'inprogress', 'memberUpdateTaskStatus must patch task status');
+  console.log('  ✔ memberUpdateTaskStatus transitions task status');
+
+  // 7. Admin Tasks Rendering and Filters
+  await tasksMod.renderAdminTasks('all');
+  const adminList = document.getElementById('admin-tasks-list');
+  assert.ok(adminList.innerHTML.includes('Prepare Company Colors'), 'Admin list must include all tasks');
+  assert.ok(adminList.innerHTML.includes('Parade Attendance Sheet'), 'Admin list must include secretariat tasks');
+  console.log('  ✔ renderAdminTasks renders company-wide tasks with department badges and action buttons');
+
+  // 8. Admin Task Form and Creation/Editing
+  document.getElementById('task-title').value = 'New Equipment Check';
+  document.getElementById('task-dept').value = 'logistics';
+  document.getElementById('task-priority').value = 'high';
+  document.getElementById('task-due').value = '2026-11-05';
+  let postedTask = null;
+  global.supa.post = async (url, payload) => {
+    if (url === 'bb_tasks') {
+      postedTask = payload;
+      return [{ id: 't4', ...payload }];
+    }
+    return [];
+  };
+
+  await tasksMod.saveTask();
+  assert.ok(postedTask, 'saveTask must POST new task');
+  assert.strictEqual(postedTask.title, 'New Equipment Check');
+  assert.strictEqual(postedTask.department, 'logistics');
+  console.log('  ✔ saveTask creates new tasks with sanitized fields and department attribution');
+
+  // 9. Task Deletion
+  let deletedTaskId = null;
+  global.supa.delete = async (url) => {
+    if (url.includes('bb_tasks')) {
+      deletedTaskId = url.match(/id=eq\.([^&]+)/)[1];
+    }
+    return { ok: true };
+  };
+
+  await tasksMod.deleteTask('t1');
+  assert.strictEqual(deletedTaskId, 't1', 'deleteTask must call Supabase delete with task id');
+  console.log('  ✔ deleteTask removes task from database');
+
+  // Restore Supabase mocks
+  global.supa.get = originalSupaGet;
+  global.supa.post = originalSupaPost;
+  global.supa.patch = originalSupaPatch;
+  global.supa.delete = originalSupaDelete;
 
   // ── Testing Instagram-Style Story Highlights & Event Gallery Reel (TSK-033) ──
   console.log('Testing Story Highlights & Event Gallery Reel (TSK-033)...');

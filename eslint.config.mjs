@@ -86,9 +86,17 @@ export default [
         renderAdminBadges: 'readonly',
         renderAdminPresidentsReqs: 'readonly',
         addPresidentsReq: 'readonly',
+        // NCO Tasks & Kanban Board Globals (TSK-009)
+        DEPT_CONFIG: 'readonly',
+        checkIsNCO: 'readonly',
+        switchTaskTab: 'readonly',
+        checkTasksAccess: 'readonly',
+        renderTasksBoard: 'readonly',
+        openTaskDetail: 'readonly',
+        closeTaskDetail: 'readonly',
+        memberUpdateTaskStatus: 'readonly',
         // Admin Console Master Controller Globals (TSK-011)
         ADMIN_PASSWORD: 'readonly',
-        DEPT_CONFIG: 'readonly',
         ADMIN_SECTIONS: 'readonly',
         RANK_ORDER: 'readonly',
         openAdmin: 'readonly',

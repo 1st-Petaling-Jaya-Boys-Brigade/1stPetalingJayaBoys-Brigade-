@@ -22,6 +22,7 @@ const jsFiles = [
   'js/modules/orders.js',
   'js/modules/forms.js',
   'js/modules/badges.js',
+  'js/modules/tasks.js',
   'js/modules/admin.js'
 ];
 
