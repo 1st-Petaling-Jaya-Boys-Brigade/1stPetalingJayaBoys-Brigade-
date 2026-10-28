@@ -1283,6 +1283,7 @@ async function adminSavePaymentInfo() {
 async function renderAdminOrders() {
   if (typeof document === 'undefined') return;
   var search = ((document.getElementById('admin-order-search') || {}).value || '').toLowerCase();
+  var statusFilter = ((document.getElementById('admin-order-form-filter') || {}).value || '').toLowerCase();
   var list = document.getElementById('admin-orders-list');
   if (!list) return;
 
@@ -1310,10 +1311,11 @@ async function renderAdminOrders() {
     });
 
     filtered = filtered.filter(function (o) {
-      return (
+      var matchesSearch =
         (o.order_number || '').toLowerCase().includes(search) ||
-        (o.member_name || '').toLowerCase().includes(search)
-      );
+        (o.member_name || '').toLowerCase().includes(search);
+      var matchesStatus = !statusFilter || (o.status || '').toLowerCase() === statusFilter;
+      return matchesSearch && matchesStatus;
     });
 
     if (!filtered.length) {

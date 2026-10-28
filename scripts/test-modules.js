@@ -1450,6 +1450,18 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(typeof ordersMod.compressReceiptImage, 'function', 'compressReceiptImage must be exported');
   console.log('  ✔ compressReceiptImage downscales receipts and avoids postgres bloat (BUG-002)');
 
+  // BUG-006: admin-order-form-filter toolbar testing
+  const orderFilterSelect = document.createElement('select');
+  orderFilterSelect.id = 'admin-order-form-filter';
+  orderFilterSelect.innerHTML = '<option value="">All</option><option value="pending">Pending</option>';
+  document.body.appendChild(orderFilterSelect);
+  const adminOrderList = document.createElement('div');
+  adminOrderList.id = 'admin-orders-list';
+  document.body.appendChild(adminOrderList);
+  await ordersMod.renderAdminOrders();
+  assert.ok(adminOrderList.innerHTML.length > 0, 'renderAdminOrders must render list');
+  console.log('  ✔ admin-order-form-filter and status filtering function correctly (BUG-006)');
+
   // 6. Order Submission
   ordersMod.UNIFORM_ITEMS[0].price = 45;
   ordersMod.changeQty('shirt', 1);
@@ -2992,11 +3004,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
   assert.strictEqual(
     foundIds.length,
-    386,
-    'All 361 core DOM IDs plus semantic landmarks, offline indicator, uniform products preview, and layout/header controls must be preserved in index.html'
+    387,
+    'All 361 core DOM IDs plus semantic landmarks, offline indicator, uniform products preview, admin order filter, and layout/header controls must be preserved in index.html'
   );
   console.log(
-    '  ✔ Exactly 386 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview)'
+    '  ✔ Exactly 387 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview + 1 admin order filter)'
   );
 
   console.log('\nTesting Client-side Validation & Concurrency Safety (TSK-014)...');

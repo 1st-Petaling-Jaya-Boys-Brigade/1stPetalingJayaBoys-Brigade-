@@ -1919,8 +1919,16 @@
           </div>
         </div>
         <div id="subpanel-orders" style="display:none;">
-          <div style="display:flex;gap:8px;margin-bottom:14px;">
-            <input class="form-input" id="admin-order-search" type="text" placeholder="Search by order no or member name..." oninput="renderAdminOrders()"/>
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+            <input class="form-input" id="admin-order-search" type="text" placeholder="Search by order no or member name..." oninput="renderAdminOrders()" style="flex:2;min-width:180px;"/>
+            <select class="form-select" id="admin-order-form-filter" onchange="renderAdminOrders()" style="flex:1;min-width:140px;">
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
+              <option value="ready">Ready</option>
+              <option value="collected">Collected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
           </div>
           <div id="admin-orders-list"></div>
         </div>
