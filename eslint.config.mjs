@@ -103,6 +103,7 @@ export default [
         closeAdmin: 'readonly',
         logoutAdmin: 'readonly',
         adminLogin: 'readonly',
+        toggleAdminPassVis: 'readonly',
         backToAdminHome: 'readonly',
         switchAdminSection: 'readonly',
         switchDeptTab: 'readonly',

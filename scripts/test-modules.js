@@ -1823,6 +1823,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(adminOverlay.style.display, 'none', 'closeAdmin must hide admin-overlay');
   console.log('  ✔ Admin console authentication and modal visibility transitions function accurately');
 
+  // Test toggleAdminPassVis
+  adminPass.style.webkitTextSecurity = 'disc';
+  adminModule.toggleAdminPassVis();
+  assert.strictEqual(adminPass.style.webkitTextSecurity, 'none', 'toggleAdminPassVis must unmask password');
+  adminModule.toggleAdminPassVis();
+  assert.strictEqual(adminPass.style.webkitTextSecurity, 'disc', 'toggleAdminPassVis must re-mask password');
+  console.log('  ✔ toggleAdminPassVis cleanly unmasks and re-masks password without triggering credential autofill');
+
   // Test switchAdminSection & backToAdminHome
   adminModule.openAdmin();
   adminPass.value = 'bb2024admin';

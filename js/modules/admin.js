@@ -81,7 +81,13 @@
     var passEl = document.getElementById('admin-pass');
     if (passEl) {
       passEl.value = '';
+      passEl.style.webkitTextSecurity = 'disc';
+      passEl.style.textSecurity = 'disc';
       if (typeof passEl.focus === 'function') passEl.focus();
+    }
+    var eyeBtn = document.getElementById('admin-eye');
+    if (eyeBtn) {
+      eyeBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
     }
   }
 
@@ -90,6 +96,23 @@
     var overlay = document.getElementById('admin-overlay');
     if (overlay) overlay.style.display = 'none';
     if (document.body) document.body.style.overflow = '';
+  }
+
+  function toggleAdminPassVis() {
+    if (typeof document === 'undefined') return;
+    var inp = document.getElementById('admin-pass');
+    var btn = document.getElementById('admin-eye');
+    if (!inp) return;
+    var isMasked = inp.style.webkitTextSecurity !== 'none';
+    if (isMasked) {
+      inp.style.webkitTextSecurity = 'none';
+      inp.style.textSecurity = 'none';
+      if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
+    } else {
+      inp.style.webkitTextSecurity = 'disc';
+      inp.style.textSecurity = 'disc';
+      if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
   }
 
   function logoutAdmin() {
@@ -105,7 +128,13 @@
     var passEl = document.getElementById('admin-pass');
     if (passEl) {
       passEl.value = '';
+      passEl.style.webkitTextSecurity = 'disc';
+      passEl.style.textSecurity = 'disc';
       if (typeof passEl.focus === 'function') passEl.focus();
+    }
+    var eyeBtn = document.getElementById('admin-eye');
+    if (eyeBtn) {
+      eyeBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
     }
   }
 
@@ -118,6 +147,9 @@
     }
 
     if (typeof sessionSet === 'function') sessionSet('adminAuthed', true);
+
+    var passEl = document.getElementById('admin-pass');
+    if (passEl) passEl.value = '';
 
     var loginBox = document.getElementById('admin-login-box');
     if (loginBox) loginBox.style.display = 'none';
@@ -1084,6 +1116,7 @@
     global.closeAdmin               = closeAdmin;
     global.logoutAdmin              = logoutAdmin;
     global.adminLogin               = adminLogin;
+    global.toggleAdminPassVis       = toggleAdminPassVis;
     global.backToAdminHome          = backToAdminHome;
     global.switchAdminSection       = switchAdminSection;
     global.switchDeptTab            = switchDeptTab;
@@ -1118,6 +1151,7 @@
       closeAdmin: closeAdmin,
       logoutAdmin: logoutAdmin,
       adminLogin: adminLogin,
+      toggleAdminPassVis: toggleAdminPassVis,
       backToAdminHome: backToAdminHome,
       switchAdminSection: switchAdminSection,
       switchDeptTab: switchDeptTab,
