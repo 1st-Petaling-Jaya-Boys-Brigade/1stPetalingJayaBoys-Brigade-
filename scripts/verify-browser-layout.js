@@ -1670,6 +1670,7 @@ async function getJson(url) {
           searchClosedDisplay,
           sidebarLeftAfterScroll: sidebarRectAfterScroll ? Math.round(sidebarRectAfterScroll.left) : -1,
           sidebarTopAfterScroll: sidebarRectAfterScroll ? Math.round(sidebarRectAfterScroll.top) : -1,
+          hasSidebarHeader: !!document.querySelector('.sidebar-header'),
           panelFound,
           panelTag,
           panelClientWidth,
@@ -1746,6 +1747,11 @@ async function getJson(url) {
       appShellResult.panelFound,
       true,
       'Sidebar panel must be present in DOM'
+    );
+    assert.strictEqual(
+      appShellResult.hasSidebarHeader,
+      false,
+      'Redundant sidebar header (1st Petaling Jaya / Member Portal) must be removed from sidebar'
     );
     assert.strictEqual(
       appShellResult.panelComputed ? appShellResult.panelComputed.borderRightStyle : '',

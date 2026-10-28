@@ -731,11 +731,7 @@
 }
 
 .sidebar-header {
-  padding: 24px 20px 18px;
-  border-bottom: 1px solid var(--border-subtle);
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: none !important;
 }
 
 .sidebar-header img {
@@ -1073,6 +1069,7 @@
     padding: 16px 12px 24px !important;
   }
 
+  .sidebar-header,
   .sidebar-brand {
     display: none !important;
   }
