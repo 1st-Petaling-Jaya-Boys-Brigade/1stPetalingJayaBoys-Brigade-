@@ -98,7 +98,10 @@ export default [
         closeTaskDetail: 'readonly',
         memberUpdateTaskStatus: 'readonly',
         // Admin Console Master Controller Globals (TSK-011)
-        ADMIN_PASSWORD: 'readonly',
+        ADMIN_PASSWORD_HASH: 'readonly',
+        timingSafeEqualToken: 'readonly',
+        computeSha256: 'readonly',
+        verifyAdminPassword: 'readonly',
         ADMIN_SECTIONS: 'readonly',
         RANK_ORDER: 'readonly',
         openAdmin: 'readonly',

@@ -50,10 +50,47 @@
     return null;
   }
 
-  function getAdminPassword() {
-    if (typeof global !== 'undefined' && global.ADMIN_PASSWORD) return global.ADMIN_PASSWORD;
-    if (typeof ADMIN_PASSWORD !== 'undefined') return ADMIN_PASSWORD;
-    return 'bb2024admin';
+  var DEFAULT_ADMIN_HASH = 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f';
+
+  function getAdminPasswordHash() {
+    if (typeof global !== 'undefined' && global.ADMIN_PASSWORD_HASH) return global.ADMIN_PASSWORD_HASH;
+    if (typeof ADMIN_PASSWORD_HASH !== 'undefined') return ADMIN_PASSWORD_HASH;
+    if (typeof window !== 'undefined' && window.ADMIN_PASSWORD_HASH) return window.ADMIN_PASSWORD_HASH;
+    return DEFAULT_ADMIN_HASH;
+  }
+
+  async function verifyAdminPassword(inputPass) {
+    if (!inputPass) return false;
+    var expectedHash = getAdminPasswordHash();
+    var inputHash = '';
+
+    if (typeof computeSha256 === 'function') {
+      inputHash = await computeSha256(inputPass);
+    } else if (typeof window !== 'undefined' && typeof window.computeSha256 === 'function') {
+      inputHash = await window.computeSha256(inputPass);
+    } else if (typeof crypto !== 'undefined') {
+      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
+      if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
+        var enc = new TextEncoder();
+        var buf = await cryptoObj.subtle.digest('SHA-256', enc.encode(inputPass));
+        var bytes = new Uint8Array(buf);
+        for (var i = 0; i < bytes.length; i++) {
+          var b = bytes[i].toString(16);
+          inputHash += b.length === 1 ? '0' + b : b;
+        }
+      }
+    }
+
+    if (inputHash && expectedHash) {
+      if (typeof window !== 'undefined' && typeof window.timingSafeEqualToken === 'function') {
+        return window.timingSafeEqualToken(inputHash, expectedHash);
+      }
+      if (typeof timingSafeEqualToken === 'function') {
+        return timingSafeEqualToken(inputHash, expectedHash);
+      }
+      return inputHash.toLowerCase() === expectedHash.toLowerCase();
+    }
+    return false;
   }
 
   function getDeptConfig() {
@@ -138,12 +175,13 @@
     }
   }
 
-  function adminLogin() {
-    if (typeof document === 'undefined') return;
+  async function adminLogin() {
+    if (typeof document === 'undefined') return false;
     var pass = (document.getElementById('admin-pass') || {}).value || '';
-    if (pass !== getAdminPassword()) {
+    var valid = await verifyAdminPassword(pass);
+    if (!valid) {
       if (typeof showToast === 'function') showToast('Wrong password!', 'error');
-      return;
+      return false;
     }
 
     if (typeof sessionSet === 'function') sessionSet('adminAuthed', true);
@@ -163,6 +201,7 @@
     if (typeof renderAnnouncements === 'function') renderAnnouncements();
     if (typeof loadResources === 'function') loadResources();
     if (typeof initCalendarModule === 'function') initCalendarModule();
+    return true;
   }
 
   function backToAdminHome() {
@@ -1165,6 +1204,8 @@
       openAdmin: openAdmin,
       closeAdmin: closeAdmin,
       logoutAdmin: logoutAdmin,
+      getAdminPasswordHash: getAdminPasswordHash,
+      verifyAdminPassword: verifyAdminPassword,
       adminLogin: adminLogin,
       toggleAdminPassVis: toggleAdminPassVis,
       backToAdminHome: backToAdminHome,

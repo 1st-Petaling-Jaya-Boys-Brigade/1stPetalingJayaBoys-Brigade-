@@ -251,6 +251,42 @@ function hexToBytes(hex) {
 }
 
 /**
+ * Computes SHA-256 hexadecimal hash using Web Crypto or Node.js crypto (BUG-009)
+ * @param {string} str
+ * @returns {Promise<string>}
+ */
+async function computeSha256(str) {
+  if (typeof str !== 'string') return '';
+  var cryptoObj =
+    typeof window !== 'undefined' && window.crypto
+      ? window.crypto
+      : typeof crypto !== 'undefined'
+        ? (crypto.webcrypto ? crypto.webcrypto : crypto)
+        : null;
+
+  if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
+    var enc = new TextEncoder();
+    var hashBuf = await cryptoObj.subtle.digest('SHA-256', enc.encode(str));
+    var bytes = new Uint8Array(hashBuf);
+    var hex = '';
+    for (var i = 0; i < bytes.length; i++) {
+      var b = bytes[i].toString(16);
+      hex += b.length === 1 ? '0' + b : b;
+    }
+    return hex;
+  }
+
+  if (typeof require !== 'undefined') {
+    try {
+      var nodeCrypto = require('crypto');
+      return nodeCrypto.createHash('sha256').update(str).digest('hex');
+    } catch (e) {}
+  }
+
+  return '';
+}
+
+/**
  * Hashes a plaintext password using Web Crypto API PBKDF2-HMAC-SHA-256 (TSK-029)
  * Generates a unique 128-bit cryptographically secure salt per user.
  * Output Format: 'pbkdf2:sha256:100000:<saltHex>:<hashHex>'
@@ -448,6 +484,7 @@ if (typeof window !== 'undefined') {
   window.hexToBytes     = hexToBytes;
   window.safeBase64Encode = safeBase64Encode;
   window.safeBase64Decode = safeBase64Decode;
+  window.computeSha256   = computeSha256;
   window.hashPassword   = hashPassword;
   window.verifyPassword = verifyPassword;
   window.showToast      = showToast;
@@ -469,6 +506,7 @@ if (typeof module !== 'undefined' && module.exports) {
     hexToBytes: hexToBytes,
     safeBase64Encode: safeBase64Encode,
     safeBase64Decode: safeBase64Decode,
+    computeSha256: computeSha256,
     hashPassword: hashPassword,
     verifyPassword: verifyPassword,
     showToast: showToast,

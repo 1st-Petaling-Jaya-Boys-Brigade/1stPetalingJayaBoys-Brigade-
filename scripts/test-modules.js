@@ -2796,7 +2796,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
 
   adminPass.value = 'bb2024admin';
-  adminModule.adminLogin();
+  await adminModule.adminLogin();
   assert.strictEqual(
     global.sessionGet('adminAuthed'),
     true,
@@ -2820,6 +2820,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Admin console authentication and modal visibility transitions function accurately'
   );
 
+  // BUG-009: Admin Password SHA-256 Hashing Verification
+  const computedHash = await utils.computeSha256('bb2024admin');
+  assert.strictEqual(
+    computedHash,
+    'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f',
+    'computeSha256 produces exact match'
+  );
+  assert.strictEqual(
+    await adminModule.verifyAdminPassword('bb2024admin'),
+    true,
+    'verifyAdminPassword validates correct credential'
+  );
+  assert.strictEqual(
+    await adminModule.verifyAdminPassword('wrongpassword'),
+    false,
+    'verifyAdminPassword rejects incorrect credential'
+  );
+  console.log('  ✔ admin credentials hashed with SHA-256 eliminating plaintext exposure (BUG-009)');
+
   // Test toggleAdminPassVis
   adminPass.style.webkitTextSecurity = 'disc';
   adminModule.toggleAdminPassVis();
@@ -2841,7 +2860,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // Test switchAdminSection & backToAdminHome
   adminModule.openAdmin();
   adminPass.value = 'bb2024admin';
-  adminModule.adminLogin();
+  await adminModule.adminLogin();
 
   adminModule.switchAdminSection('members');
   const secMembers = document.getElementById('adm-section-members');
