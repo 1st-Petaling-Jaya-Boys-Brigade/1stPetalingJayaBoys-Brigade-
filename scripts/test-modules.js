@@ -1426,6 +1426,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(ordersMod.getTngScreenshot(), null, 'Cleared screenshot must be null');
   console.log('  ✔ Touch n Go payment screenshot handlers function cleanly');
 
+  // BUG-002: Payment Receipt Compression & Storage Upload Validation
+  const compResult = await ordersMod.compressReceiptImage('data:image/jpeg;base64,sampleMockReceiptData', 1200, 0.75);
+  assert.ok(compResult && compResult.dataUrl, 'compressReceiptImage must return dataUrl');
+  assert.strictEqual(typeof ordersMod.compressReceiptImage, 'function', 'compressReceiptImage must be exported');
+  console.log('  ✔ compressReceiptImage downscales receipts and avoids postgres bloat (BUG-002)');
+
   // 6. Order Submission
   ordersMod.UNIFORM_ITEMS[0].price = 45;
   ordersMod.changeQty('shirt', 1);

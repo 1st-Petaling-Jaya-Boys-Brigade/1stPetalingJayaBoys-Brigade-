@@ -39,6 +39,7 @@ var itemSizes = {};
 var _paymentInfo = '';
 var _activeUniformCategory = 'all';
 var _isSubmittingOrder = false;
+var _tngScreenshotFile = null;
 var _isSavingProduct = false;
 
 /**
@@ -796,12 +797,134 @@ function goBackOrder() {
 // ── Touch 'n Go Payment Screenshot Helpers ─────────────────────────────────
 
 /**
+ * Compresses an image File, Blob, or base64 data URL using HTML Canvas downscaling.
+ * Mitigates database bloat by constraining dimensions and encoding as compact JPEG.
+ * @param {File|Blob|string} source
+ * @param {number} [maxDimension=1200]
+ * @param {number} [quality=0.75]
+ * @returns {Promise<{blob: Blob|null, dataUrl: string}>}
+ */
+async function compressReceiptImage(source, maxDimension, quality) {
+  maxDimension = maxDimension || 1200;
+  quality = quality || 0.75;
+
+  if (!source) return { blob: null, dataUrl: '' };
+
+  // Headless / non-browser fallback
+  if (typeof Image === 'undefined' || typeof document === 'undefined' || !document.createElement) {
+    if (typeof source === 'string') {
+      return { blob: null, dataUrl: source };
+    }
+    return { blob: source, dataUrl: '' };
+  }
+
+  return new Promise(function (resolve) {
+    var img = new Image();
+    var objectUrl = null;
+
+    function cleanup() {
+      if (objectUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch (e) {}
+      }
+    }
+
+    img.onload = function () {
+      cleanup();
+      try {
+        var width = img.naturalWidth || img.width || 800;
+        var height = img.naturalHeight || img.height || 600;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        var canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+
+        var compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+        if (typeof canvas.toBlob === 'function') {
+          canvas.toBlob(
+            function (blob) {
+              resolve({ blob: blob, dataUrl: compressedDataUrl });
+            },
+            'image/jpeg',
+            quality
+          );
+        } else {
+          resolve({ blob: null, dataUrl: compressedDataUrl });
+        }
+      } catch (err) {
+        resolve({
+          blob: typeof source !== 'string' ? source : null,
+          dataUrl: typeof source === 'string' ? source : ''
+        });
+      }
+    };
+
+    img.onerror = function () {
+      cleanup();
+      resolve({
+        blob: typeof source !== 'string' ? source : null,
+        dataUrl: typeof source === 'string' ? source : ''
+      });
+    };
+
+    if (typeof source === 'string') {
+      img.src = source;
+    } else if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      try {
+        objectUrl = URL.createObjectURL(source);
+        img.src = objectUrl;
+      } catch (err) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          img.src = e.target.result;
+        };
+        reader.onerror = function () {
+          resolve({ blob: source, dataUrl: '' });
+        };
+        reader.readAsDataURL(source);
+      }
+    } else {
+      var reader2 = new FileReader();
+      reader2.onload = function (e) {
+        img.src = e.target.result;
+      };
+      reader2.onerror = function () {
+        resolve({ blob: source, dataUrl: '' });
+      };
+      reader2.readAsDataURL(source);
+    }
+  });
+}
+
+/**
  * Reads local image file and displays Touch 'n Go preview in the order review card
  * @param {HTMLInputElement} input
  */
 function previewTngScreenshot(input) {
-  if (!input || !input.files || !input.files[0]) return;
+  if (!input || !input.files || !input.files[0]) {
+    _tngScreenshotFile = null;
+    return;
+  }
   var file = input.files[0];
+  _tngScreenshotFile = file;
 
   // Validation: MIME type check
   var allowedTypes = [
@@ -848,6 +971,7 @@ function previewTngScreenshot(input) {
  * Clears current Touch 'n Go payment receipt image preview
  */
 function clearTngScreenshot() {
+  _tngScreenshotFile = null;
   if (typeof document === 'undefined') return;
   var input = document.getElementById('tng-screenshot-input');
   var img = document.getElementById('tng-preview-img');
@@ -940,6 +1064,41 @@ async function submitOrder() {
     var notesRaw = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
     var notesClean = typeof sanitizeHtml === 'function' ? sanitizeHtml(notesRaw) : notesRaw;
 
+    // Mitigate PostgreSQL text bloat (BUG-002):
+    // Compress receipt image and upload to Supabase Storage; fallback to compressed data URL (<100KB)
+    var finalScreenshot = null;
+    var rawScreenshot = getTngScreenshot();
+    if (_tngScreenshotFile || rawScreenshot) {
+      try {
+        var comp = await compressReceiptImage(_tngScreenshotFile || rawScreenshot, 1200, 0.75);
+        var uploadBlob = comp.blob;
+        var compDataUrl = comp.dataUrl;
+
+        if (client && typeof client.uploadFile === 'function' && uploadBlob) {
+          var cleanCode = orderNum.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+          var receiptPath = 'receipts/' + cleanCode + '_' + Date.now() + '.jpg';
+          try {
+            await client.uploadFile('receipts', receiptPath, uploadBlob);
+            finalScreenshot = client.fileUrl('receipts', receiptPath);
+          } catch (storageErr) {
+            try {
+              var galleryPath = 'orders/' + cleanCode + '_' + Date.now() + '.jpg';
+              await client.uploadFile('gallery', galleryPath, uploadBlob);
+              finalScreenshot = client.fileUrl('gallery', galleryPath);
+            } catch (galleryErr) {
+              // Storage bucket unavailable; fall back to compressed data URL
+            }
+          }
+        }
+
+        if (!finalScreenshot) {
+          finalScreenshot = compDataUrl || rawScreenshot;
+        }
+      } catch (compErr) {
+        finalScreenshot = rawScreenshot;
+      }
+    }
+
     if (!client || !client.post) throw new Error('Database client unavailable');
     await client.post('bb_orders', {
       order_number: orderNum,
@@ -951,8 +1110,9 @@ async function submitOrder() {
       notes: notesClean,
       status: 'pending',
       created_at: new Date().toISOString(),
-      payment_screenshot: screenshot || null
+      payment_screenshot: finalScreenshot || null
     });
+    _tngScreenshotFile = null;
 
     if (typeof document !== 'undefined') {
       var sf = document.getElementById('step-review');
@@ -1599,6 +1759,7 @@ if (typeof window !== 'undefined') {
   window.renderOrderItems = renderOrderItems;
   window.goToOrderReview = goToOrderReview;
   window.goBackOrder = goBackOrder;
+  window.compressReceiptImage = compressReceiptImage;
   window.previewTngScreenshot = previewTngScreenshot;
   window.clearTngScreenshot = clearTngScreenshot;
   window.getTngScreenshot = getTngScreenshot;
@@ -1651,6 +1812,7 @@ if (typeof module !== 'undefined' && module.exports) {
     renderOrderItems: renderOrderItems,
     goToOrderReview: goToOrderReview,
     goBackOrder: goBackOrder,
+    compressReceiptImage: compressReceiptImage,
     previewTngScreenshot: previewTngScreenshot,
     clearTngScreenshot: clearTngScreenshot,
     getTngScreenshot: getTngScreenshot,
