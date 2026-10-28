@@ -63,7 +63,29 @@ export default [
         createRichEditor: 'readonly',
         reGetValue: 'readonly',
         reSetValue: 'readonly',
-        reClearValue: 'readonly'
+        reClearValue: 'readonly',
+        // Badges & Awards Tracker Globals (TSK-008)
+        DEFAULT_BB_BADGES: 'readonly',
+        DEFAULT_PRESIDENTS_REQS: 'readonly',
+        DEFAULT_FOUNDERS_REQS: 'readonly',
+        PRESIDENTS_REQS: 'readonly',
+        getBadgeDefs: 'readonly',
+        saveBadgeDefs: 'readonly',
+        getPresidentsReqs: 'readonly',
+        savePresidentsReqs: 'readonly',
+        checkBadgesAccess: 'readonly',
+        loadBadges: 'readonly',
+        saveBadges: 'readonly',
+        toggleBadge: 'readonly',
+        adjustRepBadge: 'readonly',
+        filterBadges: 'readonly',
+        upsertMemberBadges: 'readonly',
+        renderPresidentsTracker: 'readonly',
+        switchBadgeSubtab: 'readonly',
+        setReqTier: 'readonly',
+        renderAdminBadges: 'readonly',
+        renderAdminPresidentsReqs: 'readonly',
+        addPresidentsReq: 'readonly'
       }
     },
     rules: {
