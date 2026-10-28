@@ -159,6 +159,33 @@ export default [
       'no-var': 'off'
     }
   },
+  // Service Worker (sw.js)
+  {
+    files: ['sw.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        ...globals.serviceworker,
+        ...globals.node
+      }
+    },
+    rules: {
+      'no-undef': 'error',
+      'no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrors: 'none'
+        }
+      ],
+      'no-const-assign': 'error',
+      'no-dupe-keys': 'error',
+      'no-unreachable': 'error',
+      'no-var': 'off'
+    }
+  },
   // Node.js test & verification scripts (scripts/**/*.js)
   {
     files: ['scripts/**/*.js', '*.config.js', '*.config.mjs'],

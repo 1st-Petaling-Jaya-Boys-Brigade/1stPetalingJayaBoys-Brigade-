@@ -23,7 +23,8 @@ const jsFiles = [
   'js/modules/forms.js',
   'js/modules/badges.js',
   'js/modules/tasks.js',
-  'js/modules/admin.js'
+  'js/modules/admin.js',
+  'sw.js'
 ];
 
 let failed = false;
@@ -54,7 +55,9 @@ try {
     if (scriptContent.length > 0) {
       try {
         new Function(scriptContent);
-        console.log(`  ✔ embedded script block #${blockIndex} (${scriptContent.split('\n').length} lines)`);
+        console.log(
+          `  ✔ embedded script block #${blockIndex} (${scriptContent.split('\n').length} lines)`
+        );
       } catch (err) {
         console.error(`  ✖ embedded script block #${blockIndex}:`, err.message);
         failed = true;
