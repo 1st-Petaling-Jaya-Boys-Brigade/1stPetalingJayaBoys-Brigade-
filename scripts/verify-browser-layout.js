@@ -1072,6 +1072,20 @@ async function getJson(url) {
           adminPanelHidden: !adminPanel || adminPanel.style.display === 'none'
         };
 
+        const passAttributes = {
+          type: passInput ? passInput.type : '',
+          hasFormParent: passInput ? !!passInput.closest('form') : false,
+          autocomplete: passInput ? passInput.getAttribute('autocomplete') : '',
+          lpIgnore: passInput ? passInput.getAttribute('data-lpignore') : '',
+          onepIgnore: passInput ? passInput.getAttribute('data-1p-ignore') : ''
+        };
+
+        const initialMasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
+        if (typeof window.toggleAdminPassVis === 'function') window.toggleAdminPassVis();
+        const unmasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
+        if (typeof window.toggleAdminPassVis === 'function') window.toggleAdminPassVis();
+        const remasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
+
         if (passInput) passInput.value = 'bb2024admin';
         window.adminLogin();
 
@@ -1145,7 +1159,11 @@ async function getJson(url) {
           modalOpenState,
           modalCloseState,
           homeState,
-          closeState
+          closeState,
+          passAttributes,
+          initialMasked,
+          unmasked,
+          remasked
         };
       })()`,
       awaitPromise: true,
@@ -1157,6 +1175,12 @@ async function getJson(url) {
     assert.strictEqual(adminResult.hasSwitchAdminSection, true, 'switchAdminSection must be exported globally');
     assert.strictEqual(adminResult.hasOpenAddMember, true, 'openAddMember must be exported globally');
     assert.strictEqual(adminResult.hasSaveTask, true, 'saveTask must be exported globally');
+    assert.strictEqual(adminResult.passAttributes.type, 'text', 'admin-pass must be type="text" to prevent browser password manager popup');
+    assert.strictEqual(adminResult.passAttributes.hasFormParent, false, 'admin-pass must not be wrapped in form tag');
+    assert.strictEqual(adminResult.passAttributes.autocomplete, 'off', 'admin-pass must have autocomplete="off"');
+    assert.strictEqual(adminResult.passAttributes.lpIgnore, 'true', 'admin-pass must have data-lpignore="true"');
+    assert.strictEqual(adminResult.unmasked, 'none', 'toggleAdminPassVis must unmask password');
+    assert.strictEqual(adminResult.remasked, 'disc', 'toggleAdminPassVis must remask password');
     assert.strictEqual(adminResult.openState.overlayVisible, true, 'openAdmin must display admin overlay');
     assert.strictEqual(adminResult.authedState.adminPanelVisible, true, 'adminLogin must unlock admin panel');
     assert.strictEqual(adminResult.membersState.membersVisible, true, 'switchAdminSection must reveal members section');
