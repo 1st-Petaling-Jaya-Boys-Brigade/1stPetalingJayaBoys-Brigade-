@@ -306,6 +306,56 @@ async function hashPassword(password, saltHex) {
 }
 
 /**
+ * Unicode-safe Base64 encoder (BUG-003)
+ * @param {string} str
+ * @returns {string}
+ */
+function safeBase64Encode(str) {
+  if (typeof str !== 'string') return '';
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(str, 'utf8').toString('base64');
+    }
+    if (typeof btoa === 'function') {
+      return btoa(
+        encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (match, p1) {
+          return String.fromCharCode(parseInt(p1, 16));
+        })
+      );
+    }
+  } catch (e) {
+    return '';
+  }
+  return '';
+}
+
+/**
+ * Unicode-safe Base64 decoder (BUG-003)
+ * @param {string} str
+ * @returns {string|null}
+ */
+function safeBase64Decode(str) {
+  if (typeof str !== 'string' || !str) return null;
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(str, 'base64').toString('utf8');
+    }
+    if (typeof atob === 'function') {
+      var binary = atob(str);
+      var encoded = Array.prototype.map
+        .call(binary, function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join('');
+      return decodeURIComponent(encoded);
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+/**
  * Verifies password against stored credentials (supports PBKDF2 and legacy Base64 auto-migration)
  * @param {string} password - User entered plaintext password
  * @param {string} storedHash - Stored string from database
@@ -334,14 +384,9 @@ async function verifyPassword(password, storedHash) {
     }
   }
 
-  // 2. Legacy Base64 check (enables seamless on-the-fly upgrade without user disruption)
+  // 2. Legacy Base64 check (enables seamless on-the-fly upgrade without user disruption; Unicode-safe BUG-003)
   try {
-    var decoded = null;
-    if (typeof atob === 'function') {
-      decoded = atob(storedHash);
-    } else if (typeof Buffer !== 'undefined') {
-      decoded = Buffer.from(storedHash, 'base64').toString('utf8');
-    }
+    var decoded = safeBase64Decode(storedHash);
     if (decoded && decoded === password) {
       return { valid: true, needsUpgrade: true };
     }
@@ -401,6 +446,8 @@ if (typeof window !== 'undefined') {
   window.migrateBadgeEntry = migrateBadgeEntry;
   window.bytesToHex     = bytesToHex;
   window.hexToBytes     = hexToBytes;
+  window.safeBase64Encode = safeBase64Encode;
+  window.safeBase64Decode = safeBase64Decode;
   window.hashPassword   = hashPassword;
   window.verifyPassword = verifyPassword;
   window.showToast      = showToast;
@@ -420,6 +467,8 @@ if (typeof module !== 'undefined' && module.exports) {
     migrateBadgeEntry: migrateBadgeEntry,
     bytesToHex: bytesToHex,
     hexToBytes: hexToBytes,
+    safeBase64Encode: safeBase64Encode,
+    safeBase64Decode: safeBase64Decode,
     hashPassword: hashPassword,
     verifyPassword: verifyPassword,
     showToast: showToast,

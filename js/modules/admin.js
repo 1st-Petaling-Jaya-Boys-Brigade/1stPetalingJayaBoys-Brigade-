@@ -633,7 +633,22 @@
           return;
         }
 
-        var defaultHash = (typeof hashPassword === 'function') ? await hashPassword(ic) : btoa(ic);
+        var defaultHash = null;
+        if (typeof hashPassword === 'function') {
+          defaultHash = await hashPassword(ic);
+        } else if (typeof window !== 'undefined' && typeof window.hashPassword === 'function') {
+          defaultHash = await window.hashPassword(ic);
+        } else if (typeof global !== 'undefined' && typeof global.hashPassword === 'function') {
+          defaultHash = await global.hashPassword(ic);
+        }
+        if (!defaultHash) {
+          var safeEncoded = typeof window !== 'undefined' && typeof window.safeBase64Encode === 'function'
+            ? window.safeBase64Encode(ic)
+            : typeof Buffer !== 'undefined'
+              ? Buffer.from(ic, 'utf8').toString('base64')
+              : encodeURIComponent(ic);
+          defaultHash = 'pbkdf2:sha256:100000:legacy:' + safeEncoded;
+        }
         var newPayload = {
           ic: ic,
           name: name,

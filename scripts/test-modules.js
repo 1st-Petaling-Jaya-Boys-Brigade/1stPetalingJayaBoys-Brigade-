@@ -456,6 +456,24 @@ assert.strictEqual(
 console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
 (async () => {
+  // BUG-003: Unicode-safe Base64 and Password Verification
+  const unicodeString = 'Passwørd_測試_🔐';
+  const encodedUnicode = utils.safeBase64Encode(unicodeString);
+  assert.ok(encodedUnicode && encodedUnicode.length > 0, 'safeBase64Encode produces valid base64');
+  const decodedUnicode = utils.safeBase64Decode(encodedUnicode);
+  assert.strictEqual(decodedUnicode, unicodeString, 'safeBase64Decode correctly restores Unicode string without crashing');
+
+  const legacyVerify = await utils.verifyPassword(unicodeString, encodedUnicode);
+  assert.strictEqual(legacyVerify.valid, true, 'verifyPassword validates legacy Unicode base64 password');
+  assert.strictEqual(legacyVerify.needsUpgrade, true, 'verifyPassword flags legacy password for upgrade');
+
+  const modernHash = await utils.hashPassword(unicodeString);
+  assert.ok(modernHash.startsWith('pbkdf2:sha256:'), 'hashPassword uses PBKDF2-SHA256');
+  const modernVerify = await utils.verifyPassword(unicodeString, modernHash);
+  assert.strictEqual(modernVerify.valid, true, 'verifyPassword validates modern PBKDF2 Unicode password');
+  assert.strictEqual(modernVerify.needsUpgrade, false, 'modern PBKDF2 hash does not need upgrade');
+  console.log('  ✔ Unicode-safe password hashing and base64 migration verified (BUG-003)');
+
   // 2. Load Announcements
   await announcementsModule.loadAnnouncements();
   assert.strictEqual(announcementsModule.announcements.length, 1, 'Should load 1 announcement');

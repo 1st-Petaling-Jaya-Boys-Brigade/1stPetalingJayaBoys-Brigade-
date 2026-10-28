@@ -46,6 +46,8 @@ export default [
         renderCompanyLeaderboard: 'readonly',
         hashPassword: 'readonly',
         verifyPassword: 'readonly',
+        safeBase64Encode: 'readonly',
+        safeBase64Decode: 'readonly',
         checkTasksAccess: 'readonly',
         checkAttendanceTabVisibility: 'readonly',
         loadMemberAttendanceStats: 'readonly',
