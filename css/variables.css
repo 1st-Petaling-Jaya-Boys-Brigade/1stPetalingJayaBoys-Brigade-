@@ -1,14 +1,14 @@
 /* ── 1ST PJ BOYS' BRIGADE MODERN DESIGN SYSTEM TOKENS ── */
 
 :root,
-[data-theme="dark"] {
+[data-theme='dark'] {
   /* Canvas & Surfaces (Modern Charcoal / Dark Grey Palette) */
   --bg-canvas: #121418;
   --bg-card: #1c1f26;
   --bg-card-hover: #252932;
   --bg-card-subtle: #171920;
   --bg-input: #171920;
-  --bg-nav: rgba(18, 20, 24, 0.90);
+  --bg-nav: rgba(18, 20, 24, 0.9);
   --bg-dock: rgba(28, 31, 38, 0.95);
 
   /* Typography */
@@ -55,7 +55,7 @@
   --muted: var(--text-secondary);
 }
 
-[data-theme="light"] {
+[data-theme='light'] {
   /* Canvas & Surfaces (Modern Light Grey Palette) */
   --bg-canvas: #eaedf2;
   --bg-card: #ffffff;
@@ -109,7 +109,7 @@
   --muted: var(--text-secondary);
 }
 
-/* ── Geometry & Layout Tokens ── */
+/* ── Geometry, Safe-Area & Interaction Tokens (TSK-017) ── */
 :root {
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -118,4 +118,12 @@
   --radius-xl: 26px;
   --radius-pill: 9999px;
   --transition-smooth: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: all 0.15s ease;
+  --transition-theme:
+    background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+  --min-touch-target: 44px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
 }

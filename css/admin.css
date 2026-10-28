@@ -18,7 +18,7 @@
 }
 
 .admin-rank-badge {
-  background: linear-gradient(135deg,var(--accent),var(--gold));
+  background: linear-gradient(135deg, var(--accent), var(--gold));
   color: #111827;
   font-family: 'Oswald', sans-serif;
   font-size: 11px;
@@ -104,7 +104,7 @@
 
 .active-sort {
   border-color: var(--accent) !important;
-  background: rgba(200,150,30,0.12) !important;
+  background: rgba(200, 150, 30, 0.12) !important;
   color: var(--gold) !important;
 }
 
@@ -116,9 +116,15 @@
   border: 1px solid var(--border-card);
   border-radius: var(--radius-lg);
   padding: 16px;
+  min-height: var(--min-touch-target);
   cursor: pointer;
+  touch-action: manipulation;
   transition: var(--transition-smooth);
   margin-bottom: 8px;
+}
+
+.adm-section-btn:active {
+  transform: scale(0.98);
 }
 
 .adm-section-btn:hover {
@@ -209,11 +215,20 @@
   font-size: 12px;
   font-weight: 700;
   padding: 8px 16px;
+  min-height: var(--min-touch-target);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
   letter-spacing: 1px;
   text-transform: uppercase;
+  touch-action: manipulation;
   transition: var(--transition-smooth);
+}
+
+.adm-subtab:active {
+  transform: scale(0.96);
 }
 
 .adm-subtab:hover {
@@ -222,7 +237,7 @@
 }
 
 .active-subtab {
-  background: rgba(200,150,30,0.12) !important;
+  background: rgba(200, 150, 30, 0.12) !important;
   border-color: var(--accent) !important;
   color: var(--gold) !important;
 }
@@ -235,11 +250,20 @@
   font-size: 12px;
   font-weight: 700;
   padding: 6px 14px;
+  min-height: var(--min-touch-target);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
   letter-spacing: 1px;
   text-transform: uppercase;
+  touch-action: manipulation;
   transition: var(--transition-smooth);
+}
+
+.adm-dept-tab:active {
+  transform: scale(0.96);
 }
 
 .adm-dept-tab:hover {
@@ -248,7 +272,7 @@
 }
 
 .active-dept-tab {
-  background: rgba(200,150,30,0.12) !important;
+  background: rgba(200, 150, 30, 0.12) !important;
   border-color: var(--accent) !important;
   color: var(--gold) !important;
 }

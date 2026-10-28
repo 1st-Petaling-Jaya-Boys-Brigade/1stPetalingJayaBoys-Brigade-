@@ -12,7 +12,10 @@
   box-shadow: 0 4px 20px -8px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: background-color 0.25s ease, border-color 0.25s ease;
+  padding-top: var(--safe-area-top);
+  padding-left: var(--safe-area-left);
+  padding-right: var(--safe-area-right);
+  transition: var(--transition-theme);
 }
 
 .nav-inner {
@@ -74,14 +77,22 @@
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
   border-radius: var(--radius-pill);
-  padding: 8px 12px;
-  display: flex;
+  padding: 8px 14px;
+  min-height: var(--min-touch-target);
+  min-width: var(--min-touch-target);
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  touch-action: manipulation;
   transition: var(--transition-smooth);
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.96);
 }
 
 .theme-toggle-btn:hover {
@@ -100,8 +111,10 @@
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-subtle);
   cursor: pointer;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  min-width: var(--min-touch-target);
+  min-height: var(--min-touch-target);
   border-radius: var(--radius-pill);
   display: flex;
   flex-direction: column;
@@ -109,7 +122,12 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  touch-action: manipulation;
   transition: var(--transition-smooth);
+}
+
+.nav-menu-btn:active {
+  transform: scale(0.95);
 }
 
 .nav-menu-btn:hover {
@@ -146,24 +164,26 @@
 /* ── FLOATING MOBILE DOCK NAVIGATION (Image 2 style) ── */
 .bottom-nav {
   position: fixed;
-  bottom: 20px;
+  bottom: max(20px, calc(14px + var(--safe-area-bottom)));
   left: 50%;
   transform: translateX(-50%);
   z-index: 190;
   background: var(--bg-dock);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-pill);
-  padding: 5px 6px;
+  padding: 6px 8px;
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   box-shadow: var(--shadow-dock);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(100% - 32px);
+  width: calc(100% - max(32px, calc(var(--safe-area-left) + var(--safe-area-right) + 32px)));
   max-width: 390px;
   box-sizing: border-box;
-  transition: transform 0.25s ease, background 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    background 0.25s ease;
 }
 
 .bottom-nav-inner {
@@ -180,6 +200,7 @@
   color: #94a3b8;
   cursor: pointer;
   padding: 8px 6px;
+  min-height: var(--min-touch-target);
   border-radius: var(--radius-pill);
   display: flex;
   align-items: center;
@@ -191,6 +212,11 @@
   flex: 1;
   min-width: 0;
   white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.bnav-btn:active {
+  transform: scale(0.95);
 }
 
 .bnav-btn .bnav-icon {
@@ -244,11 +270,12 @@
 @media (max-width: 360px) {
   .bottom-nav {
     width: calc(100% - 16px);
-    padding: 4px;
-    bottom: 14px;
+    padding: 4px 6px;
+    bottom: max(14px, calc(8px + var(--safe-area-bottom)));
   }
   .bnav-btn {
-    padding: 6px 3px;
+    padding: 6px 4px;
+    min-height: var(--min-touch-target);
     gap: 3px;
   }
   .bnav-btn .bnav-icon svg {
@@ -299,6 +326,11 @@
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-elevated);
+  padding-top: var(--safe-area-top);
+  padding-bottom: max(16px, var(--safe-area-bottom));
+  padding-right: var(--safe-area-right);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .sidebar-overlay.open .sidebar-panel {
@@ -355,6 +387,7 @@
   align-items: center;
   gap: 14px;
   padding: 12px 14px;
+  min-height: var(--min-touch-target);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: var(--transition-smooth);
@@ -363,6 +396,11 @@
   background: none;
   width: 100%;
   text-align: left;
+  touch-action: manipulation;
+}
+
+.sidebar-item:active {
+  transform: scale(0.98);
 }
 
 .sidebar-item:hover {
@@ -596,4 +634,3 @@
     box-shadow: none;
   }
 }
-
