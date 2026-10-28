@@ -355,10 +355,72 @@
       </div>
     </div>
     <div class="nav-actions">
+      <!-- 1. Search Pill (LeetCode style) -->
+      <button class="nav-search-pill" id="nav-search-trigger" onclick="openGlobalSearch()" type="button" aria-label="Search portal" title="Quick Search (Ctrl+K)">
+        <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span class="nav-search-text">Search...</span>
+        <kbd class="nav-search-kbd">Ctrl K</kbd>
+      </button>
+
+      <!-- 2. Notification Bell & Dropdown Box (LeetCode style) -->
+      <div class="nav-notif-wrap" id="nav-notif-wrap">
+        <button class="nav-icon-btn nav-notif-btn" id="nav-notif-btn" onclick="toggleNotificationDropdown()" type="button" aria-label="Notifications" aria-expanded="false" title="Notifications">
+          <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="notif-badge-dot" id="notif-badge-dot"></span>
+        </button>
+        <div class="notif-dropdown-card" id="notif-dropdown-card" style="display:none;" role="region" aria-label="Notifications Panel">
+          <div class="notif-card-header">
+            <div class="notif-card-title">
+              <span>Notifications</span>
+              <span class="notif-count-pill" id="notif-unread-count">3</span>
+            </div>
+            <div class="notif-card-actions">
+              <button class="notif-action-icon-btn" onclick="markAllNotificationsRead()" title="Mark all as read" aria-label="Mark all as read" type="button">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="notif-filter-tabs">
+            <button class="notif-tab active" id="notif-tab-all" onclick="filterNotifications('all', this)" type="button">All</button>
+            <button class="notif-tab" id="notif-tab-parade" onclick="filterNotifications('parade', this)" type="button">Parade</button>
+            <button class="notif-tab" id="notif-tab-announcements" onclick="filterNotifications('announcements', this)" type="button">Updates</button>
+          </div>
+          <div class="notif-items-list" id="notif-items-list">
+            <!-- Dynamically rendered -->
+          </div>
+          <div class="notif-card-footer">
+            <button class="notif-footer-link" onclick="switchTabNav('tasks');toggleNotificationDropdown(false);" type="button">Weekly Parade &amp; Tasks &rarr;</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Points Counter (Replaces LeetCode fire streak) -->
+      <div class="nav-points-badge" id="nav-points-badge" onclick="switchTabNav('attendance')" role="button" tabindex="0" title="Your Total Points (Click to view Leaderboard)" aria-label="Points: 0">
+        <span class="points-icon-wrap">
+          <svg class="points-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </span>
+        <span class="points-val" id="nav-points-val">0</span>
+        <span class="points-unit">pts</span>
+      </div>
+
+      <!-- 4. Profile Avatar (LeetCode style) -->
+      <button class="nav-profile-btn" id="nav-profile-btn" onclick="handleNavProfileClick()" type="button" aria-label="Member Profile" title="Member Profile">
+        <span class="nav-avatar-circle">
+          <img id="nav-avatar-img" src="" alt="Profile" style="display:none;" />
+          <span id="nav-avatar-placeholder" class="nav-avatar-placeholder">
+            <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <span class="nav-avatar-status-dot" id="nav-avatar-status-dot"></span>
+        </span>
+      </button>
+
+      <!-- 5. Theme Toggle Button -->
       <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle Light / Dark mode" type="button">
         <span class="theme-toggle-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
         <span class="theme-toggle-text" style="font-size:12px;font-weight:700;">Dark</span>
       </button>
+
+      <!-- 6. Mobile Menu Button -->
       <button class="nav-menu-btn" id="nav-menu-btn" onclick="toggleSidebar()" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="sidebar-overlay" type="button">
         <span></span><span></span><span></span>
       </button>
@@ -416,6 +478,10 @@
   </div>
 </nav>
 
+<!-- ═════════════════════════════════════════════════════════════════════════
+     APPLICATION SHELL CONTAINER (LeetCode Unified Layout)
+     ═════════════════════════════════════════════════════════════════════════ -->
+<div class="app-shell-layout" id="app-shell-layout">
 <!-- ── SIDEBAR NAVIGATION DRAWER ── -->
 <aside class="sidebar-overlay" id="sidebar-overlay" role="dialog" aria-modal="true" aria-label="Sidebar Navigation Menu">
   <div class="sidebar-backdrop" onclick="closeSidebar()"></div>
@@ -1399,6 +1465,7 @@
   </section>
 
 </main>
+</div><!-- /#app-shell-layout -->
 <!-- ── End of Main Content Views ── -->
 
 <!-- ═════════════════════════════════════════════════════════════════════════
@@ -2526,6 +2593,25 @@
   </div>
 </div>
 
+<!-- Quick Search / Command Palette Modal (LeetCode Style) -->
+<div class="search-palette-overlay" id="global-search-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Quick Search">
+  <div class="search-palette-card" id="search-palette-card">
+    <div class="search-palette-input-wrap">
+      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="search" id="global-search-input" class="search-palette-input" placeholder="Search tabs, forms, badges, resources, announcements..." autocomplete="off" oninput="handleGlobalSearchInput(this.value)" />
+      <button class="search-palette-close-btn" onclick="closeGlobalSearch()" type="button" aria-label="Close search">&times;</button>
+    </div>
+    <div class="search-palette-results" id="global-search-results">
+      <!-- Dynamic search items -->
+    </div>
+    <div class="search-palette-footer">
+      <span><kbd>ESC</kbd> to close</span>
+      <span><kbd>&uarr;</kbd> <kbd>&darr;</kbd> to navigate</span>
+      <span><kbd>&crarr;</kbd> to select</span>
+    </div>
+  </div>
+</div>
+
 <!-- Core API & State Modules -->
 <script src="js/config.js?v=20261026c"></script>
 <script src="js/api/supabase.js?v=20261026c"></script>
@@ -2920,6 +3006,8 @@ window.addEventListener('load', function() {
     }
   }
   updateOfflineIndicator();
+  updateNavUserHeader();
+  renderNotifications();
   handleHashNavigation();
 });
 
@@ -2976,6 +3064,283 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
+
+// ── LeetCode Header & App Shell Controllers ────────────────────────────────
+var _allPortalNotifications = [
+  {
+    id: 'notif-parade',
+    category: 'parade',
+    icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    title: 'Weekly Company Parade',
+    snippet: 'Saturdays 2:15 PM – 6:00 PM at Trinity Methodist Church PJ. Attire: Full Uniform.',
+    time: 'Every Saturday',
+    unread: true,
+    action: function() { switchTabNav('tasks'); }
+  },
+  {
+    id: 'notif-band',
+    category: 'parade',
+    icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+    title: 'Brass Band Rehearsal',
+    snippet: 'Saturdays 9:30 AM – 11:30 AM. Band room sectionals & full practice.',
+    time: 'Weekly Band',
+    unread: true,
+    action: function() { switchTabNav('tasks'); }
+  },
+  {
+    id: 'notif-orders',
+    category: 'announcements',
+    icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+    title: 'Official Uniform Store',
+    snippet: 'Order official caps, belts, rank chevrons, and haversacks online with Touch \'n Go payment.',
+    time: 'Store Hub',
+    unread: true,
+    action: function() { switchTabNav('order'); }
+  },
+  {
+    id: 'notif-leaderboard',
+    category: 'all',
+    icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
+    title: 'Squad & Member Points',
+    snippet: 'Track your attendance records, uniform inspection scores, and platoon standings.',
+    time: 'Leaderboard',
+    unread: false,
+    action: function() { switchTabNav('attendance'); }
+  }
+];
+
+var _activeNotifFilter = 'all';
+
+function renderNotifications() {
+  var list = document.getElementById('notif-items-list');
+  var badgeDot = document.getElementById('notif-badge-dot');
+  var countPill = document.getElementById('notif-unread-count');
+  if (!list) return;
+
+  var unread = _allPortalNotifications.filter(function(n) { return n.unread; }).length;
+  if (badgeDot) badgeDot.style.display = unread > 0 ? 'block' : 'none';
+  if (countPill) countPill.textContent = String(unread);
+
+  var filtered = _allPortalNotifications.filter(function(n) {
+    if (_activeNotifFilter === 'all') return true;
+    return n.category === _activeNotifFilter;
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:12px;">No notifications in this category.</div>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(item) {
+    html += '<div class="notif-item' + (item.unread ? ' unread-item' : '') + '" data-notif-id="' + item.id + '">'
+      + '<div class="notif-item-icon">' + item.icon + '</div>'
+      + '<div class="notif-item-content">'
+      +   '<div class="notif-item-title">' + escapeHtml(item.title) + '</div>'
+      +   '<div class="notif-item-snippet">' + escapeHtml(item.snippet) + '</div>'
+      +   '<div class="notif-item-time">' + escapeHtml(item.time) + '</div>'
+      + '</div>'
+      + (item.unread ? '<div class="notif-unread-dot"></div>' : '')
+      + '</div>';
+  });
+
+  list.innerHTML = html;
+
+  list.querySelectorAll('.notif-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var id = el.getAttribute('data-notif-id');
+      var found = _allPortalNotifications.find(function(n) { return n.id === id; });
+      if (found) {
+        found.unread = false;
+        renderNotifications();
+        if (typeof found.action === 'function') found.action();
+        closeNotificationDropdown();
+      }
+    });
+  });
+}
+
+function filterNotifications(cat, btn) {
+  _activeNotifFilter = cat || 'all';
+  document.querySelectorAll('.notif-tab').forEach(function(t) { t.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  renderNotifications();
+}
+
+function markAllNotificationsRead() {
+  _allPortalNotifications.forEach(function(n) { n.unread = false; });
+  renderNotifications();
+  if (typeof showToast === 'function') {
+    showToast('All notifications marked as read', 'info', 2500);
+  }
+}
+
+function toggleNotificationDropdown(force) {
+  var card = document.getElementById('notif-dropdown-card');
+  var btn = document.getElementById('nav-notif-btn');
+  if (!card) return;
+  var isVisible = card.style.display !== 'none';
+  var nextState = typeof force === 'boolean' ? force : !isVisible;
+  card.style.display = nextState ? 'block' : 'none';
+  if (btn) btn.setAttribute('aria-expanded', String(nextState));
+  if (nextState) {
+    renderNotifications();
+  }
+}
+
+function closeNotificationDropdown() {
+  toggleNotificationDropdown(false);
+}
+
+// ── Quick Search & Command Palette Controller ──────────────────────────────
+var _globalSearchItems = [
+  { title: 'Home Dashboard', desc: 'Hero announcement, upcoming parade, and event highlights', icon: '🏠', badge: 'Page', action: function() { switchTabNav('home'); } },
+  { title: 'Uniform Store & Catalog', desc: 'Order official caps, belts, haversacks, and accessories', icon: '👕', badge: 'Store', action: function() { switchTabNav('order'); } },
+  { title: 'Member Hub & Profile', desc: 'Personal performance card, credentials, and digital MyKad profile', icon: '👤', badge: 'Member', action: function() { switchTabNav('member'); } },
+  { title: 'Weekly Parade Schedule', desc: 'Saturday parade schedule, timings, and NCO Kanban tasks', icon: '📅', badge: 'Parade', action: function() { switchTabNav('tasks'); } },
+  { title: 'Awards & President\'s Badge', desc: 'Track Target, Service, and President\'s Award criteria', icon: '🏅', badge: 'Badges', action: function() { switchTabNav('badges'); } },
+  { title: 'Squad Leaderboard', desc: 'Live company rankings, points breakdown, and squad scores', icon: '🏆', badge: 'Leaderboard', action: function() { switchTabNav('attendance'); } },
+  { title: 'Company Resources', desc: 'Download official handbooks, syllabus, and parade manuals', icon: '📚', badge: 'Docs', action: function() { switchTabNav('resources'); } },
+  { title: 'Photo & Video Gallery', desc: 'Browse company camp memories, drills, and story reels', icon: '📷', badge: 'Media', action: function() { switchTabNav('gallery'); } },
+  { title: 'Admin Console', desc: 'Back-office officer dashboard for members, tasks, and configs', icon: '⚙️', badge: 'Admin', action: function() { openAdmin(); } }
+];
+
+function openGlobalSearch() {
+  var modal = document.getElementById('global-search-modal');
+  var input = document.getElementById('global-search-input');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  if (input) {
+    input.value = '';
+    setTimeout(function() { input.focus(); }, 50);
+  }
+  handleGlobalSearchInput('');
+}
+
+function closeGlobalSearch() {
+  var modal = document.getElementById('global-search-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleGlobalSearchInput(query) {
+  var container = document.getElementById('global-search-results');
+  if (!container) return;
+
+  var q = (query || '').trim().toLowerCase();
+  var filtered = _globalSearchItems;
+  if (q) {
+    filtered = _globalSearchItems.filter(function(item) {
+      return item.title.toLowerCase().indexOf(q) !== -1 ||
+             item.desc.toLowerCase().indexOf(q) !== -1 ||
+             item.badge.toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:13px;">No results found for "' + escapeHtml(query) + '".</div>';
+    return;
+  }
+
+  var html = '<div class="search-group-title">' + (q ? 'Search Results' : 'Quick Navigation') + '</div>';
+  filtered.forEach(function(item, idx) {
+    html += '<div class="search-item' + (idx === 0 ? ' selected' : '') + '" data-search-idx="' + idx + '">'
+      + '<div class="search-item-icon">' + item.icon + '</div>'
+      + '<div class="search-item-text">'
+      +   '<div class="search-item-title">' + escapeHtml(item.title) + '</div>'
+      +   '<div class="search-item-desc">' + escapeHtml(item.desc) + '</div>'
+      + '</div>'
+      + '<span class="search-item-badge">' + escapeHtml(item.badge) + '</span>'
+      + '</div>';
+  });
+
+  container.innerHTML = html;
+
+  container.querySelectorAll('.search-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var idx = parseInt(el.getAttribute('data-search-idx'), 10);
+      var target = filtered[idx];
+      if (target && typeof target.action === 'function') {
+        closeGlobalSearch();
+        target.action();
+      }
+    });
+  });
+}
+
+function updateNavUserHeader() {
+  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+  var ptsVal = document.getElementById('nav-points-val');
+  var avatarImg = document.getElementById('nav-avatar-img');
+  var avatarPh = document.getElementById('nav-avatar-placeholder');
+  var statusDot = document.getElementById('nav-avatar-status-dot');
+
+  var pts = 0;
+  if (typeof window !== 'undefined' && window._memberAttendanceData && window._memberAttendanceData.points) {
+    pts = window._memberAttendanceData.points.total || 0;
+  } else if (typeof window !== 'undefined' && window._currentMemberData && window._currentMemberData.total_points) {
+    pts = window._currentMemberData.total_points || 0;
+  } else if (typeof sessionGet === 'function' && sessionGet('points')) {
+    pts = parseInt(sessionGet('points'), 10) || 0;
+  }
+  if (ptsVal) ptsVal.textContent = String(pts);
+
+  if (ic) {
+    if (statusDot) statusDot.style.background = '#10b981';
+    var photoUrl = (typeof sessionGet === 'function') ? sessionGet('photo_url') : null;
+    if (photoUrl && avatarImg) {
+      avatarImg.src = photoUrl;
+      avatarImg.style.display = 'block';
+      if (avatarPh) avatarPh.style.display = 'none';
+    }
+  } else {
+    if (statusDot) statusDot.style.background = '#6b7280';
+    if (avatarImg) avatarImg.style.display = 'none';
+    if (avatarPh) avatarPh.style.display = 'flex';
+  }
+}
+
+function handleNavProfileClick() {
+  switchTabNav('member');
+}
+
+// Global Keyboard Shortcuts (Ctrl+K for search, Escape for popups)
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    openGlobalSearch();
+  } else if (e.key === 'Escape') {
+    closeGlobalSearch();
+    closeNotificationDropdown();
+  }
+});
+
+// Click outside listeners to close notification dropdown and search modal
+document.addEventListener('click', function(e) {
+  var notifWrap = document.getElementById('nav-notif-wrap');
+  var notifCard = document.getElementById('notif-dropdown-card');
+  if (notifWrap && notifCard && notifCard.style.display !== 'none') {
+    if (!notifWrap.contains(e.target)) {
+      closeNotificationDropdown();
+    }
+  }
+
+  var searchModal = document.getElementById('global-search-modal');
+  var searchCard = document.getElementById('search-palette-card');
+  if (searchModal && searchModal.style.display === 'flex' && e.target === searchModal) {
+    closeGlobalSearch();
+  }
+});
+
+window.openGlobalSearch           = openGlobalSearch;
+window.closeGlobalSearch          = closeGlobalSearch;
+window.handleGlobalSearchInput    = handleGlobalSearchInput;
+window.toggleNotificationDropdown = toggleNotificationDropdown;
+window.closeNotificationDropdown  = closeNotificationDropdown;
+window.filterNotifications        = filterNotifications;
+window.markAllNotificationsRead   = markAllNotificationsRead;
+window.renderNotifications        = renderNotifications;
+window.updateNavUserHeader        = updateNavUserHeader;
+window.handleNavProfileClick      = handleNavProfileClick;
 
 // Gallery drag-and-drop auto-initialized via js/modules/gallery.js (TSK-010)
 

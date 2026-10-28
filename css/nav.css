@@ -20,11 +20,12 @@
 
 .nav-inner {
   width: 100%;
-  max-width: 980px;
+  max-width: 1400px;
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 24px;
+  gap: 16px;
 }
 
 .nav-logo {
@@ -68,7 +69,399 @@
 .nav-actions {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+/* ── LeetCode-Style Header Controls (Search, Notif, Points, Profile) ── */
+.nav-search-pill {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  min-height: 38px;
+  touch-action: manipulation;
+}
+
+.nav-search-pill:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-card);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.nav-search-kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 680px) {
+  .nav-search-pill .nav-search-text,
+  .nav-search-pill .nav-search-kbd {
+    display: none;
+  }
+  .nav-search-pill {
+    padding: 8px;
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+}
+
+/* Notification Bell & Dropdown Card */
+.nav-notif-wrap {
+  position: relative;
+}
+
+.nav-icon-btn {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-radius: var(--radius-pill);
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: var(--transition-smooth);
+  touch-action: manipulation;
+}
+
+.nav-icon-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-card);
+  transform: translateY(-1px);
+}
+
+.nav-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.notif-badge-dot {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid var(--bg-nav);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+.notif-dropdown-card {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  z-index: 300;
+  overflow: hidden;
+  animation: fadeInPage 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.notif-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.notif-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Oswald', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.notif-count-pill {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.notif-action-icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+
+.notif-action-icon-btn:hover {
+  color: var(--accent);
+}
+
+.notif-filter-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-card-subtle);
+}
+
+.notif-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: var(--transition-smooth);
+}
+
+.notif-tab:hover {
+  color: var(--text-primary);
+}
+
+.notif-tab.active {
+  background: rgba(245, 197, 66, 0.15);
+  color: var(--accent);
+  border-color: rgba(245, 197, 66, 0.3);
+}
+
+.notif-items-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.notif-item:last-child {
+  border-bottom: none;
+}
+
+.notif-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.notif-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(245, 197, 66, 0.12);
+  color: var(--accent);
+}
+
+.notif-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-item-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
+
+.notif-item-snippet {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.notif-item-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.notif-unread-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand-blue);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.notif-card-footer {
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-card-subtle);
+  text-align: center;
+}
+
+.notif-footer-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: 'Oswald', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.notif-footer-link:hover {
+  text-decoration: underline;
+}
+
+/* Points Badge (Replaces LeetCode fire streak) */
+.nav-points-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(245, 197, 66, 0.12);
+  border: 1px solid rgba(245, 197, 66, 0.35);
+  border-radius: var(--radius-pill);
+  color: var(--accent);
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: var(--transition-smooth);
+  user-select: none;
+  min-height: 38px;
+  touch-action: manipulation;
+}
+
+.nav-points-badge:hover {
+  background: rgba(245, 197, 66, 0.2);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 197, 66, 0.25);
+}
+
+.nav-points-badge .points-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  display: block;
+}
+
+.nav-points-badge .points-unit {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* Profile Avatar Button */
+.nav-profile-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  touch-action: manipulation;
+  display: flex;
+  align-items: center;
+}
+
+.nav-avatar-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bg-card-subtle);
+  border: 2px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: visible;
+  transition: var(--transition-smooth);
+}
+
+.nav-profile-btn:hover .nav-avatar-circle {
+  border-color: var(--accent);
+  transform: scale(1.05);
+}
+
+.nav-avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.nav-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.nav-avatar-placeholder svg {
+  width: 18px;
+  height: 18px;
+}
+
+.nav-avatar-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  border: 2px solid var(--bg-nav);
 }
 
 /* Theme Toggle Button (Top Bar) */
@@ -590,11 +983,18 @@
   align-items: center;
 }
 
-/* ── RESPONSIVE DESKTOP DOCKED SIDEBAR (min-width: 1024px) ── */
+/* ── LEETCODE-STYLE UNIFIED CONTAINER & DOCKED SIDEBAR (TSK-017 / UI Polish) ── */
+.app-shell-layout {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
 @media (min-width: 1024px) {
   .nav {
-    margin-left: 275px;
-    width: calc(100% - 275px);
+    margin-left: 0 !important;
+    width: 100% !important;
   }
 
   .nav-menu-btn {
@@ -605,17 +1005,22 @@
     display: none !important;
   }
 
+  .app-shell-layout {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 24px !important;
+    padding: 24px 24px 80px !important;
+  }
+
   .sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 275px;
-    right: auto;
-    inset: auto;
-    height: 100vh;
-    pointer-events: all;
-    z-index: 210;
+    position: static !important;
+    width: 250px !important;
+    flex-shrink: 0 !important;
+    height: auto !important;
+    inset: auto !important;
+    pointer-events: all !important;
+    z-index: 100 !important;
+    display: block !important;
   }
 
   .sidebar-backdrop {
@@ -623,14 +1028,43 @@
   }
 
   .sidebar-panel {
-    position: static;
-    width: 275px;
-    height: 100vh;
-    max-width: none;
+    position: sticky !important;
+    top: 76px !important;
+    width: 250px !important;
+    max-height: calc(100vh - 96px) !important;
+    overflow-y: auto !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-card) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-card) !important;
     transform: none !important;
-    border-left: none;
-    border-right: 1px solid var(--border-card);
-    background: var(--bg-card);
-    box-shadow: none;
+    display: flex !important;
+    flex-direction: column !important;
+    z-index: 90 !important;
+  }
+
+  .app-main {
+    flex: 1 !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .page {
+    max-width: 1080px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 0 60px !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-shell-layout {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 }

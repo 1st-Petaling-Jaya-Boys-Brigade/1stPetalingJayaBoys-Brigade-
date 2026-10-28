@@ -97,17 +97,20 @@ textarea,
 
 @media (min-width: 1024px) {
   body {
-    padding-left: 275px;
-    align-items: stretch;
+    padding-left: 0 !important;
+    align-items: center !important;
   }
   .app-main {
-    align-items: stretch;
+    flex: 1 !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    align-items: stretch !important;
   }
   .page {
-    max-width: 1080px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 32px 36px 80px;
+    max-width: 1080px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 10px 0 60px !important;
   }
 }
 
