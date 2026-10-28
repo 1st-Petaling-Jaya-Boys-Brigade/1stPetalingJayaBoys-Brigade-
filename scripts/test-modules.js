@@ -901,6 +901,98 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockNoResEl.style.display, 'none');
   console.log('  ✔ clearFormSearch resets search input, clears state, and restores all forms');
 
+  // ── Testing Awards & President's Badge Tracker Module (TSK-008) ────────────
+  console.log('Testing Awards & President\'s Badge Tracker Module (TSK-008)...');
+  const badgesMod = require('../js/modules/badges.js');
+
+  // 1. Badge Catalog Verification
+  assert.ok(Array.isArray(badgesMod.DEFAULT_BB_BADGES), 'DEFAULT_BB_BADGES must be an array');
+  assert.ok(badgesMod.DEFAULT_BB_BADGES.length >= 13, 'Must contain at least 13 standard BB badges');
+  const foundersBadge = badgesMod.DEFAULT_BB_BADGES.find(b => b.name === "BB Founder's Award");
+  assert.ok(foundersBadge, "BB Founder's Award badge definition must exist");
+  const presidentsBadge = badgesMod.DEFAULT_BB_BADGES.find(b => b.name === "President's Award");
+  assert.ok(presidentsBadge, "President's Award badge definition must exist");
+  const firstAid = badgesMod.DEFAULT_BB_BADGES.find(b => b.name === 'First Aid');
+  assert.ok(firstAid && firstAid.hasAdvanced === true, 'First Aid must have advanced tier support');
+  console.log('  ✔ DEFAULT_BB_BADGES contains official company badge definitions and tiers');
+
+  // 2. Award Requirements & Criteria Checklists
+  assert.ok(Array.isArray(badgesMod.DEFAULT_PRESIDENTS_REQS), 'DEFAULT_PRESIDENTS_REQS must be an array');
+  assert.ok(badgesMod.DEFAULT_PRESIDENTS_REQS.length >= 7, 'President\'s reqs must contain at least 7 requirements');
+  assert.ok(Array.isArray(badgesMod.DEFAULT_FOUNDERS_REQS), 'DEFAULT_FOUNDERS_REQS must be an array');
+
+  // 3. Evaluation of Founder's & President's Criteria Checklist
+  const mockDefs = [
+    { id: 'b_svc', name: 'Years of Service', cat: 'Core', repeatable: true },
+    { id: 'b_nco', name: 'NCO Star', cat: 'Group A Awards', hasAdvanced: false },
+    { id: 'b_ce',  name: 'Christian Education', cat: 'Group A Awards', hasAdvanced: true },
+    { id: 'b_dr',  name: 'Drill', cat: 'Group B Awards', hasAdvanced: true },
+    { id: 'b_fa',  name: 'First Aid', cat: 'Group C Awards', hasAdvanced: true },
+    { id: 'b_bc',  name: 'Best Camper', cat: 'Group D Awards', hasAdvanced: true },
+    { id: 'b_sw',  name: 'Swimming', cat: 'Group D Awards', hasAdvanced: false },
+    { id: 'b_rc',  name: 'Recruitment', cat: 'Core', hasAdvanced: false }
+  ];
+
+  // Incomplete record
+  const incompleteSaved = {
+    'b_svc_rep': { count: 2, dates: ['2024-01-01', '2025-01-01'] },
+    'b_nco': { basic: true, advanced: false }
+  };
+  const evalIncomplete = badgesMod.evaluateFoundersCriteria(incompleteSaved, mockDefs);
+  assert.strictEqual(evalIncomplete.serviceYears, 2, 'Service years must equal 2');
+  assert.strictEqual(evalIncomplete.allDone, false, 'Incomplete records must not qualify as allDone');
+  assert.ok(evalIncomplete.overallPct < 100, 'Overall progress must be under 100%');
+
+  // Complete record fulfilling all criteria
+  const completeSaved = {
+    'b_svc_rep': { count: 3, dates: ['2023-01-01', '2024-01-01', '2025-01-01'] },
+    'b_nco': { basic: true, advanced: false },
+    'b_ce':  { basic: true, advanced: true },
+    'b_dr':  { basic: true, advanced: true },
+    'b_fa':  { basic: true, advanced: true },
+    'b_bc':  { basic: true, advanced: true },
+    'b_sw':  { basic: true, advanced: false },
+    'b_rc':  { basic: true, advanced: false }
+  };
+  const evalComplete = badgesMod.evaluateFoundersCriteria(completeSaved, mockDefs);
+  assert.strictEqual(evalComplete.serviceYears, 3, 'Service years must equal 3');
+  assert.strictEqual(evalComplete.allCompDone, true, 'All compulsory badges must be marked done');
+  assert.strictEqual(evalComplete.totalAdvanced, 4, 'Total advanced badges must equal 4');
+  assert.strictEqual(evalComplete.totalBasicOnly, 2, 'Total basic badges must equal 2');
+  assert.strictEqual(evalComplete.allDone, true, 'All requirements must be fulfilled');
+  assert.strictEqual(evalComplete.overallPct, 100, 'Overall progress must reach 100%');
+  console.log('  ✔ evaluateFoundersCriteria accurately checks service years, award groups, and compulsory badges');
+
+  // 4. Repeatable Badge Adjustment (Service Years)
+  const memberIc = '020202-14-5678';
+  await badgesMod.adjustRepBadge('b_svc', memberIc, 1);
+  assert.ok(badgesMod._memberBadgesCache[memberIc], 'Member cache must be initialized');
+  assert.strictEqual(badgesMod._memberBadgesCache[memberIc]['b_svc_rep'].count, 1, 'Repeatable badge increment must set count to 1');
+  await badgesMod.adjustRepBadge('b_svc', memberIc, -1);
+  assert.strictEqual(badgesMod._memberBadgesCache[memberIc]['b_svc_rep'].count, 0, 'Repeatable badge decrement must not go below 0');
+  console.log('  ✔ adjustRepBadge properly increments, decrements, and bounds repeatable badge counts');
+
+  // 5. Single / Advanced Tier Toggle
+  await await badgesMod.toggleBadge('b_fa', memberIc, 'basic');
+  assert.strictEqual(badgesMod._memberBadgesCache[memberIc]['b_fa'].basic, true, 'toggleBadge basic must toggle basic to true');
+  await badgesMod.toggleBadge('b_fa', memberIc, 'advanced');
+  assert.strictEqual(badgesMod._memberBadgesCache[memberIc]['b_fa'].advanced, true, 'toggleBadge advanced must toggle advanced to true');
+  badgesMod.toggleBadge('b_fa', memberIc, 'basic');
+  assert.strictEqual(badgesMod._memberBadgesCache[memberIc]['b_fa'].basic, false, 'toggleBadge basic second call toggles basic to false');
+  console.log('  ✔ toggleBadge accurately toggles basic and advanced achievement status');
+
+  // 6. Subtab and Tier Controls
+  badgesMod.setReqTier('advanced');
+  const mockReqTierVal = document.getElementById('req-tier-val');
+  if (mockReqTierVal) {
+    assert.strictEqual(mockReqTierVal.value, 'advanced', 'setReqTier must update req-tier-val input');
+  }
+  badgesMod.setReqTier('any');
+  if (mockReqTierVal) {
+    assert.strictEqual(mockReqTierVal.value, 'any', 'setReqTier must update req-tier-val input to any');
+  }
+  console.log('  ✔ setReqTier updates active requirement tier state');
+
   // ── Testing Instagram-Style Story Highlights & Event Gallery Reel (TSK-033) ──
   console.log('Testing Story Highlights & Event Gallery Reel (TSK-033)...');
   const galleryMod = require('../js/modules/gallery.js');
