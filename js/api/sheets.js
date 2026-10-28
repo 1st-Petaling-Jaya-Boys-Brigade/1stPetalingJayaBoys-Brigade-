@@ -254,14 +254,19 @@ async function saveMasterSheetConfig(cfgOverride) {
   }
 
   var existing = await loadMasterSheetConfig();
-  var cfg = cfgOverride || {
-    sheetId: sid || existing.sheetId || '',
-    scriptUrl: url || existing.scriptUrl || '',
-    syncToken: tok || existing.syncToken || generateSecureSyncToken(),
-    autoSync: existing.autoSync !== false,
-    piiFiltered: true,
-    lastUpdated: new Date().toISOString()
-  };
+  var cfg = cfgOverride
+    ? Object.assign({}, existing, cfgOverride, {
+        piiFiltered: true,
+        lastUpdated: new Date().toISOString()
+      })
+    : {
+        sheetId: sid || existing.sheetId || '',
+        scriptUrl: url || existing.scriptUrl || '',
+        syncToken: tok || existing.syncToken || generateSecureSyncToken(),
+        autoSync: existing.autoSync !== false,
+        piiFiltered: true,
+        lastUpdated: new Date().toISOString()
+      };
 
   var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
   if (client) {
@@ -719,6 +724,15 @@ function buildSanitizedAttendancePayload() {
 
   // 2. Process Band Attendance Tab
   var bandSheet = ss.getSheetByName('Band Attendance 2026') || ss.getSheetByName('Band Attendance');
+  if (!bandSheet) {
+    var allSheetsBand = ss.getSheets();
+    for (var bi = 0; bi < allSheetsBand.length; bi++) {
+      if (allSheetsBand[bi].getName().toLowerCase().indexOf('band attendance') !== -1) {
+        bandSheet = allSheetsBand[bi];
+        break;
+      }
+    }
+  }
   if (bandSheet) {
     scannedSheets.push(bandSheet.getName());
     var bData = bandSheet.getDataRange().getValues();
@@ -777,6 +791,15 @@ function buildSanitizedAttendancePayload() {
   var lbSheet = ss.getSheetByName('Squad Leaderboard [Post Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard [Pre Enrolment]') ||
                 ss.getSheetByName('Squad Leaderboard');
+  if (!lbSheet) {
+    var allSheetsLb = ss.getSheets();
+    for (var lbi = 0; lbi < allSheetsLb.length; lbi++) {
+      if (allSheetsLb[lbi].getName().toLowerCase().indexOf('squad leaderboard') !== -1) {
+        lbSheet = allSheetsLb[lbi];
+        break;
+      }
+    }
+  }
   if (lbSheet) {
     scannedSheets.push(lbSheet.getName());
     var lbData = lbSheet.getDataRange().getValues();
