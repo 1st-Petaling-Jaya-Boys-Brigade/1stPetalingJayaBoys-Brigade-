@@ -21,7 +21,8 @@ const jsFiles = [
   'js/modules/calendar.js',
   'js/modules/orders.js',
   'js/modules/forms.js',
-  'js/modules/badges.js'
+  'js/modules/badges.js',
+  'js/modules/admin.js'
 ];
 
 let failed = false;

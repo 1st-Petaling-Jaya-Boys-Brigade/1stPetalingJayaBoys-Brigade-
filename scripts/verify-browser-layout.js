@@ -1000,6 +1000,124 @@ async function getJson(url) {
     assert.strictEqual(alertWrapperResult.hasToast, true, 'window.alert wrapper must convert native alerts to non-blocking toast');
     console.log('  ✔ Non-blocking window.alert wrapper translates calls to modern toast notifications seamlessly');
 
+    // ── Admin Console Master Controller Verification (TSK-011) ──
+    console.log('\n[Admin Console Master Controller Verification (TSK-011)]');
+    const evalAdminController = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        // 1. Verify global functions attached
+        const hasOpenAdmin = typeof window.openAdmin === 'function';
+        const hasSwitchAdminSection = typeof window.switchAdminSection === 'function';
+        const hasOpenAddMember = typeof window.openAddMember === 'function';
+        const hasSaveTask = typeof window.saveTask === 'function';
+
+        // 2. Open admin console and authenticate
+        window.openAdmin();
+        const overlay = document.getElementById('admin-overlay');
+        const loginBox = document.getElementById('admin-login-box');
+        const adminPanel = document.getElementById('admin-panel');
+        const passInput = document.getElementById('admin-pass');
+        
+        const openState = {
+          overlayVisible: overlay && overlay.style.display !== 'none',
+          loginBoxVisible: loginBox && loginBox.style.display !== 'none',
+          adminPanelHidden: !adminPanel || adminPanel.style.display === 'none'
+        };
+
+        if (passInput) passInput.value = 'bb2024admin';
+        window.adminLogin();
+
+        const authedState = {
+          loginBoxHidden: !loginBox || loginBox.style.display === 'none',
+          adminPanelVisible: adminPanel && adminPanel.style.display !== 'none'
+        };
+
+        // 3. Switch back-office sections
+        window.switchAdminSection('members');
+        const membersSec = document.getElementById('adm-section-members');
+        const backBar = document.getElementById('adm-back-bar');
+        const membersState = {
+          membersVisible: membersSec && membersSec.style.display !== 'none',
+          backBarVisible: backBar && backBar.style.display !== 'none'
+        };
+
+        window.switchAdminSection('tasks');
+        const tasksSec = document.getElementById('adm-section-tasks');
+        const taskFormBody = document.getElementById('task-form-body');
+        const tasksState = {
+          tasksVisible: tasksSec && tasksSec.style.display !== 'none',
+          membersHidden: !membersSec || membersSec.style.display === 'none'
+        };
+
+        // Toggle task form
+        const initialFormDisplay = taskFormBody ? taskFormBody.style.display : '';
+        window.toggleTaskForm();
+        const toggledFormDisplay = taskFormBody ? taskFormBody.style.display : '';
+        window.toggleTaskForm();
+        const finalFormDisplay = taskFormBody ? taskFormBody.style.display : '';
+
+        // 4. Test Add Member modal
+        window.openAddMember();
+        const editMemberModal = document.getElementById('edit-member-modal');
+        const delBtn = document.getElementById('em-delete-btn');
+        const modalOpenState = {
+          modalVisible: editMemberModal && editMemberModal.style.display !== 'none',
+          delBtnHidden: !delBtn || delBtn.style.display === 'none'
+        };
+
+        window.closeEditMember();
+        const modalCloseState = {
+          modalHidden: !editMemberModal || editMemberModal.style.display === 'none'
+        };
+
+        // 5. Back to admin home and close overlay
+        window.backToAdminHome();
+        const homeState = {
+          backBarHidden: !backBar || backBar.style.display === 'none',
+          tasksHidden: !tasksSec || tasksSec.style.display === 'none'
+        };
+
+        window.closeAdmin();
+        const closeState = {
+          overlayHidden: !overlay || overlay.style.display === 'none'
+        };
+
+        return {
+          hasOpenAdmin,
+          hasSwitchAdminSection,
+          hasOpenAddMember,
+          hasSaveTask,
+          openState,
+          authedState,
+          membersState,
+          tasksState,
+          initialFormDisplay,
+          toggledFormDisplay,
+          finalFormDisplay,
+          modalOpenState,
+          modalCloseState,
+          homeState,
+          closeState
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+
+    const adminResult = evalAdminController.result.value;
+    assert.strictEqual(adminResult.hasOpenAdmin, true, 'openAdmin must be exported globally');
+    assert.strictEqual(adminResult.hasSwitchAdminSection, true, 'switchAdminSection must be exported globally');
+    assert.strictEqual(adminResult.hasOpenAddMember, true, 'openAddMember must be exported globally');
+    assert.strictEqual(adminResult.hasSaveTask, true, 'saveTask must be exported globally');
+    assert.strictEqual(adminResult.openState.overlayVisible, true, 'openAdmin must display admin overlay');
+    assert.strictEqual(adminResult.authedState.adminPanelVisible, true, 'adminLogin must unlock admin panel');
+    assert.strictEqual(adminResult.membersState.membersVisible, true, 'switchAdminSection must reveal members section');
+    assert.strictEqual(adminResult.tasksState.tasksVisible, true, 'switchAdminSection must reveal tasks section');
+    assert.strictEqual(adminResult.modalOpenState.modalVisible, true, 'openAddMember must display member modal');
+    assert.strictEqual(adminResult.modalCloseState.modalHidden, true, 'closeEditMember must hide member modal');
+    assert.strictEqual(adminResult.homeState.backBarHidden, true, 'backToAdminHome must hide back bar');
+    assert.strictEqual(adminResult.closeState.overlayHidden, true, 'closeAdmin must dismiss admin overlay');
+    console.log('  ✔ Admin console back-office navigation, section routing, and member/task modal controls verified in browser');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {
