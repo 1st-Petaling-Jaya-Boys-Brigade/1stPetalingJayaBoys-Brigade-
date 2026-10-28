@@ -640,7 +640,7 @@ async function copyAppsScriptSnippet() {
       }, 2500);
     }
   } else {
-    alert('Please select and copy the code manually from the box below.');
+    if (typeof showToast === 'function') showToast('Please select and copy the code manually from the box below.', 'warning');
   }
 }
 
@@ -651,7 +651,6 @@ function generateNewMasterSyncToken() {
     var inp = document.getElementById('master-sync-token-input');
     if (inp) inp.value = newToken;
     if (typeof showToast === 'function') showToast('New secure sync token generated. Click Save Configuration to persist.', 'info');
-    else if (typeof alert === 'function') alert('New secure sync token generated. Click Save Configuration to persist.');
   }
 }
 
@@ -673,7 +672,6 @@ async function copyMasterSyncToken() {
     } catch (e2) {}
   }
   if (typeof showToast === 'function') showToast('Sync token copied to clipboard!', 'success');
-  else if (typeof alert === 'function') alert('Sync token copied!');
 }
 
 async function handleSaveMasterConfig() {
@@ -710,15 +708,10 @@ async function triggerMasterSheetFetch() {
     await renderAdminMasterSheetPanel();
     if (typeof showToast === 'function') {
       showToast('Master Sheet data synced successfully.', 'success');
-    } else if (typeof alert === 'function') {
-      alert('Master Sheet data synced successfully.');
     }
   } catch (err) {
-    var syncErrMsg = 'Sync note: ' + err.message + '\n\nTip: You can click "BB Portal > Sync Attendance to Portal Now" inside your Google Sheet at any time to push updates instantly.';
     if (typeof showToast === 'function') {
       showToast('Sync note: ' + err.message, 'warning');
-    } else if (typeof alert === 'function') {
-      alert(syncErrMsg);
     }
   } finally {
     if (btn) {

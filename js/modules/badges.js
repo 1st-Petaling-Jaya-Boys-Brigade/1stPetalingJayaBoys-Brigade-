@@ -646,8 +646,6 @@ async function saveBadges() {
   renderPresidentsTracker(ic, saved);
   if (typeof showToast === 'function') {
     showToast('Badges saved successfully!', 'success');
-  } else if (typeof alert === 'function') {
-    alert('Badges saved successfully!');
   }
 }
 
@@ -911,8 +909,8 @@ async function renderAdminPresidentsReqs() {
       var currentReqs = await getPresidentsReqs();
       var name = currentReqs[idx] ? currentReqs[idx].badgeMatch : '';
       var ok = (typeof showConfirmModal === 'function')
-        ? await showConfirmModal('Remove "' + name + '" from requirements?')
-        : confirm('Remove "' + name + '" from requirements?');
+        ? await showConfirmModal('Remove "' + name + '" from requirements?', 'Remove Requirement')
+        : true;
       if (!ok) return;
       currentReqs.splice(idx, 1);
       await savePresidentsReqs(currentReqs);
@@ -930,14 +928,14 @@ async function addPresidentsReq() {
   var tier = (document.getElementById('req-tier-val') || {}).value || 'any';
   var name = sel ? sel.value.trim() : '';
   if (!name) {
-    alert('Please select a badge.');
+    if (typeof showToast === 'function') showToast('Please select a badge.', 'warning');
     return;
   }
   var tierLabel = { any: '(any level)', basic: '(Basic)', advanced: '(Advanced)' };
   var label = name + ' ' + (tierLabel[tier] || '');
   var reqs  = await getPresidentsReqs();
   if (reqs.some(function(r) { return r.badgeMatch === name && r.tier === tier; })) {
-    alert('This badge and level combination is already a requirement.');
+    if (typeof showToast === 'function') showToast('This badge and level combination is already a requirement.', 'warning');
     return;
   }
   reqs.push({ label: label, badgeMatch: name, tier: tier });
@@ -1081,8 +1079,8 @@ async function renderAdminBadges() {
     btn.addEventListener('click', async function() {
       var cat = btn.getAttribute('data-del-cat');
       var ok = (typeof showConfirmModal === 'function')
-        ? await showConfirmModal('Delete the "' + cat + '" section and all its badges?')
-        : confirm('Delete the "' + cat + '" section and all its badges?');
+        ? await showConfirmModal('Delete the "' + cat + '" section and all its badges?', 'Delete Badge Section')
+        : true;
       if (!ok) return;
       await saveBadgeDefs((await getBadgeDefs()).filter(function(b) { return b.cat !== cat; }));
       renderAdminBadges();
@@ -1096,8 +1094,8 @@ async function renderAdminBadges() {
       var badge = currentDefs.find(function(b) { return b.id === id; });
       if (!badge) return;
       var ok = (typeof showConfirmModal === 'function')
-        ? await showConfirmModal('Delete badge "' + badge.name + '"?')
-        : confirm('Delete badge "' + badge.name + '"?');
+        ? await showConfirmModal('Delete badge "' + badge.name + '"?', 'Delete Badge')
+        : true;
       if (!ok) return;
       await saveBadgeDefs(currentDefs.filter(function(b) { return b.id !== id; }));
       renderAdminBadges();
@@ -1110,7 +1108,7 @@ async function renderAdminBadges() {
       var key   = 'nb_' + cat.replace(/[^a-zA-Z0-9]/g, '_');
       var input = document.getElementById(key);
       var name  = input ? input.value.trim() : '';
-      if (!name) { alert('Please enter a badge name.'); return; }
+      if (!name) { if (typeof showToast === 'function') showToast('Please enter a badge name.', 'warning'); return; }
       var currentDefs = (await getBadgeDefs()).filter(function(b) {
         return !(b.cat === cat && b.name === '(Add badges below)');
       });
@@ -1123,7 +1121,7 @@ async function renderAdminBadges() {
         repeatable: false
       });
       await saveBadgeDefs(currentDefs);
-      alert('Badge added! Members will see it when they next open their badges.');
+      if (typeof showToast === 'function') showToast('Badge added! Members will see it when they next open their badges.', 'success');
       if (input) input.value = '';
       renderAdminBadges();
     });
@@ -1134,10 +1132,10 @@ async function renderAdminBadges() {
     addCatBtn.addEventListener('click', async function() {
       var input = document.getElementById('new-cat-name');
       var name  = input ? input.value.trim() : '';
-      if (!name) { alert('Please enter a section name.'); return; }
+      if (!name) { if (typeof showToast === 'function') showToast('Please enter a section name.', 'warning'); return; }
       var currentDefs = await getBadgeDefs();
       if (currentDefs.some(function(b) { return b.cat === name; })) {
-        alert('Section already exists.');
+        if (typeof showToast === 'function') showToast('Section already exists.', 'warning');
         return;
       }
       currentDefs.push({ id: 'b_' + Date.now(), name: '(Add badges below)', cat: name, hasAdvanced: false });

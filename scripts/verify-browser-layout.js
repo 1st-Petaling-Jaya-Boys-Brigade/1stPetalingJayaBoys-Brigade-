@@ -903,6 +903,103 @@ async function getJson(url) {
     assert.strictEqual(uniformGrid.gridDisplay, 'grid', 'Uniform items container must have CSS grid display');
     console.log('  ✔ Responsive uniform product card grid, category tabs, size pills, and sticky checkout bar verified in browser');
 
+    // ── Modern Toast Notification & Confirmation Modal Verification (TSK-012) ──
+    console.log('\n[Modern Toast Notification & Modal System Verification (TSK-012)]');
+
+    // 1. Trigger showToast and verify DOM elements
+    const evalToast = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        showToast('Browser test success toast notification', 'success', 10000);
+        const container = document.getElementById('portal-toast-container');
+        const toast = container ? container.querySelector('.portal-toast-success') : null;
+        const closeBtn = toast ? toast.querySelector('.portal-toast-close') : null;
+        return {
+          hasContainer: !!container,
+          containerAriaLive: container ? container.getAttribute('aria-live') : '',
+          hasToast: !!toast,
+          toastRole: toast ? toast.getAttribute('role') : '',
+          toastBody: toast ? toast.querySelector('.portal-toast-body').textContent : '',
+          hasCloseBtn: !!closeBtn
+        };
+      })()`,
+      returnByValue: true
+    });
+    const toastResult = evalToast.result.value;
+    assert.strictEqual(toastResult.hasContainer, true, 'Toast container must be created in browser DOM');
+    assert.strictEqual(toastResult.containerAriaLive, 'polite', 'Toast container must have aria-live="polite"');
+    assert.strictEqual(toastResult.hasToast, true, 'Toast element with portal-toast-success must be rendered');
+    assert.strictEqual(toastResult.toastRole, 'alert', 'Toast element must have role="alert"');
+    assert.strictEqual(toastResult.toastBody, 'Browser test success toast notification', 'Toast body must match message');
+    assert.strictEqual(toastResult.hasCloseBtn, true, 'Toast close button must be present');
+    console.log('  ✔ Modern non-blocking toast renders in DOM with SVG icon, close button, and aria labels');
+
+    // 2. Test toast manual close dismissal
+    const evalDismiss = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const container = document.getElementById('portal-toast-container');
+        const toast = container ? container.querySelector('.portal-toast-success') : null;
+        const closeBtn = toast ? toast.querySelector('.portal-toast-close') : null;
+        if (closeBtn) closeBtn.click();
+        return {
+          hasHideClass: toast ? toast.classList.contains('portal-toast-hide') : false
+        };
+      })()`,
+      returnByValue: true
+    });
+    const dismissResult = evalDismiss.result.value;
+    assert.strictEqual(dismissResult.hasHideClass, true, 'Clicking toast close button must apply portal-toast-hide animation');
+    console.log('  ✔ Clicking close button triggers smooth exit animation');
+
+    // 3. Test accessible confirmation modal dialog resolving true on Confirm
+    const evalModalConfirm = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const promise = showConfirmModal('Do you confirm this action?', 'Browser Test Dialog', { confirmText: 'Proceed' });
+        const overlay = document.querySelector('.portal-modal-overlay');
+        const card = overlay ? overlay.querySelector('.portal-modal-card') : null;
+        const h3 = card ? card.querySelector('h3') : null;
+        const okBtn = overlay ? overlay.querySelector('#portal-modal-ok') : null;
+        const cancelBtn = overlay ? overlay.querySelector('#portal-modal-cancel') : null;
+        const stateBefore = {
+          hasOverlay: !!overlay,
+          overlayRole: overlay ? overlay.getAttribute('role') : '',
+          hasCard: !!card,
+          titleText: h3 ? h3.textContent : '',
+          okBtnText: okBtn ? okBtn.textContent : '',
+          hasCancelBtn: !!cancelBtn
+        };
+        if (okBtn) okBtn.click();
+        const resolvedValue = await promise;
+        return { stateBefore, resolvedValue };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const modalConfirmResult = evalModalConfirm.result.value;
+    assert.strictEqual(modalConfirmResult.stateBefore.hasOverlay, true, 'Confirmation overlay must be added to DOM');
+    assert.strictEqual(modalConfirmResult.stateBefore.overlayRole, 'dialog', 'Overlay must feature role="dialog"');
+    assert.strictEqual(modalConfirmResult.stateBefore.hasCard, true, 'Modal card must be present');
+    assert.strictEqual(modalConfirmResult.stateBefore.titleText, 'Browser Test Dialog', 'Header title must match');
+    assert.strictEqual(modalConfirmResult.stateBefore.okBtnText, 'Proceed', 'Custom button label must match');
+    assert.strictEqual(modalConfirmResult.resolvedValue, true, 'Clicking Confirm must resolve Promise to true');
+    console.log('  ✔ showConfirmModal renders accessible dialog card and resolves Promise on user confirmation');
+
+    // 4. Test non-blocking window.alert wrapper
+    const evalAlertWrapper = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        window.alert('✅ Action performed successfully');
+        const container = document.getElementById('portal-toast-container');
+        const toast = container ? container.querySelector('.portal-toast-success') : null;
+        return {
+          hasToast: !!toast,
+          bodyText: toast ? toast.querySelector('.portal-toast-body').textContent : ''
+        };
+      })()`,
+      returnByValue: true
+    });
+    const alertWrapperResult = evalAlertWrapper.result.value;
+    assert.strictEqual(alertWrapperResult.hasToast, true, 'window.alert wrapper must convert native alerts to non-blocking toast');
+    console.log('  ✔ Non-blocking window.alert wrapper translates calls to modern toast notifications seamlessly');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {

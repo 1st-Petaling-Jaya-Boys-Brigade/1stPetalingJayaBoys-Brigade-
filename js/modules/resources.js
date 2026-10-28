@@ -636,7 +636,6 @@ async function addOrUpdateResource() {
 
   if (!title) {
     if (typeof showToast === 'function') showToast('Please enter a document title.', 'warning');
-    else alert('Please enter a title.');
     return;
   }
 
@@ -655,7 +654,6 @@ async function addOrUpdateResource() {
 
   if (!url) {
     if (typeof showToast === 'function') showToast('Please select a file to upload or enter a document URL.', 'warning');
-    else alert('Please select a file to upload or enter a document URL.');
     return;
   }
 
@@ -840,8 +838,6 @@ async function deleteResource(id) {
   var msg = 'Delete "' + (item.title || 'this resource') + '"?';
   if (typeof showConfirmModal === 'function') {
     confirmed = await showConfirmModal(msg, 'Delete Resource');
-  } else if (typeof window !== 'undefined' && window.confirm) {
-    confirmed = window.confirm(msg);
   } else {
     confirmed = true;
   }
@@ -865,8 +861,6 @@ async function clearAllResources() {
   var msg = 'Are you sure you want to remove all company resources? This action cannot be undone.';
   if (typeof showConfirmModal === 'function') {
     confirmed = await showConfirmModal(msg, 'Clear All Resources');
-  } else if (typeof window !== 'undefined' && window.confirm) {
-    confirmed = window.confirm(msg);
   } else {
     confirmed = true;
   }

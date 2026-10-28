@@ -2488,6 +2488,7 @@
 <script src="js/api/supabase.js?v=20261026c"></script>
 <script src="js/core/session.js?v=20261026c"></script>
 <script src="js/core/utils.js?v=20261026c"></script>
+<script src="js/core/ui.js?v=20261028a"></script>
 <script src="js/modules/member.js?v=20261026c"></script>
 <script src="js/api/sheets.js?v=20261026c"></script>
 <script src="js/modules/attendance.js?v=20261026c"></script>
@@ -2885,7 +2886,7 @@ function closeTaskDetail() { var m = document.getElementById('task-detail-modal'
 
 async function memberUpdateTaskStatus(id, status, dept) {
   try { await supa.patch('bb_tasks?id=eq.' + id, { status: status }); await renderTasksBoard(dept); }
-  catch(e) { alert('Failed to update.'); }
+  catch(e) { if (typeof showToast === 'function') showToast('Failed to update.', 'error'); }
 }
 
 // ── Gallery & Announcements ────────────────────────────────────────────────
@@ -2922,7 +2923,7 @@ function logoutAdmin() {
 
 function adminLogin() {
   var pass = (document.getElementById('admin-pass') || {}).value || '';
-  if (pass !== ADMIN_PASSWORD) { alert('Wrong password!'); return; }
+  if (pass !== ADMIN_PASSWORD) { if (typeof showToast === 'function') showToast('Wrong password!', 'error'); return; }
   sessionSet('adminAuthed', true);
   document.getElementById('admin-login-box').style.display = 'none';
   document.getElementById('admin-panel').style.display     = 'block';
@@ -3222,13 +3223,13 @@ async function saveEditMember() {
   var parental_consent_signed = pConsentCb ? !!pConsentCb.checked : false;
   var mConsentCb    = document.getElementById('em-media-consent');
   var media_consent = mConsentCb ? !!mConsentCb.checked : false;
-  if (!name) return alert('Name cannot be empty.');
-  if (!ic)   return alert('Account Email / ID cannot be empty.');
+  if (!name) { if (typeof showToast === 'function') showToast('Name cannot be empty.', 'warning'); return; }
+  if (!ic)   { if (typeof showToast === 'function') showToast('Account Email / ID cannot be empty.', 'warning'); return; }
   try {
     var consentTimestamp = parental_consent_signed ? new Date().toISOString() : null;
     if (!originalIc) {
       var existing = await supa.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=ic');
-      if (existing && existing.length) return alert('A member with this Account Email / ID already exists.');
+      if (existing && existing.length) { if (typeof showToast === 'function') showToast('A member with this Account Email / ID already exists.', 'warning'); return; }
       var defaultHash = (typeof hashPassword === 'function') ? await hashPassword(ic) : btoa(ic);
       var newPayload = { ic: ic, name: name, rank: rank, squad: squad, department: department, att_section: att_section || null, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() };
       if (parent_name) newPayload.parent_name = parent_name;
@@ -3241,7 +3242,7 @@ async function saveEditMember() {
         // Fallback without extended consent columns
         await supa.post('bb_members', { ic: ic, name: name, rank: rank, squad: squad, department: department, date_of_birth: date_of_birth, password: defaultHash, joined_at: joined_at || new Date().toISOString() });
       }
-      alert('\u2705 Member added!\n\nDefault password is their Account Email/ID: ' + ic);
+      if (typeof showToast === 'function') showToast('✅ Member added! Default password is: ' + ic, 'success', 5000);
     } else {
       var updates = { name: name, rank: rank, squad: squad, department: department, att_section: att_section || null };
       if (joined_at)     updates.joined_at     = joined_at;
@@ -3260,7 +3261,7 @@ async function saveEditMember() {
         if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
         await supa.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
       }
-      alert('Member updated!');
+      if (typeof showToast === 'function') showToast('Member updated!', 'success');
     }
     // Always persist backup consent audit trail into bb_config
     try {
@@ -3286,7 +3287,7 @@ async function saveEditMember() {
     }
     closeEditMember();
     renderAdminList();
-  } catch(e) { alert('Failed: ' + e.message); }
+  } catch(e) { if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error'); }
 }
 
 async function deleteEditMember() {
@@ -3369,9 +3370,9 @@ async function deleteMemberAccount(ic, name, e) {
 
     closeEditMember();
     await renderAdminList();
-    alert('Account for ' + (name || ic) + ' was permanently deleted.');
+    if (typeof showToast === 'function') showToast('Account for ' + (name || ic) + ' was permanently deleted.', 'info');
   } catch(err) {
-    alert('Failed to delete member: ' + err.message);
+    if (typeof showToast === 'function') showToast('Failed to delete member: ' + err.message, 'error');
   }
 }
 
@@ -3404,8 +3405,8 @@ async function saveTask() {
   var priority = (document.getElementById('task-priority') || {}).value || 'medium';
   var due      = (document.getElementById('task-due') || {}).value || '';
   var editId   = (document.getElementById('task-edit-id') || {}).value || '';
-  if (!title) { alert('Please enter a task title.'); return; }
-  if (!dept)  { alert('Please select a department.'); return; }
+  if (!title) { if (typeof showToast === 'function') showToast('Please enter a task title.', 'warning'); return; }
+  if (!dept)  { if (typeof showToast === 'function') showToast('Please select a department.', 'warning'); return; }
   var assigneeSel = document.getElementById('task-assignee');
   var selected    = assigneeSel ? Array.from(assigneeSel.selectedOptions).filter(function(o) { return o.value; }) : [];
   var assigneeIc  = selected.map(function(o) { return o.value; }).join(',');
@@ -3414,13 +3415,13 @@ async function saveTask() {
   if (!editId) payload.created_at = new Date().toISOString();
   if (!editId) payload.status = 'todo';
   try {
-    if (editId) { await supa.patch('bb_tasks?id=eq.' + editId, payload); alert('\u2705 Task updated!'); }
-    else        { await supa.post('bb_tasks', payload); alert('\u2705 Task added!'); }
+    if (editId) { await supa.patch('bb_tasks?id=eq.' + editId, payload); if (typeof showToast === 'function') showToast('✅ Task updated!', 'success'); }
+    else        { await supa.post('bb_tasks', payload); if (typeof showToast === 'function') showToast('✅ Task added!', 'success'); }
     clearTaskForm();
     var body = document.getElementById('task-form-body');
     if (body && body.style.display !== 'none') toggleTaskForm();
     renderAdminTasks(_adminTaskFilter);
-  } catch(e) { alert('Failed: ' + e.message); }
+  } catch(e) { if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error'); }
 }
 
 function clearTaskForm() {
@@ -3481,7 +3482,7 @@ async function renderAdminTasks(filter) {
 
 async function updateTaskStatus(id, status) {
   try { await supa.patch('bb_tasks?id=eq.' + id, { status: status }); renderAdminTasks(_adminTaskFilter); }
-  catch(e) { alert('Failed to update status.'); }
+  catch(e) { if (typeof showToast === 'function') showToast('Failed to update status.', 'error'); }
 }
 
 function editAdminTask(id) {

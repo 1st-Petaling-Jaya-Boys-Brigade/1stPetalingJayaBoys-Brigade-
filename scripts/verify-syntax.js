@@ -10,6 +10,7 @@ const jsFiles = [
   'js/core/theme.js',
   'js/core/session.js',
   'js/core/utils.js',
+  'js/core/ui.js',
   'js/api/supabase.js',
   'js/api/sheets.js',
   'js/modules/member.js',

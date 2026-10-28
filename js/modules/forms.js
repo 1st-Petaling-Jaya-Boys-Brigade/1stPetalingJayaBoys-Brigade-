@@ -316,7 +316,6 @@ async function submitBuiltinForm(form) {
 
   if (!valid) {
     if (typeof showToast === 'function') showToast('Please fill in all required fields.', 'warning');
-    else alert('Please fill in all required fields.');
     return;
   }
 
@@ -353,7 +352,6 @@ async function submitBuiltinForm(form) {
     if (typeof showToast === 'function') showToast('Form submitted successfully!', 'success');
   } catch (e) {
     if (typeof showToast === 'function') showToast('Failed to submit: ' + e.message, 'error');
-    else alert('Failed to submit: ' + e.message);
   }
 }
 
@@ -464,7 +462,6 @@ function saveForm() {
 
   if (!name) {
     if (typeof showToast === 'function') showToast('Please enter a form name.', 'warning');
-    else alert('Please enter a form name.');
     return;
   }
 
@@ -474,14 +471,12 @@ function saveForm() {
     var rawUrl = ((document.getElementById('fb-url') || {}).value || '').trim();
     if (!rawUrl) {
       if (typeof showToast === 'function') showToast('Please enter a URL.', 'warning');
-      else alert('Please enter a URL.');
       return;
     }
     formData.url = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '') : rawUrl;
   } else if (type === 'builtin') {
     if (!_fbFields.length) {
       if (typeof showToast === 'function') showToast('Please add at least one field.', 'warning');
-      else alert('Please add at least one field.');
       return;
     }
     formData.fields = JSON.parse(JSON.stringify(_fbFields));
@@ -497,7 +492,6 @@ function saveForm() {
   renderFormsHub();
 
   if (typeof showToast === 'function') showToast('Form saved successfully!', 'success');
-  else alert('Form saved successfully!');
 }
 
 /**
@@ -536,8 +530,8 @@ async function deleteForm(id) {
   if (!f) return;
 
   var ok = (typeof showConfirmModal === 'function')
-    ? await showConfirmModal('Delete form "' + f.name + '"?')
-    : confirm('Delete form "' + f.name + '"?');
+    ? await showConfirmModal('Delete form "' + f.name + '"?', 'Delete Form')
+    : true;
   if (!ok) return;
 
   _customForms = _customForms.filter(function(x) { return x.id !== id; });
@@ -708,8 +702,8 @@ async function renderFormResponses() {
     list.querySelectorAll('[data-del-resp]').forEach(function(btn) {
       btn.addEventListener('click', async function() {
         var ok = (typeof showConfirmModal === 'function')
-          ? await showConfirmModal('Delete this response?')
-          : confirm('Delete this response?');
+          ? await showConfirmModal('Delete this response?', 'Delete Form Response')
+          : true;
         if (!ok) return;
 
         client.delete('bb_orders?order_number=eq.' + encodeURIComponent(btn.getAttribute('data-del-resp')))
