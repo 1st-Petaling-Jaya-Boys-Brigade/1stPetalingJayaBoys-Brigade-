@@ -2327,8 +2327,9 @@
     <input type="hidden" id="adm-story-id" />
     <div style="margin-bottom:12px;padding:10px 12px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;font-size:11.5px;color:var(--text-secondary);display:flex;align-items:flex-start;gap:8px;">
       <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#3b82f6;flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <div>
-        <strong>Storage Tip:</strong> Upload photos and short clips (&lt;25MB) directly or paste <strong>Google Drive</strong> / <strong>YouTube</strong> links for larger videos to preserve free Supabase storage quota.
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div><strong>Storage Tip:</strong> Upload photos and short clips directly or paste <strong>Google Drive</strong> / <strong>YouTube</strong> links for larger videos to preserve free Supabase storage quota.</div>
+        <div style="font-size:10.5px;color:var(--accent);margin-top:2px;">⚠️ <strong>Google Drive Note:</strong> Ensure the file's General Access in Google Drive is set to <strong>"Anyone with the link" (Viewer)</strong>. If set to "Restricted", Google blocks playback inside websites.</div>
       </div>
     </div>
 
@@ -5500,7 +5501,9 @@ window.addEventListener('load', function() {
     checkTasksAccess();
     var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
     var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
-    checkAttendanceTabVisibility(ic);
+    if (typeof checkAttendanceTabVisibility === 'function') {
+      checkAttendanceTabVisibility(ic);
+    }
   }
   handleHashNavigation();
 });

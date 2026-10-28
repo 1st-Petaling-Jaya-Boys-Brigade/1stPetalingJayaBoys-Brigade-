@@ -119,9 +119,9 @@ async function loadGallery() {
     if (client && client.req) {
       var rows = null;
       try {
-        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url,type');
-      } catch (errType) {
         rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url');
+      } catch (errGet) {
+        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=*');
       }
       galleryImages.length = 0;
       if (rows && rows.length) {
@@ -680,27 +680,32 @@ async function loadStoryHighlights() {
   try {
     var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
     if (client && typeof client.get === 'function') {
+      // 1. Check universal bb_config store first (prevents 404 when bb_stories table is not yet migrated)
       try {
-        var rows = await client.get('bb_stories?order=display_order.asc,created_at.asc');
-        if (rows && rows.length) {
-          storyHighlights = rows.map(function(r) {
-            var items = Array.isArray(r.items) ? r.items : (typeof r.items === 'string' ? JSON.parse(r.items || '[]') : []);
-            return {
-              id: r.id,
-              title: r.title,
-              cover: r.cover || (items[0] ? items[0].url : 'assets/logo.png'),
-              order: r.display_order || 0,
-              active: r.active !== false,
-              items: items
-            };
-          });
-        }
-      } catch (errDb) {
-        // Fallback to bb_config
         var cfgRows = await client.get('bb_config?key=eq.bb_story_highlights&select=value');
         if (cfgRows && cfgRows.length && cfgRows[0].value) {
           storyHighlights = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
         }
+      } catch (errCfg) {}
+
+      // 2. If bb_config has no highlights, query bb_stories table if present
+      if (!storyHighlights || !storyHighlights.length) {
+        try {
+          var rows = await client.get('bb_stories?order=display_order.asc,created_at.asc');
+          if (rows && rows.length) {
+            storyHighlights = rows.map(function(r) {
+              var items = Array.isArray(r.items) ? r.items : (typeof r.items === 'string' ? JSON.parse(r.items || '[]') : []);
+              return {
+                id: r.id,
+                title: r.title,
+                cover: r.cover || (items[0] ? items[0].url : 'assets/logo.png'),
+                order: r.display_order || 0,
+                active: r.active !== false,
+                items: items
+              };
+            });
+          }
+        } catch (errDb) {}
       }
     }
   } catch (e) {
