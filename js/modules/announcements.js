@@ -212,8 +212,6 @@ async function toggleReaction(annIdx, emoji) {
   if (!currentUserId) {
     if (typeof showToast === 'function') {
       showToast('Please log in to react to announcements.', 'warning');
-    } else {
-      alert('Please log in to react to announcements.');
     }
     return;
   }
@@ -346,8 +344,6 @@ async function addAnnouncement() {
   if (!title || !rawBody || rawBody === '<br>' || rawBody === '<div><br></div>') {
     if (typeof showToast === 'function') {
       showToast('Please fill in both title and message.', 'warning');
-    } else {
-      alert('Please fill in both title and message.');
     }
     return;
   }
@@ -401,8 +397,6 @@ async function addAnnouncement() {
     console.error('addAnnouncement error:', e);
     if (typeof showToast === 'function') {
       showToast('Failed to save announcement: ' + (e.message || e), 'error');
-    } else {
-      alert('Failed to save announcement: ' + e.message);
     }
   } finally {
     if (btn) btn.disabled = false;
@@ -421,8 +415,6 @@ async function deleteAnnouncement(idx) {
   var confirmMsg = 'Are you sure you want to delete "' + (a.title || 'this announcement') + '"?';
   if (typeof showConfirmModal === 'function') {
     confirmed = await showConfirmModal(confirmMsg, 'Delete Announcement');
-  } else if (typeof window !== 'undefined' && window.confirm) {
-    confirmed = window.confirm(confirmMsg);
   } else {
     confirmed = true;
   }

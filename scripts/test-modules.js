@@ -8,34 +8,166 @@ const fs = require('fs');
 global.window = global;
 
 const mockElements = {};
-global.document = {
-  getElementById: (id) => {
-    if (!mockElements[id]) {
-      mockElements[id] = {
-        value: '',
-        textContent: '',
-        innerHTML: '',
-        style: {},
-        disabled: false,
-        files: [],
-        _attrs: {},
-        setAttribute: function(k, v) { this._attrs[k] = String(v); },
-        removeAttribute: (_k) => {},
-        getAttribute: function(k) { return this._attrs[k] || null; },
-        scrollIntoView: () => {},
-        querySelectorAll: () => [],
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        pause: () => {},
-        play: async () => {},
-        classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} }
+
+function createMockElement(tag) {
+  const el = {
+    tagName: (tag || 'div').toUpperCase(),
+    id: '',
+    value: '',
+    textContent: '',
+    _innerHTML: '',
+    get innerHTML() { return this._innerHTML; },
+    set innerHTML(val) {
+      this._innerHTML = val;
+      // Simple parsing of buttons/inputs if inserted
+      if (val.includes('class="portal-toast-close"')) {
+        const closeBtn = createMockElement('button');
+        closeBtn.className = 'portal-toast-close';
+        this.appendChild(closeBtn);
+      }
+      if (val.includes('id="portal-modal-cancel"')) {
+        const cancelBtn = createMockElement('button');
+        cancelBtn.id = 'portal-modal-cancel';
+        const cancelMatch = val.match(/id="portal-modal-cancel"[^>]*>([^<]+)<\/button>/);
+        cancelBtn.textContent = cancelMatch ? cancelMatch[1] : 'Cancel';
+        this.appendChild(cancelBtn);
+      }
+      if (val.includes('id="portal-modal-ok"')) {
+        const okBtn = createMockElement('button');
+        okBtn.id = 'portal-modal-ok';
+        const okMatch = val.match(/id="portal-modal-ok"[^>]*>([^<]+)<\/button>/);
+        okBtn.textContent = okMatch ? okMatch[1] : 'Confirm';
+        this.appendChild(okBtn);
+      }
+    },
+    style: {},
+    disabled: false,
+    files: [],
+    children: [],
+    parentNode: null,
+    _attrs: {},
+    setAttribute: function(k, v) { this._attrs[k] = String(v); },
+    removeAttribute: function(k) { delete this._attrs[k]; },
+    getAttribute: function(k) { return this._attrs[k] || null; },
+    appendChild: function(child) {
+      if (child) {
+        child.parentNode = this;
+        this.children.push(child);
+      }
+      return child;
+    },
+    removeChild: function(child) {
+      const idx = this.children.indexOf(child);
+      if (idx !== -1) {
+        this.children.splice(idx, 1);
+        child.parentNode = null;
+      }
+      return child;
+    },
+    querySelector: function(sel) {
+      if (sel.startsWith('#')) {
+        const targetId = sel.slice(1);
+        if (this.id === targetId) return this;
+        for (const c of this.children) {
+          const res = c.querySelector(sel);
+          if (res) return res;
+        }
+      }
+      if (sel.startsWith('.')) {
+        const cls = sel.slice(1);
+        if (this.className && this.className.includes(cls)) return this;
+        for (const c of this.children) {
+          const res = c.querySelector(sel);
+          if (res) return res;
+        }
+      }
+      if (sel === 'h3' || sel === 'p') {
+        const tag = sel.toUpperCase();
+        if (this.tagName === tag) return this;
+        for (const c of this.children) {
+          const res = c.querySelector(sel);
+          if (res) return res;
+        }
+      }
+      return null;
+    },
+    querySelectorAll: function(sel) {
+      const matches = [];
+      const check = (node) => {
+        if (sel.startsWith('.')) {
+          const cls = sel.slice(1);
+          if (node.className && node.className.includes(cls)) matches.push(node);
+        }
+        (node.children || []).forEach(check);
       };
+      check(this);
+      return matches;
+    },
+    addEventListener: function(evt, handler) {
+      if (!this._listeners) this._listeners = {};
+      if (!this._listeners[evt]) this._listeners[evt] = [];
+      this._listeners[evt].push(handler);
+    },
+    removeEventListener: function(evt, handler) {
+      if (!this._listeners || !this._listeners[evt]) return;
+      this._listeners[evt] = this._listeners[evt].filter(h => h !== handler);
+    },
+    click: function() {
+      if (this._listeners && this._listeners['click']) {
+        this._listeners['click'].forEach(h => h({ target: this }));
+      }
+    },
+    scrollIntoView: () => {},
+    pause: () => {},
+    play: async () => {},
+    _classes: new Set(),
+    get className() {
+      return Array.from(this._classes).join(' ');
+    },
+    set className(val) {
+      this._classes = new Set((val || '').split(/\s+/).filter(Boolean));
+    },
+    classList: {
+      add: function(c) { el._classes.add(c); },
+      remove: function(c) { el._classes.delete(c); },
+      contains: function(c) { return el._classes.has(c); },
+      toggle: function(c) { if (this.contains(c)) this.remove(c); else this.add(c); }
+    }
+  };
+  return el;
+}
+
+const mockDocListeners = {};
+
+global.document = {
+  body: createMockElement('body'),
+  createElement: (tag) => createMockElement(tag),
+  getElementById: (id) => {
+    // Check if element with this id exists in body
+    const found = global.document.body.querySelector('#' + id);
+    if (found) return found;
+    if (id === 'portal-toast-container') return null;
+    if (!mockElements[id]) {
+      const el = createMockElement('div');
+      el.id = id;
+      mockElements[id] = el;
     }
     return mockElements[id];
   },
-  querySelectorAll: () => [],
-  addEventListener: () => {},
-  removeEventListener: () => {}
+  querySelector: (sel) => global.document.body.querySelector(sel),
+  querySelectorAll: (sel) => global.document.body.querySelectorAll(sel),
+  addEventListener: (evt, handler) => {
+    if (!mockDocListeners[evt]) mockDocListeners[evt] = [];
+    mockDocListeners[evt].push(handler);
+  },
+  removeEventListener: (evt, handler) => {
+    if (!mockDocListeners[evt]) return;
+    mockDocListeners[evt] = mockDocListeners[evt].filter(h => h !== handler);
+  },
+  dispatchEvent: (e) => {
+    const list = mockDocListeners[e.type] || [];
+    list.forEach(h => h(e));
+  }
 };
 
 // ── Load Core Utils & Security Firewall (TSK-031) ──
@@ -451,6 +583,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 3. Parental Consent & Data Minimization Validation during Registration
   let lastAlertMsg = null;
   global.alert = (msg) => { lastAlertMsg = msg; };
+  global.showToast = (msg) => { lastAlertMsg = msg; };
 
   const mockFullname = document.getElementById('reg-fullname');
   const mockEmail = document.getElementById('reg-email');
@@ -1396,6 +1529,112 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('  ✔ renderAdminMasterSheetPanel renders endpoint hardening controls and pre-populated snippet');
 
   // ── Testing Developer Tooling & Linting (TSK-015) ──────────────────────────
+  console.log('\nTesting Modern Toast Notifications & Modal Dialog System (TSK-012)...');
+  const uiModule = require('../js/core/ui.js');
+  assert(uiModule, 'ui.js module must be loadable');
+  assert.strictEqual(typeof uiModule.showToast, 'function', 'showToast must be a function');
+  assert.strictEqual(typeof uiModule.dismissToast, 'function', 'dismissToast must be a function');
+  assert.strictEqual(typeof uiModule.showConfirmModal, 'function', 'showConfirmModal must be a function');
+
+  // Test 1: ensureToastContainer
+  const container = uiModule.ensureToastContainer();
+  assert(container, 'ensureToastContainer must return container element');
+  assert.strictEqual(container.id, 'portal-toast-container');
+  assert.strictEqual(container.getAttribute('aria-live'), 'polite');
+  console.log('  ✔ ensureToastContainer creates accessible toast viewport container');
+
+  // Test 2: showToast variants & XSS safety
+  const emptyToast = uiModule.showToast('');
+  assert.strictEqual(emptyToast, null, 'Empty toast message must return null');
+
+  const toast1 = uiModule.showToast('Changes saved successfully!', 'success');
+  assert(toast1, 'showToast must return created toast DOM element');
+  assert(toast1.className.includes('portal-toast-success'), 'Toast must have success class');
+  assert(toast1.innerHTML.includes('Changes saved successfully!'), 'Toast body must contain message');
+  assert(toast1.querySelector('.portal-toast-close'), 'Toast must render close button');
+
+  const toast2 = uiModule.showToast('Warning: <script>bad()</script>', 'warning');
+  assert(toast2.className.includes('portal-toast-warning'), 'Toast must have warning class');
+  assert(!toast2.innerHTML.includes('<script>'), 'HTML in message must be safely escaped');
+  assert(toast2.innerHTML.includes('&lt;script&gt;'), 'Escaped HTML entities must be preserved');
+
+  const toast3 = uiModule.showToast('Line 1\nLine 2', 'info');
+  assert(toast3.innerHTML.includes('Line 1<br>Line 2'), 'Newlines must be formatted with <br>');
+  console.log('  ✔ showToast accurately generates styled, accessible, XSS-safe notification toasts');
+
+  // Test 3: dismissToast
+  uiModule.dismissToast(toast1);
+  assert(toast1.className.includes('portal-toast-hide'), 'dismissToast must apply portal-toast-hide class');
+  console.log('  ✔ dismissToast smoothly applies exit transition');
+
+  // Test 4: showConfirmModal resolve true on Confirm
+  const modalPromise1 = uiModule.showConfirmModal('Delete this item?', 'Confirm Delete', { confirmText: 'Yes, Delete', cancelText: 'No' });
+  const overlay1 = document.querySelector('.portal-modal-overlay');
+  assert(overlay1, 'Confirmation overlay must be added to DOM');
+  const card1 = overlay1.querySelector('.portal-modal-card');
+  assert(card1, 'Modal card must be present inside overlay');
+  assert(card1.innerHTML.includes('Confirm Delete'), 'Modal header must reflect title');
+  assert(card1.innerHTML.includes('Delete this item?'), 'Modal body must reflect message');
+  const okBtn1 = overlay1.querySelector('#portal-modal-ok');
+  assert.strictEqual(okBtn1.textContent, 'Yes, Delete', 'Custom confirm button label must be rendered');
+  okBtn1.click();
+  const res1 = await modalPromise1;
+  assert.strictEqual(res1, true, 'Clicking Confirm must resolve Promise to true');
+
+  // Test 5: showConfirmModal resolve false on Cancel
+  const modalPromise2 = uiModule.showConfirmModal('Proceed with action?', 'Confirmation');
+  const overlay2 = document.querySelector('.portal-modal-overlay');
+  assert(overlay2, 'Confirmation overlay must be created for second modal');
+  const cancelBtn2 = overlay2.querySelector('#portal-modal-cancel');
+  cancelBtn2.click();
+  const res2 = await modalPromise2;
+  assert.strictEqual(res2, false, 'Clicking Cancel must resolve Promise to false');
+
+  // Test 6: showConfirmModal resolve false on Escape key
+  const modalPromise3 = uiModule.showConfirmModal('Cancelable dialog');
+  const escapeEvent = { type: 'keydown', key: 'Escape' };
+  document.dispatchEvent(escapeEvent);
+  const res3 = await modalPromise3;
+  assert.strictEqual(res3, false, 'Pressing Escape must dismiss modal and resolve false');
+  console.log('  ✔ showConfirmModal delivers Promise-based accessible dialogs (Confirm, Cancel, Escape)');
+
+  // Test 7: Verify zero native alert() or confirm() popups remain across production JS
+  const scannedFiles = [
+    'index.html',
+    'js/config.js',
+    'js/api/supabase.js',
+    'js/api/sheets.js',
+    'js/core/session.js',
+    'js/core/theme.js',
+    'js/core/utils.js',
+    'js/core/ui.js',
+    'js/modules/member.js',
+    'js/modules/attendance.js',
+    'js/modules/announcements.js',
+    'js/modules/gallery.js',
+    'js/modules/resources.js',
+    'js/modules/calendar.js',
+    'js/modules/orders.js',
+    'js/modules/forms.js',
+    'js/modules/badges.js'
+  ];
+  let unmigratedCount = 0;
+  scannedFiles.forEach(f => {
+    if (!fs.existsSync(f)) return;
+    const lines = fs.readFileSync(f, 'utf8').split('\n');
+    lines.forEach((l) => {
+      // Exclude comments, GAS server-side UI alert, and window.alert override definition
+      if (/\b(window\.)?alert\s*\(/.test(l) && !l.includes('SpreadsheetApp') && !l.includes('*') && !l.includes('//')) {
+        unmigratedCount++;
+      }
+      if (/(?<!show)\bconfirm\s*\(/.test(l) && !l.includes('*') && !l.includes('//')) {
+        unmigratedCount++;
+      }
+    });
+  });
+  assert.strictEqual(unmigratedCount, 0, 'Zero client-side native alert() or confirm() calls must remain');
+  console.log('  ✔ Zero client-side native alert() and confirm() calls verified across all 17 files');
+
   console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert(pkg.scripts, 'package.json must contain scripts');

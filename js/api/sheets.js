@@ -288,8 +288,6 @@ async function saveMasterSheetConfig(cfgOverride) {
 
   if (typeof showToast === 'function') {
     showToast('Master Sheet security configuration saved.', 'success');
-  } else if (typeof alert === 'function') {
-    alert('Master Sheet security configuration saved.');
   }
 
   return cfg;

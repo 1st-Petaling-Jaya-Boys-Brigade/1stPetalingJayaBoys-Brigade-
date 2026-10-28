@@ -183,17 +183,13 @@ async function updateMemberMediaConsent(newConsent) {
     var feedbackMsg = consentVal ? 'Media Release updated: Opted-in to official photos.' : 'Media Release updated: Marked as Media Private (No Photos).';
     if (typeof showToast === 'function') {
       showToast(feedbackMsg, 'success');
-    } else if (typeof alert === 'function') {
-      alert(feedbackMsg);
     }
     if (typeof renderDashboard === 'function') {
       renderDashboard();
     }
   } catch (e) {
     if (typeof showToast === 'function') {
-      showToast('Failed to update media preference: ' + e.message, 'danger');
-    } else if (typeof alert === 'function') {
-      alert('Failed to update media preference: ' + e.message);
+      showToast('Failed to update media preference: ' + e.message, 'error');
     }
   }
 }
@@ -214,18 +210,19 @@ async function registerMember() {
   var pass    = (document.getElementById('reg-pass') || {}).value || '';
   var pass2   = (document.getElementById('reg-pass2') || {}).value || '';
 
-  if (!name) return alert('Please enter your full name.');
-  if (!email || !EMAIL_REGEX.test(email)) return alert('Please enter a valid email address.');
-  if (!section) return alert('Please select your section (Pre-Junior, Junior, or Senior).');
+  if (!name) { if (typeof showToast === 'function') showToast('Please enter your full name.', 'warning'); return; }
+  if (!email || !EMAIL_REGEX.test(email)) { if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning'); return; }
+  if (!section) { if (typeof showToast === 'function') showToast('Please select your section (Pre-Junior, Junior, or Senior).', 'warning'); return; }
   
   var parsedAge = parseInt(ageRaw, 10);
   if (!ageRaw || isNaN(parsedAge) || parsedAge < 5 || parsedAge > 25) {
-    return alert('Please enter a valid age (between 5 and 25).');
+    if (typeof showToast === 'function') showToast('Please enter a valid age (between 5 and 25).', 'warning');
+    return;
   }
-  if (!rank)  return alert('Please select your rank.');
-  if (!squad) return alert('Please select your platoon.');
-  if (pass.length < 6) return alert('Password must be at least 6 characters.');
-  if (pass !== pass2)  return alert('Passwords do not match!');
+  if (!rank)  { if (typeof showToast === 'function') showToast('Please select your rank.', 'warning'); return; }
+  if (!squad) { if (typeof showToast === 'function') showToast('Please select your platoon.', 'warning'); return; }
+  if (pass.length < 6) { if (typeof showToast === 'function') showToast('Password must be at least 6 characters.', 'warning'); return; }
+  if (pass !== pass2)  { if (typeof showToast === 'function') showToast('Passwords do not match!', 'error'); return; }
 
   // Child Safety Governance & Verifiable Parental Consent (TSK-032 / COPPA & PDPA 2010)
   var isMinor = isMinorSection(section, parsedAge);
@@ -247,13 +244,16 @@ async function registerMember() {
     mediaConsent  = pMediaEl ? !!pMediaEl.checked : false;
 
     if (!parentName) {
-      return alert('Parent or Legal Guardian Name is required for Pre-Junior and Junior members.');
+      if (typeof showToast === 'function') showToast('Parent or Legal Guardian Name is required for Pre-Junior and Junior members.', 'warning');
+      return;
     }
     if (!parentContact) {
-      return alert('Parent or Legal Guardian Contact (Phone or Email) is required for Pre-Junior and Junior members.');
+      if (typeof showToast === 'function') showToast('Parent or Legal Guardian Contact (Phone or Email) is required for Pre-Junior and Junior members.', 'warning');
+      return;
     }
     if (!parentConsent) {
-      return alert('Verified Parental or Legal Guardian Consent is strictly required to register members under 12 years old.');
+      if (typeof showToast === 'function') showToast('Verified Parental or Legal Guardian Consent is strictly required to register members under 12 years old.', 'warning');
+      return;
     }
     consentTimestamp = new Date().toISOString();
   }
@@ -262,7 +262,8 @@ async function registerMember() {
     var client = window.supa || supa;
     var existing = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic');
     if (existing && existing.length) {
-      return alert('An account with this email address already exists. Please login instead.');
+      if (typeof showToast === 'function') showToast('An account with this email address already exists. Please login instead.', 'warning');
+      return;
     }
 
     // Calculate approximate birth year for section/attendance calculations
@@ -369,7 +370,7 @@ async function registerMember() {
     }
     window.location.reload();
   } catch (e) {
-    alert('Registration failed: ' + e.message);
+    if (typeof showToast === 'function') showToast('Registration failed: ' + e.message, 'error');
   }
 }
 
@@ -377,7 +378,7 @@ async function loginMember() {
   var idEl = document.getElementById('login-email') || document.getElementById('login-ic') || {};
   var identifier = (idEl.value || '').trim();
   var pass = (document.getElementById('login-pass') || {}).value || '';
-  if (!identifier || !pass) return alert('Please enter your email and password.');
+  if (!identifier || !pass) { if (typeof showToast === 'function') showToast('Please enter your email and password.', 'warning'); return; }
 
   try {
     var client = window.supa || supa;
@@ -390,16 +391,19 @@ async function loginMember() {
       data = await client.get('bb_members?ic=eq.' + encodeURIComponent(identifier) + '&select=*');
     }
     if (!data || !data.length) {
-      return alert('No account found with this email address.');
+      if (typeof showToast === 'function') showToast('No account found with this email address.', 'warning');
+      return;
     }
 
     var m = data[0];
     if (m.department === 'deleted' || m.department === 'archived_deleted') {
-      return alert('This account has been deleted. Please contact an officer or administrator.');
+      if (typeof showToast === 'function') showToast('This account has been deleted. Please contact an officer or administrator.', 'error');
+      return;
     }
     var check = await verifyPassword(pass, m.password || '');
     if (!check.valid) {
-      return alert('Incorrect password!');
+      if (typeof showToast === 'function') showToast('Incorrect password!', 'error');
+      return;
     }
 
     // Auto-migrate legacy Base64 credentials to PBKDF2/SHA-256 on successful login
@@ -434,7 +438,7 @@ async function loginMember() {
     var passEl = document.getElementById('login-pass');
     if (passEl) passEl.value = '';
   } catch (e) {
-    alert('Login failed: ' + e.message);
+    if (typeof showToast === 'function') showToast('Login failed: ' + e.message, 'error');
   }
 }
 
@@ -682,7 +686,7 @@ async function uploadPfp(input) {
     if (img) { img.src = pfpUrl; img.style.display = 'block'; }
     if (ph)  ph.style.display = 'none';
   } catch (e) {
-    alert('Failed to upload photo: ' + e.message);
+    if (typeof showToast === 'function') showToast('Failed to upload photo: ' + e.message, 'error');
   }
 }
 
@@ -706,10 +710,12 @@ async function sendPasswordResetEmail() {
   var email   = (emailEl.value || '').trim().toLowerCase();
 
   if (!email) {
-    return alert('Please enter your registered email address.');
+    if (typeof showToast === 'function') showToast('Please enter your registered email address.', 'warning');
+    return;
   }
   if (!EMAIL_REGEX.test(email)) {
-    return alert('Please enter a valid email address.');
+    if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning');
+    return;
   }
 
   var btn = document.getElementById('btn-send-reset');
@@ -730,7 +736,8 @@ async function sendPasswordResetEmail() {
     }
     if (!data || !data.length || data[0].department === 'deleted' || data[0].department === 'archived_deleted') {
       if (btn) { btn.disabled = false; btn.textContent = origText; }
-      return alert('No active account found with this email address.');
+      if (typeof showToast === 'function') showToast('No active account found with this email address.', 'warning');
+      return;
     }
 
     var member = data[0];
@@ -796,9 +803,9 @@ async function sendPasswordResetEmail() {
 
     showForgotStep(2);
 
-    alert('Reset code generated and sent to ' + email + '!\n\nPlease check your inbox and enter the 6-digit code to set your new password.');
+    if (typeof showToast === 'function') showToast('Reset code sent to ' + email + '! Please check your inbox and enter the 6-digit code.', 'success', 5000);
   } catch (e) {
-    alert('Failed to send reset email: ' + e.message);
+    if (typeof showToast === 'function') showToast('Failed to send reset email: ' + e.message, 'error');
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -815,11 +822,11 @@ async function verifyResetCodeAndSetPassword() {
   var p1      = (document.getElementById('forgot-newpass') || {}).value || '';
   var p2      = (document.getElementById('forgot-newpass2') || {}).value || '';
 
-  if (!email) return alert('Please enter your registered email address.');
-  if (!code)  return alert('Please enter the 6-digit verification code sent to your email.');
-  if (code.length !== 6) return alert('Verification code must be exactly 6 digits.');
-  if (p1.length < 6) return alert('New password must be at least 6 characters.');
-  if (p1 !== p2)     return alert('Passwords do not match!');
+  if (!email) { if (typeof showToast === 'function') showToast('Please enter your registered email address.', 'warning'); return; }
+  if (!code)  { if (typeof showToast === 'function') showToast('Please enter the 6-digit verification code sent to your email.', 'warning'); return; }
+  if (code.length !== 6) { if (typeof showToast === 'function') showToast('Verification code must be exactly 6 digits.', 'warning'); return; }
+  if (p1.length < 6) { if (typeof showToast === 'function') showToast('New password must be at least 6 characters.', 'warning'); return; }
+  if (p1 !== p2)     { if (typeof showToast === 'function') showToast('Passwords do not match!', 'error'); return; }
 
   var btn = document.getElementById('btn-verify-reset');
   var origText = btn ? btn.textContent : '';
@@ -860,7 +867,8 @@ async function verifyResetCodeAndSetPassword() {
 
     if (!valid) {
       if (btn) { btn.disabled = false; btn.textContent = origText; }
-      return alert('Invalid or expired verification code.\n\nPlease check your email or click "Resend Code" to get a new code.');
+      if (typeof showToast === 'function') showToast('Invalid or expired verification code. Please check your email or click "Resend Code".', 'error', 4500);
+      return;
     }
 
     // Update password in bb_members using cryptographic PBKDF2/SHA-256 hashing
@@ -883,7 +891,7 @@ async function verifyResetCodeAndSetPassword() {
       await client.delete('bb_config?key=eq.' + configKey);
     } catch (e) {}
 
-    alert('Password reset successfully! You can now log in with your new password.');
+    if (typeof showToast === 'function') showToast('Password reset successfully! You can now log in with your new password.', 'success');
 
     // Clear forgot form
     if (codeInp) codeInp.value = '';
@@ -901,7 +909,7 @@ async function verifyResetCodeAndSetPassword() {
       if (loginPass) loginPass.focus();
     }
   } catch (e) {
-    alert('Password reset failed: ' + e.message);
+    if (typeof showToast === 'function') showToast('Password reset failed: ' + e.message, 'error');
   } finally {
     if (btn) {
       btn.disabled = false;

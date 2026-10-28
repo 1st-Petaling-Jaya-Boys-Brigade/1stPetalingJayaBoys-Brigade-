@@ -362,8 +362,6 @@ async function uploadGalleryFiles(files) {
   if (!validFiles.length) {
     if (typeof showToast === 'function') {
       showToast('Please select valid image or video files (JPG, PNG, WebP, MP4, MOV, WebM).', 'warning');
-    } else {
-      alert('Please select valid image or video files.');
     }
     return;
   }
@@ -447,8 +445,6 @@ async function deleteGalleryImage(idx, rowId) {
   var confirmMsg = 'Are you sure you want to delete this media item from the gallery?';
   if (typeof showConfirmModal === 'function') {
     confirmed = await showConfirmModal(confirmMsg, 'Delete Media');
-  } else if (typeof window !== 'undefined' && window.confirm) {
-    confirmed = window.confirm(confirmMsg);
   } else {
     confirmed = true;
   }
@@ -1606,7 +1602,6 @@ async function saveStoryHighlightModal() {
 
   if (!title) {
     if (typeof showToast === 'function') showToast('Please enter a story highlight title.', 'warning');
-    else alert('Please enter a story highlight title.');
     return;
   }
 
@@ -1675,8 +1670,6 @@ async function saveStoryHighlightModal() {
 
   if (typeof showToast === 'function') {
     showToast('Highlight "' + title + '" saved successfully!', 'success');
-  } else {
-    alert('Highlight saved successfully!');
   }
 }
 
@@ -1689,9 +1682,7 @@ async function deleteStoryHighlight(id) {
 
   var confirmed = true;
   if (typeof showConfirmModal === 'function') {
-    confirmed = await showConfirmModal('Are you sure you want to delete the highlight "' + target.title + '"?');
-  } else if (typeof confirm === 'function') {
-    confirmed = confirm('Delete highlight "' + target.title + '"?');
+    confirmed = await showConfirmModal('Are you sure you want to delete the highlight "' + target.title + '"?', 'Delete Highlight');
   }
 
   if (!confirmed) return;

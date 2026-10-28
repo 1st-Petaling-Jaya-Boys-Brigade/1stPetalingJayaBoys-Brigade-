@@ -514,7 +514,6 @@ function goToOrderReview() {
       var size = itemSizes[item.key] || '';
       if (sizes.length && !size) {
         if (typeof showToast === 'function') showToast('Please select a size for ' + item.name, 'warning');
-        else alert('Please select a size for ' + item.name);
         valid = false;
         return;
       }
@@ -526,7 +525,6 @@ function goToOrderReview() {
   if (!valid) return;
   if (!hasAny) {
     if (typeof showToast === 'function') showToast('Please add at least one item.', 'warning');
-    else alert('Please add at least one item.');
     return;
   }
 
@@ -703,7 +701,6 @@ async function submitOrder() {
     return orderNum;
   } catch (e) {
     if (typeof showToast === 'function') showToast('Failed to submit order: ' + e.message, 'error');
-    else alert('Failed to submit: ' + e.message);
 
     if (btn) {
       btn.innerHTML = '\u2705 Confirm &amp; Submit';
@@ -814,8 +811,6 @@ async function adminSavePaymentInfo() {
   _paymentInfo = text;
   if (typeof showToast === 'function') {
     showToast('Payment info saved! Members will see it on the order review page.', 'success');
-  } else {
-    alert('Payment info saved! Members will see it on the order review page.');
   }
 }
 
@@ -906,8 +901,8 @@ async function renderAdminOrders() {
     list.querySelectorAll('[data-del-sub]').forEach(function(btn) {
       btn.addEventListener('click', async function() {
         var ok = (typeof showConfirmModal === 'function')
-          ? await showConfirmModal('Delete this submission?')
-          : confirm('Delete this submission?');
+          ? await showConfirmModal('Delete this submission?', 'Delete Order Submission')
+          : true;
         if (!ok) return;
 
         client.delete('bb_orders?order_number=eq.' + encodeURIComponent(btn.getAttribute('data-del-sub')))
@@ -940,7 +935,6 @@ async function updateOrderStatus(orderNum, status) {
     if (typeof showToast === 'function') showToast('Order status updated to ' + status, 'success');
   } catch (e) {
     if (typeof showToast === 'function') showToast('Failed to update status.', 'error');
-    else alert('Failed to update status.');
   }
 }
 
@@ -1038,7 +1032,6 @@ function saveProduct() {
 
   if (!name) {
     if (typeof showToast === 'function') showToast('Please enter a product name.', 'warning');
-    else alert('Please enter a product name.');
     return;
   }
 
@@ -1056,7 +1049,6 @@ function saveProduct() {
   renderAdminProducts();
 
   if (typeof showToast === 'function') showToast('Product saved successfully!', 'success');
-  else alert('\u2705 Product saved!');
 }
 
 /**
@@ -1095,8 +1087,8 @@ function editProduct(key) {
 async function deleteProduct(key) {
   var item = UNIFORM_ITEMS.find(function(i) { return i.key === key; });
   var ok = (typeof showConfirmModal === 'function')
-    ? await showConfirmModal('Delete "' + (item ? item.name : key) + '"?')
-    : confirm('Delete "' + (item ? item.name : key) + '"?');
+    ? await showConfirmModal('Delete "' + (item ? item.name : key) + '"?', 'Delete Product')
+    : true;
   if (!ok) return;
 
   var idx = UNIFORM_ITEMS.findIndex(function(i) { return i.key === key; });

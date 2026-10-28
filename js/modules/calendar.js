@@ -839,7 +839,10 @@
     var id = document.getElementById('adm-ev-id').value;
     if (!id) return;
 
-    if (!confirm('Are you sure you want to remove this parade event from the company calendar?')) {
+    var confirmed = (typeof showConfirmModal === 'function')
+      ? await showConfirmModal('Are you sure you want to remove this parade event from the company calendar?', 'Delete Parade Event')
+      : true;
+    if (!confirmed) {
       return;
     }
 
@@ -854,7 +857,10 @@
   }
 
   async function handleAdminResetToDefaultMaster() {
-    if (!confirm('This will restore the authentic 2026 1st PJ Boys\' Brigade master parade schedule from the official Google Doc. Any custom manual changes will be refreshed. Continue?')) {
+    var confirmed = (typeof showConfirmModal === 'function')
+      ? await showConfirmModal('This will restore the authentic 2026 1st PJ Boys\' Brigade master parade schedule from the official Google Doc. Any custom manual changes will be refreshed. Continue?', 'Restore Master Schedule')
+      : true;
+    if (!confirmed) {
       return;
     }
 
