@@ -741,16 +741,82 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('  ✔ setQuickCardsPage bounds checks and directly navigates to valid card tabs');
   console.log('  ✔ updateQuickCardsCarousel applies exact pixel-aligned translateX transform to card track');
 
-  // ── Testing Forms Hub Search Bar ──────────────────────────────────────────
-  console.log('Testing Forms Hub Search Bar...');
-  const htmlSrc = fs.readFileSync('index.html', 'utf8');
-  const filterFormsMatch = htmlSrc.match(/function filterForms\(query\) \{[\s\S]*?\n\}/);
-  const clearFormSearchMatch = htmlSrc.match(/function clearFormSearch\(\) \{[\s\S]*?\n\}/);
-  assert(filterFormsMatch, 'filterForms function must be defined in index.html');
-  assert(clearFormSearchMatch, 'clearFormSearch function must be defined in index.html');
+  // ── Testing Uniform Store & Orders Module (TSK-006A) ───────────────────────
+  console.log('Testing Uniform Store & Orders Module (TSK-006A)...');
+  const ordersMod = require('../js/modules/orders.js');
 
-  eval(filterFormsMatch[0]);
-  eval(clearFormSearchMatch[0]);
+  // 1. Catalog Verification
+  assert.ok(Array.isArray(ordersMod.DEFAULT_UNIFORM_ITEMS), 'DEFAULT_UNIFORM_ITEMS must be an array');
+  assert.ok(ordersMod.DEFAULT_UNIFORM_ITEMS.length >= 6, 'Must contain at least 6 standard uniform items');
+  assert.ok(ordersMod.DEFAULT_UNIFORM_ITEMS.some(i => i.key === 'shirt'), 'Must contain shirt');
+  assert.ok(ordersMod.DEFAULT_UNIFORM_ITEMS.some(i => i.key === 'trousers'), 'Must contain trousers');
+  assert.ok(ordersMod.DEFAULT_UNIFORM_ITEMS.some(i => i.key === 'belt'), 'Must contain belt');
+  assert.ok(ordersMod.DEFAULT_UNIFORM_ITEMS.some(i => i.key === 'cap'), 'Must contain cap');
+  assert.ok(ordersMod.DEFAULT_UNIFORM_ITEMS.some(i => i.key === 'haversack'), 'Must contain haversack');
+  assert.ok(ordersMod.DEFAULT_UNIFORM_ITEMS.some(i => i.key === 'lanyard'), 'Must contain lanyard');
+  console.log('  ✔ DEFAULT_UNIFORM_ITEMS contains all official company uniform articles');
+
+  // 2. Quantity & Cart Calculations
+  ordersMod.UNIFORM_ITEMS[0].price = 45;
+  ordersMod.changeQty('shirt', 2);
+  assert.strictEqual(ordersMod.itemQtys['shirt'], 2, 'Shirt quantity must be 2');
+  let calcTotal = ordersMod.updateTotal();
+  assert.strictEqual(calcTotal, 90, 'Total for 2 shirts at RM 45 must be RM 90.00');
+  ordersMod.changeQty('shirt', -1);
+  assert.strictEqual(ordersMod.itemQtys['shirt'], 1, 'Shirt quantity decremented to 1');
+  calcTotal = ordersMod.updateTotal();
+  assert.strictEqual(calcTotal, 45, 'Total for 1 shirt at RM 45 must be RM 45.00');
+  ordersMod.changeQty('shirt', -1);
+  assert.strictEqual(ordersMod.itemQtys['shirt'], 0, 'Shirt quantity reset to 0');
+  calcTotal = ordersMod.updateTotal();
+  assert.strictEqual(calcTotal, 0, 'Total resets to 0');
+  console.log('  ✔ changeQty and updateTotal accurately calculate cart values and bounds');
+
+  // 3. Size Selection
+  ordersMod.selectSize('shirt', 'M');
+  assert.strictEqual(ordersMod.itemSizes['shirt'], 'M', 'Selected size must be M');
+  ordersMod.selectSize('shirt', 'XL');
+  assert.strictEqual(ordersMod.itemSizes['shirt'], 'XL', 'Updated size must be XL');
+  console.log('  ✔ selectSize updates itemSizes state');
+
+  // 4. Role Authorization
+  assert.strictEqual(ordersMod.isNCO('Sergeant'), true, 'Sergeant qualifies as NCO');
+  assert.strictEqual(ordersMod.isNCO('Staff Sergeant'), true, 'Staff Sergeant qualifies as NCO');
+  assert.strictEqual(ordersMod.isNCO('Recruit'), false, 'Recruit does not qualify as NCO');
+  console.log('  ✔ isNCO accurately checks member rank permissions');
+
+  // 5. Touch n Go Screenshot Helpers
+  const mockFileInput = { files: [] };
+  ordersMod.previewTngScreenshot(mockFileInput);
+  ordersMod.clearTngScreenshot();
+  assert.strictEqual(ordersMod.getTngScreenshot(), null, 'Cleared screenshot must be null');
+  console.log('  ✔ Touch n Go payment screenshot handlers function cleanly');
+
+  // 6. Order Submission
+  ordersMod.UNIFORM_ITEMS[0].price = 45;
+  ordersMod.changeQty('shirt', 1);
+  ordersMod.selectSize('shirt', 'L');
+  const submittedOrderNum = await ordersMod.submitOrder();
+  assert.ok(submittedOrderNum && submittedOrderNum.startsWith('BB-'), 'Order number must start with BB-');
+  assert.strictEqual(lastPosted.path, 'bb_orders', 'Must submit order to bb_orders table');
+  console.log('  ✔ submitOrder validates items and submits order record with unique order number');
+
+  // ── Testing Forms Hub & Dynamic Form Builder (TSK-006A) ────────────────────
+  console.log('Testing Forms Hub & Dynamic Form Builder (TSK-006A)...');
+  const formsMod = require('../js/modules/forms.js');
+
+  // 1. Form Type Switching & Field Management
+  formsMod.setFormType('builtin');
+  assert.strictEqual(formsMod._currentFormType, 'builtin', 'Form type must switch to builtin');
+  formsMod.setFormType('link');
+  assert.strictEqual(formsMod._currentFormType, 'link', 'Form type must switch to link');
+  formsMod.addFormField();
+  assert.ok(formsMod._fbFields.length >= 1, 'addFormField must push a new field');
+  console.log('  ✔ Dynamic Form Builder manages form types and custom fields');
+
+  // 2. Forms Hub Search & Filtering
+  const filterForms = formsMod.filterForms;
+  const clearFormSearch = formsMod.clearFormSearch;
 
   const mockFormCards = [
     {
@@ -795,7 +861,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const mockNoResEl = document.getElementById('forms-no-results');
   const mockNoResTitle = document.getElementById('forms-no-results-title');
 
-  // Test 1: Empty search query shows all forms
   filterForms('');
   assert.strictEqual(mockFormCards[0].style.display, 'flex');
   assert.strictEqual(mockFormCards[1].style.display, 'flex');
@@ -804,7 +869,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockNoResEl.style.display, 'none');
   console.log('  ✔ Empty query displays all active forms with clear button hidden');
 
-  // Test 2: Search by form title ('Leave')
   filterForms('Leave');
   assert.strictEqual(mockFormCards[0].style.display, 'none');
   assert.strictEqual(mockFormCards[1].style.display, 'flex');
@@ -814,14 +878,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockCountEl.textContent, 'Showing 1 of 3 forms');
   console.log('  ✔ Search query filters by form title accurately');
 
-  // Test 3: Search by description keyword ('items')
   filterForms('items');
   assert.strictEqual(mockFormCards[0].style.display, 'flex');
   assert.strictEqual(mockFormCards[1].style.display, 'none');
   assert.strictEqual(mockFormCards[2].style.display, 'none');
   console.log('  ✔ Search query filters by form description accurately');
 
-  // Test 4: Search query matching 0 forms shows empty state
   filterForms('nonexistentform');
   assert.strictEqual(mockFormCards[0].style.display, 'none');
   assert.strictEqual(mockFormCards[1].style.display, 'none');
@@ -830,7 +892,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockNoResTitle.textContent, 'No forms match "nonexistentform"');
   console.log('  ✔ Zero match query properly displays empty state feedback');
 
-  // Test 5: clearFormSearch resets input and displays all forms
   mockSearchInput.value = 'nonexistentform';
   clearFormSearch();
   assert.strictEqual(mockSearchInput.value, '');

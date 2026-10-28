@@ -17,7 +17,9 @@ const jsFiles = [
   'js/modules/announcements.js',
   'js/modules/gallery.js',
   'js/modules/resources.js',
-  'js/modules/calendar.js'
+  'js/modules/calendar.js',
+  'js/modules/orders.js',
+  'js/modules/forms.js'
 ];
 
 let failed = false;
