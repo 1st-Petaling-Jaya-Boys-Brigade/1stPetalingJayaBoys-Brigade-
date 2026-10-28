@@ -330,7 +330,7 @@ async function savePaymentInfo(text) {
 function isNCO(rank) {
   var ncoRanks = (typeof window !== 'undefined' && window.NCO_RANKS)
     ? window.NCO_RANKS
-    : ['Corporal', 'Sergeant', 'Staff Sergeant', 'Warrant Officer'];
+    : ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant', 'Warrant Officer'];
   return ncoRanks.indexOf(rank) !== -1;
 }
 

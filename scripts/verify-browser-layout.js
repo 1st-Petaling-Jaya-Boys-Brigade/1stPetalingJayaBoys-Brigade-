@@ -823,7 +823,56 @@ async function getJson(url) {
     assert.strictEqual(badgesInit.hasSearch, true, 'Badge search input must exist');
     console.log('  ✔ Badges tab, search input, and President\'s Award tracker render cleanly in browser');
 
-    // 17. Uniform Order Grid Form & Product Card Redesign Verification (TSK-006B)
+    // 17. Test Weekly Parade Schedule & NCO Tasks Kanban Board in Browser (TSK-009)
+    console.log('\n[Weekly Parade Schedule & NCO Tasks Board Verification (TSK-009)]');
+    const evalTasksInit = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        if (typeof switchTab === 'function') {
+          switchTab('tasks');
+        }
+        const scheduleCard = document.getElementById('tasks-no-dept');
+        const board = document.getElementById('tasks-board');
+        const colTodo = document.getElementById('col-todo');
+        const colInprog = document.getElementById('col-inprogress');
+        const colDone = document.getElementById('col-done');
+        const detailModal = document.getElementById('task-detail-modal');
+
+        return {
+          hasScheduleCard: !!scheduleCard,
+          scheduleText: scheduleCard ? scheduleCard.innerText : '',
+          hasBoard: !!board,
+          hasColTodo: !!colTodo,
+          hasColInprog: !!colInprog,
+          hasColDone: !!colDone,
+          hasDetailModal: !!detailModal,
+          hasSwitchTaskTab: typeof window.switchTaskTab === 'function',
+          hasRenderTasksBoard: typeof window.renderTasksBoard === 'function',
+          hasCheckTasksAccess: typeof window.checkTasksAccess === 'function',
+          hasOpenTaskDetail: typeof window.openTaskDetail === 'function',
+          hasSaveTask: typeof window.saveTask === 'function',
+          hasRenderAdminTasks: typeof window.renderAdminTasks === 'function'
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const tasksInit = evalTasksInit.result.value;
+    assert.strictEqual(tasksInit.hasScheduleCard, true, 'Weekly parade schedule card must exist in DOM');
+    assert.ok(tasksInit.scheduleText.includes('PARADE') || tasksInit.scheduleText.includes('FALL-IN') || tasksInit.scheduleText.includes('Band Practice') || tasksInit.scheduleText.includes('1:00 PM'), 'Schedule card must display parade schedule details');
+    assert.strictEqual(tasksInit.hasBoard, true, 'NCO task board container must exist under parade tab');
+    assert.strictEqual(tasksInit.hasColTodo, true, 'Todo Kanban column must exist');
+    assert.strictEqual(tasksInit.hasColInprog, true, 'In-progress Kanban column must exist');
+    assert.strictEqual(tasksInit.hasColDone, true, 'Done Kanban column must exist');
+    assert.strictEqual(tasksInit.hasDetailModal, true, 'Task detail modal must exist');
+    assert.strictEqual(tasksInit.hasSwitchTaskTab, true, 'switchTaskTab function must be available');
+    assert.strictEqual(tasksInit.hasRenderTasksBoard, true, 'renderTasksBoard function must be available');
+    assert.strictEqual(tasksInit.hasCheckTasksAccess, true, 'checkTasksAccess function must be available');
+    assert.strictEqual(tasksInit.hasOpenTaskDetail, true, 'openTaskDetail function must be available');
+    assert.strictEqual(tasksInit.hasSaveTask, true, 'saveTask function must be available');
+    assert.strictEqual(tasksInit.hasRenderAdminTasks, true, 'renderAdminTasks function must be available');
+    console.log('  ✔ Weekly parade schedule and NCO Kanban board verified in headless Edge browser');
+
+    // 18. Uniform Order Grid Form & Product Card Redesign Verification (TSK-006B)
     console.log('\n[Uniform Order Grid & Product Card Redesign Verification (TSK-006B)]');
     const evalUniformGrid = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
