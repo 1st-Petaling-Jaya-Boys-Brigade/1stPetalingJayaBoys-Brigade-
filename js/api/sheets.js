@@ -254,14 +254,19 @@ async function saveMasterSheetConfig(cfgOverride) {
   }
 
   var existing = await loadMasterSheetConfig();
-  var cfg = cfgOverride || {
-    sheetId: sid || existing.sheetId || '',
-    scriptUrl: url || existing.scriptUrl || '',
-    syncToken: tok || existing.syncToken || generateSecureSyncToken(),
-    autoSync: existing.autoSync !== false,
-    piiFiltered: true,
-    lastUpdated: new Date().toISOString()
-  };
+  var cfg = cfgOverride
+    ? Object.assign({}, existing, cfgOverride, {
+        piiFiltered: true,
+        lastUpdated: new Date().toISOString()
+      })
+    : {
+        sheetId: sid || existing.sheetId || '',
+        scriptUrl: url || existing.scriptUrl || '',
+        syncToken: tok || existing.syncToken || generateSecureSyncToken(),
+        autoSync: existing.autoSync !== false,
+        piiFiltered: true,
+        lastUpdated: new Date().toISOString()
+      };
 
   var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
   if (client) {
