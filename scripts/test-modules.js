@@ -801,6 +801,68 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(lastPosted.path, 'bb_orders', 'Must submit order to bb_orders table');
   console.log('  ✔ submitOrder validates items and submits order record with unique order number');
 
+  // ── Testing Uniform Order Grid Form & Product Card Redesign (TSK-006B) ───────
+  console.log('Testing Uniform Order Grid Form & Product Card Redesign (TSK-006B)...');
+
+  // 1. Category and Size Resolution Helpers
+  assert.strictEqual(ordersMod.getItemCategory({ key: 'shirt', name: 'BB Uniform Shirt' }), 'apparel', 'Shirt must categorize as apparel');
+  assert.strictEqual(ordersMod.getItemCategory({ key: 'trousers', name: 'BB Uniform Trousers' }), 'apparel', 'Trousers must categorize as apparel');
+  assert.strictEqual(ordersMod.getItemCategory({ key: 'belt', name: 'BB Belt' }), 'accessories', 'Belt must categorize as accessories');
+  assert.strictEqual(ordersMod.getItemCategory({ key: 'cap', name: 'BB Cap' }), 'accessories', 'Cap must categorize as accessories');
+  assert.strictEqual(ordersMod.getItemCategory({ key: 'glengarry_badge', name: 'Glengarry Badge' }), 'insignia', 'Badge must categorize as insignia');
+
+  const shirtSizes = ordersMod.getItemSizes({ hasSize: 'shirt' });
+  assert.ok(shirtSizes.includes('M') && shirtSizes.includes('XL'), 'Shirt sizes must include M and XL');
+  const trouserSizes = ordersMod.getItemSizes({ hasSize: 'trousers' });
+  assert.ok(trouserSizes.includes('28') && trouserSizes.includes('32'), 'Trouser sizes must include 28 and 32');
+  const beltSizes = ordersMod.getItemSizes({ hasSize: false });
+  assert.strictEqual(beltSizes.length, 0, 'Belt without sizes must return empty array');
+
+  const shirtIcon = ordersMod.getItemIcon({ key: 'shirt' });
+  assert.ok(shirtIcon.includes('<svg') && shirtIcon.includes('product-preview-svg'), 'Must return valid SVG preview icon');
+  console.log('  ✔ Category, size, and product icon resolution helpers function accurately');
+
+  // 2. Category Grouping & Dynamic Counts
+  const catGroups = ordersMod.getUniformCategories(ordersMod.DEFAULT_UNIFORM_ITEMS);
+  assert.ok(catGroups.all && catGroups.all.count >= 6, 'All category must account for total uniform items');
+  assert.ok(catGroups.apparel && catGroups.apparel.count >= 2, 'Apparel category must count shirts and trousers');
+  assert.ok(catGroups.accessories && catGroups.accessories.count >= 4, 'Accessories category must count belts, caps, and gear');
+  console.log('  ✔ getUniformCategories accurately counts products per category');
+
+  // 3. Inline Store Grid & Sticky Bar Rendering
+  ordersMod.renderUniformOrderInline();
+  const inlineView = document.getElementById('inline-form-view');
+  assert.ok(inlineView.innerHTML.includes('uniform-cat-tabs'), 'Must render category filter tabs');
+  assert.ok(inlineView.innerHTML.includes('uniform-product-grid'), 'Must render responsive multi-column product card grid');
+  assert.ok(inlineView.innerHTML.includes('sticky-checkout-bar'), 'Must render sticky checkout summary bar');
+  assert.ok(inlineView.innerHTML.includes('order-total-sticky'), 'Must render sticky total display');
+  assert.ok(inlineView.innerHTML.includes('checkout-cta-btn'), 'Must render sticky review order CTA button');
+  console.log('  ✔ renderUniformOrderInline generates category tabs, multi-column grid, and sticky checkout bar');
+
+  // 4. Stepper & Cart Calculations Synchronized with Sticky Summary Bar
+  ordersMod.UNIFORM_ITEMS[0].price = 40;
+  ordersMod.changeQty('shirt', 2);
+  const stickyTotalEl = document.getElementById('order-total-sticky');
+  const itemsCountEl = document.getElementById('checkout-items-count');
+  const ctaBtnEl = document.getElementById('checkout-cta-btn');
+  assert.strictEqual(stickyTotalEl.textContent, 'RM 80.00', 'Sticky total must synchronize with cart total (2 shirts @ RM 40)');
+  assert.strictEqual(itemsCountEl.textContent, '2 items', 'Sticky item counter must display 2 items');
+  assert.strictEqual(ctaBtnEl.disabled, false, 'CTA button must be active when items are selected');
+
+  // Reset quantity
+  ordersMod.changeQty('shirt', -2);
+  assert.strictEqual(stickyTotalEl.textContent, 'RM 0.00', 'Sticky total must reset to RM 0.00');
+  assert.strictEqual(itemsCountEl.textContent, '0 items', 'Sticky item counter must reset to 0 items');
+  assert.strictEqual(ctaBtnEl.disabled, true, 'CTA button must be disabled when 0 items are selected');
+  console.log('  ✔ Cart stepper updates accurately synchronize with sticky checkout bar');
+
+  // 5. Category Filtering
+  ordersMod.filterUniformCategory('apparel');
+  assert.strictEqual(ordersMod._activeUniformCategory, 'apparel', 'Active category must be apparel');
+  ordersMod.filterUniformCategory('all');
+  assert.strictEqual(ordersMod._activeUniformCategory, 'all', 'Active category must reset to all');
+  console.log('  ✔ filterUniformCategory dynamically toggles active category and product card visibility');
+
   // ── Testing Forms Hub & Dynamic Form Builder (TSK-006A) ────────────────────
   console.log('Testing Forms Hub & Dynamic Form Builder (TSK-006A)...');
   const formsMod = require('../js/modules/forms.js');

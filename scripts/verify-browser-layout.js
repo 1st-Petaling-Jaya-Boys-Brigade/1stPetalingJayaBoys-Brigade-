@@ -823,6 +823,86 @@ async function getJson(url) {
     assert.strictEqual(badgesInit.hasSearch, true, 'Badge search input must exist');
     console.log('  ✔ Badges tab, search input, and President\'s Award tracker render cleanly in browser');
 
+    // 17. Uniform Order Grid Form & Product Card Redesign Verification (TSK-006B)
+    console.log('\n[Uniform Order Grid & Product Card Redesign Verification (TSK-006B)]');
+    const evalUniformGrid = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        if (typeof switchTab === 'function') {
+          switchTab('order');
+        }
+        if (typeof renderUniformOrderInline === 'function') {
+          renderUniformOrderInline();
+        }
+
+        const catTabs = document.getElementById('uniform-cat-tabs');
+        const grid = document.getElementById('uniform-items');
+        const stickyBar = document.getElementById('sticky-checkout-bar');
+        const cards = grid ? Array.from(grid.querySelectorAll('.uniform-product-card')) : [];
+        const firstCard = cards[0];
+        const shirtPlusBtn = firstCard ? firstCard.querySelector('.stepper-btn:last-child') : null;
+
+        // Click plus button on shirt card
+        if (shirtPlusBtn) shirtPlusBtn.click();
+
+        // Check size pills
+        const sizePills = firstCard ? Array.from(firstCard.querySelectorAll('.size-pill')) : [];
+        if (sizePills.length > 0) sizePills[0].click();
+
+        const countEl = document.getElementById('checkout-items-count');
+        const totalEl = document.getElementById('order-total-sticky');
+        const ctaBtn = document.getElementById('checkout-cta-btn');
+
+        // Test category filter tab click
+        const apparelTab = catTabs ? catTabs.querySelector('[data-cat="apparel"]') : null;
+        if (apparelTab) apparelTab.click();
+
+        const visibleAfterFilter = cards.filter(c => c.style.display !== 'none').length;
+
+        // Reset to all
+        const allTab = catTabs ? catTabs.querySelector('[data-cat="all"]') : null;
+        if (allTab) allTab.click();
+
+        const gridComputed = grid ? window.getComputedStyle(grid) : null;
+
+        return {
+          hasCatTabs: !!catTabs,
+          hasGrid: !!grid,
+          cardCount: cards.length,
+          hasStickyBar: !!stickyBar,
+          firstCardHasMedia: firstCard ? !!firstCard.querySelector('.product-card-media') : false,
+          firstCardHasPrice: firstCard ? !!firstCard.querySelector('.product-card-price') : false,
+          firstCardHasStepper: firstCard ? !!firstCard.querySelector('.product-card-stepper') : false,
+          firstCardHasQtyClass: firstCard ? firstCard.classList.contains('has-qty') : false,
+          sizePillsCount: sizePills.length,
+          firstPillSelected: sizePills.length > 0 ? sizePills[0].classList.contains('selected') : false,
+          checkoutCountText: countEl ? countEl.textContent : '',
+          checkoutTotalText: totalEl ? totalEl.textContent : '',
+          ctaBtnActive: ctaBtn ? !ctaBtn.disabled : false,
+          visibleAfterFilter: visibleAfterFilter,
+          gridDisplay: gridComputed ? gridComputed.display : ''
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const uniformGrid = evalUniformGrid.result.value;
+    assert.strictEqual(uniformGrid.hasCatTabs, true, 'Category tabs container must exist');
+    assert.strictEqual(uniformGrid.hasGrid, true, 'Product grid container must exist');
+    assert.ok(uniformGrid.cardCount >= 1, 'Grid must render uniform product cards from catalog');
+    assert.strictEqual(uniformGrid.hasStickyBar, true, 'Sticky checkout summary bar must exist');
+    assert.strictEqual(uniformGrid.firstCardHasMedia, true, 'Product card must feature thumbnail preview media');
+    assert.strictEqual(uniformGrid.firstCardHasPrice, true, 'Product card must feature price tag');
+    assert.strictEqual(uniformGrid.firstCardHasStepper, true, 'Product card must feature increment/decrement stepper');
+    assert.strictEqual(uniformGrid.firstCardHasQtyClass, true, 'Product card must receive has-qty styling when quantity > 0');
+    assert.ok(uniformGrid.sizePillsCount >= 2, 'Shirt card must feature size selector pills');
+    assert.strictEqual(uniformGrid.firstPillSelected, true, 'Selected size pill must receive selected active styling');
+    assert.strictEqual(uniformGrid.checkoutCountText, '1 item', 'Sticky checkout bar must display item count');
+    assert.ok(uniformGrid.checkoutTotalText.includes('RM'), 'Sticky checkout bar must display live currency total');
+    assert.strictEqual(uniformGrid.ctaBtnActive, true, 'Sticky checkout review button must be enabled when items are selected');
+    assert.ok(uniformGrid.visibleAfterFilter >= 1, 'Category filter must display matching product cards');
+    assert.strictEqual(uniformGrid.gridDisplay, 'grid', 'Uniform items container must have CSS grid display');
+    console.log('  ✔ Responsive uniform product card grid, category tabs, size pills, and sticky checkout bar verified in browser');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {
