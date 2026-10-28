@@ -49,7 +49,21 @@ export default [
         checkTasksAccess: 'readonly',
         checkAttendanceTabVisibility: 'readonly',
         loadMemberAttendanceStats: 'readonly',
-        isNCO: 'readonly'
+        isNCO: 'readonly',
+        // Uniform Store & Forms Hub Globals (TSK-006A)
+        UNIFORM_ITEMS: 'readonly',
+        itemQtys: 'readonly',
+        itemSizes: 'readonly',
+        updateTotal: 'readonly',
+        renderUniformOrderInline: 'readonly',
+        loadCustomForms: 'readonly',
+        renderFormsHub: 'readonly',
+        backToFormsHub: 'readonly',
+        loadMemberOrders: 'readonly',
+        createRichEditor: 'readonly',
+        reGetValue: 'readonly',
+        reSetValue: 'readonly',
+        reClearValue: 'readonly'
       }
     },
     rules: {
