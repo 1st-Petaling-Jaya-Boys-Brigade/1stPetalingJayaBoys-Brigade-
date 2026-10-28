@@ -127,6 +127,7 @@ export default [
         updateTaskStatus: 'readonly',
         editAdminTask: 'readonly',
         deleteTask: 'readonly',
+        compressGalleryPhoto: 'readonly',
         renderGallery: 'readonly',
         renderAnnouncements: 'readonly',
         loadResources: 'readonly',

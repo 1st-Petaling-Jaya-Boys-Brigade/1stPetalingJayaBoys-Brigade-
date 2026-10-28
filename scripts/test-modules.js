@@ -532,6 +532,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(lastPosted.path, 'bb_gallery', 'Should insert into bb_gallery table');
   console.log('  ✔ uploadGalleryFiles uploads to storage and inserts database record');
+
+  // BUG-008: Gallery Upload Size Limits & Compression Validation
+  const oversizePhoto = {
+    name: 'huge.jpg',
+    type: 'image/jpeg',
+    size: 16 * 1024 * 1024,
+    arrayBuffer: async () => new ArrayBuffer(8)
+  };
+  const photoRejectRes = await galleryModule.uploadSingleMediaFile(oversizePhoto);
+  assert.strictEqual(photoRejectRes, null, 'Photos exceeding 15MB must be rejected');
+
+  const oversizeVideo = {
+    name: 'huge.mp4',
+    type: 'video/mp4',
+    size: 55 * 1024 * 1024,
+    arrayBuffer: async () => new ArrayBuffer(8)
+  };
+  const videoRejectRes = await galleryModule.uploadSingleMediaFile(oversizeVideo);
+  assert.strictEqual(videoRejectRes, null, 'Videos exceeding 50MB must be rejected');
+
+  const compRes = await galleryModule.compressGalleryPhoto(mockFile, 1920, 0.82);
+  assert.ok(compRes, 'compressGalleryPhoto must process media file');
+  console.log('  ✔ uploadSingleMediaFile enforces 15MB photo / 50MB video limits and photo compression (BUG-008)');
   // ── Testing All-Format Media & Dedicated Gallery Tab ──
   console.log('Testing Media Normalization & Video Detection...');
   assert.strictEqual(
