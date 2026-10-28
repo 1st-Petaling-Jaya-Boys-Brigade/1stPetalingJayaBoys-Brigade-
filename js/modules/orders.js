@@ -9,12 +9,12 @@
 
 // ── Default Uniform Catalog ────────────────────────────────────────────────
 var DEFAULT_UNIFORM_ITEMS = [
-  { key: 'shirt',     name: 'BB Uniform Shirt',    hasSize: 'shirt'    },
-  { key: 'trousers',  name: 'BB Uniform Trousers', hasSize: 'trousers' },
-  { key: 'belt',      name: 'BB Belt',             hasSize: false      },
-  { key: 'cap',       name: 'BB Cap',              hasSize: false      },
-  { key: 'haversack', name: 'Haversack',           hasSize: false      },
-  { key: 'lanyard',   name: 'Lanyard',             hasSize: false      }
+  { key: 'shirt',     name: 'BB Uniform Shirt',    category: 'apparel',     hasSize: 'shirt',    sizes: ['XS', 'S', 'M', 'L', 'XL', '2XL'] },
+  { key: 'trousers',  name: 'BB Uniform Trousers', category: 'apparel',     hasSize: 'trousers', sizes: ['24', '26', '28', '30', '32', '34', '36'] },
+  { key: 'belt',      name: 'BB Belt',             category: 'accessories', hasSize: false,      sizes: [] },
+  { key: 'cap',       name: 'BB Cap',              category: 'accessories', hasSize: false,      sizes: ['S', 'M', 'L'] },
+  { key: 'haversack', name: 'Haversack',           category: 'accessories', hasSize: false,      sizes: [] },
+  { key: 'lanyard',   name: 'Lanyard',             category: 'accessories', hasSize: false,      sizes: [] }
 ];
 
 // Active uniform catalog (loaded async from Supabase bb_config)
@@ -25,6 +25,114 @@ var prices    = {};
 var itemQtys  = {};
 var itemSizes = {};
 var _paymentInfo = '';
+var _activeUniformCategory = 'all';
+
+/**
+ * Resolves product category for uniform item
+ * @param {Object} item
+ * @returns {string}
+ */
+function getItemCategory(item) {
+  if (item && item.category) return String(item.category).toLowerCase();
+  var name = (((item && item.name) || '') + ' ' + ((item && item.key) || '')).toLowerCase();
+  if (name.indexOf('shirt') !== -1 || name.indexOf('trouser') !== -1 || name.indexOf('pant') !== -1 || name.indexOf('t-shirt') !== -1 || name.indexOf('polo') !== -1 || name.indexOf('jacket') !== -1) {
+    return 'apparel';
+  }
+  if (name.indexOf('badge') !== -1 || name.indexOf('insignia') !== -1 || name.indexOf('stripe') !== -1 || name.indexOf('star') !== -1 || name.indexOf('chevron') !== -1) {
+    return 'insignia';
+  }
+  return 'accessories';
+}
+
+/**
+ * Returns available sizes for uniform item with standard fallbacks
+ * @param {Object} item
+ * @returns {Array<string>}
+ */
+function getItemSizes(item) {
+  if (item && item.sizes && item.sizes.length) return item.sizes;
+  if (item && item.hasSize === 'shirt') return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
+  if (item && item.hasSize === 'trousers') return ['24', '26', '28', '30', '32', '34', '36'];
+  if (item && item.hasSize === 'cap') return ['S', 'M', 'L'];
+  return [];
+}
+
+/**
+ * Returns authentic SVG preview icon for a uniform item
+ * @param {Object} item
+ * @returns {string}
+ */
+function getItemIcon(item) {
+  var key = ((item && item.key) || '').toLowerCase();
+  if (key === 'shirt' || key.indexOf('shirt') !== -1) {
+    return '<svg class="product-preview-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.5a2 2 0 0 0 1.25 1.57L6 11.4V20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8.6l1.89-.64a2 2 0 0 0 1.25-1.57l.58-3.5a2 2 0 0 0-1.34-2.23z"></path></svg>';
+  }
+  if (key === 'trousers' || key.indexOf('trouser') !== -1 || key.indexOf('pant') !== -1) {
+    return '<svg class="product-preview-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 2h16v3l-2 17h-4.5L12 11l-1.5 11H6L4 5V2z"></path></svg>';
+  }
+  if (key === 'belt' || key.indexOf('belt') !== -1) {
+    return '<svg class="product-preview-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="2" y="7" width="20" height="10" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><line x1="6" y1="7" x2="6" y2="17"></line></svg>';
+  }
+  if (key === 'cap' || key.indexOf('cap') !== -1 || key.indexOf('glengarry') !== -1) {
+    return '<svg class="product-preview-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M2 17a10 10 0 0 1 20 0v2H2v-2z"></path><path d="M4 17c1-5 4-8 8-8s7 3 8 8"></path><line x1="12" y1="9" x2="12" y2="4"></line></svg>';
+  }
+  if (key === 'haversack' || key.indexOf('bag') !== -1) {
+    return '<svg class="product-preview-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 8a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"></path><path d="M9 4v4"></path><path d="M15 4v4"></path><path d="M9 13h6"></path></svg>';
+  }
+  if (key === 'lanyard' || key.indexOf('lanyard') !== -1) {
+    return '<svg class="product-preview-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2C8.5 2 6 5 6 9c0 5 6 13 6 13s6-8 6-13c0-4-2.5-7-6-7z"></path><circle cx="12" cy="9" r="2.5"></circle></svg>';
+  }
+  return '<svg class="product-preview-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>';
+}
+
+/**
+ * Computes category groups and counts for active uniform catalog
+ * @param {Array<Object>} items
+ * @returns {Object}
+ */
+function getUniformCategories(items) {
+  var cats = {
+    all: { label: 'All Items', count: 0 }
+  };
+  (items || []).forEach(function(item) {
+    var c = getItemCategory(item);
+    cats.all.count++;
+    if (!cats[c]) {
+      var label = (c === 'apparel') ? 'Apparel' : (c === 'accessories') ? 'Accessories' : (c === 'insignia') ? 'Insignia' : (c.charAt(0).toUpperCase() + c.slice(1));
+      cats[c] = { label: label, count: 0 };
+    }
+    cats[c].count++;
+  });
+  return cats;
+}
+
+/**
+ * Filters the product card grid by category
+ * @param {string} cat
+ */
+function filterUniformCategory(cat) {
+  _activeUniformCategory = cat || 'all';
+  if (typeof document === 'undefined') return;
+
+  var tabs = document.querySelectorAll('.uniform-cat-tab');
+  tabs.forEach(function(t) {
+    t.classList.toggle('active', t.getAttribute('data-cat') === _activeUniformCategory);
+  });
+
+  var cards = document.querySelectorAll('.uniform-product-card');
+  var visibleCount = 0;
+  cards.forEach(function(card) {
+    var cardCat = card.getAttribute('data-category') || 'accessories';
+    var match = (_activeUniformCategory === 'all' || cardCat === _activeUniformCategory);
+    card.style.display = match ? 'flex' : 'none';
+    if (match) visibleCount++;
+  });
+
+  var emptyEl = document.getElementById('uniform-grid-empty');
+  if (emptyEl) {
+    emptyEl.style.display = (visibleCount === 0) ? 'block' : 'none';
+  }
+}
 
 // ── Catalog & Pricing Persistence ──────────────────────────────────────────
 
@@ -72,14 +180,29 @@ async function loadPrices() {
  */
 function updateTotal() {
   var total = 0;
+  var totalCount = 0;
   UNIFORM_ITEMS.forEach(function(item) {
+    var qty = itemQtys[item.key] || 0;
     var unitPrice = parseFloat(item.price) || prices[item.key] || 0;
-    total += (itemQtys[item.key] || 0) * unitPrice;
+    total += qty * unitPrice;
+    totalCount += qty;
   });
 
   if (typeof document !== 'undefined') {
     var el = document.getElementById('order-total');
     if (el) el.textContent = 'RM ' + total.toFixed(2);
+
+    var stickyEl = document.getElementById('order-total-sticky');
+    if (stickyEl) stickyEl.textContent = 'RM ' + total.toFixed(2);
+
+    var countEl = document.getElementById('checkout-items-count');
+    if (countEl) countEl.textContent = totalCount + (totalCount === 1 ? ' item' : ' items');
+
+    var ctaBtn = document.getElementById('checkout-cta-btn');
+    if (ctaBtn) {
+      ctaBtn.disabled = totalCount === 0;
+      ctaBtn.classList.toggle('active', totalCount > 0);
+    }
   }
   return total;
 }
@@ -99,7 +222,7 @@ function changeQty(key, delta) {
     if (qtyEl) qtyEl.textContent = next;
 
     var item = UNIFORM_ITEMS.find(function(i) { return i.key === key; });
-    var sizes = (item && item.sizes && item.sizes.length) ? item.sizes : [];
+    var sizes = getItemSizes(item);
     var wrap = document.getElementById(key + '-size-wrap');
     var card = document.getElementById('ui-' + key);
 
@@ -122,13 +245,15 @@ function selectSize(item, size, btn) {
   if (typeof document !== 'undefined') {
     var grid = document.getElementById(item + '-size-grid');
     if (grid) {
-      grid.querySelectorAll('.size-btn').forEach(function(b) {
+      grid.querySelectorAll('.size-btn, .size-pill').forEach(function(b) {
         b.classList.remove('selected');
       });
     }
     if (btn && btn.classList) {
       btn.classList.add('selected');
     }
+    var lbl = document.getElementById(item + '-selected-size-label');
+    if (lbl) lbl.textContent = size;
   }
 }
 
@@ -304,40 +429,64 @@ function renderOrderItems(memberRank) {
   var visible = UNIFORM_ITEMS.filter(function(item) { return !item.ncoOnly || nco; });
 
   if (!visible.length) {
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;font-size:13px;">No products available yet.</div>';
+    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:24px;font-size:13px;grid-column:1/-1;">No products available yet.</div>';
     return;
   }
 
   var html = '';
   visible.forEach(function(item) {
-    var sizes = item.sizes && item.sizes.length ? item.sizes : [];
+    var sizes = getItemSizes(item);
     var sizeButtons = '';
     sizes.forEach(function(s) {
-      sizeButtons += '<button class="size-btn" onclick="selectSize(\'' + escapeHtml(item.key) + '\',\'' + escapeHtml(s) + '\',this)">' + escapeHtml(s) + '</button>';
+      var isSel = itemSizes[item.key] === s;
+      sizeButtons += '<button type="button" class="size-pill size-btn' + (isSel ? ' selected' : '') + '" onclick="selectSize(\'' + escapeHtml(item.key) + '\',\'' + escapeHtml(s) + '\',this)">' + escapeHtml(s) + '</button>';
     });
 
     var safeProdImg = item.image ? ((typeof safeUrl === 'function') ? safeUrl(item.image, '') : item.image) : '';
     var imgHtml = safeProdImg
-      ? '<img src="' + escapeHtml(safeProdImg) + '" style="width:44px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' + escapeHtml(item.name) + '"/>'
-      : '<span class="uniform-icon" style="display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></span>';
+      ? '<img src="' + escapeHtml(safeProdImg) + '" alt="' + escapeHtml(item.name) + '" loading="lazy"/>'
+      : getItemIcon(item);
 
-    var priceLabel = item.price ? 'RM ' + parseFloat(item.price).toFixed(2) : 'RM TBA';
+    var priceNum = parseFloat(item.price) || prices[item.key] || 0;
+    var priceLabel = priceNum ? 'RM ' + priceNum.toFixed(2) : 'RM TBA';
+    var cat = getItemCategory(item);
+    var catLabel = (cat === 'apparel') ? 'Apparel' : (cat === 'accessories') ? 'Accessories' : (cat === 'insignia') ? 'Insignia' : (cat.charAt(0).toUpperCase() + cat.slice(1));
+
+    var ncoBadge = item.ncoOnly
+      ? '<span class="product-card-badge nco">NCO Only</span>'
+      : '<span class="product-card-badge cat">' + escapeHtml(catLabel) + '</span>';
+
+    var currentQty = itemQtys[item.key] || 0;
+    var currentSize = itemSizes[item.key] || '';
     var sizeWrap = sizes.length
-      ? '<div id="' + escapeHtml(item.key) + '-size-wrap" style="display:none;margin-top:12px;"><div class="form-label">Size</div><div class="size-grid" id="' + escapeHtml(item.key) + '-size-grid">' + sizeButtons + '</div></div>'
+      ? '<div class="product-size-section" id="' + escapeHtml(item.key) + '-size-wrap" style="display:' + (currentQty > 0 ? 'block' : 'none') + ';">'
+        + '<div class="size-pills-label"><span>Select Size:</span><span class="selected-size-text" id="' + escapeHtml(item.key) + '-selected-size-label">' + escapeHtml(currentSize) + '</span></div>'
+        + '<div class="size-pills-row size-grid" id="' + escapeHtml(item.key) + '-size-grid">' + sizeButtons + '</div>'
+        + '</div>'
       : '';
 
-    html += '<div class="uniform-item" id="ui-' + escapeHtml(item.key) + '">'
-      + '<div class="uniform-item-header">' + imgHtml + '<div class="uniform-name">' + escapeHtml(item.name) + '</div><div class="uniform-price" id="' + escapeHtml(item.key) + '-price-label">' + priceLabel + '</div></div>'
-      + '<div class="qty-ctrl">'
-      + '<button class="qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',-1)">&#8722;</button>'
-      + '<div class="qty-display" id="' + escapeHtml(item.key) + '-qty">0</div>'
-      + '<button class="qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',1)">+</button>'
-      + '<span style="font-size:12px;color:var(--muted);margin-left:4px;">pcs</span></div>'
-      + sizeWrap + '</div>';
+    var matchCat = (_activeUniformCategory === 'all' || cat === _activeUniformCategory);
+
+    html += '<div class="uniform-product-card uniform-item' + (currentQty > 0 ? ' has-qty' : '') + '" id="ui-' + escapeHtml(item.key) + '" data-category="' + escapeHtml(cat) + '" style="display:' + (matchCat ? 'flex' : 'none') + ';">'
+      + '<div class="product-card-media">'
+      + ncoBadge
+      + imgHtml
+      + '</div>'
+      + '<div class="product-card-body">'
+      + '<div class="product-card-cat-label">' + escapeHtml(catLabel) + '</div>'
+      + '<div class="product-card-name uniform-name">' + escapeHtml(item.name) + '</div>'
+      + '<div class="product-card-price uniform-price" id="' + escapeHtml(item.key) + '-price-label">' + priceLabel + '</div>'
+      + sizeWrap
+      + '</div>'
+      + '<div class="product-card-stepper qty-ctrl">'
+      + '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity">&#8722;</button>'
+      + '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">' + currentQty + '</div>'
+      + '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity">+</button>'
+      + '</div>'
+      + '</div>';
   });
 
   container.innerHTML = html;
-  visible.forEach(function(i) { itemQtys[i.key] = 0; delete itemSizes[i.key]; });
   updateTotal();
 
   // Initialize order notes rich text editor if available
@@ -409,6 +558,7 @@ function goToOrderReview() {
 
   var sf = document.getElementById('step-form');   if (sf) sf.style.display = 'none';
   var sr = document.getElementById('step-review'); if (sr) sr.style.display = 'block';
+  var scb = document.getElementById('sticky-checkout-bar'); if (scb) scb.style.display = 'none';
   if (typeof window !== 'undefined' && window.scrollTo) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -421,6 +571,7 @@ function goBackOrder() {
   if (typeof document === 'undefined') return;
   var sf = document.getElementById('step-form');   if (sf) sf.style.display = 'block';
   var sr = document.getElementById('step-review'); if (sr) sr.style.display = 'none';
+  var scb = document.getElementById('sticky-checkout-bar'); if (scb) scb.style.display = 'flex';
 }
 
 // ── Touch 'n Go Payment Screenshot Helpers ─────────────────────────────────
@@ -527,6 +678,7 @@ async function submitOrder() {
     if (typeof document !== 'undefined') {
       var sf = document.getElementById('step-review'); if (sf) sf.style.display = 'none';
       var sn = document.getElementById('s-ordernum');  if (sn) sn.textContent = orderNum;
+      var scb = document.getElementById('sticky-checkout-bar'); if (scb) scb.style.display = 'none';
       var sb = document.getElementById('order-success');
       if (sb) {
         sb.style.display = 'block';
@@ -569,15 +721,36 @@ function renderUniformOrderInline() {
   var container = document.getElementById('inline-form-view');
   if (!container) return;
 
+  var categories = getUniformCategories(UNIFORM_ITEMS);
+  var catTabsHtml = '<div class="uniform-cat-tabs" id="uniform-cat-tabs">';
+  Object.keys(categories).forEach(function(catKey) {
+    var c = categories[catKey];
+    var active = (catKey === _activeUniformCategory) ? ' active' : '';
+    catTabsHtml += '<button type="button" class="uniform-cat-tab' + active + '" data-cat="' + catKey + '" onclick="filterUniformCategory(\'' + catKey + '\')">'
+      + escapeHtml(c.label) + ' <span class="cat-tab-count" id="cat-count-' + catKey + '">' + c.count + '</span></button>';
+  });
+  catTabsHtml += '</div>';
+
   container.innerHTML = '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:\'Oswald\',sans-serif;font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>'
-    + '<div id="step-form"><div class="dark-card" style="margin-bottom:14px;">'
-    + '<div class="page-title">Uniform</div><div class="page-subtitle">Order Form</div><div class="page-desc">Select items and sizes for your uniform</div>'
+    + '<div id="step-form">'
+    + '<div class="dark-card" style="margin-bottom:14px;">'
+    + '<div class="page-title">Uniform</div><div class="page-subtitle">Store &amp; Order Form</div><div class="page-desc">Select products, customize sizes, and review your order</div>'
     + '<div class="note-box"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Orders are confirmed by the officer in charge. You will be contacted when ready.</div>'
-    + '<div id="uniform-items"></div>'
-    + '<div class="form-group" style="margin-top:8px;"><label class="form-label">Additional Notes (optional)</label><div id="order-notes-container" style="min-height:0;"></div></div>'
-    + '<div class="total-row"><div class="total-label">Estimated Total</div><div class="total-val" id="order-total">RM 0.00</div></div>'
+    + catTabsHtml
+    + '<div id="uniform-items" class="uniform-product-grid"></div>'
+    + '<div id="uniform-grid-empty" style="display:none;text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px;background:var(--bg-card-subtle);border-radius:12px;margin-bottom:16px;">No products in this category.</div>'
+    + '<div class="form-group" style="margin-top:12px;"><label class="form-label">Additional Notes (optional)</label><div id="order-notes-container" style="min-height:0;"></div></div>'
+    + '<div class="total-row" style="margin-top:16px;"><div class="total-label">Estimated Total</div><div class="total-val" id="order-total">RM 0.00</div></div>'
     + '<button class="submit-btn btn-with-icon" style="margin-top:14px;justify-content:center;" onclick="goToOrderReview()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Review Order</button>'
-    + '</div></div>'
+    + '</div>'
+    + '<div class="sticky-checkout-bar" id="sticky-checkout-bar">'
+    + '<div class="checkout-bar-left">'
+    + '<div class="checkout-summary-badge" id="checkout-summary-badge"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg><span id="checkout-items-count">0 items</span></div>'
+    + '<div class="checkout-total-wrap"><span class="checkout-total-label">Total</span><span class="checkout-total-val" id="order-total-sticky">RM 0.00</span></div>'
+    + '</div>'
+    + '<button type="button" class="checkout-cta-btn" id="checkout-cta-btn" onclick="goToOrderReview()" disabled><span>Review Order</span><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>'
+    + '</div>'
+    + '</div>'
     + '<div id="step-review" style="display:none;"><div class="dark-card">'
     + '<div class="page-title">Review</div><div class="page-subtitle">Your Order</div><div class="page-desc">Confirm details before submitting</div>'
     + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:14px;padding:20px;margin-bottom:18px;" id="review-content"></div>'
@@ -965,6 +1138,13 @@ if (typeof window !== 'undefined') {
   window.getTngScreenshot      = getTngScreenshot;
   window.submitOrder           = submitOrder;
   window.renderUniformOrderInline = renderUniformOrderInline;
+  window.getItemCategory           = getItemCategory;
+  window.getItemSizes              = getItemSizes;
+  window.getItemIcon               = getItemIcon;
+  window.getUniformCategories      = getUniformCategories;
+  window.filterUniformCategory     = filterUniformCategory;
+  window._activeUniformCategory    = _activeUniformCategory;
+  window.getActiveCategory         = function() { return _activeUniformCategory; };
 
   window.switchUniformSubtab   = switchUniformSubtab;
   window.loadAndRenderPaymentEditor = loadAndRenderPaymentEditor;
@@ -1007,6 +1187,13 @@ if (typeof module !== 'undefined' && module.exports) {
     getTngScreenshot: getTngScreenshot,
     submitOrder: submitOrder,
     renderUniformOrderInline: renderUniformOrderInline,
+    getItemCategory: getItemCategory,
+    getItemSizes: getItemSizes,
+    getItemIcon: getItemIcon,
+    getUniformCategories: getUniformCategories,
+    filterUniformCategory: filterUniformCategory,
+    getActiveCategory: function() { return _activeUniformCategory; },
+    get _activeUniformCategory() { return _activeUniformCategory; },
 
     switchUniformSubtab: switchUniformSubtab,
     loadAndRenderPaymentEditor: loadAndRenderPaymentEditor,
