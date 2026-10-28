@@ -1931,6 +1931,61 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(savedTaskPayload.body.priority, 'high');
   console.log('  ✔ Admin task management (creation, department filtering, status updates) verified');
 
+  console.log('\nTesting HTML Application Shell & View Template Cleanup (TSK-013)...');
+  const indexHtmlStr = fs.readFileSync('index.html', 'utf8');
+  assert.ok(indexHtmlStr.includes('<main id="app-main"'), 'Must define semantic <main id="app-main">');
+  assert.ok(indexHtmlStr.includes('role="main"'), 'Must define role="main" on app main');
+  assert.ok(indexHtmlStr.includes('role="banner"'), 'Must define role="banner" on header');
+  assert.ok(indexHtmlStr.includes('id="site-header"'), 'Must define #site-header landmark');
+  assert.ok(indexHtmlStr.includes('id="bottom-nav"'), 'Must define #bottom-nav dock');
+  assert.ok(indexHtmlStr.includes('id="sidebar-overlay"'), 'Must define #sidebar-overlay drawer');
+  assert.ok(indexHtmlStr.includes('id="admin-overlay"'), 'Must define #admin-overlay');
+  assert.ok(indexHtmlStr.includes('class="skip-to-content"'), 'Must provide accessible skip-to-content landmark');
+  console.log('  ✔ Semantic HTML5 landmarks (header, nav, main, aside, section) verified');
+
+  const coreViews = [
+    'page-home',
+    'page-order',
+    'page-member',
+    'page-badges',
+    'page-tasks',
+    'page-attendance',
+    'page-resources',
+    'page-gallery'
+  ];
+  coreViews.forEach(v => {
+    const sectionRegex = new RegExp('<section[^>]*class=["\'](?=.*\\bpage\\b)[^"\']*["\'][^>]*id=["\']' + v + '["\']');
+    const sectionRegex2 = new RegExp('<section[^>]*id=["\']' + v + '["\'][^>]*class=["\'](?=.*\\bpage\\b)[^"\']*["\']');
+    assert.ok(sectionRegex.test(indexHtmlStr) || sectionRegex2.test(indexHtmlStr), 'View ' + v + ' must be rendered as semantic <section class="page" id="' + v + '">');
+  });
+  console.log('  ✔ All 8 core view pages verified as semantic <section class="page">');
+
+  const coreModals = [
+    'child-safety-modal',
+    'story-viewer-modal',
+    'adm-story-modal',
+    'calendar-day-modal',
+    'adm-event-edit-modal',
+    'task-detail-modal'
+  ];
+  coreModals.forEach(modalId => {
+    assert.ok(indexHtmlStr.includes('id="' + modalId + '"'), 'Modal ' + modalId + ' must exist');
+    const modalRegex = new RegExp('<div[^>]*id=["\']' + modalId + '["\'][^>]*role=["\']dialog["\']|<div[^>]*role=["\']dialog["\'][^>]*id=["\']' + modalId + '["\']');
+    assert.ok(modalRegex.test(indexHtmlStr), 'Modal ' + modalId + ' must have role="dialog"');
+  });
+  console.log('  ✔ All 6 accessible modal dialogs verified with ARIA dialog roles');
+
+  const idRegex = /\bid=["']([^"']+)["']/g;
+  const foundIds = [];
+  let idMatch;
+  while ((idMatch = idRegex.exec(indexHtmlStr)) !== null) {
+    foundIds.push(idMatch[1]);
+  }
+  const duplicateIds = foundIds.filter((id, idx) => foundIds.indexOf(id) !== idx);
+  assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
+  assert.strictEqual(foundIds.length, 363, 'All 361 core DOM IDs plus semantic landmarks (app-main, site-header) must be preserved in index.html');
+  console.log('  ✔ Exactly 363 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks)');
+
   console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert(pkg.scripts, 'package.json must contain scripts');
