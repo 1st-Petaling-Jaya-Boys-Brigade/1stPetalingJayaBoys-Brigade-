@@ -441,10 +441,11 @@ async function renderAdminMasterSheetPanel() {
   }).sort(function(a, b) { return b.avg - a.avg; });
 
   var cfg = { sheetId: '', scriptUrl: '', syncToken: '' };
-  if (typeof window !== 'undefined' && typeof window.loadMasterSheetConfig === 'function') {
-    try { cfg = await window.loadMasterSheetConfig(); } catch (eCfg) {}
-  } else if (typeof window !== 'undefined' && typeof window.loadMasterSheetConfig === 'function') {
-    try { cfg = await window.loadMasterSheetConfig(); } catch (eCfg) {}
+  var loadConfigFn = (typeof window !== 'undefined' && typeof window.loadMasterSheetConfig === 'function')
+    ? window.loadMasterSheetConfig
+    : ((typeof global !== 'undefined' && typeof global.loadMasterSheetConfig === 'function') ? global.loadMasterSheetConfig : null);
+  if (loadConfigFn) {
+    try { cfg = await loadConfigFn(); } catch (eCfg) {}
   }
 
   var supaUrl = (typeof SUPA_URL !== 'undefined') ? SUPA_URL : (typeof window.SUPA_URL !== 'undefined' ? window.SUPA_URL : 'YOUR_SUPABASE_PROJECT_URL');
@@ -707,9 +708,18 @@ async function triggerMasterSheetFetch() {
     }
     _masterAttendanceCache = null;
     await renderAdminMasterSheetPanel();
-    alert('Master Sheet data synced successfully.');
+    if (typeof showToast === 'function') {
+      showToast('Master Sheet data synced successfully.', 'success');
+    } else if (typeof alert === 'function') {
+      alert('Master Sheet data synced successfully.');
+    }
   } catch (err) {
-    alert('Sync note: ' + err.message + '\n\nTip: You can click "BB Portal > Sync Attendance to Portal Now" inside your Google Sheet at any time to push updates instantly.');
+    var syncErrMsg = 'Sync note: ' + err.message + '\n\nTip: You can click "BB Portal > Sync Attendance to Portal Now" inside your Google Sheet at any time to push updates instantly.';
+    if (typeof showToast === 'function') {
+      showToast('Sync note: ' + err.message, 'warning');
+    } else if (typeof alert === 'function') {
+      alert(syncErrMsg);
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
