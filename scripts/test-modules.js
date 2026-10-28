@@ -2968,11 +2968,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
   assert.strictEqual(
     foundIds.length,
-    363,
-    'All 361 core DOM IDs plus semantic landmarks (app-main, site-header) must be preserved in index.html'
+    364,
+    'All 361 core DOM IDs plus semantic landmarks (app-main, site-header) and offline indicator must be preserved in index.html'
   );
   console.log(
-    '  ✔ Exactly 363 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks)'
+    '  ✔ Exactly 364 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator)'
   );
 
   console.log('\nTesting Client-side Validation & Concurrency Safety (TSK-014)...');
@@ -3260,6 +3260,231 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ submitOrder enforces cart validation, session auth, and double-submit mutex locking'
   );
 
+  console.log('\nTesting PWA Manifest & Offline Caching (TSK-016)...');
+  // 1. Web App Manifest
+  assert.ok(fs.existsSync('manifest.json'), 'manifest.json must exist');
+  const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+  assert.strictEqual(
+    manifest.name,
+    "1st Petaling Jaya Boys' Brigade Portal",
+    'Manifest name must match official company portal name'
+  );
+  assert.strictEqual(manifest.short_name, '1st PJ BB', 'Manifest short_name must match');
+  assert.strictEqual(manifest.start_url, './index.html', 'start_url must point to index.html');
+  assert.strictEqual(manifest.display, 'standalone', 'display mode must be standalone');
+  assert.strictEqual(
+    manifest.background_color,
+    '#0a0e17',
+    'background_color must match dark navy theme'
+  );
+  assert.strictEqual(manifest.theme_color, '#0a0e17', 'theme_color must match theme');
+  assert.ok(
+    Array.isArray(manifest.icons) && manifest.icons.length >= 2,
+    'Manifest must provide multiple icon sizes'
+  );
+  assert.ok(
+    manifest.icons.some(i => i.sizes === '192x192'),
+    'Must provide 192x192 icon'
+  );
+  assert.ok(
+    manifest.icons.some(i => i.sizes === '512x512' && i.purpose.includes('maskable')),
+    'Must provide 512x512 maskable icon'
+  );
+  assert.ok(
+    Array.isArray(manifest.shortcuts) && manifest.shortcuts.length >= 4,
+    'Manifest must declare at least 4 shortcuts'
+  );
+  assert.ok(
+    manifest.shortcuts.some(s => s.name === 'Weekly Parade'),
+    'Must declare Weekly Parade shortcut'
+  );
+  assert.ok(
+    manifest.shortcuts.some(s => s.name === 'Awards & Badges'),
+    'Must declare Awards & Badges shortcut'
+  );
+  console.log(
+    '  ✔ manifest.json verified with standalone mode, icons, theme colors, and navigation shortcuts'
+  );
+
+  // 2. HTML Head & Shell PWA Elements
+  assert.ok(
+    indexHtmlStr.includes('<link rel="manifest" href="manifest.json">'),
+    'index.html must link to manifest.json'
+  );
+  assert.ok(
+    indexHtmlStr.includes('<meta name="theme-color" content="#0a0e17">'),
+    'index.html must declare theme-color'
+  );
+  assert.ok(
+    indexHtmlStr.includes('<meta name="apple-mobile-web-app-capable" content="yes">'),
+    'index.html must declare apple-mobile-web-app-capable'
+  );
+  assert.ok(
+    indexHtmlStr.includes('id="offline-indicator"'),
+    'index.html must provide accessible offline indicator'
+  );
+  assert.ok(
+    indexHtmlStr.includes('navigator.serviceWorker.register'),
+    'index.html must register service worker'
+  );
+  console.log(
+    '  ✔ index.html verified with PWA manifest link, mobile meta tags, offline indicator, and SW registration'
+  );
+
+  // 3. Service Worker Core Assets & Data Keys
+  assert.ok(fs.existsSync('sw.js'), 'sw.js service worker file must exist');
+  const swMod = require('../sw.js');
+  assert.ok(Array.isArray(swMod.PRECACHE_ASSETS), 'PRECACHE_ASSETS must be an array');
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./index.html'),
+    'PRECACHE_ASSETS must include index.html'
+  );
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./manifest.json'),
+    'PRECACHE_ASSETS must include manifest.json'
+  );
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./assets/logo.png'),
+    'PRECACHE_ASSETS must include logo.png'
+  );
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./js/modules/calendar.js'),
+    'PRECACHE_ASSETS must include calendar.js'
+  );
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./js/modules/badges.js'),
+    'PRECACHE_ASSETS must include badges.js'
+  );
+  assert.ok(
+    swMod.PRECACHE_ASSETS.length >= 20,
+    'PRECACHE_ASSETS must cache complete application shell'
+  );
+
+  assert.ok(Array.isArray(swMod.OFFLINE_DATA_KEYS), 'OFFLINE_DATA_KEYS must be an array');
+  assert.ok(
+    swMod.OFFLINE_DATA_KEYS.includes('bb_badge_defs'),
+    'Must prioritize bb_badge_defs for offline caching'
+  );
+  assert.ok(
+    swMod.OFFLINE_DATA_KEYS.includes('bb_presidents_reqs'),
+    'Must prioritize bb_presidents_reqs for offline caching'
+  );
+  assert.ok(
+    swMod.OFFLINE_DATA_KEYS.includes('bb_company_calendar'),
+    'Must prioritize bb_company_calendar for offline caching'
+  );
+  console.log(
+    '  ✔ sw.js verified with complete PRECACHE_ASSETS shell and OFFLINE_DATA_KEYS priorities'
+  );
+
+  // 4. Service Worker Fetch Handling & Caching Strategies
+  // Mock Cache Storage
+  const mockCacheStore = {};
+  const mockCaches = {
+    open: async name => {
+      if (!mockCacheStore[name]) mockCacheStore[name] = new Map();
+      return {
+        put: async (req, res) => {
+          const key = typeof req === 'string' ? req : req.url;
+          mockCacheStore[name].set(key, res);
+        },
+        addAll: async assets => {
+          assets.forEach(a => mockCacheStore[name].set(a, { url: a, status: 200 }));
+        }
+      };
+    },
+    match: async (req, options) => {
+      const targetUrl = typeof req === 'string' ? req : req.url;
+      for (const name of Object.keys(mockCacheStore)) {
+        const store = mockCacheStore[name];
+        for (const [key, res] of store.entries()) {
+          if (options && options.ignoreSearch) {
+            const cleanKey = key.split('?')[0];
+            const cleanTarget = targetUrl.split('?')[0];
+            if (cleanKey === cleanTarget || cleanTarget.endsWith(cleanKey.replace(/^\.\//, ''))) {
+              return res;
+            }
+          }
+          if (key === targetUrl) return res;
+        }
+      }
+      return null;
+    }
+  };
+
+  // 4a. Mutation requests must bypass service worker
+  const postReq = { method: 'POST', url: 'https://xyz.supabase.co/rest/v1/bb_orders' };
+  const postRes = await swMod.handleFetchRequest(postReq, mockCaches, async () => ({
+    status: 200
+  }));
+  assert.strictEqual(postRes, null, 'Mutation POST requests must bypass SW caching');
+
+  // 4b. Network-first offline data caching on live fetch
+  const liveCalendarReq = {
+    method: 'GET',
+    url: 'https://xyz.supabase.co/rest/v1/bb_config?key=eq.bb_company_calendar&select=value'
+  };
+  const liveCalendarPayload = JSON.stringify([{ id: 'ev_1', title: 'Recruit Enrolment Service' }]);
+  const liveFetchFn = async () => ({
+    status: 200,
+    clone: () => ({ status: 200, json: async () => JSON.parse(liveCalendarPayload) })
+  });
+
+  const liveRes = await swMod.handleFetchRequest(liveCalendarReq, mockCaches, liveFetchFn);
+  assert.strictEqual(liveRes.status, 200, 'Live fetch must succeed and return response');
+  assert.ok(
+    mockCacheStore[swMod.DATA_CACHE_NAME].has(liveCalendarReq.url),
+    'Data cache must store live clone'
+  );
+
+  // 4c. Network failure fallback to offline cache
+  const failingFetchFn = async () => {
+    throw new Error('Offline simulated error');
+  };
+  const offlineDataRes = await swMod.handleFetchRequest(
+    liveCalendarReq,
+    mockCaches,
+    failingFetchFn
+  );
+  assert.ok(offlineDataRes, 'Offline request must resolve from data cache');
+  assert.strictEqual(offlineDataRes.status, 200, 'Cached response status must be 200');
+
+  // 4d. Network failure with cold cache returns fallback JSON
+  const coldBadgeReq = {
+    method: 'GET',
+    url: 'https://xyz.supabase.co/rest/v1/bb_config?key=eq.bb_badge_defs&select=value'
+  };
+  const coldDataRes = await swMod.handleFetchRequest(coldBadgeReq, mockCaches, failingFetchFn);
+  assert.ok(coldDataRes, 'Cold cache offline request must return fallback');
+  const coldDataPayload = await coldDataRes.json();
+  assert.deepStrictEqual(
+    coldDataPayload,
+    [],
+    'Fallback response must be empty array allowing embedded defaults'
+  );
+
+  // 4e. Stale-while-revalidate for static assets with query param ignoreSearch
+  const scriptReq = {
+    method: 'GET',
+    url: 'https://localhost:3000/js/modules/calendar.js?v=20261026e'
+  };
+  mockCacheStore[swMod.STATIC_CACHE_NAME] = new Map([
+    ['./js/modules/calendar.js', { status: 200, body: 'calendar_code' }]
+  ]);
+  const cachedAssetRes = await swMod.handleFetchRequest(scriptReq, mockCaches, async () => ({
+    status: 200,
+    clone: () => ({})
+  }));
+  assert.ok(cachedAssetRes, 'Static asset must match cache ignoring search parameters');
+  assert.strictEqual(
+    cachedAssetRes.body,
+    'calendar_code',
+    'Must return cached static asset immediately'
+  );
+  console.log(
+    '  ✔ sw.js Network-First offline fallback and Stale-While-Revalidate static caching verified'
+  );
+
   console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert(pkg.scripts, 'package.json must contain scripts');
@@ -3292,7 +3517,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert(fs.existsSync('eslint.config.mjs'), 'eslint.config.mjs configuration must exist');
   console.log('  ✔ ESLint flat config verified');
   const { execSync } = require('child_process');
-  const lintOutput = execSync('npx eslint js/ scripts/', { encoding: 'utf8' });
+  const lintOutput = execSync('npx eslint js/ scripts/ sw.js', { encoding: 'utf8' });
   assert.strictEqual(lintOutput.trim(), '', 'ESLint must pass with 0 errors and 0 warnings');
   console.log('  ✔ ESLint verified: 0 errors and 0 warnings across all js/ and scripts/');
 

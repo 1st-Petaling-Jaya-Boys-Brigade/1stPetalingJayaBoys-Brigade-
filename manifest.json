@@ -1,0 +1,83 @@
+{
+  "name": "1st Petaling Jaya Boys' Brigade Portal",
+  "short_name": "1st PJ BB",
+  "description": "1st Petaling Jaya Company Boys' Brigade Official Member & Administration Portal",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "my.org.bbpj1.portal",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "icons": [
+    {
+      "src": "assets/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Weekly Parade",
+      "short_name": "Parade",
+      "description": "View weekly parade schedule and times",
+      "url": "./index.html#home",
+      "icons": [
+        {
+          "src": "assets/logo.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Awards & Badges",
+      "short_name": "Badges",
+      "description": "Track badge achievements and President's Award criteria",
+      "url": "./index.html#badges",
+      "icons": [
+        {
+          "src": "assets/logo.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Company Resources",
+      "short_name": "Resources",
+      "description": "Access official documents and handbooks",
+      "url": "./index.html#resources",
+      "icons": [
+        {
+          "src": "assets/logo.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Member Hub",
+      "short_name": "Member",
+      "description": "View member profile and attendance history",
+      "url": "./index.html#member",
+      "icons": [
+        {
+          "src": "assets/logo.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "categories": ["education", "productivity", "lifestyle"],
+  "lang": "en",
+  "dir": "ltr"
+}

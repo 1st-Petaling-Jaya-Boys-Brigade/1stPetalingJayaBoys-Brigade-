@@ -15,6 +15,7 @@ const MIME_TYPES = {
   '.mjs': 'application/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -52,13 +53,20 @@ const server = http.createServer((req, res) => {
     }
 
     const ext = path.extname(safePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const contentType =
+      safePath.endsWith('manifest.json') || ext === '.webmanifest'
+        ? 'application/manifest+json; charset=utf-8'
+        : MIME_TYPES[ext] || 'application/octet-stream';
 
-    res.writeHead(200, {
+    const headers = {
       'Content-Type': contentType,
       'Content-Length': stats.size,
       'Cache-Control': 'no-cache, no-store, must-revalidate'
-    });
+    };
+    if (safePath.endsWith('sw.js')) {
+      headers['Service-Worker-Allowed'] = '/';
+    }
+    res.writeHead(200, headers);
 
     const stream = fs.createReadStream(safePath);
     stream.pipe(res);

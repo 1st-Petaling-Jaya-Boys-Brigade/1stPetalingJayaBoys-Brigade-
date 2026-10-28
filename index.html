@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>1st Petaling Jaya Boys' Brigade Portal</title>
+<!-- PWA Web App Manifest & Mobile Capability (TSK-016) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0e17">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="1st PJ BB">
 <!-- Favicon / Browser Tab Logo -->
 <link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="shortcut icon" type="image/png" href="assets/logo.png">
@@ -358,6 +365,22 @@
     </div>
   </div>
 </header>
+
+<!-- Offline Notification Banner (TSK-016) -->
+<div id="offline-indicator" class="offline-indicator-bar" style="display:none;" role="status" aria-live="polite">
+  <div class="offline-indicator-content">
+    <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <line x1="1" y1="1" x2="23" y2="23"></line>
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
+      <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
+      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+      <line x1="12" y1="20" x2="12.01" y2="20"></line>
+    </svg>
+    <span>Offline Mode &mdash; Viewing cached parade schedules &amp; badge criteria</span>
+  </div>
+</div>
 
 <!-- Hidden Tab Buttons (Preserved for backwards JS router compatibility) -->
 <div class="sr-only" aria-hidden="true" style="display:none;">
@@ -2896,6 +2919,7 @@ window.addEventListener('load', function() {
       checkAttendanceTabVisibility(ic);
     }
   }
+  updateOfflineIndicator();
   handleHashNavigation();
 });
 
@@ -2908,6 +2932,51 @@ function handleHashNavigation() {
   }
 }
 window.addEventListener('hashchange', handleHashNavigation);
+// ── Offline Connectivity & PWA Service Worker (TSK-016) ────────────────────
+function updateOfflineIndicator() {
+  var indicator = document.getElementById('offline-indicator');
+  if (!indicator) return;
+  var isOffline = !navigator.onLine;
+  indicator.style.display = isOffline ? 'block' : 'none';
+}
+
+window.addEventListener('online', function() {
+  updateOfflineIndicator();
+  if (typeof showToast === 'function') {
+    showToast('Back online! Live connection restored.', 'success');
+  }
+});
+
+window.addEventListener('offline', function() {
+  updateOfflineIndicator();
+  if (typeof showToast === 'function') {
+    showToast('You are offline. Viewing cached schedules & badge criteria.', 'warning', 5000);
+  }
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(function(reg) {
+        reg.addEventListener('updatefound', function() {
+          var newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', function() {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                if (typeof showToast === 'function') {
+                  showToast('New portal version ready. Refresh to update.', 'info', 5000);
+                }
+              }
+            });
+          }
+        });
+      })
+      .catch(function(err) {
+        console.warn('Service worker registration failed:', err);
+      });
+  });
+}
+
 // Gallery drag-and-drop auto-initialized via js/modules/gallery.js (TSK-010)
 
 </script>
