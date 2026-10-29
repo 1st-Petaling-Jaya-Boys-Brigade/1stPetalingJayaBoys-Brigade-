@@ -2917,6 +2917,67 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log(
     '  ✔ toggleAdminPassVis cleanly unmasks and re-masks password without triggering credential autofill'
   );
+  // ── TSK-030: Officer Admin Gate Hardening & Session Tamperproofing ───────
+  console.log('\nTesting Officer Admin Gate Hardening & Session Tamperproofing (TSK-030)...');
+  adminModule.openAdmin();
+  adminPass.value = 'bb2024admin';
+  await adminModule.adminLogin();
+
+  const sessionToken = adminModule.getAdminSessionToken();
+  assert(sessionToken, 'adminLogin must generate cryptographic session token');
+  assert(sessionToken.includes('.'), 'Session token must be dot-separated payload and signature');
+  const tokenParts = sessionToken.split('.');
+  assert.strictEqual(tokenParts.length, 2, 'Token must contain exactly payload and HMAC-SHA256 signature');
+  assert.strictEqual(tokenParts[1].length, 64, 'Signature must be a 64-character SHA-256 hexadecimal hash');
+
+  const sessionData = adminModule.getAdminSessionData();
+  assert.strictEqual(sessionData.role, 'officer_admin', 'Session role must be officer_admin');
+  assert(sessionData.expiresAt > Date.now(), 'Token must have future expiration');
+  assert(sessionData.nonce && sessionData.nonce.length >= 16, 'Token must contain cryptographically secure nonce');
+
+  // Verify sync and async verification
+  assert.strictEqual(adminModule.verifyAdminSessionSync(), true, 'verifyAdminSessionSync must validate active session');
+  assert.strictEqual(await adminModule.verifyAdminSession(), true, 'verifyAdminSession must validate cryptographic HMAC signature');
+  console.log('  ✔ Cryptographic HMAC-SHA256 session token generation and timing-safe verification verified');
+
+  // Tamper detection: Corrupt token signature
+  const corruptedToken = tokenParts[0] + '.' + '0'.repeat(64);
+  adminModule.setAdminSessionTokenForTesting(corruptedToken, sessionData);
+  assert.strictEqual(await adminModule.verifyAdminSession(), false, 'Tampered token signature must be rejected');
+  assert.strictEqual(adminPanel.style.display, 'none', 'Tampered token must immediately lock down admin panel');
+  console.log('  ✔ Session tamperproofing detects corrupted signatures and revokes access');
+
+  // DevTools Visual Bypass Protection: Spoofing sessionSet('adminAuthed', true) without token
+  adminModule.openAdmin();
+  global.sessionSet('adminAuthed', true);
+  adminModule.logoutAdmin();
+  global.sessionSet('adminAuthed', true);
+  adminModule.switchAdminSection('members');
+  assert.strictEqual(adminPanel.style.display, 'none', 'switchAdminSection must fail closed without valid token');
+  assert.strictEqual(global.sessionGet('adminAuthed'), false, 'Forged adminAuthed flag must be purged');
+  console.log('  ✔ DevTools visual bypass protection blocks unauthenticated action execution');
+
+  // Brute-force rate limiting: 5 consecutive failed attempts trigger lockout
+  adminModule.resetAdminLockout();
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    adminPass.value = 'badPass' + attempt;
+    const loginRes = await adminModule.adminLogin();
+    assert.strictEqual(loginRes, false, 'Invalid login attempt must fail');
+  }
+
+  const lockoutStatus = adminModule.getAdminLockoutStatus();
+  assert.strictEqual(lockoutStatus.locked, true, '5 consecutive failures must trigger lockout');
+  assert(lockoutStatus.remainingSeconds > 0, 'Lockout must report remaining cooldown seconds');
+
+  // Attempt 6 during lockout should be rejected immediately even with correct password
+  adminPass.value = 'bb2024admin';
+  const lockedOutLogin = await adminModule.adminLogin();
+  assert.strictEqual(lockedOutLogin, false, 'Login must be blocked while lockout is active');
+  console.log('  ✔ Brute-force rate limiting enforces exponential lockout after 5 failed attempts');
+
+  // Reset lockout for subsequent suite execution
+  adminModule.resetAdminLockout();
+
 
   // Test switchAdminSection & backToAdminHome
   adminModule.openAdmin();
