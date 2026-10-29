@@ -129,17 +129,27 @@ textarea:-webkit-autofill:active {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
+.submit-btn:active {
+  transform: scale(0.98);
+}
+
 .submit-btn.gold {
-  background: var(--accent);
-  color: #ffffff;
+  background: linear-gradient(135deg, #f5c542, #eab308);
+  color: #121418;
+  font-weight: 700;
   border: none;
   box-shadow: 0 4px 14px rgba(217, 119, 6, 0.28);
 }
 
 .submit-btn.gold:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.05);
   transform: translateY(-1px);
   box-shadow: 0 6px 18px rgba(217, 119, 6, 0.38);
+}
+
+.submit-btn.gold:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.2);
 }
 
 .submit-btn.danger {
@@ -1172,8 +1182,8 @@ textarea:-webkit-autofill:active {
   top: 8px;
   left: 8px;
   background: rgba(10, 14, 23, 0.75);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: #ffffff;
   border-radius: 20px;
   padding: 3px 8px;
@@ -1520,8 +1530,8 @@ textarea:-webkit-autofill:active {
   height: 38px;
   border-radius: 50%;
   background: rgba(10, 14, 23, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   display: flex;
@@ -2593,8 +2603,8 @@ textarea:-webkit-autofill:active {
   inset: 0;
   z-index: 999998;
   background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3722,4 +3732,18 @@ textarea:-webkit-autofill:active {
   color: #000;
   font-weight: 600;
   border: none;
+}
+
+/* ── Responsive Polish for Resources Grid & Uniform Quantity Steppers ── */
+@media (max-width: 600px) {
+  .resources-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .stepper-btn,
+  .qty-btn {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    font-size: 18px !important;
+  }
 }

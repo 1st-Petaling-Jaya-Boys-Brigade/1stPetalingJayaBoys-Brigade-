@@ -103,13 +103,18 @@ textarea,
   .app-main {
     flex: 1;
     min-width: 0;
-    align-items: center;
+    align-items: stretch;
+    width: 100%;
   }
   .page {
-    max-width: 1120px;
+    max-width: 1240px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 28px 36px 90px !important;
+    align-items: stretch !important;
+  }
+  .page > * {
     width: 100%;
-    margin: 0 auto;
-    padding: 24px 32px 80px;
   }
 }
 
@@ -132,24 +137,24 @@ textarea,
 
 /* Page Typography (Clean, Contemporary, High-Contrast) */
 .page-title {
-  font-family: 'Oswald', sans-serif;
-  font-size: 32px;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: clamp(24px, 4vw, 34px);
   font-weight: 700;
   color: var(--text-primary);
   text-transform: uppercase;
-  line-height: 1.1;
-  margin-bottom: 4px;
+  line-height: 1.15;
+  margin-bottom: var(--space-xs, 4px);
   letter-spacing: 0.5px;
 }
 
 .page-subtitle {
-  font-family: 'Oswald', sans-serif;
-  font-size: 13px;
+  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-size: clamp(12px, 2vw, 13.5px);
   font-weight: 600;
   color: var(--accent);
   text-transform: uppercase;
-  letter-spacing: 2.5px;
-  margin-bottom: 6px;
+  letter-spacing: 1px;
+  margin-bottom: var(--space-md, 16px);
 }
 
 .page-desc {
@@ -278,5 +283,27 @@ textarea,
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ── Accessible Focus Indicators & Ergonomics (WCAG 2.4.7) ── */
+:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* ── Modern Layout Stability & Scrollbar Gutters ── */
+@media (min-width: 1024px) {
+  html {
+    scrollbar-gutter: stable;
   }
 }
