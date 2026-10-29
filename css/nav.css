@@ -130,18 +130,7 @@
   letter-spacing: 0.5px;
 }
 
-@media (max-width: 680px) {
-  .nav-search-pill .nav-search-text,
-  .nav-search-pill .nav-search-kbd {
-    display: none;
-  }
-  .nav-search-pill {
-    padding: 8px;
-    min-width: 40px;
-    min-height: 40px;
-    justify-content: center;
-  }
-}
+/* Mobile search handled in unified responsive header block */
 
 /* Notification Bell & Dropdown Card */
 .nav-notif-wrap {
@@ -1234,8 +1223,112 @@
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    height: 60px !important;
+    height: 58px !important;
+    min-height: 58px !important;
     z-index: 200 !important;
+    padding-top: var(--safe-area-top) !important;
+    padding-left: var(--safe-area-left) !important;
+    padding-right: var(--safe-area-right) !important;
+    box-sizing: border-box !important;
+  }
+
+  .nav-inner {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 58px !important;
+    padding: 0 16px !important;
+    gap: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    box-sizing: border-box !important;
+  }
+
+  .nav-logo {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    flex: 0 0 auto !important;
+    min-width: auto !important;
+  }
+
+  .nav-logo img {
+    width: 32px !important;
+    height: 32px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .nav-logo .nav-name {
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+  }
+
+  .nav-logo .nav-sub {
+    font-size: 9px !important;
+    letter-spacing: 1.2px !important;
+    line-height: 1 !important;
+  }
+
+  .nav-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .nav-search-pill {
+    width: 160px !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 4px 10px !important;
+    box-sizing: border-box !important;
+  }
+
+  .nav-search-pill:hover,
+  .nav-search-pill:focus-within {
+    width: 200px !important;
+  }
+
+  .nav-notif-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+  }
+
+  .nav-points-badge {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 10px !important;
+    font-size: 12.5px !important;
+  }
+
+  .nav-profile-btn {
+    height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .nav-avatar-circle {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .nav-menu-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+  }
+
+  .theme-toggle-btn {
+    padding: 6px 10px !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    font-size: 12px !important;
   }
 
   .app-shell-layout {
@@ -1248,6 +1341,239 @@
   .app-main {
     margin-left: 0 !important;
     width: 100% !important;
-    padding-top: 60px !important;
+    padding-top: 58px !important;
+  }
+}
+
+/* ── Mobile Viewport Scaling & Precision Alignment (TSK Fix) ── */
+@media (max-width: 768px) {
+  .nav {
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+
+  .nav-inner {
+    height: 56px !important;
+    padding: 0 12px !important;
+    gap: 8px !important;
+  }
+
+  .nav-logo {
+    gap: 8px !important;
+  }
+
+  .nav-logo img {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .nav-logo .nav-name {
+    font-size: 14px !important;
+  }
+
+  .nav-logo .nav-sub {
+    font-size: 8.5px !important;
+    letter-spacing: 1px !important;
+  }
+
+  .nav-actions {
+    gap: 6px !important;
+  }
+
+  /* Compact tactile search button that expands smoothly across the header when active */
+  .nav-search-pill {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border-radius: var(--radius-pill) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    background: var(--bg-card-subtle) !important;
+    border: 1px solid var(--border-subtle) !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-sizing: border-box !important;
+  }
+
+  .nav-search-pill svg {
+    width: 16px !important;
+    height: 16px !important;
+    color: var(--text-secondary) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .nav-search-pill .nav-search-input {
+    display: none !important;
+  }
+
+  .nav-search-pill.expanded,
+  .nav-search-pill:focus-within {
+    position: absolute !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: 8px !important;
+    height: 40px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    padding: 0 14px !important;
+    border-radius: var(--radius-pill) !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--accent) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+    z-index: 250 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .nav-search-pill.expanded .nav-search-input,
+  .nav-search-pill:focus-within .nav-search-input {
+    display: block !important;
+    width: 100% !important;
+    font-size: 13.5px !important;
+  }
+
+  .nav-notif-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    border-radius: var(--radius-pill) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .nav-notif-btn svg {
+    width: 17px !important;
+    height: 17px !important;
+  }
+
+  .nav-points-badge {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 12px !important;
+    gap: 4px !important;
+    border-radius: var(--radius-pill) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+
+  .nav-points-badge .points-icon {
+    width: 14px !important;
+    height: 14px !important;
+  }
+
+  .nav-profile-btn {
+    width: 36px !important;
+    height: 36px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .nav-avatar-circle {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  /* Theme toggle is accessible directly in sidebar navigation on mobile */
+  .theme-toggle-btn {
+    display: none !important;
+  }
+
+  .nav-menu-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .nav-menu-btn span {
+    width: 16px !important;
+    height: 2px !important;
+  }
+
+  .notif-dropdown-card {
+    position: fixed !important;
+    top: 60px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
+  .app-main {
+    padding-top: 56px !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .nav-inner {
+    padding: 0 8px !important;
+    gap: 6px !important;
+  }
+
+  .nav-actions {
+    gap: 4px !important;
+  }
+
+  .nav-logo .nav-sub {
+    display: none !important;
+  }
+
+  .nav-logo .nav-name {
+    font-size: 13.5px !important;
+  }
+
+  .nav-points-badge .points-unit {
+    display: none !important;
+  }
+
+  .nav-points-badge {
+    padding: 0 6px !important;
+  }
+}
+
+@media (max-width: 340px) {
+  .nav-inner {
+    padding: 0 6px !important;
+    gap: 4px !important;
+  }
+
+  .nav-actions {
+    gap: 3px !important;
+  }
+
+  .nav-search-pill,
+  .nav-notif-btn,
+  .nav-menu-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    min-height: 32px !important;
+  }
+
+  .nav-avatar-circle {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .nav-points-badge {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 5px !important;
+    font-size: 11px !important;
   }
 }

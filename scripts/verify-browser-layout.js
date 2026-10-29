@@ -1812,6 +1812,114 @@ async function getJson(url) {
       }
     }
 
+    // ── Mobile Top Header Bar Alignment & Scaling Verification ──
+    console.log('\n[Mobile Top Header Bar Alignment & Scaling Verification]');
+    await sendCmd('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 2,
+      mobile: true
+    });
+    await new Promise(r => setTimeout(r, 400));
+
+    const mobileDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const header = document.querySelector('.nav');
+        const inner = document.querySelector('.nav-inner');
+        const logo = document.querySelector('.nav-logo');
+        const actions = document.querySelector('.nav-actions');
+        const search = document.getElementById('nav-search-trigger');
+        const notif = document.getElementById('nav-notif-btn');
+        const points = document.getElementById('nav-points-badge');
+        const profile = document.getElementById('nav-profile-btn');
+        const menu = document.getElementById('nav-menu-btn');
+        const theme = document.querySelector('.theme-toggle-btn');
+
+        const hr = header.getBoundingClientRect();
+        const lr = logo.getBoundingClientRect();
+        const ar = actions.getBoundingClientRect();
+        const sr = search.getBoundingClientRect();
+        const nr = notif.getBoundingClientRect();
+        const pr = points.getBoundingClientRect();
+        const fr = profile.getBoundingClientRect();
+        const mr = menu.getBoundingClientRect();
+
+        return {
+          windowWidth: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          headerRight: hr.right,
+          actionsRight: ar.right,
+          logoWidth: lr.width,
+          searchWidth: sr.width,
+          searchHeight: sr.height,
+          notifHeight: nr.height,
+          pointsHeight: pr.height,
+          profileHeight: fr.height,
+          menuHeight: mr.height,
+          themeHidden: getComputedStyle(theme).display === 'none'
+        };
+      })()`,
+      returnByValue: true
+    });
+
+    const m = mobileDiag.result.value;
+    assert.strictEqual(m.scrollWidth <= m.windowWidth, true, 'Zero horizontal overflow allowed on mobile');
+    assert.ok(m.actionsRight <= m.headerRight, 'All header actions must fit within the mobile viewport');
+    assert.ok(m.logoWidth >= 80, 'Logo and brand name must be clearly visible on mobile (width >= 80px)');
+    assert.strictEqual(m.searchHeight, 36, 'Mobile search button height must be 36px');
+    assert.strictEqual(m.notifHeight, 36, 'Mobile notif button height must be 36px');
+    assert.strictEqual(m.pointsHeight, 36, 'Mobile points badge height must be 36px');
+    assert.strictEqual(m.profileHeight, 36, 'Mobile profile avatar height must be 36px');
+    assert.strictEqual(m.menuHeight, 36, 'Mobile hamburger menu height must be 36px');
+    assert.strictEqual(m.themeHidden, true, 'Desktop theme text button must be hidden on mobile header');
+    console.log('  ✔ Mobile header alignment, 36px uniform scaling, and 0px overflow verified at 390px viewport');
+
+    // Test search expansion on mobile
+    await sendCmd('Runtime.evaluate', { expression: 'openGlobalSearch()' });
+    await new Promise(r => setTimeout(r, 200));
+
+    const expandedDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const pill = document.getElementById('nav-search-trigger');
+        const input = document.getElementById('global-search-input');
+        const r = pill.getBoundingClientRect();
+        return {
+          expanded: pill.classList.contains('expanded'),
+          width: r.width,
+          inputVisible: getComputedStyle(input).display !== 'none'
+        };
+      })()`,
+      returnByValue: true
+    });
+    const exp = expandedDiag.result.value;
+    assert.strictEqual(exp.expanded, true, 'Search pill must have expanded class');
+    assert.ok(exp.width >= 300, 'Expanded search pill must stretch across mobile header (width >= 300px)');
+    assert.strictEqual(exp.inputVisible, true, 'Search input must be visible when expanded');
+    console.log('  ✔ Mobile search pill smoothly expands across header when focused/tapped');
+
+    // Test search collapse
+    await sendCmd('Runtime.evaluate', { expression: 'closeGlobalSearch()' });
+    await new Promise(r => setTimeout(r, 200));
+
+    const collapsedDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const pill = document.getElementById('nav-search-trigger');
+        const r = pill.getBoundingClientRect();
+        return {
+          expanded: pill.classList.contains('expanded'),
+          width: r.width
+        };
+      })()`,
+      returnByValue: true
+    });
+    const col = collapsedDiag.result.value;
+    assert.strictEqual(col.expanded, false, 'Search pill must not have expanded class');
+    assert.strictEqual(col.width, 36, 'Collapsed search pill must return to 36px icon size');
+    console.log('  ✔ Mobile search pill collapses back to 36px icon button upon blur/close');
+
+    // Reset device metrics back to desktop
+    await sendCmd('Emulation.clearDeviceMetricsOverride');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {
