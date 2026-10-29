@@ -95,11 +95,71 @@ function mergeConfigCollections(baseList, currentRemoteList, clientUpdatedList, 
   return merged;
 }
 
+/**
+ * Request Throttling: Limits maximum concurrent HTTP requests to prevent socket exhaustion (TSK-025)
+ */
+const MAX_CONCURRENT_REQUESTS = 12;
+let _activeRequests = 0;
+const _requestQueue = [];
+
+async function throttledFetch(url, fetchOpts) {
+  if (_activeRequests >= MAX_CONCURRENT_REQUESTS) {
+    await new Promise(resolve => _requestQueue.push(resolve));
+  }
+  _activeRequests++;
+  try {
+    return await fetch(url, fetchOpts);
+  } finally {
+    _activeRequests--;
+    if (_requestQueue.length > 0) {
+      const next = _requestQueue.shift();
+      next();
+    }
+  }
+}
+
+/**
+ * In-memory TTL Query Cache & Request Coalescing (TSK-025)
+ */
+const _queryCache = new Map();
+
+function getCacheKey(method, path, headers) {
+  return `${method}:${path}:${headers ? JSON.stringify(headers) : ''}`;
+}
+
+function invalidateCache(tablePrefix) {
+  if (!tablePrefix) {
+    _queryCache.clear();
+    return;
+  }
+  const prefix = tablePrefix.split('?')[0].toLowerCase();
+  for (const key of Array.from(_queryCache.keys())) {
+    if (key.toLowerCase().includes(prefix)) {
+      _queryCache.delete(key);
+    }
+  }
+}
+
+function clearQueryCache() {
+  _queryCache.clear();
+}
+
 const supa = {
   /**
    * Generic PostgREST HTTP Request helper
    */
-  async req(method, path, body, extraHeaders) {
+  /**
+   * PostgREST HTTP Request helper with Request Throttling, Exponential Backoff on HTTP 429/500,
+   * and TTL Query Caching / Single-flight Coalescing (TSK-025)
+   */
+  async req(method, path, body, extraHeaders, options) {
+    options = options || {};
+    const maxRetries = options.maxRetries !== undefined ? options.maxRetries : 3;
+    const baseDelay = options.baseDelay || 150;
+    const maxDelay = options.maxDelay || 3000;
+    const shouldCache = method === 'GET' && options.cache !== false;
+    const ttl = typeof options.ttl === 'number' ? options.ttl : 5000;
+
     const url =
       (typeof SUPA_URL !== 'undefined'
         ? SUPA_URL
@@ -135,7 +195,135 @@ const supa = {
       Object.assign(headers, extraHeaders);
     }
 
-    const r = await fetch(url, {
+    // Auto-invalidate cache on mutation
+    if (method !== 'GET') {
+      invalidateCache(path);
+    }
+
+    const cKey = getCacheKey(method, path, headers);
+    if (shouldCache) {
+      const cached = _queryCache.get(cKey);
+      if (cached) {
+        if (Date.now() < cached.expiresAt) {
+          return cached.data !== null && typeof cached.data === 'object'
+            ? JSON.parse(JSON.stringify(cached.data))
+            : cached.data;
+        }
+        if (cached.inFlightPromise) {
+          return await cached.inFlightPromise;
+        }
+      }
+    }
+
+    const executeRequest = async () => {
+      let attempt = 0;
+      while (true) {
+        try {
+          const r = await throttledFetch(url, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : undefined
+          });
+
+          // Handle rate limit (HTTP 429) and server errors (HTTP 500-599) with exponential backoff & jitter
+          if (r.status === 429 || (r.status >= 500 && r.status <= 599)) {
+            if (attempt < maxRetries) {
+              attempt++;
+              let delay = baseDelay * Math.pow(2, attempt) + Math.random() * 50;
+              const retryAfter = r.headers && typeof r.headers.get === 'function' ? r.headers.get('Retry-After') : null;
+              if (retryAfter) {
+                const parsed = parseInt(retryAfter, 10);
+                if (!isNaN(parsed)) delay = parsed * 1000;
+              }
+              await new Promise(res => setTimeout(res, Math.min(maxDelay, delay)));
+              continue;
+            }
+            const e = await r.text();
+            throw new Error(`HTTP ${r.status}: ${e}`);
+          }
+
+          if (!r.ok) {
+            const e = await r.text();
+            throw new Error(e);
+          }
+
+          const data = r.status === 204 ? null : await r.json();
+
+          if (shouldCache) {
+            _queryCache.set(cKey, {
+              data: data !== null && typeof data === 'object' ? JSON.parse(JSON.stringify(data)) : data,
+              expiresAt: Date.now() + ttl,
+              inFlightPromise: null
+            });
+          }
+
+          return data;
+        } catch (err) {
+          const isNetworkError = err && (err.name === 'TypeError' || err.message === 'Failed to fetch');
+          if (isNetworkError && attempt < maxRetries) {
+            attempt++;
+            const delay = Math.min(maxDelay, baseDelay * Math.pow(2, attempt) + Math.random() * 50);
+            await new Promise(res => setTimeout(res, delay));
+            continue;
+          }
+          if (shouldCache) {
+            _queryCache.delete(cKey);
+          }
+          throw err;
+        }
+      }
+    };
+
+    if (shouldCache) {
+      const inFlight = executeRequest();
+      _queryCache.set(cKey, {
+        data: null,
+        expiresAt: 0,
+        inFlightPromise: inFlight
+      });
+      return await inFlight;
+    }
+
+    return await executeRequest();
+  },
+
+  get(path, options) {
+    if (options && typeof options === 'object') {
+      return supa.req('GET', path, null, options.extraHeaders, options);
+    }
+    return supa.req('GET', path);
+  },
+
+  /**
+   * Supabase query with content-range header parsing for total records (TSK-025)
+   */
+  async queryWithCount(method, path, body, extraHeaders, _options) {
+    const url =
+      (typeof SUPA_URL !== 'undefined'
+        ? SUPA_URL
+        : typeof window !== 'undefined'
+          ? window.SUPA_URL
+          : '') +
+      '/rest/v1/' +
+      path;
+    const key =
+      typeof SUPA_KEY !== 'undefined'
+        ? SUPA_KEY
+        : typeof window !== 'undefined'
+          ? window.SUPA_KEY
+          : '';
+
+    const headers = {
+      apikey: key,
+      Authorization: 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      Prefer: 'count=exact'
+    };
+    if (extraHeaders && typeof extraHeaders === 'object') {
+      Object.assign(headers, extraHeaders);
+    }
+
+    const r = await throttledFetch(url, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined
@@ -145,12 +333,67 @@ const supa = {
       const e = await r.text();
       throw new Error(e);
     }
-    return r.status === 204 ? null : r.json();
+
+    const data = r.status === 204 ? null : await r.json();
+    let total = null;
+    const contentRange = r.headers && typeof r.headers.get === 'function' ? r.headers.get('content-range') : null;
+    if (contentRange) {
+      const parts = contentRange.split('/');
+      if (parts[1]) {
+        const parsed = parseInt(parts[1], 10);
+        if (!isNaN(parsed)) total = parsed;
+      }
+    }
+
+    return {
+      data,
+      total: total !== null ? total : (Array.isArray(data) ? data.length : 0),
+      status: r.status
+    };
   },
 
-  get(path) {
-    return supa.req('GET', path);
+  /**
+   * Supabase pagination helper (limit/offset) with count resolution (TSK-025)
+   * @param {string} table - Table name (e.g. 'bb_members', 'bb_orders')
+   * @param {Object} [options]
+   * @param {number} [options.page=1] - 1-based page index
+   * @param {number} [options.pageSize=20] - Records per page
+   * @param {string} [options.select='*'] - PostgREST select expression
+   * @param {string} [options.order] - Sorting expression
+   * @param {string} [options.filter] - Additional PostgREST filter string
+   * @returns {Promise<{data: Array, page: number, pageSize: number, total: number, totalPages: number, hasMore: boolean, offset: number}>}
+   */
+  async paginate(table, options) {
+    options = options || {};
+    const page = Math.max(1, parseInt(options.page, 10) || 1);
+    const pageSize = Math.max(1, Math.min(100, parseInt(options.pageSize, 10) || 20));
+    const offset = (page - 1) * pageSize;
+    const select = options.select || '*';
+    const order = options.order ? '&order=' + options.order : '';
+    const filter = options.filter ? '&' + options.filter.replace(/^&/, '') : '';
+
+    const path = `${table}?select=${select}&limit=${pageSize}&offset=${offset}${order}${filter}`;
+
+    const res = await supa.queryWithCount('GET', path, null, options.extraHeaders, options);
+    const data = res.data || [];
+    const total = res.total !== null ? res.total : data.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    return {
+      data,
+      page,
+      pageSize,
+      total,
+      totalPages,
+      hasMore: page < totalPages,
+      offset
+    };
   },
+
+  clearQueryCache,
+  invalidateCache,
+  throttledFetch,
+  MAX_CONCURRENT_REQUESTS,
 
   post(path, body) {
     return supa.req('POST', path, body);
@@ -418,6 +661,11 @@ if (typeof module !== 'undefined' && module.exports) {
     mergeConfigCollections,
     recordConfigSnapshot: supa.recordConfigSnapshot,
     getConfigSnapshot: supa.getConfigSnapshot,
-    clearConfigSnapshots: supa.clearConfigSnapshots
+    clearConfigSnapshots: supa.clearConfigSnapshots,
+    clearQueryCache: supa.clearQueryCache,
+    invalidateCache: supa.invalidateCache,
+    paginate: supa.paginate,
+    throttledFetch,
+    MAX_CONCURRENT_REQUESTS
   };
 }

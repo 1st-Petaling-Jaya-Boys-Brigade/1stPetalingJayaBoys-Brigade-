@@ -250,6 +250,65 @@
     });
   }
 
+  /**
+   * Initializes global button debouncing (TSK-025)
+   * Intercepts rapid button clicks within delayMs to prevent accidental duplicate actions and request floods.
+   * @param {number} [delayMs=500]
+   */
+  function initGlobalButtonDebounce(delayMs) {
+    if (typeof document === 'undefined') return;
+    var wait = typeof delayMs === 'number' ? delayMs : 500;
+    document.addEventListener(
+      'click',
+      function(e) {
+        var btn = e.target && e.target.closest ? e.target.closest('button, [role="button"], input[type="submit"], input[type="button"], .btn') : null;
+        if (!btn) return;
+        if (
+          btn.hasAttribute('data-no-debounce') ||
+          btn.classList.contains('no-debounce') ||
+          btn.classList.contains('hq-carousel-arrow') ||
+          btn.classList.contains('hq-carousel-dot') ||
+          btn.classList.contains('nav-link') ||
+          btn.classList.contains('tab-btn') ||
+          btn.classList.contains('channel-item')
+        ) return;
+
+        var now = Date.now();
+        var last = parseInt(btn.getAttribute('data-last-click') || '0', 10);
+        if (now - last < wait) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          return;
+        }
+        btn.setAttribute('data-last-click', String(now));
+      },
+      true
+    );
+  }
+
+  /**
+   * Wraps an async button action with busy/disabled state (TSK-025)
+   * @param {HTMLElement} btn
+   * @param {Function} asyncFn
+   * @returns {Promise<any>}
+   */
+  async function withButtonLock(btn, asyncFn) {
+    if (!btn || typeof asyncFn !== 'function') return typeof asyncFn === 'function' ? asyncFn() : null;
+    var wasDisabled = btn.disabled;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    try {
+      return await asyncFn();
+    } finally {
+      btn.disabled = wasDisabled;
+      btn.removeAttribute('aria-busy');
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    initGlobalButtonDebounce(500);
+  }
+
   // Non-blocking alert safety-net wrapper
   if (typeof global !== 'undefined' && global.window) {
     global.window.alert = function(msg) {
@@ -268,6 +327,8 @@
     global.dismissToast = dismissToast;
     global.showConfirmModal = showConfirmModal;
     global.ensureToastContainer = ensureToastContainer;
+    global.initGlobalButtonDebounce = initGlobalButtonDebounce;
+    global.withButtonLock = withButtonLock;
   }
 
   // CommonJS export for Node testing
@@ -276,7 +337,9 @@
       showToast: showToast,
       dismissToast: dismissToast,
       showConfirmModal: showConfirmModal,
-      ensureToastContainer: ensureToastContainer
+      ensureToastContainer: ensureToastContainer,
+      initGlobalButtonDebounce: initGlobalButtonDebounce,
+      withButtonLock: withButtonLock
     };
   }
 })(typeof window !== 'undefined' ? window : this);

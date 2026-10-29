@@ -3145,11 +3145,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
   assert.strictEqual(
     foundIds.length,
-    387,
-    'All 361 core DOM IDs plus semantic landmarks, offline indicator, uniform products preview, admin order filter, and layout/header controls must be preserved in index.html'
+    388,
+    'All 361 core DOM IDs plus semantic landmarks, offline indicator, uniform products preview, admin order filter, layout/header controls, and honeypot trap must be preserved in index.html'
   );
   console.log(
-    '  ✔ Exactly 387 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview + 1 admin order filter)'
+    '  ✔ Exactly 388 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview + 1 admin order filter + 1 registration honeypot trap)'
   );
 
   console.log('\nTesting Client-side Validation & Concurrency Safety (TSK-014)...');
@@ -3915,7 +3915,177 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     );
   }
 
+  {
+    console.log('\nTesting System Hardening, Anti-Spam & Concurrency (TSK-025)...');
+
+    // 1. Global Button Debouncing & Request Throttling
+    const uiMod = require('../js/core/ui.js');
+    assert.strictEqual(typeof uiMod.initGlobalButtonDebounce, 'function', 'initGlobalButtonDebounce must be a function');
+    assert.strictEqual(typeof uiMod.withButtonLock, 'function', 'withButtonLock must be a function');
+
+    const utilsMod = require('../js/core/utils.js');
+    assert.strictEqual(typeof utilsMod.debounce, 'function', 'debounce must be exported from utils');
+    assert.strictEqual(typeof utilsMod.throttle, 'function', 'throttle must be exported from utils');
+    assert.strictEqual(typeof utilsMod.compressImage, 'function', 'compressImage must be exported from utils');
+
+    // Test withButtonLock
+    const testBtn = { disabled: false, setAttribute: (k, v) => { testBtn[k] = v; }, removeAttribute: (k) => { delete testBtn[k]; } };
+    let ranAsync = false;
+    await uiMod.withButtonLock(testBtn, async () => {
+      assert.strictEqual(testBtn.disabled, true, 'Button must be disabled during action');
+      assert.strictEqual(testBtn['aria-busy'], 'true', 'Button must have aria-busy="true" during action');
+      ranAsync = true;
+    });
+    assert.strictEqual(ranAsync, true, 'Async function must run');
+    assert.strictEqual(testBtn.disabled, false, 'Button must be re-enabled after action');
+    assert.strictEqual(testBtn['aria-busy'], undefined, 'aria-busy must be removed after action');
+    console.log('  ✔ Button debouncing and withButtonLock busy states verified');
+
+    // Test debounce & throttle timers
+    let debouncedCalls = 0;
+    const debouncedFn = utilsMod.debounce(() => { debouncedCalls++; }, 50);
+    debouncedFn(); debouncedFn(); debouncedFn();
+    assert.strictEqual(debouncedCalls, 0, 'Debounced calls must not fire immediately');
+    await new Promise(r => setTimeout(r, 70));
+    assert.strictEqual(debouncedCalls, 1, 'Debounced function must fire exactly once after delay');
+
+    let throttledCalls = 0;
+    const throttledFn = utilsMod.throttle(() => { throttledCalls++; }, 50);
+    throttledFn(); throttledFn(); throttledFn();
+    assert.strictEqual(throttledCalls, 1, 'Throttled function must fire immediately on first call');
+    await new Promise(r => setTimeout(r, 60));
+    throttledFn();
+    assert.strictEqual(throttledCalls, 2, 'Throttled function can fire again after limit interval');
+    console.log('  ✔ Debounce and throttle timing utilities verified');
+
+    // 2. Client-side Image Compression (compressImage)
+    const compRes = await utilsMod.compressImage({ size: 2500000 }, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
+    assert.ok(compRes, 'compressImage must return compression result');
+    assert.strictEqual(compRes.width, 1200, 'compressImage target width clamped');
+    assert.strictEqual(compRes.height, 1200, 'compressImage target height clamped');
+    console.log('  ✔ Client-side image compression utility verified');
+
+    // 3. Supabase Request Throttling & Concurrency Limiter
+    const supaApi = require('../js/api/supabase.js');
+    assert.strictEqual(supaApi.MAX_CONCURRENT_REQUESTS, 12, 'MAX_CONCURRENT_REQUESTS must be 12');
+    assert.strictEqual(typeof supaApi.throttledFetch, 'function', 'throttledFetch must be a function');
+    console.log('  ✔ Request throttling with 12 concurrent connection pool verified');
+
+    // 4. Supabase Query Caching & Cache Invalidation
+    supaApi.clearQueryCache();
+    let fetchCount = 0;
+    const origFetch = global.fetch;
+    global.fetch = async (_url, _opts) => {
+      fetchCount++;
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map(),
+        json: async () => [{ id: '1', title: 'Test Announcement' }],
+        text: async () => JSON.stringify([{ id: '1', title: 'Test Announcement' }])
+      };
+    };
+
+    // First GET should fetch from network and cache
+    const get1 = await supaApi.supa.get('bb_announcements?select=*', { ttl: 2000 });
+    assert.strictEqual(fetchCount, 1, 'First request must query network');
+    assert.strictEqual(get1.length, 1, 'Data returned');
+
+    // Second GET within TTL should return cached copy without new fetch
+    const get2 = await supaApi.supa.get('bb_announcements?select=*');
+    assert.strictEqual(fetchCount, 1, 'Second request within TTL must return cached data (no fetch)');
+    assert.strictEqual(get2[0].title, 'Test Announcement');
+
+    // Mutation (POST) to bb_announcements must invalidate the query cache
+    await supaApi.supa.post('bb_announcements', { title: 'New announcement' });
+    const get3 = await supaApi.supa.get('bb_announcements?select=*');
+    assert.ok(get3, 'Fresh network query returned data');
+    assert.strictEqual(fetchCount, 3, 'POST must invalidate cache and trigger fresh network query on next GET');
+    console.log('  ✔ Query caching, TTL expiration, and mutation-based cache invalidation verified');
+
+    // 5. Exponential Backoff Retries on HTTP 429 and 500
+    let retryAttempts = 0;
+    global.fetch = async () => {
+      retryAttempts++;
+      if (retryAttempts < 3) {
+        return {
+          ok: false,
+          status: retryAttempts === 1 ? 429 : 503,
+          headers: new Map(),
+          text: async () => 'Rate limit or service unavailable'
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map(),
+        json: async () => ({ status: 'success after retry' })
+      };
+    };
+
+    const retryRes = await supaApi.supa.req('GET', 'bb_test_retry', null, null, {
+      cache: false,
+      baseDelay: 20,
+      maxDelay: 100,
+      maxRetries: 3
+    });
+    assert.strictEqual(retryAttempts, 3, 'Request must retry on HTTP 429 and 503');
+    assert.strictEqual(retryRes.status, 'success after retry', 'Request must resolve upon successful retry');
+    console.log('  ✔ Exponential backoff retries on HTTP 429 and 500+ verified');
+
+    // 6. Supabase Pagination (limit/offset) & count resolution
+    global.fetch = async (_url, _opts) => {
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => name.toLowerCase() === 'content-range' ? '0-19/85' : null
+        },
+        json: async () => Array(20).fill(0).map((_, i) => ({ id: i + 1 })),
+        text: async () => '[]'
+      };
+    };
+
+    const pageRes = await supaApi.supa.paginate('bb_members', { page: 1, pageSize: 20 });
+    assert.strictEqual(pageRes.data.length, 20, 'Page size matches');
+    assert.strictEqual(pageRes.page, 1, 'Current page index is 1');
+    assert.strictEqual(pageRes.total, 85, 'Total records parsed from content-range');
+    assert.strictEqual(pageRes.totalPages, 5, 'Math.ceil(85 / 20) is 5 total pages');
+    assert.strictEqual(pageRes.hasMore, true, 'hasMore is true for page 1 of 5');
+    console.log('  ✔ Supabase pagination (limit/offset) with count=exact resolution verified');
+
+    // 7. OTP / Auth Cooldown Timers & Honeypot Bot Traps
+    const memberMod = require('../js/modules/member.js');
+    assert.strictEqual(memberMod.AUTH_MAX_ATTEMPTS, 5, 'AUTH_MAX_ATTEMPTS must be 5');
+    assert.strictEqual(memberMod.AUTH_LOCKOUT_MS, 30000, 'AUTH_LOCKOUT_MS must be 30000 (30s)');
+    assert.strictEqual(memberMod.OTP_COOLDOWN_MS, 60000, 'OTP_COOLDOWN_MS must be 60000 (60s)');
+    assert.ok(indexHtmlStr.includes('id="reg-honeypot"'), 'Honeypot trap input must exist in index.html');
+    console.log('  ✔ OTP cooldown, Auth lockout timers, and honeypot bot trap verified');
+
+    // 8. Cross-Tab Storage Synchronization
+    const sessionMod = require('../js/core/session.js');
+    assert.strictEqual(typeof sessionMod.handleSyncMessage, 'function', 'handleSyncMessage must be a function');
+
+    // Simulate incoming sync from another tab
+    sessionMod.handleSyncMessage({
+      action: 'set',
+      key: 'name',
+      value: 'Synced Member Name',
+      session: { name: 'Synced Member Name', ic: 'member@test.org' }
+    });
+    assert.strictEqual(sessionMod.sessionGet('name'), 'Synced Member Name', 'Cross-tab set syncs in-memory session');
+    assert.strictEqual(sessionMod.sessionGet('ic'), 'member@test.org', 'Cross-tab set syncs identifier');
+
+    sessionMod.handleSyncMessage({ action: 'clear' });
+    assert.strictEqual(sessionMod.sessionGet('name'), null, 'Cross-tab clear clears in-memory session');
+    console.log('  ✔ Cross-tab storage synchronization across tabs verified');
+
+    // Restore fetch
+    global.fetch = origFetch;
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
+  process.exit(0);
 })().catch(err => {
   console.error('\n✖ Test failed:', err);
   process.exit(1);

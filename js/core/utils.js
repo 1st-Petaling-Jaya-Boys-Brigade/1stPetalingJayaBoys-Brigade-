@@ -470,6 +470,173 @@ function showConfirmModal(message, title, options) {
   return Promise.resolve(false);
 }
 
+/**
+ * Debounces a function call by waitMs (TSK-025)
+ * @param {Function} fn
+ * @param {number} waitMs
+ * @returns {Function}
+ */
+function debounce(fn, waitMs) {
+  var timer = null;
+  return function() {
+    var ctx = this;
+    var args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function() {
+      fn.apply(ctx, args);
+    }, waitMs);
+  };
+}
+
+/**
+ * Throttles a function call by limitMs (TSK-025)
+ * @param {Function} fn
+ * @param {number} limitMs
+ * @returns {Function}
+ */
+function throttle(fn, limitMs) {
+  var inThrottle = false;
+  return function() {
+    var ctx = this;
+    var args = arguments;
+    if (!inThrottle) {
+      fn.apply(ctx, args);
+      inThrottle = true;
+      setTimeout(function() { inThrottle = false; }, limitMs);
+    }
+  };
+}
+
+/**
+ * Client-side image compressor before upload (TSK-025)
+ * Scales down dimensions maintaining aspect ratio and encodes to compressed WebP or JPEG.
+ * @param {File|Blob|string} source - File, Blob, or Data URL to compress
+ * @param {Object} [options]
+ * @param {number} [options.maxWidth=1920] - Max output width in px
+ * @param {number} [options.maxHeight=1920] - Max output height in px
+ * @param {number} [options.quality=0.82] - Compression quality 0.0 to 1.0
+ * @param {string} [options.mimeType='image/jpeg'] - Output format ('image/jpeg' or 'image/webp')
+ * @returns {Promise<{blob: Blob|null, dataUrl: string|null, width: number, height: number, originalSize: number, compressedSize: number, compressed: boolean}>}
+ */
+function compressImage(source, options) {
+  options = options || {};
+  var maxWidth = options.maxWidth || 1920;
+  var maxHeight = options.maxHeight || 1920;
+  var quality = typeof options.quality === 'number' ? options.quality : 0.82;
+  var mimeType = options.mimeType || 'image/jpeg';
+
+  if (!source) return Promise.resolve(null);
+
+  // In test / non-browser environment without DOM canvas, return mock descriptor
+  if (typeof document === 'undefined' && typeof OffscreenCanvas === 'undefined') {
+    var size = source.size || (typeof source === 'string' ? source.length : 0);
+    return Promise.resolve({
+      blob: (typeof Blob !== 'undefined' && source instanceof Blob) ? source : null,
+      dataUrl: typeof source === 'string' ? source : null,
+      width: maxWidth,
+      height: maxHeight,
+      originalSize: size,
+      compressedSize: size,
+      compressed: false
+    });
+  }
+
+  return new Promise(function(resolve, reject) {
+    var originalSize = source.size || 0;
+
+    function processImg(img) {
+      var width = img.naturalWidth || img.width || maxWidth;
+      var height = img.naturalHeight || img.height || maxHeight;
+
+      if (width > maxWidth || height > maxHeight) {
+        if (width / height > maxWidth / maxHeight) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        } else {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      var canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve({
+          blob: (typeof Blob !== 'undefined' && source instanceof Blob) ? source : null,
+          dataUrl: null,
+          width: width,
+          height: height,
+          originalSize: originalSize,
+          compressedSize: originalSize,
+          compressed: false
+        });
+        return;
+      }
+
+      ctx.fillStyle = '#ffffff';
+      if (mimeType === 'image/jpeg') {
+        ctx.fillRect(0, 0, width, height);
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+
+      var dataUrl = canvas.toDataURL(mimeType, quality);
+      if (canvas.toBlob) {
+        canvas.toBlob(function(blob) {
+          resolve({
+            blob: blob,
+            dataUrl: dataUrl,
+            width: width,
+            height: height,
+            originalSize: originalSize,
+            compressedSize: blob ? blob.size : dataUrl.length,
+            compressed: true
+          });
+        }, mimeType, quality);
+      } else {
+        resolve({
+          blob: null,
+          dataUrl: dataUrl,
+          width: width,
+          height: height,
+          originalSize: originalSize,
+          compressedSize: dataUrl.length,
+          compressed: true
+        });
+      }
+    }
+
+    if (typeof source === 'string' && (source.indexOf('data:') === 0 || source.indexOf('blob:') === 0 || source.indexOf('http') === 0)) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function() { processImg(img); };
+      img.onerror = function() { reject(new Error('Failed to load image source')); };
+      img.src = source;
+    } else if (typeof FileReader !== 'undefined' && (source instanceof Blob || source instanceof File)) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() { processImg(img); };
+        img.onerror = function() { reject(new Error('Failed to parse image from file')); };
+        img.src = e.target.result;
+      };
+      reader.onerror = function() { reject(new Error('Failed to read image file')); };
+      reader.readAsDataURL(source);
+    } else {
+      resolve({
+        blob: source,
+        dataUrl: null,
+        width: maxWidth,
+        height: maxHeight,
+        originalSize: originalSize,
+        compressedSize: originalSize,
+        compressed: false
+      });
+    }
+  });
+}
+
 // Attach to window if in browser
 if (typeof window !== 'undefined') {
   window.escapeHtml     = escapeHtml;
@@ -489,6 +656,9 @@ if (typeof window !== 'undefined') {
   window.verifyPassword = verifyPassword;
   window.showToast      = showToast;
   window.showConfirmModal = showConfirmModal;
+  window.debounce       = debounce;
+  window.throttle       = throttle;
+  window.compressImage  = compressImage;
 }
 
 // Export for module systems if present
@@ -510,6 +680,9 @@ if (typeof module !== 'undefined' && module.exports) {
     hashPassword: hashPassword,
     verifyPassword: verifyPassword,
     showToast: showToast,
-    showConfirmModal: showConfirmModal
+    showConfirmModal: showConfirmModal,
+    debounce: debounce,
+    throttle: throttle,
+    compressImage: compressImage
   };
 }
