@@ -12,6 +12,18 @@
 var galleryImages = [];
 var _currentGalleryFilter = 'all'; // 'all' | 'photos' | 'videos'
 
+/**
+ * Resolves Supabase client instance across environments
+ */
+function getSupa() {
+  if (typeof window !== 'undefined' && window.supa) return window.supa;
+  if (typeof global !== 'undefined' && global.supa) return global.supa;
+  if (typeof getSupaClient === 'function') return getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof supa !== 'undefined' && supa) return supa;
+  return null;
+}
+
 // ── Media Helpers & Link Normalization ─────────────────────────────────────
 /**
  * Normalizes media URLs for Google Drive, YouTube, and Vimeo
@@ -213,7 +225,7 @@ async function uploadSingleMediaFile(file) {
     blob = uploadData;
   }
 
-  var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+  var client = getSupa();
   if (client && typeof client.uploadFile === 'function') {
     await client.uploadFile('gallery', fname, blob);
     var url = client.fileUrl('gallery', fname);
@@ -238,7 +250,7 @@ async function uploadSingleMediaFile(file) {
  */
 async function loadGallery() {
   try {
-    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var client = getSupa();
     if (client && client.req) {
       var rows = null;
       try {
@@ -501,7 +513,7 @@ async function uploadGalleryFiles(files) {
     try {
       var res = await uploadSingleMediaFile(file);
       if (res && res.url) {
-        var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+        var client = getSupa();
         var row = null;
         if (client && client.post) {
           try {
@@ -581,7 +593,7 @@ async function deleteGalleryImage(idx, rowId) {
 
   // Background deletion from Supabase
   try {
-    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var client = getSupa();
     if (client) {
       if (rowId && client.delete) {
         await client.delete('bb_gallery?id=eq.' + rowId);
@@ -797,7 +809,7 @@ var _storyHoldAttached = false;
  */
 async function loadStoryHighlights() {
   try {
-    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var client = getSupa();
     if (client && typeof client.get === 'function') {
       // 1. Check universal bb_config store first (prevents 404 when bb_stories table is not yet migrated)
       try {
@@ -861,7 +873,7 @@ async function saveStoryHighlights(newList) {
     module.exports.storyHighlights = storyHighlights;
   }
   try {
-    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var client = getSupa();
     if (client) {
       if (typeof client.upsert === 'function') {
         try {
@@ -1814,7 +1826,7 @@ async function deleteStoryHighlight(id) {
   await saveStoryHighlights();
 
   try {
-    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var client = getSupa();
     if (client && typeof client.delete === 'function') {
       await client.delete('bb_stories?id=eq.' + encodeURIComponent(id));
     }

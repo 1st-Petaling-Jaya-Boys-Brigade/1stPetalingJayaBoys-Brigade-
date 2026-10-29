@@ -7,6 +7,16 @@
  * avatar uploads, order history, and privacy-preserving password reset.
  */
 
+// ── Supabase Client Resolver ────────────────────────────────────────────────
+function getSupa() {
+  if (typeof window !== 'undefined' && window.supa) return window.supa;
+  if (typeof global !== 'undefined' && global.supa) return global.supa;
+  if (typeof getSupaClient === 'function') return getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof supa !== 'undefined' && supa) return supa;
+  return null;
+}
+
 // ── Auth View Toggles ────────────────────────────────────────────────────────
 
 function showAuthMode(mode) {
@@ -110,7 +120,7 @@ async function fetchMemberConsent(email, memberObj) {
     };
   }
   try {
-    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var client = getSupa();
     if (client && typeof client.get === 'function') {
       var consentKey = 'bb_consent_' + String(email).replace(/[^a-zA-Z0-9_-]/g, '_');
       var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(consentKey) + '&select=value');
@@ -149,7 +159,7 @@ async function updateMemberMediaConsent(newConsent) {
   var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
   if (!id) return;
   try {
-    var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
+    var client = getSupa();
     var consentVal = !!newConsent;
 
     if (client && typeof client.patch === 'function') {
@@ -259,7 +269,7 @@ async function registerMember() {
   }
 
   try {
-    var client = window.supa || supa;
+    var client = getSupa();
     var existing = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic');
     if (existing && existing.length) {
       if (typeof showToast === 'function') showToast('An account with this email address already exists. Please login instead.', 'warning');
@@ -381,7 +391,7 @@ async function loginMember() {
   if (!identifier || !pass) { if (typeof showToast === 'function') showToast('Please enter your email and password.', 'warning'); return; }
 
   try {
-    var client = window.supa || supa;
+    var client = getSupa();
     var queryEmail = identifier.toLowerCase();
 
     // Query by email / identifier
@@ -454,7 +464,7 @@ async function renderDashboard() {
   if (dashBox) dashBox.style.display = 'block';
 
   try {
-    var client = window.supa || supa;
+    var client = getSupa();
     var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
     if (!data || !data.length) return;
 
@@ -576,7 +586,7 @@ async function loadMemberOrders() {
 
   container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;"><span class="spinner"></span> Loading...</div>';
   try {
-    var client = window.supa || supa;
+    var client = getSupa();
     var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');
     if (!orders || !orders.length) {
       container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No orders yet.</div>';
@@ -713,7 +723,7 @@ async function uploadPfp(input) {
   if (!id) return;
 
   try {
-    var client = window.supa || supa;
+    var client = getSupa();
     var blob = new Blob([await file.arrayBuffer()], { type: file.type });
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     await client.uploadFile('avatars', cleanFileName, blob);
@@ -763,7 +773,7 @@ async function sendPasswordResetEmail() {
   }
 
   try {
-    var client = window.supa || supa;
+    var client = getSupa();
 
     // Check if account exists in bb_members
     var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic,name,department');
@@ -873,7 +883,7 @@ async function verifyResetCodeAndSetPassword() {
   }
 
   try {
-    var client = window.supa || supa;
+    var client = getSupa();
     var valid = false;
     var now = Date.now();
 

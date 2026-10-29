@@ -14,6 +14,18 @@ var _fbFields = [];
 var _isSubmittingBuiltinForm = false;
 var _isSavingCustomForm = false;
 
+/**
+ * Resolves Supabase client instance across environments
+ */
+function getSupa() {
+  if (typeof window !== 'undefined' && window.supa) return window.supa;
+  if (typeof global !== 'undefined' && global.supa) return global.supa;
+  if (typeof getSupaClient === 'function') return getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof supa !== 'undefined' && supa) return supa;
+  return null;
+}
+
 // ── Data Persistence ───────────────────────────────────────────────────────
 
 /**
@@ -21,12 +33,7 @@ var _isSavingCustomForm = false;
  * @returns {Promise<Array>}
  */
 async function loadCustomForms() {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (client && client.get) {
     try {
       var rows = await client.get('bb_config?key=eq.bb_custom_forms&select=value');
@@ -49,12 +56,7 @@ async function loadCustomForms() {
  * Saves current custom forms array to Supabase bb_config
  */
 async function saveCustomForms() {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (!client) return;
 
   if (typeof client.safeConfigUpdate === 'function') {
@@ -559,12 +561,7 @@ async function submitBuiltinForm(form) {
     rank = (document.getElementById('order-member-rank') || {}).textContent || '';
   }
 
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (!client || !client.post) {
     _isSubmittingBuiltinForm = false;
     if (btn) {
@@ -1029,12 +1026,7 @@ async function renderFormResponses() {
 
   list.innerHTML =
     '<div style="color:#888;text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
 
   try {
     if (!client || !client.get) throw new Error('Database client unavailable');
