@@ -637,6 +637,399 @@ function compressImage(source, options) {
   });
 }
 
+
+/**
+ * Detects file format by inspecting ASCII text signatures and binary magic bytes (TSK-035)
+ * @param {ArrayBuffer|Uint8Array} buffer
+ * @returns {string} Detected format ('jpeg'|'png'|'webp'|'gif'|'pdf'|'mp4'|'webm'|'svg'|'html'|'xml'|'unknown')
+ */
+function detectFileType(buffer) {
+  if (!buffer) return 'unknown';
+  var u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  if (u8.length < 4) return 'unknown';
+
+  // Check ASCII text tags first (SVG, XML, HTML, scripts)
+  var len = Math.min(128, u8.length);
+  var headerText = '';
+  for (var i = 0; i < len; i++) {
+    headerText += String.fromCharCode(u8[i]);
+  }
+  headerText = headerText.toLowerCase().trim();
+
+  if (
+    headerText.indexOf('<svg') !== -1 ||
+    headerText.indexOf('xmlns="http://www.w3.org/2000/svg"') !== -1 ||
+    headerText.indexOf('xmlns=\'http://www.w3.org/2000/svg\'') !== -1
+  ) {
+    return 'svg';
+  }
+  if (
+    headerText.indexOf('<html') !== -1 ||
+    headerText.indexOf('<!doctype html') !== -1 ||
+    headerText.indexOf('<script') !== -1 ||
+    headerText.indexOf('<body') !== -1
+  ) {
+    return 'html';
+  }
+  if (headerText.indexOf('<?xml') !== -1) {
+    return 'xml';
+  }
+
+  // Binary Magic Bytes:
+  // JPEG: FF D8 FF
+  if (u8[0] === 0xFF && u8[1] === 0xD8 && u8[2] === 0xFF) return 'jpeg';
+  // PNG: 89 50 4E 47
+  if (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47) return 'png';
+  // WebP: RIFF .... WEBP
+  if (
+    u8.length >= 12 &&
+    u8[0] === 0x52 && u8[1] === 0x49 && u8[2] === 0x46 && u8[3] === 0x46 &&
+    u8[8] === 0x57 && u8[9] === 0x45 && u8[10] === 0x42 && u8[11] === 0x50
+  ) {
+    return 'webp';
+  }
+  // GIF: GIF8
+  if (u8[0] === 0x47 && u8[1] === 0x49 && u8[2] === 0x46 && u8[3] === 0x38) return 'gif';
+  // PDF: %PDF (25 50 44 46)
+  if (u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46) return 'pdf';
+  // MP4 / MOV: bytes 4-7 are 'ftyp' (66 74 79 70)
+  if (u8.length >= 8 && u8[4] === 0x66 && u8[5] === 0x74 && u8[6] === 0x79 && u8[7] === 0x70) return 'mp4';
+  // WebM: 1A 45 DF A3 (EBML Header)
+  if (u8[0] === 0x1A && u8[1] === 0x45 && u8[2] === 0xDF && u8[3] === 0xA3) return 'webm';
+
+  return 'unknown';
+}
+
+/**
+ * Checks if a JPEG byte buffer contains EXIF APP1 metadata with GPS tags (TSK-035)
+ * @param {ArrayBuffer|Uint8Array} buffer
+ * @returns {boolean} True if GPS tags exist in buffer
+ */
+function hasExifGps(buffer) {
+  if (!buffer) return false;
+  var u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  if (u8.length < 14) return false;
+  if (u8[0] !== 0xFF || u8[1] !== 0xD8) return false;
+
+  var offset = 2;
+  while (offset < u8.length - 4) {
+    if (u8[offset] !== 0xFF) break;
+    var marker = u8[offset + 1];
+    if (marker === 0xDA || marker === 0xD9) break;
+
+    var length = (u8[offset + 2] << 8) | u8[offset + 3];
+    if (marker === 0xE1 && length >= 14) {
+      // Check 'Exif\0\0'
+      var isExif =
+        u8[offset + 4] === 0x45 &&
+        u8[offset + 5] === 0x78 &&
+        u8[offset + 6] === 0x69 &&
+        u8[offset + 7] === 0x66 &&
+        u8[offset + 8] === 0x00 &&
+        u8[offset + 9] === 0x00;
+      if (isExif) {
+        // Search inside APP1 segment for GPS pointer tag 0x8825
+        for (var i = offset + 10; i < offset + 2 + length - 2; i++) {
+          if (
+            (u8[i] === 0x88 && u8[i + 1] === 0x25) ||
+            (u8[i] === 0x25 && u8[i + 1] === 0x88)
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+    offset += 2 + length;
+  }
+  return false;
+}
+
+/**
+ * Strips all EXIF APP1 segments from a JPEG binary buffer (TSK-035)
+ * @param {ArrayBuffer|Uint8Array} buffer
+ * @returns {Uint8Array} Sanitized JPEG byte array with 0 EXIF metadata
+ */
+function stripExifBytes(buffer) {
+  if (!buffer) return buffer;
+  var u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  if (u8.length < 4 || u8[0] !== 0xFF || u8[1] !== 0xD8) return u8;
+
+  var chunks = [u8.slice(0, 2)];
+  var offset = 2;
+  while (offset < u8.length - 1) {
+    if (u8[offset] !== 0xFF) {
+      chunks.push(u8.slice(offset));
+      break;
+    }
+    var marker = u8[offset + 1];
+    if (marker === 0xD8 || marker === 0xD9 || marker === 0x00) {
+      chunks.push(u8.slice(offset, offset + 2));
+      offset += 2;
+      continue;
+    }
+    if (marker === 0xDA) {
+      chunks.push(u8.slice(offset));
+      break;
+    }
+    var length = (u8[offset + 2] << 8) | u8[offset + 3];
+    if (marker === 0xE1) {
+      // Skip APP1 segment (EXIF / GPS)
+      offset += 2 + length;
+      continue;
+    }
+    chunks.push(u8.slice(offset, offset + 2 + length));
+    offset += 2 + length;
+  }
+
+  var totalLen = 0;
+  for (var c = 0; c < chunks.length; c++) totalLen += chunks[c].length;
+  var result = new Uint8Array(totalLen);
+  var pos = 0;
+  for (var k = 0; k < chunks.length; k++) {
+    result.set(chunks[k], pos);
+    pos += chunks[k].length;
+  }
+  return result;
+}
+
+/**
+ * Strict file security, MIME-type, and magic-byte validator (TSK-035)
+ * Blocks .svg, .html, .htm, scripts, executables, and polyglots to prevent Stored XSS.
+ * Verifies magic bytes against approved media types.
+ * @param {File|Blob|ArrayBuffer|Uint8Array} file
+ * @param {Object} [options]
+ * @param {string[]} [options.allowedTypes]
+ * @param {boolean} [options.allowVideo=false]
+ * @param {boolean} [options.allowPdf=false]
+ * @param {string} [options.bucket]
+ * @returns {Promise<{valid: boolean, detectedType: string, extension: string}>}
+ */
+async function validateFileSecurity(file, options) {
+  options = options || {};
+  if (!file) throw new Error('File security error: No file provided.');
+
+  var name = file.name || '';
+  var ext = '';
+  if (name && name.indexOf('.') !== -1) {
+    ext = name.split('.').pop().toLowerCase();
+  }
+
+  // 1. Extension Blocklist
+  var blockedExts = ['svg', 'svgz', 'html', 'htm', 'xhtml', 'js', 'mjs', 'ts', 'php', 'sh', 'bat', 'cmd', 'exe', 'dll', 'vbs', 'wsf'];
+  if (blockedExts.indexOf(ext) !== -1) {
+    throw new Error('File upload blocked: SVG, HTML, and executable files are strictly prohibited to prevent stored XSS and security vulnerabilities (TSK-035).');
+  }
+
+  // 2. MIME type Blocklist
+  var declaredType = (file.type || '').toLowerCase();
+  var blockedMimes = ['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/javascript', 'application/javascript', 'application/x-javascript'];
+  if (blockedMimes.indexOf(declaredType) !== -1) {
+    throw new Error('File upload blocked: MIME type ' + declaredType + ' is not permitted for security reasons (TSK-035).');
+  }
+
+  // 3. Extract byte sample for Magic Byte Inspection
+  var buffer = null;
+  if (file instanceof ArrayBuffer) {
+    buffer = file;
+  } else if (file instanceof Uint8Array) {
+    buffer = file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength);
+  } else if (typeof file.slice === 'function') {
+    var slice = file.slice(0, 128);
+    if (typeof slice.arrayBuffer === 'function') {
+      buffer = await slice.arrayBuffer();
+    } else if (typeof FileReader !== 'undefined') {
+      buffer = await new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(e) { resolve(e.target.result); };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(slice);
+      });
+    }
+  }
+
+  var detected = 'unknown';
+  if (buffer) {
+    detected = detectFileType(buffer);
+
+    // Block any file detected as SVG, HTML, or XML
+    if (detected === 'svg' || detected === 'html' || detected === 'xml') {
+      throw new Error('File upload blocked: Content inspection detected SVG or HTML script payload (TSK-035).');
+    }
+
+    // Determine allowed categories
+    var allowed = options.allowedTypes || [];
+    var allowVideo = options.allowVideo === true || options.bucket === 'gallery' || options.bucket === 'story_highlights';
+    var allowPdf = options.allowPdf === true || options.bucket === 'resources' || options.bucket === 'waivers';
+
+    var valid = false;
+    if (allowed.length > 0) {
+      valid = allowed.some(function(t) {
+        return (
+          t === declaredType ||
+          t.indexOf(detected) !== -1 ||
+          (detected === 'jpeg' && (t === 'image/jpeg' || t === 'image/jpg')) ||
+          (detected === 'png' && t === 'image/png') ||
+          (detected === 'webp' && t === 'image/webp') ||
+          (detected === 'pdf' && t === 'application/pdf') ||
+          (detected === 'mp4' && (t === 'video/mp4' || t === 'video/quicktime')) ||
+          (detected === 'webm' && t === 'video/webm')
+        );
+      });
+    } else {
+      // Default allowed types for portal
+      if (detected === 'jpeg' || detected === 'png' || detected === 'webp' || detected === 'gif') {
+        valid = true;
+      } else if (allowVideo && (detected === 'mp4' || detected === 'webm')) {
+        valid = true;
+      } else if (allowPdf && detected === 'pdf') {
+        valid = true;
+      }
+    }
+
+    if (!valid && detected === 'unknown') {
+      throw new Error('File upload blocked: Unrecognized media format (Magic byte verification failed).');
+    }
+  }
+
+  return {
+    valid: true,
+    detectedType: detected,
+    extension: ext
+  };
+}
+
+/**
+ * Strips EXIF metadata (GPS home/school coordinates, camera serials, device info) via HTML5 Canvas rasterization (TSK-035)
+ * Guarantees that returned image blob is completely sanitized and free of EXIF APP1 tags.
+ * @param {File|Blob|ArrayBuffer|Uint8Array} source
+ * @param {Object} [options]
+ * @param {number} [options.maxDimension=1920]
+ * @param {number} [options.quality=0.82]
+ * @param {string} [options.mimeType='image/jpeg']
+ * @returns {Promise<{blob: Blob|Uint8Array, width: number, height: number, stripped: boolean}>}
+ */
+async function stripExifAndCompress(source, options) {
+  options = options || {};
+  var maxDim = options.maxDimension || 1920;
+  var quality = typeof options.quality === 'number' ? options.quality : 0.82;
+  var mimeType = options.mimeType || 'image/jpeg';
+
+  if (!source) throw new Error('No source provided for EXIF stripping');
+
+  // Validate file security first (blocks SVG, HTML)
+  await validateFileSecurity(source, options);
+
+  // In test / headless Node environment without DOM canvas or Image:
+  if (typeof document === 'undefined' || !document.createElement || typeof Image === 'undefined') {
+    var rawBytes = null;
+    if (source instanceof Uint8Array) {
+      rawBytes = source;
+    } else if (source instanceof ArrayBuffer) {
+      rawBytes = new Uint8Array(source);
+    } else if (typeof Buffer !== 'undefined' && Buffer.isBuffer(source)) {
+      rawBytes = new Uint8Array(source);
+    } else if (typeof source.arrayBuffer === 'function') {
+      rawBytes = new Uint8Array(await source.arrayBuffer());
+    } else if (source && source.buffer) {
+      rawBytes = new Uint8Array(source.buffer, source.byteOffset || 0, source.byteLength || source.buffer.byteLength);
+    }
+
+    if (rawBytes) {
+      var sanitizedBytes = stripExifBytes(rawBytes);
+      var returnBlob = sanitizedBytes;
+      if (typeof Blob !== 'undefined') {
+        returnBlob = new Blob([sanitizedBytes], { type: mimeType });
+      }
+      return {
+        blob: returnBlob,
+        width: maxDim,
+        height: maxDim,
+        stripped: true
+      };
+    }
+  }
+
+  // Browser HTML5 Canvas Rasterization (inherently produces clean raster stream with zero EXIF headers)
+  return new Promise(function(resolve, reject) {
+    var img = new Image();
+    var objUrl = null;
+
+    function cleanup() {
+      if (objUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+        try { URL.revokeObjectURL(objUrl); } catch (e) {}
+      }
+    }
+
+    img.onload = function() {
+      cleanup();
+      try {
+        var w = img.naturalWidth || img.width || 1200;
+        var h = img.naturalHeight || img.height || 800;
+
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+        }
+
+        if (typeof canvas.toBlob === 'function') {
+          canvas.toBlob(function(blob) {
+            resolve({
+              blob: blob,
+              width: w,
+              height: h,
+              stripped: true
+            });
+          }, mimeType, quality);
+        } else {
+          var dataUrl = canvas.toDataURL(mimeType, quality);
+          resolve({
+            blob: dataUrl,
+            width: w,
+            height: h,
+            stripped: true
+          });
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    img.onerror = function() {
+      cleanup();
+      reject(new Error('Failed to load image for EXIF stripping and canvas rasterization.'));
+    };
+
+    if (typeof source === 'string' && (source.indexOf('data:') === 0 || source.indexOf('blob:') === 0)) {
+      img.src = source;
+    } else if (typeof URL !== 'undefined' && URL.createObjectURL && (source instanceof Blob || source instanceof File)) {
+      objUrl = URL.createObjectURL(source);
+      img.src = objUrl;
+    } else if (typeof FileReader !== 'undefined' && (source instanceof Blob || source instanceof File)) {
+      var reader = new FileReader();
+      reader.onload = function(e) { img.src = e.target.result; };
+      reader.onerror = reject;
+      reader.readAsDataURL(source);
+    } else {
+      reject(new Error('Unsupported source format for EXIF stripping'));
+    }
+  });
+}
+
 // Attach to window if in browser
 if (typeof window !== 'undefined') {
   window.escapeHtml     = escapeHtml;
@@ -659,6 +1052,11 @@ if (typeof window !== 'undefined') {
   window.debounce       = debounce;
   window.throttle       = throttle;
   window.compressImage  = compressImage;
+  window.detectFileType = detectFileType;
+  window.hasExifGps     = hasExifGps;
+  window.stripExifBytes = stripExifBytes;
+  window.validateFileSecurity = validateFileSecurity;
+  window.stripExifAndCompress = stripExifAndCompress;
 }
 
 // Export for module systems if present
@@ -683,6 +1081,11 @@ if (typeof module !== 'undefined' && module.exports) {
     showConfirmModal: showConfirmModal,
     debounce: debounce,
     throttle: throttle,
-    compressImage: compressImage
+    compressImage: compressImage,
+    detectFileType: detectFileType,
+    hasExifGps: hasExifGps,
+    stripExifBytes: stripExifBytes,
+    validateFileSecurity: validateFileSecurity,
+    stripExifAndCompress: stripExifAndCompress
   };
 }

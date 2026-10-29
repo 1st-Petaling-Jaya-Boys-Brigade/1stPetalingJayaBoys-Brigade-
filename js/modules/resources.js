@@ -785,6 +785,11 @@ async function handleResourceFileUpload(input) {
       else mimeType = 'application/octet-stream';
     }
 
+    // Strict file security validation (TSK-035)
+    if (typeof validateFileSecurity === 'function') {
+      await validateFileSecurity(file, { allowPdf: true, allowImages: true, bucket: 'resources' });
+    }
+
     var blob = (typeof Blob !== 'undefined' && file instanceof Blob)
       ? file
       : new Blob([await file.arrayBuffer()], { type: mimeType });

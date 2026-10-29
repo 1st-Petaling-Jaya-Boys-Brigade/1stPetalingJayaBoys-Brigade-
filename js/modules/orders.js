@@ -807,6 +807,11 @@ async function compressReceiptImage(source, maxDimension, quality) {
 
   if (!source) return { blob: null, dataUrl: '' };
 
+  // Validate security (blocks SVG, HTML) (TSK-035)
+  if (typeof validateFileSecurity === 'function' && typeof source !== 'string') {
+    await validateFileSecurity(source, { allowedTypes: ['image/jpeg', 'image/png', 'image/webp'], bucket: 'receipts' });
+  }
+
   // Headless / non-browser fallback
   if (typeof Image === 'undefined' || typeof document === 'undefined' || !document.createElement) {
     if (typeof source === 'string') {
@@ -916,11 +921,22 @@ async function compressReceiptImage(source, maxDimension, quality) {
  * @param {HTMLInputElement} input
  */
 function previewTngScreenshot(input) {
-  if (!input || !input.files || !input.files[0]) {
-    _tngScreenshotFile = null;
-    return;
-  }
+  if (!input || !input.files || !input.files[0]) return;
   var file = input.files[0];
+
+  // Pre-validate file security (TSK-035)
+  if (typeof validateFileSecurity === 'function') {
+    try {
+      var ext = (file.name || '').split('.').pop().toLowerCase();
+      if (ext === 'svg' || ext === 'html' || ext === 'htm') {
+        if (typeof showToast === 'function') {
+          showToast('Payment receipt must be a JPG, PNG, or WebP image. SVG and HTML are prohibited (TSK-035).', 'error');
+        }
+        input.value = '';
+        return;
+      }
+    } catch (_) {}
+  }
   _tngScreenshotFile = file;
 
   // Validation: MIME type check
@@ -1073,12 +1089,18 @@ async function submitOrder() {
           var receiptPath = 'receipts/' + cleanCode + '_' + Date.now() + '.jpg';
           try {
             await client.uploadFile('receipts', receiptPath, uploadBlob);
-            finalScreenshot = client.fileUrl('receipts', receiptPath);
+            var signedReceipt = (typeof client.createSignedUrl === 'function')
+              ? await client.createSignedUrl('receipts', receiptPath, 604800)
+              : null;
+            finalScreenshot = (signedReceipt && signedReceipt.signedUrl) ? signedReceipt.signedUrl : client.fileUrl('receipts', receiptPath);
           } catch (storageErr) {
             try {
               var galleryPath = 'orders/' + cleanCode + '_' + Date.now() + '.jpg';
               await client.uploadFile('gallery', galleryPath, uploadBlob);
-              finalScreenshot = client.fileUrl('gallery', galleryPath);
+              var signedGal = (typeof client.createSignedUrl === 'function')
+                ? await client.createSignedUrl('gallery', galleryPath, 604800)
+                : null;
+              finalScreenshot = (signedGal && signedGal.signedUrl) ? signedGal.signedUrl : client.fileUrl('gallery', galleryPath);
             } catch (galleryErr) {
               // Storage bucket unavailable; fall back to compressed data URL
             }
