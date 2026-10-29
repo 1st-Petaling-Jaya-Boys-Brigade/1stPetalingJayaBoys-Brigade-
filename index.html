@@ -358,7 +358,7 @@
       <!-- 1. Quick Search Pill (Inline Header Search - TSK-050) -->
       <div class="nav-search-pill" id="nav-search-trigger" onclick="openGlobalSearch()">
         <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="search" id="global-search-input" class="nav-search-input" placeholder="Search portal..." autocomplete="off" aria-label="Search portal" onkeydown="handleHeaderSearchKeyDown(event)" />
+        <input type="search" id="global-search-input" class="nav-search-input" placeholder="Search portal..." autocomplete="off" aria-label="Search portal" onkeydown="handleHeaderSearchKeyDown(event)" onblur="handleHeaderSearchBlur()" />
       </div>
 
       <!-- 2. Notification Center Bell & Dropdown Card -->
@@ -3187,6 +3187,8 @@ function closeNotificationDropdown() {
 var _globalSearchItems = [];
 
 function openGlobalSearch() {
+  var pill = document.getElementById('nav-search-trigger');
+  if (pill) pill.classList.add('expanded');
   var input = document.getElementById('global-search-input');
   if (input) {
     input.focus();
@@ -3195,12 +3197,23 @@ function openGlobalSearch() {
 }
 
 function closeGlobalSearch() {
+  var pill = document.getElementById('nav-search-trigger');
+  if (pill) pill.classList.remove('expanded');
   var modal = document.getElementById('global-search-modal');
   if (modal) modal.style.display = 'none';
   var input = document.getElementById('global-search-input');
   if (input && document.activeElement === input) {
     input.blur();
   }
+}
+
+function handleHeaderSearchBlur() {
+  setTimeout(function() {
+    var pill = document.getElementById('nav-search-trigger');
+    if (pill && !pill.contains(document.activeElement)) {
+      pill.classList.remove('expanded');
+    }
+  }, 180);
 }
 
 function handleGlobalSearchInput() {
@@ -3218,6 +3231,7 @@ function handleHeaderSearchKeyDown(e) {
 
 function executeHeaderSearch(q) {
   if (!q) return;
+  closeGlobalSearch();
   var term = q.toLowerCase().trim();
   if (term.indexOf('home') !== -1 || term.indexOf('dash') !== -1 || term.indexOf('main') !== -1) {
     switchTabNav('home');
@@ -3304,8 +3318,13 @@ document.addEventListener('click', function(e) {
   if (searchModal && searchModal.style.display === 'flex' && e.target === searchModal) {
     closeGlobalSearch();
   }
+  var searchPill = document.getElementById('nav-search-trigger');
+  if (searchPill && searchPill.classList.contains('expanded') && !searchPill.contains(e.target)) {
+    closeGlobalSearch();
+  }
 });
 
+window.handleHeaderSearchBlur     = handleHeaderSearchBlur;
 window.openGlobalSearch           = openGlobalSearch;
 window.closeGlobalSearch          = closeGlobalSearch;
 window.handleGlobalSearchInput    = handleGlobalSearchInput;
