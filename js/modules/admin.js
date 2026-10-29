@@ -102,6 +102,280 @@
     return DEFAULT_DEPT_CONFIG;
   }
 
+  // ── Cryptographic Session & Gate Hardening (TSK-030) ──────────────────────
+  var SESSION_MAX_LIFETIME_MS = 60 * 60 * 1000; // 60 minutes absolute lifetime
+  var SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes idle timeout
+  var MAX_LOGIN_FAILURES      = 5;
+  var BASE_LOCKOUT_MS         = 30 * 1000;      // 30 seconds
+  var MAX_LOCKOUT_MS          = 300 * 1000;     // 5 minutes max
+
+  var _adminSessionToken  = null;
+  var _adminSessionData   = null;
+  var _adminSessionSalt   = '';
+  var _adminLoginFailures = 0;
+  var _adminLockoutUntil  = 0;
+  var _adminDomObserver   = null;
+
+  function generateSecureHex(len) {
+    var bytesCount = len || 16;
+    if (typeof crypto !== 'undefined') {
+      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
+      if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+        var arr = new Uint8Array(bytesCount);
+        cryptoObj.getRandomValues(arr);
+        var hex = '';
+        for (var i = 0; i < arr.length; i++) {
+          var b = arr[i].toString(16);
+          hex += b.length === 1 ? '0' + b : b;
+        }
+        return hex;
+      }
+    }
+    var fallback = '';
+    for (var j = 0; j < bytesCount; j++) {
+      var r = Math.floor(Math.random() * 256).toString(16);
+      fallback += r.length === 1 ? '0' + r : r;
+    }
+    return fallback;
+  }
+
+  async function computeHmacSha256(secretKeyHex, messageStr) {
+    if (typeof crypto !== 'undefined') {
+      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
+      if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
+        var enc = new TextEncoder();
+        var key = await cryptoObj.subtle.importKey(
+          'raw',
+          enc.encode(secretKeyHex),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        var sigBuf = await cryptoObj.subtle.sign('HMAC', key, enc.encode(messageStr));
+        var bytes = new Uint8Array(sigBuf);
+        var hex = '';
+        for (var i = 0; i < bytes.length; i++) {
+          var b = bytes[i].toString(16);
+          hex += b.length === 1 ? '0' + b : b;
+        }
+        return hex;
+      }
+    }
+    if (typeof computeSha256 === 'function') {
+      var s1 = await computeSha256(secretKeyHex + ':' + messageStr);
+      return await computeSha256(s1 + ':' + secretKeyHex);
+    }
+    return '';
+  }
+
+  function getAdminLockoutRemainingSecs() {
+    if (_adminLockoutUntil && Date.now() < _adminLockoutUntil) {
+      return Math.ceil((_adminLockoutUntil - Date.now()) / 1000);
+    }
+    return 0;
+  }
+
+  function resetAdminLockout() {
+    _adminLoginFailures = 0;
+    _adminLockoutUntil = 0;
+  }
+
+  function getAdminLockoutStatus() {
+    var rem = getAdminLockoutRemainingSecs();
+    return {
+      locked: rem > 0,
+      remainingSeconds: rem,
+      failures: _adminLoginFailures
+    };
+  }
+
+  function getAdminSessionToken() {
+    return _adminSessionToken || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('bb_admin_session_token') : null);
+  }
+
+  function getAdminSessionData() {
+    return _adminSessionData;
+  }
+
+  function setAdminSessionTokenForTesting(token, data) {
+    _adminSessionToken = token;
+    _adminSessionData = data || null;
+  }
+
+  async function createAdminSessionToken(officerEmail, officerRank) {
+    _adminSessionSalt = generateSecureHex(32);
+    var now = Date.now();
+    var email = officerEmail || (typeof sessionGet === 'function' ? sessionGet('email') : '') || 'company_officer';
+    var rank = officerRank || (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Officer';
+
+    var payload = {
+      role: 'officer_admin',
+      officerEmail: email,
+      officerRank: rank,
+      issuedAt: now,
+      expiresAt: now + SESSION_MAX_LIFETIME_MS,
+      lastActiveAt: now,
+      nonce: generateSecureHex(16)
+    };
+
+    var signPayload = [
+      payload.role,
+      payload.officerEmail,
+      payload.issuedAt,
+      payload.expiresAt,
+      payload.nonce
+    ].join(':');
+
+    var expectedHash = getAdminPasswordHash();
+    var secretKey = expectedHash + ':' + _adminSessionSalt;
+    var signature = await computeHmacSha256(secretKey, signPayload);
+
+    var payloadStr = typeof btoa === 'function'
+      ? btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
+      : Buffer.from(JSON.stringify(payload)).toString('base64');
+
+    var token = payloadStr + '.' + signature;
+
+    _adminSessionToken = token;
+    _adminSessionData = payload;
+
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem('bb_admin_session_token', token);
+        sessionStorage.setItem('bb_admin_session_salt', _adminSessionSalt);
+      } catch (_) {}
+    }
+
+    if (typeof sessionSet === 'function') {
+      sessionSet('adminAuthed', true);
+    }
+
+    return token;
+  }
+
+  function verifyAdminSessionSync() {
+    var token = getAdminSessionToken();
+    if (!token) return false;
+    if (!_adminSessionData) {
+      try {
+        var parts = token.split('.');
+        if (parts.length !== 2) return false;
+        var jsonStr = typeof atob === 'function'
+          ? decodeURIComponent(escape(atob(parts[0])))
+          : Buffer.from(parts[0], 'base64').toString('utf8');
+        _adminSessionData = JSON.parse(jsonStr);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    var data = _adminSessionData;
+    if (!data || data.role !== 'officer_admin') return false;
+
+    var now = Date.now();
+    if (now > data.expiresAt) {
+      revokeAdminSession('Session expired. Please re-authenticate.');
+      return false;
+    }
+
+    if (now - data.lastActiveAt > SESSION_IDLE_TIMEOUT_MS) {
+      revokeAdminSession('Session timed out due to inactivity.');
+      return false;
+    }
+
+    data.lastActiveAt = now;
+    return true;
+  }
+
+  async function verifyAdminSession() {
+    if (!verifyAdminSessionSync()) return false;
+    var token = getAdminSessionToken();
+    if (!token) return false;
+    var parts = token.split('.');
+    if (parts.length !== 2) {
+      revokeAdminSession('Malformed session token.');
+      return false;
+    }
+
+    var payload = _adminSessionData;
+    var signPayload = [
+      payload.role,
+      payload.officerEmail,
+      payload.issuedAt,
+      payload.expiresAt,
+      payload.nonce
+    ].join(':');
+
+    var salt = _adminSessionSalt || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('bb_admin_session_salt') : '');
+    var expectedHash = getAdminPasswordHash();
+    var secretKey = expectedHash + ':' + salt;
+    var expectedSig = await computeHmacSha256(secretKey, signPayload);
+
+    var valid = false;
+    if (typeof timingSafeEqualToken === 'function') {
+      valid = timingSafeEqualToken(parts[1], expectedSig);
+    } else if (typeof window !== 'undefined' && typeof window.timingSafeEqualToken === 'function') {
+      valid = window.timingSafeEqualToken(parts[1], expectedSig);
+    } else {
+      valid = parts[1].toLowerCase() === expectedSig.toLowerCase();
+    }
+
+    if (!valid) {
+      revokeAdminSession('Cryptographic token signature mismatch. Tampering detected.');
+      return false;
+    }
+
+    return true;
+  }
+
+  function revokeAdminSession(reason) {
+    _adminSessionToken = null;
+    _adminSessionData = null;
+    _adminSessionSalt = '';
+
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem('bb_admin_session_token');
+        sessionStorage.removeItem('bb_admin_session_salt');
+      } catch (_) {}
+    }
+
+    if (typeof sessionSet === 'function') {
+      sessionSet('adminAuthed', false);
+    }
+
+    if (typeof document !== 'undefined') {
+      var panel = document.getElementById('admin-panel');
+      if (panel) panel.style.display = 'none';
+
+      var loginBox = document.getElementById('admin-login-box');
+      if (loginBox) loginBox.style.display = 'block';
+    }
+
+    if (reason && typeof showToast === 'function') {
+      showToast('Security Alert: ' + reason, 'error');
+    }
+  }
+
+  function initAdminDomGuard() {
+    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') return;
+    var panel = document.getElementById('admin-panel');
+    if (!panel || _adminDomObserver) return;
+
+    _adminDomObserver = new MutationObserver(function() {
+      if (panel.style.display !== 'none' && !verifyAdminSessionSync()) {
+        panel.style.display = 'none';
+        var loginBox = document.getElementById('admin-login-box');
+        if (loginBox) loginBox.style.display = 'block';
+        revokeAdminSession('Unauthorized DOM display bypass detected.');
+      }
+    });
+
+    try {
+      _adminDomObserver.observe(panel, { attributes: true, attributeFilter: ['style', 'class'] });
+    } catch (_) {}
+  }
+
   // ── Admin Authentication & Back-Office Navigation ──────────────────────────
 
   function openAdmin() {
@@ -110,13 +384,15 @@
     if (overlay) overlay.style.display = 'block';
     if (document.body) document.body.style.overflow = 'hidden';
 
-    if (typeof sessionSet === 'function') sessionSet('adminAuthed', false);
+    revokeAdminSession();
 
     var loginBox = document.getElementById('admin-login-box');
     if (loginBox) loginBox.style.display = 'block';
 
     var panel = document.getElementById('admin-panel');
     if (panel) panel.style.display = 'none';
+
+    initAdminDomGuard();
 
     var passEl = document.getElementById('admin-pass');
     if (passEl) {
@@ -156,8 +432,8 @@
   }
 
   function logoutAdmin() {
+    revokeAdminSession();
     if (typeof document === 'undefined') return;
-    if (typeof sessionSet === 'function') sessionSet('adminAuthed', false);
 
     var panel = document.getElementById('admin-panel');
     if (panel) panel.style.display = 'none';
@@ -180,16 +456,49 @@
 
   async function adminLogin() {
     if (typeof document === 'undefined') return false;
-    var pass = (document.getElementById('admin-pass') || {}).value || '';
-    var valid = await verifyAdminPassword(pass);
-    if (!valid) {
-      if (typeof showToast === 'function') showToast('Wrong password!', 'error');
+
+    // 1. Rate limiting lockout check
+    var remaining = getAdminLockoutRemainingSecs();
+    if (remaining > 0) {
+      if (typeof showToast === 'function') {
+        showToast('Admin locked due to failed attempts. Try again in ' + remaining + 's.', 'error');
+      }
       return false;
     }
 
-    if (typeof sessionSet === 'function') sessionSet('adminAuthed', true);
-
     var passEl = document.getElementById('admin-pass');
+    var pass = passEl ? passEl.value : '';
+
+    var valid = await verifyAdminPassword(pass);
+    if (!valid) {
+      _adminLoginFailures++;
+      if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
+        var lockoutMs = Math.min(
+          BASE_LOCKOUT_MS * Math.pow(2, _adminLoginFailures - MAX_LOGIN_FAILURES),
+          MAX_LOCKOUT_MS
+        );
+        _adminLockoutUntil = Date.now() + lockoutMs;
+        if (typeof showToast === 'function') {
+          showToast('Security Alert: Multiple failed attempts. Locked for ' + Math.round(lockoutMs / 1000) + 's.', 'error');
+        }
+      } else {
+        if (typeof showToast === 'function') {
+          showToast('Wrong password! Attempt ' + _adminLoginFailures + ' of ' + MAX_LOGIN_FAILURES + '.', 'error');
+        }
+      }
+      logoutAdmin();
+      return false;
+    }
+
+    // 2. Clear failure tracking on success
+    _adminLoginFailures = 0;
+    _adminLockoutUntil = 0;
+
+    // 3. Issue cryptographic HMAC session token
+    var officerEmail = typeof sessionGet === 'function' ? sessionGet('email') : '';
+    var officerRank = typeof sessionGet === 'function' ? sessionGet('rank') : '';
+    await createAdminSessionToken(officerEmail, officerRank);
+
     if (passEl) passEl.value = '';
 
     var loginBox = document.getElementById('admin-login-box');
@@ -198,6 +507,7 @@
     var panel = document.getElementById('admin-panel');
     if (panel) panel.style.display = 'block';
 
+    initAdminDomGuard();
     backToAdminHome();
 
     if (typeof renderGallery === 'function') renderGallery();
@@ -224,6 +534,11 @@
 
   function switchAdminSection(section) {
     if (typeof document === 'undefined') return;
+    if (!verifyAdminSessionSync()) {
+      if (typeof showToast === 'function') showToast('Unauthorized: Valid officer session token required.', 'error');
+      logoutAdmin();
+      return;
+    }
 
     document.querySelectorAll('.adm-section-btn').forEach(function(b) {
       b.style.display = 'none';
@@ -505,6 +820,10 @@
 
   function openAddMember() {
     if (typeof document === 'undefined') return;
+    if (!verifyAdminSessionSync()) {
+      logoutAdmin();
+      return;
+    }
     [
       'em-name', 'em-ic', 'em-joined', 'em-dob',
       'em-parent-name', 'em-parent-contact'
@@ -1173,6 +1492,12 @@
     global.closeAdmin               = closeAdmin;
     global.logoutAdmin              = logoutAdmin;
     global.adminLogin               = adminLogin;
+    global.verifyAdminSession       = verifyAdminSession;
+    global.verifyAdminSessionSync   = verifyAdminSessionSync;
+    global.getAdminSessionToken     = getAdminSessionToken;
+    global.getAdminSessionData      = getAdminSessionData;
+    global.getAdminLockoutStatus    = getAdminLockoutStatus;
+    global.resetAdminLockout        = resetAdminLockout;
     global.toggleAdminPassVis       = toggleAdminPassVis;
     global.backToAdminHome          = backToAdminHome;
     global.switchAdminSection       = switchAdminSection;
@@ -1210,6 +1535,13 @@
       getAdminPasswordHash: getAdminPasswordHash,
       verifyAdminPassword: verifyAdminPassword,
       adminLogin: adminLogin,
+      verifyAdminSession: verifyAdminSession,
+      verifyAdminSessionSync: verifyAdminSessionSync,
+      getAdminSessionToken: getAdminSessionToken,
+      getAdminSessionData: getAdminSessionData,
+      getAdminLockoutStatus: getAdminLockoutStatus,
+      resetAdminLockout: resetAdminLockout,
+      setAdminSessionTokenForTesting: setAdminSessionTokenForTesting,
       toggleAdminPassVis: toggleAdminPassVis,
       backToAdminHome: backToAdminHome,
       switchAdminSection: switchAdminSection,
