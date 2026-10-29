@@ -3890,6 +3890,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       indexHtmlStr.includes('window.updateNavUserHeader'),
       'window.updateNavUserHeader must be defined'
     );
+    // Verify fixed topbar, autofill theme rule, and wide admin container
+    assert.ok(
+      navCss.includes('position: fixed'),
+      '.nav must have position: fixed in nav.css'
+    );
+    assert.ok(
+      compCss.includes('input:-webkit-autofill'),
+      'input:-webkit-autofill rule must exist in components.css'
+    );
+    assert.ok(
+      indexHtmlStr.includes('class="admin-container" style="max-width:1040px'),
+      'admin-container must have max-width:1040px in index.html'
+    );
     console.log(
       '  ✔ Modern app shell layout and top header controls verified across HTML, CSS, and JS'
     );
