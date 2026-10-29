@@ -1372,8 +1372,10 @@
   }
 
   .nav-logo .nav-sub {
-    font-size: 8.5px !important;
-    letter-spacing: 1px !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.8px !important;
+    color: var(--accent) !important;
   }
 
   .nav-actions {
@@ -1575,5 +1577,61 @@
     min-height: 32px !important;
     padding: 0 5px !important;
     font-size: 11px !important;
+  }
+}
+
+/* ── Mobile Sidebar Off-Screen Clipping & Overflow Protection ── */
+@media (max-width: 1023px) {
+  .sidebar-panel {
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s ease !important;
+  }
+  .sidebar-panel.sidebar-open {
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+}
+
+/* ── Mobile Touch Target Ergonomics & 44px Hit Area Expansion (WCAG 2.5.5) ── */
+@media (max-width: 768px) {
+  .nav-search-pill,
+  .nav-notif-btn,
+  .nav-profile-btn,
+  .nav-menu-btn {
+    position: relative !important;
+  }
+
+  .nav-search-pill::after,
+  .nav-notif-btn::after,
+  .nav-profile-btn::after,
+  .nav-menu-btn::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: auto !important;
+  }
+
+  .bnav-btn {
+    min-width: 58px !important;
+    min-height: 44px !important;
+    padding: 6px 8px !important;
+  }
+
+  .bnav-label {
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.2px !important;
+    margin-top: 2px !important;
+  }
+
+  .bnav-btn:active {
+    transform: scale(0.92) !important;
   }
 }
