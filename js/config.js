@@ -19,14 +19,27 @@ var NCO_RANKS = [
   'Lieutenant'
 ];
 
+
+/**
+ * Canonical helper to check if a member rank qualifies as NCO / Leader
+ * @param {string} rank
+ * @returns {boolean}
+ */
+function isNcoRank(rank) {
+  if (!rank || typeof rank !== 'string') return false;
+  var ranks = typeof NCO_RANKS !== 'undefined' ? NCO_RANKS : (typeof window !== 'undefined' && window.NCO_RANKS ? window.NCO_RANKS : []);
+  return ranks.indexOf(rank.trim()) !== -1;
+}
+
 // Attach to global window for browser compatibility
 if (typeof window !== 'undefined') {
   window.SUPA_URL = SUPA_URL;
   window.SUPA_KEY = SUPA_KEY;
   window.ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH;
   window.NCO_RANKS = NCO_RANKS;
+  window.isNcoRank = isNcoRank;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SUPA_URL, SUPA_KEY, ADMIN_PASSWORD_HASH, NCO_RANKS };
+  module.exports = { SUPA_URL, SUPA_KEY, ADMIN_PASSWORD_HASH, NCO_RANKS, isNcoRank };
 }

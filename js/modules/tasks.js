@@ -35,8 +35,15 @@ function getSupaClient() {
  * @returns {boolean}
  */
 function checkIsNCO(rank) {
+  if (typeof isNcoRank === 'function') return isNcoRank(rank);
+  if (typeof window !== 'undefined' && typeof window.isNcoRank === 'function') {
+    return window.isNcoRank(rank);
+  }
   if (!rank) return false;
-  var ncoRanks = ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant', 'Warrant Officer'];
+  var ncoRanks =
+    typeof window !== 'undefined' && window.NCO_RANKS
+      ? window.NCO_RANKS
+      : ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant', 'Warrant Officer'];
   if (ncoRanks.indexOf(rank) !== -1) return true;
   if (typeof isNCO === 'function') return isNCO(rank);
   if (typeof window !== 'undefined' && typeof window.isNCO === 'function') {

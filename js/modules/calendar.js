@@ -124,7 +124,7 @@
    */
   async function loadCalendarEvents() {
     try {
-      var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+      var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
       if (client && typeof client.get === 'function') {
         var rows = await client.get('bb_config?key=eq.bb_company_calendar&select=value');
         if (rows && rows.length && rows[0].value) {
@@ -156,7 +156,7 @@
     if (Array.isArray(events)) {
       _calendarEvents = events;
     }
-    var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+    var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
     if (!client) return false;
 
     try {

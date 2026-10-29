@@ -198,7 +198,7 @@ function sanitizeMasterAttendancePayload(payload) {
  * @returns {Promise<{sheetId: string, scriptUrl: string, syncToken: string, autoSync: boolean, piiFiltered: boolean}>}
  */
 async function loadMasterSheetConfig() {
-  var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
+  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
   var cfg = {
     sheetId: '',
     scriptUrl: '',
@@ -268,7 +268,7 @@ async function saveMasterSheetConfig(cfgOverride) {
         lastUpdated: new Date().toISOString()
       };
 
-  var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
+  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
   if (client) {
     try {
       await client.req('POST', 'bb_config?on_conflict=key', {
@@ -464,7 +464,7 @@ async function fetchMasterAttendanceFromGAS(scriptUrl, syncToken) {
   var sanitizedData = sanitizeMasterAttendancePayload(rawData);
 
   // Cache sanitized data into Supabase bb_config for fast subsequent loading
-  var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
+  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
   if (client && sanitizedData) {
     try {
       await client.req('POST', 'bb_config?on_conflict=key', {

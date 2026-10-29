@@ -45,7 +45,10 @@
   var _allAdminTasks   = [];
 
   function getSupabaseClient() {
+    if (typeof window !== 'undefined' && window.supa) return window.supa;
     if (typeof global !== 'undefined' && global.supa) return global.supa;
+    if (typeof getSupaClient === 'function') return getSupaClient();
+    if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
     if (typeof supa !== 'undefined') return supa;
     return null;
   }
@@ -362,7 +365,7 @@
         }
       } catch (e) {}
 
-      var members = await client.get('bb_members?select=*&order=name.asc');
+      var members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,parental_consent_verified,parent_name,parent_contact,media_release_consent&order=name.asc');
       var filtered = members.filter(function(m) {
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;

@@ -2981,6 +2981,9 @@ document.head.appendChild(reStyle);
 
 // ── Init ───────────────────────────────────────────────────────────────────
 window.addEventListener('load', function() {
+  if (typeof supa !== 'undefined' && typeof supa.batchConfigGet === 'function') {
+    supa.batchConfigGet(['bb_prices', 'bb_uniform_items', 'bb_payment_info', 'bb_resources', 'bb_custom_forms', 'bb_story_highlights']);
+  }
   loadPrices();
   loadPaymentInfo();
   loadGallery();

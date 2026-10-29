@@ -45,6 +45,18 @@ var _tngScreenshotFile = null;
 var _isSavingProduct = false;
 
 /**
+ * Resolves Supabase client instance across environments
+ */
+function getSupa() {
+  if (typeof window !== 'undefined' && window.supa) return window.supa;
+  if (typeof global !== 'undefined' && global.supa) return global.supa;
+  if (typeof getSupaClient === 'function') return getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof supa !== 'undefined' && supa) return supa;
+  return null;
+}
+
+/**
  * Resolves product category for uniform item
  * @param {Object} item
  * @returns {string}
@@ -177,12 +189,7 @@ function filterUniformCategory(cat) {
  * Loads uniform item prices and catalog definitions from Supabase bb_config
  */
 async function loadPrices() {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (client && client.get) {
     try {
       var rows = await client.get('bb_config?key=in.(bb_prices,bb_uniform_items)&select=key,value');
@@ -353,12 +360,7 @@ function selectSize(item, size, btn) {
  * Persists uniform item catalog definitions to Supabase bb_config
  */
 async function saveUniformItems() {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (!client) return;
 
   if (typeof client.safeConfigUpdate === 'function') {
@@ -395,12 +397,7 @@ async function saveUniformItems() {
  * Loads Touch 'n Go / bank payment instructions from Supabase bb_config
  */
 async function loadPaymentInfo() {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (client && client.get) {
     try {
       var rows = await client.get('bb_config?key=eq.bb_payment_info&select=value');
@@ -426,12 +423,7 @@ async function loadPaymentInfo() {
  * @param {string} text
  */
 async function savePaymentInfo(text) {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (!client) return;
 
   if (typeof client.safeConfigUpdate === 'function') {
@@ -465,6 +457,10 @@ async function savePaymentInfo(text) {
  * @returns {boolean}
  */
 function isNCO(rank) {
+  if (typeof isNcoRank === 'function') return isNcoRank(rank);
+  if (typeof window !== 'undefined' && typeof window.isNcoRank === 'function') {
+    return window.isNcoRank(rank);
+  }
   var ncoRanks =
     typeof window !== 'undefined' && window.NCO_RANKS
       ? window.NCO_RANKS
@@ -513,16 +509,11 @@ function checkOrderAccess() {
  * @param {string} ic
  */
 async function populateOrderBar(ic) {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (!client || !client.get) return;
 
   try {
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=*');
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,rank,squad');
     if (!data || !data.length) return;
     var m = data[0];
 
@@ -1038,18 +1029,13 @@ async function submitOrder() {
     btn.disabled = true;
   }
 
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   var memberData = {};
 
   try {
     if (client && client.get) {
       try {
-        var d = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=*');
+        var d = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,rank,squad');
         memberData = d && d[0] ? d[0] : {};
       } catch (e) {}
     }
@@ -1295,12 +1281,7 @@ async function renderAdminOrders() {
 
   list.innerHTML =
     '<div style="color:#888;text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
 
   try {
     if (!client || !client.get) throw new Error('Database client unavailable');
@@ -1481,12 +1462,7 @@ async function renderAdminOrders() {
  * @param {string} status
  */
 async function updateOrderStatus(orderNum, status) {
-  var client =
-    typeof window !== 'undefined' && window.supa
-      ? window.supa
-      : typeof supa !== 'undefined'
-        ? supa
-        : null;
+  var client = getSupa();
   if (!client || !client.patch) return;
 
   try {

@@ -95,6 +95,13 @@ function mergeConfigCollections(baseList, currentRemoteList, clientUpdatedList, 
   return merged;
 }
 
+function getSupaClient() {
+  if (typeof window !== 'undefined' && window.supa) return window.supa;
+  if (typeof global !== 'undefined' && global.supa) return global.supa;
+  if (typeof supa !== 'undefined' && supa) return supa;
+  return null;
+}
+
 /**
  * Request Throttling: Limits maximum concurrent HTTP requests to prevent socket exhaustion (TSK-025)
  */
@@ -145,9 +152,6 @@ function clearQueryCache() {
 }
 
 const supa = {
-  /**
-   * Generic PostgREST HTTP Request helper
-   */
   /**
    * PostgREST HTTP Request helper with Request Throttling, Exponential Backoff on HTTP 429/500,
    * and TTL Query Caching / Single-flight Coalescing (TSK-025)
@@ -450,6 +454,34 @@ const supa = {
    * @param {any} fallback
    * @returns {Promise<any>}
    */
+  getClient() {
+    return getSupaClient();
+  },
+
+  async batchConfigGet(keys) {
+    if (!Array.isArray(keys) || keys.length === 0) return {};
+    const client = this && typeof this.get === 'function' ? this : supa;
+    const inClause = keys.map(k => encodeURIComponent(k)).join(',');
+    const result = {};
+    try {
+      const rows = await client.get('bb_config?key=in.(' + inClause + ')&select=key,value');
+      if (Array.isArray(rows)) {
+        rows.forEach(r => {
+          if (!r || !r.key) return;
+          try {
+            result[r.key] = JSON.parse(r.value);
+          } catch (_) {
+            result[r.key] = r.value;
+          }
+          supa.recordConfigSnapshot(r.key, result[r.key]);
+        });
+      }
+    } catch (e) {
+      console.warn('batchConfigGet error:', e.message);
+    }
+    return result;
+  },
+
   async safeConfigGet(key, fallback) {
     const client = this && typeof this.get === 'function' ? this : supa;
     try {
@@ -653,11 +685,13 @@ const supa = {
 // Attach to window for global access across the app
 if (typeof window !== 'undefined') {
   window.supa = supa;
+  window.getSupaClient = getSupaClient;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     supa,
+    getSupaClient,
     mergeConfigCollections,
     recordConfigSnapshot: supa.recordConfigSnapshot,
     getConfigSnapshot: supa.getConfigSnapshot,

@@ -50,7 +50,7 @@ async function getMasterAttendanceData(forceRefresh) {
     } catch (e) {}
   }
 
-  var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
+  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
   if (!client) return null;
 
   try {

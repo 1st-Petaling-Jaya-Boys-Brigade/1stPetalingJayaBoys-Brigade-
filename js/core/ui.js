@@ -15,6 +15,12 @@
    * @returns {string}
    */
   function safeEscapeHtml(str) {
+    if (typeof escapeHtml === 'function') {
+      return escapeHtml(str);
+    }
+    if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function') {
+      return window.escapeHtml(str);
+    }
     if (typeof global !== 'undefined' && typeof global.escapeHtml === 'function') {
       return global.escapeHtml(str);
     }

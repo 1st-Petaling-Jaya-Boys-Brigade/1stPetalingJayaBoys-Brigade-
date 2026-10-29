@@ -52,6 +52,8 @@ export default [
         checkAttendanceTabVisibility: 'readonly',
         loadMemberAttendanceStats: 'readonly',
         isNCO: 'readonly',
+        isNcoRank: 'readonly',
+        getSupaClient: 'readonly',
         // Uniform Store & Forms Hub Globals (TSK-006A)
         UNIFORM_ITEMS: 'readonly',
         itemQtys: 'readonly',
