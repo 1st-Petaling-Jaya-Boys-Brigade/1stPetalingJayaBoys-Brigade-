@@ -1629,13 +1629,14 @@ async function getJson(url) {
         if (typeof window.closeNotificationDropdown === 'function') window.closeNotificationDropdown();
         const closedNotifDisplay = notifCard ? notifCard.style.display : '';
 
-        // 4. Test Global Search Palette
+        // 4. Test Header Inline Search (TSK-050: no popup modal, focused inline)
         const searchModal = document.getElementById('global-search-modal');
         const searchInput = document.getElementById('global-search-input');
         if (typeof window.openGlobalSearch === 'function') window.openGlobalSearch();
-        const searchOpenedDisplay = searchModal ? searchModal.style.display : '';
+        const searchOpenedDisplay = searchModal ? window.getComputedStyle(searchModal).getPropertyValue('display') : 'none';
+        const searchInputFocused = searchInput ? (document.activeElement === searchInput) : false;
         if (typeof window.closeGlobalSearch === 'function') window.closeGlobalSearch();
-        const searchClosedDisplay = searchModal ? searchModal.style.display : '';
+        const searchClosedDisplay = searchModal ? window.getComputedStyle(searchModal).getPropertyValue('display') : 'none';
 
         // 5. Scroll page and verify sidebar stays docked at left: 0 and top: 60
         window.scrollTo(0, 600);
@@ -1644,12 +1645,14 @@ async function getJson(url) {
         const panelFound = !!panel;
         const panelTag = panel ? panel.tagName : '';
         const panelClientWidth = panel ? panel.clientWidth : -1;
+        const panelOffsetWidth = panel ? panel.offsetWidth : -1;
         const panelComputed = panel ? {
           borderRightStyle: window.getComputedStyle(panel).getPropertyValue('border-right-style'),
           borderRightWidth: window.getComputedStyle(panel).getPropertyValue('border-right-width'),
           borderRadius: window.getComputedStyle(panel).getPropertyValue('border-top-left-radius'),
           position: window.getComputedStyle(panel).getPropertyValue('position'),
-          display: window.getComputedStyle(panel).getPropertyValue('display')
+          display: window.getComputedStyle(panel).getPropertyValue('display'),
+          overflowY: window.getComputedStyle(panel).getPropertyValue('overflow-y')
         } : null;
 
         return {
@@ -1667,6 +1670,7 @@ async function getJson(url) {
           readCountVal,
           closedNotifDisplay,
           searchOpenedDisplay,
+          searchInputFocused,
           searchClosedDisplay,
           sidebarLeftAfterScroll: sidebarRectAfterScroll ? Math.round(sidebarRectAfterScroll.left) : -1,
           sidebarTopAfterScroll: sidebarRectAfterScroll ? Math.round(sidebarRectAfterScroll.top) : -1,
@@ -1674,6 +1678,7 @@ async function getJson(url) {
           panelFound,
           panelTag,
           panelClientWidth,
+          panelOffsetWidth,
           panelComputed
         };
       })()`,
@@ -1719,13 +1724,28 @@ async function getJson(url) {
     );
     assert.strictEqual(
       appShellResult.searchOpenedDisplay,
-      'flex',
-      'openGlobalSearch must display search palette modal'
+      'none',
+      'openGlobalSearch must not open popup modal (TSK-050 inline search)'
+    );
+    assert.strictEqual(
+      appShellResult.searchInputFocused,
+      true,
+      'openGlobalSearch must focus inline header search input (TSK-050)'
     );
     assert.strictEqual(
       appShellResult.searchClosedDisplay,
       'none',
-      'closeGlobalSearch must dismiss search palette modal'
+      'closeGlobalSearch must keep popup modal closed'
+    );
+    assert.strictEqual(
+      appShellResult.panelOffsetWidth,
+      270,
+      'Sidebar panel must be widened to 270px (TSK-050)'
+    );
+    assert.strictEqual(
+      appShellResult.panelComputed ? appShellResult.panelComputed.overflowY : '',
+      'hidden',
+      'Sidebar panel must have overflow-y: hidden without scroll/slider (TSK-050)'
     );
     assert.strictEqual(
       appShellResult.sidebarLeftAfterScroll,
@@ -1741,6 +1761,7 @@ async function getJson(url) {
       found: appShellResult.panelFound,
       tag: appShellResult.panelTag,
       width: appShellResult.panelClientWidth,
+      offsetWidth: appShellResult.panelOffsetWidth,
       computed: appShellResult.panelComputed
     });
     assert.strictEqual(

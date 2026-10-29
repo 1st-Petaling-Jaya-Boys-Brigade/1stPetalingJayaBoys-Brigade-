@@ -355,12 +355,11 @@
       </div>
     </div>
     <div class="nav-actions">
-      <!-- 1. Quick Search Pill -->
-      <button class="nav-search-pill" id="nav-search-trigger" onclick="openGlobalSearch()" type="button" aria-label="Search portal" title="Quick Search (Ctrl+K)">
+      <!-- 1. Quick Search Pill (Inline Header Search - TSK-050) -->
+      <div class="nav-search-pill" id="nav-search-trigger" onclick="openGlobalSearch()">
         <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <span class="nav-search-text">Search...</span>
-        <kbd class="nav-search-kbd">Ctrl K</kbd>
-      </button>
+        <input type="search" id="global-search-input" class="nav-search-input" placeholder="Search portal..." autocomplete="off" aria-label="Search portal" onkeydown="handleHeaderSearchKeyDown(event)" />
+      </div>
 
       <!-- 2. Notification Center Bell & Dropdown Card -->
       <div class="nav-notif-wrap" id="nav-notif-wrap">
@@ -2596,22 +2595,10 @@
   </div>
 </div>
 
-<!-- Quick Search / Command Palette Modal -->
-<div class="search-palette-overlay" id="global-search-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="Quick Search">
-  <div class="search-palette-card" id="search-palette-card">
-    <div class="search-palette-input-wrap">
-      <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="search" id="global-search-input" class="search-palette-input" placeholder="Search tabs, forms, badges, resources, announcements..." autocomplete="off" oninput="handleGlobalSearchInput(this.value)" />
-      <button class="search-palette-close-btn" onclick="closeGlobalSearch()" type="button" aria-label="Close search">&times;</button>
-    </div>
-    <div class="search-palette-results" id="global-search-results">
-      <!-- Dynamic search items -->
-    </div>
-    <div class="search-palette-footer">
-      <span><kbd>ESC</kbd> to close</span>
-      <span><kbd>&uarr;</kbd> <kbd>&darr;</kbd> to navigate</span>
-      <span><kbd>&crarr;</kbd> to select</span>
-    </div>
+<!-- Quick Search Palette Container (Hidden per TSK-050: inline header search without popup) -->
+<div class="search-palette-overlay" id="global-search-modal" style="display:none !important;" role="dialog" aria-modal="true" aria-label="Quick Search" aria-hidden="true">
+  <div class="search-palette-card" id="search-palette-card" style="display:none !important;">
+    <div class="search-palette-results" id="global-search-results" style="display:none !important;"></div>
   </div>
 </div>
 
@@ -3196,79 +3183,63 @@ function closeNotificationDropdown() {
   toggleNotificationDropdown(false);
 }
 
-// ── Quick Search & Command Palette Controller ──────────────────────────────
-var _globalSearchItems = [
-  { title: 'Home Dashboard', desc: 'Hero announcement, upcoming parade, and event highlights', icon: '🏠', badge: 'Page', action: function() { switchTabNav('home'); } },
-  { title: 'Uniform Store & Catalog', desc: 'Order official caps, belts, haversacks, and accessories', icon: '👕', badge: 'Store', action: function() { switchTabNav('order'); } },
-  { title: 'Member Hub & Profile', desc: 'Personal performance card, credentials, and digital MyKad profile', icon: '👤', badge: 'Member', action: function() { switchTabNav('member'); } },
-  { title: 'Weekly Parade Schedule', desc: 'Saturday parade schedule, timings, and NCO Kanban tasks', icon: '📅', badge: 'Parade', action: function() { switchTabNav('tasks'); } },
-  { title: 'Awards & President\'s Badge', desc: 'Track Target, Service, and President\'s Award criteria', icon: '🏅', badge: 'Badges', action: function() { switchTabNav('badges'); } },
-  { title: 'Squad Leaderboard', desc: 'Live company rankings, points breakdown, and squad scores', icon: '🏆', badge: 'Leaderboard', action: function() { switchTabNav('attendance'); } },
-  { title: 'Company Resources', desc: 'Download official handbooks, syllabus, and parade manuals', icon: '📚', badge: 'Docs', action: function() { switchTabNav('resources'); } },
-  { title: 'Photo & Video Gallery', desc: 'Browse company camp memories, drills, and story reels', icon: '📷', badge: 'Media', action: function() { switchTabNav('gallery'); } },
-  { title: 'Admin Console', desc: 'Back-office officer dashboard for members, tasks, and configs', icon: '⚙️', badge: 'Admin', action: function() { openAdmin(); } }
-];
+// ── Inline Header Search Controller (TSK-050) ──────────────────────────────
+var _globalSearchItems = [];
 
 function openGlobalSearch() {
-  var modal = document.getElementById('global-search-modal');
   var input = document.getElementById('global-search-input');
-  if (!modal) return;
-  modal.style.display = 'flex';
   if (input) {
-    input.value = '';
-    setTimeout(function() { input.focus(); }, 50);
+    input.focus();
+    input.select();
   }
-  handleGlobalSearchInput('');
 }
 
 function closeGlobalSearch() {
   var modal = document.getElementById('global-search-modal');
   if (modal) modal.style.display = 'none';
+  var input = document.getElementById('global-search-input');
+  if (input && document.activeElement === input) {
+    input.blur();
+  }
 }
 
-function handleGlobalSearchInput(query) {
-  var container = document.getElementById('global-search-results');
-  if (!container) return;
+function handleGlobalSearchInput() {
+  // Recommendations removed per TSK-050
+}
 
-  var q = (query || '').trim().toLowerCase();
-  var filtered = _globalSearchItems;
-  if (q) {
-    filtered = _globalSearchItems.filter(function(item) {
-      return item.title.toLowerCase().indexOf(q) !== -1 ||
-             item.desc.toLowerCase().indexOf(q) !== -1 ||
-             item.badge.toLowerCase().indexOf(q) !== -1;
-    });
+function handleHeaderSearchKeyDown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    var val = (e.target.value || '').trim();
+    if (!val) return;
+    executeHeaderSearch(val);
   }
+}
 
-  if (!filtered.length) {
-    container.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:13px;">No results found for "' + escapeHtml(query) + '".</div>';
-    return;
+function executeHeaderSearch(q) {
+  if (!q) return;
+  var term = q.toLowerCase().trim();
+  if (term.indexOf('home') !== -1 || term.indexOf('dash') !== -1 || term.indexOf('main') !== -1) {
+    switchTabNav('home');
+  } else if (term.indexOf('order') !== -1 || term.indexOf('store') !== -1 || term.indexOf('uniform') !== -1 || term.indexOf('form') !== -1 || term.indexOf('shop') !== -1 || term.indexOf('buy') !== -1) {
+    switchTabNav('order');
+  } else if (term.indexOf('member') !== -1 || term.indexOf('profile') !== -1 || term.indexOf('card') !== -1 || term.indexOf('mykad') !== -1 || term.indexOf('login') !== -1 || term.indexOf('account') !== -1) {
+    switchTabNav('member');
+  } else if (term.indexOf('task') !== -1 || term.indexOf('parade') !== -1 || term.indexOf('kanban') !== -1 || term.indexOf('schedule') !== -1 || term.indexOf('duty') !== -1 || term.indexOf('saturday') !== -1) {
+    switchTabNav('tasks');
+  } else if (term.indexOf('badge') !== -1 || term.indexOf('award') !== -1 || term.indexOf('president') !== -1 || term.indexOf('target') !== -1 || term.indexOf('service') !== -1) {
+    switchTabNav('badges');
+  } else if (term.indexOf('attend') !== -1 || term.indexOf('leader') !== -1 || term.indexOf('point') !== -1 || term.indexOf('squad') !== -1 || term.indexOf('rank') !== -1 || term.indexOf('score') !== -1) {
+    switchTabNav('attendance');
+  } else if (term.indexOf('resource') !== -1 || term.indexOf('doc') !== -1 || term.indexOf('manual') !== -1 || term.indexOf('handbook') !== -1 || term.indexOf('syllabus') !== -1 || term.indexOf('download') !== -1) {
+    switchTabNav('resources');
+  } else if (term.indexOf('gallery') !== -1 || term.indexOf('photo') !== -1 || term.indexOf('video') !== -1 || term.indexOf('camp') !== -1 || term.indexOf('pic') !== -1 || term.indexOf('image') !== -1) {
+    switchTabNav('gallery');
+  } else if (term.indexOf('admin') !== -1 || term.indexOf('officer') !== -1 || term.indexOf('setting') !== -1 || term.indexOf('console') !== -1) {
+    openAdmin();
+  } else {
+    switchTabNav('home');
   }
-
-  var html = '<div class="search-group-title">' + (q ? 'Search Results' : 'Quick Navigation') + '</div>';
-  filtered.forEach(function(item, idx) {
-    html += '<div class="search-item' + (idx === 0 ? ' selected' : '') + '" data-search-idx="' + idx + '">'
-      + '<div class="search-item-icon">' + item.icon + '</div>'
-      + '<div class="search-item-text">'
-      +   '<div class="search-item-title">' + escapeHtml(item.title) + '</div>'
-      +   '<div class="search-item-desc">' + escapeHtml(item.desc) + '</div>'
-      + '</div>'
-      + '<span class="search-item-badge">' + escapeHtml(item.badge) + '</span>'
-      + '</div>';
-  });
-
-  container.innerHTML = html;
-
-  container.querySelectorAll('.search-item').forEach(function(el) {
-    el.addEventListener('click', function() {
-      var idx = parseInt(el.getAttribute('data-search-idx'), 10);
-      var target = filtered[idx];
-      if (target && typeof target.action === 'function') {
-        closeGlobalSearch();
-        target.action();
-      }
-    });
-  });
 }
 
 function updateNavUserHeader() {
@@ -3345,6 +3316,8 @@ window.markAllNotificationsRead   = markAllNotificationsRead;
 window.renderNotifications        = renderNotifications;
 window.updateNavUserHeader        = updateNavUserHeader;
 window.handleNavProfileClick      = handleNavProfileClick;
+window.handleHeaderSearchKeyDown  = handleHeaderSearchKeyDown;
+window.executeHeaderSearch        = executeHeaderSearch;
 
 // Gallery drag-and-drop auto-initialized via js/modules/gallery.js (TSK-010)
 
