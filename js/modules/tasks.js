@@ -471,7 +471,7 @@ async function renderAdminTasks(filter) {
   var list = document.getElementById('admin-tasks-list');
   if (!list) return;
 
-  list.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
+  list.innerHTML = (typeof renderSkeletonKanban === 'function') ? renderSkeletonKanban() : '<div class="skeleton-shimmer" style="height:220px;border-radius:8px;"></div>';
   var client = getSupaClient();
   if (!client) return;
 

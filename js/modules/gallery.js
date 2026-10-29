@@ -504,11 +504,27 @@ async function uploadGalleryFiles(files) {
   var dropZone = (typeof document !== 'undefined') ? document.getElementById('gallery-drop') : null;
   if (dropZone) dropZone.style.opacity = '0.5';
 
+  var progressContainer = (typeof document !== 'undefined') ? document.getElementById('gallery-upload-progress') : null;
+  if (!progressContainer && dropZone && dropZone.parentNode) {
+    progressContainer = dropZone.parentNode;
+  }
+  var progressBar = (progressContainer && typeof createTaskProgressBar === 'function')
+    ? createTaskProgressBar(progressContainer, {
+        title: 'Uploading Media (' + validFiles.length + ' file' + (validFiles.length > 1 ? 's' : '') + ')',
+        totalSteps: validFiles.length
+      })
+    : null;
+
   var successCount = 0;
   var failCount = 0;
   var lastUploadError = '';
 
   for (var fi = 0; fi < validFiles.length; fi++) {
+    var file = validFiles[fi];
+    if (progressBar) {
+      var pct = Math.round((fi / validFiles.length) * 100);
+      progressBar.update(fi + 1, 'Processing & uploading ' + (file ? file.name : 'file') + '...', pct);
+    }
     var file = validFiles[fi];
     try {
       var res = await uploadSingleMediaFile(file);
@@ -537,6 +553,14 @@ async function uploadGalleryFiles(files) {
       console.error('Gallery upload error for file ' + file.name + ':', e);
       lastUploadError = e.message || 'Storage error';
       failCount++;
+    }
+  }
+
+  if (progressBar) {
+    if (failCount === 0) {
+      progressBar.complete('All ' + successCount + ' files uploaded successfully!');
+    } else {
+      progressBar.fail(successCount + ' uploaded, ' + failCount + ' failed: ' + lastUploadError);
     }
   }
 

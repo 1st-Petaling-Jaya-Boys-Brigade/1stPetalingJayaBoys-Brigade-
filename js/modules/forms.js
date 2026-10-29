@@ -548,8 +548,10 @@ async function submitBuiltinForm(form) {
   _isSubmittingBuiltinForm = true;
 
   var btn = typeof document !== 'undefined' ? document.querySelector('[data-submit-form]') : null;
-  if (btn) {
-    btn.innerHTML = '<span class="spinner"></span> Submitting...';
+  if (typeof setButtonLoading === 'function') {
+    setButtonLoading(btn, true, 'Submitting...', 'Submitting form responses...');
+  } else if (btn) {
+    btn.innerHTML = 'Submitting...';
     btn.disabled = true;
   }
 
@@ -1024,8 +1026,7 @@ async function renderFormResponses() {
   var list = document.getElementById('admin-form-responses-list');
   if (!list) return;
 
-  list.innerHTML =
-    '<div style="color:#888;text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
+  list.innerHTML = (typeof renderSkeletonTable === 'function') ? renderSkeletonTable(5, 4) : '<div class="skeleton-shimmer" style="height:160px;border-radius:8px;"></div>';
   var client = getSupa();
 
   try {

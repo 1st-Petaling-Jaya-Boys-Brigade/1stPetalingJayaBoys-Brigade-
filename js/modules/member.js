@@ -250,6 +250,11 @@ async function registerMember() {
   if (pass.length < 6) { if (typeof showToast === 'function') showToast('Password must be at least 6 characters.', 'warning'); return; }
   if (pass !== pass2)  { if (typeof showToast === 'function') showToast('Passwords do not match!', 'error'); return; }
 
+  var regBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-register button[type="submit"]') : null;
+  if (typeof setButtonLoading === 'function' && regBtn) {
+    setButtonLoading(regBtn, true, 'Creating Account...', 'Registering member account...');
+  }
+
   // Child Safety Governance & Verifiable Parental Consent (TSK-032 / COPPA & PDPA 2010)
   var isMinor = isMinorSection(section, parsedAge);
   var parentName = '';
@@ -397,6 +402,10 @@ async function registerMember() {
     window.location.reload();
   } catch (e) {
     if (typeof showToast === 'function') showToast('Registration failed: ' + e.message, 'error');
+  } finally {
+    if (typeof setButtonLoading === 'function' && regBtn) {
+      setButtonLoading(regBtn, false);
+    }
   }
 }
 
@@ -414,6 +423,11 @@ async function loginMember() {
   var identifier = (idEl.value || '').trim();
   var pass = (document.getElementById('login-pass') || {}).value || '';
   if (!identifier || !pass) { if (typeof showToast === 'function') showToast('Please enter your email and password.', 'warning'); return; }
+
+  var loginBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-login button[type="submit"]') : null;
+  if (typeof setButtonLoading === 'function' && loginBtn) {
+    setButtonLoading(loginBtn, true, 'Logging in...', 'Logging in to member portal...');
+  }
 
   try {
     var client = getSupa();
@@ -486,6 +500,10 @@ async function loginMember() {
     if (passEl) passEl.value = '';
   } catch (e) {
     if (typeof showToast === 'function') showToast('Login failed: ' + e.message, 'error');
+  } finally {
+    if (typeof setButtonLoading === 'function' && loginBtn) {
+      setButtonLoading(loginBtn, false);
+    }
   }
 }
 
@@ -621,7 +639,7 @@ async function loadMemberOrders() {
   var container = document.getElementById('member-orders-list');
   if (!id || !container) return;
 
-  container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;"><span class="spinner"></span> Loading...</div>';
+  container.innerHTML = (typeof renderSkeletonCard === 'function') ? renderSkeletonCard(3, 'order') : '<div class="skeleton-shimmer" style="height:140px;border-radius:12px;"></div>';
   try {
     var client = getSupa();
     var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');

@@ -3417,3 +3417,309 @@ textarea:-webkit-autofill:active {
   padding: 1px 5px;
   font-size: 10px;
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HIGH-UX STANDARDIZED LOADING ARCHITECTURE & SKELETON SCREENS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.12) 37%,
+    rgba(255, 255, 255, 0.04) 63%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+  border-radius: var(--radius-sm, 6px);
+}
+
+[data-theme="light"] .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 25%,
+    rgba(0, 0, 0, 0.12) 37%,
+    rgba(0, 0, 0, 0.05) 63%
+  );
+  background-size: 200% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+  }
+  [data-theme="light"] .skeleton-shimmer {
+    background: rgba(0, 0, 0, 0.07) !important;
+  }
+  .top-route-progress {
+    transition: none !important;
+  }
+}
+
+/* Skeleton primitive shapes */
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+.skeleton-line.short { width: 35%; }
+.skeleton-line.medium { width: 65%; }
+.skeleton-line.long { width: 90%; }
+.skeleton-line.full { width: 100%; }
+
+.skeleton-circle {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton-pill {
+  border-radius: 9999px;
+  height: 24px;
+  width: 70px;
+  display: inline-block;
+}
+
+/* Pattern B: Specific Skeleton Twins (CLS = 0) */
+/* Announcement Feed Skeleton */
+.skeleton-announcement-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 12px);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.skeleton-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.skeleton-card-body {
+  margin-bottom: 16px;
+}
+
+.skeleton-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Data Table Skeleton */
+.skeleton-table-wrapper {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.skeleton-table-header {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.skeleton-table-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.skeleton-table-row:last-child {
+  border-bottom: none;
+}
+
+/* Order History Skeleton */
+.skeleton-order-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 12px);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Kanban Column Skeleton */
+.skeleton-kanban-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.skeleton-kanban-column {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 12px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+/* Pattern C: Localized Button Spinner */
+.btn-loading {
+  position: relative !important;
+  pointer-events: none !important;
+  cursor: wait !important;
+}
+
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+  box-sizing: border-box;
+}
+
+/* Pattern D: Progress Bars */
+/* Top Route Progress (Fixed 3px) */
+#top-route-progress,
+.top-route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0%;
+  height: 3px;
+  z-index: 999999;
+  pointer-events: none;
+  background: linear-gradient(90deg, #d49228, #f5c042);
+  box-shadow: 0 0 10px rgba(245, 192, 66, 0.7);
+  transition: width 200ms ease-out, opacity 300ms ease-in;
+  opacity: 0;
+}
+
+.top-route-progress.active {
+  opacity: 1;
+}
+
+/* Determinate/Stepped Task Progress Bar */
+.task-progress-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 12px);
+  padding: 16px;
+  margin: 12px 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.task-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.task-progress-percent {
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  color: var(--accent);
+}
+
+.task-progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-card-subtle);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+.task-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #d49228, #f5c042);
+  width: 0%;
+  border-radius: 9999px;
+  transition: width 200ms ease-out;
+}
+
+.task-progress-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Slow / Long Wait Helper Box */
+.loading-long-wait-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(245, 192, 66, 0.08);
+  border: 1px solid rgba(245, 192, 66, 0.25);
+  border-radius: var(--radius-sm, 6px);
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.loading-long-wait-hint button {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Graceful Timeout / Retry Box */
+.loading-timeout-state {
+  text-align: center;
+  padding: 32px 20px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md, 12px);
+  margin: 16px 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.loading-timeout-state .retry-btn {
+  margin-top: 12px;
+  padding: 8px 18px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--accent);
+  color: #000;
+  font-weight: 600;
+  border: none;
+}

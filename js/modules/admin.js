@@ -344,7 +344,7 @@
     var list   = document.getElementById('admin-members-list');
     if (!list) return;
 
-    list.innerHTML = '<div style="color:#888;text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
+    list.innerHTML = (typeof renderSkeletonTable === 'function') ? renderSkeletonTable(6, 6) : '<div class="skeleton-shimmer" style="height:180px;border-radius:8px;"></div>';
 
     var client = getSupabaseClient();
     if (!client || !client.get) {
@@ -1017,7 +1017,7 @@
     var list = document.getElementById('admin-tasks-list');
     if (!list) return;
 
-    list.innerHTML = '<div style="color:var(--text-secondary);text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
+    list.innerHTML = (typeof renderSkeletonKanban === 'function') ? renderSkeletonKanban() : '<div class="skeleton-shimmer" style="height:220px;border-radius:8px;"></div>';
 
     var client = getSupabaseClient();
     if (!client || !client.get) {

@@ -1024,8 +1024,10 @@ async function submitOrder() {
   }
 
   _isSubmittingOrder = true;
-  if (btn) {
-    btn.innerHTML = '<span class="spinner"></span> Submitting...';
+  if (typeof setButtonLoading === 'function') {
+    setButtonLoading(btn, true, 'Submitting...', 'Submitting uniform order...');
+  } else if (btn) {
+    btn.innerHTML = 'Submitting...';
     btn.disabled = true;
   }
 
@@ -1279,8 +1281,7 @@ async function renderAdminOrders() {
   var list = document.getElementById('admin-orders-list');
   if (!list) return;
 
-  list.innerHTML =
-    '<div style="color:#888;text-align:center;padding:20px;"><span class="spinner"></span> Loading...</div>';
+  list.innerHTML = (typeof renderSkeletonTable === 'function') ? renderSkeletonTable(6, 6) : '<div class="skeleton-shimmer" style="height:180px;border-radius:8px;"></div>';
   var client = getSupa();
 
   try {
