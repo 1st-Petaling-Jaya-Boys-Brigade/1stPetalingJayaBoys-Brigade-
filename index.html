@@ -837,6 +837,11 @@
 
       <!-- REGISTER -->
       <form id="auth-register" style="display:none;margin:0;" onsubmit="event.preventDefault(); registerMember();" autocomplete="on">
+        <!-- Honeypot Bot Trap (TSK-025) -->
+        <div style="display:none !important; position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;" aria-hidden="true">
+          <label for="reg-honeypot">Leave blank</label>
+          <input type="text" id="reg-honeypot" name="hp_field" tabindex="-1" autocomplete="off" />
+        </div>
         <div class="form-group">
           <label class="form-label" for="reg-fullname">Full Name</label>
           <input class="form-input" id="reg-fullname" name="name" type="text" placeholder="e.g. Lee Chong Wei" autocomplete="name"/>
