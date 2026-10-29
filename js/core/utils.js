@@ -251,6 +251,42 @@ function hexToBytes(hex) {
 }
 
 /**
+ * Computes SHA-256 hexadecimal hash using Web Crypto or Node.js crypto (BUG-009)
+ * @param {string} str
+ * @returns {Promise<string>}
+ */
+async function computeSha256(str) {
+  if (typeof str !== 'string') return '';
+  var cryptoObj =
+    typeof window !== 'undefined' && window.crypto
+      ? window.crypto
+      : typeof crypto !== 'undefined'
+        ? (crypto.webcrypto ? crypto.webcrypto : crypto)
+        : null;
+
+  if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
+    var enc = new TextEncoder();
+    var hashBuf = await cryptoObj.subtle.digest('SHA-256', enc.encode(str));
+    var bytes = new Uint8Array(hashBuf);
+    var hex = '';
+    for (var i = 0; i < bytes.length; i++) {
+      var b = bytes[i].toString(16);
+      hex += b.length === 1 ? '0' + b : b;
+    }
+    return hex;
+  }
+
+  if (typeof require !== 'undefined') {
+    try {
+      var nodeCrypto = require('crypto');
+      return nodeCrypto.createHash('sha256').update(str).digest('hex');
+    } catch (e) {}
+  }
+
+  return '';
+}
+
+/**
  * Hashes a plaintext password using Web Crypto API PBKDF2-HMAC-SHA-256 (TSK-029)
  * Generates a unique 128-bit cryptographically secure salt per user.
  * Output Format: 'pbkdf2:sha256:100000:<saltHex>:<hashHex>'
@@ -306,6 +342,56 @@ async function hashPassword(password, saltHex) {
 }
 
 /**
+ * Unicode-safe Base64 encoder (BUG-003)
+ * @param {string} str
+ * @returns {string}
+ */
+function safeBase64Encode(str) {
+  if (typeof str !== 'string') return '';
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(str, 'utf8').toString('base64');
+    }
+    if (typeof btoa === 'function') {
+      return btoa(
+        encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (match, p1) {
+          return String.fromCharCode(parseInt(p1, 16));
+        })
+      );
+    }
+  } catch (e) {
+    return '';
+  }
+  return '';
+}
+
+/**
+ * Unicode-safe Base64 decoder (BUG-003)
+ * @param {string} str
+ * @returns {string|null}
+ */
+function safeBase64Decode(str) {
+  if (typeof str !== 'string' || !str) return null;
+  try {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(str, 'base64').toString('utf8');
+    }
+    if (typeof atob === 'function') {
+      var binary = atob(str);
+      var encoded = Array.prototype.map
+        .call(binary, function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join('');
+      return decodeURIComponent(encoded);
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+/**
  * Verifies password against stored credentials (supports PBKDF2 and legacy Base64 auto-migration)
  * @param {string} password - User entered plaintext password
  * @param {string} storedHash - Stored string from database
@@ -334,14 +420,9 @@ async function verifyPassword(password, storedHash) {
     }
   }
 
-  // 2. Legacy Base64 check (enables seamless on-the-fly upgrade without user disruption)
+  // 2. Legacy Base64 check (enables seamless on-the-fly upgrade without user disruption; Unicode-safe BUG-003)
   try {
-    var decoded = null;
-    if (typeof atob === 'function') {
-      decoded = atob(storedHash);
-    } else if (typeof Buffer !== 'undefined') {
-      decoded = Buffer.from(storedHash, 'base64').toString('utf8');
-    }
+    var decoded = safeBase64Decode(storedHash);
     if (decoded && decoded === password) {
       return { valid: true, needsUpgrade: true };
     }
@@ -401,6 +482,9 @@ if (typeof window !== 'undefined') {
   window.migrateBadgeEntry = migrateBadgeEntry;
   window.bytesToHex     = bytesToHex;
   window.hexToBytes     = hexToBytes;
+  window.safeBase64Encode = safeBase64Encode;
+  window.safeBase64Decode = safeBase64Decode;
+  window.computeSha256   = computeSha256;
   window.hashPassword   = hashPassword;
   window.verifyPassword = verifyPassword;
   window.showToast      = showToast;
@@ -420,6 +504,9 @@ if (typeof module !== 'undefined' && module.exports) {
     migrateBadgeEntry: migrateBadgeEntry,
     bytesToHex: bytesToHex,
     hexToBytes: hexToBytes,
+    safeBase64Encode: safeBase64Encode,
+    safeBase64Decode: safeBase64Decode,
+    computeSha256: computeSha256,
     hashPassword: hashPassword,
     verifyPassword: verifyPassword,
     showToast: showToast,

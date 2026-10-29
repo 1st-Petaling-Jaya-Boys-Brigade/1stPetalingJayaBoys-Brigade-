@@ -296,6 +296,120 @@ async function saveMasterSheetConfig(cfgOverride) {
 // ── Ingestion & Data Fetching (Hardened TSK-038) ─────────────────────────────
 
 /**
+ * Pushes attendance records to Google Apps Script / Google Sheets with real CORS response validation (BUG-007)
+ * Eliminates mode: 'no-cors' so that errors, authentication failures, and network drops are properly caught
+ * instead of giving false-positive success toasts.
+ * @param {Object|Array} recordsOrOptions
+ * @param {string} [scriptUrl]
+ * @param {string} [syncToken]
+ * @returns {Promise<{success: boolean, data: Object|null}>}
+ */
+async function syncToSheets(recordsOrOptions, scriptUrl, syncToken) {
+  var options = {};
+  if (Array.isArray(recordsOrOptions)) {
+    options = { records: recordsOrOptions };
+  } else if (recordsOrOptions && typeof recordsOrOptions === 'object') {
+    options = recordsOrOptions;
+  }
+
+  var targetUrl = scriptUrl || options.scriptUrl;
+  var token = syncToken || options.syncToken;
+
+  if (!targetUrl || !token) {
+    var cfg = await loadMasterSheetConfig();
+    if (!targetUrl) targetUrl = cfg.scriptUrl;
+    if (!token) token = cfg.syncToken;
+  }
+
+  if (!targetUrl) {
+    var errNoUrl = new Error('Google Sheets Web App URL is not configured.');
+    if (typeof showToast === 'function') {
+      showToast(errNoUrl.message, 'warning');
+    }
+    throw errNoUrl;
+  }
+
+  var payload = {
+    action: 'syncAttendance',
+    sheetId: options.sheetId || '',
+    weekLabel: options.weekLabel || '',
+    weekDate: options.weekDate || '',
+    records: options.records || []
+  };
+
+  // Build authenticated URL
+  var separator = targetUrl.indexOf('?') === -1 ? '?' : '&';
+  var requestUrl = targetUrl;
+  if (token) {
+    requestUrl += separator + 'token=' + encodeURIComponent(token);
+  }
+
+  var headers = {
+    'Content-Type': 'text/plain;charset=utf-8',
+    'Accept': 'application/json'
+  };
+  if (token) {
+    headers['X-Sync-Token'] = token;
+  }
+
+  // Real CORS request - NO mode: 'no-cors' (BUG-007)
+  var res;
+  try {
+    res = await fetch(requestUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload)
+    });
+  } catch (netErr) {
+    var networkMsg = 'Google Sheets sync failed: Network connection error or invalid endpoint.';
+    if (typeof showToast === 'function') {
+      showToast(networkMsg, 'error');
+    }
+    throw new Error(networkMsg);
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    var authMsg = 'Google Sheets sync rejected: Unauthorized or invalid sync token.';
+    if (typeof showToast === 'function') {
+      showToast(authMsg, 'error');
+    }
+    throw new Error(authMsg);
+  }
+
+  if (!res.ok) {
+    var httpMsg = 'Google Sheets sync failed with HTTP status ' + res.status + '.';
+    if (typeof showToast === 'function') {
+      showToast(httpMsg, 'error');
+    }
+    throw new Error(httpMsg);
+  }
+
+  var responseData = null;
+  try {
+    var text = await res.text();
+    responseData = JSON.parse(text);
+  } catch (e) {
+    // Non-JSON response
+  }
+
+  if (responseData && responseData.error) {
+    var apiErrMsg = 'Google Sheets sync error: ' + responseData.error;
+    if (typeof showToast === 'function') {
+      showToast(apiErrMsg, 'error');
+    }
+    throw new Error(apiErrMsg);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('Attendance successfully synced to Google Sheets!', 'success');
+  }
+
+  return { success: true, data: responseData };
+}
+
+var syncAttendanceToSheets = syncToSheets;
+
+/**
  * Fetch attendance & performance data directly from a deployed Google Apps Script Web App (doGet)
  * Enforces shared-secret token validation and strictly strips all sensitive PII before storage.
  * @param {string} [scriptUrl]
@@ -970,6 +1084,8 @@ if (typeof window !== 'undefined') {
   window.sanitizeMasterAttendancePayload  = sanitizeMasterAttendancePayload;
   window.loadMasterSheetConfig            = loadMasterSheetConfig;
   window.saveMasterSheetConfig            = saveMasterSheetConfig;
+  window.syncToSheets                     = syncToSheets;
+  window.syncAttendanceToSheets           = syncAttendanceToSheets;
   window.fetchMasterAttendanceFromGAS     = fetchMasterAttendanceFromGAS;
   window.getGoogleAppsScriptTemplate      = getGoogleAppsScriptTemplate;
 }
@@ -989,6 +1105,8 @@ if (typeof module !== 'undefined' && module.exports) {
     sanitizeMasterAttendancePayload: sanitizeMasterAttendancePayload,
     loadMasterSheetConfig: loadMasterSheetConfig,
     saveMasterSheetConfig: saveMasterSheetConfig,
+    syncToSheets: syncToSheets,
+    syncAttendanceToSheets: syncAttendanceToSheets,
     fetchMasterAttendanceFromGAS: fetchMasterAttendanceFromGAS,
     getGoogleAppsScriptTemplate: getGoogleAppsScriptTemplate
   };

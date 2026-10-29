@@ -1437,7 +1437,7 @@ async function getJson(url) {
         const remasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
 
         if (passInput) passInput.value = 'bb2024admin';
-        window.adminLogin();
+        await window.adminLogin();
 
         const authedState = {
           loginBoxHidden: !loginBox || loginBox.style.display === 'none',

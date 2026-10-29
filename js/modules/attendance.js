@@ -847,6 +847,23 @@ async function renderCompanyLeaderboard() {
   c.innerHTML = html;
 }
 
+/**
+ * Triggers sync of attendance records to Google Sheets (BUG-007)
+ * Delegates to sheets.js syncToSheets with real response handling
+ * @param {Object|Array} records
+ * @returns {Promise<Object>}
+ */
+async function syncToSheets(records) {
+  if (typeof window !== 'undefined' && typeof window.syncToSheets === 'function' && window.syncToSheets !== syncToSheets) {
+    return window.syncToSheets(records);
+  }
+  var sheetsApi = typeof require !== 'undefined' ? require('../api/sheets.js') : null;
+  if (sheetsApi && typeof sheetsApi.syncToSheets === 'function') {
+    return sheetsApi.syncToSheets(records);
+  }
+  throw new Error('Google Sheets sync module is not available.');
+}
+
 // ── Global Window Exports ───────────────────────────────────────────────────
 
 if (typeof window !== 'undefined') {
@@ -857,6 +874,7 @@ if (typeof window !== 'undefined') {
   window.refreshMemberAttendanceStats = refreshMemberAttendanceStats;
   window.renderCompanyLeaderboard = renderCompanyLeaderboard;
   window.renderAdminMasterSheetPanel = renderAdminMasterSheetPanel;
+  window.syncToSheets = syncToSheets;
   window.triggerMasterSheetFetch = triggerMasterSheetFetch;
   window.copyAppsScriptSnippet = copyAppsScriptSnippet;
   window.generateNewMasterSyncToken = generateNewMasterSyncToken;
@@ -873,6 +891,7 @@ if (typeof module !== 'undefined' && module.exports) {
     refreshMemberAttendanceStats: refreshMemberAttendanceStats,
     renderCompanyLeaderboard: renderCompanyLeaderboard,
     renderAdminMasterSheetPanel: renderAdminMasterSheetPanel,
+    syncToSheets: syncToSheets,
     triggerMasterSheetFetch: triggerMasterSheetFetch,
     generateNewMasterSyncToken: generateNewMasterSyncToken,
     copyMasterSyncToken: copyMasterSyncToken,

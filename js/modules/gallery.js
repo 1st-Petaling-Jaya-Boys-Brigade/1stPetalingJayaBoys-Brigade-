@@ -72,14 +72,124 @@ function isVideoMedia(url, type) {
 }
 
 /**
+ * Compresses an image File or Blob before uploading to Supabase Storage (BUG-008)
+ * Limits dimensions (default 1920px) and quality (default 0.82) to avoid storage exhaustion.
+ * @param {File|Blob} file
+ * @param {number} [maxDim=1920]
+ * @param {number} [quality=0.82]
+ * @returns {Promise<Blob|File>}
+ */
+async function compressGalleryPhoto(file, maxDim, quality) {
+  maxDim = maxDim || 1920;
+  quality = quality || 0.82;
+
+  if (!file) return file;
+  if (typeof Image === 'undefined' || typeof document === 'undefined' || !document.createElement) {
+    return file;
+  }
+
+  // Preserve SVG and animated GIF files without canvas rasterization
+  var ext = (file.name ? file.name.split('.').pop() || '' : '').toLowerCase();
+  if (file.type === 'image/svg+xml' || file.type === 'image/gif' || ext === 'svg' || ext === 'gif') {
+    return file;
+  }
+
+  return new Promise(function(resolve) {
+    var img = new Image();
+    var objUrl = null;
+
+    function cleanup() {
+      if (objUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
+        try { URL.revokeObjectURL(objUrl); } catch (e) {}
+      }
+    }
+
+    img.onload = function() {
+      cleanup();
+      try {
+        var w = img.naturalWidth || img.width || 1200;
+        var h = img.naturalHeight || img.height || 800;
+
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+
+        var canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+        }
+
+        if (typeof canvas.toBlob === 'function') {
+          canvas.toBlob(function(blob) {
+            if (blob && blob.size && blob.size < file.size) {
+              resolve(blob);
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', quality);
+        } else {
+          resolve(file);
+        }
+      } catch (err) {
+        resolve(file);
+      }
+    };
+
+    img.onerror = function() {
+      cleanup();
+      resolve(file);
+    };
+
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      try {
+        objUrl = URL.createObjectURL(file);
+        img.src = objUrl;
+      } catch (e) {
+        resolve(file);
+      }
+    } else {
+      resolve(file);
+    }
+  });
+}
+
+/**
  * Uploads a single media file (photo or video) to Supabase Storage
  * @param {File} file
  * @returns {Promise<{url: string, type: string, filename: string}|null>}
  */
 async function uploadSingleMediaFile(file) {
   if (!file) return null;
-  var rawExt = (file.name.split('.').pop() || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  var rawExt = (file.name ? file.name.split('.').pop() || '' : '').toLowerCase().replace(/[^a-z0-9]/g, '');
   var isVid = (file.type && file.type.startsWith('video/')) || ['mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'].indexOf(rawExt) !== -1;
+
+  // Validation: File size limit checks (BUG-008)
+  var maxPhotoSize = 15 * 1024 * 1024; // 15MB limit for photos
+  var maxVideoSize = 50 * 1024 * 1024; // 50MB limit for direct video upload
+  if (!isVid && file.size && file.size > maxPhotoSize) {
+    if (typeof showToast === 'function') {
+      showToast('Photo file size exceeds maximum limit of 15MB.', 'warning');
+    }
+    return null;
+  }
+  if (isVid && file.size && file.size > maxVideoSize) {
+    if (typeof showToast === 'function') {
+      showToast('Video file size exceeds 50MB limit. Please use a Google Drive or YouTube link instead.', 'warning');
+    }
+    return null;
+  }
+
   var defaultExt = isVid ? 'mp4' : 'jpg';
   var ext = rawExt || defaultExt;
   var rand = Math.random().toString(36).substring(2, 7);
@@ -88,7 +198,20 @@ async function uploadSingleMediaFile(file) {
   var defaultMime = isVid ? 'video/mp4' : 'image/jpeg';
   var mime = file.type || defaultMime;
 
-  var blob = new Blob([await file.arrayBuffer()], { type: mime });
+  // Client-side Image Compression (BUG-008)
+  var uploadData = file;
+  if (!isVid) {
+    uploadData = await compressGalleryPhoto(file, 1920, 0.82);
+  }
+
+  var blob;
+  if (typeof Blob !== 'undefined' && uploadData instanceof Blob) {
+    blob = uploadData;
+  } else if (typeof Blob !== 'undefined' && uploadData && typeof uploadData.arrayBuffer === 'function') {
+    blob = new Blob([await uploadData.arrayBuffer()], { type: mime });
+  } else {
+    blob = uploadData;
+  }
 
   var client = (typeof window !== 'undefined' && window.supa) ? window.supa : (typeof supa !== 'undefined' ? supa : null);
   if (client && typeof client.uploadFile === 'function') {
@@ -1708,6 +1831,7 @@ if (typeof window !== 'undefined') {
   window.storyHighlights        = storyHighlights;
   window.normalizeMediaUrl      = normalizeMediaUrl;
   window.isVideoMedia           = isVideoMedia;
+  window.compressGalleryPhoto  = compressGalleryPhoto;
   window.uploadSingleMediaFile  = uploadSingleMediaFile;
   window.filterGallery          = filterGallery;
   window.toggleStorySound       = toggleStorySound;
@@ -1751,6 +1875,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DEFAULT_STORY_HIGHLIGHTS: DEFAULT_STORY_HIGHLIGHTS,
     normalizeMediaUrl: normalizeMediaUrl,
     isVideoMedia: isVideoMedia,
+    compressGalleryPhoto: compressGalleryPhoto,
     uploadSingleMediaFile: uploadSingleMediaFile,
     filterGallery: filterGallery,
     toggleStorySound: toggleStorySound,

@@ -224,6 +224,9 @@ global.sessionGet = k => {
 global.sessionSet = (k, v) => {
   mockSession[k] = v;
 };
+global.sessionClear = () => {
+  mockSession = {};
+};
 global.location = { hash: '', reload: () => {} };
 global.window.location = global.location;
 global.alert = _msg => {};
@@ -456,6 +459,24 @@ assert.strictEqual(
 console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
 (async () => {
+  // BUG-003: Unicode-safe Base64 and Password Verification
+  const unicodeString = 'Passwørd_測試_🔐';
+  const encodedUnicode = utils.safeBase64Encode(unicodeString);
+  assert.ok(encodedUnicode && encodedUnicode.length > 0, 'safeBase64Encode produces valid base64');
+  const decodedUnicode = utils.safeBase64Decode(encodedUnicode);
+  assert.strictEqual(decodedUnicode, unicodeString, 'safeBase64Decode correctly restores Unicode string without crashing');
+
+  const legacyVerify = await utils.verifyPassword(unicodeString, encodedUnicode);
+  assert.strictEqual(legacyVerify.valid, true, 'verifyPassword validates legacy Unicode base64 password');
+  assert.strictEqual(legacyVerify.needsUpgrade, true, 'verifyPassword flags legacy password for upgrade');
+
+  const modernHash = await utils.hashPassword(unicodeString);
+  assert.ok(modernHash.startsWith('pbkdf2:sha256:'), 'hashPassword uses PBKDF2-SHA256');
+  const modernVerify = await utils.verifyPassword(unicodeString, modernHash);
+  assert.strictEqual(modernVerify.valid, true, 'verifyPassword validates modern PBKDF2 Unicode password');
+  assert.strictEqual(modernVerify.needsUpgrade, false, 'modern PBKDF2 hash does not need upgrade');
+  console.log('  ✔ Unicode-safe password hashing and base64 migration verified (BUG-003)');
+
   // 2. Load Announcements
   await announcementsModule.loadAnnouncements();
   assert.strictEqual(announcementsModule.announcements.length, 1, 'Should load 1 announcement');
@@ -514,6 +535,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(lastPosted.path, 'bb_gallery', 'Should insert into bb_gallery table');
   console.log('  ✔ uploadGalleryFiles uploads to storage and inserts database record');
+
+  // BUG-008: Gallery Upload Size Limits & Compression Validation
+  const oversizePhoto = {
+    name: 'huge.jpg',
+    type: 'image/jpeg',
+    size: 16 * 1024 * 1024,
+    arrayBuffer: async () => new ArrayBuffer(8)
+  };
+  const photoRejectRes = await galleryModule.uploadSingleMediaFile(oversizePhoto);
+  assert.strictEqual(photoRejectRes, null, 'Photos exceeding 15MB must be rejected');
+
+  const oversizeVideo = {
+    name: 'huge.mp4',
+    type: 'video/mp4',
+    size: 55 * 1024 * 1024,
+    arrayBuffer: async () => new ArrayBuffer(8)
+  };
+  const videoRejectRes = await galleryModule.uploadSingleMediaFile(oversizeVideo);
+  assert.strictEqual(videoRejectRes, null, 'Videos exceeding 50MB must be rejected');
+
+  const compRes = await galleryModule.compressGalleryPhoto(mockFile, 1920, 0.82);
+  assert.ok(compRes, 'compressGalleryPhoto must process media file');
+  console.log('  ✔ uploadSingleMediaFile enforces 15MB photo / 50MB video limits and photo compression (BUG-008)');
   // ── Testing All-Format Media & Dedicated Gallery Tab ──
   console.log('Testing Media Normalization & Video Detection...');
   assert.strictEqual(
@@ -1145,6 +1189,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(migrationSql.includes('att_section'), 'Migration must declare att_section');
   console.log('  ✔ Child Safety & Parental Consent database migration schema verified');
 
+  // BUG-011: logoutMember session purging & header state reset validation
+  global.sessionSet('email', 'sgt@bb.org');
+  global.sessionSet('ic', '080101-14-1234');
+  global.sessionSet('rank', 'Sergeant');
+  global.sessionSet('points', '50');
+  global.sessionSet('remember', true);
+
+  memberModule.logoutMember();
+
+  assert.strictEqual(Object.keys(mockSession).length, 0, 'mockSession must be completely emptied by sessionClear()');
+  console.log('  ✔ logoutMember purges all session keys and resets header state (BUG-011)');
+  // Restore session user for downstream tests
+  mockUser = 'test@bbpj1.org';
+  global.sessionSet('ic', mockUser);
+
   // ── Calendar Module Tests (TSK-CALENDAR) ──
   console.log('Testing Company Calendar & Member Personal Schedule...');
   const calendarModule = require('../js/modules/calendar.js');
@@ -1426,6 +1485,44 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(ordersMod.getTngScreenshot(), null, 'Cleared screenshot must be null');
   console.log('  ✔ Touch n Go payment screenshot handlers function cleanly');
 
+  // BUG-002: Payment Receipt Compression & Storage Upload Validation
+  const compResult = await ordersMod.compressReceiptImage('data:image/jpeg;base64,sampleMockReceiptData', 1200, 0.75);
+  assert.ok(compResult && compResult.dataUrl, 'compressReceiptImage must return dataUrl');
+  assert.strictEqual(typeof ordersMod.compressReceiptImage, 'function', 'compressReceiptImage must be exported');
+  console.log('  ✔ compressReceiptImage downscales receipts and avoids postgres bloat (BUG-002)');
+
+  // BUG-006: admin-order-form-filter toolbar testing
+  const orderFilterSelect = document.createElement('select');
+  orderFilterSelect.id = 'admin-order-form-filter';
+  orderFilterSelect.innerHTML = '<option value="">All</option><option value="pending">Pending</option>';
+  document.body.appendChild(orderFilterSelect);
+  const adminOrderList = document.createElement('div');
+  adminOrderList.id = 'admin-orders-list';
+  document.body.appendChild(adminOrderList);
+  await ordersMod.renderAdminOrders();
+  assert.ok(adminOrderList.innerHTML.length > 0, 'renderAdminOrders must render list');
+  console.log('  ✔ admin-order-form-filter and status filtering function correctly (BUG-006)');
+
+
+  // BUG-012: Empty bb_payment_info fallback validation
+  const prevSupaGet = global.supa.get;
+  global.supa.get = async path => {
+    if (path.includes('bb_payment_info')) return [];
+    return prevSupaGet ? prevSupaGet(path) : [];
+  };
+  const emptyPaymentInfo = await ordersMod.loadPaymentInfo();
+  global.supa.get = prevSupaGet;
+  assert.ok(
+    emptyPaymentInfo && emptyPaymentInfo.includes('Touch'),
+    'loadPaymentInfo must return fallback instructions when bb_payment_info is empty (BUG-012)'
+  );
+  assert.strictEqual(
+    typeof ordersMod.DEFAULT_PAYMENT_INFO,
+    'string',
+    'DEFAULT_PAYMENT_INFO must be exported'
+  );
+  console.log('  ✔ loadPaymentInfo provides non-empty fallback instructions when database record is empty (BUG-012)');
+
   // 6. Order Submission
   ordersMod.UNIFORM_ITEMS[0].price = 45;
   ordersMod.changeQty('shirt', 1);
@@ -1586,6 +1683,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   formsMod.addFormField();
   assert.ok(formsMod._fbFields.length >= 1, 'addFormField must push a new field');
   console.log('  ✔ Dynamic Form Builder manages form types and custom fields');
+
+  // BUG-010: renderBuiltinFormInline scoped input ID validation
+  const testForm1 = {
+    id: 'camp_2026',
+    name: 'Camp 2026',
+    fields: [
+      { label: 'Dietary', type: 'text', required: true },
+      { label: 'T-Shirt', type: 'select', options: 'S, M, L' }
+    ]
+  };
+  const testFormContainer = document.createElement('div');
+  testFormContainer.id = 'builtin-form-view';
+  document.body.appendChild(testFormContainer);
+  formsMod.renderBuiltinFormInline(testForm1);
+
+  const scopedDietaryInput = document.getElementById('bff-camp_2026-0');
+  const scopedShirtInput = document.getElementById('bff-camp_2026-1');
+  assert.ok(scopedDietaryInput, 'Input element must have scoped ID bff-camp_2026-0');
+  assert.ok(scopedShirtInput, 'Input element must have scoped ID bff-camp_2026-1');
+
+  const validationRes = formsMod.validateFormAnswers(testForm1, { 'bff-camp_2026-0': 'Halal' });
+  assert.strictEqual(validationRes.valid, true, 'validateFormAnswers resolves answer by scoped ID key');
+  console.log('  ✔ renderBuiltinFormInline scopes input IDs by form.id preventing collisions (BUG-010)');
 
   // 2. Forms Hub Search & Filtering
   const filterForms = formsMod.filterForms;
@@ -2429,6 +2549,44 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ fetchMasterAttendanceFromGAS rejects unauthorized requests with HTTP 401');
 
+  // BUG-007: syncToSheets real CORS response handling & false-positive elimination
+  const syncSuccessRes = await sheetsMod.syncToSheets(
+    [{ name: 'John Doe', ic: '080101-14-1234', present: 1 }],
+    'https://script.google.com/macros/s/test_exec/exec',
+    customToken
+  );
+  assert.strictEqual(syncSuccessRes.success, true, 'syncToSheets resolves with success on HTTP 200');
+
+  // Verify false-positive rejection on 401/403
+  await assert.rejects(
+    async () => {
+      await sheetsMod.syncToSheets(
+        [{ name: 'John Doe', present: 1 }],
+        'https://script.google.com/macros/s/test_exec/exec',
+        'bad_token'
+      );
+    },
+    /rejected|unauthorized/i,
+    'syncToSheets must reject on 401/403 instead of false positive'
+  );
+
+  // Verify false-positive rejection on network error
+  const origFetch = global.fetch;
+  global.fetch = async () => { throw new Error('Network offline'); };
+  await assert.rejects(
+    async () => {
+      await sheetsMod.syncToSheets(
+        [{ name: 'John Doe' }],
+        'https://script.google.com/macros/s/test_exec/exec',
+        customToken
+      );
+    },
+    /Network connection error/i,
+    'syncToSheets must reject on network error instead of false-positive toast'
+  );
+  global.fetch = origFetch;
+  console.log('  ✔ syncToSheets eliminates mode: no-cors and verifies real response status (BUG-007)');
+
   // 7. Google Apps Script Hardened Template Verification
   const templateCode = sheetsMod.getGoogleAppsScriptTemplate(
     'https://example.supabase.co',
@@ -2699,7 +2857,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
 
   adminPass.value = 'bb2024admin';
-  adminModule.adminLogin();
+  await adminModule.adminLogin();
   assert.strictEqual(
     global.sessionGet('adminAuthed'),
     true,
@@ -2723,6 +2881,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Admin console authentication and modal visibility transitions function accurately'
   );
 
+  // BUG-009: Admin Password SHA-256 Hashing Verification
+  const computedHash = await utils.computeSha256('bb2024admin');
+  assert.strictEqual(
+    computedHash,
+    'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f',
+    'computeSha256 produces exact match'
+  );
+  assert.strictEqual(
+    await adminModule.verifyAdminPassword('bb2024admin'),
+    true,
+    'verifyAdminPassword validates correct credential'
+  );
+  assert.strictEqual(
+    await adminModule.verifyAdminPassword('wrongpassword'),
+    false,
+    'verifyAdminPassword rejects incorrect credential'
+  );
+  console.log('  ✔ admin credentials hashed with SHA-256 eliminating plaintext exposure (BUG-009)');
+
   // Test toggleAdminPassVis
   adminPass.style.webkitTextSecurity = 'disc';
   adminModule.toggleAdminPassVis();
@@ -2744,7 +2921,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // Test switchAdminSection & backToAdminHome
   adminModule.openAdmin();
   adminPass.value = 'bb2024admin';
-  adminModule.adminLogin();
+  await adminModule.adminLogin();
 
   adminModule.switchAdminSection('members');
   const secMembers = document.getElementById('adm-section-members');
@@ -2968,11 +3145,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
   assert.strictEqual(
     foundIds.length,
-    385,
-    'All 361 core DOM IDs plus semantic landmarks (app-main, site-header), offline indicator, and 21 layout/header controls must be preserved in index.html'
+    387,
+    'All 361 core DOM IDs plus semantic landmarks, offline indicator, uniform products preview, admin order filter, and layout/header controls must be preserved in index.html'
   );
   console.log(
-    '  ✔ Exactly 385 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls)'
+    '  ✔ Exactly 387 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview + 1 admin order filter)'
   );
 
   console.log('\nTesting Client-side Validation & Concurrency Safety (TSK-014)...');
