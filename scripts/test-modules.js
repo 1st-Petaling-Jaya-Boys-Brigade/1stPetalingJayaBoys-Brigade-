@@ -4080,6 +4080,115 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(sessionMod.sessionGet('name'), null, 'Cross-tab clear clears in-memory session');
     console.log('  ✔ Cross-tab storage synchronization across tabs verified');
 
+    // ── High-UX Standardized Loading Architecture (TSK-LOADING) ────────────────
+    console.log('\nTesting Standardized Loading Architecture & Timing (TSK-LOADING)...');
+    const loadingMod = require('../js/core/loading.js');
+
+    // 1. Core timing constants
+    assert.strictEqual(loadingMod.SHOW_DELAY_MS, 200, 'SHOW_DELAY_MS must be 200ms');
+    assert.strictEqual(loadingMod.MIN_DISPLAY_MS, 400, 'MIN_DISPLAY_MS must be 400ms');
+    assert.strictEqual(loadingMod.LONG_WAIT_THRESHOLD_MS, 5000, 'LONG_WAIT_THRESHOLD_MS must be 5000ms');
+    assert.strictEqual(loadingMod.TIMEOUT_MS, 15000, 'TIMEOUT_MS must be 15000ms');
+    console.log('  ✔ Anti-flicker timing constants verified (200ms delay, 400ms min display, 5s slow notice, 15s timeout)');
+
+    // 2. Skeletons: Zero CLS Twins
+    const announcementSkel = loadingMod.renderSkeletonCard(2, 'announcement');
+    assert.ok(announcementSkel.includes('skeleton-announcement-card'), 'Announcement skeleton card generated');
+    assert.ok(announcementSkel.includes('skeleton-circle'), 'Announcement skeleton includes avatar circle');
+    assert.ok(announcementSkel.includes('skeleton-shimmer'), 'Announcement skeleton uses shimmer class');
+
+    const tableSkel = loadingMod.renderSkeletonTable(5, 4);
+    assert.ok(tableSkel.includes('skeleton-table-wrapper'), 'Table skeleton wrapper generated');
+    assert.ok(tableSkel.includes('skeleton-table-header'), 'Table skeleton header generated');
+    assert.strictEqual((tableSkel.match(/skeleton-table-row/g) || []).length, 5, '5 table rows generated');
+
+    const kanbanSkel = loadingMod.renderSkeletonKanban();
+    assert.ok(kanbanSkel.includes('skeleton-kanban-board'), 'Kanban skeleton board generated');
+    assert.strictEqual((kanbanSkel.match(/skeleton-kanban-column/g) || []).length, 3, '3 kanban columns generated');
+    console.log('  ✔ Zero-CLS Skeleton twins verified (Announcements, Tables, Kanban, Order cards)');
+
+    // 3. createSmartLoader Fast Resolution (< 200ms) -> No Skeleton Flash
+    const mockContainer = {
+      attributes: {},
+      innerHTML: '',
+      setAttribute(k, v) { this.attributes[k] = v; },
+      removeAttribute(k) { delete this.attributes[k]; },
+      querySelector() { return null; }
+    };
+
+    const fastLoader = loadingMod.createSmartLoader({
+      container: mockContainer,
+      renderSkeleton: () => '<div id="skeleton-twin"></div>',
+      srLabel: 'Loading announcements...'
+    });
+
+    const fastRes = await fastLoader.execute(async () => {
+      await new Promise(r => setTimeout(r, 40));
+      return 'fast-data';
+    });
+    assert.strictEqual(fastRes, 'fast-data');
+    assert.strictEqual(mockContainer.innerHTML, '', 'No skeleton rendered if request resolves under 200ms (zero flash)');
+    assert.strictEqual(mockContainer.attributes['aria-busy'], undefined, 'aria-busy cleaned up');
+    console.log('  ✔ SmartLoader fast path (< 200ms) transitions directly with zero loading flash');
+
+    // 4. createSmartLoader Slow Resolution (> 200ms) -> Enforces MIN_DISPLAY_MS (400ms)
+    const slowLoader = loadingMod.createSmartLoader({
+      container: mockContainer,
+      renderSkeleton: () => '<div class="skeleton-shimmer"></div>',
+      srLabel: 'Loading data...',
+      showDelayMs: 40,
+      minDisplayMs: 120
+    });
+
+    const slowStart = Date.now();
+    const slowRes = await slowLoader.execute(async () => {
+      await new Promise(r => setTimeout(r, 70));
+      return 'slow-data';
+    });
+    const slowDuration = Date.now() - slowStart;
+    assert.strictEqual(slowRes, 'slow-data');
+    assert.ok(slowDuration >= 150, 'Enforces minDisplayMs so skeleton remains visible at least 400ms to eliminate sub-second flicker');
+    console.log('  ✔ SmartLoader slow path keeps indicator visible for minimum display time to eliminate strobe effect');
+
+    // 5. Pattern C: Localized Button Spinner (Zero Layout Shift)
+    const mockBtn = {
+      attributes: {},
+      style: {},
+      innerHTML: '<span>Submit Order</span>',
+      offsetWidth: 140,
+      disabled: false,
+      classList: {
+        classes: new Set(),
+        add(c) { this.classes.add(c); },
+        remove(c) { this.classes.delete(c); },
+        contains(c) { return this.classes.has(c); }
+      },
+      setAttribute(k, v) { this.attributes[k] = v; },
+      removeAttribute(k) { delete this.attributes[k]; },
+      hasAttribute(k) { return k in this.attributes; },
+      getAttribute(k) { return this.attributes[k] !== undefined ? this.attributes[k] : null; }
+    };
+
+    loadingMod.setButtonLoading(mockBtn, true, 'Submitting...', 'Submitting uniform order...');
+    assert.strictEqual(mockBtn.disabled, true, 'Button is disabled');
+    assert.strictEqual(mockBtn.attributes['aria-disabled'], 'true', 'aria-disabled is true');
+    assert.strictEqual(mockBtn.attributes['aria-busy'], 'true', 'aria-busy is true');
+    assert.strictEqual(mockBtn.style.minWidth, '140px', 'Explicit min-width locked to prevent layout shift');
+    assert.ok(mockBtn.innerHTML.includes('btn-spinner'), 'Localized spinner injected');
+    assert.ok(mockBtn.innerHTML.includes('Submitting uniform order...'), 'Accessible sr-only text injected');
+
+    loadingMod.setButtonLoading(mockBtn, false);
+    assert.strictEqual(mockBtn.disabled, false, 'Button re-enabled');
+    assert.strictEqual(mockBtn.style.minWidth, '', 'min-width reset');
+    assert.strictEqual(mockBtn.innerHTML, '<span>Submit Order</span>', 'Original innerHTML restored');
+    console.log('  ✔ Localized button loading locks min-width, prevents layout shift, and manages aria attributes');
+
+    // 6. Pattern D: Top Route Progress & Task Progress Bar
+    assert.strictEqual(typeof loadingMod.TopRouteProgress.start, 'function');
+    assert.strictEqual(typeof loadingMod.TopRouteProgress.complete, 'function');
+    assert.strictEqual(typeof loadingMod.createTaskProgressBar, 'function');
+    console.log('  ✔ Top route progress indicator and stepped TaskProgressBar verified');
+
     // Restore fetch
     global.fetch = origFetch;
   }

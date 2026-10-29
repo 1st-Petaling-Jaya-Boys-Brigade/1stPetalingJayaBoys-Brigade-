@@ -120,11 +120,18 @@ async function loadMemberAttendanceStats(memberName) {
     name = sessionGet('name') || sessionGet('fullname');
   }
 
-  // Show skeleton loading state
+  // Show skeleton loading state (Pattern B)
   container.innerHTML = 
-    '<div style="text-align:center;padding:24px 16px;color:var(--text-muted);">' +
-      '<div class="spinner" style="margin:0 auto 10px;"></div>' +
-      '<div style="font-size:12px;font-family:\'Oswald\',sans-serif;letter-spacing:1px;text-transform:uppercase;">Syncing Master Sheet Records...</div>' +
+    '<div class="skeleton-shimmer" style="height:210px;border-radius:12px;padding:20px;box-sizing:border-box;" aria-hidden="true">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:16px;">' +
+        '<div class="skeleton-shimmer skeleton-line medium" style="height:16px;margin:0;"></div>' +
+        '<div class="skeleton-shimmer skeleton-pill" style="width:60px;height:24px;"></div>' +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">' +
+        '<div class="skeleton-shimmer" style="height:65px;border-radius:8px;"></div>' +
+        '<div class="skeleton-shimmer" style="height:65px;border-radius:8px;"></div>' +
+      '</div>' +
+      '<div class="skeleton-shimmer skeleton-line full" style="height:14px;margin:0;"></div>' +
     '</div>';
 
   var data = await getMasterAttendanceData();
@@ -695,9 +702,11 @@ async function handleSaveMasterConfig() {
 
 async function triggerMasterSheetFetch() {
   var btn = document.getElementById('btn-adm-sync-sheet');
-  if (btn) {
+  if (typeof setButtonLoading === 'function') {
+    setButtonLoading(btn, true, 'Syncing...', 'Syncing Master Sheet data...');
+  } else if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner" style="width:12px;height:12px;"></span> Syncing...';
+    btn.innerHTML = 'Syncing...';
   }
 
   try {
@@ -714,7 +723,9 @@ async function triggerMasterSheetFetch() {
       showToast('Sync note: ' + err.message, 'warning');
     }
   } finally {
-    if (btn) {
+    if (typeof setButtonLoading === 'function') {
+      setButtonLoading(btn, false);
+    } else if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Sync Now';
     }

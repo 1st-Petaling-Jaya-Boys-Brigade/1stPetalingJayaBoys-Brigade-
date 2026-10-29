@@ -106,7 +106,18 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
  * Loads all announcements from Supabase ordered by creation date ascending
  */
 async function loadAnnouncements() {
-  try {
+  var list = (typeof document !== 'undefined') ? document.getElementById('announcements-list') : null;
+  var loader = (list && typeof createSmartLoader === 'function' && announcements.length === 0)
+    ? createSmartLoader({
+        container: list,
+        renderSkeleton: function() {
+          return typeof renderSkeletonCard === 'function' ? renderSkeletonCard(2, 'announcement') : '';
+        },
+        srLabel: 'Loading announcements...'
+      })
+    : null;
+
+  var fetchFn = async function() {
     if (typeof supa !== 'undefined' && supa.get) {
       var rows = await supa.get('bb_announcements?order=created_at.asc&select=*');
       announcements.length = 0;
@@ -116,6 +127,14 @@ async function loadAnnouncements() {
           announcements.push(r);
         });
       }
+    }
+  };
+
+  try {
+    if (loader) {
+      await loader.execute(fetchFn, loadAnnouncements);
+    } else {
+      await fetchFn();
     }
   } catch (e) {
     console.warn('loadAnnouncements error:', e);
