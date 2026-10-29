@@ -100,9 +100,12 @@ async function compressGalleryPhoto(file, maxDim, quality) {
     return file;
   }
 
-  // Preserve SVG and animated GIF files without canvas rasterization
+    // Block SVG uploads to prevent stored XSS (TSK-035)
   var ext = (file.name ? file.name.split('.').pop() || '' : '').toLowerCase();
-  if (file.type === 'image/svg+xml' || file.type === 'image/gif' || ext === 'svg' || ext === 'gif') {
+  if (file.type === 'image/svg+xml' || ext === 'svg') {
+    throw new Error('File upload blocked: SVG files are strictly prohibited to prevent stored XSS (TSK-035).');
+  }
+  if (file.type === 'image/gif' || ext === 'gif') {
     return file;
   }
 
@@ -144,8 +147,8 @@ async function compressGalleryPhoto(file, maxDim, quality) {
 
         if (typeof canvas.toBlob === 'function') {
           canvas.toBlob(function(blob) {
-            if (blob && blob.size && blob.size < file.size) {
-              resolve(blob);
+            if (blob) {
+              resolve(blob); // Always resolve canvas-rasterized blob to strip EXIF GPS metadata (TSK-035)
             } else {
               resolve(file);
             }
@@ -210,7 +213,12 @@ async function uploadSingleMediaFile(file) {
   var defaultMime = isVid ? 'video/mp4' : 'image/jpeg';
   var mime = file.type || defaultMime;
 
-  // Client-side Image Compression (BUG-008)
+  // Strict file security validation (blocks SVG, HTML, scripts) (TSK-035)
+  if (typeof validateFileSecurity === 'function') {
+    await validateFileSecurity(file, { allowVideo: true, bucket: 'gallery' });
+  }
+
+  // Client-side Image Compression & EXIF GPS stripping via canvas (TSK-035, BUG-008)
   var uploadData = file;
   if (!isVid) {
     uploadData = await compressGalleryPhoto(file, 1920, 0.82);
@@ -228,7 +236,11 @@ async function uploadSingleMediaFile(file) {
   var client = getSupa();
   if (client && typeof client.uploadFile === 'function') {
     await client.uploadFile('gallery', fname, blob);
-    var url = client.fileUrl('gallery', fname);
+    // Create signed URL for private gallery bucket (TSK-035)
+    var signedRes = (typeof client.createSignedUrl === 'function')
+      ? await client.createSignedUrl('gallery', fname, 86400)
+      : null;
+    var url = (signedRes && signedRes.signedUrl) ? signedRes.signedUrl : client.fileUrl('gallery', fname);
 
     // Advisory notification if file is large (>25MB)
     if (file.size > 25 * 1024 * 1024 && typeof showToast === 'function') {

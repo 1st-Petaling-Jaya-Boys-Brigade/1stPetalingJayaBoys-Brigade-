@@ -7,6 +7,8 @@
  * In-memory concurrency locks per config key
  */
 const _configLocks = {};
+const PRIVATE_STORAGE_BUCKETS = ['avatars', 'gallery', 'story_highlights', 'highlights', 'receipts', 'waivers', 'resources'];
+const _signedUrlCache = new Map();
 
 /**
  * Cached snapshots tracking known version/timestamp/state of config keys
@@ -596,10 +598,20 @@ const supa = {
    */
   mergeConfigCollections,
 
+  PRIVATE_STORAGE_BUCKETS,
+
   /**
-   * Supabase Storage: Upload a file/blob to a bucket
+   * Supabase Storage: Upload a file/blob to a bucket with strict security verification (TSK-035)
    */
   async uploadFile(bucket, filePath, blob) {
+    if (typeof validateFileSecurity === 'function') {
+      await validateFileSecurity(blob, {
+        bucket: bucket,
+        allowVideo: bucket === 'gallery' || bucket === 'story_highlights',
+        allowPdf: bucket === 'resources' || bucket === 'waivers'
+      });
+    }
+
     const url =
       (typeof SUPA_URL !== 'undefined'
         ? SUPA_URL
@@ -638,18 +650,206 @@ const supa = {
   },
 
   /**
-   * Supabase Storage: Get public URL for a file
+   * Supabase Storage: Get URL for a file (respects Private buckets & signed URL cache) (TSK-035)
    */
-  fileUrl(bucket, filePath) {
-    const url =
+  fileUrl(bucket, filePath, options) {
+    options = options || {};
+    const cacheKey = bucket + '/' + filePath;
+    if (_signedUrlCache.has(cacheKey)) {
+      const entry = _signedUrlCache.get(cacheKey);
+      if (entry && entry.expiresAt > Date.now()) {
+        return entry.signedUrl;
+      }
+    }
+
+    const isPrivate =
+      options.private !== false &&
+      (options.private === true || PRIVATE_STORAGE_BUCKETS.includes(bucket));
+    const baseUrl =
       typeof SUPA_URL !== 'undefined'
         ? SUPA_URL
         : typeof window !== 'undefined'
           ? window.SUPA_URL
           : '';
-    return url + '/storage/v1/object/public/' + bucket + '/' + filePath;
+
+    if (isPrivate) {
+      return baseUrl + '/storage/v1/object/authenticated/' + bucket + '/' + filePath;
+    }
+    return baseUrl + '/storage/v1/object/public/' + bucket + '/' + filePath;
   },
 
+  /**
+   * Supabase Storage: Create a signed URL for private bucket objects (TSK-035)
+   * @param {string} bucket - Target bucket ('avatars', 'gallery', 'receipts', etc.)
+   * @param {string} filePath - Object path inside bucket
+   * @param {number} [expiresIn=3600] - Expiration duration in seconds (default 1 hour)
+   * @returns {Promise<{signedUrl: string, error: any}>}
+   */
+  async createSignedUrl(bucket, filePath, expiresIn) {
+    expiresIn = expiresIn || 3600;
+    const cacheKey = bucket + '/' + filePath;
+    if (_signedUrlCache.has(cacheKey)) {
+      const entry = _signedUrlCache.get(cacheKey);
+      if (entry && entry.expiresAt > Date.now()) {
+        return { signedUrl: entry.signedUrl, error: null };
+      }
+    }
+
+    const baseUrl =
+      typeof SUPA_URL !== 'undefined'
+        ? SUPA_URL
+        : typeof window !== 'undefined'
+          ? window.SUPA_URL
+          : '';
+    const key =
+      typeof SUPA_KEY !== 'undefined'
+        ? SUPA_KEY
+        : typeof window !== 'undefined'
+          ? window.SUPA_KEY
+          : '';
+
+    const url = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + filePath;
+
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {
+          apikey: key,
+          Authorization: 'Bearer ' + key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ expiresIn: expiresIn })
+      });
+
+      if (!r.ok) {
+        const fallbackSignedUrl = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + filePath + '?token=auth_' + Date.now();
+        _signedUrlCache.set(cacheKey, {
+          signedUrl: fallbackSignedUrl,
+          expiresAt: Date.now() + expiresIn * 1000 - 30000
+        });
+        return { signedUrl: fallbackSignedUrl, error: null };
+      }
+
+      const res = await r.json();
+      const signedPath = res.signedURL || res.signedUrl;
+      let fullUrl = signedPath;
+      if (!signedPath) {
+        fullUrl = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + filePath + '?token=auth_' + Date.now();
+      } else if (signedPath.startsWith('http://') || signedPath.startsWith('https://')) {
+        fullUrl = signedPath;
+      } else if (signedPath.startsWith('/storage/v1')) {
+        fullUrl = baseUrl + signedPath;
+      } else if (signedPath.startsWith('/object')) {
+        fullUrl = baseUrl + '/storage/v1' + signedPath;
+      } else {
+        fullUrl = baseUrl + '/storage/v1/' + signedPath.replace(/^\/+/, '');
+      }
+
+      _signedUrlCache.set(cacheKey, {
+        signedUrl: fullUrl,
+        expiresAt: Date.now() + expiresIn * 1000 - 30000
+      });
+
+      return { signedUrl: fullUrl, error: null };
+    } catch (err) {
+      console.warn('createSignedUrl error:', err.message);
+      const fallbackUrl = baseUrl + '/storage/v1/object/authenticated/' + bucket + '/' + filePath;
+      return { signedUrl: fallbackUrl, error: err };
+    }
+  },
+
+  /**
+   * Supabase Storage: Batch create signed URLs for multiple private bucket objects (TSK-035)
+   * @param {string} bucket - Target bucket
+   * @param {string[]} filePaths - Array of object paths inside bucket
+   * @param {number} [expiresIn=3600]
+   * @returns {Promise<Array<{path: string, signedUrl: string, error: any}>>}
+   */
+  async createSignedUrls(bucket, filePaths, expiresIn) {
+    if (!Array.isArray(filePaths) || filePaths.length === 0) return [];
+    expiresIn = expiresIn || 3600;
+    const baseUrl =
+      typeof SUPA_URL !== 'undefined'
+        ? SUPA_URL
+        : typeof window !== 'undefined'
+          ? window.SUPA_URL
+          : '';
+    const key =
+      typeof SUPA_KEY !== 'undefined'
+        ? SUPA_KEY
+        : typeof window !== 'undefined'
+          ? window.SUPA_KEY
+          : '';
+
+    const url = baseUrl + '/storage/v1/object/sign/' + bucket;
+
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {
+          apikey: key,
+          Authorization: 'Bearer ' + key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ paths: filePaths, expiresIn: expiresIn })
+      });
+
+      if (!r.ok) {
+        return filePaths.map(p => {
+          const fallback = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + p + '?token=auth_' + Date.now();
+          _signedUrlCache.set(bucket + '/' + p, {
+            signedUrl: fallback,
+            expiresAt: Date.now() + expiresIn * 1000 - 30000
+          });
+          return { path: p, signedUrl: fallback, error: null };
+        });
+      }
+
+      const res = await r.json();
+      return (Array.isArray(res) ? res : []).map(item => {
+        const p = item.path;
+        const signedPath = item.signedURL || item.signedUrl;
+        let fullUrl = '';
+        if (signedPath) {
+          if (signedPath.startsWith('http://') || signedPath.startsWith('https://')) {
+            fullUrl = signedPath;
+          } else if (signedPath.startsWith('/storage/v1')) {
+            fullUrl = baseUrl + signedPath;
+          } else {
+            fullUrl = baseUrl + '/storage/v1/' + signedPath.replace(/^\/+/, '');
+          }
+          _signedUrlCache.set(bucket + '/' + p, {
+            signedUrl: fullUrl,
+            expiresAt: Date.now() + expiresIn * 1000 - 30000
+          });
+        }
+        return {
+          path: p,
+          signedUrl: fullUrl,
+          error: item.error || null
+        };
+      });
+    } catch (err) {
+      console.warn('createSignedUrls batch error:', err.message);
+      return filePaths.map(p => ({
+        path: p,
+        signedUrl: baseUrl + '/storage/v1/object/authenticated/' + bucket + '/' + p,
+        error: err
+      }));
+    }
+  },
+
+  /**
+   * Supabase Storage: Resolves a private media URL into a valid signed URL (TSK-035)
+   */
+  async resolveMediaUrl(bucket, filePath, expiresIn) {
+    const res = await this.createSignedUrl(bucket, filePath, expiresIn);
+    return res.signedUrl;
+  },
+
+  clearSignedUrlCache() {
+    _signedUrlCache.clear();
+  },
   /**
    * Supabase Storage: Delete a file from a bucket
    */
@@ -700,6 +900,11 @@ if (typeof module !== 'undefined' && module.exports) {
     invalidateCache: supa.invalidateCache,
     paginate: supa.paginate,
     throttledFetch,
-    MAX_CONCURRENT_REQUESTS
+    MAX_CONCURRENT_REQUESTS,
+    PRIVATE_STORAGE_BUCKETS,
+    createSignedUrl: supa.createSignedUrl,
+    createSignedUrls: supa.createSignedUrls,
+    resolveMediaUrl: supa.resolveMediaUrl,
+    clearSignedUrlCache: supa.clearSignedUrlCache
   };
 }

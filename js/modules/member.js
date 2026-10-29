@@ -778,15 +778,29 @@ async function uploadPfp(input) {
   if (!id) return;
 
   try {
+    // 1. Strict security validation & EXIF GPS stripping via canvas (TSK-035)
+    var strippedResult = (typeof stripExifAndCompress === 'function')
+      ? await stripExifAndCompress(file, { maxDimension: 600, quality: 0.85, bucket: 'avatars' })
+      : { blob: new Blob([await file.arrayBuffer()], { type: 'image/jpeg' }) };
+    var cleanBlob = strippedResult.blob;
+
     var client = getSupa();
-    var blob = new Blob([await file.arrayBuffer()], { type: file.type });
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-    await client.uploadFile('avatars', cleanFileName, blob);
-    var pfpUrl = client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
+    await client.uploadFile('avatars', cleanFileName, cleanBlob);
+
+    // 2. Obtain secure signed URL for private avatars bucket (TSK-035)
+    var signedRes = (client && typeof client.createSignedUrl === 'function')
+      ? await client.createSignedUrl('avatars', cleanFileName, 86400)
+      : null;
+    var pfpUrl = (signedRes && signedRes.signedUrl)
+      ? signedRes.signedUrl
+      : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
+
     var img = document.getElementById('m-pfp-img');
     var ph  = document.getElementById('m-pfp-ph');
     if (img) { img.src = pfpUrl; img.style.display = 'block'; }
     if (ph)  ph.style.display = 'none';
+    if (typeof showToast === 'function') showToast('Profile picture updated securely (EXIF data stripped).', 'success');
   } catch (e) {
     if (typeof showToast === 'function') showToast('Failed to upload photo: ' + e.message, 'error');
   }

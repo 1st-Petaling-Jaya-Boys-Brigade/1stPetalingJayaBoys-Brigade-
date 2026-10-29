@@ -4254,6 +4254,102 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.fetch = origFetch;
   }
 
+  // ── Testing Storage Lockdown, Signed URLs & Photo EXIF GPS Stripping (TSK-035) ──
+  console.log('Testing Supabase Storage Lockdown, Signed URLs & Photo EXIF GPS Stripping (TSK-035)...');
+  {
+    const utils = require('../js/core/utils.js');
+    const supaMod = require('../js/api/supabase.js');
+
+    // 1. Private storage buckets enumeration
+    assert.ok(Array.isArray(supaMod.PRIVATE_STORAGE_BUCKETS), 'PRIVATE_STORAGE_BUCKETS is exported');
+    assert.ok(supaMod.PRIVATE_STORAGE_BUCKETS.includes('avatars'), 'avatars bucket is private');
+    assert.ok(supaMod.PRIVATE_STORAGE_BUCKETS.includes('gallery'), 'gallery bucket is private');
+    assert.ok(supaMod.PRIVATE_STORAGE_BUCKETS.includes('receipts'), 'receipts bucket is private');
+    assert.ok(supaMod.PRIVATE_STORAGE_BUCKETS.includes('waivers'), 'waivers bucket is private');
+    assert.ok(supaMod.PRIVATE_STORAGE_BUCKETS.includes('resources'), 'resources bucket is private');
+    console.log('  ✔ All storage buckets (avatars, gallery, story highlights, Touch n Go receipts, waivers) marked private');
+
+    // 2. Strict MIME and magic-byte security validation (blocks SVG and HTML stored XSS)
+    const svgPayload = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert("xss")</script></svg>');
+    let svgBlocked = false;
+    try {
+      await utils.validateFileSecurity(svgPayload, { allowedTypes: ['image/jpeg', 'image/png'] });
+    } catch (err) {
+      svgBlocked = true;
+      assert.ok(err.message.includes('SVG') || err.message.includes('blocked'), 'Error message identifies SVG block');
+    }
+    assert.ok(svgBlocked, 'SVG payload was strictly blocked');
+
+    const htmlPayload = Buffer.from('<!DOCTYPE html><html><body>malicious payload</body></html>');
+    let htmlBlocked = false;
+    try {
+      await utils.validateFileSecurity(htmlPayload);
+    } catch (err) {
+      htmlBlocked = true;
+      assert.ok(err.message.includes('HTML') || err.message.includes('blocked'), 'Error message identifies HTML block');
+    }
+    assert.ok(htmlBlocked, 'HTML payload was strictly blocked');
+    console.log('  ✔ Strict MIME-type and magic-byte validation enforces zero .svg and .html uploads to eliminate stored XSS');
+
+    // 3. EXIF GPS stripping via canvas/byte rasterization
+    const mockJpegWithGps = Buffer.from([
+      0xFF, 0xD8, // SOI
+      0xFF, 0xE1, 0x00, 0x1A, // APP1 length 26
+      0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // 'Exif\0\0'
+      0x4D, 0x4D, 0x00, 0x2A, // Big Endian TIFF header
+      0x00, 0x00, 0x00, 0x08,
+      0x00, 0x01, // 1 entry
+      0x88, 0x25, 0x00, 0x04, 0x00, 0x00, 0x00, 0x01, // Tag 0x8825 (GPS IFD Pointer)
+      0xFF, 0xDB, 0x00, 0x04, 0x00, 0x00, // DQT
+      0xFF, 0xDA, 0x00, 0x02, 0x12, 0x34, 0x56, // SOS
+      0xFF, 0xD9 // EOI
+    ]);
+
+    assert.strictEqual(utils.hasExifGps(mockJpegWithGps), true, 'Detects GPS tag in raw camera JPEG');
+
+    const stripped = await utils.stripExifAndCompress(mockJpegWithGps);
+    assert.ok(stripped.stripped, 'Image marked as stripped');
+    const strippedBuf = stripped.blob instanceof Uint8Array ? stripped.blob : Buffer.from(await stripped.blob.arrayBuffer());
+    assert.strictEqual(utils.hasExifGps(strippedBuf), false, 'EXIF GPS metadata completely stripped');
+    assert.strictEqual(utils.detectFileType(strippedBuf), 'jpeg', 'Clean output retains valid JPEG format');
+    console.log('  ✔ EXIF metadata stripping eliminates GPS coordinates, device info, and camera serials before upload');
+
+    // 4. Signed URLs and private bucket resolution
+    const origFetch = global.fetch;
+    global.fetch = async (url) => {
+      if (url.includes('/storage/v1/object/sign/avatars/test_avatar.jpg')) {
+        return {
+          ok: true,
+          json: async () => ({ signedURL: '/storage/v1/object/sign/avatars/test_avatar.jpg?token=mock_signed_token_123' })
+        };
+      }
+      return { ok: false, status: 404, text: async () => 'Not found' };
+    };
+
+    const signedRes = await supaMod.supa.createSignedUrl('avatars', 'test_avatar.jpg', 3600);
+    assert.strictEqual(signedRes.error, null);
+    assert.ok(signedRes.signedUrl.includes('mock_signed_token_123'), 'Signed URL generated with token');
+
+    const cachedUrl = supaMod.supa.fileUrl('avatars', 'test_avatar.jpg');
+    assert.ok(cachedUrl.includes('mock_signed_token_123'), 'fileUrl returns cached signed URL');
+
+    const unauthPrivate = supaMod.supa.fileUrl('receipts', 'order_receipt.jpg');
+    assert.ok(unauthPrivate.includes('/storage/v1/object/authenticated/receipts/order_receipt.jpg'), 'Private bucket resolves to authenticated path');
+
+    global.fetch = origFetch;
+    console.log('  ✔ Supabase signed URL generation, in-memory caching, and private bucket isolation verified');
+
+    // 5. Database migration file integrity check
+    const fsMod = require('fs');
+    const pathMod = require('path');
+    const migPath = pathMod.join(__dirname, '..', 'supabase', 'migrations', '007_storage_lockdown_private_buckets.sql');
+    assert.ok(fsMod.existsSync(migPath), '007_storage_lockdown_private_buckets.sql migration exists');
+    const migSql = fsMod.readFileSync(migPath, 'utf8');
+    assert.ok(migSql.includes('public = false'), 'Migration enforces public = false on storage.buckets');
+    assert.ok(migSql.includes('storage.objects ENABLE ROW LEVEL SECURITY'), 'Migration enables RLS on storage.objects');
+    console.log('  ✔ Supabase Storage lockdown SQL migration (007_storage_lockdown_private_buckets.sql) verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
