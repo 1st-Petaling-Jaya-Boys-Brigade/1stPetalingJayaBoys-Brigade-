@@ -1504,6 +1504,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('  ✔ admin-order-form-filter and status filtering function correctly (BUG-006)');
 
 
+  // BUG-012: Empty bb_payment_info fallback validation
+  const prevSupaGet = global.supa.get;
+  global.supa.get = async path => {
+    if (path.includes('bb_payment_info')) return [];
+    return prevSupaGet ? prevSupaGet(path) : [];
+  };
+  const emptyPaymentInfo = await ordersMod.loadPaymentInfo();
+  global.supa.get = prevSupaGet;
+  assert.ok(
+    emptyPaymentInfo && emptyPaymentInfo.includes('Touch'),
+    'loadPaymentInfo must return fallback instructions when bb_payment_info is empty (BUG-012)'
+  );
+  assert.strictEqual(
+    typeof ordersMod.DEFAULT_PAYMENT_INFO,
+    'string',
+    'DEFAULT_PAYMENT_INFO must be exported'
+  );
+  console.log('  ✔ loadPaymentInfo provides non-empty fallback instructions when database record is empty (BUG-012)');
+
   // 6. Order Submission
   ordersMod.UNIFORM_ITEMS[0].price = 45;
   ordersMod.changeQty('shirt', 1);

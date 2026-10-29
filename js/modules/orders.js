@@ -36,7 +36,9 @@ var UNIFORM_ITEMS = DEFAULT_UNIFORM_ITEMS.slice();
 var prices = {};
 var itemQtys = {};
 var itemSizes = {};
-var _paymentInfo = '';
+var DEFAULT_PAYMENT_INFO =
+  'Please transfer payment via Touch \'n Go eWallet / DuitNow QR or online bank transfer to 1st Petaling Jaya Boys\' Brigade. Upload your payment screenshot below as proof of payment.';
+var _paymentInfo = DEFAULT_PAYMENT_INFO;
 var _activeUniformCategory = 'all';
 var _isSubmittingOrder = false;
 var _tngScreenshotFile = null;
@@ -402,14 +404,19 @@ async function loadPaymentInfo() {
   if (client && client.get) {
     try {
       var rows = await client.get('bb_config?key=eq.bb_payment_info&select=value');
-      if (rows && rows.length) {
-        _paymentInfo = rows[0].value || '';
+      if (rows && rows.length && rows[0].value && rows[0].value.trim()) {
+        _paymentInfo = rows[0].value.trim();
         if (client.recordConfigSnapshot)
           client.recordConfigSnapshot('bb_payment_info', _paymentInfo);
+      } else {
+        // Fallback to default payment instructions when bb_payment_info is empty (BUG-012)
+        _paymentInfo = DEFAULT_PAYMENT_INFO;
       }
     } catch (e) {
-      _paymentInfo = '';
+      _paymentInfo = DEFAULT_PAYMENT_INFO;
     }
+  } else {
+    _paymentInfo = DEFAULT_PAYMENT_INFO;
   }
   return _paymentInfo;
 }
@@ -760,14 +767,13 @@ function goToOrderReview() {
   var rc = document.getElementById('review-content');
   if (rc) rc.innerHTML = html;
 
-  // Show payment instructions if configured
+  // Show payment instructions with fallback (BUG-012)
   var pib = document.getElementById('payment-info-box');
   var pit = document.getElementById('payment-info-text');
-  if (pib && pit && _paymentInfo && _paymentInfo.trim()) {
-    pit.textContent = _paymentInfo;
+  var activeInstructions = (_paymentInfo && _paymentInfo.trim()) ? _paymentInfo : DEFAULT_PAYMENT_INFO;
+  if (pib && pit) {
+    pit.textContent = activeInstructions;
     pib.style.display = 'block';
-  } else if (pib) {
-    pib.style.display = 'none';
   }
 
   var sf = document.getElementById('step-form');
@@ -1742,6 +1748,7 @@ async function deleteProduct(key) {
 if (typeof window !== 'undefined') {
   window.DEFAULT_UNIFORM_ITEMS = DEFAULT_UNIFORM_ITEMS;
   window.UNIFORM_ITEMS = UNIFORM_ITEMS;
+  window.DEFAULT_PAYMENT_INFO = DEFAULT_PAYMENT_INFO;
   window.prices = prices;
   window.itemQtys = itemQtys;
   window.itemSizes = itemSizes;
@@ -1795,6 +1802,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     DEFAULT_UNIFORM_ITEMS: DEFAULT_UNIFORM_ITEMS,
     UNIFORM_ITEMS: UNIFORM_ITEMS,
+    DEFAULT_PAYMENT_INFO: DEFAULT_PAYMENT_INFO,
     prices: prices,
     itemQtys: itemQtys,
     itemSizes: itemSizes,
