@@ -75,28 +75,47 @@
   gap: 10px;
 }
 
-/* ── Unified Header Controls (Search, Notif, Points, Profile) ── */
+/* ── Unified Header Controls (Search, Notif, Points, Profile - TSK-050) ── */
 .nav-search-pill {
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   border-radius: var(--radius-pill);
-  padding: 7px 14px;
+  padding: 4px 12px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  cursor: pointer;
   transition: var(--transition-smooth);
   min-height: 38px;
-  touch-action: manipulation;
+  width: 220px;
+  box-sizing: border-box;
 }
 
-.nav-search-pill:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-card);
-  color: var(--text-primary);
-  transform: translateY(-1px);
+.nav-search-pill:hover,
+.nav-search-pill:focus-within {
+  background: var(--bg-card);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.15);
+  width: 260px;
+}
+
+.nav-search-input {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  color: var(--text-primary) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: normal !important;
+  box-shadow: none !important;
+}
+
+.nav-search-input::placeholder {
+  color: var(--text-muted);
 }
 
 .nav-search-kbd {
@@ -727,6 +746,14 @@
   padding-right: var(--safe-area-right);
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+
+.sidebar-panel::-webkit-scrollbar,
+.sidebar-nav::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .sidebar-overlay.open .sidebar-panel {
@@ -1033,7 +1060,7 @@
     top: 60px !important;
     bottom: 0 !important;
     left: 0 !important;
-    width: 250px !important;
+    width: 270px !important;
     height: calc(100vh - 60px) !important;
     height: calc(100dvh - 60px) !important;
     inset: 60px auto 0 0 !important;
@@ -1044,6 +1071,7 @@
     border: none !important;
     padding: 0 !important;
     margin: 0 !important;
+    overflow: hidden !important;
   }
 
   .sidebar-backdrop {
@@ -1052,7 +1080,7 @@
 
   .sidebar-panel {
     position: static !important;
-    width: 250px !important;
+    width: 270px !important;
     height: 100% !important;
     max-height: 100% !important;
     max-width: none !important;
@@ -1066,10 +1094,20 @@
     box-shadow: none !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow-y: auto !important;
-    overscroll-behavior: contain !important;
-    scrollbar-gutter: stable !important;
-    padding: 16px 12px 24px !important;
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    overscroll-behavior: none !important;
+    scrollbar-width: none !important;
+    padding: 10px 10px 14px !important;
+    box-sizing: border-box !important;
+  }
+
+  .sidebar-panel::-webkit-scrollbar,
+  .sidebar-nav::-webkit-scrollbar,
+  .sidebar-overlay::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .sidebar-header,
@@ -1079,11 +1117,99 @@
 
   .sidebar-nav {
     flex: 1 1 auto !important;
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+    overscroll-behavior: none !important;
+    scrollbar-width: none !important;
+    padding: 4px 6px 4px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+  }
+
+  .sidebar-section-label {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: var(--text-muted) !important;
+    letter-spacing: 1.5px !important;
+    text-transform: uppercase !important;
+    padding: 6px 10px 3px !important;
+    margin-top: 2px !important;
+  }
+
+  .sidebar-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 7px 10px !important;
+    min-height: 38px !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 2px !important;
+  }
+
+  .sidebar-item .si-icon {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .sidebar-item .si-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .sidebar-item .si-label {
+    font-family: 'Oswald', sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.3px !important;
+  }
+
+  .sidebar-footer {
+    padding: 8px 6px 10px !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .sidebar-user-card {
+    padding: 7px 10px !important;
+    min-height: 44px !important;
+    gap: 10px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .sidebar-user-card .suc-avatar {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .sidebar-user-card .suc-name {
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+  }
+
+  .sidebar-user-card .suc-badge {
+    font-size: 10px !important;
+  }
+
+  .sidebar-theme-toggle {
+    padding: 6px 10px !important;
+    min-height: 34px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .sidebar-admin-btn {
+    padding: 7px 10px !important;
+    min-height: 34px !important;
+    font-size: 13px !important;
   }
 
   .app-main {
-    margin-left: 250px !important;
-    width: calc(100% - 250px) !important;
+    margin-left: 270px !important;
+    width: calc(100% - 270px) !important;
     min-height: calc(100vh - 60px) !important;
     padding-top: 60px !important;
     display: flex !important;
