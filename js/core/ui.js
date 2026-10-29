@@ -52,6 +52,9 @@
    * @param {number} [duration=3500] - Display duration before auto-dismiss in milliseconds
    * @returns {HTMLElement|null} The created toast element
    */
+  var _lastToastMap = {};
+  var MAX_VISIBLE_TOASTS = 3;
+
   function showToast(message, type, duration) {
     if (!message) return null;
     if (typeof document === 'undefined') return null;
@@ -59,8 +62,27 @@
     type = type || 'info';
     duration = duration || 3500;
 
+    // Prevent duplicate rapid-fire identical toasts
+    var dedupKey = type + ':' + String(message).trim();
+    var now = Date.now();
+    if (_lastToastMap[dedupKey] && now - _lastToastMap[dedupKey] < 1200) {
+      return null;
+    }
+    _lastToastMap[dedupKey] = now;
+
     var container = ensureToastContainer();
     if (!container) return null;
+
+    // Cap active toast count to MAX_VISIBLE_TOASTS
+    while (container.children.length >= MAX_VISIBLE_TOASTS) {
+      var oldest = container.firstElementChild;
+      if (oldest) {
+        if (oldest._dismissTimer) clearTimeout(oldest._dismissTimer);
+        container.removeChild(oldest);
+      } else {
+        break;
+      }
+    }
 
     var toast = document.createElement('div');
     toast.className = 'portal-toast portal-toast-' + type;
