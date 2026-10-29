@@ -208,7 +208,23 @@ async function updateMemberMediaConsent(newConsent) {
 
 var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Auth lockout and OTP cooldown state (TSK-025)
+var _authFailures = { count: 0, lockedUntil: 0 };
+var AUTH_MAX_ATTEMPTS = 5;
+var AUTH_LOCKOUT_MS = 30000; // 30s lockout
+var _lastOtpTime = {};
+var OTP_COOLDOWN_MS = 60000; // 60s cooldown
+
 async function registerMember() {
+  // Honeypot bot trap check (TSK-025)
+  var hpEl = document.getElementById('reg-honeypot');
+  if (hpEl && hpEl.value && hpEl.value.trim().length > 0) {
+    console.warn('Bot registration blocked by honeypot');
+    await new Promise(function(r) { setTimeout(r, 600); });
+    if (typeof showToast === 'function') showToast('Registration submitted successfully.', 'success');
+    return;
+  }
+
   var rawName = ((document.getElementById('reg-fullname') || {}).value || '').trim();
   var name    = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 100) : rawName;
   var emailEl = document.getElementById('reg-email') || document.getElementById('reg-ic') || {};
@@ -385,6 +401,15 @@ async function registerMember() {
 }
 
 async function loginMember() {
+  // Auth Cooldown Timer Check (TSK-025)
+  if (Date.now() < _authFailures.lockedUntil) {
+    var remSec = Math.ceil((_authFailures.lockedUntil - Date.now()) / 1000);
+    if (typeof showToast === 'function') {
+      showToast('Too many failed login attempts. Please wait ' + remSec + 's before retrying.', 'warning');
+    }
+    return;
+  }
+
   var idEl = document.getElementById('login-email') || document.getElementById('login-ic') || {};
   var identifier = (idEl.value || '').trim();
   var pass = (document.getElementById('login-pass') || {}).value || '';
@@ -412,9 +437,21 @@ async function loginMember() {
     }
     var check = await verifyPassword(pass, m.password || '');
     if (!check.valid) {
-      if (typeof showToast === 'function') showToast('Incorrect password!', 'error');
+      _authFailures.count++;
+      if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
+        _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
+        if (typeof showToast === 'function') {
+          showToast('Too many failed attempts. Login locked for 30 seconds.', 'error');
+        }
+      } else if (typeof showToast === 'function') {
+        showToast('Incorrect password!', 'error');
+      }
       return;
     }
+
+    // Reset lockout counters on successful login
+    _authFailures.count = 0;
+    _authFailures.lockedUntil = 0;
 
     // Auto-migrate legacy Base64 credentials to PBKDF2/SHA-256 on successful login
     if (check.needsUpgrade) {
@@ -765,6 +802,17 @@ async function sendPasswordResetEmail() {
     return;
   }
 
+  // OTP Cooldown Timer Check (TSK-025)
+  var lastOtp = _lastOtpTime[email] || 0;
+  var otpDiff = Date.now() - lastOtp;
+  if (otpDiff < OTP_COOLDOWN_MS) {
+    var remaining = Math.ceil((OTP_COOLDOWN_MS - otpDiff) / 1000);
+    if (typeof showToast === 'function') {
+      showToast('Please wait ' + remaining + 's before requesting another reset code.', 'warning');
+    }
+    return;
+  }
+
   var btn = document.getElementById('btn-send-reset');
   var origText = btn ? btn.textContent : '';
   if (btn) {
@@ -850,10 +898,28 @@ async function sendPasswordResetEmail() {
 
     showForgotStep(2);
 
+    _lastOtpTime[email] = Date.now();
+    var cd = 60;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Resend Code (' + cd + 's)';
+      var cdTimer = setInterval(function() {
+        cd--;
+        if (cd <= 0) {
+          clearInterval(cdTimer);
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = origText || 'Send Reset Code';
+          }
+        } else if (btn) {
+          btn.textContent = '⏳ Resend Code (' + cd + 's)';
+        }
+      }, 1000);
+    }
+
     if (typeof showToast === 'function') showToast('Reset code sent to ' + email + '! Please check your inbox and enter the 6-digit code.', 'success', 5000);
   } catch (e) {
     if (typeof showToast === 'function') showToast('Failed to send reset email: ' + e.message, 'error');
-  } finally {
     if (btn) {
       btn.disabled = false;
       btn.textContent = origText || 'Send Reset Code';
@@ -1002,6 +1068,11 @@ if (typeof window !== 'undefined') {
   window.loadSecurityQuestion         = loadSecurityQuestion;
   window.sendPasswordResetEmail       = sendPasswordResetEmail;
   window.verifyResetCodeAndSetPassword = verifyResetCodeAndSetPassword;
+  window._authFailures                 = _authFailures;
+  window._lastOtpTime                  = _lastOtpTime;
+  window.AUTH_MAX_ATTEMPTS             = AUTH_MAX_ATTEMPTS;
+  window.AUTH_LOCKOUT_MS               = AUTH_LOCKOUT_MS;
+  window.OTP_COOLDOWN_MS               = OTP_COOLDOWN_MS;
   window.resetPassword                = resetPassword;
 }
 
@@ -1026,6 +1097,11 @@ if (typeof module !== 'undefined' && module.exports) {
     loadSecurityQuestion,
     sendPasswordResetEmail,
     verifyResetCodeAndSetPassword,
+    _authFailures,
+    _lastOtpTime,
+    AUTH_MAX_ATTEMPTS,
+    AUTH_LOCKOUT_MS,
+    OTP_COOLDOWN_MS,
     resetPassword
   };
 }
