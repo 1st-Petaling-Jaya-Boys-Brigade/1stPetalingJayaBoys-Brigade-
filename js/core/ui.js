@@ -70,6 +70,16 @@
     }
     _lastToastMap[dedupKey] = now;
 
+    // Prune stale toast throttling entries
+    var toastKeys = Object.keys(_lastToastMap);
+    if (toastKeys.length > 40) {
+      for (var tk = 0; tk < toastKeys.length; tk++) {
+        if (now - _lastToastMap[toastKeys[tk]] > 10000) {
+          delete _lastToastMap[toastKeys[tk]];
+        }
+      }
+    }
+
     var container = ensureToastContainer();
     if (!container) return null;
 
