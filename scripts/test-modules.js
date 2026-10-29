@@ -224,6 +224,9 @@ global.sessionGet = k => {
 global.sessionSet = (k, v) => {
   mockSession[k] = v;
 };
+global.sessionClear = () => {
+  mockSession = {};
+};
 global.location = { hash: '', reload: () => {} };
 global.window.location = global.location;
 global.alert = _msg => {};
@@ -1186,6 +1189,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(migrationSql.includes('att_section'), 'Migration must declare att_section');
   console.log('  ✔ Child Safety & Parental Consent database migration schema verified');
 
+  // BUG-011: logoutMember session purging & header state reset validation
+  global.sessionSet('email', 'sgt@bb.org');
+  global.sessionSet('ic', '080101-14-1234');
+  global.sessionSet('rank', 'Sergeant');
+  global.sessionSet('points', '50');
+  global.sessionSet('remember', true);
+
+  memberModule.logoutMember();
+
+  assert.strictEqual(Object.keys(mockSession).length, 0, 'mockSession must be completely emptied by sessionClear()');
+  console.log('  ✔ logoutMember purges all session keys and resets header state (BUG-011)');
+  // Restore session user for downstream tests
+  mockUser = 'test@bbpj1.org';
+  global.sessionSet('ic', mockUser);
+
   // ── Calendar Module Tests (TSK-CALENDAR) ──
   console.log('Testing Company Calendar & Member Personal Schedule...');
   const calendarModule = require('../js/modules/calendar.js');
@@ -1484,6 +1502,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   await ordersMod.renderAdminOrders();
   assert.ok(adminOrderList.innerHTML.length > 0, 'renderAdminOrders must render list');
   console.log('  ✔ admin-order-form-filter and status filtering function correctly (BUG-006)');
+
 
   // 6. Order Submission
   ordersMod.UNIFORM_ITEMS[0].price = 45;

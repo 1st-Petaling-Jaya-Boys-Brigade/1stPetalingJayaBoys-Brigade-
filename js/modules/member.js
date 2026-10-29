@@ -636,14 +636,51 @@ async function loadMemberOrders() {
 }
 
 function logoutMember() {
+  // Completely purge session state eliminating residual keys (BUG-011)
   if (typeof sessionClear === 'function') {
     sessionClear();
+  } else if (typeof window !== 'undefined' && typeof window.sessionClear === 'function') {
+    window.sessionClear();
   } else {
-    sessionSet('email', null);
-    sessionSet('ic', null);
-    sessionSet('rank', '');
-    sessionSet('squad', '');
-    sessionSet('joined', '');
+    if (typeof window !== 'undefined' && typeof window._session === 'object' && window._session !== null) {
+      for (var k in window._session) {
+        if (Object.prototype.hasOwnProperty.call(window._session, k)) {
+          delete window._session[k];
+        }
+      }
+    }
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('bb_session');
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('bb_session');
+      localStorage.removeItem('bb_remember');
+    }
+    if (typeof sessionSet === 'function') {
+      ['email', 'ic', 'name', 'rank', 'squad', 'joined', 'section', 'points', 'remember', 'adminAuthed', 'photo_url'].forEach(function(k) {
+        sessionSet(k, null);
+      });
+    }
+  }
+
+  // Clear in-memory caches and global state (BUG-011)
+  if (typeof window !== 'undefined') {
+    window._memberAttendanceData = null;
+    window._currentMemberData = null;
+    if (window._memberBadgesCache) window._memberBadgesCache = {};
+    if (typeof window.updateNavUserHeader === 'function') {
+      window.updateNavUserHeader();
+    }
+  }
+
+  // Reset top header controls
+  if (typeof document !== 'undefined') {
+    var navPts = document.getElementById('nav-points-val');
+    if (navPts) navPts.textContent = '0';
+    var navAvatarImg = document.getElementById('nav-avatar-img');
+    var navAvatarPh = document.getElementById('nav-avatar-placeholder');
+    var navStatusDot = document.getElementById('nav-avatar-status-dot');
+    if (navAvatarImg) navAvatarImg.style.display = 'none';
+    if (navAvatarPh) navAvatarPh.style.display = 'flex';
+    if (navStatusDot) navStatusDot.style.background = '#6b7280';
   }
 
   var tt = document.getElementById('tab-tasks');       if (tt) tt.style.display = 'none';
