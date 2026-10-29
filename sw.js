@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261028-v1';
+const CACHE_VERSION = '20261029-v2';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -103,8 +103,9 @@ async function handleFetchRequest(request, cachesInterface, fetchFn) {
   }
 
   // 2. Static Assets & App Shell Caching (Stale-While-Revalidate)
-  var isLocalAsset =
-    typeof self !== 'undefined' && self.location ? url.origin === self.location.origin : true;
+  var isLocalAsset = (typeof self !== 'undefined' && self.location)
+    ? (url.origin === self.location.origin)
+    : (!url.hostname.includes('supabase.co') && (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.png') || url.pathname.endsWith('.json')));
   var isGoogleFont =
     url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com');
 
@@ -184,9 +185,34 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
 
   // Intercept network requests
   self.addEventListener('fetch', function (event) {
-    var responsePromise = handleFetchRequest(event.request, caches, fetch);
-    if (responsePromise) {
-      event.respondWith(responsePromise);
+    if (event.request.method !== 'GET') {
+      return;
+    }
+
+    var urlString = event.request.url || '';
+    if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
+      return;
+    }
+
+    var url = new URL(urlString);
+    var isOfflineDataQuery = OFFLINE_DATA_KEYS.some(function (key) {
+      return url.href.includes(key);
+    });
+    var isLocalAsset = (typeof self !== 'undefined' && self.location)
+      ? (url.origin === self.location.origin)
+      : (!url.hostname.includes('supabase.co'));
+    var isGoogleFont =
+      url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com');
+
+    // ONLY intercept requests managed by the service worker
+    if (isOfflineDataQuery || isLocalAsset || isGoogleFont) {
+      event.respondWith(
+        handleFetchRequest(event.request, caches, fetch).then(function (res) {
+          return res || fetch(event.request);
+        }).catch(function () {
+          return fetch(event.request);
+        })
+      );
     }
   });
 }

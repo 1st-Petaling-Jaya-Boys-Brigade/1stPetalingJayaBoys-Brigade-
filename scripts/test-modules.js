@@ -3596,6 +3596,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }));
   assert.strictEqual(postRes, null, 'Mutation POST requests must bypass SW caching');
 
+  // 4a2. Unmanaged GET requests (e.g. Supabase bb_members auth) must bypass service worker
+  const memberGetReq = { method: 'GET', url: 'https://xyz.supabase.co/rest/v1/bb_members?ic=eq.test%40bb.org' };
+  const memberGetRes = await swMod.handleFetchRequest(memberGetReq, mockCaches, async () => ({
+    status: 200
+  }));
+  assert.strictEqual(memberGetRes, null, 'Unmanaged GET requests like bb_members must bypass SW caching');
+
   // 4b. Network-first offline data caching on live fetch
   const liveCalendarReq = {
     method: 'GET',

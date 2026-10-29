@@ -21,11 +21,11 @@
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261026f">
-<link rel="stylesheet" href="css/base.css?v=20261026i">
-<link rel="stylesheet" href="css/nav.css?v=20261026i">
-<link rel="stylesheet" href="css/components.css?v=20261026i">
-<link rel="stylesheet" href="css/admin.css?v=20261026f">
+<link rel="stylesheet" href="css/variables.css?v=20261029b">
+<link rel="stylesheet" href="css/base.css?v=20261029b">
+<link rel="stylesheet" href="css/nav.css?v=20261029b">
+<link rel="stylesheet" href="css/components.css?v=20261029b">
+<link rel="stylesheet" href="css/admin.css?v=20261029b">
 <style id="hq-carousel-critical-css">
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -335,7 +335,7 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261022c"></script>
+<script src="js/core/theme.js?v=20261029b"></script>
 </head>
 <body>
 
@@ -2616,23 +2616,23 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261026c"></script>
-<script src="js/api/supabase.js?v=20261026c"></script>
-<script src="js/core/session.js?v=20261026c"></script>
-<script src="js/core/utils.js?v=20261026c"></script>
-<script src="js/core/ui.js?v=20261028a"></script>
-<script src="js/modules/member.js?v=20261026c"></script>
-<script src="js/api/sheets.js?v=20261026c"></script>
-<script src="js/modules/attendance.js?v=20261026c"></script>
-<script src="js/modules/announcements.js?v=20261026c"></script>
-<script src="js/modules/gallery.js?v=20261026c"></script>
-<script src="js/modules/resources.js?v=20261026c"></script>
-<script src="js/modules/calendar.js?v=20261026e"></script>
-<script src="js/modules/orders.js?v=20261028a"></script>
-<script src="js/modules/forms.js?v=20261028a"></script>
-<script src="js/modules/badges.js?v=20261028a"></script>
-<script src="js/modules/tasks.js?v=20261028a"></script>
-<script src="js/modules/admin.js?v=20261028a"></script>
+<script src="js/config.js?v=20261029b"></script>
+<script src="js/api/supabase.js?v=20261029b"></script>
+<script src="js/core/session.js?v=20261029b"></script>
+<script src="js/core/utils.js?v=20261029b"></script>
+<script src="js/core/ui.js?v=20261029b"></script>
+<script src="js/modules/member.js?v=20261029b"></script>
+<script src="js/api/sheets.js?v=20261029b"></script>
+<script src="js/modules/attendance.js?v=20261029b"></script>
+<script src="js/modules/announcements.js?v=20261029b"></script>
+<script src="js/modules/gallery.js?v=20261029b"></script>
+<script src="js/modules/resources.js?v=20261029b"></script>
+<script src="js/modules/calendar.js?v=20261029b"></script>
+<script src="js/modules/orders.js?v=20261029b"></script>
+<script src="js/modules/forms.js?v=20261029b"></script>
+<script src="js/modules/badges.js?v=20261029b"></script>
+<script src="js/modules/tasks.js?v=20261029b"></script>
+<script src="js/modules/admin.js?v=20261029b"></script>
 
 <script>
 
@@ -3049,6 +3049,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('./sw.js', { scope: './' })
       .then(function(reg) {
+        reg.update();
         reg.addEventListener('updatefound', function() {
           var newWorker = reg.installing;
           if (newWorker) {
