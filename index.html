@@ -23,11 +23,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261031a">
-<link rel="stylesheet" href="css/base.css?v=20261031a">
-<link rel="stylesheet" href="css/nav.css?v=20261031a">
-<link rel="stylesheet" href="css/components.css?v=20261031a">
-<link rel="stylesheet" href="css/admin.css?v=20261031a">
+<link rel="stylesheet" href="css/variables.css?v=20261031b">
+<link rel="stylesheet" href="css/base.css?v=20261031b">
+<link rel="stylesheet" href="css/nav.css?v=20261031b">
+<link rel="stylesheet" href="css/components.css?v=20261031b">
+<link rel="stylesheet" href="css/admin.css?v=20261031b">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -337,7 +337,7 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261031a"></script>
+<script src="js/core/theme.js?v=20261031b"></script>
 </head>
 <body>
 
@@ -1379,7 +1379,7 @@
     </div>
 
     <!-- Task detail modal (Interactive Linear-inspired Task Brief) -->
-    <div id="task-detail-modal" role="dialog" aria-modal="true" aria-labelledby="tdm-title" style="display:none;position:fixed;inset:0;z-index:998;">
+    <div id="task-detail-modal" role="dialog" aria-modal="true" aria-labelledby="tdm-title" style="display:none;position:fixed;inset:0;z-index:998;align-items:center;justify-content:center;padding:20px;">
       <div class="task-modal-bg" onclick="closeTaskDetail()"></div>
       <div class="task-brief-modal-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1400,7 +1400,7 @@
           </div>
         </div>
         <div class="task-brief-title task-editable-title" id="tdm-title" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task title" placeholder="Task Title" onblur="handleTaskTitleBlur(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
-        <div class="task-brief-properties" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 16px;">
+        <div class="task-brief-properties" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 18px;">
           <div id="tdm-meta" style="display:none !important;"></div>
           <!-- Status Pill Dropdown -->
           <div class="task-prop-pill-wrapper" style="position:relative;">
@@ -1425,6 +1425,11 @@
             <span class="tdm-priority-icon" style="font-weight:700;">—</span>
             <span class="tdm-priority-text">Medium</span>
           </button>
+          <!-- Project Pill -->
+          <button type="button" class="task-prop-pill-btn tdm-project-btn" title="Project">
+            <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span class="tdm-project-text">Project</span>
+          </button>
           <!-- Due Date Picker -->
           <label class="task-prop-pill-btn tdm-due-label" title="Change due date" style="cursor:pointer;position:relative;margin-bottom:0;">
             <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -1437,8 +1442,71 @@
             <span class="tdm-estimate-val">Estimate</span>
           </button>
         </div>
+
+        <!-- Rich Text / Markdown Formatting Toolbar (Image 5) -->
+        <div class="task-brief-toolbar">
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('formatBlock', 'h2')" title="Heading 2"><b>H2</b></button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('bold')" title="Bold"><b>B</b></button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('italic')" title="Italic"><i>I</i></button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('strikeThrough')" title="Strikethrough"><s>S</s></button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('insertHTML', '<code>code</code>')" title="Inline Code">&lt;&gt;</button>
+          <button type="button" class="tb-btn" onclick="insertTaskDescLink()" title="Insert Link">🔗</button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('insertUnorderedList')" title="Bullet List">≡</button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('insertOrderedList')" title="Numbered List">1.</button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('formatBlock', 'blockquote')" title="Quote">&gt;</button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('undo')" title="Undo">↩</button>
+          <button type="button" class="tb-btn" onclick="formatTaskDesc('redo')" title="Redo">↪</button>
+        </div>
         <div class="task-brief-body task-editable-desc" id="tdm-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task description and deliverables" placeholder="Add a description or deliverables brief..." onblur="handleTaskDescBlur(this)"></div>
         <div id="tdm-status-btns" style="display:none !important;"></div>
+
+        <!-- Attachments Section (Image 5) -->
+        <div class="task-brief-section">
+          <div class="tb-section-header">
+            <div class="tb-section-title">
+              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span>Attachments</span>
+            </div>
+            <label class="tb-upload-btn" title="Upload attachment">
+              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span>Upload file</span>
+              <input type="file" style="display:none;" onchange="handleTaskAttachmentUpload(event)" />
+            </label>
+          </div>
+          <div class="tb-dropzone" onclick="this.previousElementSibling.querySelector('input').click()">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            <span>Drop files here or click to browse</span>
+          </div>
+        </div>
+
+        <!-- Sub-tasks Section (Image 5) -->
+        <div class="task-brief-section">
+          <div class="tb-section-header">
+            <div class="tb-section-title">
+              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><polyline points="9 11 12 14 22 4"/></svg>
+              <span>Sub-tasks</span>
+            </div>
+            <button type="button" class="tb-action-link" onclick="addActiveTaskSubtask()">+ Add a sub-task</button>
+          </div>
+          <div class="tb-subtasks-list"></div>
+        </div>
+
+        <!-- Links Section (Image 5) -->
+        <div class="task-brief-section">
+          <div class="tb-section-header">
+            <div class="tb-section-title">
+              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span>Links</span>
+            </div>
+            <button type="button" class="tb-action-link" onclick="addActiveTaskLink()">+ Add link</button>
+          </div>
+          <div class="tb-links-empty">Nothing linked yet. Link a task that blocks this one, or that this one blocks.</div>
+        </div>
+
+        <!-- Comment Box (Image 5) -->
+        <div class="tb-comment-box">
+          <input type="text" class="tb-comment-input" placeholder="Leave a comment... (@ to mention). Ctrl+Enter to send" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){handleTaskCommentSubmit(this);}" />
+        </div>
       </div>
     </div>
 
@@ -2862,24 +2930,24 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261031a"></script>
-<script src="js/api/supabase.js?v=20261031a"></script>
-<script src="js/core/session.js?v=20261031a"></script>
-<script src="js/core/utils.js?v=20261031a"></script>
-<script src="js/core/ui.js?v=20261031a"></script>
-<script src="js/core/loading.js?v=20261031a"></script>
-<script src="js/modules/member.js?v=20261031a"></script>
-<script src="js/api/sheets.js?v=20261031a"></script>
-<script src="js/modules/attendance.js?v=20261031a"></script>
-<script src="js/modules/announcements.js?v=20261031a"></script>
-<script src="js/modules/gallery.js?v=20261031a"></script>
-<script src="js/modules/resources.js?v=20261031a"></script>
-<script src="js/modules/calendar.js?v=20261031a"></script>
-<script src="js/modules/orders.js?v=20261031a"></script>
-<script src="js/modules/forms.js?v=20261031a"></script>
-<script src="js/modules/badges.js?v=20261031a"></script>
-<script src="js/modules/tasks.js?v=20261031a"></script>
-<script src="js/modules/admin.js?v=20261031a"></script>
+<script src="js/config.js?v=20261031b"></script>
+<script src="js/api/supabase.js?v=20261031b"></script>
+<script src="js/core/session.js?v=20261031b"></script>
+<script src="js/core/utils.js?v=20261031b"></script>
+<script src="js/core/ui.js?v=20261031b"></script>
+<script src="js/core/loading.js?v=20261031b"></script>
+<script src="js/modules/member.js?v=20261031b"></script>
+<script src="js/api/sheets.js?v=20261031b"></script>
+<script src="js/modules/attendance.js?v=20261031b"></script>
+<script src="js/modules/announcements.js?v=20261031b"></script>
+<script src="js/modules/gallery.js?v=20261031b"></script>
+<script src="js/modules/resources.js?v=20261031b"></script>
+<script src="js/modules/calendar.js?v=20261031b"></script>
+<script src="js/modules/orders.js?v=20261031b"></script>
+<script src="js/modules/forms.js?v=20261031b"></script>
+<script src="js/modules/badges.js?v=20261031b"></script>
+<script src="js/modules/tasks.js?v=20261031b"></script>
+<script src="js/modules/admin.js?v=20261031b"></script>
 
 <script>
 

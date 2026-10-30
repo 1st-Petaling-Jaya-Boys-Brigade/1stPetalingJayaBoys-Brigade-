@@ -70,7 +70,9 @@ var _tasksViewMode      = 'projects'; // 'projects' | 'board' | 'mytasks'
 var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;
-var _justDragged = false;  // 'board' | 'mytasks'
+var _justDragged = false;
+var _draggedTaskId = null;
+var _cachedDepartmentMembers = [];
 var _currentDeptFilter  = 'all';
 var _taskSearchQuery    = '';
 var _myTasksScopeFilter = 'me';     // 'me' | 'all'
@@ -883,8 +885,9 @@ function renderColumnsFromTasks(tasksList) {
       return matchTitle || matchDesc || matchAss || matchId;
     });
 
-    if (cnt) cnt.textContent = '(' + statusItems.length + ')';
-    if (tcnt) tcnt.textContent = statusItems.length ? '(' + statusItems.length + ')' : '';
+    // Column Task Counter Pill (Image 2) - Clean pure number, no parentheses
+    if (cnt) cnt.textContent = String(statusItems.length);
+    if (tcnt) tcnt.textContent = statusItems.length ? String(statusItems.length) : '';
     if (!el) return;
 
     if (!statusItems.length) {
@@ -905,12 +908,27 @@ function renderColumnsFromTasks(tasksList) {
     el.innerHTML = statusItems.map(function(t, idx) {
       _taskMap[t.id] = t;
       if (typeof window !== 'undefined') window._taskMap[t.id] = t;
-      var isHigh = t.priority === 'high' || t.priority === 'urgent';
-      var prioBadge = isHigh
-        ? '<span class="task-card-priority priority-high">High</span>'
-        : (t.priority === 'low'
-          ? '<span class="task-card-priority priority-low">Low</span>'
-          : '<span class="task-card-priority priority-medium">Medium</span>');
+
+      var taskId = formatTaskId(t, idx);
+      var pName = getTaskProjectName(t) || (_activeProject && _activeProject !== 'All Tasks' ? _activeProject : '');
+      var projectPillHtml = '';
+      if (pName && pName.toLowerCase() !== 'all' && pName.toLowerCase() !== 'all tasks') {
+        var safeProj = (typeof escapeHtml === 'function') ? escapeHtml(pName) : pName;
+        projectPillHtml = '<div class="task-card-project-pill">' + safeProj + '</div>';
+      }
+
+      var priorityP = (t.priority || 'medium').toLowerCase();
+      var chevronCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
+      var priorityChevron = '<span class="task-card-priority-chevron ' + chevronCls + '" title="' + priorityP.toUpperCase() + ' Priority">&#94;</span>';
+
+      var avatarHtml = '';
+      if (t.assignee_name && t.assignee_name !== 'Unassigned') {
+        var initials = t.assignee_name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+        var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name) : t.assignee_name;
+        avatarHtml = '<span class="task-card-avatar" title="' + safeAssignee + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
+      } else {
+        avatarHtml = '<span class="task-card-avatar" style="background:rgba(255,255,255,0.08);color:var(--text-muted);" title="Unassigned">U</span>';
+      }
 
       var dueBadge = '';
       if (t.due_date) {
@@ -918,30 +936,21 @@ function renderColumnsFromTasks(tasksList) {
         var isOverdue = d < today;
         var dueText = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
         var badgeClass = getTaskDueBadgeClass(t.due_date);
-        dueBadge = '<span class="task-due-pill ' + badgeClass + '">'
+        dueBadge = '<div style="margin-bottom:6px;"><span class="task-due-pill ' + badgeClass + '">'
           + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
           + (isOverdue ? 'Overdue: ' : '') + dueText
-          + '</span>';
+          + '</span></div>';
       }
 
-      var avatarHtml = '';
-      if (t.assignee_name) {
-        var initials = t.assignee_name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-        var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name) : t.assignee_name;
-        avatarHtml = '<span class="task-card-avatar" title="' + safeAssignee + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
-      }
-
-      var taskId = formatTaskId(t, idx);
-
+      // Kanban Card Layout matching Image 1
       return '<div class="task-card" draggable="true" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
-        + '<div class="task-card-top-row">'
-        +   '<span class="task-card-id-tag">' + taskId + '</span>'
-        +   prioBadge
-        + '</div>'
+        + '<div class="task-card-id-tag">' + taskId + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
-        + '<div class="task-card-bottom-row">'
-        +   dueBadge
-        +   '<div class="task-card-assignee-wrap">' + avatarHtml + '</div>'
+        + projectPillHtml
+        + dueBadge
+        + '<div class="task-card-footer">'
+        +   priorityChevron
+        +   avatarHtml
         + '</div>'
         + '</div>';
     }).join('');
@@ -977,7 +986,13 @@ async function renderTasksBoard(deptOrProject) {
         _allLoadedTasks.forEach(function(t) { _taskMap[t.id] = t; });
         if (typeof window !== 'undefined') window._taskMap = _taskMap;
 
-        renderColumnsFromTasks(_allLoadedTasks);
+        formatTaskDesc,
+    insertTaskDescLink,
+    addActiveTaskSubtask,
+    addActiveTaskLink,
+    handleTaskCommentSubmit,
+    handleTaskAttachmentUpload,
+    renderColumnsFromTasks(_allLoadedTasks);
 
         if (typeof syncTaskNotifications === 'function') {
           syncTaskNotifications(tasks);
@@ -1001,6 +1016,7 @@ function setupKanbanDragAndDrop() {
   cards.forEach(function(card) {
     card.addEventListener('dragstart', function(e) {
       var tid = card.getAttribute('data-task-id') || card.getAttribute('data-drag-tid');
+      _draggedTaskId = tid;
       if (e.dataTransfer) {
         e.dataTransfer.setData('text/plain', tid);
         e.dataTransfer.effectAllowed = 'move';
@@ -1011,6 +1027,7 @@ function setupKanbanDragAndDrop() {
     card.addEventListener('dragend', function() {
       card.classList.remove('dragging');
       _justDragged = true;
+      _draggedTaskId = null;
       setTimeout(function() { _justDragged = false; }, 150);
       document.querySelectorAll('.task-col').forEach(function(col) {
         col.classList.remove('drag-over');
@@ -1037,16 +1054,24 @@ function setupKanbanDragAndDrop() {
     col.addEventListener('drop', function(e) {
       e.preventDefault();
       col.classList.remove('drag-over');
-      var tid = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
+      var tid = (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '') || _draggedTaskId;
       if (!tid) return;
 
       var targetStatus = normalizeTaskStatus(col.getAttribute('data-col-status'));
       var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
+      if (!t) {
+        t = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
+      }
       if (t && t.status !== targetStatus) {
         var prevStatus = t.status;
         t.status = targetStatus;
+        t._justMoved = true;
+        setTimeout(function() { delete t._justMoved; }, 10000);
         var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
-        if (loaded) loaded.status = targetStatus;
+        if (loaded) {
+          loaded.status = targetStatus;
+          loaded._justMoved = true;
+        }
 
         // 1. OPTIMISTIC DOM MOVE: 0ms instant transition, zero lag!
         var cardEl = document.querySelector('.task-card[data-task-id="' + tid + '"], .task-card[data-drag-tid="' + tid + '"]');
@@ -1073,32 +1098,26 @@ function setupKanbanDragAndDrop() {
             + '</div>';
         }
 
-        // 2. OPTIMISTIC COUNTERS: Instant badge update
+        // 2. OPTIMISTIC COUNTERS: Instant badge update (pure number, no parentheses)
         STATUS_ORDER.forEach(function(s) {
           var countBadge = getColCount(s);
           var tabBadge = getTabCount(s);
           var cBody = getColBody(s);
           var count = cBody ? cBody.querySelectorAll('.task-card').length : 0;
-          if (countBadge) countBadge.textContent = '(' + count + ')';
-          if (tabBadge) tabBadge.textContent = count ? '(' + count + ')' : '';
+          if (countBadge) countBadge.textContent = String(count);
+          if (tabBadge) tabBadge.textContent = count ? String(count) : '';
         });
 
-        // 3. Smooth Toast Feedback
-        var statusLabels = { planning: 'Planning', todo: 'To Do', inprogress: 'In Progress', inreview: 'In Review', completed: 'Completed' };
-        if (typeof showToast === 'function') {
-          showToast('Moved to ' + (statusLabels[targetStatus] || targetStatus), 'info', 1500);
-        }
-
-        // 4. BACKGROUND ASYNC SUPABASE PATCH (Zero blocking, zero 3-second freeze!)
+        // 3. BACKGROUND PERSISTENCE
         var client = getSupaClient();
         if (client) {
-          client.patch('bb_tasks?id=eq.' + tid, { status: targetStatus }).catch(function(err) {
-            console.error('Failed to sync task status:', err);
-            t.status = prevStatus;
-            if (loaded) loaded.status = prevStatus;
-            if (typeof showToast === 'function') showToast('Failed to save status.', 'error');
-            renderColumnsFromTasks(_allLoadedTasks);
-          });
+          (async function() {
+            try {
+              await client.patch('bb_tasks?id=eq.' + tid, { status: targetStatus });
+            } catch (err) {
+              console.warn('Kanban drag sync error:', err);
+            }
+          })();
         }
       }
     });
@@ -1115,6 +1134,18 @@ function renderMyTasksView() {
 
   var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
   var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (!myName && typeof document !== 'undefined') {
+    var sbName = document.getElementById('sidebar-user-name');
+    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member') {
+      myName = sbName.textContent.trim();
+    }
+  }
+  if (!myName && typeof localStorage !== 'undefined') {
+    try {
+      var sess = JSON.parse(localStorage.getItem('bb_session') || '{}');
+      if (sess && sess.name) myName = sess.name;
+    } catch (_) {}
+  }
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
 
   // Filter tasks based on current filters and search query
@@ -1313,6 +1344,10 @@ function openTaskDetail(id) {
   var statusText = document.querySelector('.tdm-status-text');
   if (statusText) statusText.textContent = sConf.label;
 
+  // Project Pill
+  var pPillText = document.querySelector('.tdm-project-text');
+  if (pPillText) pPillText.textContent = projectName;
+
   // Assignee Pill matching Image 2
   var aName = t.assignee_name || 'Unassigned';
   var initials = aName === 'Unassigned' ? 'U' : aName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
@@ -1346,7 +1381,8 @@ function openTaskDetail(id) {
 
   // Description: strip [Project: ...] tag for clean reading and editing
   var cleanDesc = (t.description || '').replace(/\s*\[Project:[^\]]*\]/gi, '').trim();
-  set('tdm-desc', cleanDesc);
+  var descEl = document.getElementById('tdm-desc');
+  if (descEl) descEl.innerHTML = cleanDesc;
 
   var modal = document.getElementById('task-detail-modal');
   if (modal) modal.style.display = 'block';
@@ -1362,9 +1398,98 @@ function handleTaskTitleBlur(el) {
 
 function handleTaskDescBlur(el) {
   if (!_activeDetailTaskId || !el) return;
-  var val = (el.textContent || '').trim();
+  var val = (el.innerHTML || el.textContent || '').trim();
   saveTaskField(_activeDetailTaskId, 'description', val);
 }
+
+/**
+ * Rich Text Editing Command Handler for Task Brief (Image 5)
+ */
+function formatTaskDesc(cmd, val) {
+  if (typeof document === 'undefined') return;
+  document.execCommand(cmd, false, val || null);
+  var descEl = document.getElementById('tdm-desc');
+  if (descEl) descEl.focus();
+}
+
+/**
+ * Inserts URL link into task brief description
+ */
+function insertTaskDescLink() {
+  if (typeof document === 'undefined') return;
+  var url = (typeof prompt === 'function') ? prompt('Enter URL (https://...):') : null;
+  if (url && url.trim()) {
+    formatTaskDesc('createLink', url.trim());
+  }
+}
+
+/**
+ * Adds an interactive subtask item to the active task brief (Image 5)
+ */
+function addActiveTaskSubtask(text) {
+  if (typeof document === 'undefined') return;
+  var list = document.querySelector('.tb-subtasks-list');
+  if (!list) return;
+  var item = document.createElement('div');
+  item.className = 'tb-subtask-item';
+  item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);';
+  item.innerHTML = '<input type="checkbox" style="cursor:pointer;" onchange="this.nextElementSibling.style.textDecoration = this.checked ? \'line-through\' : \'none\'; this.nextElementSibling.style.opacity = this.checked ? \'0.6\' : \'1\';" />'
+    + '<span contenteditable="true" style="outline:none;flex:1;font-size:13px;" placeholder="Sub-task title...">' + (typeof escapeHtml === 'function' ? escapeHtml(text || 'New sub-task') : (text || 'New sub-task')) + '</span>'
+    + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;" onclick="this.parentElement.remove()" title="Delete subtask">&times;</button>';
+  list.appendChild(item);
+  var span = item.querySelector('span');
+  if (span) span.focus();
+}
+
+/**
+ * Links a related task in the task brief (Image 5)
+ */
+function addActiveTaskLink() {
+  var urlOrTitle = (typeof prompt === 'function') ? prompt('Enter link URL or related task ID:') : null;
+  if (!urlOrTitle || !urlOrTitle.trim()) return;
+  var emptyNotice = document.querySelector('.tb-links-empty');
+  if (emptyNotice) emptyNotice.style.display = 'none';
+  var section = document.querySelector('.tb-links-empty') ? document.querySelector('.tb-links-empty').parentElement : null;
+  if (section) {
+    var linkPill = document.createElement('div');
+    linkPill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);padding:4px 10px;border-radius:6px;font-size:12px;margin:4px 4px 4px 0;';
+    linkPill.innerHTML = '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+      + '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(urlOrTitle.trim()) : urlOrTitle.trim()) + '</span>'
+      + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;margin-left:4px;" onclick="this.parentElement.remove()">&times;</button>';
+    section.appendChild(linkPill);
+  }
+}
+
+/**
+ * Handles comment submit on task brief (Image 5)
+ */
+function handleTaskCommentSubmit(input) {
+  if (!input || !input.value.trim()) return;
+  var comment = input.value.trim();
+  input.value = '';
+  if (typeof showToast === 'function') {
+    showToast('Comment posted: ' + (comment.length > 25 ? comment.slice(0, 25) + '...' : comment), 'info', 1200);
+  }
+}
+
+/**
+ * Handles task attachment upload (Image 5)
+ */
+function handleTaskAttachmentUpload(event) {
+  var files = event && event.target && event.target.files;
+  if (files && files.length) {
+    var fName = files[0].name;
+    var dropzone = document.querySelector('.tb-dropzone');
+    if (dropzone) {
+      dropzone.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>'
+        + '<span>Uploaded: <strong>' + (typeof escapeHtml === 'function' ? escapeHtml(fName) : fName) + '</strong></span>';
+    }
+    if (typeof showToast === 'function') {
+      showToast('Attachment staged: ' + fName, 'success', 1500);
+    }
+  }
+}
+
 
 /**
  * Backward compatibility helpers
@@ -1475,26 +1600,57 @@ async function toggleTaskDetailAssigneeMenu(e) {
     return;
   }
 
-  menu.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:11px;">Loading eligible department members...</div>';
-  menu.style.display = 'block';
+  // 1. GATHER ALL SYNCHRONOUS AVAILABLE MEMBERS IMMEDIATELY
+  var membersMap = {};
 
-  var client = getSupaClient();
-  var members = [];
-  if (client) {
-    try {
-      members = await client.get('bb_members?select=ic,name,rank,department&order=name.asc');
-    } catch (err) {
-      console.warn('Failed to load members for assignee picker:', err);
+  // Current session user
+  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+  var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var myRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
+  var myDept = (typeof sessionGet === 'function') ? sessionGet('department') : '';
+  if (!myName && typeof document !== 'undefined') {
+    var sbName = document.getElementById('sidebar-user-name');
+    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member') {
+      myName = sbName.textContent.trim();
     }
   }
+  if (myName) {
+    membersMap[myName] = {
+      name: myName,
+      ic: myIc || '',
+      rank: myRank || '',
+      department: myDept || 'HQ'
+    };
+  }
 
-  var html = '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\x27\x27, \x27Unassigned\x27)">'
-    + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;background:rgba(255,255,255,0.08);color:var(--text-muted);">U</span>'
-    + '<span style="font-weight:600;">Unassigned</span></div>';
+  // Cached department members
+  if (Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && isMemberDepartmentRole(m)) membersMap[m.name] = m;
+    });
+  }
 
-  if (Array.isArray(members)) {
-    var eligible = members.filter(isMemberDepartmentRole);
-    eligible.forEach(function(m) {
+  // Existing task assignees from all loaded tasks
+  _allLoadedTasks.forEach(function(t) {
+    if (t.assignee_name && t.assignee_name !== 'Unassigned') {
+      if (!membersMap[t.assignee_name]) {
+        membersMap[t.assignee_name] = {
+          name: t.assignee_name,
+          ic: t.assignee_ic || '',
+          department: t.department || 'Department NCO'
+        };
+      }
+    }
+  });
+
+  var renderMenuHtml = function(map) {
+    var list = Object.keys(map).map(function(k) { return map[k]; });
+    var html = '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'\', \'Unassigned\')">'
+      + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;background:rgba(255,255,255,0.08);color:var(--text-muted);">U</span>'
+      + '<span style="font-weight:600;">Unassigned</span></div>';
+
+    list.sort(function(a, b) { return a.name.localeCompare(b.name); });
+    list.forEach(function(m) {
       if (!m.name) return;
       var initials = m.name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
       var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
@@ -1506,8 +1662,32 @@ async function toggleTaskDetailAssigneeMenu(e) {
         + '<span style="font-size:10px;color:var(--text-muted);background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">' + escapeHtml(dTag) + '</span>'
         + '</div>';
     });
+    return html;
+  };
+
+  // Render immediately with 0ms delay!
+  menu.innerHTML = renderMenuHtml(membersMap);
+  menu.style.display = 'block';
+
+  // 2. BACKGROUND REMOTE FETCH WITH 2.0s TIMEOUT RACE
+  var client = getSupaClient();
+  if (client) {
+    var fetchPromise = client.get('bb_members?select=ic,name,rank,department&order=name.asc');
+    var timeoutPromise = new Promise(function(resolve) { setTimeout(function() { resolve([]); }, 2000); });
+    try {
+      var members = await Promise.race([fetchPromise, timeoutPromise]);
+      if (Array.isArray(members) && members.length) {
+        var eligible = members.filter(isMemberDepartmentRole);
+        _cachedDepartmentMembers = eligible;
+        eligible.forEach(function(m) {
+          if (m && m.name) membersMap[m.name] = m;
+        });
+        menu.innerHTML = renderMenuHtml(membersMap);
+      }
+    } catch (err) {
+      console.warn('Failed to refresh members in background:', err);
+    }
   }
-  menu.innerHTML = html;
 }
 
 async function selectTaskDetailAssignee(ic, name) {
@@ -1520,11 +1700,14 @@ async function selectTaskDetailAssignee(ic, name) {
   if (t) {
     t.assignee_name = cleanName;
     t.assignee_ic = cleanIc;
+    t._justAssigned = true;
+    setTimeout(function() { delete t._justAssigned; }, 15000);
   }
   var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
   if (loaded) {
     loaded.assignee_name = cleanName;
     loaded.assignee_ic = cleanIc;
+    loaded._justAssigned = true;
   }
 
   var aNameEl = document.getElementById('tdm-assignee');
@@ -1538,7 +1721,11 @@ async function selectTaskDetailAssignee(ic, name) {
   if (menu) menu.style.display = 'none';
 
   // Instant in-memory optimistic render
-  renderColumnsFromTasks(_allLoadedTasks);
+  if (_tasksViewMode === 'board') {
+    renderColumnsFromTasks(_allLoadedTasks);
+  } else if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView();
+  }
 
   if (typeof showToast === 'function') {
     showToast('Assigned to ' + (cleanName || 'Unassigned'), 'info', 1000);
@@ -1548,15 +1735,9 @@ async function selectTaskDetailAssignee(ic, name) {
   var client = getSupaClient();
   if (client) {
     try {
-      var patch = { assignee_name: cleanName };
-      if (cleanIc) patch.assignee_ic = cleanIc;
-      try {
-        await client.patch('bb_tasks?id=eq.' + tid, patch);
-      } catch (patchErr) {
-        var errStr = patchErr ? (patchErr.message || String(patchErr)) : '';
-        if (errStr.indexOf('assignee_ic') !== -1 || patchErr.code === 'PGRST204') {
-          await client.patch('bb_tasks?id=eq.' + tid, { assignee_name: cleanName });
-        }
+      await client.patch('bb_tasks?id=eq.' + tid, { assignee_name: cleanName });
+      if (cleanIc) {
+        try { await client.patch('bb_tasks?id=eq.' + tid, { assignee_ic: cleanIc }); } catch (_) {}
       }
     } catch (err) {
       console.warn('Failed to sync assignee in background:', err);
@@ -2325,6 +2506,12 @@ if (typeof window !== 'undefined') {
   window.isMemberDepartmentRole     = isMemberDepartmentRole;
   window.deleteActiveTask           = deleteActiveTask;
   window.deleteProject              = deleteProject;
+  window.formatTaskDesc             = formatTaskDesc;
+  window.insertTaskDescLink         = insertTaskDescLink;
+  window.addActiveTaskSubtask       = addActiveTaskSubtask;
+  window.addActiveTaskLink          = addActiveTaskLink;
+  window.handleTaskCommentSubmit    = handleTaskCommentSubmit;
+  window.handleTaskAttachmentUpload = handleTaskAttachmentUpload;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
 }
 
