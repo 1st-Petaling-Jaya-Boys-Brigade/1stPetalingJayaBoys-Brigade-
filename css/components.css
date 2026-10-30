@@ -1953,10 +1953,9 @@ textarea:-webkit-autofill:active {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
-  padding: 14px 10px;
+  padding: 14px 12px;
   flex: 1 1 0;
-  min-width: 195px;
-  max-width: 280px;
+  min-width: 235px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   display: flex;
@@ -1986,7 +1985,8 @@ textarea:-webkit-autofill:active {
   gap: 10px;
 }
 
-.task-col-empty {
+.task-col-empty,
+.kanban-empty-state {
   flex: 1;
   min-height: 220px;
   display: flex;
@@ -1994,7 +1994,7 @@ textarea:-webkit-autofill:active {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.09);
+  border: 1.5px dashed rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-md);
   padding: 24px 12px;
   background: rgba(255, 255, 255, 0.015);
@@ -2002,7 +2002,8 @@ textarea:-webkit-autofill:active {
   text-align: center;
 }
 
-.task-col-empty-icon {
+.task-col-empty-icon,
+.kanban-empty-icon {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -2014,31 +2015,35 @@ textarea:-webkit-autofill:active {
   margin-bottom: 2px;
 }
 
-.task-col-empty-text {
+.task-col-empty-text,
+.kanban-empty-title {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
 }
 
-.task-col-empty-btn {
-  margin-top: 4px;
+.task-col-empty-btn,
+.kanban-empty-btn {
+  margin-top: 6px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 11px;
   font-weight: 600;
   color: var(--accent);
-  background: rgba(200, 150, 30, 0.08);
-  border: 1px solid rgba(200, 150, 30, 0.25);
+  background: rgba(217, 163, 35, 0.08);
+  border: 1px solid rgba(217, 163, 35, 0.25);
   border-radius: 6px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   cursor: pointer;
-  transition: var(--transition-smooth);
+  transition: all 0.2s ease;
 }
 
-.task-col-empty-btn:hover {
-  background: rgba(200, 150, 30, 0.18);
+.task-col-empty-btn:hover,
+.kanban-empty-btn:hover {
+  background: rgba(217, 163, 35, 0.2);
   border-color: var(--accent);
+  transform: translateY(-1px);
 }
 
 @supports not (content-visibility: auto) {
@@ -2048,16 +2053,40 @@ textarea:-webkit-autofill:active {
 }
 
 .task-col.drag-over {
-  border-color: var(--brand-blue);
-  border-style: dashed;
-  background: rgba(59, 130, 246, 0.08);
+  border-color: var(--accent) !important;
+  border-style: dashed !important;
+  background: rgba(217, 163, 35, 0.08) !important;
+}
+
+.task-col.drag-over * {
+  pointer-events: none;
 }
 
 .task-col-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+}
+
+.task-col[data-col-status="planning"] .task-col-header {
+  border-bottom-color: rgba(168, 85, 247, 0.25);
+}
+.task-col[data-col-status="todo"] .task-col-header {
+  border-bottom-color: rgba(148, 163, 184, 0.2);
+}
+.task-col[data-col-status="inprogress"] .task-col-header {
+  border-bottom-color: rgba(59, 130, 246, 0.25);
+}
+.task-col[data-col-status="inreview"] .task-col-header {
+  border-bottom-color: rgba(245, 158, 11, 0.25);
+}
+.task-col[data-col-status="completed"] .task-col-header {
+  border-bottom-color: rgba(16, 185, 129, 0.25);
 }
 
 .task-col-quick-add {
@@ -2132,13 +2161,15 @@ textarea:-webkit-autofill:active {
   font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: normal !important;
   text-transform: none;
-  margin-bottom: 12px;
-  display: flex;
+  margin-bottom: 0;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   color: var(--text-primary);
+  white-space: nowrap !important;
+  flex-shrink: 0;
 }
 
 .task-card {
@@ -4844,4 +4875,46 @@ textarea:-webkit-autofill:active {
   background: rgba(239, 68, 68, 0.15);
   border-color: rgba(239, 68, 68, 0.35);
   color: #ef4444;
+}
+
+
+/* ── Task Card Priority Badges & Refined Card Metrics ── */
+.task-card-priority {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+}
+
+.task-card-priority.priority-high {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.task-card-priority.priority-medium {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.task-card-priority.priority-low {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.task-card-id-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
 }

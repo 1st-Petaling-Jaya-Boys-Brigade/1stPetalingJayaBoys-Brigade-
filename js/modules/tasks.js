@@ -69,7 +69,8 @@ var _activeTasksSection = 'parade'; // 'parade' | 'board'
 var _tasksViewMode      = 'projects'; // 'projects' | 'board' | 'mytasks'
 var _activeProject      = '';
 var _companyProjects    = [];
-var _activeDetailTaskId = null;  // 'board' | 'mytasks'
+var _activeDetailTaskId = null;
+var _justDragged = false;  // 'board' | 'mytasks'
 var _currentDeptFilter  = 'all';
 var _taskSearchQuery    = '';
 var _myTasksScopeFilter = 'me';     // 'me' | 'all'
@@ -274,6 +275,16 @@ function hasDepartmentRole(memberOrDept, rank) {
 
   // Regular members and NCOs without Department NCO role cannot access Projects & Tasks
   return false;
+}
+
+/**
+ * Predicate to check if a member has a department role or officer role for task assignment
+ * @param {Object} m
+ * @returns {boolean}
+ */
+function isMemberDepartmentRole(m) {
+  if (!m) return false;
+  return hasDepartmentRole(m);
 }
 
 /**
@@ -878,12 +889,12 @@ function renderColumnsFromTasks(tasksList) {
 
     if (!statusItems.length) {
       var emptyConf = STATUS_CONFIG[status] || { label: status };
-      el.innerHTML = '<div class="kanban-empty-state">'
-        + '<div class="kanban-empty-icon">'
+      el.innerHTML = '<div class="task-col-empty">'
+        + '<div class="task-col-empty-icon">'
         +   '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m9 12 2 2 4-4"/></svg>'
         + '</div>'
-        + '<div class="kanban-empty-title">No tasks in ' + emptyConf.label + '</div>'
-        + '<button type="button" class="kanban-empty-btn" onclick="openCreateTaskModal(\'' + status + '\')">'
+        + '<div class="task-col-empty-text">No tasks in ' + emptyConf.label + '</div>'
+        + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + status + '\')">'
         +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
         +   '<span>Add Task</span>'
         + '</button>'
@@ -989,7 +1000,7 @@ function setupKanbanDragAndDrop() {
   var cards = document.querySelectorAll('.task-card[draggable="true"]');
   cards.forEach(function(card) {
     card.addEventListener('dragstart', function(e) {
-      var tid = card.getAttribute('data-drag-tid');
+      var tid = card.getAttribute('data-task-id') || card.getAttribute('data-drag-tid');
       if (e.dataTransfer) {
         e.dataTransfer.setData('text/plain', tid);
         e.dataTransfer.effectAllowed = 'move';
@@ -999,6 +1010,8 @@ function setupKanbanDragAndDrop() {
 
     card.addEventListener('dragend', function() {
       card.classList.remove('dragging');
+      _justDragged = true;
+      setTimeout(function() { _justDragged = false; }, 150);
       document.querySelectorAll('.task-col').forEach(function(col) {
         col.classList.remove('drag-over');
       });
@@ -1007,13 +1020,17 @@ function setupKanbanDragAndDrop() {
 
   var columns = document.querySelectorAll('.task-col[data-col-status]');
   columns.forEach(function(col) {
+    if (col._dragBound) return;
+    col._dragBound = true;
+
     col.addEventListener('dragover', function(e) {
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
       col.classList.add('drag-over');
     });
 
-    col.addEventListener('dragleave', function() {
+    col.addEventListener('dragleave', function(e) {
+      if (e.relatedTarget && col.contains(e.relatedTarget)) return;
       col.classList.remove('drag-over');
     });
 
@@ -1028,14 +1045,32 @@ function setupKanbanDragAndDrop() {
       if (t && t.status !== targetStatus) {
         var prevStatus = t.status;
         t.status = targetStatus;
+        var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
+        if (loaded) loaded.status = targetStatus;
 
         // 1. OPTIMISTIC DOM MOVE: 0ms instant transition, zero lag!
-        var cardEl = document.querySelector('.task-card[data-drag-tid="' + tid + '"]');
+        var cardEl = document.querySelector('.task-card[data-task-id="' + tid + '"], .task-card[data-drag-tid="' + tid + '"]');
         var targetColBody = getColBody(targetStatus);
         if (cardEl && targetColBody) {
-          var emptyNotice = targetColBody.querySelector('.task-col-empty');
+          var emptyNotice = targetColBody.querySelector('.task-col-empty, .kanban-empty-state');
           if (emptyNotice) emptyNotice.remove();
           targetColBody.appendChild(cardEl);
+        }
+
+        // If previous column is now empty, render empty state
+        var prevColBody = getColBody(prevStatus);
+        if (prevColBody && !prevColBody.querySelector('.task-card')) {
+          var emptyConf = STATUS_CONFIG[prevStatus] || { label: prevStatus };
+          prevColBody.innerHTML = '<div class="task-col-empty">'
+            + '<div class="task-col-empty-icon">'
+            +   '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m9 12 2 2 4-4"/></svg>'
+            + '</div>'
+            + '<div class="task-col-empty-text">No tasks in ' + emptyConf.label + '</div>'
+            + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + prevStatus + '\')">'
+            +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+            +   '<span>Add Task</span>'
+            + '</button>'
+            + '</div>';
         }
 
         // 2. OPTIMISTIC COUNTERS: Instant badge update
@@ -1060,8 +1095,9 @@ function setupKanbanDragAndDrop() {
           client.patch('bb_tasks?id=eq.' + tid, { status: targetStatus }).catch(function(err) {
             console.error('Failed to sync task status:', err);
             t.status = prevStatus;
+            if (loaded) loaded.status = prevStatus;
             if (typeof showToast === 'function') showToast('Failed to save status.', 'error');
-            renderTasksBoard(_activeProject);
+            renderColumnsFromTasks(_allLoadedTasks);
           });
         }
       }
@@ -1077,27 +1113,44 @@ function renderMyTasksView() {
   var container = document.querySelector('.my-tasks-container');
   if (!container) return;
 
-  var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
   var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
 
   // Filter tasks based on current filters and search query
   var filtered = _allLoadedTasks.filter(function(t) {
     if (_myTasksScopeFilter === 'me') {
-      var isAssigned = (t.assignee_ic && myIc && t.assignee_ic.indexOf(myIc) !== -1)
-        || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1);
+      var isAssigned = false;
+      var aName = (t.assignee_name || '').trim().toLowerCase();
+      var aIc = (t.assignee_ic || '').trim().toLowerCase();
+      var sName = myName.trim().toLowerCase();
+      var sIc = myIc.trim().toLowerCase();
+      var sEmail = myEmail.trim().toLowerCase();
+
+      if (aName && sName) {
+        if (aName === sName || aName.indexOf(sName) !== -1 || sName.indexOf(aName) !== -1) {
+          isAssigned = true;
+        }
+      }
+      if (aIc && sIc && aIc === sIc) {
+        isAssigned = true;
+      }
+      if (aIc && sEmail && aIc === sEmail) {
+        isAssigned = true;
+      }
       if (!isAssigned) return false;
     }
-    if (_myTasksStatusFilter === 'open' && t.status === 'done') {
-      return false;
-    }
-    if (_currentDeptFilter !== 'all' && t.department !== _currentDeptFilter) {
-      return false;
+    if (_myTasksStatusFilter === 'open') {
+      var s = normalizeTaskStatus(t.status);
+      if (s === 'completed' || s === 'done') return false;
     }
     if (_taskSearchQuery) {
-      var matchTitle = (t.title || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
-      var matchDesc  = (t.description || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
-      var matchId    = String(t.id || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
-      if (!matchTitle && !matchDesc && !matchId) return false;
+      var q = _taskSearchQuery.toLowerCase();
+      var matchTitle = (t.title || '').toLowerCase().indexOf(q) !== -1;
+      var matchDesc  = (t.description || '').toLowerCase().indexOf(q) !== -1;
+      var matchId    = String(t.id || '').toLowerCase().indexOf(q) !== -1;
+      var matchProj  = (getTaskProjectName(t) || '').toLowerCase().indexOf(q) !== -1;
+      if (!matchTitle && !matchDesc && !matchId && !matchProj) return false;
     }
     return true;
   });
@@ -1228,6 +1281,10 @@ async function toggleTaskCheckbox(id, e) {
  */
 function openTaskDetail(id) {
   if (typeof document === 'undefined') return;
+  if (_justDragged) {
+    _justDragged = false;
+    return;
+  }
   var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id] || {};
   _activeDetailTaskId = id;
 
@@ -1336,7 +1393,7 @@ async function saveTaskField(id, field, value) {
 
   // Optimistic updates on board
   if (_tasksViewMode === 'board') {
-    renderTasksBoard(_activeProject);
+    renderColumnsFromTasks(_allLoadedTasks);
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   } else if (_tasksViewMode === 'projects') {
@@ -1418,7 +1475,7 @@ async function toggleTaskDetailAssigneeMenu(e) {
     return;
   }
 
-  menu.innerHTML = '<div style="padding:8px;color:var(--text-muted);font-size:11px;">Loading members...</div>';
+  menu.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:11px;">Loading eligible department members...</div>';
   menu.style.display = 'block';
 
   var client = getSupaClient();
@@ -1432,32 +1489,79 @@ async function toggleTaskDetailAssigneeMenu(e) {
   }
 
   var html = '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\x27\x27, \x27Unassigned\x27)">'
-    + '<span class="task-card-avatar" style="width:18px;height:18px;font-size:8px;">U</span>'
-    + '<span>Unassigned</span></div>';
+    + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;background:rgba(255,255,255,0.08);color:var(--text-muted);">U</span>'
+    + '<span style="font-weight:600;">Unassigned</span></div>';
 
   if (Array.isArray(members)) {
-    members.forEach(function(m) {
+    var eligible = members.filter(isMemberDepartmentRole);
+    eligible.forEach(function(m) {
       if (!m.name) return;
       var initials = m.name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
       var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
-      html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'' + escapeHtml(m.ic || '') + '\', \'' + safeName + '\')">'
-        + '<span class="task-card-avatar" style="width:18px;height:18px;font-size:8px;">' + initials + '</span>'
-        + '<span>' + safeName + '</span></div>';
+      var safeIc = (typeof escapeHtml === 'function') ? escapeHtml(m.ic || '') : (m.ic || '');
+      var dTag = m.department ? (m.department.toLowerCase() === 'department nco' ? 'Department NCO' : m.department) : (m.rank || 'NCO');
+      html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'' + safeIc + '\', \'' + safeName + '\')">'
+        + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;">' + initials + '</span>'
+        + '<span style="flex:1;">' + safeName + '</span>'
+        + '<span style="font-size:10px;color:var(--text-muted);background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">' + escapeHtml(dTag) + '</span>'
+        + '</div>';
     });
   }
   menu.innerHTML = html;
 }
 
-function selectTaskDetailAssignee(ic, name) {
+async function selectTaskDetailAssignee(ic, name) {
   if (!_activeDetailTaskId) return;
-  saveTaskField(_activeDetailTaskId, 'assignee_name', name === 'Unassigned' ? '' : name);
-  saveTaskField(_activeDetailTaskId, 'assignee_ic', ic);
+  var tid = _activeDetailTaskId;
+  var cleanName = name === 'Unassigned' ? '' : name;
+  var cleanIc = ic || '';
+
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
+  if (t) {
+    t.assignee_name = cleanName;
+    t.assignee_ic = cleanIc;
+  }
+  var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
+  if (loaded) {
+    loaded.assignee_name = cleanName;
+    loaded.assignee_ic = cleanIc;
+  }
+
   var aNameEl = document.getElementById('tdm-assignee');
-  if (aNameEl) aNameEl.textContent = name;
+  if (aNameEl) aNameEl.textContent = cleanName || 'Unassigned';
   var aAvatar = document.querySelector('.tdm-assignee-avatar');
-  if (aAvatar) aAvatar.textContent = name === 'Unassigned' ? 'U' : name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+  if (aAvatar) {
+    var inits = !cleanName ? 'U' : cleanName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+    aAvatar.textContent = inits;
+  }
   var menu = document.querySelector('.tdm-assignee-dropdown');
   if (menu) menu.style.display = 'none';
+
+  // Instant in-memory optimistic render
+  renderColumnsFromTasks(_allLoadedTasks);
+
+  if (typeof showToast === 'function') {
+    showToast('Assigned to ' + (cleanName || 'Unassigned'), 'info', 1000);
+  }
+
+  // Background patch without refetching from server
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var patch = { assignee_name: cleanName };
+      if (cleanIc) patch.assignee_ic = cleanIc;
+      try {
+        await client.patch('bb_tasks?id=eq.' + tid, patch);
+      } catch (patchErr) {
+        var errStr = patchErr ? (patchErr.message || String(patchErr)) : '';
+        if (errStr.indexOf('assignee_ic') !== -1 || patchErr.code === 'PGRST204') {
+          await client.patch('bb_tasks?id=eq.' + tid, { assignee_name: cleanName });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to sync assignee in background:', err);
+    }
+  }
 }
 
 /**
@@ -1643,24 +1747,26 @@ function closeCreateTaskModal() {
  * Loads department member options into Create Task modal assignee dropdown
  * @param {string} dept
  */
-async function loadNewTaskAssigneeOptions(dept) {
+async function loadNewTaskAssigneeOptions() {
   if (typeof document === 'undefined') return;
   var modal = document.querySelector('.task-create-modal');
   if (!modal) return;
   var sel = modal.querySelector('.new-task-assignee-input');
   if (!sel) return;
   sel.innerHTML = '<option value="">Unassigned</option>';
-  if (!dept) return;
 
   var client = getSupaClient();
   if (!client) return;
   try {
-    var members = await client.get('bb_members?department=eq.' + dept + '&select=ic,name&order=name');
+    var members = await client.get('bb_members?select=ic,name,rank,department&order=name.asc');
     if (Array.isArray(members)) {
-      members.forEach(function(m) {
+      var eligible = members.filter(isMemberDepartmentRole);
+      eligible.forEach(function(m) {
+        if (!m.name) return;
         var opt = document.createElement('option');
-        opt.value = m.ic;
-        opt.textContent = m.name;
+        opt.value = m.ic || m.name;
+        opt.setAttribute('data-name', m.name);
+        opt.textContent = m.name + (m.department ? ' (' + (m.department.toLowerCase() === 'department nco' ? 'Department NCO' : m.department) + ')' : '');
         sel.appendChild(opt);
       });
     }
@@ -2216,6 +2322,7 @@ if (typeof window !== 'undefined') {
   window.getTaskProjectName         = getTaskProjectName;
   window.saveProjectsCatalog        = saveProjectsCatalog;
   window.loadProjectsCatalog        = loadProjectsCatalog;
+  window.isMemberDepartmentRole     = isMemberDepartmentRole;
   window.deleteActiveTask           = deleteActiveTask;
   window.deleteProject              = deleteProject;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
@@ -2285,6 +2392,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getTaskProjectName,
     saveProjectsCatalog,
     loadProjectsCatalog,
+    isMemberDepartmentRole,
     deleteActiveTask,
     deleteProject,
     renderColumnsFromTasks
