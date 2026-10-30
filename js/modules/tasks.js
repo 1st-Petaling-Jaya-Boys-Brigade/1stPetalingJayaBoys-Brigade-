@@ -66,7 +66,7 @@ function getTabCount(status) {
 }
 
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
-var _tasksViewMode      = 'board'; // 'projects' | 'board' | 'mytasks'
+var _tasksViewMode      = 'projects'; // 'projects' | 'board' | 'mytasks'
 var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;  // 'board' | 'mytasks'
@@ -427,7 +427,7 @@ async function checkTasksAccess() {
 
     if (gate) gate.style.display = 'none';
     if (board) board.style.display = 'block';
-    await renderTasksBoard(_currentDeptFilter);
+    setTasksViewMode('projects');
   } catch (e) {
     console.error('checkTasksAccess error:', e);
   }
@@ -442,7 +442,7 @@ function previewTasksBoardDemo() {
   var board = document.getElementById('tasks-board');
   if (gate) gate.style.display = 'none';
   if (board) board.style.display = 'block';
-  renderTasksBoard('all');
+  setTasksViewMode('projects');
 }
 
 /**
@@ -485,8 +485,8 @@ function setTasksViewMode(mode) {
     if (cur) cur.style.display = 'none';
     renderProjectsView();
   } else if (_tasksViewMode === 'board') {
-    if (boardCol) boardCol.style.display = 'grid';
-    if (colTabs) colTabs.style.display = 'flex';
+    if (boardCol) boardCol.style.display = '';
+    if (colTabs) colTabs.style.display = '';
     if (myTasks) myTasks.style.display = 'none';
     if (projContainer) projContainer.style.display = 'none';
     if (addBtn) {
@@ -527,13 +527,8 @@ function openProjectBoard(projectName) {
 /**
  * Renders the Projects Overview list (Image 3)
  */
-async function renderProjectsView() {
-  if (typeof document === 'undefined') return;
-  var container = document.querySelector('.projects-container');
+function paintProjectsList(container) {
   if (!container) return;
-
-  await loadProjectsCatalog();
-
   var projectNamesMap = {};
   _allLoadedTasks.forEach(function(t) {
     var p = getTaskProjectName(t);
@@ -543,7 +538,7 @@ async function renderProjectsView() {
   });
 
   _companyProjects.forEach(function(p) {
-    if (p && !p.toLowerCase().includes('sprint')) projectNamesMap[p] = true;
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') projectNamesMap[p] = true;
   });
 
   var projectList = Object.keys(projectNamesMap);
@@ -606,12 +601,118 @@ async function renderProjectsView() {
         +   '<div class="project-progress-bar"><div class="project-progress-fill" style="width:' + pct + '%;"></div></div>'
         +   '<span class="project-progress-pct">' + pct + '%</span>'
         + '</div>'
+        + '<div class="project-actions-cell">'
+        +   '<button type="button" class="project-delete-btn" onclick="event.stopPropagation(); deleteProject(\'' + (typeof escapeHtml === 'function' ? escapeHtml(pName) : pName) + '\')" title="Delete Project" aria-label="Delete Project">'
+        +     '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
+        +   '</button>'
+        + '</div>'
         + '</div>';
     });
   }
 
   html += '</div>';
   container.innerHTML = html;
+}
+
+/**
+ * Renders the Projects Overview list (Image 3)
+ */
+async function renderProjectsView() {
+  if (typeof document === 'undefined') return;
+  var container = document.querySelector('.projects-container');
+  if (!container) return;
+
+  // Render immediately with in-memory state (< 1ms)
+  paintProjectsList(container);
+
+  // Background fetch latest tasks and catalog in parallel
+  var client = getSupaClient();
+  var fetchTasksPromise = client ? client.get('bb_tasks?order=created_at.asc') : Promise.resolve([]);
+  var fetchCatalogPromise = loadProjectsCatalog();
+
+  try {
+    var res = await Promise.all([fetchTasksPromise, fetchCatalogPromise]);
+    var tasks = res[0];
+    if (Array.isArray(tasks)) {
+      var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_'); });
+      _allLoadedTasks = tasks.concat(pendingTemp);
+      _taskMap = {};
+      _allLoadedTasks.forEach(function(t) {
+        _taskMap[t.id] = t;
+        var p = getTaskProjectName(t);
+        if (p && p !== 'General Project' && !p.toLowerCase().includes('sprint') && _companyProjects.indexOf(p) === -1) {
+          _companyProjects.push(p);
+        }
+      });
+      if (typeof window !== 'undefined') window._taskMap = _taskMap;
+      paintProjectsList(container);
+    }
+  } catch (err) {
+    console.warn('renderProjectsView fetch error:', err);
+  }
+}
+
+/**
+ * Deletes a project from the catalog and all its associated tasks
+ * @param {string} projectName
+ */
+async function deleteProject(projectName) {
+  if (!projectName) return;
+  var confirmFn = (typeof showConfirmModal === 'function')
+    ? showConfirmModal
+    : async function(msg) { return (typeof confirm === 'function') ? confirm(msg) : true; };
+
+  var confirmed = await confirmFn(
+    'Are you sure you want to delete project "' + projectName + '" and all its tasks? This action cannot be undone.',
+    'Delete Project'
+  );
+  if (!confirmed) return;
+
+  var lower = projectName.toLowerCase();
+  _companyProjects = _companyProjects.filter(function(p) {
+    return (p || '').toLowerCase() !== lower;
+  });
+
+  var tasksToDelete = _allLoadedTasks.filter(function(t) {
+    return getTaskProjectName(t).toLowerCase() === lower;
+  });
+  var taskIdsToDelete = tasksToDelete.map(function(t) { return t.id; });
+
+  _allLoadedTasks = _allLoadedTasks.filter(function(t) {
+    return getTaskProjectName(t).toLowerCase() !== lower;
+  });
+  taskIdsToDelete.forEach(function(tid) {
+    delete _taskMap[tid];
+    if (typeof window !== 'undefined' && window._taskMap) {
+      delete window._taskMap[tid];
+    }
+  });
+
+  await saveProjectsCatalog();
+
+  if ((_activeProject || '').toLowerCase() === lower) {
+    _activeProject = '';
+  }
+
+  var container = document.querySelector('.projects-container');
+  if (container) paintProjectsList(container);
+
+  if (typeof showToast === 'function') {
+    showToast('Project "' + projectName + '" deleted.', 'success');
+  }
+
+  var client = getSupaClient();
+  if (client && taskIdsToDelete.length) {
+    (async function() {
+      try {
+        for (var i = 0; i < taskIdsToDelete.length; i++) {
+          await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskIdsToDelete[i]));
+        }
+      } catch (err) {
+        console.warn('Failed to delete project tasks from Supabase:', err);
+      }
+    })();
+  }
 }
 
 /**
@@ -740,49 +841,16 @@ function getTaskDueBadgeClass(dueDate, isCompleted) {
   return 'due-normal';
 }
 
-async function renderTasksBoard(deptOrProject) {
-  if (typeof document === 'undefined') return;
+function renderColumnsFromTasks(tasksList) {
   var cols = { planning: [], todo: [], inprogress: [], inreview: [], completed: [] };
-  var client = getSupaClient();
-
-  // If a project is specified, use it as active project
-  if (deptOrProject && deptOrProject !== 'all' && !DEPT_CONFIG[deptOrProject]) {
-    _activeProject = deptOrProject;
-  }
-
-  // Update breadcrumb at top of board
-  var breadcrumbCur = document.getElementById('tasks-dept-title');
-  if (breadcrumbCur) {
-    breadcrumbCur.innerHTML = '<span onclick="setTasksViewMode(\'projects\')" style="cursor:pointer;color:var(--text-secondary);">&lt; Projects</span> <span style="color:var(--text-muted);">&gt;</span> <span style="font-weight:700;color:var(--text-primary);">' + (typeof escapeHtml === 'function' ? escapeHtml(_activeProject || 'All Tasks') : (_activeProject || 'All Tasks')) + '</span>';
-  }
-
-  if (client) {
-    try {
-      var url = 'bb_tasks?order=created_at.asc';
-      var tasks = await client.get(url);
-      if (Array.isArray(tasks)) {
-        _allLoadedTasks = tasks;
-        tasks.forEach(function(t) {
-          // If active project is set, filter by project
-          if (_activeProject && _activeProject !== 'all') {
-            var pName = (t.project_name || t.department || '').trim().toLowerCase();
-            if (pName !== _activeProject.toLowerCase()) return;
-          }
-          var k = normalizeTaskStatus(t.status);
-          cols[k].push(t);
-        });
-
-        // Trigger dynamic notification sync for assigned tasks
-        if (typeof syncTaskNotifications === 'function') {
-          syncTaskNotifications(tasks);
-        } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
-          window.syncTaskNotifications(tasks);
-        }
-      }
-    } catch (e) {
-      console.error('renderTasksBoard error:', e);
+  (tasksList || []).forEach(function(t) {
+    if (_activeProject && _activeProject.toLowerCase() !== 'all' && _activeProject.toLowerCase() !== 'all tasks') {
+      var pName = getTaskProjectName(t).toLowerCase();
+      if (pName !== _activeProject.toLowerCase()) return;
     }
-  }
+    var k = normalizeTaskStatus(t.status);
+    if (cols[k]) cols[k].push(t);
+  });
 
   if (typeof window !== 'undefined') {
     window._taskMap = window._taskMap || {};
@@ -794,7 +862,6 @@ async function renderTasksBoard(deptOrProject) {
     var cnt  = getColCount(status);
     var tcnt = getTabCount(status);
 
-    // Filter by live search query if present
     var itemsInCol = cols[status] || [];
     var statusItems = itemsInCol.filter(function(t) {
       if (!_taskSearchQuery) return true;
@@ -810,86 +877,107 @@ async function renderTasksBoard(deptOrProject) {
     if (!el) return;
 
     if (!statusItems.length) {
-      var sConf = STATUS_CONFIG[status] || { label: status };
-      el.innerHTML = '<div class="task-col-empty">'
-        + '<div class="task-col-empty-icon">'
-        +   '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>'
+      var emptyConf = STATUS_CONFIG[status] || { label: status };
+      el.innerHTML = '<div class="kanban-empty-state">'
+        + '<div class="kanban-empty-icon">'
+        +   '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m9 12 2 2 4-4"/></svg>'
         + '</div>'
-        + '<div class="task-col-empty-text">No tasks in ' + (typeof escapeHtml === 'function' ? escapeHtml(sConf.label) : sConf.label) + '</div>'
-        + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + escapeHtml(status) + '\')">'
-        +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+        + '<div class="kanban-empty-title">No tasks in ' + emptyConf.label + '</div>'
+        + '<button type="button" class="kanban-empty-btn" onclick="openCreateTaskModal(\'' + status + '\')">'
+        +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
         +   '<span>Add Task</span>'
         + '</button>'
         + '</div>';
       return;
     }
 
-    var html = '';
-    statusItems.forEach(function(t, idx) {
-      if (typeof window !== 'undefined' && window._taskMap) {
-        window._taskMap[t.id] = t;
-      }
+    el.innerHTML = statusItems.map(function(t, idx) {
       _taskMap[t.id] = t;
+      if (typeof window !== 'undefined') window._taskMap[t.id] = t;
+      var isHigh = t.priority === 'high' || t.priority === 'urgent';
+      var prioBadge = isHigh
+        ? '<span class="task-card-priority priority-high">High</span>'
+        : (t.priority === 'low'
+          ? '<span class="task-card-priority priority-low">Low</span>'
+          : '<span class="task-card-priority priority-medium">Medium</span>');
 
-      var taskId = formatTaskId(t, idx);
-      var currentStatus = normalizeTaskStatus(t.status);
-
-      // Due date pill with smart color coding (Image 4):
-      // Red: overdue, Yellow: within 2 days, Normal: on time
-      var dueHtml = '';
+      var dueBadge = '';
       if (t.due_date) {
-        var due = new Date(t.due_date); due.setHours(0, 0, 0, 0);
-        var diffMs = due.getTime() - today.getTime();
-        var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        var dueClass = 'due-normal';
-        if (currentStatus !== 'completed') {
-          if (diffDays < 0) {
-            dueClass = 'due-overdue';
-          } else if (diffDays <= 2) {
-            dueClass = 'due-near';
-          }
-        }
-        dueHtml = '<span class="task-due-pill ' + dueClass + '" title="Due: ' + due.toLocaleDateString('en-MY') + '">'
+        var d = new Date(t.due_date);
+        var isOverdue = d < today;
+        var dueText = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+        var badgeClass = getTaskDueBadgeClass(t.due_date);
+        dueBadge = '<span class="task-due-pill ' + badgeClass + '">'
           + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-          + due.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }) + '</span>';
-      }
-
-      // Assignee Avatar with hover tooltip (Image 4):
-      var avatarHtml = '';
-      if (t.assignee_name) {
-        var aName = t.assignee_name;
-        var initials = aName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-        avatarHtml = '<span class="task-card-avatar" title="Assigned to: ' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '" data-assignee="' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '">'
-          + (t.assignee_photo ? '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(t.assignee_photo) : t.assignee_photo) + '" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '" />' : escapeHtml(initials))
+          + (isOverdue ? 'Overdue: ' : '') + dueText
           + '</span>';
       }
 
-      // Minimalist Card (Image 4) - NO scrollers, NO tiny status buttons, NO sprint words
-      html += '<div class="task-card" draggable="true" data-drag-tid="' + t.id + '" data-task-open="' + t.id + '">'
+      var avatarHtml = '';
+      if (t.assignee_name) {
+        var initials = t.assignee_name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+        var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name) : t.assignee_name;
+        avatarHtml = '<span class="task-card-avatar" title="' + safeAssignee + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
+      }
+
+      var taskId = formatTaskId(t, idx);
+
+      return '<div class="task-card" draggable="true" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
         + '<div class="task-card-top-row">'
-        +   '<span class="task-id-badge">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
+        +   '<span class="task-card-id-tag">' + taskId + '</span>'
+        +   prioBadge
         + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
-        + '<div class="task-card-footer">'
-        +   dueHtml
-        +   avatarHtml
+        + '<div class="task-card-bottom-row">'
+        +   dueBadge
+        +   '<div class="task-card-assignee-wrap">' + avatarHtml + '</div>'
         + '</div>'
         + '</div>';
-    });
-
-    el.innerHTML = html;
-
-    // Card click opens detail modal
-    el.querySelectorAll('[data-task-open]').forEach(function(card) {
-      card.addEventListener('click', function(e) {
-        if (e.target.closest('.task-drag-handle')) return;
-        openTaskDetail(card.getAttribute('data-task-open'));
-      });
-    });
+    }).join('');
   });
 
-  // Attach HTML5 Drag & Drop handlers with instant optimistic UI
   setupKanbanDragAndDrop();
+}
+
+async function renderTasksBoard(deptOrProject) {
+  if (typeof document === 'undefined') return;
+
+  if (deptOrProject && deptOrProject !== 'all' && !DEPT_CONFIG[deptOrProject]) {
+    _activeProject = deptOrProject;
+  }
+
+  var breadcrumbCur = document.getElementById('tasks-dept-title');
+  if (breadcrumbCur) {
+    breadcrumbCur.textContent = _activeProject || 'All Tasks';
+  }
+
+  // 1. Instant synchronous render from local cache (< 2ms)
+  renderColumnsFromTasks(_allLoadedTasks);
+
+  // 2. Background fetch and refresh
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var tasks = await client.get('bb_tasks?order=created_at.asc');
+      if (Array.isArray(tasks)) {
+        var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_'); });
+        _allLoadedTasks = tasks.concat(pendingTemp);
+        _taskMap = {};
+        _allLoadedTasks.forEach(function(t) { _taskMap[t.id] = t; });
+        if (typeof window !== 'undefined') window._taskMap = _taskMap;
+
+        renderColumnsFromTasks(_allLoadedTasks);
+
+        if (typeof syncTaskNotifications === 'function') {
+          syncTaskNotifications(tasks);
+        } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
+          window.syncTaskNotifications(tasks);
+        }
+      }
+    } catch (e) {
+      console.warn('renderTasksBoard error:', e);
+    }
+  }
 }
 
 /**
@@ -1387,7 +1475,7 @@ function cycleTaskDetailPriority(e) {
   saveTaskField(_activeDetailTaskId, 'priority', next);
 
   var pLabel = next.charAt(0).toUpperCase() + next.slice(1);
-  var pIcon = next === 'high' ? '⌃' : (next === 'low' ? '⌄' : '—');
+  var pIcon = next === 'high' ? '▲' : (next === 'low' ? '▼' : '—');
   var pIconEl = document.querySelector('.tdm-priority-icon');
   if (pIconEl) pIconEl.textContent = pIcon;
   var pTextEl = document.querySelector('.tdm-priority-text');
@@ -1429,6 +1517,61 @@ function closeTaskDetail() {
   if (typeof document === 'undefined') return;
   var m = document.getElementById('task-detail-modal');
   if (m) m.style.display = 'none';
+  var sMenu = document.querySelector('.tdm-status-dropdown');
+  if (sMenu) sMenu.style.display = 'none';
+  var aMenu = document.querySelector('.tdm-assignee-dropdown');
+  if (aMenu) aMenu.style.display = 'none';
+  _activeDetailTaskId = null;
+}
+
+/**
+ * Deletes the active task being viewed in the task brief modal
+ */
+async function deleteActiveTask() {
+  if (!_activeDetailTaskId) return;
+  var taskId = _activeDetailTaskId;
+  var confirmFn = (typeof showConfirmModal === 'function')
+    ? showConfirmModal
+    : async function(msg) { return (typeof confirm === 'function') ? confirm(msg) : true; };
+
+  var confirmed = await confirmFn(
+    'Are you sure you want to delete this task? This action cannot be undone.',
+    'Delete Task'
+  );
+  if (!confirmed) return;
+
+  // Optimistically remove from local state
+  _allLoadedTasks = _allLoadedTasks.filter(function(t) { return String(t.id) !== String(taskId); });
+  delete _taskMap[taskId];
+  if (typeof window !== 'undefined' && window._taskMap) {
+    delete window._taskMap[taskId];
+  }
+
+  // Close modal immediately
+  closeTaskDetail();
+
+  // Re-render active view
+  if (_tasksViewMode === 'board') {
+    renderTasksBoard(_activeProject);
+  } else if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView();
+  } else {
+    renderProjectsView();
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('Task deleted successfully', 'success');
+  }
+
+  // Remote delete from Supabase
+  var client = getSupaClient();
+  if (client) {
+    try {
+      await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskId));
+    } catch (err) {
+      console.warn('Failed to delete task from Supabase:', err);
+    }
+  }
 }
 
 /**
@@ -1478,6 +1621,11 @@ function openCreateTaskModal(defaultStatus) {
   var deptInput = modal.querySelector('.new-task-dept-input');
   var currentDept = (deptInput && deptInput.value) || (_currentDeptFilter !== 'all' ? _currentDeptFilter : 'logistics');
   if (deptInput) deptInput.value = currentDept;
+
+  var projInput = modal.querySelector('.new-task-project-input');
+  if (projInput) {
+    projInput.value = (_activeProject && _activeProject !== 'All Tasks') ? _activeProject : '';
+  }
 
   loadNewTaskAssigneeOptions(currentDept);
 }
@@ -1556,98 +1704,121 @@ async function handleCreateTaskSubmit(e) {
   var priority = priorityEl ? priorityEl.value : 'medium';
   var due = dueEl ? dueEl.value : null;
   var estimate = estEl ? estEl.value.trim() : '';
-  var projectName = projEl ? projEl.value.trim() : '';
+  var projectName = (projEl ? projEl.value.trim() : '') || (_activeProject && _activeProject !== 'All Tasks' ? _activeProject : '');
   var rawDesc = descEl ? descEl.value.trim() : '';
   var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
   var targetStatus = modal.getAttribute('data-target-status') || 'todo';
 
-  // Canonical base payload conforming strictly to standard bb_tasks schema
-  var payload = {
+  // 1. INSTANT OPTIMISTIC CREATION (< 10ms)
+  var tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  var localTask = {
+    id: tempId,
     title: title,
     description: desc,
     department: dept,
     priority: priority,
     due_date: due || null,
     assignee_name: assigneeName || null,
+    assignee_ic: assigneeIc || null,
+    estimate: estimate,
+    project_name: projectName,
     status: targetStatus,
     created_at: new Date().toISOString()
   };
 
-  // Defensively attach optional metadata fields
-  if (projectName) payload.project_name = projectName;
-  if (estimate) payload.estimate = estimate;
-  if (assigneeIc) payload.assignee_ic = assigneeIc;
+  _allLoadedTasks.push(localTask);
+  _taskMap[tempId] = localTask;
+  if (typeof window !== 'undefined' && window._taskMap) {
+    window._taskMap[tempId] = localTask;
+  }
 
+  if (projectName && _companyProjects.indexOf(projectName) === -1) {
+    _companyProjects.push(projectName);
+    saveProjectsCatalog();
+  }
+
+  // Close modal and clear inputs immediately (< 15ms)
+  closeCreateTaskModal();
+  if (titleEl) titleEl.value = '';
+  if (descEl) descEl.value = '';
+  if (dueEl) dueEl.value = '';
+  if (estEl) estEl.value = '';
+  if (projEl) projEl.value = '';
+
+  // Immediately render active view with zero network latency (< 25ms)
+  if (_tasksViewMode === 'board') {
+    renderTasksBoard(_activeProject);
+  } else if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView();
+  } else {
+    renderProjectsView();
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('Task created!', 'success', 1500);
+  }
+
+  // 2. BACKGROUND REMOTE ASYNC PERSISTENCE
   var client = getSupaClient();
-  if (!client) return;
-
-  try {
-    var inserted;
-    try {
-      inserted = await client.post('bb_tasks', payload);
-    } catch (postErr) {
-      var errStr = postErr ? (postErr.message || String(postErr)) : '';
-      // If PostgreSQL schema cache lacks extended columns (PGRST204)
-      if (errStr.indexOf('column') !== -1 || errStr.indexOf('schema cache') !== -1 || postErr.code === 'PGRST204' || errStr.indexOf('creator_name') !== -1 || errStr.indexOf('project_name') !== -1 || errStr.indexOf('estimate') !== -1 || errStr.indexOf('assignee_ic') !== -1) {
-        console.warn('bb_tasks schema lacks extended columns, falling back to core schema:', errStr);
-        var fallbackPayload = {
-          title: payload.title,
-          description: payload.description,
-          department: payload.department,
-          priority: payload.priority,
-          due_date: payload.due_date,
-          assignee_name: payload.assignee_name,
-          status: payload.status,
-          created_at: payload.created_at
+  if (client) {
+    (async function() {
+      try {
+        var payload = {
+          title: title,
+          description: desc,
+          department: dept,
+          priority: priority,
+          due_date: due || null,
+          assignee_name: assigneeName || null,
+          status: targetStatus,
+          created_at: localTask.created_at
         };
-        // Preserve project and estimate in description text
-        var extraDetails = [];
-        if (projectName) extraDetails.push('Project: ' + projectName);
-        if (estimate) extraDetails.push('Estimate: ' + estimate);
-        if (extraDetails.length) {
-          fallbackPayload.description = (fallbackPayload.description ? fallbackPayload.description + '\n\n' : '') + '[' + extraDetails.join(' | ') + ']';
+        if (projectName) payload.project_name = projectName;
+        if (estimate) payload.estimate = estimate;
+        if (assigneeIc) payload.assignee_ic = assigneeIc;
+
+        var inserted;
+        try {
+          inserted = await client.post('bb_tasks', payload);
+        } catch (postErr) {
+          var errStr = postErr ? (postErr.message || String(postErr)) : '';
+          if (errStr.indexOf('column') !== -1 || postErr.code === 'PGRST204' || errStr.indexOf('project_name') !== -1 || errStr.indexOf('estimate') !== -1 || errStr.indexOf('assignee_ic') !== -1) {
+            var fallbackPayload = {
+              title: payload.title,
+              description: payload.description,
+              department: payload.department,
+              priority: payload.priority,
+              due_date: payload.due_date,
+              assignee_name: payload.assignee_name,
+              status: payload.status,
+              created_at: payload.created_at
+            };
+            var extraDetails = [];
+            if (projectName) extraDetails.push('Project: ' + projectName);
+            if (estimate) extraDetails.push('Estimate: ' + estimate);
+            if (extraDetails.length) {
+              fallbackPayload.description = (fallbackPayload.description ? fallbackPayload.description + '\n\n' : '') + '[' + extraDetails.join(' | ') + ']';
+            }
+            inserted = await client.post('bb_tasks', fallbackPayload);
+          } else {
+            console.warn('Task post error:', postErr);
+          }
         }
-        inserted = await client.post('bb_tasks', fallbackPayload);
-      } else {
-        throw postErr;
+
+        var saved = Array.isArray(inserted) && inserted[0] ? inserted[0] : null;
+        if (saved && saved.id) {
+          localTask.id = saved.id;
+          delete _taskMap[tempId];
+          _taskMap[saved.id] = localTask;
+          if (typeof window !== 'undefined' && window._taskMap) {
+            delete window._taskMap[tempId];
+            window._taskMap[saved.id] = localTask;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to persist task in background:', err);
       }
-    }
-
-    var savedTask = Array.isArray(inserted) && inserted[0] ? inserted[0] : payload;
-
-    closeCreateTaskModal();
-    if (titleEl) titleEl.value = '';
-    if (descEl) descEl.value = '';
-    if (dueEl) dueEl.value = '';
-    if (estEl) estEl.value = '';
-    if (projEl) projEl.value = '';
-
-    if (typeof showToast === 'function') {
-      showToast('Task brief created successfully!', 'success');
-    }
-
-    // Refresh view
-    if (_tasksViewMode === 'mytasks') {
-      await renderTasksBoard(_currentDeptFilter);
-      renderMyTasksView();
-    } else {
-      await renderTasksBoard(_currentDeptFilter);
-    }
-
-    // Dispatch assignment notification if assigned to user
-    if (savedTask && (typeof syncTaskNotifications === 'function' || (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function'))) {
-      var syncFn = (typeof syncTaskNotifications === 'function') ? syncTaskNotifications : window.syncTaskNotifications;
-      syncFn([savedTask]);
-    }
-  } catch (err) {
-    var cleanMsg = err ? (err.message || String(err)) : 'Creation failed';
-    try {
-      var parsed = JSON.parse(cleanMsg);
-      cleanMsg = parsed.message || parsed.error || cleanMsg;
-    } catch (_) {}
-    if (typeof showToast === 'function') {
-      showToast('Failed to create task: ' + cleanMsg, 'error');
-    }
+    })();
   }
 }
 
@@ -2045,6 +2216,9 @@ if (typeof window !== 'undefined') {
   window.getTaskProjectName         = getTaskProjectName;
   window.saveProjectsCatalog        = saveProjectsCatalog;
   window.loadProjectsCatalog        = loadProjectsCatalog;
+  window.deleteActiveTask           = deleteActiveTask;
+  window.deleteProject              = deleteProject;
+  window.renderColumnsFromTasks     = renderColumnsFromTasks;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -2110,6 +2284,20 @@ if (typeof module !== 'undefined' && module.exports) {
     handleTaskDescBlur,
     getTaskProjectName,
     saveProjectsCatalog,
-    loadProjectsCatalog
+    loadProjectsCatalog,
+    deleteActiveTask,
+    deleteProject,
+    renderColumnsFromTasks
   };
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest || !e.target.closest('.task-prop-pill-wrapper')) {
+      var sMenu = document.querySelector('.tdm-status-dropdown');
+      if (sMenu) sMenu.style.display = 'none';
+      var aMenu = document.querySelector('.tdm-assignee-dropdown');
+      if (aMenu) aMenu.style.display = 'none';
+    }
+  });
 }
