@@ -1207,7 +1207,7 @@ function renderUniformOrderInline() {
   catTabsHtml += '</div>';
 
   container.innerHTML =
-    '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:\'Oswald\',sans-serif;font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>' +
+    '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>' +
     '<div id="step-form">' +
     '<div class="dark-card" style="margin-bottom:14px;">' +
     '<div class="page-title">Uniform</div><div class="page-subtitle">Store &amp; Order Form</div><div class="page-desc">Select products, customize sizes, and review your order</div>' +
@@ -1231,11 +1231,11 @@ function renderUniformOrderInline() {
     '<div class="page-title">Review</div><div class="page-subtitle">Your Order</div><div class="page-desc">Confirm details before submitting</div>' +
     '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:14px;padding:20px;margin-bottom:18px;" id="review-content"></div>' +
     '<div id="payment-info-box" style="display:none;background:rgba(245,197,66,0.08);border:1.5px solid rgba(245,197,66,0.3);border-radius:14px;padding:16px;margin-bottom:16px;">' +
-    '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> Payment Instructions</div>' +
+    '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> Payment Instructions</div>' +
     '<div id="payment-info-text" style="font-size:13px;color:var(--text-secondary);line-height:1.75;white-space:pre-wrap;"></div>' +
     '</div>' +
     '<div style="background:var(--bg-card);border:2px dashed var(--border-card);border-radius:14px;padding:16px;margin-bottom:16px;">' +
-    '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:6px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> TNG Payment Screenshot</div>' +
+    '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:6px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> TNG Payment Screenshot</div>' +
     '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Please make payment via TNG and upload your payment screenshot before confirming.</div>' +
     '<div style="position:relative;border-radius:10px;background:var(--bg-card-subtle);border:1px solid var(--border-card);overflow:hidden;" id="tng-upload-area">' +
     '<input type="file" id="tng-screenshot-input" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;" onchange="previewTngScreenshot(this)"/>' +
@@ -1385,7 +1385,7 @@ async function renderAdminOrders() {
           (active ? SC[s] + '22' : 'transparent') +
           ';color:' +
           (active ? SC[s] : 'var(--text-secondary)') +
-          ";font-size:11px;font-weight:700;cursor:pointer;font-family:'Oswald',sans-serif;\">" +
+          ";font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-headline);\">" +
           s +
           '</button>'
         );
@@ -1405,7 +1405,7 @@ async function renderAdminOrders() {
       html +=
         '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
-        '<div><div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);">' +
+        '<div><div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' +
         escapeHtml(o.order_number) +
         '</div>' +
         '<div style="font-size:11px;color:var(--text-secondary);">' +
@@ -1421,7 +1421,7 @@ async function renderAdminOrders() {
         sc +
         ';border:1px solid ' +
         sc +
-        "44;font-family:'Oswald',sans-serif;\">" +
+        "44;font-family:var(--font-headline);\">" +
         status.toUpperCase() +
         '</div></div>' +
         '<div style="margin-bottom:4px;">' +

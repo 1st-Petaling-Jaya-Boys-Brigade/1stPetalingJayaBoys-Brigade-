@@ -443,7 +443,7 @@ async function loadBadges(ic, preloadedSaved) {
         html += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:' + (count > 0 ? '12px' : '0') + ';">';
         html += '<button data-rep-dec="' + b.id + '" data-ic="' + ic + '" style="width:32px;height:32px;border-radius:50%;background:var(--bg-card-subtle);border:1.5px solid var(--border-card);color:var(--text-secondary);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">&minus;</button>';
         html += '<div style="text-align:center;min-width:40px;">'
-          + '<div style="font-family:\'Oswald\',sans-serif;font-size:32px;font-weight:700;color:' + (count > 0 ? 'var(--brand-gold)' : 'var(--text-muted)') + ';line-height:1;">' + count + '</div>'
+          + '<div style="font-family:var(--font-headline);font-size:32px;font-weight:700;color:' + (count > 0 ? 'var(--brand-gold)' : 'var(--text-muted)') + ';line-height:1;">' + count + '</div>'
           + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;">earned</div>'
           + '</div>';
         html += '<button data-rep-inc="' + b.id + '" data-ic="' + ic + '" style="width:32px;height:32px;border-radius:50%;background:rgba(245,197,66,0.15);border:1.5px solid rgba(245,197,66,0.35);color:var(--brand-gold);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>';
@@ -718,10 +718,10 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
     + '<div style="display:flex;align-items:center;gap:10px;">'
     + '<div style="width:36px;height:36px;border-radius:10px;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold);"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>'
     + '<div>'
-    + '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--gold);">President\'s Award</div>'
+    + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--gold);">President\'s Award</div>'
     + '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;">' + metCount + ' of ' + reqs.length + ' requirements met</div>'
     + '</div></div>'
-    + '<div style="font-family:\'Oswald\',sans-serif;font-size:24px;font-weight:700;color:' + (allDone ? 'var(--gold)' : 'var(--text-primary)') + ';">' + overallPct + '%</div>'
+    + '<div style="font-family:var(--font-headline);font-size:24px;font-weight:700;color:' + (allDone ? 'var(--gold)' : 'var(--text-primary)') + ';">' + overallPct + '%</div>'
     + '</div>';
 
   // Overall progress bar
@@ -782,7 +782,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
       }).join('');
       html += '<div style="background:var(--bg-card-subtle);border-radius:8px;padding:8px 10px;border-left:3px solid ' + g.color + ';border:1px solid var(--border-subtle);border-left-width:3px;">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:' + g.color + ';">' + g.label + '</div>'
+        + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:' + g.color + ';">' + g.label + '</div>'
         + '<div style="font-size:10px;color:var(--text-secondary);">' + g.awarded + ' earned</div>'
         + '</div>'
         + '<div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">' + (typeof escapeHtml === 'function' ? escapeHtml(g.catName) : g.catName) + '</div>'
@@ -808,7 +808,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
   html += '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 12px;margin-bottom:' + (allDone ? '12px' : '0') + ';">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
     + '<div style="font-size:12px;font-weight:600;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-secondary)') + ';">Service Years <span style="font-size:10px;color:var(--text-muted);">(need 3)</span></div>'
-    + '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-primary)') + ';">' + serviceYears + ' year' + (serviceYears !== 1 ? 's' : '') + '</div>'
+    + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-primary)') + ';">' + serviceYears + ' year' + (serviceYears !== 1 ? 's' : '') + '</div>'
     + '</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + svcDots + '</div>'
     + '</div>';
@@ -817,7 +817,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
   if (allDone) {
     html += '<div style="background:linear-gradient(135deg,rgba(245,197,66,0.2),rgba(234,179,8,0.1));border:1px solid var(--gold);border-radius:10px;padding:14px;text-align:center;margin-top:12px;">'
       + '<div style="margin-bottom:6px;display:flex;justify-content:center;"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>'
-      + '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--gold);">All Requirements Met!</div>'
+      + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--gold);">All Requirements Met!</div>'
       + '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;line-height:1.6;">Congratulations! You are eligible for the President\'s Award.<br>See your officer to confirm and collect.</div>'
       + '</div>';
   }
@@ -893,7 +893,7 @@ async function renderAdminPresidentsReqs() {
     var tc = tierColour[req.tier] || '#888';
     var tl = tierLabel[req.tier]  || req.tier;
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);display:flex;align-items:center;gap:12px;">'
-      + '<div style="width:28px;height:28px;border-radius:50%;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--gold);flex-shrink:0;">' + (i + 1) + '</div>'
+      + '<div style="width:28px;height:28px;border-radius:50%;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--gold);flex-shrink:0;">' + (i + 1) + '</div>'
       + '<div style="flex:1;">'
         + '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' + (typeof escapeHtml === 'function' ? escapeHtml(req.badgeMatch) : req.badgeMatch) + '</div>'
         + '<span style="font-size:10px;font-weight:700;background:' + tc + '22;color:' + tc + ';border:1px solid ' + tc + '44;padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;">' + tl + '</span>'
@@ -999,7 +999,7 @@ async function renderAdminBadges() {
 
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--gold);">' + (typeof escapeHtml === 'function' ? escapeHtml(cat) : cat) + '</div>'
+        + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--gold);">' + (typeof escapeHtml === 'function' ? escapeHtml(cat) : cat) + '</div>'
         + '<button data-del-cat="' + cat + '" style="background:#3a1a1a;border:1px solid #6a2a2a;color:#f66;padding:4px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">Delete section</button>'
       + '</div>' + rows
       + '<div style="display:flex;gap:8px;margin-top:10px;">'
@@ -1009,7 +1009,7 @@ async function renderAdminBadges() {
   });
 
   html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;border:1px dashed var(--border-card);">'
-    + '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add New Section</div>'
+    + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add New Section</div>'
     + '<div style="display:flex;gap:8px;">'
       + '<input type="text" id="new-cat-name" placeholder="Section name e.g. Leadership" style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>'
       + '<button id="btn-add-cat" style="background:var(--accent);border:none;color:var(--navy);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">+ Add</button>'

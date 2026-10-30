@@ -1515,7 +1515,7 @@ function renderAdminStoryHighlights() {
     html += '<div class="story-admin-item">'
       + '<div class="story-admin-cover"><img src="' + safeCover + '" alt="' + title + '" onerror="this.src=\'assets/logo.png\'" /></div>'
       + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div>'
+        + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div>'
         + '<div style="font-size:11px;color:var(--text-muted);">' + slideCount + ' slide' + (slideCount === 1 ? '' : 's') + '</div>'
       + '</div>'
       + '<div style="display:flex;gap:4px;">'

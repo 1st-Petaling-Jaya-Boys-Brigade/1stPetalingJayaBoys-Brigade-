@@ -393,7 +393,7 @@ function renderBuiltinFormInline(form) {
 
   container.innerHTML =
     '<div class="dark-card">' +
-    '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:\'Oswald\',sans-serif;font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>' +
+    '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>' +
     '<div class="page-title">' +
     escapeHtml(form.name) +
     '</div>' +
@@ -961,7 +961,7 @@ function renderAdminForms() {
       '<div style="width:42px;height:42px;border-radius:10px;background:rgba(200,150,30,0.1);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0;">' +
       (iconSvgs[f.type] || iconSvgs.builtin) +
       '</div>' +
-      '<div style="flex:1;"><div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:600;color:var(--text-primary);">' +
+      '<div style="flex:1;"><div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);">' +
       escapeHtml(f.name) +
       '</div>' +
       '<div style="font-size:11px;color:var(--text-secondary);">' +
@@ -1104,7 +1104,7 @@ async function renderFormResponses() {
         '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">' +
         '<div>' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);">' +
+        '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' +
         escapeHtml(o.member_name || o.ic) +
         '</div>' +
         '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' +
@@ -1113,7 +1113,7 @@ async function renderFormResponses() {
         '</div>' +
         '</div>' +
         '<div style="text-align:right;">' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:600;color:var(--brand-blue);background:rgba(59,130,246,0.12);padding:3px 10px;border-radius:20px;margin-bottom:4px;">' +
+        '<div style="font-family:var(--font-headline);font-size:12px;font-weight:600;color:var(--brand-blue);background:rgba(59,130,246,0.12);padding:3px 10px;border-radius:20px;margin-bottom:4px;">' +
         escapeHtml(formName) +
         '</div>' +
         '<div style="font-size:10px;color:var(--text-muted);">' +

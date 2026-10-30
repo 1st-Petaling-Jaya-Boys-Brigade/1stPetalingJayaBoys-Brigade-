@@ -17,7 +17,7 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   min-height: 100dvh;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+  font-family: var(--font-body);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -137,23 +137,23 @@ textarea,
 
 /* Page Typography (Clean, Contemporary, High-Contrast) */
 .page-title {
-  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-family: var(--font-headline);
   font-size: clamp(24px, 4vw, 34px);
   font-weight: 700;
   color: var(--text-primary);
   text-transform: none;
   line-height: 1.15;
   margin-bottom: var(--space-xs, 4px);
-  letter-spacing: 0.5px;
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
-  font-family: var(--font-display, 'Oswald', sans-serif);
+  font-family: var(--font-body);
   font-size: clamp(12px, 2vw, 13.5px);
   font-weight: 600;
   color: var(--accent);
   text-transform: none;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   margin-bottom: var(--space-md, 16px);
 }
 
@@ -174,12 +174,12 @@ textarea,
 }
 
 .section-header .s-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
   text-transform: none;
-  letter-spacing: 1px;
+  letter-spacing: -0.01em;
 }
 
 .section-header .s-badge {
@@ -187,10 +187,11 @@ textarea,
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   padding: 4px 12px;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   color: var(--accent);
-  letter-spacing: 1.5px;
+  letter-spacing: 0.5px;
   text-transform: none;
 }
 
@@ -306,4 +307,27 @@ textarea:focus-visible {
   html {
     scrollbar-gutter: stable;
   }
+}
+
+/* ── Modern SaaS Typography Helpers (Tabular Numbers & Monospace) ── */
+.tabular-nums,
+table,
+.stat-value,
+.badge-count,
+.attendance-pct,
+.price-tag,
+.timestamp,
+.date-meta,
+.points-val {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-mono,
+.code-text,
+.security-code,
+.task-id,
+.task-tag,
+.otp-input {
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
 }

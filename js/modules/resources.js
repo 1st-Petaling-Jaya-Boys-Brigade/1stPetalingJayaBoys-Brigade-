@@ -246,7 +246,7 @@ function renderResourcesPage() {
     if (countEl) countEl.textContent = '0 resources';
         container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:50px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
       + '<div style="font-size:38px;margin-bottom:12px;">📚</div>'
-      + '<div style="font-family:\'Oswald\',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">No Company Resources Uploaded Yet</div>'
+      + '<div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">No Company Resources Uploaded Yet</div>'
       + '<div style="font-size:13px;max-width:440px;margin:0 auto;line-height:1.6;">Official handbooks, drill manuals, syllabi, and administrative forms will appear here once uploaded by company administrators.</div>'
             + '</div>';
     return;
@@ -282,7 +282,7 @@ function renderResourcesPage() {
   if (!filtered.length) {
     container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
       + '<div style="font-size:32px;margin-bottom:8px;">📂</div>'
-      + '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No matching resources found</div>'
+      + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No matching resources found</div>'
       + '<div style="font-size:13px;">Try selecting a different category or clearing your search keywords.</div>'
       + '<button type="button" onclick="setResourceCategory(\'All\');document.getElementById(\'resource-search-input\').value=\'\';searchResources(\'\');" style="margin-top:14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Clear Filters</button>'
       + '</div>';
@@ -342,7 +342,7 @@ function renderResourcesPage() {
           + '<span style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.5px;text-transform:uppercase;">' + safeCat + '</span>'
           + '<div style="display:flex;align-items:center;gap:6px;">' + typeBadge + visBadge + '</div>'
         + '</div>'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:17px;font-weight:700;color:var(--text-primary);line-height:1.3;margin-bottom:8px;">' + safeTitle + '</div>'
+        + '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);line-height:1.3;margin-bottom:8px;">' + safeTitle + '</div>'
         + '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">' + safeDesc + '</div>'
       + '</div>'
       + '<div>'
@@ -439,7 +439,7 @@ function renderAdminResourcesList() {
     return;
   }
 
-  var html = '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;letter-spacing:1px;">EXISTING COMPANY RESOURCES (' + resources.length + ')</div>';
+  var html = '<div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;letter-spacing:1px;">EXISTING COMPANY RESOURCES (' + resources.length + ')</div>';
 
   resources.forEach(function(r) {
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(r.title || '') : r.title;
@@ -453,7 +453,7 @@ function renderAdminResourcesList() {
     html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;">'
       + '<div style="flex:1;min-width:0;">'
         + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">'
-          + '<span style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeTitle + '</span>'
+          + '<span style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeTitle + '</span>'
           + '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-card-subtle);color:var(--text-secondary);">' + safeType + '</span>'
           + '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(200,150,30,0.15);color:var(--accent);">' + safeVis.toUpperCase() + '</span>'
         + '</div>'

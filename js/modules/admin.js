@@ -774,7 +774,7 @@
         if (_adminSortBy === 'squad') {
           var sq = m.squad || 'No Platoon';
           if (sq !== lastSquad) {
-            html += '<div style="font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2px;text-transform:uppercase;padding:10px 4px 4px;">' + (m.squad ? sq + ' Platoon' : 'No Platoon') + '</div>';
+            html += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:10px 4px 4px;">' + (m.squad ? sq + ' Platoon' : 'No Platoon') + '</div>';
             lastSquad = sq;
           }
         }
@@ -782,7 +782,7 @@
           var currentDeptKey = (m.department || '').trim().toLowerCase();
           var depLabel = (DEFAULT_DEPT_CONFIG[currentDeptKey] && DEFAULT_DEPT_CONFIG[currentDeptKey].label) || (m.department ? m.department : 'No Department Role (No Tasks Access)');
           if (depLabel !== lastDept) {
-            html += '<div style="font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2px;text-transform:uppercase;padding:12px 4px 6px;">' + ((typeof escapeHtml === 'function') ? escapeHtml(depLabel) : depLabel) + '</div>';
+            html += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:12px 4px 6px;">' + ((typeof escapeHtml === 'function') ? escapeHtml(depLabel) : depLabel) + '</div>';
             lastDept = depLabel;
           }
         }
@@ -1406,7 +1406,7 @@
 
         var statusBtns = Object.keys(SL).map(function(s) {
           var a = s === t.status;
-          return '<button data-tid="' + escapeHtml(t.id) + '" data-ts="' + s + '" style="padding:4px 10px;border:1.5px solid ' + (a ? SC[s] : 'var(--border-card)') + ';border-radius:6px;background:' + (a ? 'rgba(59,130,246,0.12)' : 'transparent') + ';color:' + (a ? SC[s] : 'var(--text-secondary)') + ';font-size:11px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;">' + SL[s] + '</button>';
+          return '<button data-tid="' + escapeHtml(t.id) + '" data-ts="' + s + '" style="padding:4px 10px;border:1.5px solid ' + (a ? SC[s] : 'var(--border-card)') + ';border-radius:6px;background:' + (a ? 'rgba(59,130,246,0.12)' : 'transparent') + ';color:' + (a ? SC[s] : 'var(--text-secondary)') + ';font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-headline);">' + SL[s] + '</button>';
         }).join('');
 
         var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(t.title) : t.title;
@@ -1416,7 +1416,7 @@
 
         html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">'
           + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">'
-          + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);flex:1;">' + safeTitle + '</div>'
+          + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);flex:1;">' + safeTitle + '</div>'
           + '<span class="dept-badge ' + dept.cls + '" style="font-size:10px;flex-shrink:0;">' + ((typeof escapeHtml === 'function') ? escapeHtml(dept.label) : dept.label) + '</span></div>'
           + (safeDesc ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;line-height:1.5;">' + safeDesc + '</div>' : '')
           + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'

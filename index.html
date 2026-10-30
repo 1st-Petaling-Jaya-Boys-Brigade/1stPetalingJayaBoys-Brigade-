@@ -19,13 +19,15 @@
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261030d">
-<link rel="stylesheet" href="css/base.css?v=20261030d">
-<link rel="stylesheet" href="css/nav.css?v=20261030d">
-<link rel="stylesheet" href="css/components.css?v=20261030d">
-<link rel="stylesheet" href="css/admin.css?v=20261030d">
+<link rel="stylesheet" href="css/variables.css?v=20261030e">
+<link rel="stylesheet" href="css/base.css?v=20261030e">
+<link rel="stylesheet" href="css/nav.css?v=20261030e">
+<link rel="stylesheet" href="css/components.css?v=20261030e">
+<link rel="stylesheet" href="css/admin.css?v=20261030e">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -128,18 +130,18 @@
   text-rendering: optimizeLegibility !important;
 }
 .hq-title {
-  font-family: 'Oswald', sans-serif !important;
+  font-family: var(--font-headline) !important;
   font-size: 16px !important;
   font-weight: 700 !important;
   color: var(--text-primary) !important;
   margin-bottom: 4px !important;
-  letter-spacing: 0.5px !important;
+  letter-spacing: -0.01em !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
   text-rendering: optimizeLegibility !important;
 }
 .hq-desc {
-  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--font-body) !important;
   font-size: 13px !important;
   font-weight: 400 !important;
   color: #cbd5e1 !important;
@@ -151,11 +153,11 @@
   text-rendering: optimizeLegibility !important;
 }
 .hq-link {
-  font-family: 'Oswald', sans-serif !important;
+  font-family: var(--font-body) !important;
   font-size: 12px !important;
   font-weight: 700 !important;
   color: var(--accent) !important;
-  letter-spacing: 0.8px !important;
+  letter-spacing: 0.5px !important;
   text-transform: uppercase !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -335,7 +337,7 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261030d"></script>
+<script src="js/core/theme.js?v=20261030e"></script>
 </head>
 <body>
 
@@ -568,7 +570,7 @@
       <!-- Hero -->
       <div class="hero-banner">
         <img src="assets/logo.png" class="hero-bb-logo" style="background:transparent;box-shadow:none;padding:0;" alt="BB Logo"/>
-        <div class="hero-title">1st Petaling Jaya</div><div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;color:var(--text-primary);letter-spacing:1px;margin-bottom:2px;">Boys' Brigade Company</div>
+        <div class="hero-title">1st Petaling Jaya</div><div style="font-family:var(--font-headline);font-size:20px;font-weight:600;color:var(--text-primary);letter-spacing:-0.01em;margin-bottom:2px;">Boys' Brigade Company</div>
         <div class="hero-subtitle">Sure &amp; Stedfast</div>
         <div class="hero-desc">Welcome to the official portal for uniform orders, announcements, and member registration.</div>
       </div>
@@ -712,10 +714,10 @@
           <img id="order-pfp-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;"/>
         </div>
         <div style="flex:1;">
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;color:var(--text-primary);">Submitting as <span id="order-member-name" style="color:var(--accent);"></span></div>
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-primary);">Submitting as <span id="order-member-name" style="color:var(--accent);"></span></div>
           <div style="font-size:11px;color:var(--text-secondary);"><span id="order-member-squad-inline"></span> <span id="order-member-rank"></span></div>
         </div>
-        <div id="order-member-squad" style="font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;color:#121418;padding:3px 10px;border-radius:6px;background:var(--gold);"></div>
+        <div id="order-member-squad" style="font-family:var(--font-headline);font-size:11px;font-weight:600;color:#121418;padding:3px 10px;border-radius:6px;background:var(--gold);"></div>
       </div>
 
       <!-- Forms hub (search bar & list) -->
@@ -743,9 +745,9 @@
         <!-- No Matching Forms Empty State -->
         <div id="forms-no-results" style="display:none;text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);margin-bottom:16px;">
           <div style="font-size:32px;margin-bottom:8px;">🔍</div>
-          <div id="forms-no-results-title" style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No matching forms found</div>
+          <div id="forms-no-results-title" style="font-family:var(--font-headline);font-size:18px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No matching forms found</div>
           <div id="forms-no-results-desc" style="font-size:13px;color:var(--text-secondary);max-width:360px;margin:0 auto 14px;line-height:1.5;">Check for typos or try searching with different keywords.</div>
-          <button type="button" onclick="clearFormSearch()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:'Oswald',sans-serif;transition:var(--transition-smooth);">Clear Search</button>
+          <button type="button" onclick="clearFormSearch()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;font-family:var(--font-headline);transition:var(--transition-smooth);">Clear Search</button>
         </div>
       </div>
 
@@ -796,7 +798,7 @@
       <form id="auth-forgot" style="display:none;margin:0;" onsubmit="event.preventDefault();" autocomplete="on">
         <div style="text-align:center;margin:20px 0 16px;">
           <div class="gate-icon" style="margin:0 auto 10px;width:50px;height:50px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/></svg></div>
-          <div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text);margin-top:6px;">Reset Password</div>
+          <div style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:var(--text);margin-top:6px;">Reset Password</div>
           <div style="font-size:12px;color:#888;margin-top:4px;" id="forgot-header-sub">Verify via your registered email</div>
         </div>
 
@@ -902,7 +904,7 @@
         <div id="parent-consent-box" style="display:none;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.3);border-radius:12px;padding:16px;margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
             <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--accent);letter-spacing:0.5px;">Parental Consent &amp; Child Safety (COPPA / PDPA)</span>
+            <span style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--accent);letter-spacing:0.5px;">Parental Consent &amp; Child Safety (COPPA / PDPA)</span>
           </div>
           <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;line-height:1.4;">
             For Pre-Junior (ages 6–8) and Junior (ages 9–11) members, Malaysian PDPA 2010 and child safety regulations require verified parental or legal guardian consent prior to account creation.
@@ -1017,8 +1019,8 @@
       <!-- My Orders -->
       <div class="dark-card" style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> My Orders</div>
-          <button onclick="loadMemberOrders()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:6px 12px;border-radius:8px;cursor:pointer;font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh</button>
+          <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> My Orders</div>
+          <button onclick="loadMemberOrders()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:6px 12px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh</button>
         </div>
         <div id="member-orders-list"><div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">Loading orders...</div></div>
       </div>
@@ -1090,11 +1092,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Band</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Band</div>
               <div style="font-size:12px;color:var(--text-secondary);">Sectional &amp; full band rehearsal (Brass, Woodwinds, Percussion)</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             9:30 AM &ndash; 11:30 AM
           </div>
         </div>
@@ -1106,11 +1108,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Lunch</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Lunch</div>
               <div style="font-size:12px;color:var(--text-secondary);">Band members rest &amp; lunch break</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             1:30 PM &ndash; 2:15 PM
           </div>
         </div>
@@ -1122,11 +1124,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Fall-in</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Fall-in</div>
               <div style="font-size:12px;color:var(--text-secondary);">Company roll call, squad muster &amp; uniform inspection</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             2:15 PM &ndash; 2:30 PM
           </div>
         </div>
@@ -1138,11 +1140,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Worship</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Worship</div>
               <div style="font-size:12px;color:var(--text-secondary);">Praise, worship &amp; opening prayer</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             2:30 PM &ndash; 3:00 PM
           </div>
         </div>
@@ -1154,11 +1156,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Christian Education</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Christian Education</div>
               <div style="font-size:12px;color:var(--text-secondary);">Biblical teachings &amp; squad discussions</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             3:00 PM &ndash; 4:00 PM
           </div>
         </div>
@@ -1170,11 +1172,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Badge Class</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Badge Class</div>
               <div style="font-size:12px;color:var(--text-secondary);">Target &amp; proficiency badge curriculum</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             4:00 PM &ndash; 5:00 PM
           </div>
         </div>
@@ -1186,11 +1188,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Drill</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Drill</div>
               <div style="font-size:12px;color:var(--text-secondary);">Squad drill movements, foot drill &amp; marching commands</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             5:00 PM &ndash; 5:45 PM
           </div>
         </div>
@@ -1202,11 +1204,11 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Dismissal</div>
+              <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Dismissal</div>
               <div style="font-size:12px;color:var(--text-secondary);">Final announcements, vespers &amp; dismissal</div>
             </div>
           </div>
-          <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--green);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
+          <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--green);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
             5:45 PM
           </div>
         </div>
@@ -1408,7 +1410,7 @@
     <div class="task-create-modal" role="dialog" aria-modal="true" aria-label="Create Task Brief" style="display:none;position:fixed;inset:0;z-index:999;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:16px;">
       <div class="task-create-modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:24px 28px;width:100%;max-width:620px;box-shadow:var(--shadow-modal);max-height:calc(100vh - 40px);overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-          <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">Create Task Brief</div>
+          <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">Create Task Brief</div>
           <button type="button" onclick="closeCreateTaskModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 10px;border-radius:8px;cursor:pointer;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </div>
         <form class="task-create-form" onsubmit="handleCreateTaskSubmit(event)" style="display:flex;flex-direction:column;gap:14px;">
@@ -1489,7 +1491,7 @@
           <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
         <div>
-          <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">Looking for your personal points?</div>
+          <div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">Looking for your personal points?</div>
           <div style="font-size:12px;color:var(--text-secondary);">View your individual attendance %, uniform score breakdown, and platoon ranking.</div>
         </div>
       </div>
@@ -1501,11 +1503,11 @@
     <!-- Platoon Standings Card -->
     <div class="dark-card" style="margin-bottom:16px;padding:18px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-        <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+        <div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
           <svg class="ui-icon" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
           Squad Leader Board
         </div>
-        <button onclick="renderCompanyLeaderboard()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:5px 12px;border-radius:8px;cursor:pointer;font-family:'Oswald',sans-serif;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">
+        <button onclick="renderCompanyLeaderboard()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:5px 12px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">
           <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           Refresh Standings
         </button>
@@ -1537,7 +1539,7 @@
 
     <!-- Attendance Policy / Info Box -->
     <div style="background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:12px;padding:14px 16px;font-size:12px;color:var(--text-secondary);line-height:1.6;">
-      <div style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+      <div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
         <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         Attendance &amp; Points Scoring Rules
       </div>
@@ -1679,12 +1681,12 @@
     <!-- Header -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border-card);">
       <div>
-        <div style="font-family:'Oswald',sans-serif;font-size:26px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Admin Panel</div>
+        <div style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Admin Panel</div>
         <div style="font-size:11px;color:var(--text-secondary);letter-spacing:2px;text-transform:uppercase;margin-top:2px;">1st Petaling Jaya Boys Brigade</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button onclick="logoutAdmin()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:8px 14px;border-radius:10px;cursor:pointer;font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Lock</button>
-        <button onclick="closeAdmin()" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 16px;border-radius:10px;cursor:pointer;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Close</button>
+        <button onclick="logoutAdmin()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:8px 14px;border-radius:10px;cursor:pointer;font-family:var(--font-headline);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Lock</button>
+        <button onclick="closeAdmin()" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 16px;border-radius:10px;cursor:pointer;font-family:var(--font-headline);font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Close</button>
       </div>
     </div>
 
@@ -1692,7 +1694,7 @@
     <div id="admin-login-box">
       <div style="max-width:360px;margin:60px auto;background:var(--bg-card);border-radius:16px;padding:28px;border:1px solid var(--border-card);text-align:center;box-shadow:var(--shadow-card);">
         <div class="gate-icon" style="margin:0 auto 14px;width:52px;height:52px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-        <div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:18px;">Admin Access</div>
+        <div style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:18px;">Admin Access</div>
         <div style="position:relative;margin-bottom:12px;">
           <input class="form-input" id="admin-pass" type="text" placeholder="Enter admin password" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" style="-webkit-text-security:disc;text-security:disc;padding-right:44px;" onkeydown="if(event.key==='Enter'){event.preventDefault();adminLogin();}"/>
           <button type="button" onclick="toggleAdminPassVis()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="admin-eye" aria-label="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -1837,7 +1839,7 @@
 
       <!-- Back button (shown inside a section) -->
       <div id="adm-back-bar" style="display:none;margin-bottom:16px;">
-        <button onclick="backToAdminHome()" style="display:flex;align-items:center;gap:8px;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);padding:8px 14px;border-radius:10px;cursor:pointer;font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;">
+        <button onclick="backToAdminHome()" style="display:flex;align-items:center;gap:8px;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);padding:8px 14px;border-radius:10px;cursor:pointer;font-family:var(--font-headline);font-size:14px;font-weight:600;">
           <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           Back
         </button>
@@ -1876,7 +1878,7 @@
         <div id="edit-member-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);z-index:9999;overflow-y:auto;padding:30px 16px;">
           <div style="max-width:480px;margin:0 auto;background:var(--bg-card);border-radius:16px;padding:24px;border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);color:var(--text-primary);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-              <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:8px;" id="em-modal-title">
+              <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:8px;" id="em-modal-title">
                 <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 <span>Edit Member</span>
               </div>
@@ -1929,7 +1931,7 @@
             </div>
                         <!-- Child Safety & Parental Consent (COPPA/PDPA) -->
             <div id="em-child-safety-box" style="margin-top:14px;padding:12px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;margin-bottom:14px;">
-              <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+              <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px;margin-bottom:8px;">
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span>Child Safety &amp; Parental Consent (COPPA/PDPA)</span>
               </div>
@@ -1959,7 +1961,7 @@
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Save Member
               </button>
-              <button class="submit-btn" id="em-delete-btn" onclick="deleteEditMember()" style="margin-top:0;background:#dc2626;border-color:#ef4444;color:#fff;width:auto;padding:10px 14px;display:inline-flex;align-items:center;gap:6px;font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;">
+              <button class="submit-btn" id="em-delete-btn" onclick="deleteEditMember()" style="margin-top:0;background:#dc2626;border-color:#ef4444;color:#fff;width:auto;padding:10px 14px;display:inline-flex;align-items:center;gap:6px;font-family:var(--font-headline);font-size:13px;font-weight:700;">
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 <span>Delete Account</span>
               </button>
@@ -1995,7 +1997,7 @@
         <!-- Form builder sub-panel -->
         <div id="subpanel-formbuilder">
           <div style="background:var(--bg-card);border-radius:14px;padding:18px;margin-bottom:14px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">
-            <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;" id="fb-form-title">
+            <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;" id="fb-form-title">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Add New Form</span>
             </div>
@@ -2020,7 +2022,7 @@
             <div id="fb-builtin-fields" style="display:none;">
               <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Add fields — members fill these in when they submit.</div>
               <div id="fb-fields-list"></div>
-              <button onclick="addFormField()" style="width:100%;padding:10px;background:rgba(200,150,30,0.1);border:1px dashed rgba(200,150,30,0.3);border-radius:10px;color:var(--gold);font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;">
+              <button onclick="addFormField()" style="width:100%;padding:10px;background:rgba(200,150,30,0.1);border:1px dashed rgba(200,150,30,0.3);border-radius:10px;color:var(--gold);font-family:var(--font-headline);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;">
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Add Field
               </button>
@@ -2077,7 +2079,7 @@
         <!-- Products sub-panel -->
         <div id="subpanel-products">
           <div style="background:var(--bg-card);border-radius:14px;padding:18px;margin-bottom:14px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">
-            <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;" id="prod-form-title">
+            <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;" id="prod-form-title">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Add New Product</span>
             </div>
@@ -2123,7 +2125,7 @@
         <!-- Uniform orders sub-panel -->
         <div id="subpanel-payment" style="display:none;">
           <div style="background:var(--bg-card);border-radius:12px;padding:18px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">
-            <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:6px;display:flex;align-items:center;gap:8px;">
+            <div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:6px;display:flex;align-items:center;gap:8px;">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
               Payment Instructions
             </div>
@@ -2174,7 +2176,7 @@
 
         <!-- Add/edit task form (collapsible) -->
         <div style="margin-bottom:14px;">
-          <button onclick="toggleTaskForm()" id="task-form-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;cursor:pointer;color:var(--gold);font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;">
+          <button onclick="toggleTaskForm()" id="task-form-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;cursor:pointer;color:var(--gold);font-family:var(--font-headline);font-size:15px;font-weight:600;">
             <span id="task-form-toggle-label" style="display:flex;align-items:center;gap:6px;">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Add New Task
@@ -2323,7 +2325,7 @@
           <div id="admin-presidents-reqs-list"></div>
           <!-- Add new requirement -->
           <div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-top:4px;border:1px dashed var(--border-card);">
-            <div style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+            <div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Add Requirement
             </div>
@@ -2363,7 +2365,7 @@
         <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+              <div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
                 <span>Highlights</span>
               </div>
@@ -2432,7 +2434,7 @@
 
         <!-- Add / Edit Resource Form Card -->
         <div class="card" id="adm-res-form-card" style="margin-bottom:16px;">
-          <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:700;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
             <span>Add / Edit Company Document</span>
             <button type="button" onclick="cancelEditResource()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;">Clear Form</button>
           </div>
@@ -2526,7 +2528,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
           <div style="display:flex;align-items:center;gap:10px;">
             <button type="button" class="portal-btn portal-btn-secondary" onclick="adminNavigateMonth(-1)" style="padding:6px 12px;font-size:12px;">&lsaquo; Prev Month</button>
-            <div id="adm-cal-month-title" style="font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:var(--text-primary);min-width:140px;text-align:center;">October 2026</div>
+            <div id="adm-cal-month-title" style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);min-width:140px;text-align:center;">October 2026</div>
             <button type="button" class="portal-btn portal-btn-secondary" onclick="adminNavigateMonth(1)" style="padding:6px 12px;font-size:12px;">Next Month &rsaquo;</button>
           </div>
           <div style="display:flex;gap:8px;">
@@ -2557,7 +2559,7 @@
 <div id="child-safety-modal" role="dialog" aria-modal="true" aria-labelledby="csm-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);z-index:99999;overflow-y:auto;padding:30px 16px;">
   <div style="max-width:540px;margin:20px auto;background:var(--bg-card);border-radius:18px;padding:26px;border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);color:var(--text-primary);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;" id="csm-title">
+      <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;" id="csm-title">
         <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         <span>Child Safety &amp; Privacy Governance</span>
       </div>
@@ -2653,7 +2655,7 @@
 <div id="adm-story-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="adm-story-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--accent);" id="adm-story-modal-title">Create Highlight</div>
+      <div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--accent);" id="adm-story-modal-title">Create Highlight</div>
       <button type="button" onclick="closeAdminStoryModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;">&times;</button>
     </div>
 
@@ -2697,7 +2699,7 @@
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;">
       <div>
         <div id="cdm-date-title" style="font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;"></div>
-        <div id="cdm-event-name" style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);line-height:1.2;"></div>
+        <div id="cdm-event-name" style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:var(--text-primary);line-height:1.2;"></div>
       </div>
       <button type="button" onclick="closeCalendarDayModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;line-height:1;" title="Close">&times;</button>
     </div>
@@ -2716,7 +2718,7 @@
 
     <!-- Personal Member Reminders -->
     <div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:14px;margin-top:16px;">
-      <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <span style="display:flex;align-items:center;gap:6px;">📌 My Personal Reminders for this Day</span>
       </div>
       <div id="cdm-personal-reminders-list"></div>
@@ -2739,7 +2741,7 @@
 <div id="adm-event-edit-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit Parade Event" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div style="font-family:'Oswald',sans-serif;font-size:18px;font-weight:700;color:var(--accent);">Add / Edit Parade Event</div>
+      <div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--accent);">Add / Edit Parade Event</div>
       <button type="button" onclick="closeAdminEventModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;">&times;</button>
     </div>
 
@@ -2824,24 +2826,24 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261030d"></script>
-<script src="js/api/supabase.js?v=20261030d"></script>
-<script src="js/core/session.js?v=20261030d"></script>
-<script src="js/core/utils.js?v=20261030d"></script>
-<script src="js/core/ui.js?v=20261030d"></script>
-<script src="js/core/loading.js?v=20261030d"></script>
-<script src="js/modules/member.js?v=20261030d"></script>
-<script src="js/api/sheets.js?v=20261030d"></script>
-<script src="js/modules/attendance.js?v=20261030d"></script>
-<script src="js/modules/announcements.js?v=20261030d"></script>
-<script src="js/modules/gallery.js?v=20261030d"></script>
-<script src="js/modules/resources.js?v=20261030d"></script>
-<script src="js/modules/calendar.js?v=20261030d"></script>
-<script src="js/modules/orders.js?v=20261030d"></script>
-<script src="js/modules/forms.js?v=20261030d"></script>
-<script src="js/modules/badges.js?v=20261030d"></script>
-<script src="js/modules/tasks.js?v=20261030d"></script>
-<script src="js/modules/admin.js?v=20261030d"></script>
+<script src="js/config.js?v=20261030e"></script>
+<script src="js/api/supabase.js?v=20261030e"></script>
+<script src="js/core/session.js?v=20261030e"></script>
+<script src="js/core/utils.js?v=20261030e"></script>
+<script src="js/core/ui.js?v=20261030e"></script>
+<script src="js/core/loading.js?v=20261030e"></script>
+<script src="js/modules/member.js?v=20261030e"></script>
+<script src="js/api/sheets.js?v=20261030e"></script>
+<script src="js/modules/attendance.js?v=20261030e"></script>
+<script src="js/modules/announcements.js?v=20261030e"></script>
+<script src="js/modules/gallery.js?v=20261030e"></script>
+<script src="js/modules/resources.js?v=20261030e"></script>
+<script src="js/modules/calendar.js?v=20261030e"></script>
+<script src="js/modules/orders.js?v=20261030e"></script>
+<script src="js/modules/forms.js?v=20261030e"></script>
+<script src="js/modules/badges.js?v=20261030e"></script>
+<script src="js/modules/tasks.js?v=20261030e"></script>
+<script src="js/modules/admin.js?v=20261030e"></script>
 
 <script>
 
