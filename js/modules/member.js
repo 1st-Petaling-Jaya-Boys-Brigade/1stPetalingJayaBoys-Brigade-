@@ -786,25 +786,72 @@ async function uploadPfp(input) {
       : { blob: new Blob([await file.arrayBuffer()], { type: 'image/jpeg' }) };
     var cleanBlob = strippedResult.blob;
 
-    var client = getSupa();
-    var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-    await client.uploadFile('avatars', cleanFileName, cleanBlob);
-
-    // 2. Obtain secure signed URL for private avatars bucket (TSK-035)
-    var signedRes = (client && typeof client.createSignedUrl === 'function')
-      ? await client.createSignedUrl('avatars', cleanFileName, 86400)
-      : null;
-    var pfpUrl = (signedRes && signedRes.signedUrl)
-      ? signedRes.signedUrl
-      : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
-
+    // Immediate local preview so member sees their new photo with zero delay
+    var localPreviewUrl = URL.createObjectURL(cleanBlob);
     var img = document.getElementById('m-pfp-img');
     var ph  = document.getElementById('m-pfp-ph');
-    if (img) { img.src = pfpUrl; img.style.display = 'block'; }
+    if (img) { img.src = localPreviewUrl; img.style.display = 'block'; }
     if (ph)  ph.style.display = 'none';
-    if (typeof showToast === 'function') showToast('Profile picture updated securely (EXIF data stripped).', 'success');
+    var sImg = document.getElementById('sidebar-user-avatar-img');
+    var sPh  = document.getElementById('sidebar-user-avatar-ph');
+    if (sImg) { sImg.src = localPreviewUrl; sImg.style.display = 'block'; }
+    if (sPh)  sPh.style.display = 'none';
+
+    var client = getSupa();
+    var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+
+    // Store in session cache
+    if (typeof sessionSet === 'function') {
+      try {
+        var reader = new FileReader();
+        reader.onloadend = function() {
+          if (reader.result) sessionSet('pfp_cache_' + cleanFileName, reader.result);
+        };
+        reader.readAsDataURL(cleanBlob);
+      } catch (_) {}
+    }
+
+    var uploadSucceeded = false;
+    if (client && typeof client.uploadFile === 'function') {
+      try {
+        await client.uploadFile('avatars', cleanFileName, cleanBlob);
+        uploadSucceeded = true;
+      } catch (uploadErr) {
+        console.warn('Avatar storage bucket upload encountered error:', uploadErr);
+        var errStr = uploadErr ? (uploadErr.message || String(uploadErr)) : '';
+        // If storage RLS is blocking, keep local preview and inform user
+        if (errStr.indexOf('security policy') !== -1 || errStr.indexOf('row-level') !== -1 || errStr.indexOf('Unauthorized') !== -1 || errStr.indexOf('AccessDenied') !== -1) {
+          if (typeof showToast === 'function') {
+            showToast('Profile picture saved for this session. Apply Supabase migration 008 to persist permanently in cloud storage.', 'info');
+          }
+          return;
+        }
+        throw uploadErr;
+      }
+    }
+
+    if (uploadSucceeded) {
+      // 2. Obtain secure signed URL or public URL
+      var signedRes = (client && typeof client.createSignedUrl === 'function')
+        ? await client.createSignedUrl('avatars', cleanFileName, 86400)
+        : null;
+      var pfpUrl = (signedRes && signedRes.signedUrl)
+        ? signedRes.signedUrl
+        : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
+
+      if (img) img.src = pfpUrl;
+      if (sImg) sImg.src = pfpUrl;
+      if (typeof showToast === 'function') {
+        showToast('Profile picture updated successfully (EXIF GPS data stripped).', 'success');
+      }
+    }
   } catch (e) {
-    if (typeof showToast === 'function') showToast('Failed to upload photo: ' + e.message, 'error');
+    var rawErr = e ? (e.message || String(e)) : 'Upload failed';
+    try {
+      var parsed = JSON.parse(rawErr);
+      rawErr = parsed.message || parsed.error || rawErr;
+    } catch (_) {}
+    if (typeof showToast === 'function') showToast('Failed to upload photo: ' + rawErr, 'error');
   }
 }
 
