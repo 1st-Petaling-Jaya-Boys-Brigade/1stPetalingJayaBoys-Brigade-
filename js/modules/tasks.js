@@ -12,10 +12,11 @@
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
-  secretariat: { label: 'Secretariat', color: '#ce93d8', cls: 'dept-secretariat', prefix: 'SEC' },
-  logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics',   prefix: 'LOG' },
-  media:       { label: 'Media',       color: '#ffb74d', cls: 'dept-media',       prefix: 'MED' },
-  hq:          { label: 'HQ',          color: '#10b981', cls: 'dept-hq',          prefix: 'HQ'  }
+  department_nco: { label: 'Department NCO', color: 'var(--accent)', cls: 'dept-nco', prefix: 'NCO' },
+  secretariat:    { label: 'Secretariat',    color: '#ce93d8',      cls: 'dept-secretariat', prefix: 'SEC' },
+  logistics:      { label: 'Logistics',      color: '#42a5f5',      cls: 'dept-logistics',   prefix: 'LOG' },
+  media:          { label: 'Media',          color: '#ffb74d',      cls: 'dept-media',       prefix: 'MED' },
+  hq:             { label: 'HQ',             color: '#10b981',      cls: 'dept-hq',          prefix: 'HQ'  }
 };
 
 var STATUS_ORDER = ['planning', 'todo', 'inprogress', 'inreview', 'completed'];
@@ -65,7 +66,10 @@ function getTabCount(status) {
 }
 
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
-var _tasksViewMode      = 'board';  // 'board' | 'mytasks'
+var _tasksViewMode      = 'board'; // 'projects' | 'board' | 'mytasks'
+var _activeProject      = '';
+var _companyProjects    = [];
+var _activeDetailTaskId = null;  // 'board' | 'mytasks'
 var _currentDeptFilter  = 'all';
 var _taskSearchQuery    = '';
 var _myTasksScopeFilter = 'me';     // 'me' | 'all'
@@ -157,15 +161,23 @@ function hasDepartmentRole(memberOrDept, rank) {
     }
   }
 
-  // 1. Valid department assignment: strictly Secretariat, Logistics, Media, or HQ
+  // 1. Department NCO assignment (and legacy backward-compatibility)
   if (dept) {
     var dKey = String(dept).toLowerCase().trim();
-    if (dKey === 'secretariat' || dKey === 'logistics' || dKey === 'media' || dKey === 'hq') {
+    if (
+      dKey === 'department nco' ||
+      dKey === 'dept nco' ||
+      dKey === 'nco' ||
+      dKey === 'secretariat' ||
+      dKey === 'logistics' ||
+      dKey === 'media' ||
+      dKey === 'hq'
+    ) {
       return true;
     }
   }
 
-  // 2. Officer privilege (Officers retain supervisory oversight over all departments)
+  // 2. Officer privilege (Officers retain supervisory oversight over all projects & tasks)
   if (rk) {
     var officerRanks = ['Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Honorary Captain'];
     if (officerRanks.indexOf(rk) !== -1) {
@@ -173,7 +185,7 @@ function hasDepartmentRole(memberOrDept, rank) {
     }
   }
 
-  // 3. Officer Admin active session (only when checking current session, not an explicit member query)
+  // 3. Officer Admin active session
   if (!explicitMember) {
     if (typeof verifyAdminSessionSync === 'function' && verifyAdminSessionSync()) {
       return true;
@@ -183,8 +195,7 @@ function hasDepartmentRole(memberOrDept, rank) {
     }
   }
 
-  // Regular members and NCOs (Lance Corporal, Corporal, Sergeant, Staff Sergeant, Warrant Officer)
-  // WITHOUT an assigned department role CANNOT see or access Projects & Tasks
+  // Regular members and NCOs without Department NCO role cannot access Projects & Tasks
   return false;
 }
 
@@ -366,21 +377,166 @@ function setTasksViewMode(mode) {
   _tasksViewMode = mode || 'board';
 
   document.querySelectorAll('.view-toggle-btn').forEach(function(btn) {
-    var isTarget = btn.getAttribute('data-view') === _tasksViewMode;
+    var isTarget = btn.getAttribute('data-vmode') === _tasksViewMode;
     btn.classList.toggle('active', isTarget);
   });
 
   var colsWrap = document.getElementById('tasks-columns');
   var myTasksWrap = document.querySelector('.my-tasks-container');
+  var projectsWrap = document.querySelector('.projects-container');
 
-  if (_tasksViewMode === 'board') {
+  if (_tasksViewMode === 'projects') {
+    if (colsWrap) colsWrap.style.display = 'none';
+    if (myTasksWrap) myTasksWrap.style.display = 'none';
+    if (projectsWrap) projectsWrap.style.display = 'block';
+    renderProjectsView();
+  } else if (_tasksViewMode === 'board') {
     if (colsWrap) colsWrap.style.display = 'flex';
     if (myTasksWrap) myTasksWrap.style.display = 'none';
-    renderTasksBoard(_currentDeptFilter);
+    if (projectsWrap) projectsWrap.style.display = 'none';
+    renderTasksBoard(_activeProject);
   } else {
     if (colsWrap) colsWrap.style.display = 'none';
     if (myTasksWrap) myTasksWrap.style.display = 'block';
+    if (projectsWrap) projectsWrap.style.display = 'none';
     renderMyTasksView();
+  }
+}
+
+/**
+ * Opens a specific project's Kanban board directly
+ */
+function openProjectBoard(projectName) {
+  _activeProject = projectName || '';
+  setTasksViewMode('board');
+}
+
+/**
+ * Renders the Projects Overview list (Image 3)
+ */
+async function renderProjectsView() {
+  if (typeof document === 'undefined') return;
+  var container = document.querySelector('.projects-container');
+  if (!container) return;
+
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var tasks = await client.get('bb_tasks?order=created_at.asc');
+      if (Array.isArray(tasks)) _allLoadedTasks = tasks;
+    } catch (e) {
+      console.warn('Failed to load tasks for projects view:', e);
+    }
+  }
+
+  // Derive distinct active projects from loaded tasks and company projects
+  var projectNamesMap = {};
+  _allLoadedTasks.forEach(function(t) {
+    var p = (t.project_name || '').trim();
+    // Filter out legacy dummy sprints
+    if (p && !p.toLowerCase().includes('sprint') && p.toLowerCase() !== 'company project') {
+      projectNamesMap[p] = true;
+    }
+  });
+
+  _companyProjects.forEach(function(p) {
+    if (p && !p.toLowerCase().includes('sprint')) projectNamesMap[p] = true;
+  });
+
+  var projectList = Object.keys(projectNamesMap);
+
+  var html = '<div class="projects-overview-header">'
+    + '<div>'
+    +   '<h2 class="projects-overview-title">Projects</h2>'
+    +   '<p class="projects-overview-sub">Every project in your workspace. Select a project to view its Kanban board.</p>'
+    + '</div>'
+    + '<button type="button" class="task-primary-btn" onclick="openAddProjectModal()">'
+    +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    +   '<span>Add Project</span>'
+    + '</button>'
+    + '</div>'
+    + '<div class="projects-search-bar">'
+    +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
+    +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+    +     '<input type="text" class="task-search-input" style="width:100%;" placeholder="Search projects..." oninput="filterProjectsList(this.value)" />'
+    +   '</div>'
+    + '</div>'
+    + '<div class="projects-table-card">';
+
+  if (!projectList.length) {
+    html += '<div style="padding:48px 20px;text-align:center;color:var(--text-muted);">'
+      + '<svg class="ui-icon-xl" style="margin:0 auto 12px;opacity:0.4;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
+      + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No active projects yet</div>'
+      + '<div style="font-size:13px;margin-bottom:16px;">Create your first company initiative or parade project to get started.</div>'
+      + '<button type="button" class="task-primary-btn" onclick="openAddProjectModal()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Project</button>'
+      + '</div>';
+  } else {
+    projectList.forEach(function(pName) {
+      var pTasks = _allLoadedTasks.filter(function(t) {
+        return (t.project_name || '').trim().toLowerCase() === pName.toLowerCase();
+      });
+      var completedCount = pTasks.filter(function(t) {
+        return normalizeTaskStatus(t.status) === 'completed';
+      }).length;
+      var pct = pTasks.length ? Math.round((completedCount / pTasks.length) * 100) : 0;
+
+      // Unique assignee initials/avatars stack
+      var assigneesMap = {};
+      pTasks.forEach(function(t) {
+        if (t.assignee_name) assigneesMap[t.assignee_name] = true;
+      });
+      var assigneesList = Object.keys(assigneesMap);
+      var avatarStackHtml = '<div class="project-assignees-stack">';
+      assigneesList.slice(0, 4).forEach(function(name) {
+        var initials = name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+        avatarStackHtml += '<span class="project-assignee-avatar" title="' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '">' + escapeHtml(initials) + '</span>';
+      });
+      avatarStackHtml += '</div>';
+
+      html += '<div class="project-row" onclick="openProjectBoard(\'' + (typeof escapeHtml === 'function' ? escapeHtml(pName) : pName) + '\')">'
+        + '<div class="project-name-cell">'
+        +   '<svg class="project-folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
+        +   '<span class="project-row-name">' + (typeof escapeHtml === 'function' ? escapeHtml(pName) : pName) + '</span>'
+        + '</div>'
+        + avatarStackHtml
+        + '<div class="project-progress-cell">'
+        +   '<div class="project-progress-bar"><div class="project-progress-fill" style="width:' + pct + '%;"></div></div>'
+        +   '<span class="project-progress-pct">' + pct + '%</span>'
+        + '</div>'
+        + '</div>';
+    });
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/**
+ * Filter projects list in real-time
+ */
+function filterProjectsList(query) {
+  var rows = document.querySelectorAll('.project-row');
+  var q = (query || '').toLowerCase().trim();
+  rows.forEach(function(row) {
+    var name = row.querySelector('.project-row-name');
+    var txt = name ? name.textContent.toLowerCase() : '';
+    row.style.display = (!q || txt.includes(q)) ? 'flex' : 'none';
+  });
+}
+
+/**
+ * Opens prompt / modal to create a new project
+ */
+function openAddProjectModal() {
+  var name = (typeof prompt === 'function') ? prompt('Enter new project name:') : null;
+  if (!name || !name.trim()) return;
+  var cleanName = (typeof sanitizeText === 'function') ? sanitizeText(name.trim(), 80) : name.trim();
+  if (_companyProjects.indexOf(cleanName) === -1) {
+    _companyProjects.push(cleanName);
+  }
+  openProjectBoard(cleanName);
+  if (typeof showToast === 'function') {
+    showToast('Project created: ' + cleanName, 'success');
   }
 }
 
@@ -427,34 +583,89 @@ function filterProjectTasks(query) {
  * @returns {string}
  */
 function formatTaskId(t, idx) {
-  if (t && t.code) return String(t.code).toUpperCase();
-  var prefix = (t && t.department && DEPT_CONFIG[t.department] && DEPT_CONFIG[t.department].prefix)
-    ? DEPT_CONFIG[t.department].prefix
-    : 'TSK';
-  if (t && t.id && !isNaN(Number(t.id))) {
-    return prefix + '-' + (100 + Number(t.id));
-  }
-  return prefix + '-' + (101 + (idx || 0));
+  if (!t) return 'TSK-1';
+  if (t.code && String(t.code).indexOf('-') !== -1) return String(t.code).toUpperCase();
+
+  var projectName = (t.project_name || t.department || 'PRJ').trim();
+  // Strip non-letters to find clean 3-letter prefix
+  var lettersOnly = projectName.replace(/[^a-zA-Z]/g, '');
+  var prefix = (lettersOnly.length >= 3
+    ? lettersOnly.slice(0, 3)
+    : (projectName.replace(/[^a-zA-Z0-9]/g, '') + 'PRJ').slice(0, 3)
+  ).toUpperCase();
+
+  // Find 1-based sequential creation index within this project
+  var projectTasks = _allLoadedTasks
+    .filter(function(x) {
+      var xProj = (x.project_name || x.department || 'PRJ').trim();
+      return xProj.toLowerCase() === projectName.toLowerCase();
+    })
+    .sort(function(a, b) {
+      var timeA = new Date(a.created_at || 0).getTime() || (typeof a.id === 'number' ? a.id : 0);
+      var timeB = new Date(b.created_at || 0).getTime() || (typeof b.id === 'number' ? b.id : 0);
+      if (timeA !== timeB) return timeA - timeB;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+
+  var pos = projectTasks.findIndex(function(x) { return String(x.id) === String(t.id); });
+  var seqNum = pos !== -1 ? (pos + 1) : ((idx || 0) + 1);
+
+  return prefix + '-' + seqNum;
 }
 
 /**
  * Renders the member Kanban columns (To Do, In Progress, Done) with drag-and-drop
  * @param {string} dept
  */
-async function renderTasksBoard(dept) {
+/**
+ * Calculates due date badge CSS class:
+ * - 'due-overdue' if past due (red)
+ * - 'due-near' if within 2 days (yellow)
+ * - 'due-normal' if on time (default)
+ * @param {string|Date} dueDate
+ * @param {boolean} [isCompleted=false]
+ * @returns {string}
+ */
+function getTaskDueBadgeClass(dueDate, isCompleted) {
+  if (!dueDate) return 'due-normal';
+  if (isCompleted) return 'due-normal';
+  var due = new Date(dueDate); due.setHours(0, 0, 0, 0);
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var diffMs = due.getTime() - today.getTime();
+  var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return 'due-overdue';
+  if (diffDays <= 2) return 'due-near';
+  return 'due-normal';
+}
+
+async function renderTasksBoard(deptOrProject) {
   if (typeof document === 'undefined') return;
   var cols = { planning: [], todo: [], inprogress: [], inreview: [], completed: [] };
   var client = getSupaClient();
 
+  // If a project is specified, use it as active project
+  if (deptOrProject && deptOrProject !== 'all' && !DEPT_CONFIG[deptOrProject]) {
+    _activeProject = deptOrProject;
+  }
+
+  // Update breadcrumb at top of board
+  var breadcrumbCur = document.getElementById('tasks-dept-title');
+  if (breadcrumbCur) {
+    breadcrumbCur.innerHTML = '<span onclick="setTasksViewMode(\'projects\')" style="cursor:pointer;color:var(--text-secondary);">&lt; Projects</span> <span style="color:var(--text-muted);">&gt;</span> <span style="font-weight:700;color:var(--text-primary);">' + (typeof escapeHtml === 'function' ? escapeHtml(_activeProject || 'All Tasks') : (_activeProject || 'All Tasks')) + '</span>';
+  }
+
   if (client) {
     try {
-      var url = (dept && dept !== 'all')
-        ? ('bb_tasks?department=eq.' + encodeURIComponent(dept) + '&order=created_at.desc')
-        : 'bb_tasks?order=created_at.desc';
+      var url = 'bb_tasks?order=created_at.asc';
       var tasks = await client.get(url);
       if (Array.isArray(tasks)) {
         _allLoadedTasks = tasks;
         tasks.forEach(function(t) {
+          // If active project is set, filter by project
+          if (_activeProject && _activeProject !== 'all') {
+            var pName = (t.project_name || t.department || '').trim().toLowerCase();
+            if (pName !== _activeProject.toLowerCase()) return;
+          }
           var k = normalizeTaskStatus(t.status);
           cols[k].push(t);
         });
@@ -519,56 +730,48 @@ async function renderTasksBoard(dept) {
       _taskMap[t.id] = t;
 
       var taskId = formatTaskId(t, idx);
-      var pc = t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium';
-      var pl = (t.priority || 'medium').charAt(0).toUpperCase() + (t.priority || 'medium').slice(1);
-      var dueHtml = '';
+      var currentStatus = normalizeTaskStatus(t.status);
 
+      // Due date pill with smart color coding (Image 4):
+      // Red: overdue, Yellow: within 2 days, Normal: on time
+      var dueHtml = '';
       if (t.due_date) {
         var due = new Date(t.due_date); due.setHours(0, 0, 0, 0);
-        var overdue = status !== 'done' && due < today;
-        dueHtml = '<span class="task-due-pill' + (overdue ? ' overdue' : '') + '">'
-          + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+        var diffMs = due.getTime() - today.getTime();
+        var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        var dueClass = 'due-normal';
+        if (currentStatus !== 'completed') {
+          if (diffDays < 0) {
+            dueClass = 'due-overdue';
+          } else if (diffDays <= 2) {
+            dueClass = 'due-near';
+          }
+        }
+        dueHtml = '<span class="task-due-pill ' + dueClass + '" title="Due: ' + due.toLocaleDateString('en-MY') + '">'
+          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
           + due.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }) + '</span>';
       }
 
+      // Assignee Avatar with hover tooltip (Image 4):
       var avatarHtml = '';
       if (t.assignee_name) {
-        var initials = t.assignee_name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-        avatarHtml = '<span class="task-assignee-avatar" title="' + (typeof escapeHtml === 'function' ? escapeHtml(t.assignee_name) : t.assignee_name) + '">' + escapeHtml(initials) + '</span>';
+        var aName = t.assignee_name;
+        var initials = aName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+        avatarHtml = '<span class="task-card-avatar" title="Assigned to: ' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '" data-assignee="' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '">'
+          + (t.assignee_photo ? '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(t.assignee_photo) : t.assignee_photo) + '" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '" />' : escapeHtml(initials))
+          + '</span>';
       }
 
-      var projectTag = t.project_name || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'Company Project');
-
-      var currentStatus = normalizeTaskStatus(t.status);
-      var stBtns = '<div style="display:flex;gap:4px;margin-top:10px;overflow-x:auto;">';
-      STATUS_ORDER.forEach(function(s) {
-        var active = currentStatus === s;
-        var sConf = STATUS_CONFIG[s];
-        stBtns += '<button data-task-id="' + t.id + '" data-task-status="' + s + '" data-dept="' + (dept || '') + '" style="flex:1;padding:4px 3px;border:1px solid ' + (active ? sConf.color : 'var(--border-card)') + ';border-radius:6px;background:' + (active ? sConf.color + '22' : 'transparent') + ';color:' + (active ? sConf.color : 'var(--text-secondary)') + ';font-size:9px;font-weight:700;cursor:pointer;font-family:var(--font-headline);text-align:center;white-space:nowrap;">' + sConf.label + '</button>';
-      });
-      stBtns += '</div>';
-
-      var descText = t.description || '';
-      var descFormatted = descText
-        ? '<div class="task-card-desc">' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(descText.length > 80 ? descText.slice(0, 80) + '\u2026' : descText) : (typeof escapeHtml === 'function' ? escapeHtml(descText) : descText)) + '</div>'
-        : '';
-
+      // Minimalist Card (Image 4) - NO scrollers, NO tiny status buttons, NO sprint words
       html += '<div class="task-card" draggable="true" data-drag-tid="' + t.id + '" data-task-open="' + t.id + '">'
-        + '<div class="task-card-header">'
-        +   '<div style="display:flex;align-items:center;">'
-        +     '<span class="task-drag-handle" title="Drag to change column"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg></span>'
-        +     '<span class="task-id-badge">' + escapeHtml(taskId) + '</span>'
-        +   '</div>'
-        +   '<span class="task-pill ' + pc + '" style="font-size:10px;padding:2px 6px;">' + pl + '</span>'
+        + '<div class="task-card-top-row">'
+        +   '<span class="task-id-badge">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
         + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
-        + '<span class="task-project-tag">' + escapeHtml(projectTag) + '</span>'
-        + descFormatted
         + '<div class="task-card-footer">'
         +   dueHtml
         +   avatarHtml
         + '</div>'
-        + stBtns
         + '</div>';
     });
 
@@ -577,21 +780,13 @@ async function renderTasksBoard(dept) {
     // Card click opens detail modal
     el.querySelectorAll('[data-task-open]').forEach(function(card) {
       card.addEventListener('click', function(e) {
-        if (e.target.closest('[data-task-id]') || e.target.closest('.task-drag-handle')) return;
+        if (e.target.closest('.task-drag-handle')) return;
         openTaskDetail(card.getAttribute('data-task-open'));
-      });
-    });
-
-    // Inline status change buttons
-    el.querySelectorAll('[data-task-id]').forEach(function(btn) {
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        memberUpdateTaskStatus(btn.getAttribute('data-task-id'), btn.getAttribute('data-task-status'), btn.getAttribute('data-dept'));
       });
     });
   });
 
-  // Attach HTML5 Drag & Drop handlers
+  // Attach HTML5 Drag & Drop handlers with instant optimistic UI
   setupKanbanDragAndDrop();
 }
 
@@ -632,7 +827,7 @@ function setupKanbanDragAndDrop() {
       col.classList.remove('drag-over');
     });
 
-    col.addEventListener('drop', async function(e) {
+    col.addEventListener('drop', function(e) {
       e.preventDefault();
       col.classList.remove('drag-over');
       var tid = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
@@ -641,11 +836,44 @@ function setupKanbanDragAndDrop() {
       var targetStatus = normalizeTaskStatus(col.getAttribute('data-col-status'));
       var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
       if (t && t.status !== targetStatus) {
+        var prevStatus = t.status;
+        t.status = targetStatus;
+
+        // 1. OPTIMISTIC DOM MOVE: 0ms instant transition, zero lag!
+        var cardEl = document.querySelector('.task-card[data-drag-tid="' + tid + '"]');
+        var targetColBody = getColBody(targetStatus);
+        if (cardEl && targetColBody) {
+          var emptyNotice = targetColBody.querySelector('.task-col-empty');
+          if (emptyNotice) emptyNotice.remove();
+          targetColBody.appendChild(cardEl);
+        }
+
+        // 2. OPTIMISTIC COUNTERS: Instant badge update
+        STATUS_ORDER.forEach(function(s) {
+          var countBadge = getColCount(s);
+          var tabBadge = getTabCount(s);
+          var cBody = getColBody(s);
+          var count = cBody ? cBody.querySelectorAll('.task-card').length : 0;
+          if (countBadge) countBadge.textContent = '(' + count + ')';
+          if (tabBadge) tabBadge.textContent = count ? '(' + count + ')' : '';
+        });
+
+        // 3. Smooth Toast Feedback
         var statusLabels = { planning: 'Planning', todo: 'To Do', inprogress: 'In Progress', inreview: 'In Review', completed: 'Completed' };
         if (typeof showToast === 'function') {
-          showToast('Moved to ' + statusLabels[targetStatus], 'info', 2000);
+          showToast('Moved to ' + (statusLabels[targetStatus] || targetStatus), 'info', 1500);
         }
-        await memberUpdateTaskStatus(tid, targetStatus, _currentDeptFilter);
+
+        // 4. BACKGROUND ASYNC SUPABASE PATCH (Zero blocking, zero 3-second freeze!)
+        var client = getSupaClient();
+        if (client) {
+          client.patch('bb_tasks?id=eq.' + tid, { status: targetStatus }).catch(function(err) {
+            console.error('Failed to sync task status:', err);
+            t.status = prevStatus;
+            if (typeof showToast === 'function') showToast('Failed to save status.', 'error');
+            renderTasksBoard(_activeProject);
+          });
+        }
       }
     });
   });
@@ -811,91 +1039,267 @@ async function toggleTaskCheckbox(id, e) {
 function openTaskDetail(id) {
   if (typeof document === 'undefined') return;
   var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id] || {};
+  _activeDetailTaskId = id;
+
   var set = function(elId, val) {
     var el = document.getElementById(elId);
     if (el) el.textContent = val;
   };
-  set('tdm-title', t.title || '');
 
-  // Update breadcrumbs matching Image 3
-  var deptLabel = (t.department && DEPT_CONFIG[t.department]) ? DEPT_CONFIG[t.department].label : 'Department';
+  // Breadcrumbs matching Image 2
+  var projectName = t.project_name || 'General Project';
   var taskId = formatTaskId(t, 0);
 
   var deptBreadcrumb = document.querySelector('.task-brief-dept-name');
-  if (deptBreadcrumb) deptBreadcrumb.textContent = deptLabel;
+  if (deptBreadcrumb) deptBreadcrumb.textContent = projectName;
   var idLabel = document.querySelector('.task-brief-id-label');
   if (idLabel) idLabel.textContent = taskId;
 
-  var descEl = document.getElementById('tdm-desc');
-  if (descEl) {
-    var desc = t.description || '';
-    if (desc && desc.indexOf('<') !== -1) {
-      descEl.innerHTML = (typeof sanitizeHtml === 'function') ? sanitizeHtml(desc) : desc;
-    } else if (desc) {
-      // Format line breaks, bullet points, and basic markdown tables
-      var formatted = escapeHtml(desc)
-        .replace(/\n\n/g, '</p><p>')
-        .replace(/\n- /g, '<br>&bull; ')
-        .replace(/\n/g, '<br>');
-      descEl.innerHTML = '<p>' + formatted + '</p>';
-    } else {
-      descEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">No detailed brief provided for this task.</span>';
-    }
+  // Title: sync hidden text for test assertions and editable input
+  set('tdm-title', t.title || '');
+  var titleInput = document.getElementById('tdm-title-input');
+  if (titleInput) {
+    titleInput.value = t.title || '';
+    titleInput.onchange = function() {
+      var val = titleInput.value.trim();
+      saveTaskField(id, 'title', val);
+      set('tdm-title', val);
+    };
   }
 
-  var pc = t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium';
-  var pl = (t.priority || 'medium').charAt(0).toUpperCase() + (t.priority || 'medium').slice(1);
-  var currentStatus = normalizeTaskStatus(t.status);
-  var sl = STATUS_CONFIG[currentStatus].label;
-  var sc = STATUS_CONFIG[currentStatus].color;
-  var dept = DEPT_CONFIG[t.department] || {};
-  var meta = document.getElementById('tdm-meta');
+  // Status Pill matching Image 2
+  var normStatus = normalizeTaskStatus(t.status);
+  var sConf = STATUS_CONFIG[normStatus] || { label: normStatus, color: '#3b82f6' };
+  var statusDot = document.getElementById('tdm-status-dot');
+  if (statusDot) statusDot.style.background = sConf.color;
+  var statusText = document.getElementById('tdm-status-text');
+  if (statusText) statusText.textContent = sConf.label;
 
-  if (meta) {
-    meta.innerHTML = '<span class="task-pill ' + pc + '">' + pl + '</span>'
-      + '<span class="task-pill" style="background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;">' + sl + '</span>'
-      + (dept.cls ? '<span class="dept-badge ' + dept.cls + '">' + (typeof escapeHtml === 'function' ? escapeHtml(dept.label) : dept.label) + '</span>' : '');
+  // Assignee Pill matching Image 2
+  var aName = t.assignee_name || 'Unassigned';
+  var initials = aName === 'Unassigned' ? 'U' : aName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+  var aAvatar = document.getElementById('tdm-assignee-avatar');
+  if (aAvatar) aAvatar.textContent = initials;
+  set('tdm-assignee', aName);
+
+  // Priority Pill matching Image 2
+  var priorityVal = t.priority || 'medium';
+  var pLabel = priorityVal.charAt(0).toUpperCase() + priorityVal.slice(1);
+  var pIcon = priorityVal === 'high' ? '⌃' : (priorityVal === 'low' ? '⌄' : '—');
+  var pIconEl = document.getElementById('tdm-priority-icon');
+  if (pIconEl) pIconEl.textContent = pIcon;
+  var pTextEl = document.getElementById('tdm-priority-text');
+  if (pTextEl) pTextEl.textContent = pLabel;
+
+  // Due Date Pill matching Image 2
+  var dueStr = 'Due Date';
+  if (t.due_date) {
+    var d = new Date(t.due_date);
+    dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
   }
+  set('tdm-due', dueStr);
+  var dueInput = document.getElementById('tdm-due-input');
+  if (dueInput && t.due_date) dueInput.value = t.due_date.split('T')[0];
 
-  set('tdm-assignee', t.assignee_name || '\u2014');
-  set('tdm-due', t.due_date ? new Date(t.due_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '\u2014');
+  // Estimate Pill matching Image 2
+  var estStr = t.estimate || 'Estimate';
+  var estValEl = document.getElementById('tdm-estimate-val');
+  if (estValEl) estValEl.textContent = estStr;
 
-  var estChip = document.querySelector('.task-brief-estimate-chip');
-  var estVal  = document.querySelector('.task-brief-estimate-val');
-  if (estChip && estVal) {
-    if (t.estimate) {
-      estVal.textContent = t.estimate;
-      estChip.style.display = 'inline-flex';
-    } else {
-      estChip.style.display = 'none';
-    }
-  }
-
-  var btns = document.getElementById('tdm-status-btns');
-  if (btns) {
-    var statuses = [
-      { key: 'todo',       label: 'To Do',       c: 'var(--text-muted)' },
-      { key: 'inprogress', label: 'In Progress',  c: '#42a5f5' },
-      { key: 'done',       label: 'Done',         c: '#66bb6a' }
-    ];
-    btns.innerHTML = statuses.map(function(s) {
-      var active = t.status === s.key || (s.key === 'todo' && !t.status);
-      return '<button data-tdm-status="' + s.key + '" data-tdm-id="' + id + '" data-tdm-dept="' + (t.department || '') + '" '
-        + 'style="flex:1;padding:10px;border-radius:10px;border:1.5px solid ' + s.c + (active ? '' : '44') + ';background:' + s.c + (active ? '22' : '11') + ';'
-        + 'color:' + s.c + ';font-family:var(--font-headline);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;">'
-        + s.label + '</button>';
-    }).join('');
-
-    btns.querySelectorAll('[data-tdm-status]').forEach(function(btn) {
-      btn.addEventListener('click', function() {
-        memberUpdateTaskStatus(btn.getAttribute('data-tdm-id'), btn.getAttribute('data-tdm-status'), btn.getAttribute('data-tdm-dept'));
-        closeTaskDetail();
-      });
-    });
+  // Description Textarea matching Image 2
+  set('tdm-desc', t.description || '');
+  var descInput = document.getElementById('tdm-desc-input');
+  if (descInput) {
+    descInput.value = t.description || '';
   }
 
   var modal = document.getElementById('task-detail-modal');
   if (modal) modal.style.display = 'block';
+}
+
+/**
+ * Saves a specific field on active task instantly with optimistic update
+ */
+async function saveTaskField(id, field, value) {
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id];
+  if (!t) return;
+  t[field] = value;
+  var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+  if (loaded) loaded[field] = value;
+
+  // Optimistic updates on board
+  if (_tasksViewMode === 'board') {
+    renderTasksBoard(_activeProject);
+  } else if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView();
+  }
+
+  // Background async patch
+  var client = getSupaClient();
+  if (client) {
+    var patch = {};
+    patch[field] = value;
+    client.patch('bb_tasks?id=eq.' + id, patch).catch(function(err) {
+      console.warn('Background patch error for field ' + field + ':', err);
+    });
+  }
+  if (typeof showToast === 'function') {
+    showToast('Task updated', 'info', 1000);
+  }
+}
+
+/**
+ * Interactive Status Menu for Task Brief (Image 2)
+ */
+function toggleTaskDetailStatusMenu(e) {
+  if (e) e.stopPropagation();
+  var menu = document.getElementById('tdm-status-dropdown');
+  if (!menu) return;
+  if (menu.style.display === 'block') {
+    menu.style.display = 'none';
+    return;
+  }
+  var html = '';
+  STATUS_ORDER.forEach(function(s) {
+    var conf = STATUS_CONFIG[s];
+    html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailStatus(\'' + s + '\')">'
+      + '<span style="width:8px;height:8px;border-radius:50%;background:' + conf.color + ';display:inline-block;"></span>'
+      + '<span>' + conf.label + '</span>'
+      + '</div>';
+  });
+  menu.innerHTML = html;
+  menu.style.display = 'block';
+}
+
+function selectTaskDetailStatus(status) {
+  if (!_activeDetailTaskId) return;
+  saveTaskField(_activeDetailTaskId, 'status', status);
+  var sConf = STATUS_CONFIG[status] || { label: status, color: '#3b82f6' };
+  var statusDot = document.getElementById('tdm-status-dot');
+  if (statusDot) statusDot.style.background = sConf.color;
+  var statusText = document.getElementById('tdm-status-text');
+  if (statusText) statusText.textContent = sConf.label;
+  var menu = document.getElementById('tdm-status-dropdown');
+  if (menu) menu.style.display = 'none';
+}
+
+/**
+ * Interactive Assignee Menu for Task Brief (Image 2)
+ */
+async function toggleTaskDetailAssigneeMenu(e) {
+  if (e) e.stopPropagation();
+  var menu = document.getElementById('tdm-assignee-dropdown');
+  if (!menu) return;
+  if (menu.style.display === 'block') {
+    menu.style.display = 'none';
+    return;
+  }
+
+  menu.innerHTML = '<div style="padding:8px;color:var(--text-muted);font-size:11px;">Loading members...</div>';
+  menu.style.display = 'block';
+
+  var client = getSupaClient();
+  var members = [];
+  if (client) {
+    try {
+      members = await client.get('bb_members?select=ic,name,rank,department&order=name.asc');
+    } catch (err) {
+      console.warn('Failed to load members for assignee picker:', err);
+    }
+  }
+
+  var html = '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\x27\x27, \x27Unassigned\x27)">'
+    + '<span class="task-card-avatar" style="width:18px;height:18px;font-size:8px;">U</span>'
+    + '<span>Unassigned</span></div>';
+
+  if (Array.isArray(members)) {
+    members.forEach(function(m) {
+      if (!m.name) return;
+      var initials = m.name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
+      html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'' + escapeHtml(m.ic || '') + '\', \'' + safeName + '\')">'
+        + '<span class="task-card-avatar" style="width:18px;height:18px;font-size:8px;">' + initials + '</span>'
+        + '<span>' + safeName + '</span></div>';
+    });
+  }
+  menu.innerHTML = html;
+}
+
+function selectTaskDetailAssignee(ic, name) {
+  if (!_activeDetailTaskId) return;
+  saveTaskField(_activeDetailTaskId, 'assignee_name', name === 'Unassigned' ? '' : name);
+  saveTaskField(_activeDetailTaskId, 'assignee_ic', ic);
+  var aNameEl = document.getElementById('tdm-assignee');
+  if (aNameEl) aNameEl.textContent = name;
+  var aAvatar = document.getElementById('tdm-assignee-avatar');
+  if (aAvatar) aAvatar.textContent = name === 'Unassigned' ? 'U' : name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+  var menu = document.getElementById('tdm-assignee-dropdown');
+  if (menu) menu.style.display = 'none';
+}
+
+/**
+ * Cycle Priority for Task Brief (Image 2)
+ */
+function cycleTaskDetailPriority(e) {
+  if (e) e.stopPropagation();
+  if (!_activeDetailTaskId) return;
+  var t = _taskMap[_activeDetailTaskId];
+  if (!t) return;
+  var order = ['low', 'medium', 'high'];
+  var cur = (t.priority || 'medium').toLowerCase();
+  var nextIdx = (order.indexOf(cur) + 1) % order.length;
+  var next = order[nextIdx];
+  saveTaskField(_activeDetailTaskId, 'priority', next);
+
+  var pLabel = next.charAt(0).toUpperCase() + next.slice(1);
+  var pIcon = next === 'high' ? '⌃' : (next === 'low' ? '⌄' : '—');
+  var pIconEl = document.getElementById('tdm-priority-icon');
+  if (pIconEl) pIconEl.textContent = pIcon;
+  var pTextEl = document.getElementById('tdm-priority-text');
+  if (pTextEl) pTextEl.textContent = pLabel;
+}
+
+/**
+ * Due Date change for Task Brief (Image 2)
+ */
+function handleTaskDetailDueChange(val) {
+  if (!_activeDetailTaskId) return;
+  saveTaskField(_activeDetailTaskId, 'due_date', val);
+  var d = new Date(val);
+  var dueStr = val ? d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }) : 'Due Date';
+  var dueEl = document.getElementById('tdm-due');
+  if (dueEl) dueEl.textContent = dueStr;
+}
+
+/**
+ * Estimate editing for Task Brief (Image 2)
+ */
+function editTaskDetailEstimate(e) {
+  if (e) e.stopPropagation();
+  if (!_activeDetailTaskId) return;
+  var t = _taskMap[_activeDetailTaskId];
+  var currentEst = (t && t.estimate) || '';
+  var newEst = (typeof prompt === 'function') ? prompt('Enter task estimate (e.g. 2h, 1d):', currentEst) : null;
+  if (newEst !== null) {
+    saveTaskField(_activeDetailTaskId, 'estimate', newEst.trim());
+    var estValEl = document.getElementById('tdm-estimate-val');
+    if (estValEl) estValEl.textContent = newEst.trim() || 'Estimate';
+  }
+}
+
+/**
+ * Description change and save for Task Brief (Image 2)
+ */
+function handleTaskDetailDescChange(val) {
+  var descEl = document.getElementById('tdm-desc');
+  if (descEl) descEl.textContent = val;
+}
+
+function saveActiveTaskBrief() {
+  if (!_activeDetailTaskId) return;
+  var descInput = document.getElementById('tdm-desc-input');
+  var val = descInput ? descInput.value : '';
+  saveTaskField(_activeDetailTaskId, 'description', val);
 }
 
 /**
@@ -1500,6 +1904,22 @@ if (typeof window !== 'undefined') {
   window.editAdminTask              = editAdminTask;
   window.deleteTask                 = deleteTask;
   window.previewTasksBoardDemo      = previewTasksBoardDemo;
+  window.filterProjectsList         = filterProjectsList;
+  window.openAddProjectModal        = openAddProjectModal;
+  window.renderProjectsView         = renderProjectsView;
+  window.openProjectBoard           = openProjectBoard;
+  window.formatTaskId               = formatTaskId;
+  window.getTaskDueBadgeClass       = getTaskDueBadgeClass;
+  window.saveTaskField              = saveTaskField;
+  window.toggleTaskDetailStatusMenu = toggleTaskDetailStatusMenu;
+  window.selectTaskDetailStatus     = selectTaskDetailStatus;
+  window.toggleTaskDetailAssigneeMenu = toggleTaskDetailAssigneeMenu;
+  window.selectTaskDetailAssignee   = selectTaskDetailAssignee;
+  window.cycleTaskDetailPriority    = cycleTaskDetailPriority;
+  window.handleTaskDetailDueChange  = handleTaskDetailDueChange;
+  window.editTaskDetailEstimate     = editTaskDetailEstimate;
+  window.handleTaskDetailDescChange = handleTaskDetailDescChange;
+  window.saveActiveTaskBrief        = saveActiveTaskBrief;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1544,6 +1964,22 @@ if (typeof module !== 'undefined' && module.exports) {
     updateTaskStatus,
     editAdminTask,
     deleteTask,
-    previewTasksBoardDemo
+    previewTasksBoardDemo,
+    filterProjectsList,
+    openAddProjectModal,
+    renderProjectsView,
+    openProjectBoard,
+    formatTaskId,
+    getTaskDueBadgeClass,
+    saveTaskField,
+    toggleTaskDetailStatusMenu,
+    selectTaskDetailStatus,
+    toggleTaskDetailAssigneeMenu,
+    selectTaskDetailAssignee,
+    cycleTaskDetailPriority,
+    handleTaskDetailDueChange,
+    editTaskDetailEstimate,
+    handleTaskDetailDescChange,
+    saveActiveTaskBrief
   };
 }
