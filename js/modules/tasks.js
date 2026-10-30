@@ -81,6 +81,7 @@ var _allLoadedTasks     = [];
 var _adminTaskFilter    = 'all';
 var _allAdminTasks      = [];
 var _taskMap            = {};
+var _deletedTaskIds    = {};
 
 /**
  * Extracts project name from task object (column or description tag)
@@ -484,6 +485,7 @@ function setTasksViewMode(mode) {
 
   var sep = document.querySelector('.task-breadcrumb-sep');
   var cur = document.getElementById('tasks-dept-title');
+  var delProjBtn = document.querySelector('.project-delete-header-btn');
 
   if (_tasksViewMode === 'projects') {
     if (boardCol) boardCol.style.display = 'none';
@@ -491,6 +493,7 @@ function setTasksViewMode(mode) {
     if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'none';
     if (projContainer) projContainer.style.display = 'block';
+    if (delProjBtn) delProjBtn.style.display = 'none';
     if (addBtn) {
       addBtn.style.display = 'inline-flex';
       addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Project</span>';
@@ -509,6 +512,7 @@ function setTasksViewMode(mode) {
       if (noProjEl) noProjEl.style.display = 'none';
       if (myTasks) myTasks.style.display = 'none';
       if (projContainer) projContainer.style.display = 'none';
+      if (delProjBtn) delProjBtn.style.display = 'inline-flex';
       if (addBtn) {
         addBtn.style.display = 'inline-flex';
         addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Task</span>';
@@ -528,6 +532,7 @@ function setTasksViewMode(mode) {
       if (noProjEl) noProjEl.style.display = 'block';
       if (myTasks) myTasks.style.display = 'none';
       if (projContainer) projContainer.style.display = 'none';
+      if (delProjBtn) delProjBtn.style.display = 'none';
       if (addBtn) addBtn.style.display = 'none';
       if (searchBox) searchBox.style.display = 'none';
       if (sep) sep.style.display = 'none';
@@ -539,6 +544,7 @@ function setTasksViewMode(mode) {
     if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'block';
     if (projContainer) projContainer.style.display = 'none';
+    if (delProjBtn) delProjBtn.style.display = 'none';
     if (addBtn) addBtn.style.display = 'none';
     if (searchBox) searchBox.style.display = 'none';
     if (sep) sep.style.display = 'none';
@@ -665,7 +671,8 @@ async function renderProjectsView() {
     var res = await Promise.all([fetchTasksPromise, fetchCatalogPromise]);
     var tasks = res[0];
     if (Array.isArray(tasks)) {
-      var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_'); });
+      tasks = tasks.filter(function(t) { return t && !_deletedTaskIds[String(t.id)]; });
+      var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_') && !_deletedTaskIds[String(t.id)]; });
       _allLoadedTasks = tasks.concat(pendingTemp);
       _taskMap = {};
       _allLoadedTasks.forEach(function(t) {
@@ -681,6 +688,18 @@ async function renderProjectsView() {
   } catch (err) {
     console.warn('renderProjectsView fetch error:', err);
   }
+}
+
+/**
+ * Deletes a project from the catalog and all its associated tasks
+ * @param {string} projectName
+ */
+/**
+ * Deletes the currently active project from the board view
+ */
+async function deleteActiveProject() {
+  if (!_activeProject) return;
+  await deleteProject(_activeProject);
 }
 
 /**
@@ -709,24 +728,27 @@ async function deleteProject(projectName) {
   });
   var taskIdsToDelete = tasksToDelete.map(function(t) { return t.id; });
 
-  _allLoadedTasks = _allLoadedTasks.filter(function(t) {
-    return getTaskProjectName(t).toLowerCase() !== lower;
-  });
   taskIdsToDelete.forEach(function(tid) {
+    _deletedTaskIds[String(tid)] = true;
     delete _taskMap[tid];
     if (typeof window !== 'undefined' && window._taskMap) {
       delete window._taskMap[tid];
     }
   });
 
+  _allLoadedTasks = _allLoadedTasks.filter(function(t) {
+    return getTaskProjectName(t).toLowerCase() !== lower;
+  });
+
   await saveProjectsCatalog();
 
   if ((_activeProject || '').toLowerCase() === lower) {
     _activeProject = '';
+    setTasksViewMode('projects');
+  } else {
+    var container = document.querySelector('.projects-container');
+    if (container) paintProjectsList(container);
   }
-
-  var container = document.querySelector('.projects-container');
-  if (container) paintProjectsList(container);
 
   if (typeof showToast === 'function') {
     showToast('Project "' + projectName + '" deleted.', 'success');
@@ -737,7 +759,9 @@ async function deleteProject(projectName) {
     (async function() {
       try {
         for (var i = 0; i < taskIdsToDelete.length; i++) {
-          await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskIdsToDelete[i]));
+          if (!String(taskIdsToDelete[i]).startsWith('temp_')) {
+            await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskIdsToDelete[i]));
+          }
         }
       } catch (err) {
         console.warn('Failed to delete project tasks from Supabase:', err);
@@ -1020,19 +1044,14 @@ async function renderTasksBoard(deptOrProject) {
     try {
       var tasks = await client.get('bb_tasks?order=created_at.asc');
       if (Array.isArray(tasks)) {
-        var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_'); });
+        tasks = tasks.filter(function(t) { return t && !_deletedTaskIds[String(t.id)]; });
+        var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_') && !_deletedTaskIds[String(t.id)]; });
         _allLoadedTasks = tasks.concat(pendingTemp);
         _taskMap = {};
         _allLoadedTasks.forEach(function(t) { _taskMap[t.id] = t; });
         if (typeof window !== 'undefined') window._taskMap = _taskMap;
 
-        formatTaskDesc,
-    insertTaskDescLink,
-    addActiveTaskSubtask,
-    addActiveTaskLink,
-    handleTaskCommentSubmit,
-    handleTaskAttachmentUpload,
-    renderColumnsFromTasks(_allLoadedTasks);
+        renderColumnsFromTasks(_allLoadedTasks);
 
         if (typeof syncTaskNotifications === 'function') {
           syncTaskNotifications(tasks);
@@ -1865,19 +1884,26 @@ async function deleteActiveTask() {
   );
   if (!confirmed) return;
 
-  // Optimistically remove from local state
+  // 1. Mark in session tombstone map so background queries never resurrect it
+  _deletedTaskIds[String(taskId)] = true;
+
+  // 2. Remove from local memory collections
   _allLoadedTasks = _allLoadedTasks.filter(function(t) { return String(t.id) !== String(taskId); });
   delete _taskMap[taskId];
   if (typeof window !== 'undefined' && window._taskMap) {
     delete window._taskMap[taskId];
   }
 
-  // Close modal immediately
+  // 3. Close detail modal immediately
   closeTaskDetail();
 
-  // Re-render active view
+  // 4. Instantly remove card from DOM (Zero-latency optimistic UI)
+  var cardEls = document.querySelectorAll('.task-card[data-task-id="' + taskId + '"], .task-card[data-drag-tid="' + taskId + '"]');
+  cardEls.forEach(function(el) { el.remove(); });
+
+  // 5. Update UI view in-memory without racing server query
   if (_tasksViewMode === 'board') {
-    renderTasksBoard(_activeProject);
+    renderColumnsFromTasks(_allLoadedTasks);
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   } else {
@@ -1888,9 +1914,9 @@ async function deleteActiveTask() {
     showToast('Task deleted successfully', 'success');
   }
 
-  // Remote delete from Supabase
+  // 6. Delete remotely from Supabase
   var client = getSupaClient();
-  if (client) {
+  if (client && !String(taskId).startsWith('temp_')) {
     try {
       await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskId));
     } catch (err) {
@@ -1958,6 +1984,11 @@ function openCreateTaskModal(defaultStatus) {
   var projInput = modal.querySelector('.new-task-project-input');
   if (projInput) {
     projInput.value = _activeProject;
+  }
+
+  var projDisplay = modal.querySelector('.new-task-project-name-text');
+  if (projDisplay) {
+    projDisplay.textContent = _activeProject || 'General Project';
   }
 
   loadNewTaskAssigneeOptions();
@@ -2516,6 +2547,12 @@ async function deleteTask(id) {
   var client = getSupaClient();
   if (!client) return;
   try {
+    _deletedTaskIds[String(id)] = true;
+    _allLoadedTasks = _allLoadedTasks.filter(function(t) { return String(t.id) !== String(id); });
+    delete _taskMap[id];
+    if (typeof window !== 'undefined' && window._taskMap) {
+      delete window._taskMap[id];
+    }
     await client.delete('bb_tasks?id=eq.' + id);
     renderAdminTasks(_adminTaskFilter);
     if (typeof showToast === 'function') {
@@ -2598,6 +2635,7 @@ if (typeof window !== 'undefined') {
   window.isMemberDepartmentRole     = isMemberDepartmentRole;
   window.deleteActiveTask           = deleteActiveTask;
   window.deleteProject              = deleteProject;
+  window.deleteActiveProject        = deleteActiveProject;
   window.formatTaskDesc             = formatTaskDesc;
   window.insertTaskDescLink         = insertTaskDescLink;
   window.addActiveTaskSubtask       = addActiveTaskSubtask;
@@ -2674,6 +2712,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isMemberDepartmentRole,
     deleteActiveTask,
     deleteProject,
+    deleteActiveProject,
     renderColumnsFromTasks
   };
 }
