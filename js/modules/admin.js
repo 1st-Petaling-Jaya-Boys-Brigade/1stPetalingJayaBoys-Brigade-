@@ -33,9 +33,12 @@
   ];
 
   var DEFAULT_DEPT_CONFIG = {
-    logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics'   },
-    secretariat: { label: 'Secretariat', color: '#ce93d8', cls: 'dept-secretariat' },
-    media:       { label: 'Media',       color: '#ffb74d', cls: 'dept-media'       }
+    logistics:   { label: 'Logistics',       color: '#42a5f5', cls: 'dept-logistics'   },
+    secretariat: { label: 'Secretariat',     color: '#ce93d8', cls: 'dept-secretariat' },
+    media:       { label: 'Media',           color: '#ffb74d', cls: 'dept-media'       },
+    band:        { label: 'Band',            color: '#26c6da', cls: 'dept-band'        },
+    awards:      { label: 'Awards & Badges', color: '#ab47bc', cls: 'dept-awards'      },
+    general:     { label: 'General',         color: '#78909c', cls: 'dept-general'     }
   };
 
   // ── Internal State ────────────────────────────────────────────────────────
@@ -649,6 +652,17 @@
         var btn = document.getElementById('sort-' + s);
         if (btn) btn.classList.toggle('active-sort', s === by);
       });
+      var deptBtn = document.querySelector('.adm-sort-btn[data-sort="dept"]');
+      if (!deptBtn) {
+        var allSortBtns = document.querySelectorAll('.adm-sort-btn');
+        for (var si = 0; si < allSortBtns.length; si++) {
+          if (allSortBtns[si].getAttribute && allSortBtns[si].getAttribute('data-sort') === 'dept') {
+            deptBtn = allSortBtns[si];
+            break;
+          }
+        }
+      }
+      if (deptBtn) deptBtn.classList.toggle('active-sort', by === 'dept');
     }
     renderAdminList();
   }
@@ -725,6 +739,7 @@
 
       // Group headers when sorting by squad
       var lastSquad = null;
+      var lastDept = null;
       var html = '';
 
       filtered.forEach(function(m) {
@@ -754,16 +769,32 @@
             lastSquad = sq;
           }
         }
+        if (_adminSortBy === 'dept') {
+          var currentDeptKey = (m.department || '').trim().toLowerCase();
+          var depLabel = (DEFAULT_DEPT_CONFIG[currentDeptKey] && DEFAULT_DEPT_CONFIG[currentDeptKey].label) || (m.department ? m.department : 'No Department Role (No Tasks Access)');
+          if (depLabel !== lastDept) {
+            html += '<div style="font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2px;text-transform:uppercase;padding:12px 4px 6px;">' + ((typeof escapeHtml === 'function') ? escapeHtml(depLabel) : depLabel) + '</div>';
+            lastDept = depLabel;
+          }
+        }
 
         var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
         var safeIc   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic) : m.ic;
         var safeSquad= (typeof escapeHtml === 'function') ? escapeHtml(m.squad || '') : (m.squad || '');
         var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'No rank') : (m.rank || 'No rank');
 
+        var deptConfig = DEFAULT_DEPT_CONFIG[(m.department || '').toLowerCase()];
+        var deptBadge = '';
+        if (deptConfig) {
+          deptBadge = ' <span class="dept-badge ' + (deptConfig.cls || '') + '" title="Department Role: Has Projects & Tasks Access" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:10px;background:' + (deptConfig.color ? deptConfig.color + '26' : 'rgba(217,163,35,0.15)') + ';color:' + (deptConfig.color || 'var(--accent)') + ';font-weight:700;letter-spacing:0.3px;margin-left:4px;border:1px solid ' + (deptConfig.color ? deptConfig.color + '55' : 'rgba(217,163,35,0.3)') + ';vertical-align:middle;">' + ((typeof escapeHtml === 'function') ? escapeHtml(deptConfig.label) : deptConfig.label) + '</span>';
+        } else {
+          deptBadge = ' <span title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;margin-left:4px;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
+        }
+
         html += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:10px;">'
           + '<div style="flex:1;min-width:0;">'
-            + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + '</div>'
-            + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + (m.squad ? safeSquad + ' Platoon' : 'No platoon') + ' \xb7 ' + safeRank + '</div>'
+            + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + deptBadge + '</div>'
+            + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + (m.squad ? safeSquad + ' Platoon' : 'No platoon') + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + '</div>'
           + '</div>'
           + '<div style="text-align:right;flex-shrink:0;">'
             + '<div class="admin-rank-badge">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.rank || '\u2014') : (m.rank || '\u2014')) + '</div>'
@@ -1529,6 +1560,7 @@
     module.exports = {
       ADMIN_SECTIONS: ADMIN_SECTIONS,
       RANK_ORDER: RANK_ORDER,
+    DEFAULT_DEPT_CONFIG,
       openAdmin: openAdmin,
       closeAdmin: closeAdmin,
       logoutAdmin: logoutAdmin,

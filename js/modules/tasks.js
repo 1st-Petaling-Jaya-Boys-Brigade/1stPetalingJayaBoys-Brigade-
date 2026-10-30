@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -81,7 +81,70 @@ function switchTaskTab(tab, btn) {
 }
 
 /**
- * Switches between Weekly Parade view and Department Projects & Tasks view
+ * Checks whether a member or rank has permission to view the Projects & Tasks tab.
+ * Gating rule: Members and even NCOs cannot see or access Projects & Tasks unless
+ * explicitly assigned a department role by an admin, OR they are an officer.
+ *
+ * @param {Object|string} [memberOrDept] Member object or department string
+ * @param {string} [rank] Optional rank string
+ * @returns {boolean}
+ */
+function hasDepartmentRole(memberOrDept, rank) {
+  var dept = '';
+  var rk = rank || '';
+  var explicitMember = false;
+
+  if (memberOrDept && typeof memberOrDept === 'object') {
+    dept = memberOrDept.department || '';
+    rk = memberOrDept.rank || rk;
+    explicitMember = true;
+  } else if (typeof memberOrDept === 'string') {
+    dept = memberOrDept;
+    explicitMember = true;
+  }
+
+  if (!explicitMember) {
+    if (!dept && typeof sessionGet === 'function') {
+      dept = sessionGet('department') || '';
+    }
+    if (!rk && typeof sessionGet === 'function') {
+      rk = sessionGet('rank') || '';
+    }
+  }
+
+  // 1. Valid department assignment
+  if (dept) {
+    var dKey = String(dept).toLowerCase().trim();
+    if (DEPT_CONFIG && DEPT_CONFIG[dKey]) {
+      return true;
+    }
+  }
+
+  // 2. Officer privilege (Officers retain supervisory oversight over all departments)
+  if (rk) {
+    var officerRanks = ['Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Honorary Captain'];
+    if (officerRanks.indexOf(rk) !== -1) {
+      return true;
+    }
+  }
+
+  // 3. Officer Admin active session (only when checking current session, not an explicit member query)
+  if (!explicitMember) {
+    if (typeof verifyAdminSessionSync === 'function' && verifyAdminSessionSync()) {
+      return true;
+    }
+    if (typeof sessionGet === 'function' && (sessionGet('adminAuthed') === true || sessionGet('isAdmin') === 'true')) {
+      return true;
+    }
+  }
+
+  // Regular members and NCOs (Lance Corporal, Corporal, Sergeant, Staff Sergeant, Warrant Officer)
+  // WITHOUT an assigned department role CANNOT see or access Projects & Tasks
+  return false;
+}
+
+/**
+ * Switches between Weekly Parade view and Projects & Tasks view
  * @param {string} section ('parade' | 'board')
  */
 function switchTaskSectionView(section) {
@@ -107,9 +170,33 @@ function switchTaskSectionView(section) {
     // Projects & Tasks section
     if (nd) nd.style.display = 'none';
     var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+    var sessionDept = (typeof sessionGet === 'function') ? sessionGet('department') : '';
+    var sessionRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
+    var isAllowed = hasDepartmentRole({ department: sessionDept, rank: sessionRank }, sessionRank);
+
     if (!ic) {
-      if (gate) gate.style.display = 'block';
+      if (gate) {
+        gate.style.display = 'block';
+        gate.innerHTML = '<div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>'
+          + '<div class="page-title" style="text-align:center;">Members Only</div>'
+          + '<div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Login to View Tasks</div>'
+          + '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;">You need to be logged in to see your department tasks.</div>'
+          + '<button class="submit-btn gold" onclick="goToMemberTab()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>';
+      }
       if (board) board.style.display = 'none';
+    } else if (!isAllowed) {
+      if (gate) {
+        gate.style.display = 'block';
+        gate.innerHTML = '<div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>'
+          + '<div class="page-title" style="text-align:center;">Department Role Required</div>'
+          + '<div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Access Restricted</div>'
+          + '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">You are currently logged in, but your account has not been assigned a Department role. Only members and NCOs assigned to a department by an Administrator can access Projects & Tasks. Please contact an Officer to assign your Department in the Admin Console.</div>'
+          + '<button class="submit-btn gold" onclick="switchTaskSectionView(\'parade\')"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Weekly Parade</button>';
+      }
+      if (board) board.style.display = 'none';
+      if (typeof showToast === 'function') {
+        showToast('Department Role Required: Only members assigned a Department role can access Projects & Tasks.', 'warning');
+      }
     } else {
       if (gate) gate.style.display = 'none';
       if (board) board.style.display = 'block';
@@ -119,8 +206,9 @@ function switchTaskSectionView(section) {
 }
 
 /**
- * Verifies logged-in member access and renders Department Tasks board
- * Default view is 'parade', isolating the NCO Duty Board into the Projects & Tasks tab.
+ * Verifies logged-in member access and controls visibility of the Projects & Tasks tab.
+ * Members and NCOs without a department role assigned in the Admin Console cannot see
+ * or access the Projects & Tasks tab.
  */
 async function checkTasksAccess() {
   if (typeof document === 'undefined') return;
@@ -128,23 +216,31 @@ async function checkTasksAccess() {
   var nd = document.getElementById('tasks-no-dept');
   var gate = document.getElementById('tasks-gate');
   var board = document.getElementById('tasks-board');
+  var boardPill = document.querySelector('.tasks-nav-pill[data-task-view="board"]');
+  if (!boardPill) {
+    var allPills = document.querySelectorAll('.tasks-nav-pill');
+    for (var pi = 0; pi < allPills.length; pi++) {
+      if (allPills[pi].getAttribute && allPills[pi].getAttribute('data-task-view') === 'board') {
+        boardPill = allPills[pi];
+        break;
+      }
+    }
+  }
 
-  if (_activeTasksSection === 'parade') {
+  if (!ic) {
+    if (boardPill) boardPill.style.display = 'none';
+    _activeTasksSection = 'parade';
     if (nd) nd.style.display = 'block';
     if (gate) gate.style.display = 'none';
     if (board) board.style.display = 'none';
-  } else {
-    if (nd) nd.style.display = 'none';
-    if (!ic) {
-      if (gate) gate.style.display = 'block';
-      if (board) board.style.display = 'none';
-      return;
-    }
-    if (gate) gate.style.display = 'none';
-    if (board) board.style.display = 'block';
+    document.querySelectorAll('.tasks-nav-pill').forEach(function(btn) {
+      var isParade = btn.getAttribute('data-task-view') === 'parade';
+      btn.classList.toggle('active', isParade);
+      btn.setAttribute('aria-selected', String(isParade));
+    });
+    return;
   }
 
-  if (!ic) return;
   var client = getSupaClient();
   if (!client) return;
 
@@ -154,19 +250,54 @@ async function checkTasksAccess() {
     var dept = m && m.department;
     var rank = (m && m.rank) || (typeof sessionGet === 'function' ? sessionGet('rank') : '');
 
-    if (dept && DEPT_CONFIG[dept]) {
-      var cfg = DEPT_CONFIG[dept];
+    if (typeof sessionSet === 'function') {
+      sessionSet('department', dept || '');
+      if (rank) sessionSet('rank', rank);
+    }
+
+    var isAllowed = hasDepartmentRole(m || { department: dept, rank: rank }, rank);
+
+    if (!isAllowed) {
+      // Regular members and NCOs without department roles cannot see the Projects & Tasks tab pill
+      if (boardPill) boardPill.style.display = 'none';
+      _activeTasksSection = 'parade';
+      if (nd) nd.style.display = 'block';
+      if (gate) gate.style.display = 'none';
+      if (board) board.style.display = 'none';
+      document.querySelectorAll('.tasks-nav-pill').forEach(function(btn) {
+        var isParade = btn.getAttribute('data-task-view') === 'parade';
+        btn.classList.toggle('active', isParade);
+        btn.setAttribute('aria-selected', String(isParade));
+      });
+      return;
+    }
+
+    // Member has department role or officer rank: reveal Projects & Tasks tab pill
+    if (boardPill) boardPill.style.display = 'inline-flex';
+
+    if (dept && DEPT_CONFIG[dept.toLowerCase()]) {
+      var cfg = DEPT_CONFIG[dept.toLowerCase()];
       var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
       var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Task Board';
       var db  = document.getElementById('tasks-dept-badge');
       if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
-      if (_activeTasksSection === 'board' && board) board.style.display = 'block';
-      await renderTasksBoard(dept);
-    } else if (checkIsNCO(rank)) {
-      if (_activeTasksSection === 'board' && board) board.style.display = 'block';
-      var dtNco = document.getElementById('tasks-dept-title'); if (dtNco) dtNco.textContent = 'NCO Duty Board';
-      var dsNco = document.getElementById('tasks-dept-sub');   if (dsNco) dsNco.textContent = 'Weekly Parade Duties';
-      await renderTasksBoard('logistics');
+      _currentDeptFilter = dept.toLowerCase();
+    } else {
+      var dtOff = document.getElementById('tasks-dept-title'); if (dtOff) dtOff.textContent = 'All Departments';
+      var dsOff = document.getElementById('tasks-dept-sub');   if (dsOff) dsOff.textContent = 'Officer Oversight Board';
+      var dbOff = document.getElementById('tasks-dept-badge');
+      if (dbOff) dbOff.innerHTML = '<span class="dept-badge dept-general">Officer Access</span>';
+      _currentDeptFilter = 'all';
+    }
+
+    if (_activeTasksSection === 'board') {
+      if (nd) nd.style.display = 'none';
+      if (gate) gate.style.display = 'none';
+      if (board) board.style.display = 'block';
+      await renderTasksBoard(_currentDeptFilter);
+    } else {
+      if (nd) nd.style.display = 'block';
+      if (board) board.style.display = 'none';
     }
   } catch (e) {
     console.error('checkTasksAccess error:', e);
@@ -1280,6 +1411,7 @@ if (typeof module !== 'undefined' && module.exports) {
     _allAdminTasks,
     _taskMap,
     checkIsNCO,
+    hasDepartmentRole,
     switchTaskTab,
     switchTaskSectionView,
     checkTasksAccess,

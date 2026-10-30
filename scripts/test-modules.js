@@ -73,6 +73,22 @@ function createMockElement(tag) {
       return child;
     },
     querySelector: function (sel) {
+      if (sel.includes('[')) {
+        const attrMatch = sel.match(/\[([a-zA-Z0-9_-]+)(?:=["']?([^"']*)["']?)?\]/);
+        const prefix = sel.split('[')[0];
+        const attrName = attrMatch ? attrMatch[1] : '';
+        const attrVal = attrMatch ? attrMatch[2] : null;
+        let prefixMatch = true;
+        if (prefix.startsWith('.')) prefixMatch = this.className && this.className.includes(prefix.slice(1));
+        else if (prefix.startsWith('#')) prefixMatch = this.id === prefix.slice(1);
+        if (prefixMatch && (!attrMatch || (attrVal !== null ? this.getAttribute(attrName) === attrVal : this.getAttribute(attrName) !== null))) {
+          return this;
+        }
+        for (const c of this.children) {
+          const res = c.querySelector(sel);
+          if (res) return res;
+        }
+      }
       if (sel.startsWith('#')) {
         const targetId = sel.slice(1);
         if (this.id === targetId) return this;
@@ -145,9 +161,18 @@ function createMockElement(tag) {
       contains: function (c) {
         return el._classes.has(c);
       },
-      toggle: function (c) {
-        if (this.contains(c)) this.remove(c);
-        else this.add(c);
+      toggle: function (c, force) {
+        if (typeof force !== 'undefined') {
+          if (force) this.add(c);
+          else this.remove(c);
+          return !!force;
+        }
+        if (this.contains(c)) {
+          this.remove(c);
+          return false;
+        }
+        this.add(c);
+        return true;
       }
     }
   };
@@ -2135,6 +2160,56 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(indexHtmlTasksCheck.includes('notif-dismissing'), 'notif-dismissing animation class must exist');
   console.log('  ✔ Persistent notification dismissal and dynamic task assignment sync verified');
 
+  // 13. Department Role Access Gating (hasDepartmentRole & checkTasksAccess)
+  assert.strictEqual(typeof tasksMod.hasDepartmentRole, 'function', 'hasDepartmentRole must be exported');
+  // Members with assigned department roles
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'logistics', rank: 'Private' }), true, 'Logistics member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'secretariat', rank: 'Lance Corporal' }), true, 'Secretariat member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'media', rank: 'Corporal' }), true, 'Media member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'band', rank: 'Sergeant' }), true, 'Band member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'awards', rank: 'Staff Sergeant' }), true, 'Awards member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'general', rank: 'Recruit' }), true, 'General member must have access');
+
+  // Regular members and NCOs WITHOUT department role MUST NOT have access
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Recruit' }), false, 'Recruit without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Private' }), false, 'Private without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lance Corporal' }), false, 'Lance Corporal NCO without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Corporal' }), false, 'Corporal NCO without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Sergeant' }), false, 'Sergeant NCO without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Staff Sergeant' }), false, 'Staff Sergeant NCO without dept must not have access');
+
+  // Officers retain oversight access
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Officer' }), true, 'Officer rank must have oversight access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Captain' }), true, 'Captain rank must have oversight access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), true, 'Lieutenant rank must have oversight access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Chaplain' }), true, 'Chaplain rank must have oversight access');
+
+  // Gating visibility verification
+  let boardPillEl = document.querySelector('.tasks-nav-pill[data-task-view="board"]');
+  if (!boardPillEl) {
+    boardPillEl = global.document.createElement('button');
+    boardPillEl.className = 'tasks-nav-pill';
+    boardPillEl.setAttribute('data-task-view', 'board');
+    global.document.body.appendChild(boardPillEl);
+  }
+
+  // CheckTasksAccess: Member without department hides Projects & Tasks pill
+  global.supa.get = async () => [{ ic: 'no-dept@pjbb.org', rank: 'Sergeant', department: '' }];
+  global.sessionSet('ic', 'no-dept@pjbb.org');
+  global.sessionSet('rank', 'Sergeant');
+  global.sessionSet('department', '');
+  await tasksMod.checkTasksAccess();
+  assert.strictEqual(boardPillEl.style.display, 'none', 'Projects & Tasks pill must be hidden for NCO without department role');
+
+  // CheckTasksAccess: Member with department role reveals Projects & Tasks pill
+  global.supa.get = async () => [{ ic: 'dept-member@pjbb.org', rank: 'Private', department: 'logistics' }];
+  global.sessionSet('ic', 'dept-member@pjbb.org');
+  global.sessionSet('rank', 'Private');
+  global.sessionSet('department', 'logistics');
+  await tasksMod.checkTasksAccess();
+  assert.strictEqual(boardPillEl.style.display, 'inline-flex', 'Projects & Tasks pill must be revealed for member with department role');
+  console.log('  ✔ Projects & Tasks department role gating strictly blocks unassigned members and NCOs');
+
   // Restore Supabase mocks
   global.supa.get = originalSupaGet;
   global.supa.post = originalSupaPost;
@@ -3134,6 +3209,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // Save edit member
   document.getElementById('em-rank').value = 'Staff Sergeant';
+  document.getElementById('em-dept').value = 'band';
   await adminModule.saveEditMember();
   assert(savedMemberPayload, 'saveEditMember must send update payload');
   assert.strictEqual(
@@ -3141,6 +3217,32 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'Staff Sergeant',
     'saveEditMember must persist updated rank'
   );
+  assert.strictEqual(
+    savedMemberPayload.body.department,
+    'band',
+    'saveEditMember must persist updated department role'
+  );
+
+  // Department Sorting & Badges in Admin Console
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.logistics, 'DEFAULT_DEPT_CONFIG must contain logistics');
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.band, 'DEFAULT_DEPT_CONFIG must contain band');
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.awards, 'DEFAULT_DEPT_CONFIG must contain awards');
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.general, 'DEFAULT_DEPT_CONFIG must contain general');
+
+  let deptSortBtn = document.querySelector('.adm-sort-btn[data-sort="dept"]');
+  if (!deptSortBtn) {
+    deptSortBtn = global.document.createElement('button');
+    deptSortBtn.className = 'adm-sort-btn';
+    deptSortBtn.setAttribute('data-sort', 'dept');
+    global.document.body.appendChild(deptSortBtn);
+  }
+  adminModule.setAdminSort('dept');
+  assert.ok(deptSortBtn.classList.contains('active-sort'), 'setAdminSort(dept) must activate dept sort button');
+  await adminModule.renderAdminList();
+  const adminListContent = document.getElementById('admin-members-list').innerHTML;
+  assert.ok(adminListContent.includes('dept-badge'), 'renderAdminList must render department badges');
+  console.log('  ✔ Admin department role assignment, sorting, and visual badges verified');
+
   console.log(
     '  ✔ Admin member management (add, edit, modal bindings, validation) functions seamlessly'
   );
