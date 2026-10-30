@@ -694,7 +694,18 @@
         }
       } catch (e) {}
 
-      var members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,parental_consent_verified,parent_name,parent_contact,media_release_consent&order=name.asc');
+      var members;
+      try {
+        members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,parental_consent_signed,parent_name,parent_contact,media_consent&order=name.asc');
+      } catch (selectErr) {
+        console.warn('Detailed bb_members query failed, retrying with core columns:', selectErr);
+        try {
+          members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,department,date_of_birth,joined_at&order=name.asc');
+        } catch (_f2) {
+          members = await client.get('bb_members?order=name.asc');
+        }
+      }
+      if (!Array.isArray(members)) members = [];
       var filtered = members.filter(function(m) {
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
@@ -824,6 +835,7 @@
         });
       });
     } catch (e) {
+      console.error('renderAdminList error:', e);
       list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>';
     }
   }
