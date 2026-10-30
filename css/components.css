@@ -34,7 +34,7 @@
   font-weight: 700;
   color: var(--text-secondary);
   letter-spacing: 1.2px;
-  text-transform: uppercase;
+  text-transform: none;
   margin-bottom: 6px;
 }
 
@@ -112,7 +112,7 @@ textarea:-webkit-autofill:active {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 1px;
-  text-transform: uppercase;
+  text-transform: none;
   cursor: pointer;
   margin-top: 8px;
   transition: var(--transition-smooth);
@@ -346,7 +346,7 @@ textarea:-webkit-autofill:active {
   font-size: 26px;
   font-weight: 700;
   color: var(--green);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .success-box .s-msg {
@@ -368,7 +368,7 @@ textarea:-webkit-autofill:active {
 .review-label {
   font-weight: 700;
   color: var(--text-muted);
-  text-transform: uppercase;
+  text-transform: none;
   font-size: 11px;
   letter-spacing: 1px;
   white-space: nowrap;
@@ -447,7 +447,7 @@ textarea:-webkit-autofill:active {
   font-weight: 700;
   letter-spacing: 2.5px;
   color: var(--accent);
-  text-transform: uppercase;
+  text-transform: none;
   margin-bottom: 4px;
 }
 
@@ -486,7 +486,7 @@ textarea:-webkit-autofill:active {
   font-weight: 700;
   letter-spacing: 1.5px;
   color: var(--accent);
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .mic-detail-chip .chip-value {
@@ -507,7 +507,7 @@ textarea:-webkit-autofill:active {
   font-size: 10px;
   color: var(--text-muted);
   letter-spacing: 1px;
-  text-transform: uppercase;
+  text-transform: none;
   margin-top: 8px;
 }
 
@@ -673,7 +673,7 @@ textarea:-webkit-autofill:active {
   border-radius: 6px;
   letter-spacing: 0.5px;
   z-index: 2;
-  text-transform: uppercase;
+  text-transform: none;
 }
 .product-card-badge.nco {
   background: rgba(239, 68, 68, 0.2);
@@ -698,7 +698,7 @@ textarea:-webkit-autofill:active {
   font-size: 10px;
   font-weight: 700;
   color: var(--text-muted);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.75px;
   margin-bottom: 3px;
 }
@@ -734,7 +734,7 @@ textarea:-webkit-autofill:active {
   font-size: 10px;
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   margin-bottom: 4px;
   display: flex;
@@ -898,7 +898,7 @@ textarea:-webkit-autofill:active {
 .checkout-total-label {
   font-size: 11px;
   color: var(--text-secondary);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.75px;
   font-weight: 600;
 }
@@ -926,7 +926,7 @@ textarea:-webkit-autofill:active {
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 4px 14px rgba(245, 197, 66, 0.35);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   white-space: nowrap;
   touch-action: manipulation;
@@ -1031,7 +1031,7 @@ textarea:-webkit-autofill:active {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
 }
 .total-val {
@@ -1090,7 +1090,7 @@ textarea:-webkit-autofill:active {
   font-size: 34px;
   font-weight: 700;
   color: var(--text-primary);
-  text-transform: uppercase;
+  text-transform: none;
   line-height: 1.1;
   margin-bottom: 4px;
   letter-spacing: 1px;
@@ -1100,7 +1100,7 @@ textarea:-webkit-autofill:active {
   font-size: 12px;
   color: var(--accent);
   letter-spacing: 3px;
-  text-transform: uppercase;
+  text-transform: none;
   margin-bottom: 14px;
 }
 
@@ -1647,7 +1647,7 @@ textarea:-webkit-autofill:active {
   color: var(--accent);
   font-weight: 700;
   letter-spacing: 2.5px;
-  text-transform: uppercase;
+  text-transform: none;
   margin-bottom: 6px;
 }
 
@@ -1725,7 +1725,7 @@ textarea:-webkit-autofill:active {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  text-transform: uppercase;
+  text-transform: none;
   cursor: pointer;
   transition: var(--transition-smooth);
 }
@@ -1850,7 +1850,7 @@ textarea:-webkit-autofill:active {
   font-family: 'Oswald', sans-serif;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   cursor: pointer;
   transition: var(--transition-smooth);
 }
@@ -1874,7 +1874,7 @@ textarea:-webkit-autofill:active {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  text-transform: uppercase;
+  text-transform: none;
   cursor: pointer;
   transition: var(--transition-smooth);
 }
@@ -1972,7 +1972,7 @@ textarea:-webkit-autofill:active {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 1px;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--text-muted);
   cursor: pointer;
   transition: var(--transition-smooth);
@@ -1989,7 +1989,7 @@ textarea:-webkit-autofill:active {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 2px;
-  text-transform: uppercase;
+  text-transform: none;
   margin-bottom: 12px;
   display: flex;
   align-items: center;
@@ -2214,7 +2214,7 @@ textarea:-webkit-autofill:active {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
-  text-transform: uppercase;
+  text-transform: none;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-card);
   background: var(--bg-card-subtle);
@@ -2263,6 +2263,26 @@ textarea:-webkit-autofill:active {
   background: rgba(59, 130, 246, 0.15);
   color: #3b82f6;
   border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+
+.my-tasks-status-pill.status-planning {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.my-tasks-status-pill.status-inreview {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.my-tasks-status-pill.status-completed,
+.my-tasks-status-pill.status-done {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .my-tasks-status-pill.status-done {
@@ -2354,7 +2374,7 @@ textarea:-webkit-autofill:active {
   padding: 3px 10px;
   border-radius: var(--radius-pill);
   letter-spacing: 1px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .dept-logistics {
@@ -2432,7 +2452,7 @@ textarea:-webkit-autofill:active {
   font-weight: 700;
   padding: 3px 10px;
   border-radius: var(--radius-pill);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
 }
 
@@ -3026,7 +3046,7 @@ textarea:-webkit-autofill:active {
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 0.8px;
-  text-transform: uppercase;
+  text-transform: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -3301,7 +3321,7 @@ textarea:-webkit-autofill:active {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -3409,7 +3429,7 @@ textarea:-webkit-autofill:active {
   font-size: 19px;
   font-weight: 700;
   color: var(--text-primary);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   line-height: 1.1;
 }
@@ -3418,7 +3438,7 @@ textarea:-webkit-autofill:active {
   font-size: 11px;
   color: var(--accent);
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
   margin-top: 2px;
 }
@@ -3470,7 +3490,7 @@ textarea:-webkit-autofill:active {
   font-size: 8px;
   font-weight: 700;
   color: var(--text-secondary);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
 }
 
@@ -3575,7 +3595,7 @@ textarea:-webkit-autofill:active {
   font-size: 10px;
   font-weight: 700;
   color: var(--accent);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
 }
 
@@ -3593,7 +3613,7 @@ textarea:-webkit-autofill:active {
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 4px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.3px;
   display: inline-flex;
   align-items: center;
@@ -3627,7 +3647,7 @@ textarea:-webkit-autofill:active {
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
@@ -3666,7 +3686,7 @@ textarea:-webkit-autofill:active {
   color: var(--text-secondary);
   text-align: center;
   padding: 8px 0;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1px;
 }
 
@@ -3779,7 +3799,7 @@ textarea:-webkit-autofill:active {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
-  text-transform: uppercase;
+  text-transform: none;
   position: sticky;
   top: 56px;
   z-index: 99;
@@ -3894,7 +3914,7 @@ textarea:-webkit-autofill:active {
 .search-group-title {
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 1.2px;
   color: var(--text-muted);
   padding: 8px 10px 4px;
@@ -3958,7 +3978,7 @@ textarea:-webkit-autofill:active {
 .search-item-badge {
   font-size: 9px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
   padding: 2px 7px;
   border-radius: 6px;

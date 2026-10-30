@@ -20,6 +20,52 @@ var DEPT_CONFIG = {
   general:     { label: 'General',     color: '#78909c', cls: 'dept-general',     prefix: 'GEN' }
 };
 
+var STATUS_ORDER = ['planning', 'todo', 'inprogress', 'inreview', 'completed'];
+
+var STATUS_CONFIG = {
+  planning:   { label: 'Planning',    color: '#a855f7', cls: 'status-planning' },
+  todo:       { label: 'To Do',       color: 'var(--text-secondary)', cls: 'status-todo' },
+  inprogress: { label: 'In Progress', color: '#3b82f6', cls: 'status-inprogress' },
+  inreview:   { label: 'In Review',   color: '#f59e0b', cls: 'status-inreview' },
+  completed:  { label: 'Completed',   color: '#10b981', cls: 'status-completed' }
+};
+
+function normalizeTaskStatus(status) {
+  if (!status) return 'todo';
+  var s = String(status).toLowerCase().trim();
+  if (s === 'done') return 'completed';
+  if (STATUS_ORDER.indexOf(s) !== -1) return s;
+  return 'todo';
+}
+
+function getColBody(status) {
+  if (status === 'completed') {
+    return document.getElementById('col-completed') || document.getElementById('col-done') || document.querySelector('[data-col-body="completed"]');
+  }
+  return document.getElementById('col-' + status) || document.querySelector('[data-col-body="' + status + '"]');
+}
+
+function getColCount(status) {
+  if (status === 'completed') {
+    return document.getElementById('count-completed') || document.getElementById('count-done') || document.querySelector('[data-col-count="completed"]');
+  }
+  return document.getElementById('count-' + status) || document.querySelector('[data-col-count="' + status + '"]');
+}
+
+function getColElement(status) {
+  if (status === 'completed') {
+    return document.getElementById('taskcol-completed') || document.getElementById('taskcol-done') || document.querySelector('.task-col[data-col-status="completed"]');
+  }
+  return document.getElementById('taskcol-' + status) || document.querySelector('.task-col[data-col-status="' + status + '"]');
+}
+
+function getTabCount(status) {
+  if (status === 'completed') {
+    return document.getElementById('tab-count-completed') || document.getElementById('tab-count-done') || document.querySelector('[data-tab-count="completed"]');
+  }
+  return document.getElementById('tab-count-' + status) || document.querySelector('[data-tab-count="' + status + '"]');
+}
+
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
 var _tasksViewMode      = 'board';  // 'board' | 'mytasks'
 var _currentDeptFilter  = 'all';
@@ -70,9 +116,10 @@ function checkIsNCO(rank) {
  */
 function switchTaskTab(tab, btn) {
   if (typeof document === 'undefined') return;
-  ['todo', 'inprogress', 'done'].forEach(function(t) {
-    var col = document.getElementById('taskcol-' + t);
-    if (col) col.classList.toggle('mobile-active', t === tab);
+  var target = normalizeTaskStatus(tab);
+  STATUS_ORDER.forEach(function(t) {
+    var col = getColElement(t);
+    if (col) col.classList.toggle('mobile-active', t === target);
   });
   document.querySelectorAll('.task-col-tab').forEach(function(b) {
     b.classList.remove('active');
@@ -390,7 +437,7 @@ function formatTaskId(t, idx) {
  */
 async function renderTasksBoard(dept) {
   if (typeof document === 'undefined') return;
-  var cols = { todo: [], inprogress: [], done: [] };
+  var cols = { planning: [], todo: [], inprogress: [], inreview: [], completed: [] };
   var client = getSupaClient();
 
   if (client) {
@@ -402,7 +449,7 @@ async function renderTasksBoard(dept) {
       if (Array.isArray(tasks)) {
         _allLoadedTasks = tasks;
         tasks.forEach(function(t) {
-          var k = t.status === 'inprogress' ? 'inprogress' : t.status === 'done' ? 'done' : 'todo';
+          var k = normalizeTaskStatus(t.status);
           cols[k].push(t);
         });
 
@@ -423,13 +470,14 @@ async function renderTasksBoard(dept) {
   }
   var today = new Date(); today.setHours(0, 0, 0, 0);
 
-  ['todo', 'inprogress', 'done'].forEach(function(status) {
-    var el   = document.getElementById('col-' + status);
-    var cnt  = document.getElementById('count-' + status);
-    var tcnt = document.getElementById('tab-count-' + status);
+  STATUS_ORDER.forEach(function(status) {
+    var el   = getColBody(status);
+    var cnt  = getColCount(status);
+    var tcnt = getTabCount(status);
 
     // Filter by live search query if present
-    var statusItems = cols[status].filter(function(t) {
+    var itemsInCol = cols[status] || [];
+    var statusItems = itemsInCol.filter(function(t) {
       if (!_taskSearchQuery) return true;
       var matchTitle = (t.title || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
       var matchDesc  = (t.description || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
@@ -475,13 +523,12 @@ async function renderTasksBoard(dept) {
 
       var projectTag = t.project_name || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'Company Project');
 
-      var sc = { todo: 'var(--text-secondary)', inprogress: 'var(--brand-blue)', done: 'var(--green)' };
-      var sl = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
-
-      var stBtns = '<div style="display:flex;gap:6px;margin-top:10px;">';
-      ['todo', 'inprogress', 'done'].forEach(function(s) {
-        var active = t.status === s;
-        stBtns += '<button data-task-id="' + t.id + '" data-task-status="' + s + '" data-dept="' + (dept || '') + '" style="flex:1;padding:6px 4px;border:1.5px solid ' + (active ? sc[s] : 'var(--border-card)') + ';border-radius:8px;background:' + (active ? 'rgba(59,130,246,0.12)' : 'transparent') + ';color:' + (active ? sc[s] : 'var(--text-secondary)') + ';font-size:10px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;text-align:center;">' + sl[s] + '</button>';
+      var currentStatus = normalizeTaskStatus(t.status);
+      var stBtns = '<div style="display:flex;gap:4px;margin-top:10px;overflow-x:auto;">';
+      STATUS_ORDER.forEach(function(s) {
+        var active = currentStatus === s;
+        var sConf = STATUS_CONFIG[s];
+        stBtns += '<button data-task-id="' + t.id + '" data-task-status="' + s + '" data-dept="' + (dept || '') + '" style="flex:1;padding:4px 3px;border:1px solid ' + (active ? sConf.color : 'var(--border-card)') + ';border-radius:6px;background:' + (active ? sConf.color + '22' : 'transparent') + ';color:' + (active ? sConf.color : 'var(--text-secondary)') + ';font-size:9px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;text-align:center;white-space:nowrap;">' + sConf.label + '</button>';
       });
       stBtns += '</div>';
 
@@ -575,10 +622,10 @@ function setupKanbanDragAndDrop() {
       var tid = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
       if (!tid) return;
 
-      var targetStatus = col.getAttribute('data-col-status');
+      var targetStatus = normalizeTaskStatus(col.getAttribute('data-col-status'));
       var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
       if (t && t.status !== targetStatus) {
-        var statusLabels = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
+        var statusLabels = { planning: 'Planning', todo: 'To Do', inprogress: 'In Progress', inreview: 'In Review', completed: 'Completed' };
         if (typeof showToast === 'function') {
           showToast('Moved to ' + statusLabels[targetStatus], 'info', 2000);
         }
@@ -664,9 +711,10 @@ function renderMyTasksView() {
       + 'No tasks found for your current filter criteria.</td></tr>';
   } else {
     filtered.forEach(function(t, idx) {
-      var isDone = t.status === 'done';
-      var statusClass = isDone ? 'status-done' : (t.status === 'inprogress' ? 'status-inprogress' : 'status-todo');
-      var statusLabel = isDone ? 'Done' : (t.status === 'inprogress' ? 'In progress' : 'To do');
+      var normStatus = normalizeTaskStatus(t.status);
+      var isDone = normStatus === 'completed';
+      var statusClass = STATUS_CONFIG[normStatus].cls;
+      var statusLabel = STATUS_CONFIG[normStatus].label;
       var taskId = formatTaskId(t, idx);
       var projectName = t.project_name || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'General Task');
 
@@ -732,7 +780,8 @@ async function toggleTaskCheckbox(id, e) {
   if (e) e.stopPropagation();
   var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id];
   if (!t) return;
-  var nextStatus = t.status === 'done' ? 'todo' : 'done';
+  var isCompleted = normalizeTaskStatus(t.status) === 'completed';
+  var nextStatus = isCompleted ? 'todo' : 'completed';
   await memberUpdateTaskStatus(id, nextStatus, _currentDeptFilter);
   if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
@@ -780,8 +829,9 @@ function openTaskDetail(id) {
 
   var pc = t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium';
   var pl = (t.priority || 'medium').charAt(0).toUpperCase() + (t.priority || 'medium').slice(1);
-  var sl = t.status === 'inprogress' ? 'In Progress' : t.status === 'done' ? 'Done' : 'To Do';
-  var sc = t.status === 'done' ? 'var(--green)' : t.status === 'inprogress' ? 'var(--brand-blue)' : 'var(--text-muted)';
+  var currentStatus = normalizeTaskStatus(t.status);
+  var sl = STATUS_CONFIG[currentStatus].label;
+  var sc = STATUS_CONFIG[currentStatus].color;
   var dept = DEPT_CONFIG[t.department] || {};
   var meta = document.getElementById('tdm-meta');
 
@@ -1370,6 +1420,7 @@ if (typeof window !== 'undefined') {
   window._taskMap                   = _taskMap;
   window.checkIsNCO                 = checkIsNCO;
   window.switchTaskTab              = switchTaskTab;
+  window.normalizeTaskStatus        = normalizeTaskStatus;
   window.switchTaskSectionView      = switchTaskSectionView;
   window.checkTasksAccess           = checkTasksAccess;
   window.setTasksViewMode           = setTasksViewMode;
@@ -1413,6 +1464,7 @@ if (typeof module !== 'undefined' && module.exports) {
     checkIsNCO,
     hasDepartmentRole,
     switchTaskTab,
+  normalizeTaskStatus,
     switchTaskSectionView,
     checkTasksAccess,
     setTasksViewMode,
