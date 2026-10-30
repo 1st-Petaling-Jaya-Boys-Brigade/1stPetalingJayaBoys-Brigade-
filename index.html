@@ -23,11 +23,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261030g">
-<link rel="stylesheet" href="css/base.css?v=20261030g">
-<link rel="stylesheet" href="css/nav.css?v=20261030g">
-<link rel="stylesheet" href="css/components.css?v=20261030g">
-<link rel="stylesheet" href="css/admin.css?v=20261030g">
+<link rel="stylesheet" href="css/variables.css?v=20261030i">
+<link rel="stylesheet" href="css/base.css?v=20261030i">
+<link rel="stylesheet" href="css/nav.css?v=20261030i">
+<link rel="stylesheet" href="css/components.css?v=20261030i">
+<link rel="stylesheet" href="css/admin.css?v=20261030i">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -337,7 +337,7 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261030g"></script>
+<script src="js/core/theme.js?v=20261030i"></script>
 </head>
 <body>
 
@@ -1244,7 +1244,7 @@
       <div class="task-board-header-unified task-board-toolbar">
         <div class="task-board-top-bar">
           <div class="task-breadcrumb">
-            <span class="task-breadcrumb-root">Projects</span>
+            <span class="task-breadcrumb-root" onclick="setTasksViewMode('projects')" style="cursor:pointer;" title="Back to Projects">Projects</span>
             <span class="task-breadcrumb-sep">&gt;</span>
             <span class="task-breadcrumb-cur" id="tasks-dept-title">Department</span>
           </div>
@@ -1253,7 +1253,7 @@
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input type="text" class="task-search-input" placeholder="Search tasks..." oninput="filterProjectTasks(this.value)" aria-label="Search department tasks" />
             </div>
-            <select class="task-dept-select" onchange="changeTaskDeptFilter(this.value)" aria-label="Filter by department">
+            <select class="task-dept-select" style="display:none !important;" onchange="changeTaskDeptFilter(this.value)" aria-label="Filter by department">
               <option value="all">All Departments</option>
               <option value="secretariat">Secretariat</option>
               <option value="logistics">Logistics</option>
@@ -1261,7 +1261,11 @@
               <option value="hq">HQ</option>
             </select>
             <div class="task-view-toggle" role="group" aria-label="Task view mode">
-              <button type="button" class="view-toggle-btn active" data-vmode="board" onclick="setTasksViewMode('board')" title="Kanban Board View">
+              <button type="button" class="view-toggle-btn active" data-vmode="projects" onclick="setTasksViewMode('projects')" title="Projects Overview">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                <span>Projects</span>
+              </button>
+              <button type="button" class="view-toggle-btn" data-vmode="board" onclick="setTasksViewMode('board')" title="Kanban Board View">
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
                 <span>Board</span>
               </button>
@@ -1270,7 +1274,7 @@
                 <span>My Tasks</span>
               </button>
             </div>
-            <button type="button" class="task-refresh-btn" onclick="renderTasksBoard(_currentDeptFilter)" title="Refresh Board">
+            <button type="button" class="task-refresh-btn" onclick="if(_tasksViewMode==='projects'){renderProjectsView();}else if(_tasksViewMode==='mytasks'){renderMyTasksView();}else{renderTasksBoard(_activeProject);}" title="Refresh View">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             </button>
             <button type="button" class="task-primary-btn" onclick="openCreateTaskModal()" title="Create new task brief">
@@ -1374,38 +1378,67 @@
       <div class="my-tasks-container" style="display:none;"></div>
     </div>
 
-    <!-- Task detail modal (Image 3) -->
+    <!-- Task detail modal (Interactive Linear-inspired Task Brief) -->
     <div id="task-detail-modal" role="dialog" aria-modal="true" aria-labelledby="tdm-title" style="display:none;position:fixed;inset:0;z-index:998;">
       <div class="task-modal-bg" onclick="closeTaskDetail()"></div>
       <div class="task-brief-modal-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="task-brief-breadcrumbs">
-            <span>Projects</span>
+            <span class="task-brief-bc-root" onclick="closeTaskDetail();setTasksViewMode('projects')" style="cursor:pointer;" title="Back to Projects">Projects</span>
             <span>&gt;</span>
-            <span class="task-brief-dept-name">Department</span>
+            <span class="task-brief-dept-name">Project</span>
             <span>&gt;</span>
             <span class="task-brief-id-label">Task</span>
           </div>
-          <button onclick="closeTaskDetail()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;" aria-label="Close task brief"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-        </div>
-        <div class="task-brief-title" id="tdm-title"></div>
-        <div class="task-brief-properties">
-          <div id="tdm-meta" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></div>
-          <div class="task-prop-chip">
-            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span id="tdm-assignee">&mdash;</span>
-          </div>
-          <div class="task-prop-chip">
-            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span id="tdm-due">&mdash;</span>
-          </div>
-          <div class="task-prop-chip task-brief-estimate-chip" style="display:none;">
-            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="task-brief-estimate-val">&mdash;</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button type="button" class="task-brief-delete-btn" onclick="deleteActiveTask()" title="Delete task" aria-label="Delete task">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+            </button>
+            <button type="button" onclick="closeTaskDetail()" class="task-brief-close-btn" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;" aria-label="Close task brief">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
           </div>
         </div>
-        <div class="task-brief-body" id="tdm-desc"></div>
-        <div id="tdm-status-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        <div class="task-brief-title task-editable-title" id="tdm-title" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task title" placeholder="Task Title" onblur="handleTaskTitleBlur(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+        <div class="task-brief-properties" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 16px;">
+          <div id="tdm-meta" style="display:none !important;"></div>
+          <!-- Status Pill Dropdown -->
+          <div class="task-prop-pill-wrapper" style="position:relative;">
+            <button type="button" class="task-prop-pill-btn tdm-status-btn" onclick="toggleTaskDetailStatusMenu(event)" title="Change Status">
+              <span class="tdm-status-dot" style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
+              <span class="tdm-status-text">To Do</span>
+              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="task-prop-dropdown tdm-status-dropdown" style="display:none;"></div>
+          </div>
+          <!-- Assignee Pill Dropdown -->
+          <div class="task-prop-pill-wrapper" style="position:relative;">
+            <button type="button" class="task-prop-pill-btn tdm-assignee-btn" onclick="toggleTaskDetailAssigneeMenu(event)" title="Assign Member">
+              <span class="tdm-assignee-avatar" style="width:18px;height:18px;border-radius:50%;background:#3b82f6;color:#ffffff;font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;">U</span>
+              <span id="tdm-assignee">Unassigned</span>
+              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="task-prop-dropdown tdm-assignee-dropdown" style="display:none;"></div>
+          </div>
+          <!-- Priority Pill -->
+          <button type="button" class="task-prop-pill-btn tdm-priority-btn" onclick="cycleTaskDetailPriority(event)" title="Click to cycle priority (Low / Medium / High)">
+            <span class="tdm-priority-icon" style="font-weight:700;">—</span>
+            <span class="tdm-priority-text">Medium</span>
+          </button>
+          <!-- Due Date Picker -->
+          <label class="task-prop-pill-btn tdm-due-label" title="Change due date" style="cursor:pointer;position:relative;margin-bottom:0;">
+            <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="tdm-due">Due Date</span>
+            <input type="date" class="tdm-due-input" onchange="handleTaskDetailDueChange(this.value)" style="position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer;" />
+          </label>
+          <!-- Estimate Pill -->
+          <button type="button" class="task-prop-pill-btn tdm-estimate-btn" onclick="editTaskDetailEstimate(event)" title="Edit estimate (e.g. 2h, 1d)">
+            <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="tdm-estimate-val">Estimate</span>
+          </button>
+        </div>
+        <div class="task-brief-body task-editable-desc" id="tdm-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task description and deliverables" placeholder="Add a description or deliverables brief..." onblur="handleTaskDescBlur(this)"></div>
+        <div id="tdm-status-btns" style="display:none !important;"></div>
       </div>
     </div>
 
@@ -2829,24 +2862,24 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261030g"></script>
-<script src="js/api/supabase.js?v=20261030g"></script>
-<script src="js/core/session.js?v=20261030g"></script>
-<script src="js/core/utils.js?v=20261030g"></script>
-<script src="js/core/ui.js?v=20261030g"></script>
-<script src="js/core/loading.js?v=20261030g"></script>
-<script src="js/modules/member.js?v=20261030g"></script>
-<script src="js/api/sheets.js?v=20261030g"></script>
-<script src="js/modules/attendance.js?v=20261030g"></script>
-<script src="js/modules/announcements.js?v=20261030g"></script>
-<script src="js/modules/gallery.js?v=20261030g"></script>
-<script src="js/modules/resources.js?v=20261030g"></script>
-<script src="js/modules/calendar.js?v=20261030g"></script>
-<script src="js/modules/orders.js?v=20261030g"></script>
-<script src="js/modules/forms.js?v=20261030g"></script>
-<script src="js/modules/badges.js?v=20261030g"></script>
-<script src="js/modules/tasks.js?v=20261030g"></script>
-<script src="js/modules/admin.js?v=20261030g"></script>
+<script src="js/config.js?v=20261030i"></script>
+<script src="js/api/supabase.js?v=20261030i"></script>
+<script src="js/core/session.js?v=20261030i"></script>
+<script src="js/core/utils.js?v=20261030i"></script>
+<script src="js/core/ui.js?v=20261030i"></script>
+<script src="js/core/loading.js?v=20261030i"></script>
+<script src="js/modules/member.js?v=20261030i"></script>
+<script src="js/api/sheets.js?v=20261030i"></script>
+<script src="js/modules/attendance.js?v=20261030i"></script>
+<script src="js/modules/announcements.js?v=20261030i"></script>
+<script src="js/modules/gallery.js?v=20261030i"></script>
+<script src="js/modules/resources.js?v=20261030i"></script>
+<script src="js/modules/calendar.js?v=20261030i"></script>
+<script src="js/modules/orders.js?v=20261030i"></script>
+<script src="js/modules/forms.js?v=20261030i"></script>
+<script src="js/modules/badges.js?v=20261030i"></script>
+<script src="js/modules/tasks.js?v=20261030i"></script>
+<script src="js/modules/admin.js?v=20261030i"></script>
 
 <script>
 
