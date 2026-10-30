@@ -263,6 +263,7 @@ async function checkTasksAccess() {
   var nd = document.getElementById('tasks-no-dept');
   var gate = document.getElementById('tasks-gate');
   var board = document.getElementById('tasks-board');
+  var snavTasks = document.getElementById('snav-tasks');
   var boardPill = document.querySelector('.tasks-nav-pill[data-task-view="board"]');
   if (!boardPill) {
     var allPills = document.querySelectorAll('.tasks-nav-pill');
@@ -274,22 +275,23 @@ async function checkTasksAccess() {
     }
   }
 
+  // Ensure Weekly Parade schedule on #page-parade stays visible
+  if (nd) nd.style.display = 'block';
+
   if (!ic) {
     if (boardPill) boardPill.style.display = 'none';
-    _activeTasksSection = 'parade';
-    if (nd) nd.style.display = 'block';
-    if (gate) gate.style.display = 'none';
+    if (snavTasks) snavTasks.style.display = 'none';
+    if (gate) gate.style.display = 'block';
     if (board) board.style.display = 'none';
-    document.querySelectorAll('.tasks-nav-pill').forEach(function(btn) {
-      var isParade = btn.getAttribute('data-task-view') === 'parade';
-      btn.classList.toggle('active', isParade);
-      btn.setAttribute('aria-selected', String(isParade));
-    });
     return;
   }
 
   var client = getSupaClient();
-  if (!client) return;
+  if (!client) {
+    if (gate) gate.style.display = 'block';
+    if (board) board.style.display = 'none';
+    return;
+  }
 
   try {
     var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,department,rank');
@@ -305,27 +307,21 @@ async function checkTasksAccess() {
     var isAllowed = hasDepartmentRole(m || { department: dept, rank: rank }, rank);
 
     if (!isAllowed) {
-      // Regular members and NCOs without department roles cannot see the Projects & Tasks tab pill
       if (boardPill) boardPill.style.display = 'none';
-      _activeTasksSection = 'parade';
-      if (nd) nd.style.display = 'block';
-      if (gate) gate.style.display = 'none';
+      if (snavTasks) snavTasks.style.display = 'none';
+      if (gate) gate.style.display = 'block';
       if (board) board.style.display = 'none';
-      document.querySelectorAll('.tasks-nav-pill').forEach(function(btn) {
-        var isParade = btn.getAttribute('data-task-view') === 'parade';
-        btn.classList.toggle('active', isParade);
-        btn.setAttribute('aria-selected', String(isParade));
-      });
       return;
     }
 
-    // Member has department role or officer rank: reveal Projects & Tasks tab pill
+    // Member has department role or officer rank: reveal Projects & Tasks
     if (boardPill) boardPill.style.display = 'inline-flex';
+    if (snavTasks) snavTasks.style.display = 'flex';
 
     if (dept && DEPT_CONFIG[dept.toLowerCase()]) {
       var cfg = DEPT_CONFIG[dept.toLowerCase()];
       var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
-      var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Task Board';
+      var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Projects & Tasks';
       var db  = document.getElementById('tasks-dept-badge');
       if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
       _currentDeptFilter = dept.toLowerCase();
@@ -337,18 +333,24 @@ async function checkTasksAccess() {
       _currentDeptFilter = 'all';
     }
 
-    if (_activeTasksSection === 'board') {
-      if (nd) nd.style.display = 'none';
-      if (gate) gate.style.display = 'none';
-      if (board) board.style.display = 'block';
-      await renderTasksBoard(_currentDeptFilter);
-    } else {
-      if (nd) nd.style.display = 'block';
-      if (board) board.style.display = 'none';
-    }
+    if (gate) gate.style.display = 'none';
+    if (board) board.style.display = 'block';
+    await renderTasksBoard(_currentDeptFilter);
   } catch (e) {
     console.error('checkTasksAccess error:', e);
   }
+}
+
+/**
+ * Preview board demo allows visitors to explore the Kanban UI/UX
+ */
+function previewTasksBoardDemo() {
+  if (typeof document === 'undefined') return;
+  var gate = document.getElementById('tasks-gate');
+  var board = document.getElementById('tasks-board');
+  if (gate) gate.style.display = 'none';
+  if (board) board.style.display = 'block';
+  renderTasksBoard('all');
 }
 
 /**
@@ -1448,6 +1450,7 @@ if (typeof window !== 'undefined') {
   window.updateTaskStatus           = updateTaskStatus;
   window.editAdminTask              = editAdminTask;
   window.deleteTask                 = deleteTask;
+  window.previewTasksBoardDemo      = previewTasksBoardDemo;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1491,6 +1494,7 @@ if (typeof module !== 'undefined' && module.exports) {
     renderAdminTasks,
     updateTaskStatus,
     editAdminTask,
-    deleteTask
+    deleteTask,
+    previewTasksBoardDemo
   };
 }
