@@ -4476,3 +4476,311 @@ textarea:-webkit-autofill:active {
     font-size: 18px !important;
   }
 }
+
+
+/* ── Projects Overview Styles (Image 3) ── */
+.projects-container {
+  width: 100%;
+  padding-bottom: 30px;
+}
+
+.projects-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.projects-overview-title {
+  font-family: var(--font-headline);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.projects-overview-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.projects-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.projects-table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.project-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  gap: 16px;
+}
+
+.project-row:last-child {
+  border-bottom: none;
+}
+
+.project-row:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.project-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.project-folder-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--brand-blue, #3b82f6);
+  flex-shrink: 0;
+}
+
+.project-row-name {
+  font-family: var(--font-headline);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-assignees-stack {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.project-assignee-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
+  border: 2px solid var(--bg-card);
+  margin-left: -6px;
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.project-assignee-avatar:first-child {
+  margin-left: 0;
+}
+
+.project-progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 140px;
+  flex-shrink: 0;
+}
+
+.project-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.project-progress-fill {
+  height: 100%;
+  background: #0ea5e9;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.project-progress-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  width: 34px;
+  text-align: right;
+}
+
+/* ── Minimalist Kanban Card (Image 4) ── */
+.task-card {
+  overflow: visible !important;
+}
+
+.task-card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.task-due-pill.due-normal {
+  color: var(--text-secondary);
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.task-due-pill.due-near {
+  color: #f59e0b !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  font-weight: 600 !important;
+}
+
+.task-due-pill.due-overdue,
+.task-due-pill.overdue {
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  font-weight: 600 !important;
+}
+
+.task-card-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1.5px solid var(--border-card);
+  cursor: pointer;
+  position: relative;
+}
+
+.task-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Interactive Task Brief Modal (Image 2) ── */
+.task-prop-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  position: relative;
+  user-select: none;
+}
+
+.task-prop-pill-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+}
+
+.task-editable-title {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-headline);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color 0.2s, background-color 0.2s;
+  letter-spacing: -0.02em;
+}
+
+.task-editable-title:hover {
+  border-color: var(--border-subtle);
+}
+
+.task-editable-title:focus {
+  border-color: var(--accent);
+  background: var(--bg-input);
+}
+
+.task-editable-desc {
+  width: 100%;
+  min-height: 180px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 14px 16px;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.task-editable-desc:focus {
+  border-color: var(--accent);
+}
+
+.task-prop-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  padding: 6px;
+  min-width: 170px;
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-prop-dropdown-item {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.task-prop-dropdown-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--accent);
+}
