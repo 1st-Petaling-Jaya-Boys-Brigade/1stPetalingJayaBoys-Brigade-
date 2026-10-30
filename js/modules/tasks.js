@@ -80,6 +80,83 @@ var _allAdminTasks      = [];
 var _taskMap            = {};
 
 /**
+ * Extracts project name from task object (column or description tag)
+ */
+function getTaskProjectName(t) {
+  if (!t) return '';
+  if (t.project_name && t.project_name.trim()) return t.project_name.trim();
+  if (t.description) {
+    var match = t.description.match(/\[Project:\s*([^\]|]+)/i);
+    if (match && match[1] && match[1].trim()) return match[1].trim();
+  }
+  return '';
+}
+
+/**
+ * Persists _companyProjects to localStorage and Supabase bb_config
+ */
+async function saveProjectsCatalog() {
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.setItem('bb_company_projects', JSON.stringify(_companyProjects)); } catch (_) {}
+  }
+  var client = getSupaClient();
+  if (client) {
+    try {
+      await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_projects', value: JSON.stringify(_companyProjects) }, {
+        headers: { 'Prefer': 'resolution=merge-duplicates' }
+      });
+    } catch (_) {
+      try {
+        await client.patch('bb_config?key=eq.bb_projects', { value: JSON.stringify(_companyProjects) });
+      } catch (_) {
+        try { await client.post('bb_config', { key: 'bb_projects', value: JSON.stringify(_companyProjects) }); } catch (_) {}
+      }
+    }
+  }
+}
+
+/**
+ * Loads _companyProjects from localStorage, Supabase bb_config, and existing tasks
+ */
+async function loadProjectsCatalog() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_company_projects');
+      if (cached) {
+        var arr = JSON.parse(cached);
+        if (Array.isArray(arr)) {
+          arr.forEach(function(p) {
+            if (p && _companyProjects.indexOf(p) === -1) _companyProjects.push(p);
+          });
+        }
+      }
+    } catch (_) {}
+  }
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_projects&select=value');
+      if (Array.isArray(rows) && rows.length && rows[0].value) {
+        var remoteArr = JSON.parse(rows[0].value);
+        if (Array.isArray(remoteArr)) {
+          remoteArr.forEach(function(p) {
+            if (p && _companyProjects.indexOf(p) === -1) _companyProjects.push(p);
+          });
+        }
+      }
+    } catch (_) {}
+  }
+  if (Array.isArray(_allLoadedTasks)) {
+    _allLoadedTasks.forEach(function(t) {
+      var p = getTaskProjectName(t);
+      if (p && p !== 'General Project' && _companyProjects.indexOf(p) === -1) {
+        _companyProjects.push(p);
+      }
+    });
+  }
+}
+
+/**
  * Resolves Supabase client instance across browser and test environments
  */
 function getSupaClient() {
@@ -373,32 +450,68 @@ function previewTasksBoardDemo() {
  * @param {string} mode ('board' | 'mytasks')
  */
 function setTasksViewMode(mode) {
+  _tasksViewMode = mode || 'projects';
   if (typeof document === 'undefined') return;
-  _tasksViewMode = mode || 'board';
 
-  document.querySelectorAll('.view-toggle-btn').forEach(function(btn) {
-    var isTarget = btn.getAttribute('data-vmode') === _tasksViewMode;
-    btn.classList.toggle('active', isTarget);
+  var boardCol = document.getElementById('tasks-columns');
+  var colTabs  = document.getElementById('task-col-tabs');
+  var myTasks  = document.querySelector('.my-tasks-container');
+  var projContainer = document.querySelector('.projects-container');
+  var addBtn = document.querySelector('.task-primary-btn');
+  var searchBox = document.querySelector('.task-toolbar-actions .task-search-box');
+  var deptSelect = document.querySelector('.task-dept-select');
+  if (deptSelect) deptSelect.style.display = 'none';
+
+  // Toggle active button in toolbar
+  document.querySelectorAll('.task-view-toggle .view-toggle-btn').forEach(function(btn) {
+    var vmode = btn.getAttribute('data-vmode');
+    btn.classList.toggle('active', vmode === _tasksViewMode);
   });
 
-  var colsWrap = document.getElementById('tasks-columns');
-  var myTasksWrap = document.querySelector('.my-tasks-container');
-  var projectsWrap = document.querySelector('.projects-container');
+  var sep = document.querySelector('.task-breadcrumb-sep');
+  var cur = document.getElementById('tasks-dept-title');
 
   if (_tasksViewMode === 'projects') {
-    if (colsWrap) colsWrap.style.display = 'none';
-    if (myTasksWrap) myTasksWrap.style.display = 'none';
-    if (projectsWrap) projectsWrap.style.display = 'block';
+    if (boardCol) boardCol.style.display = 'none';
+    if (colTabs) colTabs.style.display = 'none';
+    if (myTasks) myTasks.style.display = 'none';
+    if (projContainer) projContainer.style.display = 'block';
+    if (addBtn) {
+      addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Project</span>';
+      addBtn.setAttribute('onclick', 'openAddProjectModal()');
+    }
+    if (searchBox) searchBox.style.display = 'none';
+    if (sep) sep.style.display = 'none';
+    if (cur) cur.style.display = 'none';
     renderProjectsView();
   } else if (_tasksViewMode === 'board') {
-    if (colsWrap) colsWrap.style.display = 'flex';
-    if (myTasksWrap) myTasksWrap.style.display = 'none';
-    if (projectsWrap) projectsWrap.style.display = 'none';
+    if (boardCol) boardCol.style.display = 'grid';
+    if (colTabs) colTabs.style.display = 'flex';
+    if (myTasks) myTasks.style.display = 'none';
+    if (projContainer) projContainer.style.display = 'none';
+    if (addBtn) {
+      addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Task</span>';
+      addBtn.setAttribute('onclick', 'openCreateTaskModal()');
+    }
+    if (searchBox) searchBox.style.display = 'flex';
+    if (sep) sep.style.display = 'inline';
+    if (cur) {
+      cur.style.display = 'inline';
+      cur.textContent = _activeProject || 'All Tasks';
+    }
     renderTasksBoard(_activeProject);
-  } else {
-    if (colsWrap) colsWrap.style.display = 'none';
-    if (myTasksWrap) myTasksWrap.style.display = 'block';
-    if (projectsWrap) projectsWrap.style.display = 'none';
+  } else if (_tasksViewMode === 'mytasks') {
+    if (boardCol) boardCol.style.display = 'none';
+    if (colTabs) colTabs.style.display = 'none';
+    if (myTasks) myTasks.style.display = 'block';
+    if (projContainer) projContainer.style.display = 'none';
+    if (addBtn) {
+      addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Task</span>';
+      addBtn.setAttribute('onclick', 'openCreateTaskModal()');
+    }
+    if (searchBox) searchBox.style.display = 'none';
+    if (sep) sep.style.display = 'none';
+    if (cur) cur.style.display = 'none';
     renderMyTasksView();
   }
 }
@@ -407,7 +520,7 @@ function setTasksViewMode(mode) {
  * Opens a specific project's Kanban board directly
  */
 function openProjectBoard(projectName) {
-  _activeProject = projectName || '';
+  _activeProject = projectName || 'General Project';
   setTasksViewMode('board');
 }
 
@@ -419,22 +532,12 @@ async function renderProjectsView() {
   var container = document.querySelector('.projects-container');
   if (!container) return;
 
-  var client = getSupaClient();
-  if (client) {
-    try {
-      var tasks = await client.get('bb_tasks?order=created_at.asc');
-      if (Array.isArray(tasks)) _allLoadedTasks = tasks;
-    } catch (e) {
-      console.warn('Failed to load tasks for projects view:', e);
-    }
-  }
+  await loadProjectsCatalog();
 
-  // Derive distinct active projects from loaded tasks and company projects
   var projectNamesMap = {};
   _allLoadedTasks.forEach(function(t) {
-    var p = (t.project_name || '').trim();
-    // Filter out legacy dummy sprints
-    if (p && !p.toLowerCase().includes('sprint') && p.toLowerCase() !== 'company project') {
+    var p = getTaskProjectName(t);
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
       projectNamesMap[p] = true;
     }
   });
@@ -473,7 +576,7 @@ async function renderProjectsView() {
   } else {
     projectList.forEach(function(pName) {
       var pTasks = _allLoadedTasks.filter(function(t) {
-        return (t.project_name || '').trim().toLowerCase() === pName.toLowerCase();
+        return getTaskProjectName(t).toLowerCase() === pName.toLowerCase();
       });
       var completedCount = pTasks.filter(function(t) {
         return normalizeTaskStatus(t.status) === 'completed';
@@ -489,7 +592,7 @@ async function renderProjectsView() {
       var avatarStackHtml = '<div class="project-assignees-stack">';
       assigneesList.slice(0, 4).forEach(function(name) {
         var initials = name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-        avatarStackHtml += '<span class="project-assignee-avatar" title="' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '">' + escapeHtml(initials) + '</span>';
+        avatarStackHtml += '<span class="project-assignee-avatar" title="' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
       });
       avatarStackHtml += '</div>';
 
@@ -527,12 +630,13 @@ function filterProjectsList(query) {
 /**
  * Opens prompt / modal to create a new project
  */
-function openAddProjectModal() {
+async function openAddProjectModal() {
   var name = (typeof prompt === 'function') ? prompt('Enter new project name:') : null;
   if (!name || !name.trim()) return;
   var cleanName = (typeof sanitizeText === 'function') ? sanitizeText(name.trim(), 80) : name.trim();
   if (_companyProjects.indexOf(cleanName) === -1) {
     _companyProjects.push(cleanName);
+    await saveProjectsCatalog();
   }
   openProjectBoard(cleanName);
   if (typeof showToast === 'function') {
@@ -583,21 +687,19 @@ function filterProjectTasks(query) {
  * @returns {string}
  */
 function formatTaskId(t, idx) {
-  if (!t) return 'TSK-1';
+  if (!t) return 'PRJ-1';
   if (t.code && String(t.code).indexOf('-') !== -1) return String(t.code).toUpperCase();
 
-  var projectName = (t.project_name || t.department || 'PRJ').trim();
-  // Strip non-letters to find clean 3-letter prefix
+  var projectName = getTaskProjectName(t) || _activeProject || 'PRJ';
   var lettersOnly = projectName.replace(/[^a-zA-Z]/g, '');
   var prefix = (lettersOnly.length >= 3
     ? lettersOnly.slice(0, 3)
     : (projectName.replace(/[^a-zA-Z0-9]/g, '') + 'PRJ').slice(0, 3)
   ).toUpperCase();
 
-  // Find 1-based sequential creation index within this project
   var projectTasks = _allLoadedTasks
     .filter(function(x) {
-      var xProj = (x.project_name || x.department || 'PRJ').trim();
+      var xProj = getTaskProjectName(x) || 'PRJ';
       return xProj.toLowerCase() === projectName.toLowerCase();
     })
     .sort(function(a, b) {
@@ -1047,7 +1149,7 @@ function openTaskDetail(id) {
   };
 
   // Breadcrumbs matching Image 2
-  var projectName = t.project_name || 'General Project';
+  var projectName = getTaskProjectName(t) || _activeProject || 'General Project';
   var taskId = formatTaskId(t, 0);
 
   var deptBreadcrumb = document.querySelector('.task-brief-dept-name');
@@ -1055,30 +1157,21 @@ function openTaskDetail(id) {
   var idLabel = document.querySelector('.task-brief-id-label');
   if (idLabel) idLabel.textContent = taskId;
 
-  // Title: sync hidden text for test assertions and editable input
+  // Title: editable contenteditable element
   set('tdm-title', t.title || '');
-  var titleInput = document.getElementById('tdm-title-input');
-  if (titleInput) {
-    titleInput.value = t.title || '';
-    titleInput.onchange = function() {
-      var val = titleInput.value.trim();
-      saveTaskField(id, 'title', val);
-      set('tdm-title', val);
-    };
-  }
 
   // Status Pill matching Image 2
   var normStatus = normalizeTaskStatus(t.status);
   var sConf = STATUS_CONFIG[normStatus] || { label: normStatus, color: '#3b82f6' };
-  var statusDot = document.getElementById('tdm-status-dot');
+  var statusDot = document.querySelector('.tdm-status-dot');
   if (statusDot) statusDot.style.background = sConf.color;
-  var statusText = document.getElementById('tdm-status-text');
+  var statusText = document.querySelector('.tdm-status-text');
   if (statusText) statusText.textContent = sConf.label;
 
   // Assignee Pill matching Image 2
   var aName = t.assignee_name || 'Unassigned';
   var initials = aName === 'Unassigned' ? 'U' : aName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-  var aAvatar = document.getElementById('tdm-assignee-avatar');
+  var aAvatar = document.querySelector('.tdm-assignee-avatar');
   if (aAvatar) aAvatar.textContent = initials;
   set('tdm-assignee', aName);
 
@@ -1086,9 +1179,9 @@ function openTaskDetail(id) {
   var priorityVal = t.priority || 'medium';
   var pLabel = priorityVal.charAt(0).toUpperCase() + priorityVal.slice(1);
   var pIcon = priorityVal === 'high' ? '⌃' : (priorityVal === 'low' ? '⌄' : '—');
-  var pIconEl = document.getElementById('tdm-priority-icon');
+  var pIconEl = document.querySelector('.tdm-priority-icon');
   if (pIconEl) pIconEl.textContent = pIcon;
-  var pTextEl = document.getElementById('tdm-priority-text');
+  var pTextEl = document.querySelector('.tdm-priority-text');
   if (pTextEl) pTextEl.textContent = pLabel;
 
   // Due Date Pill matching Image 2
@@ -1098,23 +1191,49 @@ function openTaskDetail(id) {
     dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
   }
   set('tdm-due', dueStr);
-  var dueInput = document.getElementById('tdm-due-input');
+  var dueInput = document.querySelector('.tdm-due-input');
   if (dueInput && t.due_date) dueInput.value = t.due_date.split('T')[0];
 
   // Estimate Pill matching Image 2
   var estStr = t.estimate || 'Estimate';
-  var estValEl = document.getElementById('tdm-estimate-val');
+  var estValEl = document.querySelector('.tdm-estimate-val');
   if (estValEl) estValEl.textContent = estStr;
 
-  // Description Textarea matching Image 2
-  set('tdm-desc', t.description || '');
-  var descInput = document.getElementById('tdm-desc-input');
-  if (descInput) {
-    descInput.value = t.description || '';
-  }
+  // Description: strip [Project: ...] tag for clean reading and editing
+  var cleanDesc = (t.description || '').replace(/\s*\[Project:[^\]]*\]/gi, '').trim();
+  set('tdm-desc', cleanDesc);
 
   var modal = document.getElementById('task-detail-modal');
   if (modal) modal.style.display = 'block';
+}
+
+function handleTaskTitleBlur(el) {
+  if (!_activeDetailTaskId || !el) return;
+  var val = (el.textContent || '').trim();
+  if (val) {
+    saveTaskField(_activeDetailTaskId, 'title', val);
+  }
+}
+
+function handleTaskDescBlur(el) {
+  if (!_activeDetailTaskId || !el) return;
+  var val = (el.textContent || '').trim();
+  saveTaskField(_activeDetailTaskId, 'description', val);
+}
+
+/**
+ * Backward compatibility helpers
+ */
+function handleTaskDetailDescChange(val) {
+  var descEl = document.getElementById('tdm-desc');
+  if (descEl) descEl.textContent = val;
+}
+
+function saveActiveTaskBrief() {
+  if (!_activeDetailTaskId) return;
+  var descEl = document.getElementById('tdm-desc');
+  var val = descEl ? descEl.textContent : '';
+  saveTaskField(_activeDetailTaskId, 'description', val);
 }
 
 /**
@@ -1132,16 +1251,32 @@ async function saveTaskField(id, field, value) {
     renderTasksBoard(_activeProject);
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
+  } else if (_tasksViewMode === 'projects') {
+    renderProjectsView();
   }
 
-  // Background async patch
+  // Background async patch with graceful fallback
   var client = getSupaClient();
   if (client) {
     var patch = {};
     patch[field] = value;
-    client.patch('bb_tasks?id=eq.' + id, patch).catch(function(err) {
+    try {
+      await client.patch('bb_tasks?id=eq.' + id, patch);
+    } catch (err) {
       console.warn('Background patch error for field ' + field + ':', err);
-    });
+      if (field === 'estimate' || field === 'project_name') {
+        var pName = getTaskProjectName(t);
+        var est = t.estimate || '';
+        var rawDesc = (t.description || '').replace(/\s*\[Project:[^\]]*\]/gi, '').trim();
+        var extra = [];
+        if (pName) extra.push('Project: ' + pName);
+        if (est) extra.push('Estimate: ' + est);
+        var updatedDesc = rawDesc + (extra.length ? '\n\n[' + extra.join(' | ') + ']' : '');
+        try {
+          await client.patch('bb_tasks?id=eq.' + id, { description: updatedDesc });
+        } catch (_) {}
+      }
+    }
   }
   if (typeof showToast === 'function') {
     showToast('Task updated', 'info', 1000);
@@ -1153,7 +1288,7 @@ async function saveTaskField(id, field, value) {
  */
 function toggleTaskDetailStatusMenu(e) {
   if (e) e.stopPropagation();
-  var menu = document.getElementById('tdm-status-dropdown');
+  var menu = document.querySelector('.tdm-status-dropdown');
   if (!menu) return;
   if (menu.style.display === 'block') {
     menu.style.display = 'none';
@@ -1175,11 +1310,11 @@ function selectTaskDetailStatus(status) {
   if (!_activeDetailTaskId) return;
   saveTaskField(_activeDetailTaskId, 'status', status);
   var sConf = STATUS_CONFIG[status] || { label: status, color: '#3b82f6' };
-  var statusDot = document.getElementById('tdm-status-dot');
+  var statusDot = document.querySelector('.tdm-status-dot');
   if (statusDot) statusDot.style.background = sConf.color;
-  var statusText = document.getElementById('tdm-status-text');
+  var statusText = document.querySelector('.tdm-status-text');
   if (statusText) statusText.textContent = sConf.label;
-  var menu = document.getElementById('tdm-status-dropdown');
+  var menu = document.querySelector('.tdm-status-dropdown');
   if (menu) menu.style.display = 'none';
 }
 
@@ -1188,7 +1323,7 @@ function selectTaskDetailStatus(status) {
  */
 async function toggleTaskDetailAssigneeMenu(e) {
   if (e) e.stopPropagation();
-  var menu = document.getElementById('tdm-assignee-dropdown');
+  var menu = document.querySelector('.tdm-assignee-dropdown');
   if (!menu) return;
   if (menu.style.display === 'block') {
     menu.style.display = 'none';
@@ -1231,9 +1366,9 @@ function selectTaskDetailAssignee(ic, name) {
   saveTaskField(_activeDetailTaskId, 'assignee_ic', ic);
   var aNameEl = document.getElementById('tdm-assignee');
   if (aNameEl) aNameEl.textContent = name;
-  var aAvatar = document.getElementById('tdm-assignee-avatar');
+  var aAvatar = document.querySelector('.tdm-assignee-avatar');
   if (aAvatar) aAvatar.textContent = name === 'Unassigned' ? 'U' : name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-  var menu = document.getElementById('tdm-assignee-dropdown');
+  var menu = document.querySelector('.tdm-assignee-dropdown');
   if (menu) menu.style.display = 'none';
 }
 
@@ -1253,9 +1388,9 @@ function cycleTaskDetailPriority(e) {
 
   var pLabel = next.charAt(0).toUpperCase() + next.slice(1);
   var pIcon = next === 'high' ? '⌃' : (next === 'low' ? '⌄' : '—');
-  var pIconEl = document.getElementById('tdm-priority-icon');
+  var pIconEl = document.querySelector('.tdm-priority-icon');
   if (pIconEl) pIconEl.textContent = pIcon;
-  var pTextEl = document.getElementById('tdm-priority-text');
+  var pTextEl = document.querySelector('.tdm-priority-text');
   if (pTextEl) pTextEl.textContent = pLabel;
 }
 
@@ -1282,24 +1417,9 @@ function editTaskDetailEstimate(e) {
   var newEst = (typeof prompt === 'function') ? prompt('Enter task estimate (e.g. 2h, 1d):', currentEst) : null;
   if (newEst !== null) {
     saveTaskField(_activeDetailTaskId, 'estimate', newEst.trim());
-    var estValEl = document.getElementById('tdm-estimate-val');
+    var estValEl = document.querySelector('.tdm-estimate-val');
     if (estValEl) estValEl.textContent = newEst.trim() || 'Estimate';
   }
-}
-
-/**
- * Description change and save for Task Brief (Image 2)
- */
-function handleTaskDetailDescChange(val) {
-  var descEl = document.getElementById('tdm-desc');
-  if (descEl) descEl.textContent = val;
-}
-
-function saveActiveTaskBrief() {
-  if (!_activeDetailTaskId) return;
-  var descInput = document.getElementById('tdm-desc-input');
-  var val = descInput ? descInput.value : '';
-  saveTaskField(_activeDetailTaskId, 'description', val);
 }
 
 /**
@@ -1920,6 +2040,11 @@ if (typeof window !== 'undefined') {
   window.editTaskDetailEstimate     = editTaskDetailEstimate;
   window.handleTaskDetailDescChange = handleTaskDetailDescChange;
   window.saveActiveTaskBrief        = saveActiveTaskBrief;
+  window.handleTaskTitleBlur        = handleTaskTitleBlur;
+  window.handleTaskDescBlur         = handleTaskDescBlur;
+  window.getTaskProjectName         = getTaskProjectName;
+  window.saveProjectsCatalog        = saveProjectsCatalog;
+  window.loadProjectsCatalog        = loadProjectsCatalog;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1980,6 +2105,11 @@ if (typeof module !== 'undefined' && module.exports) {
     handleTaskDetailDueChange,
     editTaskDetailEstimate,
     handleTaskDetailDescChange,
-    saveActiveTaskBrief
+    saveActiveTaskBrief,
+    handleTaskTitleBlur,
+    handleTaskDescBlur,
+    getTaskProjectName,
+    saveProjectsCatalog,
+    loadProjectsCatalog
   };
 }
