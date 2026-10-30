@@ -108,7 +108,7 @@ textarea:-webkit-autofill:active {
   color: var(--text-primary);
   border: 1.5px solid var(--border-card);
   border-radius: var(--radius-md);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -342,7 +342,7 @@ textarea:-webkit-autofill:active {
 }
 
 .success-box .s-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 26px;
   font-weight: 700;
   color: var(--green);
@@ -398,7 +398,7 @@ textarea:-webkit-autofill:active {
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 1px;
@@ -452,7 +452,7 @@ textarea:-webkit-autofill:active {
 }
 
 .mic-name {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 26px;
   font-weight: 700;
   color: var(--text-primary);
@@ -490,7 +490,7 @@ textarea:-webkit-autofill:active {
 }
 
 .mic-detail-chip .chip-value {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
@@ -514,7 +514,7 @@ textarea:-webkit-autofill:active {
 .mic-bb-badge {
   background: linear-gradient(135deg, var(--accent), var(--gold));
   color: #121418;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 14px;
   font-weight: 700;
   width: 44px;
@@ -550,7 +550,7 @@ textarea:-webkit-autofill:active {
   border: 1.5px solid var(--border-card);
   background: var(--bg-card-subtle);
   color: var(--text-secondary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -666,7 +666,7 @@ textarea:-webkit-autofill:active {
   position: absolute;
   top: 8px;
   right: 8px;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 9px;
   font-weight: 700;
   padding: 2px 7px;
@@ -703,7 +703,7 @@ textarea:-webkit-autofill:active {
   margin-bottom: 3px;
 }
 .product-card-name {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
@@ -716,7 +716,7 @@ textarea:-webkit-autofill:active {
   min-height: 38px;
 }
 .product-card-price {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 16px;
   font-weight: 700;
   color: var(--accent);
@@ -757,7 +757,7 @@ textarea:-webkit-autofill:active {
   border-radius: 6px;
   border: 1.5px solid var(--border-card);
   background: var(--bg-card-subtle);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 11px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -832,7 +832,7 @@ textarea:-webkit-autofill:active {
 }
 .stepper-count,
 .qty-display {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 17px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -881,7 +881,7 @@ textarea:-webkit-autofill:active {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -903,7 +903,7 @@ textarea:-webkit-autofill:active {
   font-weight: 600;
 }
 .checkout-total-val {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 20px;
   font-weight: 700;
   color: var(--accent);
@@ -920,7 +920,7 @@ textarea:-webkit-autofill:active {
   border: none;
   background: var(--accent);
   color: #121418;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
@@ -993,14 +993,14 @@ textarea:-webkit-autofill:active {
   color: var(--accent);
 }
 .uniform-name {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
 }
 .uniform-price {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 15px;
   font-weight: 600;
   color: var(--accent);
@@ -1027,7 +1027,7 @@ textarea:-webkit-autofill:active {
   margin-top: 8px;
 }
 .total-label {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 16px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -1035,7 +1035,7 @@ textarea:-webkit-autofill:active {
   letter-spacing: 1px;
 }
 .total-val {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 26px;
   font-weight: 700;
   color: var(--accent);
@@ -1086,7 +1086,7 @@ textarea:-webkit-autofill:active {
 }
 
 .hero-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 34px;
   font-weight: 700;
   color: var(--text-primary);
@@ -1314,7 +1314,7 @@ textarea:-webkit-autofill:active {
 }
 
 .story-highlight-label {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-primary);
@@ -1427,7 +1427,7 @@ textarea:-webkit-autofill:active {
 }
 
 .story-header-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13.5px;
   font-weight: 700;
   color: #ffffff;
@@ -1652,7 +1652,7 @@ textarea:-webkit-autofill:active {
 }
 
 .ann-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 21px;
   font-weight: 700;
   color: var(--text-primary);
@@ -1721,7 +1721,7 @@ textarea:-webkit-autofill:active {
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-secondary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -1774,7 +1774,7 @@ textarea:-webkit-autofill:active {
   font-size: 22px;
   margin: 0;
   letter-spacing: 0.5px;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   color: var(--text-primary);
 }
 
@@ -1822,7 +1822,7 @@ textarea:-webkit-autofill:active {
 .task-breadcrumb-cur {
   color: var(--text-primary);
   font-weight: 700;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
 }
 
 .task-toolbar-actions {
@@ -1898,7 +1898,7 @@ textarea:-webkit-autofill:active {
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 700;
   text-transform: none;
@@ -1921,7 +1921,7 @@ textarea:-webkit-autofill:active {
   border: none;
   border-radius: var(--radius-md);
   padding: 8px 16px;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -2112,7 +2112,7 @@ textarea:-webkit-autofill:active {
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -2129,7 +2129,7 @@ textarea:-webkit-autofill:active {
 }
 
 .task-col-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 2px;
@@ -2184,7 +2184,7 @@ textarea:-webkit-autofill:active {
 }
 
 .task-id-badge {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 11px;
   font-weight: 700;
   color: var(--text-muted);
@@ -2199,7 +2199,7 @@ textarea:-webkit-autofill:active {
 }
 
 .task-card-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
@@ -2260,7 +2260,7 @@ textarea:-webkit-autofill:active {
   border-radius: 50%;
   background: #3b82f6;
   color: #fff;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 10px;
   font-weight: 700;
   display: inline-flex;
@@ -2296,7 +2296,7 @@ textarea:-webkit-autofill:active {
 }
 
 .my-tasks-title-group h2 {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
@@ -2354,7 +2354,7 @@ textarea:-webkit-autofill:active {
 
 .my-tasks-table th {
   padding: 12px 14px;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -2466,7 +2466,7 @@ textarea:-webkit-autofill:active {
 }
 
 .task-brief-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 24px;
   font-weight: 700;
   color: var(--text-primary);
@@ -2512,7 +2512,7 @@ textarea:-webkit-autofill:active {
 /* Department Badges */
 .dept-badge {
   display: inline-block;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
@@ -2569,7 +2569,7 @@ textarea:-webkit-autofill:active {
   border-radius: var(--radius-sm);
   background: var(--bg-card-subtle);
   color: var(--text-secondary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -2757,7 +2757,7 @@ textarea:-webkit-autofill:active {
 }
 
 .form-card-name {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
@@ -2785,7 +2785,7 @@ textarea:-webkit-autofill:active {
   border-radius: var(--radius-sm);
   padding: 8px 14px;
   cursor: pointer;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -2837,7 +2837,7 @@ textarea:-webkit-autofill:active {
   border: none;
   background: var(--bg-card-subtle);
   color: var(--text-secondary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -2886,7 +2886,7 @@ textarea:-webkit-autofill:active {
   border: 1.5px solid var(--border-card);
   border-radius: var(--radius-xs);
   color: var(--text-primary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 15px;
   font-weight: 700;
   text-align: center;
@@ -2902,7 +2902,7 @@ textarea:-webkit-autofill:active {
   border: 1px solid var(--border-card);
   border-radius: var(--radius-sm);
   padding: 6px 12px;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
@@ -2912,7 +2912,7 @@ textarea:-webkit-autofill:active {
   background: rgba(16, 185, 129, 0.15);
   border: 1.5px solid rgba(16, 185, 129, 0.35);
   color: #10b981;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
   padding: 10px 18px;
@@ -3162,7 +3162,7 @@ textarea:-webkit-autofill:active {
 }
 
 .hq-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
@@ -3191,7 +3191,7 @@ textarea:-webkit-autofill:active {
 }
 
 .hq-link {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 700;
   color: var(--accent);
@@ -3361,7 +3361,7 @@ textarea:-webkit-autofill:active {
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   letter-spacing: 0.5px;
 }
 .portal-modal-body p {
@@ -3462,7 +3462,7 @@ textarea:-webkit-autofill:active {
   font-weight: 700;
 }
 .resource-type-badge {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -3575,7 +3575,7 @@ textarea:-webkit-autofill:active {
 }
 
 .cal-widget-month-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 19px;
   font-weight: 700;
   color: var(--text-primary);
@@ -3629,7 +3629,7 @@ textarea:-webkit-autofill:active {
 }
 
 .cal-badge-day {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);
@@ -3750,7 +3750,7 @@ textarea:-webkit-autofill:active {
 }
 
 .cal-preview-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
@@ -3793,7 +3793,7 @@ textarea:-webkit-autofill:active {
 }
 
 .cal-subbox-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);
@@ -3830,7 +3830,7 @@ textarea:-webkit-autofill:active {
   grid-template-columns: repeat(7, 1fr);
   background: var(--bg-card-subtle);
   border-bottom: 1px solid var(--border-card);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 700;
   color: var(--text-secondary);
@@ -3945,7 +3945,7 @@ textarea:-webkit-autofill:active {
   border-bottom: 1.5px solid rgba(245, 197, 66, 0.35);
   color: var(--brand-gold, #f5c542);
   padding: 8px 16px;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;

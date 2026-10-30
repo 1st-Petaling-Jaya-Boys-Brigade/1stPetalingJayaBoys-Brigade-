@@ -686,10 +686,10 @@ async function loadMemberOrders() {
       html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
         + '<div>'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
+        + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
         + '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + created + '</div>'
         + '</div>'
-        + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:\'Oswald\',sans-serif;text-align:center;">' + sl + '</div>'
+        + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);text-align:center;">' + sl + '</div>'
         + '</div>'
         + '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' + itemLines + '</div>'
         + ssHtml

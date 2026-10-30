@@ -191,7 +191,7 @@ Always use the shared CSS variables from [`css/variables.css`](css/variables.css
 ### Standard HTML Component Classes:
 - `.card`: White/light container card.
 - `.dark-card`: Dark navy container card (`#111e35`).
-- `.page-title`: Large gold heading (Oswald font).
+- `.page-title`: Primary heading (Plus Jakarta Sans font with -0.02em tight tracking).
 - `.page-subtitle`: Secondary section header.
 - `.submit-btn`: Primary button.
 - `.submit-btn.gold`: Highlighted gold action button.

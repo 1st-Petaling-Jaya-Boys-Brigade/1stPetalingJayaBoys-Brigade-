@@ -42,7 +42,7 @@ The portal brings together the primary administrative and member services into a
 ## Tech Stack & Integrations
 
 - **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3 (Custom styling with responsive mobile-first layout).
-- **Typography**: Oswald, Roboto Condensed, Roboto (Google Fonts).
+- **Typography**: Plus Jakarta Sans (Headlines), Inter (Body, Forms & Inputs), JetBrains Mono (Codes & IDs) via Google Fonts.
 - **Backend / Database**: [Supabase](https://supabase.com/) (PostgreSQL REST API via PostgREST).
 - **File & Media Storage**: Supabase Storage (`avatars` and `gallery` buckets).
 - **Spreadsheet Integration**: Google Sheets via Google Apps Script web app endpoints.

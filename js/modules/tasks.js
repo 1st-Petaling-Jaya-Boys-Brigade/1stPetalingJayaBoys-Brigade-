@@ -544,7 +544,7 @@ async function renderTasksBoard(dept) {
       STATUS_ORDER.forEach(function(s) {
         var active = currentStatus === s;
         var sConf = STATUS_CONFIG[s];
-        stBtns += '<button data-task-id="' + t.id + '" data-task-status="' + s + '" data-dept="' + (dept || '') + '" style="flex:1;padding:4px 3px;border:1px solid ' + (active ? sConf.color : 'var(--border-card)') + ';border-radius:6px;background:' + (active ? sConf.color + '22' : 'transparent') + ';color:' + (active ? sConf.color : 'var(--text-secondary)') + ';font-size:9px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;text-align:center;white-space:nowrap;">' + sConf.label + '</button>';
+        stBtns += '<button data-task-id="' + t.id + '" data-task-status="' + s + '" data-dept="' + (dept || '') + '" style="flex:1;padding:4px 3px;border:1px solid ' + (active ? sConf.color : 'var(--border-card)') + ';border-radius:6px;background:' + (active ? sConf.color + '22' : 'transparent') + ';color:' + (active ? sConf.color : 'var(--text-secondary)') + ';font-size:9px;font-weight:700;cursor:pointer;font-family:var(--font-headline);text-align:center;white-space:nowrap;">' + sConf.label + '</button>';
       });
       stBtns += '</div>';
 
@@ -882,7 +882,7 @@ function openTaskDetail(id) {
       var active = t.status === s.key || (s.key === 'todo' && !t.status);
       return '<button data-tdm-status="' + s.key + '" data-tdm-id="' + id + '" data-tdm-dept="' + (t.department || '') + '" '
         + 'style="flex:1;padding:10px;border-radius:10px;border:1.5px solid ' + s.c + (active ? '' : '44') + ';background:' + s.c + (active ? '22' : '11') + ';'
-        + 'color:' + s.c + ';font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;">'
+        + 'color:' + s.c + ';font-family:var(--font-headline);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s;">'
         + s.label + '</button>';
     }).join('');
 
@@ -1319,7 +1319,7 @@ async function renderAdminTasks(filter) {
 
       var statusBtns = Object.keys(SL).map(function(s) {
         var a = s === t.status;
-        return '<button data-tid="' + t.id + '" data-ts="' + s + '" style="padding:4px 10px;border:1.5px solid ' + (a ? SC[s] : 'var(--border-card)') + ';border-radius:6px;background:' + (a ? 'rgba(59,130,246,0.12)' : 'transparent') + ';color:' + (a ? SC[s] : 'var(--text-secondary)') + ';font-size:11px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;">' + SL[s] + '</button>';
+        return '<button data-tid="' + t.id + '" data-ts="' + s + '" style="padding:4px 10px;border:1.5px solid ' + (a ? SC[s] : 'var(--border-card)') + ';border-radius:6px;background:' + (a ? 'rgba(59,130,246,0.12)' : 'transparent') + ';color:' + (a ? SC[s] : 'var(--text-secondary)') + ';font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-headline);">' + SL[s] + '</button>';
       }).join('');
 
       var descText = t.description || '';
@@ -1329,7 +1329,7 @@ async function renderAdminTasks(filter) {
 
       html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">'
         + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">'
-        + '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);flex:1;">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
+        + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);flex:1;">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
         + '<span class="dept-badge ' + dept.cls + '" style="font-size:10px;flex-shrink:0;">' + (typeof escapeHtml === 'function' ? escapeHtml(dept.label) : dept.label) + '</span></div>'
         + descFormatted
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'

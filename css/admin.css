@@ -20,7 +20,7 @@
 .admin-rank-badge {
   background: linear-gradient(135deg, var(--accent), var(--gold));
   color: #111827;
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
@@ -34,7 +34,8 @@
 }
 
 .admin-name {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
+  letter-spacing: -0.01em;
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
@@ -94,7 +95,7 @@
 }
 
 .admin-count-display {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 20px;
   font-weight: 700;
   color: var(--accent);
@@ -109,7 +110,7 @@
   border-radius: var(--radius-pill);
   background: var(--bg-card-subtle);
   color: var(--text-secondary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -190,7 +191,7 @@
 }
 
 .adm-sec-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
@@ -224,7 +225,7 @@
 }
 
 .adm-section-title {
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 20px;
   font-weight: 700;
   color: var(--text-primary);
@@ -240,7 +241,7 @@
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-card);
   color: var(--text-secondary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 700;
   padding: 8px 16px;
@@ -275,7 +276,7 @@
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-card);
   color: var(--text-secondary);
-  font-family: 'Oswald', sans-serif;
+  font-family: var(--font-headline);
   font-size: 12px;
   font-weight: 700;
   padding: 6px 14px;

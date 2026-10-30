@@ -218,7 +218,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     standingCardHtml = 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-          '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
+          '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
             '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
             'HQ NCOs (Hotel)' +
           '</div>' +
@@ -235,11 +235,11 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     standingCardHtml = 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-          '<div style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
+          '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
             '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
             titleText +
           '</div>' +
-          '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;color:var(--accent);">' +
+          '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--accent);">' +
             rankText +
           '</div>' +
         '</div>' +
@@ -249,7 +249,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         (pltInfo && pltInfo.averagePoints ? (
           '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
             '<span style="color:var(--text-secondary);">' + escapeAttHtml(pltName) + ' Platoon Average:</span>' +
-            '<span style="font-family:\'Oswald\',sans-serif;font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' Points</span>' +
+            '<span style="font-family:var(--font-headline);font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' Points</span>' +
           '</div>'
         ) : '') +
       '</div>';
@@ -259,13 +259,13 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     '<!-- Header -->' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">' +
       '<div>' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
+        '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
           '<svg class="ui-icon" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
           'Attendance &amp; Points' +
         '</div>' +
         '<div style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">Master Sheet Sync &middot; ' + escapeAttHtml(syncTimeStr) + '</div>' +
       '</div>' +
-      '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:5px 12px;border-radius:8px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">' +
+      '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:5px 12px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">' +
         '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
         'Refresh' +
       '</button>' +
@@ -277,7 +277,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
         '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Parade Attendance</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px;">' +
-          '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + pColor.text + ';">' + (parade.percentage || 0) + '%</span>' +
+          '<span style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:' + pColor.text + ';">' + (parade.percentage || 0) + '%</span>' +
           '<span style="font-size:11px;color:var(--text-muted);">' + (parade.presentCount ? (parade.presentCount + '/' + parade.totalParades) : '') + '</span>' +
         '</div>' +
         '<div style="margin-top:6px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
@@ -291,7 +291,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           (isBandMember && rec.bandSection ? ('Band Attendance &middot; ' + escapeAttHtml(rec.bandSection)) : 'Band Attendance') +
         '</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px;">' +
-          '<span style="font-family:\'Oswald\',sans-serif;font-size:26px;font-weight:700;color:' + bColor.text + ';">' + bandPctStr + '</span>' +
+          '<span style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:' + bColor.text + ';">' + bandPctStr + '</span>' +
           '<span style="font-size:11px;color:var(--text-muted);">' + bandSubStr + '</span>' +
         '</div>' +
         '<div style="margin-top:6px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
@@ -303,8 +303,8 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     '<!-- 2. Performance Points Breakdown Grid -->' +
     '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:14px;">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
-        '<span style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;">Points Breakdown</span>' +
-        '<span style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--accent);background:rgba(200,150,30,0.12);border:1px solid rgba(200,150,30,0.3);padding:2px 10px;border-radius:20px;">' +
+        '<span style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;">Points Breakdown</span>' +
+        '<span style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--accent);background:rgba(200,150,30,0.12);border:1px solid rgba(200,150,30,0.3);padding:2px 10px;border-radius:20px;">' +
           points.total + ' Total Points' +
         '</span>' +
       '</div>' +
@@ -313,19 +313,19 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         '<!-- Uniform Points -->' +
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
           '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Uniform Points</div>' +
-          '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--blue, #3b82f6);">' + points.uniform + '</div>' + uniformAvgHtml +
+          '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--blue, #3b82f6);">' + points.uniform + '</div>' + uniformAvgHtml +
         '</div>' +
 
         '<!-- Parade Attendance Points -->' +
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
           '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Parade Points</div>' +
-          '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--green, #10b981);">' + points.paradeAtt + '</div>' +
+          '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--green, #10b981);">' + points.paradeAtt + '</div>' +
         '</div>' +
 
         '<!-- Band Points -->' +
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
           '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Band Points</div>' +
-          '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--accent);">' + points.bandAtt + '</div>' +
+          '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--accent);">' + points.bandAtt + '</div>' +
         '</div>' +
       '</div>' +
     '</div>' +
@@ -345,7 +345,7 @@ function renderEmptyAttendanceState(name, lastSynced) {
       '<div style="margin:0 auto 12px;width:48px;height:48px;border-radius:50%;background:rgba(200,150,30,0.1);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid rgba(200,150,30,0.25);">' +
         '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
       '</div>' +
-      '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">' +
+      '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">' +
         'Attendance &amp; Points Overview' +
       '</div>' +
       '<div style="font-size:12px;color:var(--text-secondary);max-width:360px;margin:0 auto 14px;line-height:1.6;">' +
@@ -353,7 +353,7 @@ function renderEmptyAttendanceState(name, lastSynced) {
         ' once synced from the Company Master Attendance Sheet.' +
       '</div>' +
       '<div style="display:inline-flex;gap:8px;align-items:center;">' +
-        '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:7px 16px;border-radius:8px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
+        '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:7px 16px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
           '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
           'Check Again' +
         '</button>' +
@@ -471,11 +471,11 @@ async function renderAdminMasterSheetPanel() {
             '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>' +
           '</div>' +
           '<div>' +
-            '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeAttHtml(sheetName) + '</div>' +
+            '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeAttHtml(sheetName) + '</div>' +
             '<div style="font-size:11px;color:var(--text-muted);">Last Synced: ' + escapeAttHtml(syncDate) + '</div>' +
           '</div>' +
         '</div>' +
-        '<button onclick="triggerMasterSheetFetch()" id="btn-adm-sync-sheet" style="background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
+        '<button onclick="triggerMasterSheetFetch()" id="btn-adm-sync-sheet" style="background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
           '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
           'Sync Now' +
         '</button>' +
@@ -494,7 +494,7 @@ async function renderAdminMasterSheetPanel() {
                 '<span style="font-size:12px;font-weight:700;color:var(--text-primary);">' + escapeAttHtml(sq.name) + '</span>' +
                 '<span style="font-size:10px;font-weight:700;color:var(--accent);">#' + (sq.displayRank || sq.rank || '-') + '</span>' +
               '</div>' +
-              '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' +
+              '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' +
                 (sq.points || 0) + ' Points' +
               '</div>' +
               '<div style="font-size:10px;color:var(--text-muted);">' + escapeAttHtml(st.plt) + ' Platoon</div>' +
@@ -516,7 +516,7 @@ async function renderAdminMasterSheetPanel() {
     '<!-- Master Sheet Security & Endpoint Hardening (TSK-038) -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow-card);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+        '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
           '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
           'Endpoint Security &amp; Master Sheet Hardening' +
         '</div>' +
@@ -561,13 +561,13 @@ async function renderAdminMasterSheetPanel() {
           '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
           'Ensure the Master Google Sheet is set to <strong>Restricted</strong> sharing (never "Anyone with link").' +
         '</div>' +
-        '<button type="button" id="btn-save-master-config" onclick="handleSaveMasterConfig()" class="portal-btn portal-btn-primary" style="padding:7px 18px;font-size:12px;font-family:\'Oswald\',sans-serif;font-weight:700;">Save Configuration</button>' +
+        '<button type="button" id="btn-save-master-config" onclick="handleSaveMasterConfig()" class="portal-btn portal-btn-primary" style="padding:7px 18px;font-size:12px;font-family:var(--font-headline);font-weight:700;">Save Configuration</button>' +
       '</div>' +
     '</div>' +
     '<!-- Configuration & Apps Script Instructions -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;box-shadow:var(--shadow-card);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+        '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
           '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
           'Google Apps Script Setup &amp; Background Auto-Sync' +
         '</div>' +
@@ -804,16 +804,16 @@ async function renderCompanyLeaderboard() {
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:10px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + rankBadgeColor + ';width:28px;text-align:center;">#' + sq.displayRank + '</div>' +
+            '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' + rankBadgeColor + ';width:28px;text-align:center;">#' + sq.displayRank + '</div>' +
             '<div>' +
               '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' + sq.name.toUpperCase() + '</span>' +
+                '<span style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' + sq.name.toUpperCase() + '</span>' +
                 '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:12px;background:' + st.bg + ';color:' + st.color + ';border:1px solid ' + st.border + ';">' + st.plt + '</span>' +
               '</div>' +
             '</div>' +
           '</div>' +
           '<div style="text-align:right;">' +
-            '<div style="font-family:\'Oswald\',sans-serif;font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Points</span></div>' +
+            '<div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Points</span></div>' +
           '</div>' +
         '</div>' +
         '<div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">' +
@@ -839,7 +839,7 @@ async function renderCompanyLeaderboard() {
   // Platoon Averages Summary Footer
   html += 
     '<div style="margin-top:16px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border-card);border-radius:10px;">' +
-      '<div style="font-family:\'Oswald\',sans-serif;font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">' +
+      '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">' +
         'Platoon Averages (Total Squad Points &divide; Squads)' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:8px;">';
@@ -849,7 +849,7 @@ async function renderCompanyLeaderboard() {
     html += 
       '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;text-align:center;">' +
         '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);">' + pa.name + ' Platoon</div>' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' + pa.avg + ' Points</div>' +
+        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' + pa.avg + ' Points</div>' +
       '</div>';
   });
 
