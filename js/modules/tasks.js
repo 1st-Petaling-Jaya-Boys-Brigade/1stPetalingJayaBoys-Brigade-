@@ -470,6 +470,7 @@ function setTasksViewMode(mode) {
   var colTabs  = document.getElementById('task-col-tabs');
   var myTasks  = document.querySelector('.my-tasks-container');
   var projContainer = document.querySelector('.projects-container');
+  var noProjEl = document.querySelector('.tasks-no-project-placeholder');
   var addBtn = document.querySelector('.task-primary-btn');
   var searchBox = document.querySelector('.task-toolbar-actions .task-search-box');
   var deptSelect = document.querySelector('.task-dept-select');
@@ -487,9 +488,11 @@ function setTasksViewMode(mode) {
   if (_tasksViewMode === 'projects') {
     if (boardCol) boardCol.style.display = 'none';
     if (colTabs) colTabs.style.display = 'none';
+    if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'none';
     if (projContainer) projContainer.style.display = 'block';
     if (addBtn) {
+      addBtn.style.display = 'inline-flex';
       addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Project</span>';
       addBtn.setAttribute('onclick', 'openAddProjectModal()');
     }
@@ -498,30 +501,45 @@ function setTasksViewMode(mode) {
     if (cur) cur.style.display = 'none';
     renderProjectsView();
   } else if (_tasksViewMode === 'board') {
-    if (boardCol) boardCol.style.display = '';
-    if (colTabs) colTabs.style.display = '';
-    if (myTasks) myTasks.style.display = 'none';
-    if (projContainer) projContainer.style.display = 'none';
-    if (addBtn) {
-      addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Task</span>';
-      addBtn.setAttribute('onclick', 'openCreateTaskModal()');
+    var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
+
+    if (hasActiveProject) {
+      if (boardCol) boardCol.style.display = '';
+      if (colTabs) colTabs.style.display = '';
+      if (noProjEl) noProjEl.style.display = 'none';
+      if (myTasks) myTasks.style.display = 'none';
+      if (projContainer) projContainer.style.display = 'none';
+      if (addBtn) {
+        addBtn.style.display = 'inline-flex';
+        addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Task</span>';
+        addBtn.setAttribute('onclick', 'openCreateTaskModal()');
+      }
+      if (searchBox) searchBox.style.display = 'flex';
+      if (sep) sep.style.display = 'inline';
+      if (cur) {
+        cur.style.display = 'inline';
+        cur.textContent = _activeProject;
+      }
+      renderTasksBoard(_activeProject);
+    } else {
+      // No project selected: remove Planning, To Do, In Progress, In Review, Completed boxes
+      if (boardCol) boardCol.style.display = 'none';
+      if (colTabs) colTabs.style.display = 'none';
+      if (noProjEl) noProjEl.style.display = 'block';
+      if (myTasks) myTasks.style.display = 'none';
+      if (projContainer) projContainer.style.display = 'none';
+      if (addBtn) addBtn.style.display = 'none';
+      if (searchBox) searchBox.style.display = 'none';
+      if (sep) sep.style.display = 'none';
+      if (cur) cur.style.display = 'none';
     }
-    if (searchBox) searchBox.style.display = 'flex';
-    if (sep) sep.style.display = 'inline';
-    if (cur) {
-      cur.style.display = 'inline';
-      cur.textContent = _activeProject || 'All Tasks';
-    }
-    renderTasksBoard(_activeProject);
   } else if (_tasksViewMode === 'mytasks') {
     if (boardCol) boardCol.style.display = 'none';
     if (colTabs) colTabs.style.display = 'none';
+    if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'block';
     if (projContainer) projContainer.style.display = 'none';
-    if (addBtn) {
-      addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Task</span>';
-      addBtn.setAttribute('onclick', 'openCreateTaskModal()');
-    }
+    if (addBtn) addBtn.style.display = 'none';
     if (searchBox) searchBox.style.display = 'none';
     if (sep) sep.style.display = 'none';
     if (cur) cur.style.display = 'none';
@@ -859,7 +877,9 @@ function renderColumnsFromTasks(tasksList) {
   (tasksList || []).forEach(function(t) {
     if (_activeProject && _activeProject.toLowerCase() !== 'all' && _activeProject.toLowerCase() !== 'all tasks') {
       var pName = getTaskProjectName(t).toLowerCase();
-      if (pName !== _activeProject.toLowerCase()) return;
+      var deptName = (t.department || '').toLowerCase();
+      var activeLower = _activeProject.toLowerCase();
+      if (pName !== activeLower && deptName !== activeLower) return;
     }
     var k = normalizeTaskStatus(t.status);
     if (cols[k]) cols[k].push(t);
@@ -962,13 +982,33 @@ function renderColumnsFromTasks(tasksList) {
 async function renderTasksBoard(deptOrProject) {
   if (typeof document === 'undefined') return;
 
-  if (deptOrProject && deptOrProject !== 'all' && !DEPT_CONFIG[deptOrProject]) {
-    _activeProject = deptOrProject;
+  if (deptOrProject && deptOrProject !== 'all' && deptOrProject !== 'all tasks') {
+    if (DEPT_CONFIG[deptOrProject]) {
+      _activeProject = DEPT_CONFIG[deptOrProject].label;
+    } else {
+      _activeProject = deptOrProject;
+    }
   }
+
+  var boardCol = document.getElementById('tasks-columns');
+  var colTabs  = document.getElementById('task-col-tabs');
+  var noProjEl = document.querySelector('.tasks-no-project-placeholder');
+
+  var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
+  if (!hasActiveProject) {
+    if (boardCol) boardCol.style.display = 'none';
+    if (colTabs) colTabs.style.display = 'none';
+    if (noProjEl) noProjEl.style.display = 'block';
+    return;
+  }
+
+  if (boardCol) boardCol.style.display = '';
+  if (colTabs) colTabs.style.display = '';
+  if (noProjEl) noProjEl.style.display = 'none';
 
   var breadcrumbCur = document.getElementById('tasks-dept-title');
   if (breadcrumbCur) {
-    breadcrumbCur.textContent = _activeProject || 'All Tasks';
+    breadcrumbCur.textContent = _activeProject;
   }
 
   // 1. Instant synchronous render from local cache (< 2ms)
@@ -1898,6 +1938,14 @@ async function memberUpdateTaskStatus(id, status, dept) {
  */
 function openCreateTaskModal(defaultStatus) {
   if (typeof document === 'undefined') return;
+  if (!_activeProject || _activeProject.toLowerCase() === 'all' || _activeProject.toLowerCase() === 'all tasks') {
+    if (typeof showToast === 'function') {
+      showToast('Please select or create a project first before creating tasks.', 'warning');
+    }
+    setTasksViewMode('projects');
+    return;
+  }
+
   var modal = document.querySelector('.task-create-modal');
   if (!modal) return;
   modal.style.display = 'flex';
@@ -1909,10 +1957,10 @@ function openCreateTaskModal(defaultStatus) {
 
   var projInput = modal.querySelector('.new-task-project-input');
   if (projInput) {
-    projInput.value = (_activeProject && _activeProject !== 'All Tasks') ? _activeProject : '';
+    projInput.value = _activeProject;
   }
 
-  loadNewTaskAssigneeOptions(currentDept);
+  loadNewTaskAssigneeOptions();
 }
 
 /**
@@ -1934,25 +1982,62 @@ async function loadNewTaskAssigneeOptions() {
   if (!modal) return;
   var sel = modal.querySelector('.new-task-assignee-input');
   if (!sel) return;
-  sel.innerHTML = '<option value="">Unassigned</option>';
+
+  var membersMap = {};
+  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+  if (!myName && typeof document !== 'undefined') {
+    var sbName = document.getElementById('sidebar-user-name');
+    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member') {
+      myName = sbName.textContent.trim();
+    }
+  }
+  if (myName) {
+    membersMap[myName] = { name: myName, ic: (typeof sessionGet === 'function' ? sessionGet('ic') : '') || '' };
+  }
+  if (Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && isMemberDepartmentRole(m)) membersMap[m.name] = m;
+    });
+  }
+  _allLoadedTasks.forEach(function(t) {
+    if (t.assignee_name && t.assignee_name !== 'Unassigned') {
+      if (!membersMap[t.assignee_name]) {
+        membersMap[t.assignee_name] = { name: t.assignee_name, ic: t.assignee_ic || '' };
+      }
+    }
+  });
+
+  var renderSelect = function(map) {
+    sel.innerHTML = '<option value="">Unassigned</option>';
+    Object.keys(map).sort().forEach(function(k) {
+      var m = map[k];
+      var opt = document.createElement('option');
+      opt.value = m.ic || m.name;
+      opt.setAttribute('data-name', m.name);
+      opt.textContent = m.name;
+      sel.appendChild(opt);
+    });
+  };
+
+  renderSelect(membersMap);
 
   var client = getSupaClient();
-  if (!client) return;
-  try {
-    var members = await client.get('bb_members?select=ic,name,rank,department&order=name.asc');
-    if (Array.isArray(members)) {
-      var eligible = members.filter(isMemberDepartmentRole);
-      eligible.forEach(function(m) {
-        if (!m.name) return;
-        var opt = document.createElement('option');
-        opt.value = m.ic || m.name;
-        opt.setAttribute('data-name', m.name);
-        opt.textContent = m.name + (m.department ? ' (' + (m.department.toLowerCase() === 'department nco' ? 'Department NCO' : m.department) + ')' : '');
-        sel.appendChild(opt);
-      });
+  if (client) {
+    try {
+      var fetchPromise = client.get('bb_members?select=ic,name,rank,department&order=name.asc');
+      var timeoutPromise = new Promise(function(resolve) { setTimeout(function() { resolve([]); }, 2000); });
+      var members = await Promise.race([fetchPromise, timeoutPromise]);
+      if (Array.isArray(members) && members.length) {
+        var eligible = members.filter(isMemberDepartmentRole);
+        _cachedDepartmentMembers = eligible;
+        eligible.forEach(function(m) {
+          if (m && m.name) membersMap[m.name] = m;
+        });
+        renderSelect(membersMap);
+      }
+    } catch (e) {
+      console.warn('loadNewTaskAssigneeOptions error:', e);
     }
-  } catch (e) {
-    console.error('loadNewTaskAssigneeOptions error:', e);
   }
 }
 
@@ -1991,7 +2076,14 @@ async function handleCreateTaskSubmit(e) {
   var priority = priorityEl ? priorityEl.value : 'medium';
   var due = dueEl ? dueEl.value : null;
   var estimate = estEl ? estEl.value.trim() : '';
-  var projectName = (projEl ? projEl.value.trim() : '') || (_activeProject && _activeProject !== 'All Tasks' ? _activeProject : '');
+  var projectName = _activeProject || (projEl ? projEl.value.trim() : '');
+  if (!projectName || projectName.toLowerCase() === 'all' || projectName.toLowerCase() === 'all tasks') {
+    if (typeof showToast === 'function') {
+      showToast('Tasks must belong to a project. Please select or create a project first.', 'warning');
+    }
+    setTasksViewMode('projects');
+    return;
+  }
   var rawDesc = descEl ? descEl.value.trim() : '';
   var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
   var targetStatus = modal.getAttribute('data-target-status') || 'todo';
