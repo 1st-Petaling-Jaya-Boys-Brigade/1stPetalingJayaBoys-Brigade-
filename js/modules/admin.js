@@ -33,12 +33,10 @@
   ];
 
   var DEFAULT_DEPT_CONFIG = {
-    logistics:   { label: 'Logistics',       color: '#42a5f5', cls: 'dept-logistics'   },
-    secretariat: { label: 'Secretariat',     color: '#ce93d8', cls: 'dept-secretariat' },
-    media:       { label: 'Media',           color: '#ffb74d', cls: 'dept-media'       },
-    band:        { label: 'Band',            color: '#26c6da', cls: 'dept-band'        },
-    awards:      { label: 'Awards & Badges', color: '#ab47bc', cls: 'dept-awards'      },
-    general:     { label: 'General',         color: '#78909c', cls: 'dept-general'     }
+    secretariat: { label: 'Secretariat', color: '#ce93d8', cls: 'dept-secretariat', prefix: 'SEC' },
+    logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics',   prefix: 'LOG' },
+    media:       { label: 'Media',       color: '#ffb74d', cls: 'dept-media',       prefix: 'MED' },
+    hq:          { label: 'HQ',          color: '#10b981', cls: 'dept-hq',          prefix: 'HQ'  }
   };
 
   // ── Internal State ────────────────────────────────────────────────────────
@@ -612,7 +610,7 @@
     if (typeof document === 'undefined') return;
     var dConfig = getDeptConfig();
 
-    ['all', 'logistics', 'secretariat', 'media'].forEach(function(d) {
+    ['all', 'secretariat', 'logistics', 'media', 'hq'].forEach(function(d) {
       var btn = document.getElementById('dtab-' + d);
       if (!btn) return;
       var active = (d === dept);

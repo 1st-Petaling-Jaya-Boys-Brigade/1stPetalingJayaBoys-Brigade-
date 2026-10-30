@@ -21,11 +21,11 @@
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261030b">
-<link rel="stylesheet" href="css/base.css?v=20261030b">
-<link rel="stylesheet" href="css/nav.css?v=20261030b">
-<link rel="stylesheet" href="css/components.css?v=20261030b">
-<link rel="stylesheet" href="css/admin.css?v=20261030b">
+<link rel="stylesheet" href="css/variables.css?v=20261030c">
+<link rel="stylesheet" href="css/base.css?v=20261030c">
+<link rel="stylesheet" href="css/nav.css?v=20261030c">
+<link rel="stylesheet" href="css/components.css?v=20261030c">
+<link rel="stylesheet" href="css/admin.css?v=20261030c">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -335,7 +335,7 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261030b"></script>
+<script src="js/core/theme.js?v=20261030c"></script>
 </head>
 <body>
 
@@ -1232,63 +1232,58 @@
       <div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
       <div class="page-title" style="text-align:center;">Department Role Required</div>
       <div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Access Restricted</div>
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">Only members and NCOs assigned to a department by an Administrator can access Projects &amp; Tasks. Please contact an Officer to assign your Department in the Admin Console.</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">Only members and NCOs assigned to a department (Secretariat, Logistics, Media, or HQ) can access Projects &amp; Tasks. Please contact an Officer to assign your Department Role in the Admin Console.</div>
       <button class="submit-btn gold" onclick="goToMemberTab()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>
     </div>
 
     <!-- Tasks board -->
     <div id="tasks-board" style="display:none;width:100%;">
-      <!-- Project Board Toolbar (Image 2) -->
-      <div class="task-board-toolbar">
-        <div class="task-breadcrumb">
-          <span>Projects</span>
-          <span class="task-breadcrumb-sep">&gt;</span>
-          <span class="task-breadcrumb-cur" id="tasks-dept-title">Department</span>
-        </div>
-        <div class="task-toolbar-actions">
-          <div class="task-search-box">
-            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" class="task-search-input" placeholder="Search tasks..." oninput="filterProjectTasks(this.value)" aria-label="Search department tasks" />
+      <!-- Unified Project Board Header & Controls -->
+      <div class="task-board-header-unified task-board-toolbar">
+        <div class="task-board-top-bar">
+          <div class="task-breadcrumb">
+            <span class="task-breadcrumb-root">Projects</span>
+            <span class="task-breadcrumb-sep">&gt;</span>
+            <span class="task-breadcrumb-cur" id="tasks-dept-title">Department</span>
           </div>
-          <select class="task-dept-select" onchange="changeTaskDeptFilter(this.value)" aria-label="Filter by department">
-            <option value="all">All Departments</option>
-            <option value="logistics">Logistics</option>
-            <option value="secretariat">Secretariat</option>
-            <option value="media">Media</option>
-            <option value="band">Band</option>
-            <option value="awards">Awards &amp; Badges</option>
-            <option value="general">General</option>
-          </select>
-          <div class="task-view-toggle" role="group" aria-label="Task view mode">
-            <button type="button" class="view-toggle-btn active" data-vmode="board" onclick="setTasksViewMode('board')" title="Kanban Board View">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-              <span>Board</span>
-            </button>
-            <button type="button" class="view-toggle-btn" data-vmode="mytasks" onclick="setTasksViewMode('mytasks')" title="My Tasks View">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              <span>My Tasks</span>
-            </button>
-          </div>
-          <button type="button" class="task-primary-btn" onclick="openCreateTaskModal()" title="Create new task brief">
-            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            <span>Add Task</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Department Board Header Banner -->
-      <div class="task-board-header-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-          <div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <div class="s-title" style="font-size:22px;margin:0;" id="tasks-dept-sub">Projects &amp; Tasks</div>
-              <span class="tasks-dept-badge" id="tasks-dept-badge">Active</span>
+          <div class="task-toolbar-actions">
+            <div class="task-search-box">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" class="task-search-input" placeholder="Search tasks..." oninput="filterProjectTasks(this.value)" aria-label="Search department tasks" />
             </div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Manage department sprint deliverables, track due dates, and update task briefs.</div>
+            <select class="task-dept-select" onchange="changeTaskDeptFilter(this.value)" aria-label="Filter by department">
+              <option value="all">All Departments</option>
+              <option value="secretariat">Secretariat</option>
+              <option value="logistics">Logistics</option>
+              <option value="media">Media</option>
+              <option value="hq">HQ</option>
+            </select>
+            <div class="task-view-toggle" role="group" aria-label="Task view mode">
+              <button type="button" class="view-toggle-btn active" data-vmode="board" onclick="setTasksViewMode('board')" title="Kanban Board View">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                <span>Board</span>
+              </button>
+              <button type="button" class="view-toggle-btn" data-vmode="mytasks" onclick="setTasksViewMode('mytasks')" title="My Tasks View">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>My Tasks</span>
+              </button>
+            </div>
+            <button type="button" class="task-refresh-btn" onclick="renderTasksBoard(_currentDeptFilter)" title="Refresh Board">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+            <button type="button" class="task-primary-btn" onclick="openCreateTaskModal()" title="Create new task brief">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Add Task</span>
+            </button>
           </div>
-          <button type="button" class="portal-btn portal-btn-secondary" onclick="renderTasksBoard(_currentDeptFilter)" style="padding:6px 14px;font-size:12px;display:flex;align-items:center;gap:6px;">
-            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh Board
-          </button>
+        </div>
+
+        <div class="task-board-title-row">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div class="s-title task-main-heading" id="tasks-dept-sub">Projects &amp; Tasks</div>
+            <span class="tasks-dept-badge" id="tasks-dept-badge">Active</span>
+          </div>
+          <div class="task-board-subtext">Manage department sprint deliverables, track due dates, and update task briefs.</div>
         </div>
       </div>
 
@@ -1312,61 +1307,61 @@
       </div>
 
       <!-- Kanban columns (5 Columns) -->
-      <div style="display:flex;gap:14px;align-items:flex-start;overflow-x:auto;padding-bottom:12px;" id="tasks-columns">
+      <div class="tasks-board-columns" id="tasks-columns">
         <!-- Planning -->
         <div class="task-col mobile-active" data-col-status="planning">
           <div class="task-col-header">
             <div class="task-col-title" style="color:#a855f7;margin-bottom:0;">
               <span style="width:8px;height:8px;border-radius:50%;background:#a855f7;display:inline-block;"></span>
-              Planning <span data-col-count="planning" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+              Planning <span data-col-count="planning" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('planning')" title="Add task to Planning"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
-          <div data-col-body="planning"></div>
+          <div data-col-body="planning" class="task-col-body"></div>
         </div>
         <!-- To Do -->
         <div class="task-col" id="taskcol-todo" data-col-status="todo">
           <div class="task-col-header">
             <div class="task-col-title" style="color:var(--text-secondary);margin-bottom:0;">
               <span style="width:8px;height:8px;border-radius:50%;background:var(--text-secondary);display:inline-block;"></span>
-              To Do <span id="count-todo" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+              To Do <span id="count-todo" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('todo')" title="Add task to To Do"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
-          <div id="col-todo"></div>
+          <div id="col-todo" class="task-col-body"></div>
         </div>
         <!-- In Progress -->
         <div class="task-col" id="taskcol-inprogress" data-col-status="inprogress">
           <div class="task-col-header">
             <div class="task-col-title" style="color:#3b82f6;margin-bottom:0;">
               <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
-              In Progress <span id="count-inprogress" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+              In Progress <span id="count-inprogress" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('inprogress')" title="Add task to In Progress"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
-          <div id="col-inprogress"></div>
+          <div id="col-inprogress" class="task-col-body"></div>
         </div>
         <!-- In Review -->
         <div class="task-col" data-col-status="inreview">
           <div class="task-col-header">
             <div class="task-col-title" style="color:#f59e0b;margin-bottom:0;">
               <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
-              In Review <span data-col-count="inreview" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+              In Review <span data-col-count="inreview" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('inreview')" title="Add task to In Review"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
-          <div data-col-body="inreview"></div>
+          <div data-col-body="inreview" class="task-col-body"></div>
         </div>
         <!-- Completed (renamed from Done) -->
         <div class="task-col" id="taskcol-done" data-col-status="completed">
           <div class="task-col-header">
             <div class="task-col-title" style="color:#10b981;margin-bottom:0;">
               <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
-              Completed <span id="count-done" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+              Completed <span id="count-done" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('completed')" title="Add task to Completed"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
-          <div id="col-done"></div>
+          <div id="col-done" class="task-col-body"></div>
         </div>
       </div>
 
@@ -1425,12 +1420,10 @@
             <div>
               <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Department *</label>
               <select class="form-input new-task-dept-input" onchange="loadNewTaskAssigneeOptions(this.value)" required style="width:100%;">
-                <option value="logistics">Logistics</option>
                 <option value="secretariat">Secretariat</option>
+                <option value="logistics">Logistics</option>
                 <option value="media">Media</option>
-                <option value="band">Band</option>
-                <option value="awards">Awards &amp; Badges</option>
-                <option value="general">General</option>
+                <option value="hq">HQ</option>
               </select>
             </div>
             <div>
@@ -1925,12 +1918,10 @@
               </label>
               <select class="form-select" id="em-dept">
                 <option value="">None (No department access)</option>
-                <option value="logistics">Logistics Department</option>
-                <option value="secretariat">Secretariat Department</option>
-                <option value="media">Media Department</option>
-                <option value="band">Band Department</option>
-                <option value="awards">Awards &amp; Badges Department</option>
-                <option value="general">General Department</option>
+                <option value="secretariat">Secretariat</option>
+                <option value="logistics">Logistics</option>
+                <option value="media">Media</option>
+                <option value="hq">HQ</option>
               </select>
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4;">
                 Assigning a department role grants this member access to the Projects &amp; Tasks tab. Members and NCOs without a department role cannot access it.
@@ -2175,9 +2166,10 @@
         <!-- Dept sub-tabs -->
         <div style="display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;">
           <button class="adm-dept-tab active-dept-tab" id="dtab-all"          onclick="switchDeptTab('all')">All</button>
-          <button class="adm-dept-tab" id="dtab-logistics"    style="color:var(--brand-blue);border-color:rgba(59,130,246,0.3);"   onclick="switchDeptTab('logistics')">Logistics</button>
-          <button class="adm-dept-tab" id="dtab-secretariat"  style="color:#a855f7;border-color:rgba(168,85,247,0.3);"   onclick="switchDeptTab('secretariat')">Secretariat</button>
-          <button class="adm-dept-tab" id="dtab-media"        style="color:#f59e0b;border-color:rgba(245,158,11,0.3);"   onclick="switchDeptTab('media')">Media</button>
+          <button class="adm-dept-tab" id="dtab-secretariat"  style="color:#ce93d8;border-color:rgba(206,147,216,0.3);" onclick="switchDeptTab('secretariat')">Secretariat</button>
+          <button class="adm-dept-tab" id="dtab-logistics"    style="color:var(--brand-blue);border-color:rgba(59,130,246,0.3);" onclick="switchDeptTab('logistics')">Logistics</button>
+          <button class="adm-dept-tab" id="dtab-media"        style="color:#ffb74d;border-color:rgba(255,183,77,0.3);" onclick="switchDeptTab('media')">Media</button>
+          <button class="adm-dept-tab" data-dept="hq"         style="color:#10b981;border-color:rgba(16,185,129,0.3);" onclick="switchDeptTab('hq')">HQ</button>
         </div>
 
         <!-- Add/edit task form (collapsible) -->
@@ -2197,9 +2189,10 @@
                 <label class="form-label">Department</label>
                 <select class="form-select" id="task-dept" onchange="loadAssigneeOptions()">
                   <option value="">Select...</option>
-                  <option value="logistics">Logistics</option>
                   <option value="secretariat">Secretariat</option>
+                  <option value="logistics">Logistics</option>
                   <option value="media">Media</option>
+                  <option value="hq">HQ</option>
                 </select>
               </div>
               <div class="form-group">
@@ -2831,24 +2824,24 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261030b"></script>
-<script src="js/api/supabase.js?v=20261030b"></script>
-<script src="js/core/session.js?v=20261030b"></script>
-<script src="js/core/utils.js?v=20261030b"></script>
-<script src="js/core/ui.js?v=20261030b"></script>
-<script src="js/core/loading.js?v=20261030b"></script>
-<script src="js/modules/member.js?v=20261030b"></script>
-<script src="js/api/sheets.js?v=20261030b"></script>
-<script src="js/modules/attendance.js?v=20261030b"></script>
-<script src="js/modules/announcements.js?v=20261030b"></script>
-<script src="js/modules/gallery.js?v=20261030b"></script>
-<script src="js/modules/resources.js?v=20261030b"></script>
-<script src="js/modules/calendar.js?v=20261030b"></script>
-<script src="js/modules/orders.js?v=20261030b"></script>
-<script src="js/modules/forms.js?v=20261030b"></script>
-<script src="js/modules/badges.js?v=20261030b"></script>
-<script src="js/modules/tasks.js?v=20261030b"></script>
-<script src="js/modules/admin.js?v=20261030b"></script>
+<script src="js/config.js?v=20261030c"></script>
+<script src="js/api/supabase.js?v=20261030c"></script>
+<script src="js/core/session.js?v=20261030c"></script>
+<script src="js/core/utils.js?v=20261030c"></script>
+<script src="js/core/ui.js?v=20261030c"></script>
+<script src="js/core/loading.js?v=20261030c"></script>
+<script src="js/modules/member.js?v=20261030c"></script>
+<script src="js/api/sheets.js?v=20261030c"></script>
+<script src="js/modules/attendance.js?v=20261030c"></script>
+<script src="js/modules/announcements.js?v=20261030c"></script>
+<script src="js/modules/gallery.js?v=20261030c"></script>
+<script src="js/modules/resources.js?v=20261030c"></script>
+<script src="js/modules/calendar.js?v=20261030c"></script>
+<script src="js/modules/orders.js?v=20261030c"></script>
+<script src="js/modules/forms.js?v=20261030c"></script>
+<script src="js/modules/badges.js?v=20261030c"></script>
+<script src="js/modules/tasks.js?v=20261030c"></script>
+<script src="js/modules/admin.js?v=20261030c"></script>
 
 <script>
 

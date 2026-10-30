@@ -1965,10 +1965,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // 1. Department Configuration
   assert.ok(tasksMod.DEPT_CONFIG, 'DEPT_CONFIG must exist');
-  assert.strictEqual(tasksMod.DEPT_CONFIG.logistics.label, 'Logistics');
   assert.strictEqual(tasksMod.DEPT_CONFIG.secretariat.label, 'Secretariat');
+  assert.strictEqual(tasksMod.DEPT_CONFIG.logistics.label, 'Logistics');
   assert.strictEqual(tasksMod.DEPT_CONFIG.media.label, 'Media');
-  console.log('  ✔ DEPT_CONFIG defines logistics, secretariat, and media department metadata');
+  assert.strictEqual(tasksMod.DEPT_CONFIG.hq.label, 'HQ');
+  console.log('  ✔ DEPT_CONFIG defines secretariat, logistics, media, and hq department metadata');
 
   // 2. Role-Based NCO Access Checks (checkIsNCO)
   assert.strictEqual(tasksMod.checkIsNCO('Lance Corporal'), true);
@@ -2162,13 +2163,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // 13. Department Role Access Gating (hasDepartmentRole & checkTasksAccess)
   assert.strictEqual(typeof tasksMod.hasDepartmentRole, 'function', 'hasDepartmentRole must be exported');
-  // Members with assigned department roles
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'logistics', rank: 'Private' }), true, 'Logistics member must have access');
+  // Only the 4 official departments (Secretariat, Logistics, Media, HQ) have access
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'secretariat', rank: 'Lance Corporal' }), true, 'Secretariat member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'logistics', rank: 'Private' }), true, 'Logistics member must have access');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'media', rank: 'Corporal' }), true, 'Media member must have access');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'band', rank: 'Sergeant' }), true, 'Band member must have access');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'awards', rank: 'Staff Sergeant' }), true, 'Awards member must have access');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'general', rank: 'Recruit' }), true, 'General member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'hq', rank: 'Sergeant' }), true, 'HQ member must have access');
+
+  // General, Band, Awards, or unassigned members CANNOT access
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'general', rank: 'Recruit' }), false, 'General member must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'general', rank: 'Sergeant' }), false, 'General Sergeant must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'band', rank: 'Sergeant' }), false, 'Band member must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'awards', rank: 'Staff Sergeant' }), false, 'Awards member must not have access');
 
   // Regular members and NCOs WITHOUT department role MUST NOT have access
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Recruit' }), false, 'Recruit without dept must not have access');
@@ -3209,7 +3214,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // Save edit member
   document.getElementById('em-rank').value = 'Staff Sergeant';
-  document.getElementById('em-dept').value = 'band';
+  document.getElementById('em-dept').value = 'secretariat';
   await adminModule.saveEditMember();
   assert(savedMemberPayload, 'saveEditMember must send update payload');
   assert.strictEqual(
@@ -3219,15 +3224,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     savedMemberPayload.body.department,
-    'band',
+    'secretariat',
     'saveEditMember must persist updated department role'
   );
 
   // Department Sorting & Badges in Admin Console
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.secretariat, 'DEFAULT_DEPT_CONFIG must contain secretariat');
   assert.ok(adminModule.DEFAULT_DEPT_CONFIG.logistics, 'DEFAULT_DEPT_CONFIG must contain logistics');
-  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.band, 'DEFAULT_DEPT_CONFIG must contain band');
-  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.awards, 'DEFAULT_DEPT_CONFIG must contain awards');
-  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.general, 'DEFAULT_DEPT_CONFIG must contain general');
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.media, 'DEFAULT_DEPT_CONFIG must contain media');
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.hq, 'DEFAULT_DEPT_CONFIG must contain hq');
 
   let deptSortBtn = document.querySelector('.adm-sort-btn[data-sort="dept"]');
   if (!deptSortBtn) {

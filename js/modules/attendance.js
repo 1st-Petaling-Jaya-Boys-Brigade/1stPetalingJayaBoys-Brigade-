@@ -312,19 +312,19 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(105px, 1fr));gap:8px;">' +
         '<!-- Uniform Points -->' +
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
-          '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Uniform Pts</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Uniform Points</div>' +
           '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--blue, #3b82f6);">' + points.uniform + '</div>' + uniformAvgHtml +
         '</div>' +
 
         '<!-- Parade Attendance Points -->' +
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
-          '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Parade Pts</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Parade Points</div>' +
           '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--green, #10b981);">' + points.paradeAtt + '</div>' +
         '</div>' +
 
         '<!-- Band Points -->' +
         '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;text-align:center;">' +
-          '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Band Pts</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Band Points</div>' +
           '<div style="font-family:\'Oswald\',sans-serif;font-size:18px;font-weight:700;color:var(--accent);">' + points.bandAtt + '</div>' +
         '</div>' +
       '</div>' +
