@@ -21,11 +21,11 @@
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Roboto:wght@400;500;600&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261029b">
-<link rel="stylesheet" href="css/base.css?v=20261029b">
-<link rel="stylesheet" href="css/nav.css?v=20261029b">
-<link rel="stylesheet" href="css/components.css?v=20261029b">
-<link rel="stylesheet" href="css/admin.css?v=20261029b">
+<link rel="stylesheet" href="css/variables.css?v=20261030a">
+<link rel="stylesheet" href="css/base.css?v=20261030a">
+<link rel="stylesheet" href="css/nav.css?v=20261030a">
+<link rel="stylesheet" href="css/components.css?v=20261030a">
+<link rel="stylesheet" href="css/admin.css?v=20261030a">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -335,7 +335,7 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261029b"></script>
+<script src="js/core/theme.js?v=20261030a"></script>
 </head>
 <body>
 
@@ -449,7 +449,7 @@
   <button class="tab-btn"        id="tab-gallery"    onclick="switchTab('gallery',this)">Gallery</button>
   <button class="tab-btn"        id="tab-order"      onclick="switchTab('order',this)">Forms</button>
   <button class="tab-btn"        id="tab-member"     onclick="switchTab('member',this)">Member</button>
-  <button class="tab-btn"        id="tab-tasks"      onclick="switchTab('tasks',this)">Tasks</button>
+  <button class="tab-btn"        id="tab-tasks"      onclick="switchTab('tasks',this)">Projects &amp; Tasks</button>
   <button class="tab-btn"        id="tab-badges"     onclick="switchTab('badges',this)">Badges</button>
   <button class="tab-btn"        id="tab-attendance" onclick="switchTab('attendance',this)">Squad Leader Board</button>
   <button class="tab-btn"        id="tab-resources"  onclick="switchTab('resources',this)">Resources</button>
@@ -696,7 +696,10 @@
       <div class="page-title" style="text-align:center;">Members Only</div>
       <div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Login to Access Forms</div>
       <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;line-height:1.6;">You need to be a registered member to submit forms.</div>
-      <button class="submit-btn gold" onclick="goToMemberTab()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+        <button class="submit-btn gold" onclick="goToMemberTab()" style="width:auto;padding:10px 20px;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>
+        <button type="button" class="portal-btn portal-btn-secondary" onclick="previewTasksBoardDemo()" style="padding:10px 20px;font-size:13px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Preview Board Demo</button>
+      </div>
     </div>
 
     <!-- Forms hub (logged in) -->
@@ -2828,24 +2831,24 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261029b"></script>
-<script src="js/api/supabase.js?v=20261029b"></script>
-<script src="js/core/session.js?v=20261029b"></script>
-<script src="js/core/utils.js?v=20261029b"></script>
-<script src="js/core/ui.js?v=20261029b"></script>
-<script src="js/core/loading.js?v=20261029b"></script>
-<script src="js/modules/member.js?v=20261029b"></script>
-<script src="js/api/sheets.js?v=20261029b"></script>
-<script src="js/modules/attendance.js?v=20261029b"></script>
-<script src="js/modules/announcements.js?v=20261029b"></script>
-<script src="js/modules/gallery.js?v=20261029b"></script>
-<script src="js/modules/resources.js?v=20261029b"></script>
-<script src="js/modules/calendar.js?v=20261029b"></script>
-<script src="js/modules/orders.js?v=20261029b"></script>
-<script src="js/modules/forms.js?v=20261029b"></script>
-<script src="js/modules/badges.js?v=20261029b"></script>
-<script src="js/modules/tasks.js?v=20261029b"></script>
-<script src="js/modules/admin.js?v=20261029b"></script>
+<script src="js/config.js?v=20261030a"></script>
+<script src="js/api/supabase.js?v=20261030a"></script>
+<script src="js/core/session.js?v=20261030a"></script>
+<script src="js/core/utils.js?v=20261030a"></script>
+<script src="js/core/ui.js?v=20261030a"></script>
+<script src="js/core/loading.js?v=20261030a"></script>
+<script src="js/modules/member.js?v=20261030a"></script>
+<script src="js/api/sheets.js?v=20261030a"></script>
+<script src="js/modules/attendance.js?v=20261030a"></script>
+<script src="js/modules/announcements.js?v=20261030a"></script>
+<script src="js/modules/gallery.js?v=20261030a"></script>
+<script src="js/modules/resources.js?v=20261030a"></script>
+<script src="js/modules/calendar.js?v=20261030a"></script>
+<script src="js/modules/orders.js?v=20261030a"></script>
+<script src="js/modules/forms.js?v=20261030a"></script>
+<script src="js/modules/badges.js?v=20261030a"></script>
+<script src="js/modules/tasks.js?v=20261030a"></script>
+<script src="js/modules/admin.js?v=20261030a"></script>
 
 <script>
 

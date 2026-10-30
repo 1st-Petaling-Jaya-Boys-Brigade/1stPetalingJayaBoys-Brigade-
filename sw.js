@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261029-v2';
+const CACHE_VERSION = '20261030-v1';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -26,6 +26,7 @@ const PRECACHE_ASSETS = [
   './js/core/session.js',
   './js/core/utils.js',
   './js/core/ui.js',
+  './js/core/loading.js',
   './js/api/supabase.js',
   './js/api/sheets.js',
   './js/modules/member.js',
