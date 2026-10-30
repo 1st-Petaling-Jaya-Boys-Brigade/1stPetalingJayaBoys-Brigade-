@@ -299,6 +299,66 @@
   background: var(--bg-card-hover);
 }
 
+.notif-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 6px;
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-card-subtle);
+}
+
+.notif-group-header:first-child {
+  border-top: none;
+}
+
+.notif-group-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.notif-avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #334155;
+  color: #fff;
+  font-family: 'Oswald', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+}
+
+.notif-avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.notif-item.notif-dismissing {
+  opacity: 0;
+  transform: translateX(30px);
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+  border-bottom: none;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
 .notif-item-icon {
   width: 32px;
   height: 32px;

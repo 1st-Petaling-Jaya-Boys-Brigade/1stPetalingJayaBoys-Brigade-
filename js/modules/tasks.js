@@ -1,24 +1,35 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal - Tasks & Kanban Board Module (TSK-009)
  *
- * Implements NCO department task board rendering, role-based NCO access checks (isNCO),
- * Kanban status transitions (To Do -> In Progress -> Done), Task Detail modal inspection,
- * and Officer Admin task management (creation, rich description, assignee assignment, deletion).
- * Renders directly under the Weekly Parade tab (#page-tasks).
+ * Implements NCO department project board, role-based NCO access checks (isNCO),
+ * Kanban status transitions (To Do -> In Progress -> Done) with HTML5 drag-and-drop,
+ * My Tasks view across projects, Task Brief/Detail modal inspection, dynamic task assignment
+ * notifications, and Officer Admin task management (creation, rich description, assignee assignment, deletion).
+ * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, showToast, showConfirmModal, isNCO, reGetValue, reSetValue, reClearValue */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
-  logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics'   },
-  secretariat: { label: 'Secretariat', color: '#ce93d8', cls: 'dept-secretariat' },
-  media:       { label: 'Media',       color: '#ffb74d', cls: 'dept-media'       }
+  logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics',   prefix: 'LOG' },
+  secretariat: { label: 'Secretariat', color: '#ce93d8', cls: 'dept-secretariat', prefix: 'SEC' },
+  media:       { label: 'Media',       color: '#ffb74d', cls: 'dept-media',       prefix: 'MED' },
+  band:        { label: 'Band',        color: '#26c6da', cls: 'dept-band',        prefix: 'BND' },
+  awards:      { label: 'Awards',      color: '#ab47bc', cls: 'dept-awards',      prefix: 'AWD' },
+  general:     { label: 'General',     color: '#78909c', cls: 'dept-general',     prefix: 'GEN' }
 };
 
-var _adminTaskFilter = 'all';
-var _allAdminTasks   = [];
-var _taskMap         = {};
+var _activeTasksSection = 'parade'; // 'parade' | 'board'
+var _tasksViewMode      = 'board';  // 'board' | 'mytasks'
+var _currentDeptFilter  = 'all';
+var _taskSearchQuery    = '';
+var _myTasksScopeFilter = 'me';     // 'me' | 'all'
+var _myTasksStatusFilter = 'open';  // 'open' | 'all'
+var _allLoadedTasks     = [];
+var _adminTaskFilter    = 'all';
+var _allAdminTasks      = [];
+var _taskMap            = {};
 
 /**
  * Resolves Supabase client instance across browser and test environments
@@ -70,8 +81,46 @@ function switchTaskTab(tab, btn) {
 }
 
 /**
+ * Switches between Weekly Parade view and Department Projects & Tasks view
+ * @param {string} section ('parade' | 'board')
+ */
+function switchTaskSectionView(section) {
+  if (typeof document === 'undefined') return;
+  _activeTasksSection = section || 'parade';
+
+  // Update segmented nav pills
+  document.querySelectorAll('.tasks-nav-pill').forEach(function(btn) {
+    var isTarget = btn.getAttribute('data-task-view') === _activeTasksSection;
+    btn.classList.toggle('active', isTarget);
+    btn.setAttribute('aria-selected', String(isTarget));
+  });
+
+  var nd   = document.getElementById('tasks-no-dept');
+  var gate = document.getElementById('tasks-gate');
+  var board = document.getElementById('tasks-board');
+
+  if (_activeTasksSection === 'parade') {
+    if (nd) nd.style.display = 'block';
+    if (board) board.style.display = 'none';
+    if (gate) gate.style.display = 'none';
+  } else {
+    // Projects & Tasks section
+    if (nd) nd.style.display = 'none';
+    var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+    if (!ic) {
+      if (gate) gate.style.display = 'block';
+      if (board) board.style.display = 'none';
+    } else {
+      if (gate) gate.style.display = 'none';
+      if (board) board.style.display = 'block';
+      renderTasksBoard(_currentDeptFilter);
+    }
+  }
+}
+
+/**
  * Verifies logged-in member access and renders Department Tasks board
- * under the Weekly Parade schedule on #page-tasks
+ * Default view is 'parade', isolating the NCO Duty Board into the Projects & Tasks tab.
  */
 async function checkTasksAccess() {
   if (typeof document === 'undefined') return;
@@ -80,9 +129,20 @@ async function checkTasksAccess() {
   var gate = document.getElementById('tasks-gate');
   var board = document.getElementById('tasks-board');
 
-  if (nd) nd.style.display = 'block';
-  if (gate) gate.style.display = 'none';
-  if (board) board.style.display = 'none';
+  if (_activeTasksSection === 'parade') {
+    if (nd) nd.style.display = 'block';
+    if (gate) gate.style.display = 'none';
+    if (board) board.style.display = 'none';
+  } else {
+    if (nd) nd.style.display = 'none';
+    if (!ic) {
+      if (gate) gate.style.display = 'block';
+      if (board) board.style.display = 'none';
+      return;
+    }
+    if (gate) gate.style.display = 'none';
+    if (board) board.style.display = 'block';
+  }
 
   if (!ic) return;
   var client = getSupaClient();
@@ -94,18 +154,16 @@ async function checkTasksAccess() {
     var dept = m && m.department;
     var rank = (m && m.rank) || (typeof sessionGet === 'function' ? sessionGet('rank') : '');
 
-    // Allow members with assigned departments or NCOs to view department board
     if (dept && DEPT_CONFIG[dept]) {
       var cfg = DEPT_CONFIG[dept];
       var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
       var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Task Board';
       var db  = document.getElementById('tasks-dept-badge');
       if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
-      if (board) board.style.display = 'block';
+      if (_activeTasksSection === 'board' && board) board.style.display = 'block';
       await renderTasksBoard(dept);
     } else if (checkIsNCO(rank)) {
-      // NCOs without fixed department can monitor company tasks
-      if (board) board.style.display = 'block';
+      if (_activeTasksSection === 'board' && board) board.style.display = 'block';
       var dtNco = document.getElementById('tasks-dept-title'); if (dtNco) dtNco.textContent = 'NCO Duty Board';
       var dsNco = document.getElementById('tasks-dept-sub');   if (dsNco) dsNco.textContent = 'Weekly Parade Duties';
       await renderTasksBoard('logistics');
@@ -116,7 +174,87 @@ async function checkTasksAccess() {
 }
 
 /**
- * Renders the member Kanban columns (To Do, In Progress, Done)
+ * Toggles view mode between Kanban Board ('board') and My Tasks Table ('mytasks')
+ * @param {string} mode ('board' | 'mytasks')
+ */
+function setTasksViewMode(mode) {
+  if (typeof document === 'undefined') return;
+  _tasksViewMode = mode || 'board';
+
+  document.querySelectorAll('.view-toggle-btn').forEach(function(btn) {
+    var isTarget = btn.getAttribute('data-view') === _tasksViewMode;
+    btn.classList.toggle('active', isTarget);
+  });
+
+  var colsWrap = document.getElementById('tasks-columns');
+  var myTasksWrap = document.querySelector('.my-tasks-container');
+
+  if (_tasksViewMode === 'board') {
+    if (colsWrap) colsWrap.style.display = 'flex';
+    if (myTasksWrap) myTasksWrap.style.display = 'none';
+    renderTasksBoard(_currentDeptFilter);
+  } else {
+    if (colsWrap) colsWrap.style.display = 'none';
+    if (myTasksWrap) myTasksWrap.style.display = 'block';
+    renderMyTasksView();
+  }
+}
+
+/**
+ * Updates the department filter from toolbar select
+ * @param {string} dept
+ */
+function changeTaskDeptFilter(dept) {
+  _currentDeptFilter = dept || 'all';
+  var titleEl = document.getElementById('tasks-dept-title');
+  if (titleEl) {
+    if (_currentDeptFilter === 'all') {
+      titleEl.textContent = 'All Departments';
+    } else if (DEPT_CONFIG[_currentDeptFilter]) {
+      titleEl.textContent = DEPT_CONFIG[_currentDeptFilter].label + ' Department';
+    } else {
+      titleEl.textContent = 'Department';
+    }
+  }
+  if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView();
+  } else {
+    renderTasksBoard(_currentDeptFilter);
+  }
+}
+
+/**
+ * Live search filtering across tasks
+ * @param {string} query
+ */
+function filterProjectTasks(query) {
+  _taskSearchQuery = (query || '').toLowerCase().trim();
+  if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView();
+  } else {
+    renderTasksBoard(_currentDeptFilter);
+  }
+}
+
+/**
+ * Generates formatted Task ID (e.g. LOG-101, TSK-42)
+ * @param {Object} t
+ * @param {number} idx
+ * @returns {string}
+ */
+function formatTaskId(t, idx) {
+  if (t && t.code) return String(t.code).toUpperCase();
+  var prefix = (t && t.department && DEPT_CONFIG[t.department] && DEPT_CONFIG[t.department].prefix)
+    ? DEPT_CONFIG[t.department].prefix
+    : 'TSK';
+  if (t && t.id && !isNaN(Number(t.id))) {
+    return prefix + '-' + (100 + Number(t.id));
+  }
+  return prefix + '-' + (101 + (idx || 0));
+}
+
+/**
+ * Renders the member Kanban columns (To Do, In Progress, Done) with drag-and-drop
  * @param {string} dept
  */
 async function renderTasksBoard(dept) {
@@ -126,13 +264,23 @@ async function renderTasksBoard(dept) {
 
   if (client) {
     try {
-      var url = dept ? ('bb_tasks?department=eq.' + encodeURIComponent(dept) + '&order=created_at.desc') : 'bb_tasks?order=created_at.desc';
+      var url = (dept && dept !== 'all')
+        ? ('bb_tasks?department=eq.' + encodeURIComponent(dept) + '&order=created_at.desc')
+        : 'bb_tasks?order=created_at.desc';
       var tasks = await client.get(url);
       if (Array.isArray(tasks)) {
+        _allLoadedTasks = tasks;
         tasks.forEach(function(t) {
           var k = t.status === 'inprogress' ? 'inprogress' : t.status === 'done' ? 'done' : 'todo';
           cols[k].push(t);
         });
+
+        // Trigger dynamic notification sync for assigned tasks
+        if (typeof syncTaskNotifications === 'function') {
+          syncTaskNotifications(tasks);
+        } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
+          window.syncTaskNotifications(tasks);
+        }
       }
     } catch (e) {
       console.error('renderTasksBoard error:', e);
@@ -149,22 +297,33 @@ async function renderTasksBoard(dept) {
     var cnt  = document.getElementById('count-' + status);
     var tcnt = document.getElementById('tab-count-' + status);
 
-    if (cnt) cnt.textContent = cols[status].length ? '(' + cols[status].length + ')' : '';
-    if (tcnt) tcnt.textContent = cols[status].length ? '(' + cols[status].length + ')' : '';
+    // Filter by live search query if present
+    var statusItems = cols[status].filter(function(t) {
+      if (!_taskSearchQuery) return true;
+      var matchTitle = (t.title || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
+      var matchDesc  = (t.description || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
+      var matchAss   = (t.assignee_name || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
+      var matchId    = String(t.id || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
+      return matchTitle || matchDesc || matchAss || matchId;
+    });
+
+    if (cnt) cnt.textContent = statusItems.length ? '(' + statusItems.length + ')' : '';
+    if (tcnt) tcnt.textContent = statusItems.length ? '(' + statusItems.length + ')' : '';
     if (!el) return;
 
-    if (!cols[status].length) {
-      el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:16px 0;">No tasks</div>';
+    if (!statusItems.length) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:24px 0;">No tasks</div>';
       return;
     }
 
     var html = '';
-    cols[status].forEach(function(t) {
+    statusItems.forEach(function(t, idx) {
       if (typeof window !== 'undefined' && window._taskMap) {
         window._taskMap[t.id] = t;
       }
       _taskMap[t.id] = t;
 
+      var taskId = formatTaskId(t, idx);
       var pc = t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium';
       var pl = (t.priority || 'medium').charAt(0).toUpperCase() + (t.priority || 'medium').slice(1);
       var dueHtml = '';
@@ -172,12 +331,18 @@ async function renderTasksBoard(dept) {
       if (t.due_date) {
         var due = new Date(t.due_date); due.setHours(0, 0, 0, 0);
         var overdue = status !== 'done' && due < today;
-        dueHtml = '<span class="task-due' + (overdue ? ' overdue' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:3px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' + due.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }) + '</span>';
+        dueHtml = '<span class="task-due-pill' + (overdue ? ' overdue' : '') + '">'
+          + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+          + due.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }) + '</span>';
       }
 
-      var assignHtml = t.assignee_name
-        ? '<span class="task-assignee"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:3px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' + (typeof escapeHtml === 'function' ? escapeHtml(t.assignee_name) : t.assignee_name) + '</span>'
-        : '';
+      var avatarHtml = '';
+      if (t.assignee_name) {
+        var initials = t.assignee_name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+        avatarHtml = '<span class="task-assignee-avatar" title="' + (typeof escapeHtml === 'function' ? escapeHtml(t.assignee_name) : t.assignee_name) + '">' + escapeHtml(initials) + '</span>';
+      }
+
+      var projectTag = t.project_name || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'Company Project');
 
       var sc = { todo: 'var(--text-secondary)', inprogress: 'var(--brand-blue)', done: 'var(--green)' };
       var sl = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
@@ -185,7 +350,7 @@ async function renderTasksBoard(dept) {
       var stBtns = '<div style="display:flex;gap:6px;margin-top:10px;">';
       ['todo', 'inprogress', 'done'].forEach(function(s) {
         var active = t.status === s;
-        stBtns += '<button data-task-id="' + t.id + '" data-task-status="' + s + '" data-dept="' + dept + '" style="flex:1;padding:7px 4px;border:1.5px solid ' + (active ? sc[s] : 'var(--border-card)') + ';border-radius:10px;background:' + (active ? 'rgba(59,130,246,0.12)' : 'transparent') + ';color:' + (active ? sc[s] : 'var(--text-secondary)') + ';font-size:10px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;text-align:center;">' + sl[s] + '</button>';
+        stBtns += '<button data-task-id="' + t.id + '" data-task-status="' + s + '" data-dept="' + (dept || '') + '" style="flex:1;padding:6px 4px;border:1.5px solid ' + (active ? sc[s] : 'var(--border-card)') + ';border-radius:8px;background:' + (active ? 'rgba(59,130,246,0.12)' : 'transparent') + ';color:' + (active ? sc[s] : 'var(--text-secondary)') + ';font-size:10px;font-weight:700;cursor:pointer;font-family:\'Oswald\',sans-serif;text-align:center;">' + sl[s] + '</button>';
       });
       stBtns += '</div>';
 
@@ -194,22 +359,36 @@ async function renderTasksBoard(dept) {
         ? '<div class="task-card-desc">' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(descText.length > 80 ? descText.slice(0, 80) + '\u2026' : descText) : (typeof escapeHtml === 'function' ? escapeHtml(descText) : descText)) + '</div>'
         : '';
 
-      html += '<div class="task-card" data-task-open="' + t.id + '">'
+      html += '<div class="task-card" draggable="true" data-drag-tid="' + t.id + '" data-task-open="' + t.id + '">'
+        + '<div class="task-card-header">'
+        +   '<div style="display:flex;align-items:center;">'
+        +     '<span class="task-drag-handle" title="Drag to change column"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg></span>'
+        +     '<span class="task-id-badge">' + escapeHtml(taskId) + '</span>'
+        +   '</div>'
+        +   '<span class="task-pill ' + pc + '" style="font-size:10px;padding:2px 6px;">' + pl + '</span>'
+        + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
+        + '<span class="task-project-tag">' + escapeHtml(projectTag) + '</span>'
         + descFormatted
-        + '<div class="task-meta"><span class="task-pill ' + pc + '">' + pl + '</span>' + assignHtml + dueHtml + '</div>'
-        + stBtns + '</div>';
+        + '<div class="task-card-footer">'
+        +   dueHtml
+        +   avatarHtml
+        + '</div>'
+        + stBtns
+        + '</div>';
     });
 
     el.innerHTML = html;
 
+    // Card click opens detail modal
     el.querySelectorAll('[data-task-open]').forEach(function(card) {
       card.addEventListener('click', function(e) {
-        if (e.target.closest('[data-task-id]')) return;
+        if (e.target.closest('[data-task-id]') || e.target.closest('.task-drag-handle')) return;
         openTaskDetail(card.getAttribute('data-task-open'));
       });
     });
 
+    // Inline status change buttons
     el.querySelectorAll('[data-task-id]').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -217,10 +396,220 @@ async function renderTasksBoard(dept) {
       });
     });
   });
+
+  // Attach HTML5 Drag & Drop handlers
+  setupKanbanDragAndDrop();
 }
 
 /**
- * Opens task detail modal
+ * Initializes HTML5 Drag and Drop across Kanban task cards and columns
+ */
+function setupKanbanDragAndDrop() {
+  if (typeof document === 'undefined') return;
+
+  var cards = document.querySelectorAll('.task-card[draggable="true"]');
+  cards.forEach(function(card) {
+    card.addEventListener('dragstart', function(e) {
+      var tid = card.getAttribute('data-drag-tid');
+      if (e.dataTransfer) {
+        e.dataTransfer.setData('text/plain', tid);
+        e.dataTransfer.effectAllowed = 'move';
+      }
+      card.classList.add('dragging');
+    });
+
+    card.addEventListener('dragend', function() {
+      card.classList.remove('dragging');
+      document.querySelectorAll('.task-col').forEach(function(col) {
+        col.classList.remove('drag-over');
+      });
+    });
+  });
+
+  var columns = document.querySelectorAll('.task-col[data-col-status]');
+  columns.forEach(function(col) {
+    col.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+    });
+
+    col.addEventListener('dragleave', function() {
+      col.classList.remove('drag-over');
+    });
+
+    col.addEventListener('drop', async function(e) {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      var tid = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
+      if (!tid) return;
+
+      var targetStatus = col.getAttribute('data-col-status');
+      var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
+      if (t && t.status !== targetStatus) {
+        var statusLabels = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
+        if (typeof showToast === 'function') {
+          showToast('Moved to ' + statusLabels[targetStatus], 'info', 2000);
+        }
+        await memberUpdateTaskStatus(tid, targetStatus, _currentDeptFilter);
+      }
+    });
+  });
+}
+
+/**
+ * Renders the "My Tasks" view (Image 4) with filter chips and interactive table
+ */
+function renderMyTasksView() {
+  if (typeof document === 'undefined') return;
+  var container = document.querySelector('.my-tasks-container');
+  if (!container) return;
+
+  var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+
+  // Filter tasks based on current filters and search query
+  var filtered = _allLoadedTasks.filter(function(t) {
+    if (_myTasksScopeFilter === 'me') {
+      var isAssigned = (t.assignee_ic && myIc && t.assignee_ic.indexOf(myIc) !== -1)
+        || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1);
+      if (!isAssigned) return false;
+    }
+    if (_myTasksStatusFilter === 'open' && t.status === 'done') {
+      return false;
+    }
+    if (_currentDeptFilter !== 'all' && t.department !== _currentDeptFilter) {
+      return false;
+    }
+    if (_taskSearchQuery) {
+      var matchTitle = (t.title || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
+      var matchDesc  = (t.description || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
+      var matchId    = String(t.id || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
+      if (!matchTitle && !matchDesc && !matchId) return false;
+    }
+    return true;
+  });
+
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+
+  var html = '<div class="my-tasks-wrapper">'
+    + '<div class="my-tasks-header-bar">'
+    +   '<div class="my-tasks-title-group">'
+    +     '<h2>My Tasks</h2>'
+    +     '<p>Assigned to you, across all projects.</p>'
+    +   '</div>'
+    +   '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()">'
+    +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    +     '<span>Add Task</span>'
+    +   '</button>'
+    + '</div>'
+    + '<div class="my-tasks-filters-bar">'
+    +   '<button type="button" class="filter-chip' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="toggleMyTasksScope()">'
+    +     'Scope is: <strong>' + (_myTasksScopeFilter === 'me' ? 'Assigned to me' : 'All Tasks') + '</strong>'
+    +   '</button>'
+    +   '<button type="button" class="filter-chip' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="toggleMyTasksStatus()">'
+    +     'Status is: <strong>' + (_myTasksStatusFilter === 'open' ? 'Open' : 'All') + '</strong>'
+    +   '</button>'
+    + '</div>'
+    + '<div class="my-tasks-table-container">'
+    +   '<table class="my-tasks-table">'
+    +     '<thead>'
+    +       '<tr>'
+    +         '<th style="width:36px;"></th>'
+    +         '<th>Task</th>'
+    +         '<th>Status</th>'
+    +         '<th>Project</th>'
+    +         '<th>ID</th>'
+    +         '<th>Priority</th>'
+    +         '<th>Assignee</th>'
+    +         '<th>Due Date</th>'
+    +         '<th>Estimate</th>'
+    +       '</tr>'
+    +     '</thead>'
+    +     '<tbody>';
+
+  if (!filtered.length) {
+    html += '<tr><td colspan="9" style="text-align:center;padding:36px;color:var(--text-muted);">'
+      + 'No tasks found for your current filter criteria.</td></tr>';
+  } else {
+    filtered.forEach(function(t, idx) {
+      var isDone = t.status === 'done';
+      var statusClass = isDone ? 'status-done' : (t.status === 'inprogress' ? 'status-inprogress' : 'status-todo');
+      var statusLabel = isDone ? 'Done' : (t.status === 'inprogress' ? 'In progress' : 'To do');
+      var taskId = formatTaskId(t, idx);
+      var projectName = t.project_name || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'General Task');
+
+      var dueStr = '—';
+      var isOverdue = false;
+      if (t.due_date) {
+        var d = new Date(t.due_date); d.setHours(0, 0, 0, 0);
+        isOverdue = !isDone && d < today;
+        dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+      }
+
+      var priorityIcon = t.priority === 'high' ? '⌃ High' : (t.priority === 'low' ? '⌄ Low' : '— Med');
+      var assigneeName = t.assignee_name || 'Unassigned';
+      var initials = assigneeName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+      var estimate = t.estimate || '—';
+
+      html += '<tr class="my-tasks-row" data-row-tid="' + t.id + '">'
+        + '<td>'
+        +   '<input type="checkbox" class="my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task completion" />'
+        + '</td>'
+        + '<td style="font-weight:600;color:var(--text-primary);' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">'
+        +   escapeHtml(t.title)
+        + '</td>'
+        + '<td><span class="my-tasks-status-pill ' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>'
+        + '<td><div class="my-tasks-project-cell"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>' + escapeHtml(projectName) + '</div></td>'
+        + '<td><span class="task-id-badge">' + escapeHtml(taskId) + '</span></td>'
+        + '<td style="font-size:11px;font-weight:600;">' + escapeHtml(priorityIcon) + '</td>'
+        + '<td><div style="display:flex;align-items:center;gap:6px;"><span class="task-assignee-avatar" style="width:20px;height:20px;font-size:9px;">' + escapeHtml(initials) + '</span><span>' + escapeHtml(assigneeName) + '</span></div></td>'
+        + '<td style="' + (isOverdue ? 'color:#ef4444;font-weight:700;' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' + escapeHtml(dueStr) + '</td>'
+        + '<td style="color:var(--text-secondary);font-size:12px;">' + escapeHtml(estimate) + '</td>'
+        + '</tr>';
+    });
+  }
+
+  html += '</tbody></table></div></div>';
+  container.innerHTML = html;
+
+  // Row click opens task detail modal
+  container.querySelectorAll('.my-tasks-row').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      if (e.target.closest('.my-tasks-checkbox')) return;
+      openTaskDetail(row.getAttribute('data-row-tid'));
+    });
+  });
+}
+
+function toggleMyTasksScope() {
+  _myTasksScopeFilter = (_myTasksScopeFilter === 'me') ? 'all' : 'me';
+  renderMyTasksView();
+}
+
+function toggleMyTasksStatus() {
+  _myTasksStatusFilter = (_myTasksStatusFilter === 'open') ? 'all' : 'open';
+  renderMyTasksView();
+}
+
+/**
+ * Checkbox toggle on a task row in My Tasks view
+ * @param {string} id
+ * @param {Event} e
+ */
+async function toggleTaskCheckbox(id, e) {
+  if (e) e.stopPropagation();
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id];
+  if (!t) return;
+  var nextStatus = t.status === 'done' ? 'todo' : 'done';
+  await memberUpdateTaskStatus(id, nextStatus, _currentDeptFilter);
+  if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView();
+  }
+}
+
+/**
+ * Opens task detail/brief inspection modal (Image 3)
  * @param {string} id
  */
 function openTaskDetail(id) {
@@ -232,12 +621,30 @@ function openTaskDetail(id) {
   };
   set('tdm-title', t.title || '');
 
+  // Update breadcrumbs matching Image 3
+  var deptLabel = (t.department && DEPT_CONFIG[t.department]) ? DEPT_CONFIG[t.department].label : 'Department';
+  var taskId = formatTaskId(t, 0);
+
+  var deptBreadcrumb = document.querySelector('.task-brief-dept-name');
+  if (deptBreadcrumb) deptBreadcrumb.textContent = deptLabel;
+  var idLabel = document.querySelector('.task-brief-id-label');
+  if (idLabel) idLabel.textContent = taskId;
+
   var descEl = document.getElementById('tdm-desc');
   if (descEl) {
     var desc = t.description || '';
-    descEl.innerHTML = (desc && desc.indexOf('<') !== -1)
-      ? ((typeof sanitizeHtml === 'function') ? sanitizeHtml(desc) : (typeof escapeHtml === 'function' ? escapeHtml(desc) : desc))
-      : (desc ? (typeof escapeHtml === 'function' ? escapeHtml(desc) : desc) : '<span style="color:var(--text-muted);">No description.</span>');
+    if (desc && desc.indexOf('<') !== -1) {
+      descEl.innerHTML = (typeof sanitizeHtml === 'function') ? sanitizeHtml(desc) : desc;
+    } else if (desc) {
+      // Format line breaks, bullet points, and basic markdown tables
+      var formatted = escapeHtml(desc)
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n- /g, '<br>&bull; ')
+        .replace(/\n/g, '<br>');
+      descEl.innerHTML = '<p>' + formatted + '</p>';
+    } else {
+      descEl.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">No detailed brief provided for this task.</span>';
+    }
   }
 
   var pc = t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium';
@@ -255,6 +662,17 @@ function openTaskDetail(id) {
 
   set('tdm-assignee', t.assignee_name || '\u2014');
   set('tdm-due', t.due_date ? new Date(t.due_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '\u2014');
+
+  var estChip = document.querySelector('.task-brief-estimate-chip');
+  var estVal  = document.querySelector('.task-brief-estimate-val');
+  if (estChip && estVal) {
+    if (t.estimate) {
+      estVal.textContent = t.estimate;
+      estChip.style.display = 'inline-flex';
+    } else {
+      estChip.style.display = 'none';
+    }
+  }
 
   var btns = document.getElementById('tdm-status-btns');
   if (btns) {
@@ -303,12 +721,176 @@ async function memberUpdateTaskStatus(id, status, dept) {
   if (!client) return;
   try {
     await client.patch('bb_tasks?id=eq.' + id, { status: status });
-    await renderTasksBoard(dept);
+    // Update local cache
+    if (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) {
+      window._taskMap[id].status = status;
+    }
+    if (_taskMap[id]) _taskMap[id].status = status;
+    var foundLoaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+    if (foundLoaded) foundLoaded.status = status;
+
+    if (_tasksViewMode === 'mytasks') {
+      renderMyTasksView();
+    } else {
+      await renderTasksBoard(dept || _currentDeptFilter);
+    }
   } catch (e) {
     if (typeof showToast === 'function') {
       showToast('Failed to update task status.', 'error');
     } else if (typeof alert === 'function') {
       alert('Failed to update.');
+    }
+  }
+}
+
+/**
+ * Opens Create Task modal
+ * @param {string} [defaultStatus='todo']
+ */
+function openCreateTaskModal(defaultStatus) {
+  if (typeof document === 'undefined') return;
+  var modal = document.querySelector('.task-create-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  modal.setAttribute('data-target-status', defaultStatus || 'todo');
+
+  var deptInput = modal.querySelector('.new-task-dept-input');
+  var currentDept = (deptInput && deptInput.value) || (_currentDeptFilter !== 'all' ? _currentDeptFilter : 'logistics');
+  if (deptInput) deptInput.value = currentDept;
+
+  loadNewTaskAssigneeOptions(currentDept);
+}
+
+/**
+ * Closes Create Task modal
+ */
+function closeCreateTaskModal() {
+  if (typeof document === 'undefined') return;
+  var modal = document.querySelector('.task-create-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+/**
+ * Loads department member options into Create Task modal assignee dropdown
+ * @param {string} dept
+ */
+async function loadNewTaskAssigneeOptions(dept) {
+  if (typeof document === 'undefined') return;
+  var modal = document.querySelector('.task-create-modal');
+  if (!modal) return;
+  var sel = modal.querySelector('.new-task-assignee-input');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Unassigned</option>';
+  if (!dept) return;
+
+  var client = getSupaClient();
+  if (!client) return;
+  try {
+    var members = await client.get('bb_members?department=eq.' + dept + '&select=ic,name&order=name');
+    if (Array.isArray(members)) {
+      members.forEach(function(m) {
+        var opt = document.createElement('option');
+        opt.value = m.ic;
+        opt.textContent = m.name;
+        sel.appendChild(opt);
+      });
+    }
+  } catch (e) {
+    console.error('loadNewTaskAssigneeOptions error:', e);
+  }
+}
+
+/**
+ * Handles Create Task form submission
+ * @param {Event} e
+ */
+async function handleCreateTaskSubmit(e) {
+  if (e) e.preventDefault();
+  if (typeof document === 'undefined') return;
+
+  var modal = document.querySelector('.task-create-modal');
+  if (!modal) return;
+
+  var titleEl    = modal.querySelector('.new-task-title-input');
+  var deptEl     = modal.querySelector('.new-task-dept-input');
+  var assEl      = modal.querySelector('.new-task-assignee-input');
+  var priorityEl = modal.querySelector('.new-task-priority-input');
+  var dueEl      = modal.querySelector('.new-task-due-input');
+  var estEl      = modal.querySelector('.new-task-estimate-input');
+  var projEl     = modal.querySelector('.new-task-project-input');
+  var descEl     = modal.querySelector('.new-task-desc-input');
+
+  var rawTitle = titleEl ? titleEl.value.trim() : '';
+  var title = (typeof sanitizeText === 'function') ? sanitizeText(rawTitle, 200) : rawTitle;
+  if (!title) {
+    if (typeof showToast === 'function') showToast('Please enter a task title.', 'warning');
+    return;
+  }
+
+  var dept = deptEl ? deptEl.value : 'logistics';
+  var assigneeIc = assEl ? assEl.value : '';
+  var assigneeName = (assEl && assEl.selectedIndex >= 0 && assEl.options[assEl.selectedIndex].text) || '';
+  if (assigneeName === 'Unassigned') assigneeName = '';
+
+  var priority = priorityEl ? priorityEl.value : 'medium';
+  var due = dueEl ? dueEl.value : null;
+  var estimate = estEl ? estEl.value.trim() : '';
+  var projectName = projEl ? projEl.value.trim() : '';
+  var rawDesc = descEl ? descEl.value.trim() : '';
+  var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
+  var targetStatus = modal.getAttribute('data-target-status') || 'todo';
+
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : 'Department Lead';
+
+  var payload = {
+    title: title,
+    description: desc,
+    department: dept,
+    priority: priority,
+    due_date: due || null,
+    assignee_name: assigneeName || null,
+    assignee_ic: assigneeIc || null,
+    estimate: estimate || null,
+    project_name: projectName || null,
+    creator_name: myName,
+    created_at: new Date().toISOString(),
+    status: targetStatus
+  };
+
+  var client = getSupaClient();
+  if (!client) return;
+
+  try {
+    var inserted = await client.post('bb_tasks', payload);
+    var savedTask = Array.isArray(inserted) && inserted[0] ? inserted[0] : payload;
+
+    closeCreateTaskModal();
+    if (titleEl) titleEl.value = '';
+    if (descEl) descEl.value = '';
+    if (dueEl) dueEl.value = '';
+    if (estEl) estEl.value = '';
+    if (projEl) projEl.value = '';
+
+    if (typeof showToast === 'function') {
+      showToast('Task brief created successfully!', 'success');
+    }
+
+    // Refresh view
+    if (_tasksViewMode === 'mytasks') {
+      await renderTasksBoard(_currentDeptFilter);
+      renderMyTasksView();
+    } else {
+      await renderTasksBoard(_currentDeptFilter);
+    }
+
+    // Dispatch assignment notification if assigned to user
+    if (savedTask && (typeof syncTaskNotifications === 'function' || (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function'))) {
+      var syncFn = (typeof syncTaskNotifications === 'function') ? syncTaskNotifications : window.syncTaskNotifications;
+      syncFn([savedTask]);
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') {
+      showToast('Failed to create task: ' + err.message, 'error');
     }
   }
 }
@@ -391,11 +973,19 @@ async function saveTask() {
   var editId   = (document.getElementById('task-edit-id') || {}).value || '';
 
   if (!title) {
-    alert('Please enter a task title.');
+    if (typeof showToast === 'function') {
+      showToast('Please enter a task title.', 'warning');
+    } else if (typeof alert === 'function') {
+      alert('Please enter a task title.');
+    }
     return;
   }
   if (!dept) {
-    alert('Please select a department.');
+    if (typeof showToast === 'function') {
+      showToast('Please select a department.', 'warning');
+    } else if (typeof alert === 'function') {
+      alert('Please select a department.');
+    }
     return;
   }
 
@@ -427,18 +1017,22 @@ async function saveTask() {
     if (editId) {
       await client.patch('bb_tasks?id=eq.' + editId, payload);
       if (typeof showToast === 'function') showToast('Task updated successfully!', 'success');
-      else alert('\u2705 Task updated!');
+      else if (typeof alert === 'function') alert('\u2705 Task updated!');
     } else {
       await client.post('bb_tasks', payload);
       if (typeof showToast === 'function') showToast('Task added successfully!', 'success');
-      else alert('\u2705 Task added!');
+      else if (typeof alert === 'function') alert('\u2705 Task added!');
     }
     clearTaskForm();
     var body = document.getElementById('task-form-body');
     if (body && body.style.display !== 'none') toggleTaskForm();
     renderAdminTasks(_adminTaskFilter);
   } catch (e) {
-    alert('Failed: ' + e.message);
+    if (typeof showToast === 'function') {
+      showToast('Failed: ' + e.message, 'error');
+    } else if (typeof alert === 'function') {
+      alert('Failed: ' + e.message);
+    }
   }
 }
 
@@ -553,7 +1147,11 @@ async function updateTaskStatus(id, status) {
     await client.patch('bb_tasks?id=eq.' + id, { status: status });
     renderAdminTasks(_adminTaskFilter);
   } catch (e) {
-    alert('Failed to update status.');
+    if (typeof showToast === 'function') {
+      showToast('Failed to update status: ' + e.message, 'error');
+    } else if (typeof alert === 'function') {
+      alert('Failed to update status.');
+    }
   }
 }
 
@@ -606,7 +1204,7 @@ function editAdminTask(id) {
 async function deleteTask(id) {
   var ok = (typeof showConfirmModal === 'function')
     ? await showConfirmModal('Delete this task?')
-    : confirm('Delete this task?');
+    : (typeof confirm === 'function' ? confirm('Delete this task?') : true);
   if (!ok) return;
 
   var client = getSupaClient();
@@ -616,13 +1214,13 @@ async function deleteTask(id) {
     renderAdminTasks(_adminTaskFilter);
     if (typeof showToast === 'function') {
       showToast('Task deleted successfully.', 'success');
-    } else {
+    } else if (typeof alert === 'function') {
       alert('Task deleted successfully.');
     }
   } catch (e) {
     if (typeof showToast === 'function') {
       showToast('Failed to delete task.', 'error');
-    } else {
+    } else if (typeof alert === 'function') {
       alert('Failed to delete task.');
     }
   }
@@ -630,41 +1228,77 @@ async function deleteTask(id) {
 
 // ── Global and Module Exports ──────────────────────────────────────────────
 if (typeof window !== 'undefined') {
-  window.DEPT_CONFIG            = DEPT_CONFIG;
-  window._adminTaskFilter       = _adminTaskFilter;
-  window._allAdminTasks         = _allAdminTasks;
-  window._taskMap               = _taskMap;
-  window.checkIsNCO             = checkIsNCO;
-  window.switchTaskTab          = switchTaskTab;
-  window.checkTasksAccess       = checkTasksAccess;
-  window.renderTasksBoard       = renderTasksBoard;
-  window.openTaskDetail         = openTaskDetail;
-  window.closeTaskDetail        = closeTaskDetail;
-  window.memberUpdateTaskStatus = memberUpdateTaskStatus;
-  window.switchDeptTab          = switchDeptTab;
-  window.toggleTaskForm         = toggleTaskForm;
-  window.loadAssigneeOptions    = loadAssigneeOptions;
-  window.saveTask               = saveTask;
-  window.clearTaskForm          = clearTaskForm;
-  window.renderAdminTasks       = renderAdminTasks;
-  window.updateTaskStatus       = updateTaskStatus;
-  window.editAdminTask          = editAdminTask;
-  window.deleteTask             = deleteTask;
+  window.DEPT_CONFIG                = DEPT_CONFIG;
+  window._activeTasksSection        = _activeTasksSection;
+  window._tasksViewMode             = _tasksViewMode;
+  window._currentDeptFilter         = _currentDeptFilter;
+  window._taskSearchQuery           = _taskSearchQuery;
+  window._allLoadedTasks            = _allLoadedTasks;
+  window._adminTaskFilter           = _adminTaskFilter;
+  window._allAdminTasks             = _allAdminTasks;
+  window._taskMap                   = _taskMap;
+  window.checkIsNCO                 = checkIsNCO;
+  window.switchTaskTab              = switchTaskTab;
+  window.switchTaskSectionView      = switchTaskSectionView;
+  window.checkTasksAccess           = checkTasksAccess;
+  window.setTasksViewMode           = setTasksViewMode;
+  window.changeTaskDeptFilter       = changeTaskDeptFilter;
+  window.filterProjectTasks         = filterProjectTasks;
+  window.renderTasksBoard           = renderTasksBoard;
+  window.setupKanbanDragAndDrop     = setupKanbanDragAndDrop;
+  window.renderMyTasksView          = renderMyTasksView;
+  window.toggleMyTasksScope         = toggleMyTasksScope;
+  window.toggleMyTasksStatus        = toggleMyTasksStatus;
+  window.toggleTaskCheckbox         = toggleTaskCheckbox;
+  window.openTaskDetail             = openTaskDetail;
+  window.closeTaskDetail            = closeTaskDetail;
+  window.memberUpdateTaskStatus     = memberUpdateTaskStatus;
+  window.openCreateTaskModal        = openCreateTaskModal;
+  window.closeCreateTaskModal       = closeCreateTaskModal;
+  window.loadNewTaskAssigneeOptions = loadNewTaskAssigneeOptions;
+  window.handleCreateTaskSubmit     = handleCreateTaskSubmit;
+  window.switchDeptTab              = switchDeptTab;
+  window.toggleTaskForm             = toggleTaskForm;
+  window.loadAssigneeOptions        = loadAssigneeOptions;
+  window.saveTask                   = saveTask;
+  window.clearTaskForm              = clearTaskForm;
+  window.renderAdminTasks           = renderAdminTasks;
+  window.updateTaskStatus           = updateTaskStatus;
+  window.editAdminTask              = editAdminTask;
+  window.deleteTask                 = deleteTask;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     DEPT_CONFIG,
+    _activeTasksSection,
+    _tasksViewMode,
+    _currentDeptFilter,
+    _taskSearchQuery,
+    _allLoadedTasks,
     _adminTaskFilter,
     _allAdminTasks,
     _taskMap,
     checkIsNCO,
     switchTaskTab,
+    switchTaskSectionView,
     checkTasksAccess,
+    setTasksViewMode,
+    changeTaskDeptFilter,
+    filterProjectTasks,
     renderTasksBoard,
+    setupKanbanDragAndDrop,
+    renderMyTasksView,
+    toggleMyTasksScope,
+    toggleMyTasksStatus,
+    toggleTaskCheckbox,
     openTaskDetail,
     closeTaskDetail,
     memberUpdateTaskStatus,
+    openCreateTaskModal,
+    closeCreateTaskModal,
+    loadNewTaskAssigneeOptions,
+    handleCreateTaskSubmit,
     switchDeptTab,
     toggleTaskForm,
     loadAssigneeOptions,

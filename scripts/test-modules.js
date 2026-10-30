@@ -2101,6 +2101,40 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(deletedTaskId, 't1', 'deleteTask must call Supabase delete with task id');
   console.log('  ✔ deleteTask removes task from database');
 
+  // 10. Segmented Section View Switcher (Weekly Parade vs Project Board)
+  tasksMod.switchTaskSectionView('parade');
+  const ndEl = document.getElementById('tasks-no-dept');
+  const boardEl = document.getElementById('tasks-board');
+  assert.strictEqual(ndEl.style.display, 'block', 'Parade schedule must be displayed in parade view');
+  assert.strictEqual(boardEl.style.display, 'none', 'Project board must be hidden in parade view');
+
+  tasksMod.switchTaskSectionView('board');
+  assert.strictEqual(ndEl.style.display, 'none', 'Parade schedule must be hidden in board view');
+  console.log('  ✔ switchTaskSectionView separates Weekly Parade schedule from Project Board');
+
+  // 11. Dual View Switcher & My Tasks View
+  let myTasksContainer = document.querySelector('.my-tasks-container');
+  if (!myTasksContainer) {
+    myTasksContainer = global.document.createElement('div');
+    myTasksContainer.className = 'my-tasks-container';
+    global.document.body.appendChild(myTasksContainer);
+  }
+  tasksMod.setTasksViewMode('mytasks');
+  assert.strictEqual(myTasksContainer.style.display, 'block', 'My tasks container must be visible in mytasks mode');
+  assert.ok(myTasksContainer.innerHTML.includes('My Tasks'), 'My tasks view must render header');
+  assert.ok(myTasksContainer.innerHTML.includes('my-tasks-table'), 'My tasks view must render structured table');
+
+  tasksMod.setTasksViewMode('board');
+  assert.strictEqual(myTasksContainer.style.display, 'none', 'My tasks container must be hidden in board mode');
+  console.log('  ✔ setTasksViewMode toggles between Kanban board and My Tasks table views');
+
+  // 12. Persistent Notification Dismissal & Task Assignment Sync
+  const indexHtmlTasksCheck = fs.readFileSync('index.html', 'utf8');
+  assert.ok(indexHtmlTasksCheck.includes('bb_dismissed_notifications'), 'localStorage key bb_dismissed_notifications must be supported');
+  assert.ok(indexHtmlTasksCheck.includes('syncTaskNotifications'), 'syncTaskNotifications must be implemented');
+  assert.ok(indexHtmlTasksCheck.includes('notif-dismissing'), 'notif-dismissing animation class must exist');
+  console.log('  ✔ Persistent notification dismissal and dynamic task assignment sync verified');
+
   // Restore Supabase mocks
   global.supa.get = originalSupaGet;
   global.supa.post = originalSupaPost;

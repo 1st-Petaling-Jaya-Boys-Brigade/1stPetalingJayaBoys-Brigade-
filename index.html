@@ -1060,6 +1060,20 @@
   <section class="page" id="page-tasks" aria-label="Weekly Parade &amp; Tasks">
   <div style="width:100%;">
 
+    <!-- Segmented Navigation: Weekly Parade vs Department Projects & Tasks -->
+    <div class="tasks-segmented-bar">
+      <div class="tasks-nav-pills" role="tablist" aria-label="Tasks and Parade Navigation">
+        <button type="button" class="tasks-nav-pill active" data-task-view="parade" onclick="switchTaskSectionView('parade')" role="tab" aria-selected="true">
+          <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Weekly Parade</span>
+        </button>
+        <button type="button" class="tasks-nav-pill" data-task-view="board" onclick="switchTaskSectionView('board')" role="tab" aria-selected="false">
+          <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          <span>Department Projects &amp; Tasks</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Not logged in gate -->
     <div class="dark-card" id="tasks-gate" style="display:none;text-align:center;padding:40px 20px;">
       <div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
@@ -1224,9 +1238,46 @@
 
     <!-- Tasks board -->
     <div id="tasks-board" style="display:none;width:100%;">
+      <!-- Project Board Toolbar (Image 2) -->
+      <div class="task-board-toolbar">
+        <div class="task-breadcrumb">
+          <span>Projects</span>
+          <span class="task-breadcrumb-sep">&gt;</span>
+          <span class="task-breadcrumb-cur" id="tasks-dept-title">Department</span>
+        </div>
+        <div class="task-toolbar-actions">
+          <div class="task-search-box">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="task-search-input" placeholder="Search tasks..." oninput="filterProjectTasks(this.value)" aria-label="Search department tasks" />
+          </div>
+          <select class="task-dept-select" onchange="changeTaskDeptFilter(this.value)" aria-label="Filter by department">
+            <option value="all">All Departments</option>
+            <option value="logistics">Logistics</option>
+            <option value="secretariat">Secretariat</option>
+            <option value="media">Media</option>
+            <option value="band">Band</option>
+            <option value="awards">Awards &amp; Badges</option>
+            <option value="general">General</option>
+          </select>
+          <div class="task-view-toggle" role="group" aria-label="Task view mode">
+            <button type="button" class="view-toggle-btn active" data-view="board" onclick="setTasksViewMode('board')" title="Kanban Board View">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+              <span>Board</span>
+            </button>
+            <button type="button" class="view-toggle-btn" data-view="mytasks" onclick="setTasksViewMode('mytasks')" title="My Tasks View">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              <span>My Tasks</span>
+            </button>
+          </div>
+          <button type="button" class="task-primary-btn" onclick="openCreateTaskModal()">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Add Task</span>
+          </button>
+        </div>
+      </div>
+
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <div>
-          <div style="font-family:'Oswald',sans-serif;font-size:28px;font-weight:700;color:var(--text-primary);" id="tasks-dept-title">Department</div>
           <div style="font-size:12px;color:var(--text-secondary);letter-spacing:2px;text-transform:uppercase;" id="tasks-dept-sub">Task Board</div>
         </div>
         <div id="tasks-dept-badge"></div>
@@ -1245,56 +1296,144 @@
         </button>
       </div>
 
-      <!-- Kanban columns -->
-      <div style="display:flex;gap:10px;align-items:flex-start;" id="tasks-columns">
+      <!-- Kanban columns (Image 2) -->
+      <div style="display:flex;gap:14px;align-items:flex-start;" id="tasks-columns">
         <!-- Todo -->
-        <div class="task-col mobile-active" id="taskcol-todo">
-          <div class="task-col-title" style="color:var(--text-secondary);">
-            <span style="width:8px;height:8px;border-radius:50%;background:var(--text-secondary);display:inline-block;"></span>
-            To Do <span id="count-todo" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+        <div class="task-col mobile-active" id="taskcol-todo" data-col-status="todo">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:var(--text-secondary);margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--text-secondary);display:inline-block;"></span>
+              To Do <span id="count-todo" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('todo')" title="Add task to To Do"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
           <div id="col-todo"></div>
         </div>
         <!-- In Progress -->
-        <div class="task-col" id="taskcol-inprogress">
-          <div class="task-col-title" style="color:#3b82f6;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
-            In Progress <span id="count-inprogress" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+        <div class="task-col" id="taskcol-inprogress" data-col-status="inprogress">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:#3b82f6;margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
+              In Progress <span id="count-inprogress" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('inprogress')" title="Add task to In Progress"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
           <div id="col-inprogress"></div>
         </div>
         <!-- Done -->
-        <div class="task-col" id="taskcol-done">
-          <div class="task-col-title" style="color:#10b981;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
-            Done <span id="count-done" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+        <div class="task-col" id="taskcol-done" data-col-status="done">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:#10b981;margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+              Done <span id="count-done" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('done')" title="Add task to Done"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
           <div id="col-done"></div>
         </div>
       </div>
+
+      <!-- My Tasks View Container (Image 4) -->
+      <div class="my-tasks-container" style="display:none;"></div>
     </div>
 
-    <!-- Task detail modal -->
+    <!-- Task detail modal (Image 3) -->
     <div id="task-detail-modal" role="dialog" aria-modal="true" aria-labelledby="tdm-title" style="display:none;position:fixed;inset:0;z-index:998;">
       <div class="task-modal-bg" onclick="closeTaskDetail()"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;max-width:620px;margin:0 auto;background:var(--bg-card);border-radius:20px 20px 0 0;border:1px solid var(--border-card);padding:22px 20px 36px;box-shadow:0 -8px 40px rgba(0,0,0,0.4);">
-        <div style="width:36px;height:4px;background:var(--border-card);border-radius:4px;margin:0 auto 20px;"></div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-          <div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);flex:1;line-height:1.3;" id="tdm-title"></div>
-          <button onclick="closeTaskDetail()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 12px;border-radius:8px;cursor:pointer;margin-left:12px;flex-shrink:0;display:flex;align-items:center;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-        </div>
-        <div id="tdm-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
-        <div style="font-size:14px;color:var(--text-secondary);line-height:1.7;margin-bottom:16px;" id="tdm-desc"></div>
-        <div style="background:var(--bg-card-subtle);border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid var(--border-card);">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;font-weight:700;">
-            <span>Assigned To</span><span>Due Date</span>
+      <div class="task-brief-modal-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="task-brief-breadcrumbs">
+            <span>Projects</span>
+            <span>&gt;</span>
+            <span class="task-brief-dept-name">Department</span>
+            <span>&gt;</span>
+            <span class="task-brief-id-label">TASK</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--text-primary);" id="tdm-assignee">—</div>
-            <div style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--text-primary);" id="tdm-due">—</div>
+          <button onclick="closeTaskDetail()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;" aria-label="Close task brief"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="task-brief-title" id="tdm-title"></div>
+        <div class="task-brief-properties">
+          <div id="tdm-meta" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></div>
+          <div class="task-prop-chip">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span id="tdm-assignee">—</span>
+          </div>
+          <div class="task-prop-chip">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="tdm-due">—</span>
+          </div>
+          <div class="task-prop-chip task-brief-estimate-chip" style="display:none;">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="task-brief-estimate-val">—</span>
           </div>
         </div>
+        <div class="task-brief-body" id="tdm-desc"></div>
         <div id="tdm-status-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- Create Task Brief Modal (Image 2/3) -->
+    <div class="task-create-modal" role="dialog" aria-modal="true" aria-label="Create Task Brief" style="display:none;position:fixed;inset:0;z-index:999;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:16px;">
+      <div class="task-create-modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:24px 28px;width:100%;max-width:620px;box-shadow:var(--shadow-modal);max-height:calc(100vh - 40px);overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">Create Task Brief</div>
+          <button type="button" onclick="closeCreateTaskModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 10px;border-radius:8px;cursor:pointer;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <form class="task-create-form" onsubmit="handleCreateTaskSubmit(event)" style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Task Title *</label>
+            <input type="text" class="form-input new-task-title-input" placeholder="e.g. Inspect parade flags and ceremonial belts" required style="width:100%;" />
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Department *</label>
+              <select class="form-input new-task-dept-input" onchange="loadNewTaskAssigneeOptions(this.value)" required style="width:100%;">
+                <option value="logistics">Logistics</option>
+                <option value="secretariat">Secretariat</option>
+                <option value="media">Media</option>
+                <option value="band">Band</option>
+                <option value="awards">Awards &amp; Badges</option>
+                <option value="general">General</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Assignee</label>
+              <select class="form-input new-task-assignee-input" style="width:100%;">
+                <option value="">Unassigned</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Priority</label>
+              <select class="form-input new-task-priority-input" style="width:100%;">
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Due Date</label>
+              <input type="date" class="form-input new-task-due-input" style="width:100%;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Estimate</label>
+              <input type="text" class="form-input new-task-estimate-input" placeholder="e.g. 2h or 1d" style="width:100%;" />
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Project / Sprint Tag</label>
+            <input type="text" class="form-input new-task-project-input" placeholder="e.g. Parade Setup Sprint" style="width:100%;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Task Brief &amp; Deliverables Description</label>
+            <textarea class="form-input new-task-desc-input" rows="5" placeholder="Detailed brief, checklist, or instructions..." style="width:100%;resize:vertical;"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+            <button type="button" onclick="closeCreateTaskModal()" class="submit-btn" style="background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">Cancel</button>
+            <button type="submit" class="submit-btn gold"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Create Task Brief</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -3111,40 +3250,44 @@ var _allPortalNotifications = [
   {
     id: 'notif-parade',
     category: 'parade',
+    group: 'TODAY',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     title: 'Weekly Company Parade',
     snippet: 'Saturdays 2:15 PM – 6:00 PM at Trinity Methodist Church PJ. Attire: Full Uniform.',
-    time: 'Every Saturday',
+    time: '8:00 AM',
     unread: true,
-    action: function() { switchTabNav('tasks'); }
+    action: function() { switchTabNav('tasks'); if (typeof switchTaskSectionView === 'function') switchTaskSectionView('parade'); }
   },
   {
     id: 'notif-band',
     category: 'parade',
+    group: 'YESTERDAY',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
     title: 'Brass Band Rehearsal',
     snippet: 'Saturdays 9:30 AM – 11:30 AM. Band room sectionals & full practice.',
-    time: 'Weekly Band',
+    time: 'Yesterday',
     unread: true,
-    action: function() { switchTabNav('tasks'); }
+    action: function() { switchTabNav('tasks'); if (typeof switchTaskSectionView === 'function') switchTaskSectionView('parade'); }
   },
   {
     id: 'notif-orders',
     category: 'announcements',
+    group: 'THIS WEEK',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
     title: 'Official Uniform Store',
     snippet: 'Order official caps, belts, rank chevrons, and haversacks online with Touch \'n Go payment.',
-    time: 'Store Hub',
+    time: '26 Oct',
     unread: true,
     action: function() { switchTabNav('order'); }
   },
   {
     id: 'notif-leaderboard',
     category: 'all',
+    group: 'THIS WEEK',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
     title: 'Squad & Member Points',
     snippet: 'Track your attendance records, uniform inspection scores, and platoon standings.',
-    time: 'Leaderboard',
+    time: '25 Oct',
     unread: false,
     action: function() { switchTabNav('attendance'); }
   }
@@ -3152,51 +3295,148 @@ var _allPortalNotifications = [
 
 var _activeNotifFilter = 'all';
 
+function getDismissedNotifIds() {
+  try {
+    var raw = localStorage.getItem('bb_dismissed_notifications');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function setDismissedNotifId(id) {
+  if (!id) return;
+  try {
+    var ids = getDismissedNotifIds();
+    if (ids.indexOf(id) === -1) {
+      ids.push(id);
+      localStorage.setItem('bb_dismissed_notifications', JSON.stringify(ids));
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function syncTaskNotifications(tasks) {
+  if (!Array.isArray(tasks)) return;
+  var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (!myIc && !myName) return;
+  var dismissed = getDismissedNotifIds();
+
+  tasks.forEach(function(t) {
+    if (!t || !t.id) return;
+    var isAssigned = (t.assignee_ic && myIc && t.assignee_ic.indexOf(myIc) !== -1)
+      || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1);
+    if (!isAssigned) return;
+
+    var notifId = 'notif-task-' + t.id;
+    if (dismissed.indexOf(notifId) !== -1) return;
+
+    var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+    if (!existing) {
+      var deptLabel = (typeof DEPT_CONFIG !== 'undefined' && DEPT_CONFIG[t.department]) ? DEPT_CONFIG[t.department].label : 'Department';
+      var initials = (t.assignee_name || myName || 'BB').split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+      var timeStr = 'Today, ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      _allPortalNotifications.unshift({
+        id: notifId,
+        category: 'tasks',
+        group: 'TODAY',
+        avatarInitials: initials,
+        title: (t.creator_name || (deptLabel + ' Lead')) + ' assigned a task',
+        snippet: (t.id ? (t.id.toUpperCase() + ' - ') : '') + t.title,
+        time: timeStr,
+        unread: true,
+        action: function() {
+          switchTabNav('tasks');
+          if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+          if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+        }
+      });
+    }
+  });
+
+  renderNotifications();
+}
+
 function renderNotifications() {
   var list = document.getElementById('notif-items-list');
   var badgeDot = document.getElementById('notif-badge-dot');
   var countPill = document.getElementById('notif-unread-count');
   if (!list) return;
 
-  var unread = _allPortalNotifications.filter(function(n) { return n.unread; }).length;
+  var dismissed = getDismissedNotifIds();
+  // Filter out any dismissed notifications so they never show up again
+  var activeList = _allPortalNotifications.filter(function(n) {
+    return dismissed.indexOf(n.id) === -1;
+  });
+
+  var unread = activeList.filter(function(n) { return n.unread; }).length;
   if (badgeDot) badgeDot.style.display = unread > 0 ? 'block' : 'none';
   if (countPill) countPill.textContent = String(unread);
 
-  var filtered = _allPortalNotifications.filter(function(n) {
+  var filtered = activeList.filter(function(n) {
     if (_activeNotifFilter === 'all') return true;
     return n.category === _activeNotifFilter;
   });
 
   if (!filtered.length) {
-    list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:12px;">No notifications in this category.</div>';
+    list.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-muted);font-size:12px;">All caught up! No active notifications.</div>';
     return;
   }
 
-  var html = '';
+  // Group by date sections matching Image 5: TODAY, YESTERDAY, THIS WEEK
+  var groups = {};
+  var groupOrder = ['TODAY', 'YESTERDAY', 'THIS WEEK', 'EARLIER'];
   filtered.forEach(function(item) {
-    html += '<div class="notif-item' + (item.unread ? ' unread-item' : '') + '" data-notif-id="' + item.id + '">'
-      + '<div class="notif-item-icon">' + item.icon + '</div>'
-      + '<div class="notif-item-content">'
-      +   '<div class="notif-item-title">' + escapeHtml(item.title) + '</div>'
-      +   '<div class="notif-item-snippet">' + escapeHtml(item.snippet) + '</div>'
-      +   '<div class="notif-item-time">' + escapeHtml(item.time) + '</div>'
-      + '</div>'
-      + (item.unread ? '<div class="notif-unread-dot"></div>' : '')
-      + '</div>';
+    var g = item.group || 'TODAY';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(item);
+  });
+
+  var html = '';
+  groupOrder.forEach(function(gKey) {
+    var items = groups[gKey];
+    if (!items || !items.length) return;
+    html += '<div class="notif-group-header"><span>' + escapeHtml(gKey) + '</span><span class="notif-group-count">' + items.length + '</span></div>';
+    items.forEach(function(item) {
+      var iconHtml = item.avatarInitials
+        ? '<div class="notif-avatar-circle">' + escapeHtml(item.avatarInitials) + '</div>'
+        : '<div class="notif-item-icon">' + item.icon + '</div>';
+
+      html += '<div class="notif-item' + (item.unread ? ' unread-item' : '') + '" data-notif-id="' + item.id + '">'
+        + iconHtml
+        + '<div class="notif-item-content">'
+        +   '<div class="notif-item-title">' + escapeHtml(item.title) + '</div>'
+        +   '<div class="notif-item-snippet">' + escapeHtml(item.snippet) + '</div>'
+        +   '<div class="notif-item-time">' + escapeHtml(item.time) + '</div>'
+        + '</div>'
+        + (item.unread ? '<div class="notif-unread-dot"></div>' : '')
+        + '</div>';
+    });
   });
 
   list.innerHTML = html;
 
   list.querySelectorAll('.notif-item').forEach(function(el) {
-    el.addEventListener('click', function() {
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
       var id = el.getAttribute('data-notif-id');
       var found = _allPortalNotifications.find(function(n) { return n.id === id; });
-      if (found) {
-        found.unread = false;
+
+      // Animate disappearance immediately
+      el.classList.add('notif-dismissing');
+
+      setTimeout(function() {
+        setDismissedNotifId(id);
+        if (found) {
+          found.unread = false;
+          if (typeof found.action === 'function') found.action();
+        }
         renderNotifications();
-        if (typeof found.action === 'function') found.action();
         closeNotificationDropdown();
-      }
+      }, 220);
     });
   });
 }
@@ -3209,10 +3449,13 @@ function filterNotifications(cat, btn) {
 }
 
 function markAllNotificationsRead() {
-  _allPortalNotifications.forEach(function(n) { n.unread = false; });
+  _allPortalNotifications.forEach(function(n) {
+    setDismissedNotifId(n.id);
+    n.unread = false;
+  });
   renderNotifications();
   if (typeof showToast === 'function') {
-    showToast('All notifications marked as read', 'info', 2500);
+    showToast('All notifications dismissed and marked as read', 'info', 2500);
   }
 }
 
