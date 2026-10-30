@@ -1037,8 +1037,7 @@ async function handleCreateTaskSubmit(e) {
   var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
   var targetStatus = modal.getAttribute('data-target-status') || 'todo';
 
-  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : 'Department Lead';
-
+  // Canonical base payload conforming strictly to standard bb_tasks schema
   var payload = {
     title: title,
     description: desc,
@@ -1046,19 +1045,50 @@ async function handleCreateTaskSubmit(e) {
     priority: priority,
     due_date: due || null,
     assignee_name: assigneeName || null,
-    assignee_ic: assigneeIc || null,
-    estimate: estimate || null,
-    project_name: projectName || null,
-    creator_name: myName,
-    created_at: new Date().toISOString(),
-    status: targetStatus
+    status: targetStatus,
+    created_at: new Date().toISOString()
   };
+
+  // Defensively attach optional metadata fields
+  if (projectName) payload.project_name = projectName;
+  if (estimate) payload.estimate = estimate;
+  if (assigneeIc) payload.assignee_ic = assigneeIc;
 
   var client = getSupaClient();
   if (!client) return;
 
   try {
-    var inserted = await client.post('bb_tasks', payload);
+    var inserted;
+    try {
+      inserted = await client.post('bb_tasks', payload);
+    } catch (postErr) {
+      var errStr = postErr ? (postErr.message || String(postErr)) : '';
+      // If PostgreSQL schema cache lacks extended columns (PGRST204)
+      if (errStr.indexOf('column') !== -1 || errStr.indexOf('schema cache') !== -1 || postErr.code === 'PGRST204' || errStr.indexOf('creator_name') !== -1 || errStr.indexOf('project_name') !== -1 || errStr.indexOf('estimate') !== -1 || errStr.indexOf('assignee_ic') !== -1) {
+        console.warn('bb_tasks schema lacks extended columns, falling back to core schema:', errStr);
+        var fallbackPayload = {
+          title: payload.title,
+          description: payload.description,
+          department: payload.department,
+          priority: payload.priority,
+          due_date: payload.due_date,
+          assignee_name: payload.assignee_name,
+          status: payload.status,
+          created_at: payload.created_at
+        };
+        // Preserve project and estimate in description text
+        var extraDetails = [];
+        if (projectName) extraDetails.push('Project: ' + projectName);
+        if (estimate) extraDetails.push('Estimate: ' + estimate);
+        if (extraDetails.length) {
+          fallbackPayload.description = (fallbackPayload.description ? fallbackPayload.description + '\n\n' : '') + '[' + extraDetails.join(' | ') + ']';
+        }
+        inserted = await client.post('bb_tasks', fallbackPayload);
+      } else {
+        throw postErr;
+      }
+    }
+
     var savedTask = Array.isArray(inserted) && inserted[0] ? inserted[0] : payload;
 
     closeCreateTaskModal();
@@ -1086,8 +1116,13 @@ async function handleCreateTaskSubmit(e) {
       syncFn([savedTask]);
     }
   } catch (err) {
+    var cleanMsg = err ? (err.message || String(err)) : 'Creation failed';
+    try {
+      var parsed = JSON.parse(cleanMsg);
+      cleanMsg = parsed.message || parsed.error || cleanMsg;
+    } catch (_) {}
     if (typeof showToast === 'function') {
-      showToast('Failed to create task: ' + err.message, 'error');
+      showToast('Failed to create task: ' + cleanMsg, 'error');
     }
   }
 }

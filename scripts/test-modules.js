@@ -4489,6 +4489,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(migSql.includes('public = false'), 'Migration enforces public = false on storage.buckets');
     assert.ok(migSql.includes('storage.objects ENABLE ROW LEVEL SECURITY'), 'Migration enables RLS on storage.objects');
     console.log('  ✔ Supabase Storage lockdown SQL migration (007_storage_lockdown_private_buckets.sql) verified');
+
+    // 6. Migration 008 verification: Tasks schema extension and Storage update policy
+    const mig008Path = pathMod.join(__dirname, '..', 'supabase', 'migrations', '008_tasks_and_storage_permissions.sql');
+    assert.ok(fsMod.existsSync(mig008Path), '008_tasks_and_storage_permissions.sql migration exists');
+    const mig008Sql = fsMod.readFileSync(mig008Path, 'utf8');
+    assert.ok(mig008Sql.includes('creator_name text'), 'Migration 008 defines creator_name column');
+    assert.ok(mig008Sql.includes('estimate text'), 'Migration 008 defines estimate column');
+    assert.ok(mig008Sql.includes('project_name text'), 'Migration 008 defines project_name column');
+    assert.ok(mig008Sql.includes('assignee_ic text'), 'Migration 008 defines assignee_ic column');
+    assert.ok(mig008Sql.includes('storage.objects FOR UPDATE'), 'Migration 008 defines UPDATE policy on storage.objects for x-upsert');
+    console.log('  ✔ Tasks schema extension and Storage update policy migration (008_tasks_and_storage_permissions.sql) verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

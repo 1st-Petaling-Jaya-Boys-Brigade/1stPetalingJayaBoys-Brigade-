@@ -631,7 +631,8 @@ const supa = {
 
     const contentType = blob && blob.type ? blob.type : 'application/octet-stream';
 
-    const r = await fetch(url, {
+    // Tier 1: Try POST with x-upsert: true
+    let r = await fetch(url, {
       method: 'POST',
       headers: {
         apikey: key,
@@ -642,9 +643,49 @@ const supa = {
       body: blob
     });
 
+    // Tier 2: If x-upsert fails with 403 or 400 (e.g. missing UPDATE policy on storage.objects),
+    // try direct PUT update (updates existing object without compound upsert check)
+    if (!r.ok && (r.status === 403 || r.status === 400)) {
+      try {
+        const putRes = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            apikey: key,
+            Authorization: 'Bearer ' + key,
+            'Content-Type': contentType
+          },
+          body: blob
+        });
+        if (putRes.ok) {
+          return putRes.json();
+        }
+      } catch (_) {}
+
+      // Tier 3: Try standard POST without x-upsert
+      try {
+        const plainPostRes = await fetch(url, {
+          method: 'POST',
+          headers: {
+            apikey: key,
+            Authorization: 'Bearer ' + key,
+            'Content-Type': contentType
+          },
+          body: blob
+        });
+        if (plainPostRes.ok) {
+          return plainPostRes.json();
+        }
+      } catch (_) {}
+    }
+
     if (!r.ok) {
       const e = await r.text();
-      throw new Error(e);
+      let parsedMsg = e;
+      try {
+        const parsed = JSON.parse(e);
+        parsedMsg = parsed.message || parsed.error || e;
+      } catch (_) {}
+      throw new Error(parsedMsg);
     }
     return r.json();
   },
