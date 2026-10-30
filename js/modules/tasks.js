@@ -12,12 +12,10 @@
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
-  logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics',   prefix: 'LOG' },
   secretariat: { label: 'Secretariat', color: '#ce93d8', cls: 'dept-secretariat', prefix: 'SEC' },
+  logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics',   prefix: 'LOG' },
   media:       { label: 'Media',       color: '#ffb74d', cls: 'dept-media',       prefix: 'MED' },
-  band:        { label: 'Band',        color: '#26c6da', cls: 'dept-band',        prefix: 'BND' },
-  awards:      { label: 'Awards',      color: '#ab47bc', cls: 'dept-awards',      prefix: 'AWD' },
-  general:     { label: 'General',     color: '#78909c', cls: 'dept-general',     prefix: 'GEN' }
+  hq:          { label: 'HQ',          color: '#10b981', cls: 'dept-hq',          prefix: 'HQ'  }
 };
 
 var STATUS_ORDER = ['planning', 'todo', 'inprogress', 'inreview', 'completed'];
@@ -159,10 +157,10 @@ function hasDepartmentRole(memberOrDept, rank) {
     }
   }
 
-  // 1. Valid department assignment
+  // 1. Valid department assignment: strictly Secretariat, Logistics, Media, or HQ
   if (dept) {
     var dKey = String(dept).toLowerCase().trim();
-    if (DEPT_CONFIG && DEPT_CONFIG[dKey]) {
+    if (dKey === 'secretariat' || dKey === 'logistics' || dKey === 'media' || dKey === 'hq') {
       return true;
     }
   }
@@ -309,7 +307,13 @@ async function checkTasksAccess() {
     if (!isAllowed) {
       if (boardPill) boardPill.style.display = 'none';
       if (snavTasks) snavTasks.style.display = 'none';
-      if (gate) gate.style.display = 'block';
+      if (gate) {
+        gate.style.display = 'block';
+        var gateBtn = gate.querySelector('.submit-btn');
+        if (gateBtn) {
+          gateBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ' + (ic ? 'View Member Profile' : 'Login / Register');
+        }
+      }
       if (board) board.style.display = 'none';
       return;
     }
@@ -329,7 +333,7 @@ async function checkTasksAccess() {
       var dtOff = document.getElementById('tasks-dept-title'); if (dtOff) dtOff.textContent = 'All Departments';
       var dsOff = document.getElementById('tasks-dept-sub');   if (dsOff) dsOff.textContent = 'Officer Oversight Board';
       var dbOff = document.getElementById('tasks-dept-badge');
-      if (dbOff) dbOff.innerHTML = '<span class="dept-badge dept-general">Officer Access</span>';
+      if (dbOff) dbOff.innerHTML = '<span class="dept-badge dept-hq">Officer Access</span>';
       _currentDeptFilter = 'all';
     }
 
@@ -488,12 +492,22 @@ async function renderTasksBoard(dept) {
       return matchTitle || matchDesc || matchAss || matchId;
     });
 
-    if (cnt) cnt.textContent = statusItems.length ? '(' + statusItems.length + ')' : '';
+    if (cnt) cnt.textContent = '(' + statusItems.length + ')';
     if (tcnt) tcnt.textContent = statusItems.length ? '(' + statusItems.length + ')' : '';
     if (!el) return;
 
     if (!statusItems.length) {
-      el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:24px 0;">No tasks</div>';
+      var sConf = STATUS_CONFIG[status] || { label: status };
+      el.innerHTML = '<div class="task-col-empty">'
+        + '<div class="task-col-empty-icon">'
+        +   '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/></svg>'
+        + '</div>'
+        + '<div class="task-col-empty-text">No tasks in ' + (typeof escapeHtml === 'function' ? escapeHtml(sConf.label) : sConf.label) + '</div>'
+        + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + escapeHtml(status) + '\')">'
+        +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+        +   '<span>Add Task</span>'
+        + '</button>'
+        + '</div>';
       return;
     }
 
@@ -1086,7 +1100,7 @@ async function handleCreateTaskSubmit(e) {
  */
 function switchDeptTab(dept) {
   if (typeof document === 'undefined') return;
-  ['all', 'logistics', 'secretariat', 'media'].forEach(function(d) {
+  ['all', 'secretariat', 'logistics', 'media', 'hq'].forEach(function(d) {
     var btn = document.getElementById('dtab-' + d);
     if (!btn) return;
     var active = d === dept;
