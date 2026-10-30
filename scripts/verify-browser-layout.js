@@ -1056,9 +1056,13 @@ async function getJson(url) {
     const evalTasksInit = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         if (typeof switchTab === 'function') {
-          switchTab('tasks');
+          switchTab('parade');
         }
         const scheduleCard = document.getElementById('tasks-no-dept');
+        const schedText = scheduleCard ? (scheduleCard.innerText || scheduleCard.textContent) : '';
+        if (typeof switchTab === 'function') {
+          switchTab('tasks');
+        }
         const board = document.getElementById('tasks-board');
         const colTodo = document.getElementById('col-todo');
         const colInprog = document.getElementById('col-inprogress');
@@ -1067,7 +1071,7 @@ async function getJson(url) {
 
         return {
           hasScheduleCard: !!scheduleCard,
-          scheduleText: scheduleCard ? scheduleCard.innerText : '',
+          scheduleText: schedText,
           hasBoard: !!board,
           hasColTodo: !!colTodo,
           hasColInprog: !!colInprog,
@@ -1090,11 +1094,13 @@ async function getJson(url) {
       true,
       'Weekly parade schedule card must exist in DOM'
     );
+    const schedUpper = (tasksInit.scheduleText || '').toUpperCase();
     assert.ok(
-      tasksInit.scheduleText.includes('PARADE') ||
-        tasksInit.scheduleText.includes('FALL-IN') ||
-        tasksInit.scheduleText.includes('Band Practice') ||
-        tasksInit.scheduleText.includes('1:00 PM'),
+      schedUpper.includes('PARADE') ||
+        schedUpper.includes('FALL-IN') ||
+        schedUpper.includes('BAND') ||
+        schedUpper.includes('2:15 PM') ||
+        schedUpper.includes('1:00 PM'),
       'Schedule card must display parade schedule details'
     );
     assert.strictEqual(

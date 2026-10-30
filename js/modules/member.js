@@ -490,6 +490,7 @@ async function loginMember() {
     sessionSet('name', m.name || '');
     sessionSet('section', m.att_section || m.section || 'Senior');
     sessionSet('joined', m.joined_at || '');
+    sessionSet('department', m.department || '');
 
     renderDashboard();
 
@@ -551,6 +552,7 @@ async function renderDashboard() {
 
     sessionSet('rank', m.rank || '');
     sessionSet('joined', m.joined_at || '');
+    sessionSet('department', m.department || '');
     set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
     // Child Safety & Parental Consent Status (TSK-032)
@@ -720,7 +722,7 @@ function logoutMember() {
       localStorage.removeItem('bb_remember');
     }
     if (typeof sessionSet === 'function') {
-      ['email', 'ic', 'name', 'rank', 'squad', 'joined', 'section', 'points', 'remember', 'adminAuthed', 'photo_url'].forEach(function(k) {
+      ['email', 'ic', 'name', 'rank', 'squad', 'joined', 'section', 'points', 'remember', 'adminAuthed', 'photo_url', 'department'].forEach(function(k) {
         sessionSet(k, null);
       });
     }

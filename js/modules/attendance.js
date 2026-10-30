@@ -230,7 +230,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '</div>';
   } else {
     var titleText = sqInfo ? ('Squad ' + escapeAttHtml(sqInfo.name) + ' Standing') : (escapeAttHtml(pltName) + ' Platoon Standing');
-    var rankText  = sqInfo ? ('Rank #' + escapeAttHtml(sqInfo.rank) + ' (' + escapeAttHtml(sqInfo.points) + ' pts)') : (pltInfo ? ('Rank #' + escapeAttHtml(pltInfo.rank) + ' (' + escapeAttHtml(pltInfo.averagePoints || pltInfo.totalPoints || 0) + ' pts)') : '');
+    var rankText  = sqInfo ? ('Rank #' + escapeAttHtml(sqInfo.rank) + ' (' + escapeAttHtml(sqInfo.points) + ' Points)') : (pltInfo ? ('Rank #' + escapeAttHtml(pltInfo.rank) + ' (' + escapeAttHtml(pltInfo.averagePoints || pltInfo.totalPoints || 0) + ' Points)') : '');
     
     standingCardHtml = 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
@@ -249,7 +249,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         (pltInfo && pltInfo.averagePoints ? (
           '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
             '<span style="color:var(--text-secondary);">' + escapeAttHtml(pltName) + ' Platoon Average:</span>' +
-            '<span style="font-family:\'Oswald\',sans-serif;font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' pts</span>' +
+            '<span style="font-family:\'Oswald\',sans-serif;font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' Points</span>' +
           '</div>'
         ) : '') +
       '</div>';
@@ -305,7 +305,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
         '<span style="font-family:\'Oswald\',sans-serif;font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;">Points Breakdown</span>' +
         '<span style="font-family:\'Oswald\',sans-serif;font-size:15px;font-weight:700;color:var(--accent);background:rgba(200,150,30,0.12);border:1px solid rgba(200,150,30,0.3);padding:2px 10px;border-radius:20px;">' +
-          points.total + ' Total Pts' +
+          points.total + ' Total Points' +
         '</span>' +
       '</div>' +
 
@@ -495,7 +495,7 @@ async function renderAdminMasterSheetPanel() {
                 '<span style="font-size:10px;font-weight:700;color:var(--accent);">#' + (sq.displayRank || sq.rank || '-') + '</span>' +
               '</div>' +
               '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' +
-                (sq.points || 0) + ' pts' +
+                (sq.points || 0) + ' Points' +
               '</div>' +
               '<div style="font-size:10px;color:var(--text-muted);">' + escapeAttHtml(st.plt) + ' Platoon</div>' +
             '</div>'
@@ -813,7 +813,7 @@ async function renderCompanyLeaderboard() {
             '</div>' +
           '</div>' +
           '<div style="text-align:right;">' +
-            '<div style="font-family:\'Oswald\',sans-serif;font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">pts</span></div>' +
+            '<div style="font-family:\'Oswald\',sans-serif;font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Points</span></div>' +
           '</div>' +
         '</div>' +
         '<div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">' +
@@ -849,7 +849,7 @@ async function renderCompanyLeaderboard() {
     html += 
       '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;text-align:center;">' +
         '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);">' + pa.name + ' Platoon</div>' +
-        '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' + pa.avg + ' pts</div>' +
+        '<div style="font-family:\'Oswald\',sans-serif;font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' + pa.avg + ' Points</div>' +
       '</div>';
   });
 

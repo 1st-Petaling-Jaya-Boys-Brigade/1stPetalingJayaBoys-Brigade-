@@ -26,7 +26,7 @@
 <link rel="stylesheet" href="css/nav.css?v=20261029b">
 <link rel="stylesheet" href="css/components.css?v=20261029b">
 <link rel="stylesheet" href="css/admin.css?v=20261029b">
-<style id="hq-carousel-critical-css">
+<style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
   display: flex !important;
@@ -388,7 +388,7 @@
             <!-- Dynamically rendered -->
           </div>
           <div class="notif-card-footer">
-            <button class="notif-footer-link" onclick="switchTabNav('tasks');toggleNotificationDropdown(false);" type="button">Weekly Parade &amp; Tasks &rarr;</button>
+            <button class="notif-footer-link" onclick="switchTabNav('parade');toggleNotificationDropdown(false);" type="button">Weekly Parade &rarr;</button>
           </div>
         </div>
       </div>
@@ -399,7 +399,7 @@
           <svg class="points-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </span>
         <span class="points-val" id="nav-points-val">0</span>
-        <span class="points-unit">pts</span>
+        <span class="points-unit">Points</span>
       </div>
 
       <!-- 4. Member Profile Avatar -->
@@ -503,9 +503,13 @@
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
         <span class="si-label">Member</span>
       </button>
-      <button class="sidebar-item" id="snav-tasks" onclick="switchTabNav('tasks');closeSidebar()">
-        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="13" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg></span>
+      <button class="sidebar-item" data-nav="parade" onclick="switchTabNav('parade');closeSidebar()">
+        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="13" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg></span>
         <span class="si-label">Weekly Parade</span>
+      </button>
+      <button class="sidebar-item" id="snav-tasks" onclick="switchTabNav('tasks');closeSidebar()" style="display:none;">
+        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span>
+        <span class="si-label">Projects &amp; Tasks</span>
       </button>
       <div class="sidebar-section-label" style="margin-top:8px;">Members Only</div>
       <button class="sidebar-item" id="snav-badges" onclick="switchTabNav('badges');closeSidebar()" style="display:none;">
@@ -564,7 +568,7 @@
       <!-- Hero -->
       <div class="hero-banner">
         <img src="assets/logo.png" class="hero-bb-logo" style="background:transparent;box-shadow:none;padding:0;" alt="BB Logo"/>
-        <div class="hero-title">1st Petaling Jaya</div><div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;color:var(--text-primary);text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;">Boys Brigade Company</div>
+        <div class="hero-title">1st Petaling Jaya</div><div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:600;color:var(--text-primary);letter-spacing:1px;margin-bottom:2px;">Boys' Brigade Company</div>
         <div class="hero-subtitle">Sure &amp; Stedfast</div>
         <div class="hero-desc">Welcome to the official portal for uniform orders, announcements, and member registration.</div>
       </div>
@@ -599,7 +603,7 @@
               </div>
 
               <!-- Card 3: Weekly Parade -->
-              <div class="hq-card" onclick="switchTabNav('tasks')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="2">
+              <div class="hq-card" onclick="switchTabNav('parade')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="2">
                 <div class="hq-icon" style="color:var(--green);">
                   <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
                 </div>
@@ -895,7 +899,7 @@
         <div id="parent-consent-box" style="display:none;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.3);border-radius:12px;padding:16px;margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
             <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <span style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--accent);letter-spacing:0.5px;text-transform:uppercase;">Parental Consent &amp; Child Safety (COPPA / PDPA)</span>
+            <span style="font-family:'Oswald',sans-serif;font-size:14px;font-weight:700;color:var(--accent);letter-spacing:0.5px;">Parental Consent &amp; Child Safety (COPPA / PDPA)</span>
           </div>
           <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;line-height:1.4;">
             For Pre-Junior (ages 6–8) and Junior (ages 9–11) members, Malaysian PDPA 2010 and child safety regulations require verified parental or legal guardian consent prior to account creation.
@@ -966,7 +970,7 @@
               <input type="file" id="pfp-upload" accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.jpg,.jpeg,.png,.webp,.gif" style="display:none;" onchange="uploadPfp(this)"/>
             </div>
             <div>
-              <div class="mic-label">BB MEMBER</div>
+              <div class="mic-label">BB Member</div>
               <div class="mic-name" id="m-display-name">—</div>
               <div class="mic-ic" id="m-display-email" style="font-size:12px;color:var(--accent);opacity:0.9;">—</div>
               <span id="m-display-ic" style="display:none;"></span>
@@ -1056,24 +1060,15 @@
   </div>
   </section>
 
-  <!-- ── VIEW 5: WEEKLY PARADE & TASKS (Parade Schedule & NCO Kanban Board) ── -->
-  <section class="page" id="page-tasks" aria-label="Weekly Parade &amp; Tasks">
+  <!-- ── VIEW 5A: WEEKLY PARADE SCHEDULE ── -->
+  <section class="page" id="page-parade" aria-label="Weekly Parade">
   <div style="width:100%;">
-
-    <!-- Not logged in gate -->
-    <div class="dark-card" id="tasks-gate" style="display:none;text-align:center;padding:40px 20px;">
-      <div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-      <div class="page-title" style="text-align:center;">Members Only</div>
-      <div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Login to View Tasks</div>
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;">You need to be logged in to see your department tasks.</div>
-      <button class="submit-btn gold" onclick="goToMemberTab()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>
-    </div>
 
     <!-- Weekly Parade Schedule -->
     <div class="dark-card" id="tasks-no-dept" style="display:block;margin-bottom:16px;">
       <div class="section-header" style="margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div style="display:flex;align-items:center;gap:12px;">
-          <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="13" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg></span>
+          <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="13" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="m9 16 2 2 4-4"/></svg></span>
           <div>
             <div class="s-title" style="font-size:22px;">Weekly Parade Schedule</div>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Saturdays &bull; Trinity Methodist Church PJ (TMCPJ)</div>
@@ -1093,7 +1088,7 @@
             </div>
             <div>
               <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Band</div>
-              <div style="font-size:12px;color:var(--text-secondary);">Brass, woodwinds &amp; percussion rehearsal</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Sectional &amp; full band rehearsal (Brass, Woodwinds, Percussion)</div>
             </div>
           </div>
           <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
@@ -1105,15 +1100,15 @@
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:12px;">
             <div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">
-              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </div>
             <div>
               <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Lunch</div>
-              <div style="font-size:12px;color:var(--text-secondary);">Fellowship &amp; lunch break</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Band members rest &amp; lunch break</div>
             </div>
           </div>
           <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
-            12:00 PM &ndash; 1:00 PM
+            1:30 PM &ndash; 2:15 PM
           </div>
         </div>
 
@@ -1125,7 +1120,7 @@
             </div>
             <div>
               <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Fall-in</div>
-              <div style="font-size:12px;color:var(--text-secondary);">Company muster, attendance &amp; uniform inspection</div>
+              <div style="font-size:12px;color:var(--text-secondary);">Company roll call, squad muster &amp; uniform inspection</div>
             </div>
           </div>
           <div style="font-family:'Oswald',sans-serif;font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">
@@ -1156,7 +1151,7 @@
               <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             </div>
             <div>
-              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">CE (Christian Education)</div>
+              <div style="font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">Christian Education</div>
               <div style="font-size:12px;color:var(--text-secondary);">Biblical teachings &amp; squad discussions</div>
             </div>
           </div>
@@ -1222,79 +1217,257 @@
       </div>
     </div>
 
+  </div>
+  </section>
+
+  <!-- ── VIEW 5B: PROJECTS & TASKS (Department Kanban Board & My Tasks) ── -->
+  <section class="page" id="page-tasks" aria-label="Projects &amp; Tasks">
+  <div style="width:100%;">
+
+    <!-- Not logged in gate -->
+    <div class="dark-card" id="tasks-gate" style="display:none;text-align:center;padding:40px 20px;">
+      <div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+      <div class="page-title" style="text-align:center;">Department Role Required</div>
+      <div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Access Restricted</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">Only members and NCOs assigned to a department by an Administrator can access Projects &amp; Tasks. Please contact an Officer to assign your Department in the Admin Console.</div>
+      <button class="submit-btn gold" onclick="goToMemberTab()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>
+    </div>
+
     <!-- Tasks board -->
     <div id="tasks-board" style="display:none;width:100%;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-        <div>
-          <div style="font-family:'Oswald',sans-serif;font-size:28px;font-weight:700;color:var(--text-primary);" id="tasks-dept-title">Department</div>
-          <div style="font-size:12px;color:var(--text-secondary);letter-spacing:2px;text-transform:uppercase;" id="tasks-dept-sub">Task Board</div>
+      <!-- Project Board Toolbar (Image 2) -->
+      <div class="task-board-toolbar">
+        <div class="task-breadcrumb">
+          <span>Projects</span>
+          <span class="task-breadcrumb-sep">&gt;</span>
+          <span class="task-breadcrumb-cur" id="tasks-dept-title">Department</span>
         </div>
-        <div id="tasks-dept-badge"></div>
+        <div class="task-toolbar-actions">
+          <div class="task-search-box">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" class="task-search-input" placeholder="Search tasks..." oninput="filterProjectTasks(this.value)" aria-label="Search department tasks" />
+          </div>
+          <select class="task-dept-select" onchange="changeTaskDeptFilter(this.value)" aria-label="Filter by department">
+            <option value="all">All Departments</option>
+            <option value="logistics">Logistics</option>
+            <option value="secretariat">Secretariat</option>
+            <option value="media">Media</option>
+            <option value="band">Band</option>
+            <option value="awards">Awards &amp; Badges</option>
+            <option value="general">General</option>
+          </select>
+          <div class="task-view-toggle" role="group" aria-label="Task view mode">
+            <button type="button" class="view-toggle-btn active" data-vmode="board" onclick="setTasksViewMode('board')" title="Kanban Board View">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+              <span>Board</span>
+            </button>
+            <button type="button" class="view-toggle-btn" data-vmode="mytasks" onclick="setTasksViewMode('mytasks')" title="My Tasks View">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span>My Tasks</span>
+            </button>
+          </div>
+          <button type="button" class="task-primary-btn" onclick="openCreateTaskModal()" title="Create new task brief">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Add Task</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Mobile tab switcher (hidden on desktop via CSS) -->
+      <!-- Department Board Header Banner -->
+      <div class="task-board-header-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="s-title" style="font-size:22px;margin:0;" id="tasks-dept-sub">Projects &amp; Tasks</div>
+              <span class="tasks-dept-badge" id="tasks-dept-badge">Active</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Manage department sprint deliverables, track due dates, and update task briefs.</div>
+          </div>
+          <button type="button" class="portal-btn portal-btn-secondary" onclick="renderTasksBoard(_currentDeptFilter)" style="padding:6px 14px;font-size:12px;display:flex;align-items:center;gap:6px;">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh Board
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Column Tabs (5 Tabs) -->
       <div class="task-col-tabs" id="task-col-tabs">
-        <button class="task-col-tab active" onclick="switchTaskTab('todo',this)" style="color:var(--text-secondary);">
-          ⬤ To Do <span id="tab-count-todo"></span>
+        <button class="task-col-tab mobile-active" onclick="switchTaskTab('planning',this)">
+          Planning <span data-tab-count="planning"></span>
+        </button>
+        <button class="task-col-tab" onclick="switchTaskTab('todo',this)">
+          To Do <span id="tab-count-todo"></span>
         </button>
         <button class="task-col-tab" onclick="switchTaskTab('inprogress',this)">
-          ⬤ In Progress <span id="tab-count-inprogress"></span>
+          In Progress <span id="tab-count-inprogress"></span>
         </button>
-        <button class="task-col-tab" onclick="switchTaskTab('done',this)">
-          ⬤ Done <span id="tab-count-done"></span>
+        <button class="task-col-tab" onclick="switchTaskTab('inreview',this)">
+          In Review <span data-tab-count="inreview"></span>
+        </button>
+        <button class="task-col-tab" onclick="switchTaskTab('completed',this)">
+          Completed <span id="tab-count-done"></span>
         </button>
       </div>
 
-      <!-- Kanban columns -->
-      <div style="display:flex;gap:10px;align-items:flex-start;" id="tasks-columns">
-        <!-- Todo -->
-        <div class="task-col mobile-active" id="taskcol-todo">
-          <div class="task-col-title" style="color:var(--text-secondary);">
-            <span style="width:8px;height:8px;border-radius:50%;background:var(--text-secondary);display:inline-block;"></span>
-            To Do <span id="count-todo" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+      <!-- Kanban columns (5 Columns) -->
+      <div style="display:flex;gap:14px;align-items:flex-start;overflow-x:auto;padding-bottom:12px;" id="tasks-columns">
+        <!-- Planning -->
+        <div class="task-col mobile-active" data-col-status="planning">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:#a855f7;margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#a855f7;display:inline-block;"></span>
+              Planning <span data-col-count="planning" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('planning')" title="Add task to Planning"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          </div>
+          <div data-col-body="planning"></div>
+        </div>
+        <!-- To Do -->
+        <div class="task-col" id="taskcol-todo" data-col-status="todo">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:var(--text-secondary);margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--text-secondary);display:inline-block;"></span>
+              To Do <span id="count-todo" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('todo')" title="Add task to To Do"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
           <div id="col-todo"></div>
         </div>
         <!-- In Progress -->
-        <div class="task-col" id="taskcol-inprogress">
-          <div class="task-col-title" style="color:#3b82f6;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
-            In Progress <span id="count-inprogress" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+        <div class="task-col" id="taskcol-inprogress" data-col-status="inprogress">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:#3b82f6;margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
+              In Progress <span id="count-inprogress" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('inprogress')" title="Add task to In Progress"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
           <div id="col-inprogress"></div>
         </div>
-        <!-- Done -->
-        <div class="task-col" id="taskcol-done">
-          <div class="task-col-title" style="color:#10b981;">
-            <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
-            Done <span id="count-done" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+        <!-- In Review -->
+        <div class="task-col" data-col-status="inreview">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:#f59e0b;margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+              In Review <span data-col-count="inreview" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('inreview')" title="Add task to In Review"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          </div>
+          <div data-col-body="inreview"></div>
+        </div>
+        <!-- Completed (renamed from Done) -->
+        <div class="task-col" id="taskcol-done" data-col-status="completed">
+          <div class="task-col-header">
+            <div class="task-col-title" style="color:#10b981;margin-bottom:0;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+              Completed <span id="count-done" style="font-size:11px;color:var(--text-muted);font-weight:400;"></span>
+            </div>
+            <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('completed')" title="Add task to Completed"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           </div>
           <div id="col-done"></div>
         </div>
       </div>
+
+      <!-- My Tasks View Container (Image 4) -->
+      <div class="my-tasks-container" style="display:none;"></div>
     </div>
 
-    <!-- Task detail modal -->
+    <!-- Task detail modal (Image 3) -->
     <div id="task-detail-modal" role="dialog" aria-modal="true" aria-labelledby="tdm-title" style="display:none;position:fixed;inset:0;z-index:998;">
       <div class="task-modal-bg" onclick="closeTaskDetail()"></div>
-      <div style="position:absolute;bottom:0;left:0;right:0;max-width:620px;margin:0 auto;background:var(--bg-card);border-radius:20px 20px 0 0;border:1px solid var(--border-card);padding:22px 20px 36px;box-shadow:0 -8px 40px rgba(0,0,0,0.4);">
-        <div style="width:36px;height:4px;background:var(--border-card);border-radius:4px;margin:0 auto 20px;"></div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-          <div style="font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);flex:1;line-height:1.3;" id="tdm-title"></div>
-          <button onclick="closeTaskDetail()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 12px;border-radius:8px;cursor:pointer;margin-left:12px;flex-shrink:0;display:flex;align-items:center;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
-        </div>
-        <div id="tdm-meta" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
-        <div style="font-size:14px;color:var(--text-secondary);line-height:1.7;margin-bottom:16px;" id="tdm-desc"></div>
-        <div style="background:var(--bg-card-subtle);border-radius:12px;padding:14px 16px;margin-bottom:14px;border:1px solid var(--border-card);">
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;font-weight:700;">
-            <span>Assigned To</span><span>Due Date</span>
+      <div class="task-brief-modal-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div class="task-brief-breadcrumbs">
+            <span>Projects</span>
+            <span>&gt;</span>
+            <span class="task-brief-dept-name">Department</span>
+            <span>&gt;</span>
+            <span class="task-brief-id-label">Task</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--text-primary);" id="tdm-assignee">—</div>
-            <div style="font-family:'Oswald',sans-serif;font-size:15px;color:var(--text-primary);" id="tdm-due">—</div>
+          <button onclick="closeTaskDetail()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;" aria-label="Close task brief"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <div class="task-brief-title" id="tdm-title"></div>
+        <div class="task-brief-properties">
+          <div id="tdm-meta" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></div>
+          <div class="task-prop-chip">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span id="tdm-assignee">&mdash;</span>
+          </div>
+          <div class="task-prop-chip">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="tdm-due">&mdash;</span>
+          </div>
+          <div class="task-prop-chip task-brief-estimate-chip" style="display:none;">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="task-brief-estimate-val">&mdash;</span>
           </div>
         </div>
+        <div class="task-brief-body" id="tdm-desc"></div>
         <div id="tdm-status-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- Create Task Brief Modal (Image 2/3) -->
+    <div class="task-create-modal" role="dialog" aria-modal="true" aria-label="Create Task Brief" style="display:none;position:fixed;inset:0;z-index:999;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:16px;">
+      <div class="task-create-modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:24px 28px;width:100%;max-width:620px;box-shadow:var(--shadow-modal);max-height:calc(100vh - 40px);overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <div style="font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">Create Task Brief</div>
+          <button type="button" onclick="closeCreateTaskModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 10px;border-radius:8px;cursor:pointer;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        </div>
+        <form class="task-create-form" onsubmit="handleCreateTaskSubmit(event)" style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Task Title *</label>
+            <input type="text" class="form-input new-task-title-input" placeholder="e.g. Inspect parade flags and ceremonial belts" required style="width:100%;" />
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Department *</label>
+              <select class="form-input new-task-dept-input" onchange="loadNewTaskAssigneeOptions(this.value)" required style="width:100%;">
+                <option value="logistics">Logistics</option>
+                <option value="secretariat">Secretariat</option>
+                <option value="media">Media</option>
+                <option value="band">Band</option>
+                <option value="awards">Awards &amp; Badges</option>
+                <option value="general">General</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Assignee</label>
+              <select class="form-input new-task-assignee-input" style="width:100%;">
+                <option value="">Unassigned</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Priority</label>
+              <select class="form-input new-task-priority-input" style="width:100%;">
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Due Date</label>
+              <input type="date" class="form-input new-task-due-input" style="width:100%;" />
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Estimate</label>
+              <input type="text" class="form-input new-task-estimate-input" placeholder="e.g. 2h or 1d" style="width:100%;" />
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Project / Sprint Tag</label>
+            <input type="text" class="form-input new-task-project-input" placeholder="e.g. Parade Setup Sprint" style="width:100%;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Task Brief &amp; Deliverables Description</label>
+            <textarea class="form-input new-task-desc-input" rows="5" placeholder="Detailed brief, checklist, or instructions..." style="width:100%;resize:vertical;"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+            <button type="button" onclick="closeCreateTaskModal()" class="submit-btn" style="background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">Cancel</button>
+            <button type="submit" class="submit-btn gold"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Create Task Brief</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -1693,12 +1866,13 @@
           </button>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-          <span style="font-size:11px;color:var(--text-muted);align-self:center;margin-right:2px;font-weight:700;letter-spacing:1px;">SORT:</span>
+          <span style="font-size:11px;color:var(--text-muted);align-self:center;margin-right:2px;font-weight:700;letter-spacing:0.5px;">Sort:</span>
           <button class="adm-sort-btn active-sort" id="sort-name"    onclick="setAdminSort('name')">Name</button>
           <button class="adm-sort-btn"              id="sort-age"     onclick="setAdminSort('age')">Age</button>
           <button class="adm-sort-btn"              id="sort-squad"   onclick="setAdminSort('squad')">Platoon</button>
           <button class="adm-sort-btn"              id="sort-rank"    onclick="setAdminSort('rank')">Rank</button>
           <button class="adm-sort-btn"              id="sort-joined"  onclick="setAdminSort('joined')">Joined</button>
+          <button class="adm-sort-btn"              data-sort="dept"  onclick="setAdminSort('dept')">Department</button>
         </div>
         <div id="admin-members-list"></div>
 
@@ -1742,13 +1916,22 @@
               </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Department</label>
+              <label class="form-label" for="em-dept" style="display:flex;align-items:center;justify-content:space-between;">
+                <span>Department Role</span>
+                <span style="font-size:10px;color:var(--accent);font-weight:700;letter-spacing:0.5px;">Projects &amp; Tasks Access</span>
+              </label>
               <select class="form-select" id="em-dept">
-                <option value="">None</option>
-                <option value="logistics">Logistics</option>
-                <option value="secretariat">Secretariat</option>
-                <option value="media">Media</option>
+                <option value="">None (No department access)</option>
+                <option value="logistics">Logistics Department</option>
+                <option value="secretariat">Secretariat Department</option>
+                <option value="media">Media Department</option>
+                <option value="band">Band Department</option>
+                <option value="awards">Awards &amp; Badges Department</option>
+                <option value="general">General Department</option>
               </select>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4;">
+                Assigning a department role grants this member access to the Projects &amp; Tasks tab. Members and NCOs without a department role cannot access it.
+              </div>
             </div>
                         <!-- Child Safety & Parental Consent (COPPA/PDPA) -->
             <div id="em-child-safety-box" style="margin-top:14px;padding:12px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;margin-bottom:14px;">
@@ -2862,7 +3045,7 @@ function syncNavState(tab) {
   }
   // Sidebar items
   document.querySelectorAll('.sidebar-item').forEach(function(b) { b.classList.remove('active'); });
-  var si = document.getElementById('snav-' + tab);
+  var si = document.getElementById('snav-' + tab) || document.querySelector('.sidebar-item[data-nav="' + tab + '"]');
   if (si) si.classList.add('active');
 }
 
@@ -3111,40 +3294,44 @@ var _allPortalNotifications = [
   {
     id: 'notif-parade',
     category: 'parade',
+    group: 'Today',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     title: 'Weekly Company Parade',
     snippet: 'Saturdays 2:15 PM – 6:00 PM at Trinity Methodist Church PJ. Attire: Full Uniform.',
-    time: 'Every Saturday',
+    time: '8:00 AM',
     unread: true,
-    action: function() { switchTabNav('tasks'); }
+    action: function() { switchTabNav('tasks'); if (typeof switchTaskSectionView === 'function') switchTaskSectionView('parade'); }
   },
   {
     id: 'notif-band',
     category: 'parade',
+    group: 'Yesterday',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
     title: 'Brass Band Rehearsal',
     snippet: 'Saturdays 9:30 AM – 11:30 AM. Band room sectionals & full practice.',
-    time: 'Weekly Band',
+    time: 'Yesterday',
     unread: true,
-    action: function() { switchTabNav('tasks'); }
+    action: function() { switchTabNav('tasks'); if (typeof switchTaskSectionView === 'function') switchTaskSectionView('parade'); }
   },
   {
     id: 'notif-orders',
     category: 'announcements',
+    group: 'This Week',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
     title: 'Official Uniform Store',
     snippet: 'Order official caps, belts, rank chevrons, and haversacks online with Touch \'n Go payment.',
-    time: 'Store Hub',
+    time: '26 Oct',
     unread: true,
     action: function() { switchTabNav('order'); }
   },
   {
     id: 'notif-leaderboard',
     category: 'all',
+    group: 'THIS WEEK',
     icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>',
     title: 'Squad & Member Points',
     snippet: 'Track your attendance records, uniform inspection scores, and platoon standings.',
-    time: 'Leaderboard',
+    time: '25 Oct',
     unread: false,
     action: function() { switchTabNav('attendance'); }
   }
@@ -3152,51 +3339,148 @@ var _allPortalNotifications = [
 
 var _activeNotifFilter = 'all';
 
+function getDismissedNotifIds() {
+  try {
+    var raw = localStorage.getItem('bb_dismissed_notifications');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function setDismissedNotifId(id) {
+  if (!id) return;
+  try {
+    var ids = getDismissedNotifIds();
+    if (ids.indexOf(id) === -1) {
+      ids.push(id);
+      localStorage.setItem('bb_dismissed_notifications', JSON.stringify(ids));
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function syncTaskNotifications(tasks) {
+  if (!Array.isArray(tasks)) return;
+  var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (!myIc && !myName) return;
+  var dismissed = getDismissedNotifIds();
+
+  tasks.forEach(function(t) {
+    if (!t || !t.id) return;
+    var isAssigned = (t.assignee_ic && myIc && t.assignee_ic.indexOf(myIc) !== -1)
+      || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1);
+    if (!isAssigned) return;
+
+    var notifId = 'notif-task-' + t.id;
+    if (dismissed.indexOf(notifId) !== -1) return;
+
+    var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+    if (!existing) {
+      var deptLabel = (typeof DEPT_CONFIG !== 'undefined' && DEPT_CONFIG[t.department]) ? DEPT_CONFIG[t.department].label : 'Department';
+      var initials = (t.assignee_name || myName || 'BB').split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+      var timeStr = 'Today, ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      _allPortalNotifications.unshift({
+        id: notifId,
+        category: 'tasks',
+        group: 'TODAY',
+        avatarInitials: initials,
+        title: (t.creator_name || (deptLabel + ' Lead')) + ' assigned a task',
+        snippet: (t.id ? (t.id.toUpperCase() + ' - ') : '') + t.title,
+        time: timeStr,
+        unread: true,
+        action: function() {
+          switchTabNav('tasks');
+          if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+          if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+        }
+      });
+    }
+  });
+
+  renderNotifications();
+}
+
 function renderNotifications() {
   var list = document.getElementById('notif-items-list');
   var badgeDot = document.getElementById('notif-badge-dot');
   var countPill = document.getElementById('notif-unread-count');
   if (!list) return;
 
-  var unread = _allPortalNotifications.filter(function(n) { return n.unread; }).length;
+  var dismissed = getDismissedNotifIds();
+  // Filter out any dismissed notifications so they never show up again
+  var activeList = _allPortalNotifications.filter(function(n) {
+    return dismissed.indexOf(n.id) === -1;
+  });
+
+  var unread = activeList.filter(function(n) { return n.unread; }).length;
   if (badgeDot) badgeDot.style.display = unread > 0 ? 'block' : 'none';
   if (countPill) countPill.textContent = String(unread);
 
-  var filtered = _allPortalNotifications.filter(function(n) {
+  var filtered = activeList.filter(function(n) {
     if (_activeNotifFilter === 'all') return true;
     return n.category === _activeNotifFilter;
   });
 
   if (!filtered.length) {
-    list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:12px;">No notifications in this category.</div>';
+    list.innerHTML = '<div style="padding:32px 16px;text-align:center;color:var(--text-muted);font-size:12px;">All caught up! No active notifications.</div>';
     return;
   }
 
-  var html = '';
+  // Group by date sections matching Image 5: TODAY, YESTERDAY, THIS WEEK
+  var groups = {};
+  var groupOrder = ['Today', 'Yesterday', 'This Week', 'Earlier'];
   filtered.forEach(function(item) {
-    html += '<div class="notif-item' + (item.unread ? ' unread-item' : '') + '" data-notif-id="' + item.id + '">'
-      + '<div class="notif-item-icon">' + item.icon + '</div>'
-      + '<div class="notif-item-content">'
-      +   '<div class="notif-item-title">' + escapeHtml(item.title) + '</div>'
-      +   '<div class="notif-item-snippet">' + escapeHtml(item.snippet) + '</div>'
-      +   '<div class="notif-item-time">' + escapeHtml(item.time) + '</div>'
-      + '</div>'
-      + (item.unread ? '<div class="notif-unread-dot"></div>' : '')
-      + '</div>';
+    var g = item.group || 'Today';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(item);
+  });
+
+  var html = '';
+  groupOrder.forEach(function(gKey) {
+    var items = groups[gKey];
+    if (!items || !items.length) return;
+    html += '<div class="notif-group-header"><span>' + escapeHtml(gKey) + '</span><span class="notif-group-count">' + items.length + '</span></div>';
+    items.forEach(function(item) {
+      var iconHtml = item.avatarInitials
+        ? '<div class="notif-avatar-circle">' + escapeHtml(item.avatarInitials) + '</div>'
+        : '<div class="notif-item-icon">' + item.icon + '</div>';
+
+      html += '<div class="notif-item' + (item.unread ? ' unread-item' : '') + '" data-notif-id="' + item.id + '">'
+        + iconHtml
+        + '<div class="notif-item-content">'
+        +   '<div class="notif-item-title">' + escapeHtml(item.title) + '</div>'
+        +   '<div class="notif-item-snippet">' + escapeHtml(item.snippet) + '</div>'
+        +   '<div class="notif-item-time">' + escapeHtml(item.time) + '</div>'
+        + '</div>'
+        + (item.unread ? '<div class="notif-unread-dot"></div>' : '')
+        + '</div>';
+    });
   });
 
   list.innerHTML = html;
 
   list.querySelectorAll('.notif-item').forEach(function(el) {
-    el.addEventListener('click', function() {
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
       var id = el.getAttribute('data-notif-id');
       var found = _allPortalNotifications.find(function(n) { return n.id === id; });
-      if (found) {
-        found.unread = false;
+
+      // Animate disappearance immediately
+      el.classList.add('notif-dismissing');
+
+      setTimeout(function() {
+        setDismissedNotifId(id);
+        if (found) {
+          found.unread = false;
+          if (typeof found.action === 'function') found.action();
+        }
         renderNotifications();
-        if (typeof found.action === 'function') found.action();
         closeNotificationDropdown();
-      }
+      }, 220);
     });
   });
 }
@@ -3209,10 +3493,13 @@ function filterNotifications(cat, btn) {
 }
 
 function markAllNotificationsRead() {
-  _allPortalNotifications.forEach(function(n) { n.unread = false; });
+  _allPortalNotifications.forEach(function(n) {
+    setDismissedNotifId(n.id);
+    n.unread = false;
+  });
   renderNotifications();
   if (typeof showToast === 'function') {
-    showToast('All notifications marked as read', 'info', 2500);
+    showToast('All notifications dismissed and marked as read', 'info', 2500);
   }
 }
 

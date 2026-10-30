@@ -114,7 +114,7 @@
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.8px;
-  text-transform: uppercase;
+  text-transform: none;
   transition: var(--transition-smooth);
   display: inline-flex;
   align-items: center;
@@ -251,7 +251,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   letter-spacing: 1px;
-  text-transform: uppercase;
+  text-transform: none;
   touch-action: manipulation;
   transition: var(--transition-smooth);
 }
@@ -286,7 +286,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   letter-spacing: 1px;
-  text-transform: uppercase;
+  text-transform: none;
   touch-action: manipulation;
   transition: var(--transition-smooth);
 }
