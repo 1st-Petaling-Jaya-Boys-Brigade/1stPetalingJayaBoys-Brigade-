@@ -4505,6 +4505,34 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Tasks schema extension and Storage update policy migration (008_tasks_and_storage_permissions.sql) verified');
   }
 
+  // ── Mobile Portal Audit: SVG Icon Sizing, More Drawer & Kanban Tabs ───────
+  console.log('Testing Mobile Portal SVG Sizing, More Drawer & Kanban Layout...');
+  {
+    const fsMod = require('fs');
+    const pathMod = require('path');
+    const compCss = fsMod.readFileSync(pathMod.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const navCss = fsMod.readFileSync(pathMod.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
+    const htmlSrc = fsMod.readFileSync(pathMod.join(__dirname, '..', 'index.html'), 'utf8');
+    const tasksSrc = fsMod.readFileSync(pathMod.join(__dirname, '..', 'js', 'modules', 'tasks.js'), 'utf8');
+
+    assert.ok(compCss.includes('.ui-icon-xs') && compCss.includes('width: 12px;') && compCss.includes('height: 12px;'), 'css/components.css defines .ui-icon-xs 12px x 12px sizing');
+    assert.ok(compCss.includes('.ui-icon-md') && compCss.includes('width: 16px;') && compCss.includes('height: 16px;'), 'css/components.css defines .ui-icon-md 16px x 16px sizing');
+    assert.ok(compCss.includes('.task-col-tabs:not([style*="display: none"])'), 'css/components.css prevents #task-col-tabs overmatching hidden views on mobile');
+    assert.ok(compCss.includes('.task-col-tab:is(.active, .mobile-active)'), 'css/components.css styles both .active and .mobile-active Kanban column tabs');
+    console.log('  ✔ .ui-icon-xs / .ui-icon-md sizing and mobile Kanban tab selectors verified in components.css');
+
+    assert.ok(navCss.includes('.sidebar-overlay.open .sidebar-panel') && navCss.includes('.sidebar-panel.sidebar-open'), 'css/nav.css reveals .sidebar-panel when mobile drawer opens');
+    assert.ok(navCss.includes('height: 100dvh;') && navCss.includes('overscroll-behavior: contain;'), 'css/nav.css applies 100dvh and overscroll-behavior: contain on mobile drawer');
+    console.log('  ✔ Mobile More / hamburger sidebar drawer visibility and 100dvh scroll containment verified in nav.css');
+
+    assert.ok(htmlSrc.includes('id="bnav-more"') && htmlSrc.includes('aria-controls="sidebar-overlay"'), '#bnav-more exposes aria-controls="sidebar-overlay"');
+    const toggleMatch = htmlSrc.match(/function toggleSidebar\(\)[\s\S]*?function closeSidebar\(\)[\s\S]*?\r?\n\}/);
+    assert.ok(toggleMatch && toggleMatch[0].includes("classList.add('sidebar-open')") && toggleMatch[0].includes("classList.remove('sidebar-open')") && toggleMatch[0].includes("setAttribute('aria-expanded'"), 'toggleSidebar and closeSidebar sync .sidebar-open and aria-expanded');
+    assert.ok(toggleMatch && !toggleMatch[0].includes('body.style.overflow'), 'toggleSidebar and closeSidebar do not mutate document.body.style.overflow');
+    assert.ok(tasksSrc.includes("b.classList.remove('active', 'mobile-active')") && tasksSrc.includes("btn.classList.add('active', 'mobile-active')"), 'switchTaskTab syncs both active and mobile-active classes');
+    console.log('  ✔ Sidebar drawer ARIA/state sync and Kanban mobile tab switching verified in HTML & JS');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
