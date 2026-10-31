@@ -115,11 +115,23 @@ textarea,
     width: 100%;
   }
   .page {
-    max-width: 1240px !important;
+    max-width: 1600px !important;
     width: 100% !important;
     margin: 0 auto !important;
     padding: 28px 36px 90px !important;
     align-items: stretch !important;
+  }
+  #page-home.page {
+    max-width: 1240px !important;
+    margin: 0 auto !important;
+  }
+  #page-tasks.page {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding-left: clamp(20px, 2.5vw, 44px) !important;
+    padding-right: clamp(20px, 2.5vw, 44px) !important;
+    box-sizing: border-box !important;
   }
   .page > * {
     width: 100%;

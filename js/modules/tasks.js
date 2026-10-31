@@ -898,6 +898,26 @@ function getTaskDueBadgeClass(dueDate, isCompleted) {
   return 'due-normal';
 }
 
+function getAssigneeAvatarBg(name) {
+  if (!name || name === 'Unassigned') return 'var(--surface-tint-hover)';
+  var palette = [
+    '#be185d', // Berry pink/red (Image 3)
+    '#0284c7', // Ocean blue (ILLU-290)
+    '#059669', // Emerald
+    '#c2410c', // Dark amber/orange
+    '#7c3aed', // Purple
+    '#0f766e', // Teal
+    '#4338ca'  // Indigo
+  ];
+  var hash = 0;
+  for (var i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i);
+    hash |= 0;
+  }
+  var idx = Math.abs(hash) % palette.length;
+  return palette[idx];
+}
+
 function renderColumnsFromTasks(tasksList) {
   var cols = { planning: [], todo: [], inprogress: [], inreview: [], completed: [] };
   (tasksList || []).forEach(function(t) {
@@ -951,7 +971,7 @@ function renderColumnsFromTasks(tasksList) {
       return;
     }
 
-    el.innerHTML = statusItems.map(function(t, idx) {
+    var cardsHtml = statusItems.map(function(t, idx) {
       _taskMap[t.id] = t;
       if (typeof window !== 'undefined') window._taskMap[t.id] = t;
 
@@ -960,7 +980,7 @@ function renderColumnsFromTasks(tasksList) {
       var projectPillHtml = '';
       if (pName && pName.toLowerCase() !== 'all' && pName.toLowerCase() !== 'all tasks') {
         var safeProj = (typeof escapeHtml === 'function') ? escapeHtml(pName) : pName;
-        projectPillHtml = '<div class="task-card-project-pill">' + safeProj + '</div>';
+        projectPillHtml = '<span class="task-card-project-pill">' + safeProj + '</span>';
       }
 
       var priorityP = (t.priority || 'medium').toLowerCase();
@@ -971,7 +991,8 @@ function renderColumnsFromTasks(tasksList) {
       if (t.assignee_name && t.assignee_name !== 'Unassigned') {
         var initials = t.assignee_name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
         var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name) : t.assignee_name;
-        avatarHtml = '<span class="task-card-avatar" title="' + safeAssignee + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
+        var avatarBg = getAssigneeAvatarBg(t.assignee_name);
+        avatarHtml = '<span class="task-card-avatar" style="background:' + avatarBg + ';" title="' + safeAssignee + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
       } else {
         avatarHtml = '<span class="task-card-avatar" style="background:var(--surface-tint-hover);color:var(--text-muted);" title="Unassigned">U</span>';
       }
@@ -982,24 +1003,46 @@ function renderColumnsFromTasks(tasksList) {
         var isOverdue = d < today;
         var dueText = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
         var badgeClass = getTaskDueBadgeClass(t.due_date);
-        dueBadge = '<div style="margin-bottom:6px;"><span class="task-due-pill ' + badgeClass + '">'
+        dueBadge = '<span class="task-due-pill ' + badgeClass + '">'
           + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
           + (isOverdue ? 'Overdue: ' : '') + dueText
-          + '</span></div>';
+          + '</span>';
       }
 
-      // Kanban Card Layout matching Image 1
+      var metaRowHtml = '';
+      if (projectPillHtml || dueBadge) {
+        metaRowHtml = '<div class="task-card-meta-row">' + projectPillHtml + dueBadge + '</div>';
+      }
+
+      var estimateHtml = '';
+      if (t.estimate) {
+        var safeEst = (typeof escapeHtml === 'function') ? escapeHtml(t.estimate) : t.estimate;
+        estimateHtml = '<span class="task-card-estimate-pill" title="Estimated time">'
+          + '<svg class="ui-icon-xs" width="11" height="11" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+          + '<span>' + safeEst + '</span>'
+          + '</span>';
+      } else {
+        estimateHtml = '<span class="task-card-estimate-spacer"></span>';
+      }
+
+      // Modern Task Card Layout (Exact match to Image 3)
       return '<div class="task-card" draggable="true" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
         + '<div class="task-card-id-tag">' + taskId + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
-        + projectPillHtml
-        + dueBadge
+        + metaRowHtml
         + '<div class="task-card-footer">'
-        +   priorityChevron
-        +   avatarHtml
+        +   '<div class="task-card-footer-left">' + estimateHtml + '</div>'
+        +   '<div class="task-card-footer-right">' + priorityChevron + avatarHtml + '</div>'
         + '</div>'
         + '</div>';
     }).join('');
+
+    var bottomAddBtn = '<button type="button" class="task-col-add-bottom-btn" onclick="openCreateTaskModal(\'' + status + '\')">'
+      + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+      + '<span>Add Task</span>'
+      + '</button>';
+
+    el.innerHTML = cardsHtml + bottomAddBtn;
   });
 
   setupKanbanDragAndDrop();
