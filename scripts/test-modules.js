@@ -4533,6 +4533,48 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Sidebar drawer ARIA/state sync and Kanban mobile tab switching verified in HTML & JS');
   }
 
+  // ── UI/UX Design System & Dual-Theme Architecture Verification ─────────
+  console.log('Testing UI/UX Design System & Dual-Theme Architecture...');
+  {
+    const fsMod = require('fs');
+    const pathMod = require('path');
+    const varCss = fsMod.readFileSync(pathMod.join(__dirname, '..', 'css', 'variables.css'), 'utf8');
+    const baseCss = fsMod.readFileSync(pathMod.join(__dirname, '..', 'css', 'base.css'), 'utf8');
+    const navCss = fsMod.readFileSync(pathMod.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
+    const compCss = fsMod.readFileSync(pathMod.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const htmlSrc = fsMod.readFileSync(pathMod.join(__dirname, '..', 'index.html'), 'utf8');
+    const themeSrc = fsMod.readFileSync(pathMod.join(__dirname, '..', 'js', 'core', 'theme.js'), 'utf8');
+
+    // 1. Color Scheme & Meta Tag Sync
+    assert.ok(htmlSrc.includes('<meta name="color-scheme" content="light dark">'), 'index.html includes <meta name="color-scheme" content="light dark">');
+    assert.ok(varCss.includes('color-scheme: light dark;'), 'css/variables.css root declares color-scheme: light dark');
+    assert.ok(varCss.includes('--btn-on-accent: #121418;') && varCss.includes('--btn-on-accent: #ffffff;'), 'css/variables.css defines contrast-guaranteed --btn-on-accent in both dark & light modes');
+    assert.ok(varCss.includes('--dock-active-bg: #ffffff;') && varCss.includes('--dock-active-bg: #0f172a;'), 'css/variables.css defines mobile floating dock active pill tokens');
+    assert.ok(varCss.includes('--surface-tint:') && varCss.includes('--surface-glass:'), 'css/variables.css defines semantic tonal surface tokens');
+    assert.ok(navCss.includes('var(--dock-active-bg') && navCss.includes('var(--dock-btn-color'), 'nav.css uses theme-aware mobile floating dock tokens');
+
+    // 2. Base Typography & Accessibility
+    assert.ok(baseCss.includes('accent-color: var(--accent);'), 'css/base.css defines accent-color');
+    assert.ok(baseCss.includes('scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);'), 'css/base.css defines standard scrollbar-color');
+    assert.ok(baseCss.includes('@supports not (scrollbar-color: auto)'), 'css/base.css provides WebKit scrollbar fallback');
+    assert.ok(baseCss.includes('text-wrap: balance;') && baseCss.includes('text-wrap: pretty;'), 'css/base.css uses modern text-wrap balance and pretty rules');
+    assert.ok(baseCss.includes('max-width: 65ch;'), 'css/base.css caps paragraph line length for optimal readability');
+
+    // 3. Theme Core JS Sync
+    assert.ok(themeSrc.includes('syncThemeMetaTags') && themeSrc.includes('meta[name="color-scheme"]'), 'theme.js syncs meta[name="color-scheme"] tag');
+    assert.ok(themeSrc.includes("matchMedia('(prefers-color-scheme: light)')"), 'theme.js listens to OS system color scheme changes');
+    assert.ok(themeSrc.includes("window.addEventListener('storage'"), 'theme.js synchronizes theme across multiple open browser tabs');
+
+    // 4. Component High-Contrast Guards
+    assert.ok(compCss.includes('.portal-btn-primary') && compCss.includes('color: var(--btn-on-accent);'), '.portal-btn-primary uses --btn-on-accent for WCAG AA compliance');
+    assert.ok(compCss.includes('.gallery-filter-pill.active') && compCss.includes('color: var(--btn-on-accent);'), '.gallery-filter-pill uses --btn-on-accent');
+    assert.ok(compCss.includes('.resource-pill.active') && compCss.includes('color: var(--btn-on-accent);'), '.resource-pill uses --btn-on-accent');
+    assert.ok(compCss.includes("[data-theme='light'] .ann-body font[color='#66bb6a']"), 'components.css protects light mode rich text from low-contrast green font tags');
+    assert.ok(compCss.includes('.task-col-empty-text') && compCss.includes('color: var(--text-secondary);'), 'components.css sets Kanban empty states to --text-secondary for >5:1 contrast');
+
+    console.log('  ✔ UI/UX design tokens, dual-theme meta synchronization, and WCAG AA contrast guards verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

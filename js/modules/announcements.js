@@ -509,7 +509,7 @@ function annColor(col) {
 function annInsertLine() {
   annRestoreRange();
   if (typeof document !== 'undefined') {
-    document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.15);margin:10px 0;"/>');
+    document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid var(--border-card);margin:10px 0;"/>');
   }
 }
 

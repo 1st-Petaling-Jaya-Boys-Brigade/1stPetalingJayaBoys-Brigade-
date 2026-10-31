@@ -2042,6 +2042,50 @@ async function getJson(url) {
     assert.ok(n360.actionsRight <= n360.headerRight + 0.5, 'Header actions must fit cleanly inside 360px mobile header');
     console.log('  ✔ Ultra-narrow 360px mobile viewport verified with 0px horizontal overflow');
 
+    // ── Dual-Theme (Light & Dark) Layout, DOM & Contrast Verification ──
+    console.log('\n[Dual-Theme Verification]');
+    const themeDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const root = document.documentElement;
+        const metaScheme = document.querySelector('meta[name="color-scheme"]');
+
+        // Apply light theme
+        if (typeof window.themeApply === 'function') {
+          window.themeApply('light', false);
+        } else {
+          root.setAttribute('data-theme', 'light');
+        }
+
+        const lightDataTheme = root.getAttribute('data-theme');
+        const lightSchemeMeta = metaScheme ? metaScheme.getAttribute('content') : '';
+
+        // Switch back to dark theme
+        if (typeof window.themeApply === 'function') {
+          window.themeApply('dark', false);
+        } else {
+          root.setAttribute('data-theme', 'dark');
+        }
+
+        const darkDataTheme = root.getAttribute('data-theme');
+        const darkSchemeMeta = metaScheme ? metaScheme.getAttribute('content') : '';
+
+        return {
+          lightDataTheme,
+          lightSchemeMeta,
+          darkDataTheme,
+          darkSchemeMeta
+        };
+      })()`,
+      returnByValue: true
+    });
+
+    const td = themeDiag.result.value;
+    assert.strictEqual(td.lightDataTheme, 'light', 'Document root data-theme must switch to light');
+    assert.strictEqual(td.lightSchemeMeta, 'light', 'meta[name="color-scheme"] must sync to light when light theme is active');
+    assert.strictEqual(td.darkDataTheme, 'dark', 'Document root data-theme must switch to dark');
+    assert.strictEqual(td.darkSchemeMeta, 'dark', 'meta[name="color-scheme"] must sync to dark when dark theme is active');
+    console.log('  ✔ Headless Edge dual-theme switching and meta synchronization verified');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 

@@ -18,17 +18,34 @@
     return 'dark'; // Default to modern BB dark grey theme
   }
 
-  function applyTheme(theme) {
+  function syncThemeMetaTags(theme) {
+    if (typeof document === 'undefined' || typeof document.querySelector !== 'function') return;
+    var schemeMeta = document.querySelector('meta[name="color-scheme"]');
+    if (schemeMeta) {
+      schemeMeta.setAttribute('content', theme === 'light' ? 'light' : 'dark');
+    }
+    var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', theme === 'light' ? '#eef1f6' : '#121418');
+    }
+  }
+
+  function applyTheme(theme, persist) {
     if (typeof document === 'undefined') return;
-    document.documentElement.setAttribute('data-theme', theme);
-    try {
-      localStorage.setItem('bb_theme', theme);
-    } catch (e) {}
+    var resolved = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', resolved);
+    syncThemeMetaTags(resolved);
+    if (persist !== false) {
+      try {
+        localStorage.setItem('bb_theme', resolved);
+      } catch (e) {}
+    }
 
     // Update theme toggle buttons if present
+    if (typeof document.querySelectorAll !== 'function') return;
     var toggles = document.querySelectorAll('.theme-toggle-btn');
     toggles.forEach(function(btn) {
-      var isDark = theme === 'dark';
+      var isDark = resolved === 'dark';
       btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
       var icon = btn.querySelector('.theme-toggle-icon');
       if (icon) {
@@ -44,7 +61,7 @@
   function toggleTheme() {
     var current = document.documentElement.getAttribute('data-theme') || 'dark';
     var next = current === 'dark' ? 'light' : 'dark';
-    applyTheme(next);
+    applyTheme(next, true);
     return next;
   }
 
@@ -52,9 +69,37 @@
   var initialTheme = getPreferredTheme();
   if (typeof document !== 'undefined') {
     document.documentElement.setAttribute('data-theme', initialTheme);
-    document.addEventListener('DOMContentLoaded', function() {
-      applyTheme(initialTheme);
-    });
+    syncThemeMetaTags(initialTheme);
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('DOMContentLoaded', function() {
+        var active = document.documentElement.getAttribute('data-theme') || initialTheme;
+        applyTheme(active, false);
+      });
+    }
+  }
+
+  // React to OS color-scheme changes when no explicit manual override is stored, and sync across tabs
+  if (typeof window !== 'undefined') {
+    if (window.matchMedia) {
+      var mql = window.matchMedia('(prefers-color-scheme: light)');
+      var onSchemeChange = function(e) {
+        try {
+          var saved = localStorage.getItem('bb_theme');
+          if (saved === 'light' || saved === 'dark') return;
+        } catch (err) {}
+        applyTheme(e && e.matches ? 'light' : 'dark', false);
+      };
+      if (typeof mql.addEventListener === 'function') {
+        mql.addEventListener('change', onSchemeChange);
+      }
+    }
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('storage', function(e) {
+        if (e && e.key === 'bb_theme' && (e.newValue === 'light' || e.newValue === 'dark')) {
+          applyTheme(e.newValue, false);
+        }
+      });
+    }
   }
 
   // Expose to window

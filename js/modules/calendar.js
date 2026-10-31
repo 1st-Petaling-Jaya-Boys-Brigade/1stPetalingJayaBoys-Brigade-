@@ -100,21 +100,21 @@
 
   // ── Kit & Type Metadata ────────────────────────────────────────────────────
   var KIT_BADGES = {
-    'PT Kit':     { label: 'PT Kit',      color: '#10b981', bg: 'rgba(16,185,129,0.15)', icon: '🥋' },
-    'Day Dress':  { label: 'Day Dress',   color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', icon: '👔' },
-    'Drill Kit':  { label: 'Drill Kit',   color: '#eab308', bg: 'rgba(234,179,8,0.15)',  icon: '🎖️' },
-    'Ceremonial': { label: 'Ceremonial',  color: '#a855f7', bg: 'rgba(168,85,247,0.15)', icon: '🏅' },
-    'Casual':     { label: 'Casual',      color: '#64748b', bg: 'rgba(100,116,139,0.15)',icon: '👕' },
-    'None':       { label: 'No Kit',      color: '#94a3b8', bg: 'rgba(148,163,184,0.12)',icon: '—' }
+    'PT Kit':     { label: 'PT Kit',      color: 'var(--green)',          bg: 'rgba(16,185,129,0.14)', icon: '🥋' },
+    'Day Dress':  { label: 'Day Dress',   color: 'var(--blue)',           bg: 'rgba(59,130,246,0.14)', icon: '👔' },
+    'Drill Kit':  { label: 'Drill Kit',   color: 'var(--accent)',         bg: 'var(--accent-soft)',    icon: '🎖️' },
+    'Ceremonial': { label: 'Ceremonial',  color: 'var(--purple)',         bg: 'rgba(168,85,247,0.14)', icon: '🏅' },
+    'Casual':     { label: 'Casual',      color: 'var(--text-secondary)', bg: 'var(--surface-tint)',   icon: '👕' },
+    'None':       { label: 'No Kit',      color: 'var(--text-muted)',     bg: 'var(--surface-tint)',   icon: '—' }
   };
 
   var TYPE_BADGES = {
-    'parade':     { label: 'Regular Parade',   color: '#10b981', bg: 'rgba(16,185,129,0.15)' },
-    'noparade':   { label: 'No Parade',        color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-    'special':    { label: 'Special Event',    color: '#eab308', bg: 'rgba(234,179,8,0.15)' },
-    'camp':       { label: 'Camp / Outing',    color: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
-    'ceremonial': { label: 'Ceremonial',       color: '#a855f7', bg: 'rgba(168,85,247,0.15)' },
-    'holiday':    { label: 'Public Holiday',   color: '#f97316', bg: 'rgba(249,115,22,0.15)' }
+    'parade':     { label: 'Regular Parade',   color: 'var(--green)',  bg: 'rgba(16,185,129,0.14)' },
+    'noparade':   { label: 'No Parade',        color: 'var(--red)',    bg: 'rgba(239,68,68,0.14)' },
+    'special':    { label: 'Special Event',    color: 'var(--accent)', bg: 'var(--accent-soft)' },
+    'camp':       { label: 'Camp / Outing',    color: 'var(--cyan)',   bg: 'rgba(6,182,212,0.14)' },
+    'ceremonial': { label: 'Ceremonial',       color: 'var(--purple)', bg: 'rgba(168,85,247,0.14)' },
+    'holiday':    { label: 'Public Holiday',   color: 'var(--orange)', bg: 'rgba(249,115,22,0.14)' }
   };
 
   // ── Supabase & Storage Persistence ─────────────────────────────────────────
@@ -711,7 +711,7 @@
         + '</div>';
 
       compEvents.forEach(function(ev) {
-        var kitMeta = KIT_BADGES[ev.kit] || { label: ev.kit, bg: 'rgba(255,255,255,0.1)', color: '#fff' };
+        var kitMeta = KIT_BADGES[ev.kit] || { label: ev.kit, bg: 'var(--surface-tint-hover)', color: 'var(--text-primary)' };
         var typeMeta = TYPE_BADGES[ev.type] || { bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
 
         html += '<div class="adm-cell-event-pill" style="border-left:3px solid ' + typeMeta.color + ';">'
