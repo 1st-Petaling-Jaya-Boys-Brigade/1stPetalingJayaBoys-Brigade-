@@ -1923,6 +1923,125 @@ async function getJson(url) {
     assert.strictEqual(col.width, 36, 'Collapsed search pill must return to 36px icon size');
     console.log('  ✔ Mobile search pill collapses back to 36px icon button upon blur/close');
 
+    // Test mobile More button drawer & Escape dismissal at 390x844
+    await sendCmd('Runtime.evaluate', { expression: "document.getElementById('bnav-more').click()" });
+    await new Promise(r => setTimeout(r, 350));
+
+    const moreDrawerOpenDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const overlay = document.getElementById('sidebar-overlay');
+        const panel = overlay ? overlay.querySelector('.sidebar-panel') : null;
+        const moreBtn = document.getElementById('bnav-more');
+        const cs = panel ? getComputedStyle(panel) : null;
+        const rect = panel ? panel.getBoundingClientRect() : null;
+        return {
+          overlayOpen: overlay ? overlay.classList.contains('open') : false,
+          panelOpenClass: panel ? panel.classList.contains('sidebar-open') : false,
+          visibility: cs ? cs.visibility : 'none',
+          pointerEvents: cs ? cs.pointerEvents : 'none',
+          panelWidth: rect ? rect.width : 0,
+          panelRight: rect ? rect.right : 0,
+          ariaExpanded: moreBtn ? moreBtn.getAttribute('aria-expanded') : null
+        };
+      })()`,
+      returnByValue: true
+    });
+    const mdo = moreDrawerOpenDiag.result.value;
+    assert.strictEqual(mdo.overlayOpen, true, 'Sidebar overlay must have .open class when More is tapped');
+    assert.strictEqual(mdo.panelOpenClass, true, 'Sidebar panel must have .sidebar-open class when More is tapped');
+    assert.strictEqual(mdo.visibility, 'visible', 'Sidebar panel must be visible on mobile when More is tapped');
+    assert.strictEqual(mdo.pointerEvents, 'auto', 'Sidebar panel must receive pointer events when open on mobile');
+    assert.ok(mdo.panelWidth >= 240 && mdo.panelRight <= 390.5, 'Sidebar panel must slide fully into the 390px mobile viewport');
+    assert.strictEqual(mdo.ariaExpanded, 'true', '#bnav-more aria-expanded must be "true" when drawer is open');
+
+    await sendCmd('Runtime.evaluate', {
+      expression: "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))"
+    });
+    await new Promise(r => setTimeout(r, 350));
+
+    const moreDrawerClosedDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const overlay = document.getElementById('sidebar-overlay');
+        const panel = overlay ? overlay.querySelector('.sidebar-panel') : null;
+        const moreBtn = document.getElementById('bnav-more');
+        return {
+          overlayOpen: overlay ? overlay.classList.contains('open') : true,
+          visibility: panel ? getComputedStyle(panel).visibility : 'visible',
+          ariaExpanded: moreBtn ? moreBtn.getAttribute('aria-expanded') : null
+        };
+      })()`,
+      returnByValue: true
+    });
+    const mdc = moreDrawerClosedDiag.result.value;
+    assert.strictEqual(mdc.overlayOpen, false, 'Escape key must close mobile sidebar overlay');
+    assert.strictEqual(mdc.visibility, 'hidden', 'Closed mobile sidebar panel must return to visibility: hidden');
+    assert.strictEqual(mdc.ariaExpanded, 'false', '#bnav-more aria-expanded must reset to "false" when closed');
+    console.log('  ✔ Mobile More drawer opens visibly into viewport and dismisses cleanly on Escape');
+
+    // Test Create Task Brief folder SVG icon sizing & mobile modal bounds at 390x844
+    const createTaskModalDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const pt = document.getElementById('page-tasks');
+        const tb = document.getElementById('tasks-board');
+        if (pt) pt.classList.add('active');
+        if (tb) tb.style.display = 'block';
+        if (typeof openProjectBoard === 'function') openProjectBoard('Mobile Audit Project');
+        if (typeof openCreateTaskModal === 'function') openCreateTaskModal('planning');
+
+        const modal = document.querySelector('.task-create-modal');
+        const card = modal ? modal.querySelector('.task-create-modal-card') : null;
+        const icon = modal ? modal.querySelector('.new-task-project-display .ui-icon-xs') : null;
+        const cr = card ? card.getBoundingClientRect() : null;
+        const ir = icon ? icon.getBoundingClientRect() : null;
+
+        if (typeof closeCreateTaskModal === 'function') closeCreateTaskModal();
+        if (tb) tb.style.display = 'none';
+        if (pt) pt.classList.remove('active');
+
+        return {
+          iconWidth: ir ? Math.round(ir.width) : 0,
+          iconHeight: ir ? Math.round(ir.height) : 0,
+          cardLeft: cr ? cr.left : -1,
+          cardRight: cr ? cr.right : 9999
+        };
+      })()`,
+      returnByValue: true
+    });
+    const ctm = createTaskModalDiag.result.value;
+    assert.strictEqual(ctm.iconWidth, 12, 'Create Task Brief project folder .ui-icon-xs width must be 12px');
+    assert.strictEqual(ctm.iconHeight, 12, 'Create Task Brief project folder .ui-icon-xs height must be 12px');
+    assert.ok(ctm.cardLeft >= 0 && ctm.cardRight <= 390.5, 'Create Task Brief modal card must fit cleanly within 390px mobile viewport');
+    console.log('  ✔ Create Task Brief .ui-icon-xs renders at exact 12x12px with zero modal overflow on mobile');
+
+    // Test ultra-narrow 360x780 Android viewport header & page overflow
+    await sendCmd('Emulation.setDeviceMetricsOverride', {
+      width: 360,
+      height: 780,
+      deviceScaleFactor: 2,
+      mobile: true
+    });
+    await new Promise(r => setTimeout(r, 250));
+
+    const narrow360Diag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const header = document.querySelector('.nav-inner');
+        const actions = document.querySelector('.nav-actions');
+        const hr = header.getBoundingClientRect();
+        const ar = actions.getBoundingClientRect();
+        return {
+          windowWidth: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          headerRight: hr.right,
+          actionsRight: ar.right
+        };
+      })()`,
+      returnByValue: true
+    });
+    const n360 = narrow360Diag.result.value;
+    assert.strictEqual(n360.scrollWidth <= n360.windowWidth, true, 'Zero horizontal overflow allowed at 360px ultra-narrow mobile viewport');
+    assert.ok(n360.actionsRight <= n360.headerRight + 0.5, 'Header actions must fit cleanly inside 360px mobile header');
+    console.log('  ✔ Ultra-narrow 360px mobile viewport verified with 0px horizontal overflow');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 

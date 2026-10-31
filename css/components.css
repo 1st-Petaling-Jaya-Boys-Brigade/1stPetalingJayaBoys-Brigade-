@@ -98,6 +98,22 @@ textarea:-webkit-autofill:active {
 
 .form-row .form-group {
   flex: 1;
+  min-width: 0;
+}
+
+select.form-input,
+.form-select {
+  min-height: 44px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  line-height: 1.35;
+}
+
+@media (max-width: 480px) {
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
 }
 
 /* ── MODERN BUTTONS (Pill & Soft Elevation) ── */
@@ -270,9 +286,12 @@ textarea:-webkit-autofill:active {
 }
 
 /* ── SVG OUTLINE ICON UTILITIES ── */
-.ui-icon {
-  width: 18px;
-  height: 18px;
+.ui-icon,
+.ui-icon-xs,
+.ui-icon-sm,
+.ui-icon-md,
+.ui-icon-lg,
+.ui-icon-xl {
   stroke: currentColor;
   stroke-width: 2;
   fill: none;
@@ -283,9 +302,24 @@ textarea:-webkit-autofill:active {
   flex-shrink: 0;
 }
 
+.ui-icon-xs {
+  width: 12px;
+  height: 12px;
+}
+
 .ui-icon-sm {
   width: 14px;
   height: 14px;
+}
+
+.ui-icon-md {
+  width: 16px;
+  height: 16px;
+}
+
+.ui-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .ui-icon-lg {
@@ -1970,11 +2004,19 @@ textarea:-webkit-autofill:active {
   box-sizing: border-box;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 960px) and (min-width: 769px) {
   .tasks-board-columns {
-    display: flex;
-    overflow-x: auto;
-    gap: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    overflow-x: visible;
+  }
+}
+
+@media (max-width: 768px) and (min-width: 601px) {
+  .tasks-board-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    overflow-x: visible;
   }
 }
 
@@ -1998,8 +2040,7 @@ textarea:-webkit-autofill:active {
 
 @media (max-width: 960px) {
   .task-col {
-    min-width: 235px !important;
-    flex: 1 1 0;
+    min-width: 0 !important;
   }
 }
 
@@ -2083,6 +2124,7 @@ textarea:-webkit-autofill:active {
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -2158,17 +2200,19 @@ textarea:-webkit-autofill:active {
 
 @media (max-width: 600px) {
   #tasks-columns {
+    grid-template-columns: 1fr !important;
     flex-direction: column !important;
     gap: 0 !important;
+    min-height: 0;
   }
   .task-col {
     display: none;
     border-radius: var(--radius-md);
   }
   .task-col.mobile-active {
-    display: block;
+    display: flex;
   }
-  .task-col-tabs {
+  .task-col-tabs:not([style*="display: none"]):not([style*="display:none"]) {
     display: flex !important;
   }
 }
@@ -2178,30 +2222,40 @@ textarea:-webkit-autofill:active {
   background: var(--bg-card-subtle);
   border-radius: var(--radius-md);
   padding: 4px;
-  margin-bottom: 10px;
-  gap: 4px;
+  margin-bottom: 12px;
+  gap: 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.task-col-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .task-col-tab {
-  flex: 1;
-  padding: 9px 4px;
-  border: none;
+  flex: 1 0 auto;
+  padding: 7px 6px;
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
   font-family: var(--font-headline);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0;
   text-transform: none;
+  white-space: nowrap;
   color: var(--text-muted);
   cursor: pointer;
   transition: var(--transition-smooth);
 }
 
-.task-col-tab.active {
+.task-col-tab:is(.active, .mobile-active) {
   background: var(--bg-card);
+  border-color: var(--border-subtle);
   color: var(--text-primary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .task-col-title {
@@ -5267,4 +5321,255 @@ textarea:-webkit-autofill:active {
 
 .tb-comment-input:focus {
   border-color: var(--accent);
+}
+
+/* ── Modal Scroll Containment & Dynamic Viewport Ergonomics ── */
+.task-modal-bg,
+.task-create-modal {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.task-brief-modal-card {
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+.task-create-modal-card {
+  max-height: calc(100vh - 32px) !important;
+  max-height: calc(100dvh - 32px) !important;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+/* ── Create Task Brief Responsive Controls ── */
+.new-task-project-display {
+  min-width: 0;
+  min-height: 44px;
+}
+
+.new-task-project-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-create-footer .submit-btn {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 0;
+  white-space: nowrap;
+  font-size: 14px;
+  padding: 11px 18px;
+}
+
+/* ── Task Detail Brief Pill & Section No-Wrap Protection ── */
+.task-prop-pill-btn {
+  white-space: nowrap;
+  min-height: 32px;
+}
+
+.tdm-status-dot,
+.tdm-assignee-avatar {
+  flex-shrink: 0;
+}
+
+.tdm-project-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tb-section-header {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tb-section-title,
+.tb-upload-btn,
+.tb-action-link {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (pointer: coarse) {
+  .task-prop-pill-btn {
+    min-height: 36px;
+  }
+
+  .project-delete-btn {
+    opacity: 0.85;
+    min-width: 36px;
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Create Task Brief mobile layout */
+  .task-create-modal {
+    padding: 12px !important;
+  }
+
+  .task-create-modal-card {
+    padding: 18px 16px !important;
+    max-height: calc(100vh - 24px) !important;
+    max-height: calc(100dvh - 24px) !important;
+  }
+
+  .task-create-grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .task-create-grid-3 {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .task-create-grid-3 > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .task-create-footer {
+    gap: 8px !important;
+  }
+
+  .task-create-footer .submit-btn {
+    flex: 1 1 auto;
+    padding: 11px 14px;
+    font-size: 13.5px;
+  }
+
+  /* Task Detail Brief mobile layout */
+  #task-detail-modal {
+    padding: 10px !important;
+  }
+
+  .task-brief-modal-card {
+    padding: 18px 16px;
+    max-height: calc(100vh - 20px);
+    max-height: calc(100dvh - 20px);
+  }
+
+  .task-brief-breadcrumbs {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .task-brief-title,
+  .task-editable-title {
+    font-size: 19px;
+    margin: 8px 0 12px;
+  }
+
+  .task-editable-desc,
+  .task-brief-body {
+    min-height: 120px;
+    padding: 12px;
+  }
+
+  .task-prop-dropdown {
+    max-width: calc(100vw - 44px);
+  }
+
+  .tdm-assignee-dropdown {
+    left: auto;
+    right: 0;
+  }
+
+  /* Projects Overview mobile 2-row card layout (never truncate project names to "Fou...") */
+  .project-row {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    gap: 8px 10px;
+  }
+
+  .project-name-cell {
+    flex: 1 1 calc(100% - 52px);
+    order: 1;
+  }
+
+  .project-actions-cell {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .project-delete-btn {
+    opacity: 0.85;
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  .project-assignees-stack {
+    order: 3;
+    margin-right: 4px;
+  }
+
+  .project-progress-cell {
+    order: 4;
+    flex: 1 1 140px;
+    width: auto;
+    margin-left: auto;
+  }
+
+  /* My Tasks mobile table ergonomics */
+  .my-tasks-header-bar {
+    padding: 14px 16px;
+  }
+
+  .my-tasks-filters-bar {
+    padding: 10px 14px;
+  }
+
+  .my-tasks-table-container {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .my-tasks-table {
+    min-width: 600px;
+  }
+
+  .my-tasks-table th,
+  .my-tasks-table td {
+    padding: 10px 10px;
+    white-space: nowrap;
+  }
+
+  .my-tasks-table td:nth-child(2) {
+    white-space: normal;
+    min-width: 160px;
+  }
+
+  .my-tasks-table:has(td[colspan]) {
+    min-width: 100% !important;
+    table-layout: fixed;
+  }
+
+  .my-tasks-table:has(td[colspan]) th {
+    padding: 8px 4px;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .my-tasks-table td[colspan] {
+    white-space: normal !important;
+    padding: 28px 16px !important;
+  }
+}
+
+.task-card-id-tag {
+  display: inline-block;
+}
+
+@media (max-width: 400px) {
+  .task-create-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
 }

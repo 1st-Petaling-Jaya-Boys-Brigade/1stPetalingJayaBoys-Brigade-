@@ -306,3 +306,15 @@
   border-color: var(--accent) !important;
   color: var(--gold) !important;
 }
+
+@media (max-width: 480px) {
+  .admin-row {
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .admin-info {
+    min-width: 140px;
+  }
+}

@@ -205,9 +205,11 @@ function switchTaskTab(tab, btn) {
     if (col) col.classList.toggle('mobile-active', t === target);
   });
   document.querySelectorAll('.task-col-tab').forEach(function(b) {
-    b.classList.remove('active');
+    b.classList.remove('active', 'mobile-active');
   });
-  if (btn) btn.classList.add('active');
+  if (btn) {
+    btn.classList.add('active', 'mobile-active');
+  }
 }
 
 /**
@@ -640,7 +642,7 @@ function paintProjectsList(container) {
         + '</div>'
         + '<div class="project-actions-cell">'
         +   '<button type="button" class="project-delete-btn" onclick="event.stopPropagation(); deleteProject(\'' + (typeof escapeHtml === 'function' ? escapeHtml(pName) : pName) + '\')" title="Delete Project" aria-label="Delete Project">'
-        +     '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
+        +     '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
         +   '</button>'
         + '</div>'
         + '</div>';
@@ -942,7 +944,7 @@ function renderColumnsFromTasks(tasksList) {
         + '</div>'
         + '<div class="task-col-empty-text">No tasks in ' + emptyConf.label + '</div>'
         + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + status + '\')">'
-        +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+        +   '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
         +   '<span>Add Task</span>'
         + '</button>'
         + '</div>';
@@ -981,7 +983,7 @@ function renderColumnsFromTasks(tasksList) {
         var dueText = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
         var badgeClass = getTaskDueBadgeClass(t.due_date);
         dueBadge = '<div style="margin-bottom:6px;"><span class="task-due-pill ' + badgeClass + '">'
-          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+          + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
           + (isOverdue ? 'Overdue: ' : '') + dueText
           + '</span></div>';
       }
@@ -1151,7 +1153,7 @@ function setupKanbanDragAndDrop() {
             + '</div>'
             + '<div class="task-col-empty-text">No tasks in ' + emptyConf.label + '</div>'
             + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + prevStatus + '\')">'
-            +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+            +   '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
             +   '<span>Add Task</span>'
             + '</button>'
             + '</div>';
@@ -1512,7 +1514,7 @@ function addActiveTaskLink() {
   if (section) {
     var linkPill = document.createElement('div');
     linkPill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);padding:4px 10px;border-radius:6px;font-size:12px;margin:4px 4px 4px 0;';
-    linkPill.innerHTML = '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+    linkPill.innerHTML = '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
       + '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(urlOrTitle.trim()) : urlOrTitle.trim()) + '</span>'
       + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;margin-left:4px;" onclick="this.parentElement.remove()">&times;</button>';
     section.appendChild(linkPill);
@@ -1617,6 +1619,8 @@ async function saveTaskField(id, field, value) {
  */
 function toggleTaskDetailStatusMenu(e) {
   if (e) e.stopPropagation();
+  var otherMenu = document.querySelector('.tdm-assignee-dropdown');
+  if (otherMenu) otherMenu.style.display = 'none';
   var menu = document.querySelector('.tdm-status-dropdown');
   if (!menu) return;
   if (menu.style.display === 'block') {
@@ -1652,6 +1656,8 @@ function selectTaskDetailStatus(status) {
  */
 async function toggleTaskDetailAssigneeMenu(e) {
   if (e) e.stopPropagation();
+  var otherMenu = document.querySelector('.tdm-status-dropdown');
+  if (otherMenu) otherMenu.style.display = 'none';
   var menu = document.querySelector('.tdm-assignee-dropdown');
   if (!menu) return;
   if (menu.style.display === 'block') {

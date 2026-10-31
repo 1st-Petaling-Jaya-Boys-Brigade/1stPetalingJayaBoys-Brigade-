@@ -23,11 +23,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261031d">
-<link rel="stylesheet" href="css/base.css?v=20261031d">
-<link rel="stylesheet" href="css/nav.css?v=20261031d">
-<link rel="stylesheet" href="css/components.css?v=20261031d">
-<link rel="stylesheet" href="css/admin.css?v=20261031d">
+<link rel="stylesheet" href="css/variables.css?v=20261031e">
+<link rel="stylesheet" href="css/base.css?v=20261031e">
+<link rel="stylesheet" href="css/nav.css?v=20261031e">
+<link rel="stylesheet" href="css/components.css?v=20261031e">
+<link rel="stylesheet" href="css/admin.css?v=20261031e">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -337,7 +337,7 @@
   background: rgba(255, 255, 255, 0.08) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261031d"></script>
+<script src="js/core/theme.js?v=20261031e"></script>
 </head>
 <body>
 
@@ -472,7 +472,7 @@
       <span class="bnav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
       <span class="bnav-label">Member</span>
     </button>
-    <button class="bnav-btn" id="bnav-more" onclick="toggleSidebar()" aria-label="More">
+    <button class="bnav-btn" id="bnav-more" onclick="toggleSidebar()" aria-label="More" aria-expanded="false" aria-controls="sidebar-overlay">
       <span class="bnav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="12" r="1.5"/></svg></span>
       <span class="bnav-label">More</span>
     </button>
@@ -1417,7 +1417,7 @@
             <button type="button" class="task-prop-pill-btn tdm-status-btn" onclick="toggleTaskDetailStatusMenu(event)" title="Change Status">
               <span class="tdm-status-dot" style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
               <span class="tdm-status-text">To Do</span>
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="task-prop-dropdown tdm-status-dropdown" style="display:none;"></div>
           </div>
@@ -1426,7 +1426,7 @@
             <button type="button" class="task-prop-pill-btn tdm-assignee-btn" onclick="toggleTaskDetailAssigneeMenu(event)" title="Assign Member">
               <span class="tdm-assignee-avatar" style="width:18px;height:18px;border-radius:50%;background:#3b82f6;color:#ffffff;font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;">U</span>
               <span id="tdm-assignee">Unassigned</span>
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div class="task-prop-dropdown tdm-assignee-dropdown" style="display:none;"></div>
           </div>
@@ -1437,18 +1437,18 @@
           </button>
           <!-- Project Pill -->
           <button type="button" class="task-prop-pill-btn tdm-project-btn" title="Project">
-            <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
             <span class="tdm-project-text">Project</span>
           </button>
           <!-- Due Date Picker -->
           <label class="task-prop-pill-btn tdm-due-label" title="Change due date" style="cursor:pointer;position:relative;margin-bottom:0;">
-            <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span id="tdm-due">Due Date</span>
             <input type="date" class="tdm-due-input" onchange="handleTaskDetailDueChange(this.value)" style="position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer;" />
           </label>
           <!-- Estimate Pill -->
           <button type="button" class="task-prop-pill-btn tdm-estimate-btn" onclick="editTaskDetailEstimate(event)" title="Edit estimate (e.g. 2h, 1d)">
-            <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span class="tdm-estimate-val">Estimate</span>
           </button>
         </div>
@@ -1474,11 +1474,11 @@
         <div class="task-brief-section">
           <div class="tb-section-header">
             <div class="tb-section-title">
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
               <span>Attachments</span>
             </div>
             <label class="tb-upload-btn" title="Upload attachment">
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <span>Upload file</span>
               <input type="file" style="display:none;" onchange="handleTaskAttachmentUpload(event)" />
             </label>
@@ -1493,7 +1493,7 @@
         <div class="task-brief-section">
           <div class="tb-section-header">
             <div class="tb-section-title">
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><polyline points="9 11 12 14 22 4"/></svg>
+              <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><polyline points="9 11 12 14 22 4"/></svg>
               <span>Sub-tasks</span>
             </div>
             <button type="button" class="tb-action-link" onclick="addActiveTaskSubtask()">+ Add a sub-task</button>
@@ -1505,7 +1505,7 @@
         <div class="task-brief-section">
           <div class="tb-section-header">
             <div class="tb-section-title">
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
               <span>Links</span>
             </div>
             <button type="button" class="tb-action-link" onclick="addActiveTaskLink()">+ Add link</button>
@@ -1534,22 +1534,22 @@
           </div>
           <input type="hidden" class="form-input new-task-dept-input" value="logistics" />
           <input type="hidden" class="form-input new-task-project-input" />
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
+          <div class="task-create-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="min-width:0;">
               <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Project</label>
-              <div class="new-task-project-display" style="padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border-card);border-radius:8px;font-size:13px;color:var(--text-primary);font-weight:600;display:flex;align-items:center;gap:8px;user-select:none;height:42px;box-sizing:border-box;">
-                <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+              <div class="new-task-project-display" style="padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border-card);border-radius:8px;font-size:13px;color:var(--text-primary);font-weight:600;display:flex;align-items:center;gap:8px;user-select:none;min-height:44px;min-width:0;box-sizing:border-box;">
+                <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
                 <span class="new-task-project-name-text">General Project</span>
               </div>
             </div>
-            <div>
+            <div style="min-width:0;">
               <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Assignee</label>
-              <select class="form-input new-task-assignee-input" style="width:100%;height:42px;">
+              <select class="form-input new-task-assignee-input" style="width:100%;min-height:44px;">
                 <option value="">Unassigned</option>
               </select>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="task-create-grid-3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
             <div>
               <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Priority</label>
               <select class="form-input new-task-priority-input" style="width:100%;">
@@ -1571,7 +1571,7 @@
             <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Task Brief &amp; Deliverables Description</label>
             <textarea class="form-input new-task-desc-input" rows="5" placeholder="Detailed brief, checklist, or instructions..." style="width:100%;resize:vertical;"></textarea>
           </div>
-          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
+          <div class="task-create-footer" style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
             <button type="button" onclick="closeCreateTaskModal()" class="submit-btn" style="background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">Cancel</button>
             <button type="submit" class="submit-btn gold"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Create Task Brief</button>
           </div>
@@ -1785,11 +1785,11 @@
 <!-- ═════════════════════════════════════════════════════════════════════════
      ADMIN OVERLAY (BACK-OFFICE MANAGEMENT CONSOLE)
      ═════════════════════════════════════════════════════════════════════════ -->
-<aside id="admin-overlay" class="admin-overlay" role="dialog" aria-modal="true" aria-label="Admin Management Console" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;overflow-y:auto;padding:0;">
+<aside id="admin-overlay" class="admin-overlay" role="dialog" aria-modal="true" aria-label="Admin Management Console" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;overflow-y:auto;overscroll-behavior:contain;padding:0;">
   <div class="admin-container" style="max-width:1040px;width:100%;box-sizing:border-box;margin:0 auto;padding:24px 20px 80px;">
 
     <!-- Header -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border-card);">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border-card);">
       <div>
         <div style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Admin Panel</div>
         <div style="font-size:11px;color:var(--text-secondary);letter-spacing:2px;text-transform:uppercase;margin-top:2px;">1st Petaling Jaya Boys Brigade</div>
@@ -2936,24 +2936,24 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261031d"></script>
-<script src="js/api/supabase.js?v=20261031d"></script>
-<script src="js/core/session.js?v=20261031d"></script>
-<script src="js/core/utils.js?v=20261031d"></script>
-<script src="js/core/ui.js?v=20261031d"></script>
-<script src="js/core/loading.js?v=20261031d"></script>
-<script src="js/modules/member.js?v=20261031d"></script>
-<script src="js/api/sheets.js?v=20261031d"></script>
-<script src="js/modules/attendance.js?v=20261031d"></script>
-<script src="js/modules/announcements.js?v=20261031d"></script>
-<script src="js/modules/gallery.js?v=20261031d"></script>
-<script src="js/modules/resources.js?v=20261031d"></script>
-<script src="js/modules/calendar.js?v=20261031d"></script>
-<script src="js/modules/orders.js?v=20261031d"></script>
-<script src="js/modules/forms.js?v=20261031d"></script>
-<script src="js/modules/badges.js?v=20261031d"></script>
-<script src="js/modules/tasks.js?v=20261031d"></script>
-<script src="js/modules/admin.js?v=20261031d"></script>
+<script src="js/config.js?v=20261031e"></script>
+<script src="js/api/supabase.js?v=20261031e"></script>
+<script src="js/core/session.js?v=20261031e"></script>
+<script src="js/core/utils.js?v=20261031e"></script>
+<script src="js/core/ui.js?v=20261031e"></script>
+<script src="js/core/loading.js?v=20261031e"></script>
+<script src="js/modules/member.js?v=20261031e"></script>
+<script src="js/api/sheets.js?v=20261031e"></script>
+<script src="js/modules/attendance.js?v=20261031e"></script>
+<script src="js/modules/announcements.js?v=20261031e"></script>
+<script src="js/modules/gallery.js?v=20261031e"></script>
+<script src="js/modules/resources.js?v=20261031e"></script>
+<script src="js/modules/calendar.js?v=20261031e"></script>
+<script src="js/modules/orders.js?v=20261031e"></script>
+<script src="js/modules/forms.js?v=20261031e"></script>
+<script src="js/modules/badges.js?v=20261031e"></script>
+<script src="js/modules/tasks.js?v=20261031e"></script>
+<script src="js/modules/admin.js?v=20261031e"></script>
 
 <script>
 
@@ -3159,7 +3159,8 @@ function syncNavState(tab) {
 
 // Sidebar open/close
 function toggleSidebar() {
-  var ov  = document.getElementById('sidebar-overlay');
+  var ov = document.getElementById('sidebar-overlay');
+  var panel = ov ? ov.querySelector('.sidebar-panel') : document.querySelector('.sidebar-panel');
   var btn = document.getElementById('nav-menu-btn');
   var bmore = document.getElementById('bnav-more');
   if (!ov) return;
@@ -3168,23 +3169,42 @@ function toggleSidebar() {
     closeSidebar();
   } else {
     ov.classList.add('open');
-    if (btn) btn.classList.add('open');
-    if (bmore) bmore.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    if (panel) panel.classList.add('sidebar-open');
+    if (btn) {
+      btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+    if (bmore) {
+      bmore.classList.add('active');
+      bmore.setAttribute('aria-expanded', 'true');
+    }
+    if (panel && typeof window !== 'undefined' && window.innerWidth <= 1023) {
+      var firstNavItem = panel.querySelector('.sidebar-item:not([style*="display:none"]):not([style*="display: none"])');
+      if (firstNavItem && typeof firstNavItem.focus === 'function') {
+        firstNavItem.focus({ preventScroll: true });
+      }
+    }
   }
 }
 function closeSidebar() {
-  var ov  = document.getElementById('sidebar-overlay');
+  var ov = document.getElementById('sidebar-overlay');
+  var panel = ov ? ov.querySelector('.sidebar-panel') : document.querySelector('.sidebar-panel');
   var btn = document.getElementById('nav-menu-btn');
+  var bmore = document.getElementById('bnav-more');
   if (ov) ov.classList.remove('open');
-  if (btn) btn.classList.remove('open');
-  document.body.style.overflow = '';
+  if (panel) panel.classList.remove('sidebar-open');
+  if (btn) {
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  if (bmore) {
+    bmore.setAttribute('aria-expanded', 'false');
+  }
   // Re-sync More button state based on current page
   var activePage = document.querySelector('.page.active');
   if (activePage) {
     var tab = activePage.id.replace('page-','');
     var mainTabs = ['home','order','member'];
-    var bmore = document.getElementById('bnav-more');
     if (bmore) bmore.classList.toggle('active', mainTabs.indexOf(tab) === -1);
   }
 }
@@ -3745,6 +3765,16 @@ document.addEventListener('keydown', function(e) {
   } else if (e.key === 'Escape') {
     closeGlobalSearch();
     closeNotificationDropdown();
+    var sbOv = document.getElementById('sidebar-overlay');
+    if (sbOv && sbOv.classList.contains('open')) closeSidebar();
+    var createModal = document.querySelector('.task-create-modal');
+    if (createModal && createModal.style.display && createModal.style.display !== 'none' && typeof closeCreateTaskModal === 'function') {
+      closeCreateTaskModal();
+    }
+    var detailModal = document.getElementById('task-detail-modal');
+    if (detailModal && detailModal.style.display && detailModal.style.display !== 'none' && typeof closeTaskDetail === 'function') {
+      closeTaskDetail();
+    }
   }
 });
 

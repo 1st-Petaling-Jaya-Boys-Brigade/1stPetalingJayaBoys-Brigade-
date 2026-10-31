@@ -295,11 +295,24 @@ textarea,
 
 button:focus-visible,
 a:focus-visible,
-input:focus-visible,
+input:not(.nav-search-input):focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--accent) !important;
   outline-offset: 2px !important;
+}
+
+.nav-search-input:focus-visible {
+  outline: none !important;
+}
+
+input.form-input:focus-visible,
+select.form-input:focus-visible,
+textarea.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
 }
 
 /* ── Modern Layout Stability & Scrollbar Gutters ── */
