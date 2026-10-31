@@ -1106,15 +1106,14 @@ select.form-input,
   content: '';
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 50% 0%, var(--accent-soft) 0%, transparent 62%),
-    repeating-linear-gradient(
-      135deg,
-      transparent,
-      transparent 20px,
-      rgba(148, 163, 184, 0.03) 20px,
-      rgba(148, 163, 184, 0.03) 24px
-    );
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 20px,
+    rgba(255, 255, 255, 0.015) 20px,
+    rgba(255, 255, 255, 0.015) 24px
+  );
+  pointer-events: none;
 }
 
 .hero-banner > * {
