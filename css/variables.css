@@ -1,35 +1,80 @@
 /* ── 1ST PJ BOYS' BRIGADE MODERN DESIGN SYSTEM TOKENS ── */
 
+:root {
+  color-scheme: light dark;
+}
+
+:root:has(> head > meta[name='color-scheme'][content='dark']) {
+  color-scheme: dark;
+}
+
+:root:has(> head > meta[name='color-scheme'][content='light']) {
+  color-scheme: light;
+}
+
 :root,
 [data-theme='dark'] {
-  /* Canvas & Surfaces (Modern Charcoal / Dark Grey Palette) */
-  --bg-canvas: #121418;
-  --bg-card: #1c1f26;
-  --bg-card-hover: #252932;
-  --bg-card-subtle: #171920;
-  --bg-input: #171920;
-  --bg-nav: rgba(18, 20, 24, 0.9);
-  --bg-dock: rgba(28, 31, 38, 0.95);
+  color-scheme: dark;
 
-  /* Typography */
+  /* Canvas & Surfaces (Modern Charcoal / Dark Grey Palette — 60-30-10 Restraint) */
+  --bg-canvas: #121418;
+  --bg-card: #1b1e25;
+  --bg-card-hover: #232731;
+  --bg-card-subtle: #161920;
+  --bg-input: #15181f;
+  --bg-overlay-page: rgba(14, 17, 22, 0.96);
+  --bg-nav: rgba(18, 20, 24, 0.88);
+  --bg-dock: rgba(24, 27, 34, 0.92);
+
+  /* Semantic Surface Tints & Tracks */
+  --surface-tint: rgba(255, 255, 255, 0.06);
+  --surface-tint-hover: rgba(255, 255, 255, 0.1);
+  --surface-track: rgba(255, 255, 255, 0.1);
+  --surface-inset: rgba(0, 0, 0, 0.2);
+  --surface-glass: rgba(22, 26, 34, 0.94);
+
+  /* Typography (WCAG AA+ Contrast Verified) */
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  --text-muted: #8b95a5;
   --text-inverse: #121418;
+  --btn-on-accent: #121418;
 
   /* Brand Accents */
   --brand-navy: #121418;
   --brand-gold: #f5c542;
   --brand-amber: #eab308;
-  --brand-blue: #3b82f6;
+  --brand-blue: #60a5fa;
+  --purple: #c084fc;
+  --cyan: #22d3ee;
+  --orange: #fb923c;
+  --accent-soft: rgba(245, 197, 66, 0.14);
+  --accent-border: rgba(245, 197, 66, 0.34);
 
   /* Borders & Shadows */
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-card: rgba(255, 255, 255, 0.12);
+  --border-card: rgba(255, 255, 255, 0.13);
+  --border-hover: rgba(255, 255, 255, 0.24);
+  --border-input: rgba(255, 255, 255, 0.16);
   --border-focus: #f5c542;
+  --shadow-subtle: 0 2px 8px rgba(0, 0, 0, 0.22);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.38);
   --shadow-card: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
   --shadow-dock: 0 12px 36px rgba(0, 0, 0, 0.55);
   --shadow-elevated: 0 20px 45px -10px rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.62);
+
+  /* Mobile Floating Dock Tokens */
+  --dock-btn-color: #94a3b8;
+  --dock-btn-hover-bg: rgba(255, 255, 255, 0.08);
+  --dock-btn-hover-color: #ffffff;
+  --dock-active-bg: #ffffff;
+  --dock-active-color: #111827;
+  --dock-active-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+
+  /* Scrollbar Tokens */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-track: transparent;
 
   /* Platoon Theme Colors (Soft Modern Pastels) */
   --platoon-alpha-bg: rgba(59, 130, 246, 0.15);
@@ -49,41 +94,74 @@
   --gold: var(--brand-gold);
   --light: var(--bg-card);
   --white: #ffffff;
-  --red: #ef4444;
-  --green: #10b981;
+  --red: #f87171;
+  --green: #34d399;
   --text: var(--text-primary);
   --muted: var(--text-secondary);
 }
 
 [data-theme='light'] {
-  /* Canvas & Surfaces (Modern Light Grey Palette) */
-  --bg-canvas: #eaedf2;
+  color-scheme: light;
+
+  /* Canvas & Surfaces (Crisp Tonal Surface Layering — Soft Cool Canvas + Elevated White Cards) */
+  --bg-canvas: #eef1f6;
   --bg-card: #ffffff;
   --bg-card-hover: #f8fafc;
-  --bg-card-subtle: #f0f3f8;
-  --bg-input: #ffffff;
-  --bg-nav: rgba(234, 237, 242, 0.92);
-  --bg-dock: rgba(17, 24, 39, 0.95);
+  --bg-card-subtle: #f3f5f9;
+  --bg-input: #f8fafc;
+  --bg-overlay-page: rgba(238, 241, 246, 0.97);
+  --bg-nav: rgba(255, 255, 255, 0.88);
+  --bg-dock: rgba(255, 255, 255, 0.92);
 
-  /* Typography */
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #6b7280;
+  /* Semantic Surface Tints & Tracks */
+  --surface-tint: rgba(15, 23, 42, 0.055);
+  --surface-tint-hover: rgba(15, 23, 42, 0.095);
+  --surface-track: rgba(15, 23, 42, 0.1);
+  --surface-inset: #f1f5f9;
+  --surface-glass: rgba(255, 255, 255, 0.94);
+
+  /* Typography (WCAG AA+ Contrast Verified) */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
   --text-inverse: #ffffff;
+  --btn-on-accent: #ffffff;
 
-  /* Brand Accents */
-  --brand-navy: #111827;
-  --brand-gold: #b45309;
-  --brand-amber: #d97706;
-  --brand-blue: #2563eb;
+  /* Brand Accents (WCAG AA >= 5:1 on both #ffffff and #eef1f6) */
+  --brand-navy: #0f172a;
+  --brand-gold: #9a3412;
+  --brand-amber: #9a3412;
+  --brand-blue: #1d4ed8;
+  --purple: #7e22ce;
+  --cyan: #0e7490;
+  --orange: #9a3412;
+  --accent-soft: rgba(154, 52, 18, 0.1);
+  --accent-border: rgba(154, 52, 18, 0.32);
 
   /* Borders & Shadows */
-  --border-subtle: rgba(0, 0, 0, 0.07);
-  --border-card: #d8dee6;
-  --border-focus: #d97706;
-  --shadow-card: 0 6px 20px -4px rgba(17, 24, 39, 0.06), 0 2px 6px -1px rgba(17, 24, 39, 0.04);
-  --shadow-dock: 0 16px 40px rgba(0, 0, 0, 0.25);
-  --shadow-elevated: 0 20px 40px -10px rgba(17, 24, 39, 0.12);
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-card: #d5dce6;
+  --border-hover: #94a3b8;
+  --border-input: #cbd5e1;
+  --border-focus: #9a3412;
+  --shadow-subtle: 0 1px 4px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.12);
+  --shadow-card: 0 6px 20px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  --shadow-dock: 0 14px 36px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-elevated: 0 20px 40px -10px rgba(15, 23, 42, 0.14);
+  --shadow-modal: 0 24px 60px rgba(15, 23, 42, 0.2);
+
+  /* Mobile Floating Dock Tokens (Frosted Light Glass + High-Contrast Active Pill) */
+  --dock-btn-color: #475569;
+  --dock-btn-hover-bg: rgba(15, 23, 42, 0.06);
+  --dock-btn-hover-color: #0f172a;
+  --dock-active-bg: #0f172a;
+  --dock-active-color: #ffffff;
+  --dock-active-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+
+  /* Scrollbar Tokens */
+  --scrollbar-thumb: rgba(15, 23, 42, 0.22);
+  --scrollbar-track: transparent;
 
   /* Platoon Theme Colors (Crisp Light Pastels) */
   --platoon-alpha-bg: #eff6ff;
@@ -103,8 +181,8 @@
   --gold: var(--brand-gold);
   --light: var(--bg-card);
   --white: #ffffff;
-  --red: #dc2626;
-  --green: #059669;
+  --red: #b91c1c;
+  --green: #047857;
   --text: var(--text-primary);
   --muted: var(--text-secondary);
 }

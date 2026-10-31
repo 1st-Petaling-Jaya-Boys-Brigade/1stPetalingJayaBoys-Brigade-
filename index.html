@@ -7,6 +7,7 @@
 <!-- PWA Web App Manifest & Mobile Capability (TSK-016) -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0e17">
+<meta name="color-scheme" content="light dark">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,11 +24,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261031e">
-<link rel="stylesheet" href="css/base.css?v=20261031e">
-<link rel="stylesheet" href="css/nav.css?v=20261031e">
-<link rel="stylesheet" href="css/components.css?v=20261031e">
-<link rel="stylesheet" href="css/admin.css?v=20261031e">
+<link rel="stylesheet" href="css/variables.css?v=20261031f">
+<link rel="stylesheet" href="css/base.css?v=20261031f">
+<link rel="stylesheet" href="css/nav.css?v=20261031f">
+<link rel="stylesheet" href="css/components.css?v=20261031f">
+<link rel="stylesheet" href="css/admin.css?v=20261031f">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -144,7 +145,7 @@
   font-family: var(--font-body) !important;
   font-size: 13px !important;
   font-weight: 400 !important;
-  color: #cbd5e1 !important;
+  color: var(--text-secondary) !important;
   line-height: 1.45 !important;
   margin-bottom: 10px !important;
   flex: 1 !important;
@@ -186,17 +187,17 @@
   width: 36px !important;
   height: 36px !important;
   border-radius: 50% !important;
-  background: rgba(18, 24, 38, 0.92) !important;
+  background: var(--bg-card) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.25) !important;
-  color: var(--text-primary, #fff) !important;
+  border: 1.5px solid var(--border-hover, var(--border-card)) !important;
+  color: var(--text-primary) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
   z-index: 10 !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
+  box-shadow: var(--shadow-md) !important;
   transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease !important;
   padding: 0 !important;
   outline: none !important;
@@ -225,11 +226,11 @@
   transform: translateY(-50%) scale(1) !important;
 }
 .hq-carousel-arrow:hover {
-  background: rgba(30, 41, 59, 0.98) !important;
+  background: var(--bg-card-hover) !important;
   border-color: var(--accent, #eab308) !important;
   color: var(--accent, #eab308) !important;
   transform: translateY(-50%) scale(1.1) !important;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: var(--shadow-elevated) !important;
   opacity: 1 !important;
   pointer-events: auto !important;
   visibility: visible !important;
@@ -334,10 +335,10 @@
 }
 .forms-search-clear:hover {
   color: var(--accent) !important;
-  background: rgba(255, 255, 255, 0.08) !important;
+  background: var(--surface-tint-hover) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261031e"></script>
+<script src="js/core/theme.js?v=20261031f"></script>
 </head>
 <body>
 
@@ -717,7 +718,7 @@
           <div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-primary);">Submitting as <span id="order-member-name" style="color:var(--accent);"></span></div>
           <div style="font-size:11px;color:var(--text-secondary);"><span id="order-member-squad-inline"></span> <span id="order-member-rank"></span></div>
         </div>
-        <div id="order-member-squad" style="font-family:var(--font-headline);font-size:11px;font-weight:600;color:#121418;padding:3px 10px;border-radius:6px;background:var(--gold);"></div>
+        <div id="order-member-squad" style="font-family:var(--font-headline);font-size:11px;font-weight:600;color:#121418;padding:3px 10px;border-radius:6px;background:linear-gradient(135deg,#f5c542,#eab308);"></div>
       </div>
 
       <!-- Forms hub (search bar & list) -->
@@ -799,7 +800,7 @@
         <div style="text-align:center;margin:20px 0 16px;">
           <div class="gate-icon" style="margin:0 auto 10px;width:50px;height:50px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/></svg></div>
           <div style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:var(--text);margin-top:6px;">Reset Password</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;" id="forgot-header-sub">Verify via your registered email</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;" id="forgot-header-sub">Verify via your registered email</div>
         </div>
 
         <!-- Step 1: Request Reset Code -->
@@ -971,7 +972,7 @@
                 <span id="m-pfp-ph" style="display:flex;align-items:center;color:var(--text-secondary);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
                 <img id="m-pfp-img" src="" style="width:100%;height:100%;object-fit:cover;display:none;border-radius:50%;"/>
               </div>
-              <label for="pfp-upload" title="Change photo" style="position:absolute;bottom:0;right:0;background:var(--accent);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#ffffff;border:2px solid var(--bg-card);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></label>
+              <label for="pfp-upload" title="Change photo" style="position:absolute;bottom:0;right:0;background:var(--accent);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--btn-on-accent,#121418);border:2px solid var(--bg-card);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></label>
               <input type="file" id="pfp-upload" accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.jpg,.jpeg,.png,.webp,.gif" style="display:none;" onchange="uploadPfp(this)"/>
             </div>
             <div>
@@ -1079,7 +1080,7 @@
             <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Saturdays &bull; Trinity Methodist Church PJ (TMCPJ)</div>
           </div>
         </div>
-        <div class="s-badge" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);font-size:12px;padding:4px 10px;border-radius:20px;font-weight:700;">Every Saturday</div>
+        <div class="s-badge" style="background:rgba(34,197,94,0.15);color:var(--green);border:1px solid rgba(34,197,94,0.3);font-size:12px;padding:4px 10px;border-radius:20px;font-weight:700;">Every Saturday</div>
       </div>
 
       <!-- Schedule Table / Timeline -->
@@ -1316,7 +1317,7 @@
       <div class="projects-container" style="display:none;width:100%;"></div>
 
             <!-- No Project Selected Placeholder -->
-      <div class="tasks-no-project-placeholder" style="display:none;width:100%;padding:64px 20px;text-align:center;color:var(--text-muted);background:rgba(22,28,42,0.5);border:1px dashed rgba(255,255,255,0.08);border-radius:var(--radius-lg);margin-top:12px;">
+      <div class="tasks-no-project-placeholder" style="display:none;width:100%;padding:64px 20px;text-align:center;color:var(--text-muted);background:var(--bg-card-subtle);border:1px dashed var(--border-card);border-radius:var(--radius-lg);margin-top:12px;">
         <svg class="ui-icon-xl" style="margin:0 auto 12px;opacity:0.35;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
         <div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">No Project Selected</div>
         <div style="font-size:13px;max-width:380px;margin:0 auto 20px;line-height:1.5;">Tasks must belong to a project. Please select a project from the Projects list to view its Kanban board.</div>
@@ -1330,8 +1331,8 @@
         <!-- Planning -->
         <div class="task-col mobile-active" data-col-status="planning">
           <div class="task-col-header">
-            <div class="task-col-title" style="color:#a855f7;margin-bottom:0;white-space:nowrap;">
-              <span style="width:8px;height:8px;border-radius:50%;background:#a855f7;display:inline-block;"></span>
+            <div class="task-col-title" style="color:var(--purple);margin-bottom:0;white-space:nowrap;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--purple);display:inline-block;"></span>
               Planning <span data-col-count="planning" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('planning')" title="Add task to Planning"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -1352,8 +1353,8 @@
         <!-- In Progress -->
         <div class="task-col" id="taskcol-inprogress" data-col-status="inprogress">
           <div class="task-col-header">
-            <div class="task-col-title" style="color:#3b82f6;margin-bottom:0;white-space:nowrap;">
-              <span style="width:8px;height:8px;border-radius:50%;background:#3b82f6;display:inline-block;"></span>
+            <div class="task-col-title" style="color:var(--blue);margin-bottom:0;white-space:nowrap;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;"></span>
               In Progress <span id="count-inprogress" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('inprogress')" title="Add task to In Progress"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -1363,8 +1364,8 @@
         <!-- In Review -->
         <div class="task-col" data-col-status="inreview">
           <div class="task-col-header">
-            <div class="task-col-title" style="color:#f59e0b;margin-bottom:0;white-space:nowrap;">
-              <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>
+            <div class="task-col-title" style="color:var(--accent);margin-bottom:0;white-space:nowrap;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;"></span>
               In Review <span data-col-count="inreview" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('inreview')" title="Add task to In Review"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -1374,8 +1375,8 @@
         <!-- Completed (renamed from Done) -->
         <div class="task-col" id="taskcol-done" data-col-status="completed">
           <div class="task-col-header">
-            <div class="task-col-title" style="color:#10b981;margin-bottom:0;white-space:nowrap;">
-              <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+            <div class="task-col-title" style="color:var(--green);margin-bottom:0;white-space:nowrap;">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>
               Completed <span id="count-done" class="task-col-count-badge"></span>
             </div>
             <button type="button" class="task-col-quick-add" onclick="openCreateTaskModal('completed')" title="Add task to Completed"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -1424,7 +1425,7 @@
           <!-- Assignee Pill Dropdown -->
           <div class="task-prop-pill-wrapper" style="position:relative;">
             <button type="button" class="task-prop-pill-btn tdm-assignee-btn" onclick="toggleTaskDetailAssigneeMenu(event)" title="Assign Member">
-              <span class="tdm-assignee-avatar" style="width:18px;height:18px;border-radius:50%;background:#3b82f6;color:#ffffff;font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;">U</span>
+              <span class="tdm-assignee-avatar" style="width:18px;height:18px;border-radius:50%;background:#0369a1;color:#ffffff;font-size:9px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;">U</span>
               <span id="tdm-assignee">Unassigned</span>
               <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
@@ -1537,7 +1538,7 @@
           <div class="task-create-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div style="min-width:0;">
               <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Project</label>
-              <div class="new-task-project-display" style="padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid var(--border-card);border-radius:8px;font-size:13px;color:var(--text-primary);font-weight:600;display:flex;align-items:center;gap:8px;user-select:none;min-height:44px;min-width:0;box-sizing:border-box;">
+              <div class="new-task-project-display" style="padding:10px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;font-size:13px;color:var(--text-primary);font-weight:600;display:flex;align-items:center;gap:8px;user-select:none;min-height:44px;min-width:0;box-sizing:border-box;">
                 <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
                 <span class="new-task-project-name-text">General Project</span>
               </div>
@@ -1785,7 +1786,7 @@
 <!-- ═════════════════════════════════════════════════════════════════════════
      ADMIN OVERLAY (BACK-OFFICE MANAGEMENT CONSOLE)
      ═════════════════════════════════════════════════════════════════════════ -->
-<aside id="admin-overlay" class="admin-overlay" role="dialog" aria-modal="true" aria-label="Admin Management Console" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;overflow-y:auto;overscroll-behavior:contain;padding:0;">
+<aside id="admin-overlay" class="admin-overlay" role="dialog" aria-modal="true" aria-label="Admin Management Console" style="display:none;position:fixed;inset:0;background:var(--bg-overlay-page,var(--bg-canvas));backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;overflow-y:auto;overscroll-behavior:contain;padding:0;">
   <div class="admin-container" style="max-width:1040px;width:100%;box-sizing:border-box;margin:0 auto;padding:24px 20px 80px;">
 
     <!-- Header -->
@@ -2834,7 +2835,7 @@
       <div id="cdm-personal-reminders-list"></div>
 
       <!-- Add Personal Reminder Form -->
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);display:flex;gap:6px;flex-wrap:wrap;">
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border-subtle);display:flex;gap:6px;flex-wrap:wrap;">
         <input type="text" id="cdm-rem-input" placeholder="e.g. Bring Target Badge book, Band rehearsal..." class="form-input" style="flex:1;min-width:180px;font-size:12px;padding:7px 10px;" />
         <input type="text" id="cdm-rem-time" placeholder="Time (opt)" class="form-input" style="width:85px;font-size:12px;padding:7px 8px;" />
         <button type="button" class="portal-btn portal-btn-primary" onclick="handleAddModalReminder()" style="font-size:12px;padding:7px 14px;">+ Add</button>
@@ -2936,24 +2937,24 @@
 </div>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261031e"></script>
-<script src="js/api/supabase.js?v=20261031e"></script>
-<script src="js/core/session.js?v=20261031e"></script>
-<script src="js/core/utils.js?v=20261031e"></script>
-<script src="js/core/ui.js?v=20261031e"></script>
-<script src="js/core/loading.js?v=20261031e"></script>
-<script src="js/modules/member.js?v=20261031e"></script>
-<script src="js/api/sheets.js?v=20261031e"></script>
-<script src="js/modules/attendance.js?v=20261031e"></script>
-<script src="js/modules/announcements.js?v=20261031e"></script>
-<script src="js/modules/gallery.js?v=20261031e"></script>
-<script src="js/modules/resources.js?v=20261031e"></script>
-<script src="js/modules/calendar.js?v=20261031e"></script>
-<script src="js/modules/orders.js?v=20261031e"></script>
-<script src="js/modules/forms.js?v=20261031e"></script>
-<script src="js/modules/badges.js?v=20261031e"></script>
-<script src="js/modules/tasks.js?v=20261031e"></script>
-<script src="js/modules/admin.js?v=20261031e"></script>
+<script src="js/config.js?v=20261031f"></script>
+<script src="js/api/supabase.js?v=20261031f"></script>
+<script src="js/core/session.js?v=20261031f"></script>
+<script src="js/core/utils.js?v=20261031f"></script>
+<script src="js/core/ui.js?v=20261031f"></script>
+<script src="js/core/loading.js?v=20261031f"></script>
+<script src="js/modules/member.js?v=20261031f"></script>
+<script src="js/api/sheets.js?v=20261031f"></script>
+<script src="js/modules/attendance.js?v=20261031f"></script>
+<script src="js/modules/announcements.js?v=20261031f"></script>
+<script src="js/modules/gallery.js?v=20261031f"></script>
+<script src="js/modules/resources.js?v=20261031f"></script>
+<script src="js/modules/calendar.js?v=20261031f"></script>
+<script src="js/modules/orders.js?v=20261031f"></script>
+<script src="js/modules/forms.js?v=20261031f"></script>
+<script src="js/modules/badges.js?v=20261031f"></script>
+<script src="js/modules/tasks.js?v=20261031f"></script>
+<script src="js/modules/admin.js?v=20261031f"></script>
 
 <script>
 
@@ -3258,7 +3259,7 @@ function createRichEditor(containerId, editorId, placeholder, minHeight) {
 
   var editorHtml = '<div id="' + editorId + '" contenteditable="true" data-placeholder="' + placeholder + '"'
     + ' style="min-height:' + minHeight + 'px;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:0 0 8px 8px;'
-    + 'padding:12px 14px;font-family:\'Roboto\',sans-serif;font-size:13px;line-height:1.7;outline:none;word-break:break-word;"></div>';
+    + 'padding:12px 14px;font-family:var(--font-body);font-size:13px;line-height:1.7;outline:none;word-break:break-word;"></div>';
 
   container.innerHTML = toolbarHtml + editorHtml;
 
@@ -3287,7 +3288,7 @@ function reRestoreRange(editorId) {
   if (r) { var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
 }
 function reCmd(editorId, cmd) { reRestoreRange(editorId); document.execCommand(cmd, false, null); }
-function reInsertHr(editorId) { reRestoreRange(editorId); document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.15);margin:8px 0;"/>'); }
+function reInsertHr(editorId) { reRestoreRange(editorId); document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid var(--border-card);margin:8px 0;"/>'); }
 function reColor(editorId, col) { reRestoreRange(editorId); document.execCommand('foreColor', false, col); }
 function reGetValue(editorId) { var el = document.getElementById(editorId); var val = el ? el.innerHTML.trim() : ''; return (typeof sanitizeHtml === 'function') ? sanitizeHtml(val) : val; }
 function reSetValue(editorId, html) { var el = document.getElementById(editorId); if (el) el.innerHTML = html || ''; }
@@ -3329,7 +3330,7 @@ function reToggleEmoji(editorId) {
 
 // CSS for contenteditable placeholder
 var reStyle = document.createElement('style');
-reStyle.textContent = '[contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:#556;pointer-events:none;}';
+reStyle.textContent = '[contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:var(--text-muted);pointer-events:none;}';
 document.head.appendChild(reStyle);
 
 // ── Init ───────────────────────────────────────────────────────────────────

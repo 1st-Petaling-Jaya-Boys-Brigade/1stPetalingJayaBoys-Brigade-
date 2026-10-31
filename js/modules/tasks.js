@@ -973,7 +973,7 @@ function renderColumnsFromTasks(tasksList) {
         var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name) : t.assignee_name;
         avatarHtml = '<span class="task-card-avatar" title="' + safeAssignee + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
       } else {
-        avatarHtml = '<span class="task-card-avatar" style="background:rgba(255,255,255,0.08);color:var(--text-muted);" title="Unassigned">U</span>';
+        avatarHtml = '<span class="task-card-avatar" style="background:var(--surface-tint-hover);color:var(--text-muted);" title="Unassigned">U</span>';
       }
 
       var dueBadge = '';
@@ -1493,7 +1493,7 @@ function addActiveTaskSubtask(text) {
   if (!list) return;
   var item = document.createElement('div');
   item.className = 'tb-subtask-item';
-  item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);';
+  item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-subtle);';
   item.innerHTML = '<input type="checkbox" style="cursor:pointer;" onchange="this.nextElementSibling.style.textDecoration = this.checked ? \'line-through\' : \'none\'; this.nextElementSibling.style.opacity = this.checked ? \'0.6\' : \'1\';" />'
     + '<span contenteditable="true" style="outline:none;flex:1;font-size:13px;" placeholder="Sub-task title...">' + (typeof escapeHtml === 'function' ? escapeHtml(text || 'New sub-task') : (text || 'New sub-task')) + '</span>'
     + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;" onclick="this.parentElement.remove()" title="Delete subtask">&times;</button>';
@@ -1513,7 +1513,7 @@ function addActiveTaskLink() {
   var section = document.querySelector('.tb-links-empty') ? document.querySelector('.tb-links-empty').parentElement : null;
   if (section) {
     var linkPill = document.createElement('div');
-    linkPill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);padding:4px 10px;border-radius:6px;font-size:12px;margin:4px 4px 4px 0;';
+    linkPill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:var(--bg-card-subtle);border:1px solid var(--border-card);padding:4px 10px;border-radius:6px;font-size:12px;margin:4px 4px 4px 0;';
     linkPill.innerHTML = '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
       + '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(urlOrTitle.trim()) : urlOrTitle.trim()) + '</span>'
       + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;margin-left:4px;" onclick="this.parentElement.remove()">&times;</button>';
@@ -1711,7 +1711,7 @@ async function toggleTaskDetailAssigneeMenu(e) {
   var renderMenuHtml = function(map) {
     var list = Object.keys(map).map(function(k) { return map[k]; });
     var html = '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'\', \'Unassigned\')">'
-      + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;background:rgba(255,255,255,0.08);color:var(--text-muted);">U</span>'
+      + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;background:var(--surface-tint-hover);color:var(--text-muted);">U</span>'
       + '<span style="font-weight:600;">Unassigned</span></div>';
 
     list.sort(function(a, b) { return a.name.localeCompare(b.name); });
@@ -1724,7 +1724,7 @@ async function toggleTaskDetailAssigneeMenu(e) {
       html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'' + safeIc + '\', \'' + safeName + '\')">'
         + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;">' + initials + '</span>'
         + '<span style="flex:1;">' + safeName + '</span>'
-        + '<span style="font-size:10px;color:var(--text-muted);background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;">' + escapeHtml(dTag) + '</span>'
+        + '<span style="font-size:10px;color:var(--text-muted);background:var(--surface-tint);padding:2px 6px;border-radius:4px;">' + escapeHtml(dTag) + '</span>'
         + '</div>';
     });
     return html;

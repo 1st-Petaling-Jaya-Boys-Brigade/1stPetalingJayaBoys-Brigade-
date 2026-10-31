@@ -257,7 +257,7 @@ function evaluateFoundersCriteria(saved, defs) {
         return { badge: b, entry: entry };
       });
     if (items.length) {
-      var colorMap = { a: '#42a5f5', b: '#66bb6a', c: '#e8b830', d: '#ce93d8' };
+      var colorMap = { a: 'var(--blue)', b: 'var(--green)', c: 'var(--accent)', d: 'var(--purple)' };
       groups.push({
         label: 'Group ' + letter.toUpperCase(),
         catName: catName,
@@ -733,7 +733,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
   html += '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">';
   reqs.forEach(function(r) {
     var tickBg  = r.done ? 'var(--gold)' : 'var(--bg-card-subtle)';
-    var tickCol = r.done ? 'var(--navy)' : 'var(--text-muted)';
+    var tickCol = r.done ? 'var(--btn-on-accent)' : 'var(--text-muted)';
     var border  = r.done ? '' : 'border:1.5px solid var(--border-card);';
     html += '<div style="background:var(--bg-card-subtle);border-radius:10px;padding:10px 12px;border:1px solid var(--border-subtle);">'
       + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:' + ((r.pct < 100 || r.sub) ? '8px' : '0') + ';">'
@@ -751,7 +751,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
       r.sub.forEach(function(c) {
         html += '<div style="display:flex;align-items:center;gap:8px;">'
           + '<div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;'
-          + (c.done ? 'background:var(--gold);color:var(--navy);' : c.missing ? 'background:var(--border-card);color:var(--text-muted);' : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);') + '">'
+          + (c.done ? 'background:var(--gold);color:var(--btn-on-accent);' : c.missing ? 'background:var(--border-card);color:var(--text-muted);' : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);') + '">'
           + (c.done ? '&#10003;' : (c.missing ? '?' : '')) + '</div>'
           + '<span style="font-size:11px;color:' + (c.done ? 'var(--text-primary)' : c.missing ? 'var(--text-muted)' : 'var(--text-secondary)') + ';">' + c.label + (c.missing ? ' <em style="color:var(--text-muted);font-size:10px;">(badge not found)</em>' : '') + '</span>'
           + '</div>';
@@ -774,8 +774,8 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
       var badgeLines = g.items.map(function(i) {
         var e = i.entry;
         var earned  = e.basic || e.advanced;
-        var basicDot = earned ? '<span style="color:#e8b830;font-size:11px;">&#9679;</span>' : '<span style="color:var(--border-card);font-size:11px;">&#9675;</span>';
-        var advDot   = i.badge.hasAdvanced ? (e.advanced ? '<span style="color:#ef5350;font-size:11px;">&#9679;</span>' : '<span style="color:var(--border-card);font-size:11px;">&#9675;</span>') : '';
+        var basicDot = earned ? '<span aria-hidden="true" style="color:var(--accent);font-size:11px;">&#9679;</span>' : '<span aria-hidden="true" style="color:var(--text-muted);opacity:0.55;font-size:11px;">&#9675;</span>';
+        var advDot   = i.badge.hasAdvanced ? (e.advanced ? '<span aria-hidden="true" style="color:var(--red);font-size:11px;">&#9679;</span>' : '<span aria-hidden="true" style="color:var(--text-muted);opacity:0.55;font-size:11px;">&#9675;</span>') : '';
         return '<div style="display:flex;align-items:center;gap:4px;margin-top:3px;">'
           + '<span style="font-size:11px;color:' + (earned ? 'var(--text-primary)' : 'var(--text-secondary)') + ';flex:1;">' + (typeof escapeHtml === 'function' ? escapeHtml(i.badge.name) : i.badge.name) + '</span>'
           + basicDot + advDot + '</div>';
@@ -800,7 +800,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
       + '<div style="width:28px;height:28px;border-radius:50%;'
       + (filled ? 'background:var(--gold);' : 'background:var(--bg-card-subtle);border:1.5px solid var(--border-card);')
       + 'display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:'
-      + (filled ? 'var(--navy)' : 'var(--text-muted)') + ';">' + (filled ? yi : '') + '</div>'
+      + (filled ? 'var(--btn-on-accent)' : 'var(--text-muted)') + ';">' + (filled ? yi : '') + '</div>'
       + '<div style="font-size:9px;color:' + (filled ? 'var(--brand-gold)' : 'var(--text-muted)') + ';">Year ' + yi + '</div>'
       + '</div>';
   }
@@ -885,18 +885,22 @@ async function renderAdminPresidentsReqs() {
     return;
   }
 
-  var tierColour = { any: '#66bb6a', basic: '#e8b830', advanced: '#ef5350' };
+  var tierColour = { any: 'var(--green)', basic: 'var(--accent)', advanced: 'var(--red)' };
+  var tierBg     = { any: 'rgba(16,185,129,0.14)', basic: 'var(--accent-soft)', advanced: 'rgba(239,68,68,0.14)' };
+  var tierBorder = { any: 'rgba(16,185,129,0.32)', basic: 'var(--accent-border)', advanced: 'rgba(239,68,68,0.32)' };
   var tierLabel  = { any: 'Any Level', basic: 'Basic', advanced: 'Advanced' };
 
   var html = '';
   reqs.forEach(function(req, i) {
-    var tc = tierColour[req.tier] || '#888';
+    var tc = tierColour[req.tier] || 'var(--text-muted)';
+    var tb = tierBg[req.tier]     || 'var(--surface-tint)';
+    var tbr = tierBorder[req.tier] || 'var(--border-card)';
     var tl = tierLabel[req.tier]  || req.tier;
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);display:flex;align-items:center;gap:12px;">'
       + '<div style="width:28px;height:28px;border-radius:50%;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--gold);flex-shrink:0;">' + (i + 1) + '</div>'
       + '<div style="flex:1;">'
         + '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' + (typeof escapeHtml === 'function' ? escapeHtml(req.badgeMatch) : req.badgeMatch) + '</div>'
-        + '<span style="font-size:10px;font-weight:700;background:' + tc + '22;color:' + tc + ';border:1px solid ' + tc + '44;padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;">' + tl + '</span>'
+        + '<span style="font-size:10px;font-weight:700;background:' + tb + ';color:' + tc + ';border:1px solid ' + tbr + ';padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;">' + tl + '</span>'
       + '</div>'
       + '<button data-del-req="' + i + '" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Remove</button>'
       + '</div>';
@@ -966,12 +970,12 @@ async function renderAdminBadges() {
       ? catBadges.map(function(b) {
           var tierMode = b.tier || (b.hasAdvanced ? 'both' : 'basic');
           var advLabel = tierMode === 'both'
-            ? '<span style="font-size:9px;font-weight:700;background:rgba(239,83,80,0.15);color:#ef5350;border:1px solid rgba(239,83,80,0.3);padding:2px 7px;border-radius:20px;margin-left:6px;">Basic + Advanced</span>'
+            ? '<span style="font-size:9px;font-weight:700;background:rgba(239,68,68,0.14);color:var(--red);border:1px solid rgba(239,68,68,0.3);padding:2px 7px;border-radius:20px;margin-left:6px;">Basic + Advanced</span>'
             : tierMode === 'none'
             ? '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">No levels</span>'
             : '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">Basic only</span>';
           var repLabel = b.repeatable
-            ? '<span style="font-size:9px;font-weight:700;background:rgba(102,187,106,0.15);color:#66bb6a;border:1px solid rgba(102,187,106,0.3);padding:2px 7px;border-radius:20px;margin-left:4px;">Repeatable</span>'
+            ? '<span style="font-size:9px;font-weight:700;background:rgba(16,185,129,0.14);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 7px;border-radius:20px;margin-left:4px;">Repeatable</span>'
             : '';
           var safeBadgeImg = b.image ? ((typeof safeUrl === 'function') ? safeUrl(b.image, '') : b.image) : '';
           var imgThumb = safeBadgeImg
@@ -1000,7 +1004,7 @@ async function renderAdminBadges() {
     html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
         + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--gold);">' + (typeof escapeHtml === 'function' ? escapeHtml(cat) : cat) + '</div>'
-        + '<button data-del-cat="' + cat + '" style="background:#3a1a1a;border:1px solid #6a2a2a;color:#f66;padding:4px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">Delete section</button>'
+        + '<button data-del-cat="' + cat + '" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">Delete section</button>'
       + '</div>' + rows
       + '<div style="display:flex;gap:8px;margin-top:10px;">'
         + '<input type="text" id="' + inputKey + '" placeholder="New badge name..." style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>'
@@ -1012,7 +1016,7 @@ async function renderAdminBadges() {
     + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add New Section</div>'
     + '<div style="display:flex;gap:8px;">'
       + '<input type="text" id="new-cat-name" placeholder="Section name e.g. Leadership" style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>'
-      + '<button id="btn-add-cat" style="background:var(--accent);border:none;color:var(--navy);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">+ Add</button>'
+      + '<button id="btn-add-cat" style="background:var(--accent);border:none;color:var(--btn-on-accent);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">+ Add</button>'
     + '</div></div>';
 
   container.innerHTML = html;

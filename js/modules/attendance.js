@@ -247,7 +247,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           'Your contribution: <strong>' + escapeAttHtml(points.total) + ' pts</strong> towards ' + (sqInfo ? ('Squad ' + escapeAttHtml(sqInfo.name)) : (escapeAttHtml(pltName) + ' Platoon')) + ' in the Senior Section Leaderboard.' +
         '</div>' +
         (pltInfo && pltInfo.averagePoints ? (
-          '<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
+          '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
             '<span style="color:var(--text-secondary);">' + escapeAttHtml(pltName) + ' Platoon Average:</span>' +
             '<span style="font-family:var(--font-headline);font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' Points</span>' +
           '</div>'
@@ -280,7 +280,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           '<span style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:' + pColor.text + ';">' + (parade.percentage || 0) + '%</span>' +
           '<span style="font-size:11px;color:var(--text-muted);">' + (parade.presentCount ? (parade.presentCount + '/' + parade.totalParades) : '') + '</span>' +
         '</div>' +
-        '<div style="margin-top:6px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
+        '<div style="margin-top:6px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;">' +
           '<div style="height:100%;width:' + Math.min(100, (parade.percentage || 0)) + '%;background:' + pColor.text + ';border-radius:3px;"></div>' +
         '</div>' +
       '</div>' +
@@ -294,7 +294,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           '<span style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:' + bColor.text + ';">' + bandPctStr + '</span>' +
           '<span style="font-size:11px;color:var(--text-muted);">' + bandSubStr + '</span>' +
         '</div>' +
-        '<div style="margin-top:6px;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
+        '<div style="margin-top:6px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;">' +
           '<div style="height:100%;width:' + (isBandMember ? Math.min(100, (band.percentage || 0)) : 0) + '%;background:' + bColor.text + ';border-radius:3px;"></div>' +
         '</div>' +
       '</div>' +
@@ -504,12 +504,12 @@ async function renderAdminMasterSheetPanel() {
       '</div>' +
 
       '<!-- Platoon Averages Summary -->' +
-      '<div style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.03);border:1px solid var(--border-card);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--text-secondary);margin-bottom:2px;flex-wrap:wrap;">' +
+      '<div style="display:flex;gap:12px;align-items:center;background:var(--bg-card-subtle);border:1px solid var(--border-card);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--text-secondary);margin-bottom:2px;flex-wrap:wrap;">' +
         '<strong style="color:var(--text-primary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Platoon Averages:</strong>' +
         pltAverages.map(function(pa) {
           var st = getPlatoonStyle(pa.name);
           return '<span>' + escapeAttHtml(pa.name) + ': <strong style="color:' + st.color + ';">' + pa.avg + ' pts</strong></span>';
-        }).join('<span style="color:rgba(255,255,255,0.2);">&bull;</span>') +
+        }).join('<span style="color:var(--text-muted);">&bull;</span>') +
       '</div>' +
     '</div>' +
 
@@ -798,13 +798,19 @@ async function renderCompanyLeaderboard() {
   squadList.forEach(function(sq) {
     var st = getPlatoonStyle(sq.name);
     var pct = Math.min(100, Math.round(((sq.points || 0) / maxPts) * 100));
-    var rankBadgeColor = sq.displayRank === 1 ? '#ffd700' : (sq.displayRank === 2 ? '#c0c0c0' : (sq.displayRank === 3 ? '#cd7f32' : 'var(--text-muted)'));
+    var rankPill = sq.displayRank === 1
+      ? 'background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-border);'
+      : (sq.displayRank === 2
+        ? 'background:var(--surface-tint);color:var(--text-primary);border:1px solid var(--border-subtle);'
+        : (sq.displayRank === 3
+          ? 'background:var(--surface-tint);color:var(--orange);border:1px solid var(--border-subtle);'
+          : 'background:transparent;color:var(--text-muted);border:1px solid transparent;'));
 
     html += 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:10px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' + rankBadgeColor + ';width:28px;text-align:center;">#' + sq.displayRank + '</div>' +
+            '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;width:32px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;' + rankPill + '">#' + sq.displayRank + '</div>' +
             '<div>' +
               '<div style="display:flex;align-items:center;gap:8px;">' +
                 '<span style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' + sq.name.toUpperCase() + '</span>' +
@@ -816,7 +822,7 @@ async function renderCompanyLeaderboard() {
             '<div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Points</span></div>' +
           '</div>' +
         '</div>' +
-        '<div style="height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">' +
+        '<div style="height:6px;background:var(--surface-track);border-radius:3px;overflow:hidden;">' +
           '<div style="height:100%;width:' + pct + '%;background:' + st.color + ';border-radius:3px;"></div>' +
         '</div>' +
       '</div>';
@@ -838,7 +844,7 @@ async function renderCompanyLeaderboard() {
 
   // Platoon Averages Summary Footer
   html += 
-    '<div style="margin-top:16px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border-card);border-radius:10px;">' +
+    '<div style="margin-top:16px;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;">' +
       '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">' +
         'Platoon Averages (Total Squad Points &divide; Squads)' +
       '</div>' +

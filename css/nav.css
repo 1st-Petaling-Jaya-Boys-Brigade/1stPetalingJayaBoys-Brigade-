@@ -121,12 +121,12 @@
 }
 
 .nav-search-kbd {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-tint);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 2px 6px;
   font-size: 10px;
-  font-family: inherit;
+  font-family: var(--font-mono);
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.5px;
@@ -271,9 +271,9 @@
 }
 
 .notif-tab.active {
-  background: rgba(245, 197, 66, 0.15);
+  background: var(--accent-soft);
   color: var(--accent);
-  border-color: rgba(245, 197, 66, 0.3);
+  border-color: var(--accent-border);
 }
 
 .notif-items-list {
@@ -369,7 +369,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(245, 197, 66, 0.12);
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
@@ -441,8 +441,8 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(245, 197, 66, 0.12);
-  border: 1px solid rgba(245, 197, 66, 0.35);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-pill);
   color: var(--accent);
   font-family: var(--font-body);
@@ -473,7 +473,7 @@
 
 .nav-points-badge .points-unit {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-transform: none;
 }
 
@@ -664,7 +664,7 @@
 .bnav-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--dock-btn-color, #94a3b8);
   cursor: pointer;
   padding: 8px 6px;
   min-height: var(--min-touch-target);
@@ -674,7 +674,7 @@
   justify-content: center;
   gap: 6px;
   transition: var(--transition-smooth);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
   user-select: none;
   flex: 1;
   min-width: 0;
@@ -714,24 +714,24 @@
 }
 
 .bnav-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--dock-btn-hover-color, #ffffff);
+  background: var(--dock-btn-hover-bg, rgba(255, 255, 255, 0.08));
 }
 
 /* Active Floating Pill Highlight */
 .bnav-btn.active {
-  background: #ffffff !important;
-  color: #111827 !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  background: var(--dock-active-bg, #ffffff) !important;
+  color: var(--dock-active-color, #111827) !important;
+  box-shadow: var(--dock-active-shadow, 0 4px 14px rgba(0, 0, 0, 0.25));
 }
 
 .bnav-btn.active .bnav-label {
-  color: #111827 !important;
+  color: var(--dock-active-color, #111827) !important;
   font-weight: 700;
 }
 
 .bnav-btn.active .bnav-icon svg {
-  stroke: #111827 !important;
+  stroke: var(--dock-active-color, #111827) !important;
 }
 
 @media (max-width: 360px) {
@@ -912,7 +912,7 @@
 
 .sidebar-item.active .si-icon {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--btn-on-accent, #121418);
   border-color: transparent;
 }
 
@@ -993,7 +993,7 @@
 
 .sidebar-admin-btn:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--btn-on-accent, #121418);
   border-color: transparent;
 }
 
