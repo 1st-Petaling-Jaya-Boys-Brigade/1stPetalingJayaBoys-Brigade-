@@ -613,15 +613,56 @@ function resetMemberAvatar() {
   }
 }
 
+function hasActiveCustomPhoto() {
+  if (typeof document !== 'undefined') {
+    var img = document.getElementById('m-pfp-img');
+    if (img && img.style.display !== 'none' && img.src && img.src.length > 5 && !img.src.endsWith('#')) {
+      return true;
+    }
+    var sImg = document.getElementById('sidebar-user-avatar-img');
+    if (sImg && sImg.style.display !== 'none' && sImg.src && sImg.src.length > 5 && !sImg.src.endsWith('#')) {
+      return true;
+    }
+  }
+  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  if (id) {
+    var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('bb_pfp_' + cleanFileName)) {
+      return true;
+    }
+    if (typeof sessionGet === 'function' && (sessionGet('pfp_cache_' + cleanFileName) || sessionGet('photo_url'))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function handlePfpRingClick() {
+  if (hasActiveCustomPhoto()) {
+    removePfp();
+  } else {
+    var fi = (typeof document !== 'undefined') ? document.getElementById('pfp-upload') : null;
+    if (fi) fi.click();
+  }
+}
+
 function setRemovePfpButtonVisible(visible) {
   if (typeof document === 'undefined') return;
-  var btns = document.querySelectorAll('.m-pfp-remove-btn, .m-pfp-remove-text-btn');
-  btns.forEach(function(btn) {
-    btn.style.display = visible ? (btn.classList.contains('m-pfp-remove-btn') ? 'flex' : 'inline-block') : 'none';
+  var isVis = (typeof visible === 'boolean') ? visible : hasActiveCustomPhoto();
+  var remCircle = document.querySelectorAll('.m-pfp-remove-btn');
+  remCircle.forEach(function(btn) {
+    btn.style.display = isVis ? 'flex' : 'none';
+  });
+  var remText = document.querySelectorAll('.m-pfp-remove-text-btn');
+  remText.forEach(function(btn) {
+    btn.style.display = isVis ? 'inline-flex' : 'none';
   });
 }
 
-async function removePfp() {
+async function removePfp(e) {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+
   var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
   if (!id) {
     if (typeof showToast === 'function') showToast('Please log in to manage your profile photo.', 'warning');
@@ -633,22 +674,47 @@ async function removePfp() {
     : true;
   if (!confirmed) return;
 
-  var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+  var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
+  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+
+  var targetFileNames = [];
+  if (id) targetFileNames.push(id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+  if (email && email !== id) targetFileNames.push(email.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+  if (ic && ic !== id && ic !== email) targetFileNames.push(ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
 
   // 1. Purge from local storage and session cache immediately
+  targetFileNames.forEach(function(fn) {
+    if (typeof sessionSet === 'function') {
+      sessionSet('pfp_cache_' + fn, null);
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem('bb_pfp_' + fn);
+      } catch (_) {}
+    }
+  });
   if (typeof sessionSet === 'function') {
-    sessionSet('pfp_cache_' + cleanFileName, null);
     sessionSet('photo_url', null);
   }
+
+  // Also purge any legacy avatar keys from localStorage
   if (typeof localStorage !== 'undefined') {
-    try { localStorage.removeItem('bb_pfp_' + cleanFileName); } catch (_) {}
+    try {
+      Object.keys(localStorage).forEach(function(k) {
+        if (k.startsWith('bb_pfp_')) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch (_) {}
   }
 
   // 2. Delete from Supabase Storage
   try {
     var client = getSupa();
     if (client && typeof client.deleteFile === 'function') {
-      await client.deleteFile('avatars', cleanFileName);
+      for (var i = 0; i < targetFileNames.length; i++) {
+        await client.deleteFile('avatars', targetFileNames[i]);
+      }
     }
   } catch (err) {
     console.warn('Storage delete encountered non-fatal error:', err);
@@ -789,6 +855,7 @@ async function renderDashboard() {
 
     // Render personalized initial, color & creator RGB animation on avatar placeholders
     renderMemberAvatar(m.name, displayEmail);
+    setRemovePfpButtonVisible();
 
     // Load profile avatar from Supabase Storage / local cache
     try {
@@ -823,7 +890,9 @@ async function renderDashboard() {
         setRemovePfpButtonVisible(true);
       };
       testImg.onerror = function() {
-        setRemovePfpButtonVisible(false);
+        if (!hasActiveCustomPhoto()) {
+          setRemovePfpButtonVisible(false);
+        }
       };
       testImg.src = pfpUrl + '?t=' + Date.now();
     } catch (e) {}
@@ -1356,6 +1425,8 @@ if (typeof window !== 'undefined') {
   window.loginMember                  = loginMember;
   window.renderMemberAvatar             = renderMemberAvatar;
   window.resetMemberAvatar              = resetMemberAvatar;
+  window.hasActiveCustomPhoto          = hasActiveCustomPhoto;
+  window.handlePfpRingClick           = handlePfpRingClick;
   window.setRemovePfpButtonVisible    = setRemovePfpButtonVisible;
   window.removePfp                    = removePfp;
   window.renderDashboard              = renderDashboard;
@@ -1389,6 +1460,8 @@ if (typeof module !== 'undefined' && module.exports) {
     loginMember,
     renderMemberAvatar,
     resetMemberAvatar,
+    hasActiveCustomPhoto,
+    handlePfpRingClick,
     setRemovePfpButtonVisible,
     removePfp,
     renderDashboard,

@@ -70,6 +70,8 @@ export default [
         getMemberAvatarColor: 'readonly',
         renderMemberAvatar: 'readonly',
         resetMemberAvatar: 'readonly',
+        hasActiveCustomPhoto: 'readonly',
+        handlePfpRingClick: 'readonly',
         setRemovePfpButtonVisible: 'readonly',
         removePfp: 'readonly',
         AVATAR_PALETTE: 'readonly',
