@@ -557,13 +557,38 @@ async function registerMember() {
     var existingAccounts = (_isFamilyRegistration && _familyAccounts.length) ? _familyAccounts : await findMembersByEmail(email);
 
     if (existingAccounts && existingAccounts.length > 0) {
-      // Must verify the exact password used for existing account
-      var pwCheck = await verifyPassword(pass, existingAccounts[0].password || '');
-      if (!pwCheck.valid) {
-        if (typeof showToast === 'function') {
-          showToast('Incorrect family password! All accounts under ' + email + ' must share the exact same password.', 'error', 4500);
+      // Must verify the exact password used for existing account (TSK-036 RPC gatekeeping)
+      var famPwValid = false;
+      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+
+      if (client && typeof client.rpc === 'function') {
+        try {
+          var saltRes = await client.rpc('rpc_get_auth_salt', { p_email: email });
+          if (saltRes && saltRes.salt) {
+            var derivedHashFull = await hashPassword(pass, saltRes.salt);
+            var derivedHashHex = derivedHashFull.split(':')[4] || derivedHashFull;
+            var famCheck = await client.rpc('rpc_verify_family_password', {
+              p_email: email,
+              p_password_hash: derivedHashHex
+            });
+            if (famCheck && famCheck.valid) {
+              famPwValid = true;
+            }
+          }
+        } catch (rpcFamErr) {
+          console.warn('RPC family password verification fallback:', rpcFamErr);
         }
-        return;
+      }
+
+      if (!famPwValid) {
+        var pwCheck = await verifyPassword(pass, existingAccounts[0].password || '');
+        if (!pwCheck.valid) {
+          if (typeof showToast === 'function') {
+            showToast('Incorrect family password! All accounts under ' + email + ' must share the exact same password.', 'error', 4500);
+          }
+          return;
+        }
+        famPwValid = true;
       }
 
       // Check if this child's name is already registered under this email
@@ -590,7 +615,7 @@ async function registerMember() {
         squad: squad,
         section: section,
         age: parsedAge,
-        passwordHash: existingAccounts[0].password,
+        passwordHash: existingAccounts[0].password || (await hashPassword(pass)),
         isMinor: isMinor,
         parentName: parentName,
         parentContact: parentContact,
@@ -1041,49 +1066,91 @@ async function loginMember() {
   try {
     var client = getSupa();
     var queryEmail = identifier.toLowerCase();
+    var loginSuccess = false;
+    var accounts = null;
 
-    // Query all active accounts linked to this email (supports single or multi-child family accounts)
-    var accounts = await findMembersByEmail(queryEmail);
-    if (!accounts || !accounts.length) {
-      // Fallback: exact case query for legacy accounts
-      accounts = await findMembersByEmail(identifier);
-    }
-
-    if (!accounts || !accounts.length) {
-      if (typeof showToast === 'function') showToast('No account found with this email address.', 'warning');
-      return;
-    }
-
-    // Verify password against account credentials
-    var check = await verifyPassword(pass, accounts[0].password || '');
-    if (!check.valid) {
-      _authFailures.count++;
-      if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
-        _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
-        if (typeof showToast === 'function') {
-          showToast('Too many failed attempts. Login locked for 30 seconds.', 'error');
-        }
-      } else if (typeof showToast === 'function') {
-        showToast('Incorrect password!', 'error');
-      }
-      return;
-    }
-
-    // Reset lockout counters on successful login
-    _authFailures.count = 0;
-    _authFailures.lockedUntil = 0;
-
-    // Auto-migrate legacy credentials to PBKDF2/SHA-256 on successful login
-    if (check.needsUpgrade) {
+    // Check if server-side RPC authentication is available (TSK-036)
+    if (client && typeof client.rpc === 'function') {
       try {
-        var upgradedHash = await hashPassword(pass);
-        for (var k = 0; k < accounts.length; k++) {
-          await client.patch('bb_members?ic=eq.' + encodeURIComponent(accounts[k].ic), { password: upgradedHash });
+        var saltRes = await client.rpc('rpc_get_auth_salt', { p_email: queryEmail });
+        if (saltRes && saltRes.salt) {
+          var derivedHashFull = await hashPassword(pass, saltRes.salt);
+          var derivedHashHex = derivedHashFull.split(':')[4] || derivedHashFull;
+          var authRes = await client.rpc('rpc_authenticate_member', {
+            p_email: queryEmail,
+            p_password_hash: derivedHashHex
+          });
+          if (authRes && authRes.success && authRes.accounts && authRes.accounts.length) {
+            accounts = authRes.accounts;
+            loginSuccess = true;
+          } else if (authRes && authRes.success === false) {
+            _authFailures.count++;
+            if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
+              _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
+              if (typeof showToast === 'function') {
+                showToast('Too many failed attempts. Login locked for 30 seconds.', 'error');
+              }
+            } else if (typeof showToast === 'function') {
+              showToast('Incorrect password!', 'error');
+            }
+            return;
+          }
         }
-        console.log('Seamlessly upgraded member credentials to PBKDF2/SHA-256');
-      } catch (upgErr) {
-        console.warn('Password upgrade note:', upgErr);
+      } catch (rpcErr) {
+        console.warn('RPC auth fallback to direct verification:', rpcErr);
       }
+    } else {
+      console.log('DEBUG: client.rpc is not a function. client is:', client ? typeof client.rpc : 'null');
+    }
+
+    if (!loginSuccess) {
+      // Query all active accounts linked to this email (supports single or multi-child family accounts)
+      accounts = await findMembersByEmail(queryEmail);
+      if (!accounts || !accounts.length) {
+        // Fallback: exact case query for legacy accounts
+        accounts = await findMembersByEmail(identifier);
+      }
+
+      if (!accounts || !accounts.length) {
+        if (typeof showToast === 'function') showToast('No account found with this email address.', 'warning');
+        return;
+      }
+
+      // Verify password against account credentials
+      var check = await verifyPassword(pass, accounts[0].password || '');
+      if (!check.valid) {
+        _authFailures.count++;
+        if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
+          _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
+          if (typeof showToast === 'function') {
+            showToast('Too many failed attempts. Login locked for 30 seconds.', 'error');
+          }
+        } else if (typeof showToast === 'function') {
+          showToast('Incorrect password!', 'error');
+        }
+        return;
+      }
+
+      // Reset lockout counters on successful login
+      _authFailures.count = 0;
+      _authFailures.lockedUntil = 0;
+
+      // Auto-migrate legacy credentials to PBKDF2/SHA-256 on successful login
+      if (check.needsUpgrade) {
+        try {
+          var upgradedHash = await hashPassword(pass);
+          for (var k = 0; k < accounts.length; k++) {
+            await client.patch('bb_members?ic=eq.' + encodeURIComponent(accounts[k].ic), { password: upgradedHash });
+          }
+          console.log('Seamlessly upgraded member credentials to PBKDF2/SHA-256');
+        } catch (upgErr) {
+          console.warn('Password upgrade note:', upgErr);
+        }
+      }
+    } else {
+      // Reset lockout counters on successful login via RPC
+      _authFailures.count = 0;
+      _authFailures.lockedUntil = 0;
     }
 
     var rememberEl = document.getElementById('login-remember');
@@ -1108,7 +1175,6 @@ async function loginMember() {
     }
   }
 }
-
 
 /**
  * Dispatches an email notification when a login occurs on a new or unrecognized device.
@@ -2127,53 +2193,94 @@ async function sendPasswordResetEmail() {
   try {
     var client = getSupa();
 
-    // Check if account exists in bb_members (checking exact email, ic, or family accounts)
-    var accounts = await findMembersByEmail(email);
-    if (!accounts || !accounts.length) {
-      var rawAccounts = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name,department');
-      if (rawAccounts && rawAccounts.length) accounts = rawAccounts;
-    }
-    // Filter out deleted members
-    accounts = (accounts || []).filter(function(a) {
-      return a.department !== 'deleted' && a.department !== 'archived_deleted';
-    });
-    if (!accounts || !accounts.length) {
-      if (btn) { btn.disabled = false; btn.textContent = origText; }
-      if (typeof showToast === 'function') showToast('No active account found with this email address.', 'warning');
-      return;
-    }
-
-    var member = accounts[0];
-    var memberName = member.name || 'Member';
-
     // Generate secure 6-digit verification code
     var code = Math.floor(100000 + Math.random() * 900000).toString();
     var expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
-    var otpPayload = {
-      code: code,
-      email: email,
-      name: memberName,
-      expires_at: expiresAt
-    };
+    var memberName = 'Member';
 
-    // Store in sessionStorage for fast verification
-    try {
-      sessionStorage.setItem('bb_reset_otp_' + email, JSON.stringify(otpPayload));
-    } catch (e) {}
+    // Calculate SHA-256 hash of OTP code for server-side RPC (TSK-036)
+    var otpHash = '';
+    if (typeof computeSha256 === 'function') {
+      otpHash = await computeSha256(code);
+    } else if (typeof window !== 'undefined' && typeof window.computeSha256 === 'function') {
+      otpHash = await window.computeSha256(code);
+    } else if (typeof crypto !== 'undefined') {
+      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
+      if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
+        var enc = new TextEncoder();
+        var buf = await cryptoObj.subtle.digest('SHA-256', enc.encode(code));
+        var bytes = new Uint8Array(buf);
+        for (var i = 0; i < bytes.length; i++) {
+          var b = bytes[i].toString(16);
+          otpHash += b.length === 1 ? '0' + b : b;
+        }
+      }
+    }
 
-    // Store in bb_config for persistent verification
-    var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-    try {
-      await client.req('POST', 'bb_config?on_conflict=key', {
-        key: configKey,
-        value: JSON.stringify(otpPayload)
-      });
-    } catch (cfgErr) {
+    var rpcResetDone = false;
+    if (client && typeof client.rpc === 'function') {
       try {
-        await client.patch('bb_config?key=eq.' + configKey, {
+        var rpcRes = await client.rpc('rpc_request_password_reset', {
+          p_email: email,
+          p_otp_code: code,
+          p_otp_hash: otpHash
+        });
+        if (rpcRes && rpcRes.success) {
+          rpcResetDone = true;
+          if (rpcRes.name) memberName = rpcRes.name;
+        } else if (rpcRes && rpcRes.success === false) {
+          if (btn) { btn.disabled = false; btn.textContent = origText; }
+          if (typeof showToast === 'function') showToast(rpcRes.error || 'No active account found with this email address.', 'warning');
+          return;
+        }
+      } catch (rpcErr) {
+        console.warn('RPC reset request fallback:', rpcErr);
+      }
+    }
+
+    if (!rpcResetDone) {
+      // Fallback: Check if account exists in bb_members
+      var accounts = await findMembersByEmail(email);
+      if (!accounts || !accounts.length) {
+        var rawAccounts = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name,department');
+        if (rawAccounts && rawAccounts.length) accounts = rawAccounts;
+      }
+      accounts = (accounts || []).filter(function(a) {
+        return a.department !== 'deleted' && a.department !== 'archived_deleted';
+      });
+      if (!accounts || !accounts.length) {
+        if (btn) { btn.disabled = false; btn.textContent = origText; }
+        if (typeof showToast === 'function') showToast('No active account found with this email address.', 'warning');
+        return;
+      }
+
+      var member = accounts[0];
+      memberName = member.name || 'Member';
+
+      var otpPayload = {
+        code: code,
+        email: email,
+        name: memberName,
+        expires_at: expiresAt
+      };
+
+      try {
+        sessionStorage.setItem('bb_reset_otp_' + email, JSON.stringify(otpPayload));
+      } catch (e) {}
+
+      var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
+      try {
+        await client.req('POST', 'bb_config?on_conflict=key', {
+          key: configKey,
           value: JSON.stringify(otpPayload)
         });
-      } catch (e2) {}
+      } catch (cfgErr) {
+        try {
+          await client.patch('bb_config?key=eq.' + configKey, {
+            value: JSON.stringify(otpPayload)
+          });
+        } catch (e2) {}
+      }
     }
 
     // Dispatch reset code via Google Apps Script Webhook
@@ -2286,57 +2393,82 @@ async function verifyResetCodeAndSetPassword() {
     var client = getSupa();
     var valid = false;
     var now = Date.now();
+    var rpcResetSuccess = false;
 
-    // 1. Check local session storage
-    try {
-      var localStr = sessionStorage.getItem('bb_reset_otp_' + email);
-      if (localStr) {
-        var localData = JSON.parse(localStr);
-        if (localData && localData.code === code && now <= (localData.expires_at || 0)) {
-          valid = true;
-        }
-      }
-    } catch (e) {}
-
-    // 2. Check remote Supabase bb_config
-    if (!valid) {
+    // 1. Try server-side RPC verification and password update (TSK-036)
+    if (client && typeof client.rpc === 'function') {
       try {
-        var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-        var rows = await client.get('bb_config?key=eq.' + configKey + '&select=value');
-        if (rows && rows.length) {
-          var remoteData = JSON.parse(rows[0].value || '{}');
-          if (remoteData && remoteData.code === code && now <= (remoteData.expires_at || 0)) {
+        var newHash = await hashPassword(p1);
+        var rpcRes = await client.rpc('rpc_verify_otp_and_reset_password', {
+          p_email: email,
+          p_otp_code: code,
+          p_new_password_hash: newHash
+        });
+        if (rpcRes && rpcRes.success) {
+          rpcResetSuccess = true;
+          valid = true;
+        } else if (rpcRes && rpcRes.error) {
+          if (btn) { btn.disabled = false; btn.textContent = origText; }
+          if (typeof showToast === 'function') showToast(rpcRes.error, 'error', 4500);
+          return;
+        }
+      } catch (rpcErr) {
+        console.warn('RPC reset verification fallback:', rpcErr);
+      }
+    }
+
+    if (!rpcResetSuccess) {
+      // Check local session storage
+      try {
+        var localStr = sessionStorage.getItem('bb_reset_otp_' + email);
+        if (localStr) {
+          var localData = JSON.parse(localStr);
+          if (localData && localData.code === code && now <= (localData.expires_at || 0)) {
             valid = true;
           }
         }
       } catch (e) {}
-    }
 
-    if (!valid) {
-      if (btn) { btn.disabled = false; btn.textContent = origText; }
-      if (typeof showToast === 'function') showToast('Invalid or expired verification code. Please check your email or click "Resend Code".', 'error', 4500);
-      return;
-    }
+      // Check remote Supabase bb_config
+      if (!valid) {
+        try {
+          var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
+          var rows = await client.get('bb_config?key=eq.' + configKey + '&select=value');
+          if (rows && rows.length) {
+            var remoteData = JSON.parse(rows[0].value || '{}');
+            if (remoteData && remoteData.code === code && now <= (remoteData.expires_at || 0)) {
+              valid = true;
+            }
+          }
+        } catch (e) {}
+      }
 
-    // Update password in bb_members using cryptographic PBKDF2/SHA-256 hashing
-    var newHash = await hashPassword(p1);
-    try {
-      await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), {
-        password: newHash
-      });
-    } catch (pErr) {
-      var rawEmail = (emailEl.value || '').trim();
-      await client.patch('bb_members?ic=eq.' + encodeURIComponent(rawEmail), {
-        password: newHash
-      });
-    }
+      if (!valid) {
+        if (btn) { btn.disabled = false; btn.textContent = origText; }
+        if (typeof showToast === 'function') showToast('Invalid or expired verification code. Please check your email or click "Resend Code".', 'error', 4500);
+        return;
+      }
 
-    // Cleanup OTP
-    try { sessionStorage.removeItem('bb_reset_otp_' + email); } catch (e) {}
-    try {
-      var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-      await client.delete('bb_config?key=eq.' + configKey);
-    } catch (e) {}
+      // Update password in bb_members using cryptographic PBKDF2/SHA-256 hashing
+      var newHashFallback = await hashPassword(p1);
+      try {
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), {
+          password: newHashFallback
+        });
+      } catch (pErr) {
+        var rawEmail = (emailEl.value || '').trim();
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(rawEmail), {
+          password: newHashFallback
+        });
+      }
+
+      // Cleanup OTP
+      try { sessionStorage.removeItem('bb_reset_otp_' + email); } catch (e) {}
+      try {
+        var configKeyClean = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
+        await client.delete('bb_config?key=eq.' + configKeyClean);
+      } catch (e) {}
+    }
 
     if (typeof showToast === 'function') showToast('Password reset successfully! You can now log in with your new password.', 'success');
 

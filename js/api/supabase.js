@@ -421,6 +421,22 @@ const supa = {
   },
 
   /**
+   * PostgREST Remote Procedure Call (RPC) execution (TSK-036)
+   * Invokes a PostgreSQL function via /rest/v1/rpc/<funcName>
+   * @param {string} funcName - Function name in database schema
+   * @param {Object} [params={}] - Parameters passed to the RPC function in JSON body
+   * @param {Object} [options={}] - Optional request options
+   * @returns {Promise<any>}
+   */
+  rpc(funcName, params, options) {
+    options = options || {};
+    var client = this && typeof this.req === 'function' ? this : supa;
+    var path = 'rpc/' + encodeURIComponent(funcName);
+    var body = params !== undefined && params !== null ? params : {};
+    return client.req('POST', path, body, options.extraHeaders, options);
+  },
+
+  /**
    * Records a snapshot of a config blob for future concurrency checks
    * @param {string} key
    * @param {any} data
@@ -933,6 +949,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     supa,
     getSupaClient,
+    rpc: supa.rpc,
     mergeConfigCollections,
     recordConfigSnapshot: supa.recordConfigSnapshot,
     getConfigSnapshot: supa.getConfigSnapshot,
