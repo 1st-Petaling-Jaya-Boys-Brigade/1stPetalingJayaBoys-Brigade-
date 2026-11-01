@@ -68,6 +68,8 @@ export default [
         isPortalCreator: 'readonly',
         getMemberAvatarInitial: 'readonly',
         getMemberAvatarColor: 'readonly',
+        getMemberAvatarUrl: 'readonly',
+        getAssigneeAvatarHtml: 'readonly',
         renderMemberAvatar: 'readonly',
         resetMemberAvatar: 'readonly',
         hasActiveCustomPhoto: 'readonly',

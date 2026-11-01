@@ -1072,7 +1072,7 @@ function isPortalCreator(name, email) {
  * @returns {string}
  */
 function getMemberAvatarInitial(name, email) {
-  if (isPortalCreator(name, email)) return 'JK';
+  if (isPortalCreator(name, email)) return 'J';
   if (!name || name === 'Unassigned') return 'U';
   var clean = String(name).trim();
   return clean ? clean.charAt(0).toUpperCase() : '?';
@@ -1095,6 +1095,51 @@ function getMemberAvatarColor(name) {
   }
   var idx = Math.abs(hash >>> 0) % AVATAR_PALETTE.length;
   return AVATAR_PALETTE[idx];
+}
+
+
+/**
+ * Resolves any custom uploaded profile picture URL or base64 data URL for a member.
+ * Checks active session, local storage cache, and registered photo cache.
+ * @param {string} [name]
+ * @param {string} [ic]
+ * @returns {string|null}
+ */
+function getMemberAvatarUrl(name, ic) {
+  if (typeof window === 'undefined') return null;
+  var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  var currentEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
+  var currentIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
+
+  var isCurrent = false;
+  if (name && currentName && name.trim().toLowerCase() === currentName.trim().toLowerCase()) {
+    isCurrent = true;
+  } else if (ic && ((currentIc && ic === currentIc) || (currentEmail && ic === currentEmail))) {
+    isCurrent = true;
+  }
+
+  if (isCurrent) {
+    if (typeof sessionGet === 'function') {
+      var sPhoto = sessionGet('photo_url');
+      if (sPhoto) return sPhoto;
+      var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+      var cachedPfp = sessionGet('pfp_cache_' + cleanFn);
+      if (cachedPfp) return cachedPfp;
+    }
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var keys = [];
+      if (ic) keys.push(ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+      if (name) keys.push(name.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+      for (var i = 0; i < keys.length; i++) {
+        var cached = localStorage.getItem('bb_pfp_' + keys[i]);
+        if (cached) return cached;
+      }
+    } catch (_) {}
+  }
+  return null;
 }
 
 // Attach to window if in browser
@@ -1128,6 +1173,7 @@ if (typeof window !== 'undefined') {
   window.isPortalCreator = isPortalCreator;
   window.getMemberAvatarInitial = getMemberAvatarInitial;
   window.getMemberAvatarColor = getMemberAvatarColor;
+  window.getMemberAvatarUrl   = getMemberAvatarUrl;
 }
 
 // Export for module systems if present
@@ -1161,6 +1207,7 @@ if (typeof module !== 'undefined' && module.exports) {
     AVATAR_PALETTE: AVATAR_PALETTE,
     isPortalCreator: isPortalCreator,
     getMemberAvatarInitial: getMemberAvatarInitial,
-    getMemberAvatarColor: getMemberAvatarColor
+    getMemberAvatarColor: getMemberAvatarColor,
+    getMemberAvatarUrl: getMemberAvatarUrl
   };
 }

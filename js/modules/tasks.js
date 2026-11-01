@@ -625,14 +625,7 @@ function paintProjectsList(container) {
       var assigneesList = Object.keys(assigneesMap);
       var avatarStackHtml = '<div class="project-assignees-stack">';
       assigneesList.slice(0, 4).forEach(function(name) {
-        var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name) : /jeshua\s+koh/i.test(name);
-        var initials = isCreator ? 'JK' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name) : (name.trim().charAt(0).toUpperCase() || '?'));
-        var bg = isCreator ? '' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : getAssigneeAvatarBg(name));
-        var creatorCls = isCreator ? ' creator-rgb-avatar' : '';
-        var bgStyle = bg ? ('background:' + bg + ';') : '';
-        var safeName = (typeof escapeHtml === 'function') ? escapeHtml(name) : name;
-        var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');
-        avatarStackHtml += '<span class="project-assignee-avatar' + creatorCls + '" style="' + bgStyle + 'cursor:pointer;" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
+        avatarStackHtml += getAssigneeAvatarHtml(name, '', 20);
       });
       avatarStackHtml += '</div>';
 
@@ -904,6 +897,44 @@ function getTaskDueBadgeClass(dueDate, isCompleted) {
   return 'due-normal';
 }
 
+
+/**
+ * Renders the circular avatar HTML for a task assignee.
+ * Supports custom uploaded photos, creator snowing animation with 'J',
+ * deterministic palette colors with 1-letter initials, and unassigned 'U'.
+ * @param {string} [name]
+ * @param {string} [ic]
+ * @param {number} [size=24]
+ * @param {string} [extraStyle='']
+ * @returns {string}
+ */
+function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
+  var sz = size || 24;
+  var fs = Math.max(9, Math.round(sz * 0.45));
+  var styleAttr = extraStyle ? (' ' + extraStyle) : '';
+
+  if (!name || name === 'Unassigned') {
+    return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;line-height:1;' + styleAttr + '" title="Unassigned" aria-label="Unassigned">U</span>';
+  }
+
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name) : /jeshua\s+koh/i.test(name);
+  var safeName = (typeof escapeHtml === 'function') ? escapeHtml(name) : name;
+  var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');
+  var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(name, ic) : null;
+
+  if (photoUrl) {
+    return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:hidden;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + safeName + '"/></span>';
+  }
+
+  if (isCreator) {
+    return '<span class="task-card-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J</span>';
+  }
+
+  var initial = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name) : (name.trim().charAt(0).toUpperCase() || '?');
+  var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : getAssigneeAvatarBg(name);
+  return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>';
+}
+
 function getAssigneeAvatarBg(name) {
   if (typeof getMemberAvatarColor === 'function') {
     return getMemberAvatarColor(name);
@@ -991,19 +1022,7 @@ function renderColumnsFromTasks(tasksList) {
       var chevronCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
       var priorityChevron = '<span class="task-card-priority-chevron ' + chevronCls + '" title="' + priorityP.toUpperCase() + ' Priority">&#94;</span>';
 
-      var avatarHtml = '';
-      if (t.assignee_name && t.assignee_name !== 'Unassigned') {
-        var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(t.assignee_name) : /jeshua\s+koh/i.test(t.assignee_name);
-        var initials = isCreator ? 'JK' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(t.assignee_name) : (t.assignee_name.trim().charAt(0).toUpperCase() || '?'));
-        var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name) : t.assignee_name;
-        var creatorCls = isCreator ? ' creator-rgb-avatar' : '';
-        var avatarBg = isCreator ? '' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(t.assignee_name) : getAssigneeAvatarBg(t.assignee_name));
-        var bgStyle = avatarBg ? ('background:' + avatarBg + ';') : '';
-        var tooltip = safeAssignee + (isCreator ? ' (Portal Creator)' : '');
-        avatarHtml = '<span class="task-card-avatar' + creatorCls + '" style="' + bgStyle + 'cursor:pointer;" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initials) : initials) + '</span>';
-      } else {
-        avatarHtml = '<span class="task-card-avatar" style="background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;" title="Unassigned" aria-label="Unassigned">U</span>';
-      }
+      var avatarHtml = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 24);
 
       var dueBadge = '';
       if (t.due_date) {
@@ -1358,12 +1377,6 @@ function renderMyTasksView() {
 
       var priorityIcon = t.priority === 'high' ? '⌃ High' : (t.priority === 'low' ? '⌄ Low' : '— Med');
       var assigneeName = t.assignee_name || 'Unassigned';
-      var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(assigneeName) : /jeshua\s+koh/i.test(assigneeName);
-      var initials = isCreator ? 'JK' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(assigneeName) : (assigneeName === 'Unassigned' ? 'U' : (assigneeName.trim().charAt(0).toUpperCase() || '?')));
-      var creatorCls = isCreator ? ' creator-rgb-avatar' : '';
-      var avatarBg = isCreator ? '' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(assigneeName) : getAssigneeAvatarBg(assigneeName));
-      var bgStyle = avatarBg ? ('background:' + avatarBg + ';') : '';
-      var tooltip = assigneeName + (isCreator ? ' (Portal Creator)' : '');
       var estimate = t.estimate || '—';
 
       html += '<tr class="my-tasks-row" data-row-tid="' + t.id + '">'
@@ -1377,7 +1390,7 @@ function renderMyTasksView() {
         + '<td><div class="my-tasks-project-cell"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>' + escapeHtml(projectName) + '</div></td>'
         + '<td><span class="task-id-badge">' + escapeHtml(taskId) + '</span></td>'
         + '<td style="font-size:11px;font-weight:600;">' + escapeHtml(priorityIcon) + '</td>'
-        + '<td><div style="display:flex;align-items:center;gap:6px;"><span class="task-assignee-avatar' + creatorCls + '" style="' + bgStyle + 'width:20px;height:20px;font-size:9px;cursor:pointer;" title="' + escapeHtml(tooltip) + '" aria-label="' + escapeHtml(tooltip) + '">' + escapeHtml(initials) + '</span><span>' + escapeHtml(assigneeName) + '</span></div></td>'
+        + '<td><div style="display:flex;align-items:center;gap:6px;">' + getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20) + '<span>' + escapeHtml(assigneeName) + '</span></div></td>'
         + '<td style="' + (isOverdue ? 'color:var(--red);font-weight:700;' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' + escapeHtml(dueStr) + '</td>'
         + '<td style="color:var(--text-secondary);font-size:12px;">' + escapeHtml(estimate) + '</td>'
         + '</tr>';
@@ -1468,19 +1481,27 @@ function openTaskDetail(id) {
   // Assignee Pill matching Image 2
   var aName = t.assignee_name || 'Unassigned';
   var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(aName) : /jeshua\s+koh/i.test(aName);
-  var initials = isCreator ? 'JK' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(aName) : (aName === 'Unassigned' ? 'U' : (aName.trim().charAt(0).toUpperCase() || '?')));
   var aAvatar = document.querySelector('.tdm-assignee-avatar');
   if (aAvatar) {
-    aAvatar.textContent = initials;
+    var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(aName, t.assignee_ic) : null;
     var tooltip = aName + (isCreator ? ' (Portal Creator)' : '');
     aAvatar.title = tooltip;
     aAvatar.setAttribute('aria-label', tooltip);
     aAvatar.style.cursor = 'pointer';
-    if (isCreator) {
-      aAvatar.classList.add('creator-rgb-avatar');
+    if (photoUrl) {
+      aAvatar.innerHTML = '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '"/>';
+      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.style.background = 'transparent';
+    } else if (isCreator) {
+      aAvatar.innerHTML = '';
+      aAvatar.textContent = 'J';
+      aAvatar.classList.add('creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = '';
     } else {
-      aAvatar.classList.remove('creator-rgb-avatar');
+      var initials = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(aName) : (aName === 'Unassigned' ? 'U' : (aName.trim().charAt(0).toUpperCase() || '?'));
+      aAvatar.innerHTML = '';
+      aAvatar.textContent = initials;
+      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(aName) : getAssigneeAvatarBg(aName);
     }
   }
@@ -1780,19 +1801,20 @@ async function toggleTaskDetailAssigneeMenu(e) {
 
   var renderMenuHtml = function(map) {
     var list = Object.keys(map).map(function(k) { return map[k]; });
+    var uAvatar = getAssigneeAvatarHtml('Unassigned', '', 20);
     var html = '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'\', \'Unassigned\')">'
-      + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;background:var(--surface-tint-hover);color:var(--text-muted);">U</span>'
+      + uAvatar
       + '<span style="font-weight:600;">Unassigned</span></div>';
 
     list.sort(function(a, b) { return a.name.localeCompare(b.name); });
     list.forEach(function(m) {
       if (!m.name) return;
-      var initials = m.name.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
       var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
       var safeIc = (typeof escapeHtml === 'function') ? escapeHtml(m.ic || '') : (m.ic || '');
       var dTag = m.department ? (m.department.toLowerCase() === 'department nco' ? 'Department NCO' : m.department) : (m.rank || 'NCO');
+      var itemAvatar = getAssigneeAvatarHtml(m.name, m.ic, 20);
       html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailAssignee(\'' + safeIc + '\', \'' + safeName + '\')">'
-        + '<span class="task-card-avatar" style="width:20px;height:20px;font-size:9px;">' + initials + '</span>'
+        + itemAvatar
         + '<span style="flex:1;">' + safeName + '</span>'
         + '<span style="font-size:10px;color:var(--text-muted);background:var(--surface-tint);padding:2px 6px;border-radius:4px;">' + escapeHtml(dTag) + '</span>'
         + '</div>';
@@ -1850,17 +1872,25 @@ async function selectTaskDetailAssignee(ic, name) {
   var aAvatar = document.querySelector('.tdm-assignee-avatar');
   if (aAvatar) {
     var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(cleanName) : /jeshua\s+koh/i.test(cleanName);
-    var inits = isCreator ? 'JK' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(cleanName) : (!cleanName || cleanName === 'Unassigned' ? 'U' : (cleanName.trim().charAt(0).toUpperCase() || '?')));
-    aAvatar.textContent = inits;
+    var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(cleanName, cleanIc) : null;
     var tooltip = (cleanName || 'Unassigned') + (isCreator ? ' (Portal Creator)' : '');
     aAvatar.title = tooltip;
     aAvatar.setAttribute('aria-label', tooltip);
     aAvatar.style.cursor = 'pointer';
-    if (isCreator) {
-      aAvatar.classList.add('creator-rgb-avatar');
+    if (photoUrl) {
+      aAvatar.innerHTML = '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanName) : cleanName) + '"/>';
+      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.style.background = 'transparent';
+    } else if (isCreator) {
+      aAvatar.innerHTML = '';
+      aAvatar.textContent = 'J';
+      aAvatar.classList.add('creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = '';
     } else {
-      aAvatar.classList.remove('creator-rgb-avatar');
+      var inits = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(cleanName) : (!cleanName || cleanName === 'Unassigned' ? 'U' : (cleanName.trim().charAt(0).toUpperCase() || '?'));
+      aAvatar.innerHTML = '';
+      aAvatar.textContent = inits;
+      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(cleanName) : getAssigneeAvatarBg(cleanName);
     }
   }
