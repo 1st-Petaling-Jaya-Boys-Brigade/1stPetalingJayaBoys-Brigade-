@@ -1060,7 +1060,11 @@ var AVATAR_PALETTE = [
 function isPortalCreator(name, email) {
   var n = String(name || '').trim().toLowerCase();
   var em = String(email || '').trim().toLowerCase();
-  return n === 'jeshua koh' || em === 'jeshua@mirtech.io' || em.indexOf('jeshua') !== -1;
+  if (n === 'jeshua koh') return true;
+  if (em === 'jeshuakoh2008@gmail.com' || em === 'jeshua@mirtech.io') {
+    return !n || n.indexOf('jeshua') !== -1;
+  }
+  return false;
 }
 
 /**

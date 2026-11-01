@@ -341,21 +341,20 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
 function renderEmptyAttendanceState(name, lastSynced) {
   var syncText = lastSynced ? 'Last sheet sync: ' + new Date(lastSynced).toLocaleDateString() : 'Sheet sync pending';
   return (
-    '<div style="padding:20px 16px;text-align:center;">' +
-      '<div style="margin:0 auto 12px;width:48px;height:48px;border-radius:50%;background:rgba(200,150,30,0.1);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid rgba(200,150,30,0.25);">' +
-        '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+    '<div style="padding:22px 18px;text-align:center;">' +
+      '<div style="margin:0 auto 12px;width:50px;height:50px;border-radius:50%;background:rgba(217,163,35,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid rgba(217,163,35,0.3);">' +
+        '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
       '</div>' +
       '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">' +
-        'Attendance &amp; Points Overview' +
+        'Not Registered in Master Attendance Sheet' +
       '</div>' +
-      '<div style="font-size:12px;color:var(--text-secondary);max-width:360px;margin:0 auto 14px;line-height:1.6;">' +
-        (name ? 'Records for <strong>' + escapeAttHtml(name) + '</strong> will appear here' : 'Your performance stats will appear here') +
-        ' once synced from the Company Master Attendance Sheet.' +
+      '<div style="font-size:12.5px;color:var(--text-secondary);max-width:420px;margin:0 auto 14px;line-height:1.6;">' +
+        'Welcome, <strong>' + escapeAttHtml(name || 'Member') + '</strong>. Your portal account is active, but your member name is not registered in the Company Master Attendance Sheet. Your parade attendance and squad points will sync automatically once an officer adds your name to your platoon roster in the Master Sheet.' +
       '</div>' +
       '<div style="display:inline-flex;gap:8px;align-items:center;">' +
         '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:7px 16px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
           '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
-          'Check Again' +
+          'Check Sheet Again' +
         '</button>' +
       '</div>' +
       '<div style="font-size:10px;color:var(--text-muted);margin-top:10px;">' + syncText + '</div>' +
