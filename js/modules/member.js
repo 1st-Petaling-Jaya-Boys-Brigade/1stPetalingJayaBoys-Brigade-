@@ -1879,11 +1879,15 @@ async function loadMemberOrders() {
           itemLines = '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(items.form_name) + '</div>';
         } else {
           Object.entries(items).forEach(function(kv) {
-            var prod = itemsList.find(function(i) { return i.key === kv[0]; });
-            var v    = kv[1];
+            var v = kv[1];
+            var baseKey = kv[0].split('__')[0];
+            var prod = itemsList.find(function(i) {
+              return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
+            });
+            var displayName = prod ? prod.name : ((v && v.name) || baseKey);
             var subtotal = v.price && v.qty ? ' — RM ' + (v.price * v.qty).toFixed(2) : '';
             itemLines += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding:3px 0;">'
-              + '<span>' + (prod ? escapeHtml(prod.name) : escapeHtml(kv[0])) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + '</span>'
+              + '<span>' + escapeHtml(displayName) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + '</span>'
               + '<span>x' + escapeHtml(v.qty) + subtotal + '</span></div>';
           });
         }

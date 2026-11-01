@@ -6218,3 +6218,294 @@ select.form-input,
   color: var(--accent);
   font-weight: 700;
 }
+
+
+/* ── Multi-Size Uniform Shopping Cart & Add-to-Cart ── */
+.product-card-footer {
+  padding: 8px 10px;
+  background: var(--bg-card-subtle);
+  border-top: 1px solid var(--border-card);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.product-card-action-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.uniform-product-card .product-card-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  flex: 1;
+}
+
+.uniform-product-card .stepper-btn,
+.uniform-product-card .qty-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card-subtle);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+}
+
+.uniform-product-card .stepper-count,
+.uniform-product-card .qty-display {
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 18px;
+  text-align: center;
+}
+
+.add-to-cart-btn {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--btn-on-accent, #121418);
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(245, 197, 66, 0.25);
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.add-to-cart-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(245, 197, 66, 0.4);
+  filter: brightness(1.05);
+}
+
+.add-to-cart-btn:active {
+  transform: scale(0.97);
+}
+
+.add-to-cart-btn.added {
+  background: #10b981;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+.product-card-in-cart {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(245, 197, 66, 0.1);
+  border: 1px solid rgba(245, 197, 66, 0.25);
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Your Cart Section */
+.uniform-cart-section {
+  margin: 18px 0;
+}
+
+.uniform-cart-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.uniform-cart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.uniform-cart-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-headline);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cart-pill-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(245, 197, 66, 0.15);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(245, 197, 66, 0.3);
+}
+
+.uniform-cart-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.uniform-cart-clear-btn:hover {
+  color: #ef4444;
+}
+
+.uniform-cart-table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cart-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cart-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+}
+
+.cart-row-title {
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cart-row-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cart-row-size-pill {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent);
+  color: var(--btn-on-accent, #121418);
+  padding: 1px 7px;
+  border-radius: 4px;
+}
+
+.cart-row-price {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cart-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.cart-row-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.cart-step-btn {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.cart-step-btn:hover {
+  background: var(--bg-card-hover, rgba(255,255,255,0.06));
+  color: var(--accent);
+}
+
+.cart-step-qty {
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  min-width: 26px;
+  text-align: center;
+}
+
+.cart-row-subtotal {
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 75px;
+  text-align: right;
+}
+
+.cart-row-remove-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.cart-row-remove-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}

@@ -1499,6 +1499,34 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(ordersMod.itemSizes['shirt'], 'XL', 'Updated size must be XL');
   console.log('  ✔ selectSize updates itemSizes state');
 
+  // 3b. Multi-Size Shopping Cart (Different sizes of same item e.g. UK 8 & UK 9 boots)
+  ordersMod.clearUniformCart();
+  const testBoots = ordersMod.UNIFORM_ITEMS.find(i => i.key === 'boots') || ordersMod.UNIFORM_ITEMS[0];
+  testBoots.price = 99;
+  ordersMod.addUniformToCart(testBoots.key, 'UK 8', 1);
+  ordersMod.addUniformToCart(testBoots.key, 'UK 9', 1);
+  assert.strictEqual(ordersMod.uniformCart.length, 2, 'Cart must hold 2 distinct entries for different sizes of the same item');
+  assert.strictEqual(ordersMod.uniformCart[0].size, 'UK 8', 'First item size must be UK 8');
+  assert.strictEqual(ordersMod.uniformCart[1].size, 'UK 9', 'Second item size must be UK 9');
+  let multiCartTotal = ordersMod.updateTotal();
+  assert.strictEqual(multiCartTotal, 198, 'Total for UK 8 (RM 99) + UK 9 (RM 99) boots must be RM 198.00');
+
+  // Increment existing variant
+  ordersMod.addUniformToCart(testBoots.key, 'UK 8', 1);
+  assert.strictEqual(ordersMod.uniformCart.length, 2, 'Adding same size increments existing variant quantity');
+  assert.strictEqual(ordersMod.uniformCart[0].qty, 2, 'UK 8 quantity must be 2');
+  multiCartTotal = ordersMod.updateTotal();
+  assert.strictEqual(multiCartTotal, 297, 'Total for 2x UK 8 + 1x UK 9 must be RM 297.00');
+
+  // Decrement & remove variant
+  ordersMod.updateCartItemQty(ordersMod.uniformCart[0].id, -1);
+  assert.strictEqual(ordersMod.uniformCart[0].qty, 1, 'Quantity decrements to 1');
+  ordersMod.removeUniformCartItem(ordersMod.uniformCart[1].id);
+  assert.strictEqual(ordersMod.uniformCart.length, 1, 'Removed variant must no longer exist in cart');
+  ordersMod.clearUniformCart();
+  assert.strictEqual(ordersMod.uniformCart.length, 0, 'Cart must be completely cleared');
+  console.log('  ✔ Multi-size Add-to-Cart holds distinct variants (e.g. UK 8 and UK 9 boots) and updates totals');
+
   // 4. Role Authorization
   assert.strictEqual(ordersMod.isNCO('Sergeant'), true, 'Sergeant qualifies as NCO');
   assert.strictEqual(ordersMod.isNCO('Staff Sergeant'), true, 'Staff Sergeant qualifies as NCO');

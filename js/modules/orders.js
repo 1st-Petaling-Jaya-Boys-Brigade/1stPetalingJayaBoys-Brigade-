@@ -25,6 +25,13 @@ var DEFAULT_UNIFORM_ITEMS = [
   },
   { key: 'belt', name: 'BB Belt', category: 'accessories', hasSize: false, sizes: [] },
   { key: 'cap', name: 'BB Cap', category: 'accessories', hasSize: false, sizes: ['S', 'M', 'L'] },
+  {
+    key: 'boots',
+    name: 'Boots',
+    category: 'accessories',
+    hasSize: 'boots',
+    sizes: ['UK 5', 'UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11']
+  },
   { key: 'haversack', name: 'Haversack', category: 'accessories', hasSize: false, sizes: [] },
   { key: 'lanyard', name: 'Lanyard', category: 'accessories', hasSize: false, sizes: [] }
 ];
@@ -36,6 +43,8 @@ var UNIFORM_ITEMS = DEFAULT_UNIFORM_ITEMS.slice();
 var prices = {};
 var itemQtys = {};
 var itemSizes = {};
+var itemSelectedSizes = {};
+var uniformCart = [];
 var DEFAULT_PAYMENT_INFO =
   'Please transfer payment via Touch \'n Go eWallet / DuitNow QR or online bank transfer to 1st Petaling Jaya Boys\' Brigade. Upload your payment screenshot below as proof of payment.';
 var _paymentInfo = DEFAULT_PAYMENT_INFO;
@@ -96,6 +105,9 @@ function getItemSizes(item) {
   if (item && item.hasSize === 'shirt') return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
   if (item && item.hasSize === 'trousers') return ['24', '26', '28', '30', '32', '34', '36'];
   if (item && item.hasSize === 'cap') return ['S', 'M', 'L'];
+  if (item && (item.hasSize === 'boots' || (item.name && item.name.toLowerCase().includes('boot')))) {
+    return ['UK 5', 'UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11'];
+  }
   return [];
 }
 
@@ -238,6 +250,253 @@ async function loadPrices() {
  * @param {Object} [sizes]
  * @returns {{ valid: boolean, error: string|null }}
  */
+
+/**
+ * Returns formatted summary of how many variants of an item are in the cart
+ * @param {string} key
+ * @returns {string}
+ */
+function getProductInCartSummary(key) {
+  var matching = uniformCart.filter(function (ci) { return ci.key === key; });
+  if (!matching.length) return '';
+  var total = matching.reduce(function (s, ci) { return s + ci.qty; }, 0);
+  var sizeBreakdown = matching.map(function (ci) {
+    return ci.size ? (ci.qty + '× ' + ci.size) : ci.qty;
+  }).join(', ');
+  return '🛒 In Cart: ' + total + (sizeBreakdown ? ' (' + sizeBreakdown + ')' : '');
+}
+
+/**
+ * Selects a size on a product card without immediately changing quantities
+ * @param {string} itemKey
+ * @param {string} size
+ * @param {HTMLElement} btn
+ */
+function selectUniformCardSize(itemKey, size, btn) {
+  itemSelectedSizes[itemKey] = size;
+  itemSizes[itemKey] = size;
+
+  if (typeof document !== 'undefined') {
+    var grid = document.getElementById(itemKey + '-size-grid');
+    if (grid) {
+      grid.querySelectorAll('.size-btn, .size-pill').forEach(function (b) {
+        b.classList.remove('selected');
+      });
+    }
+    if (btn && btn.classList) {
+      btn.classList.add('selected');
+    }
+    var lbl = document.getElementById(itemKey + '-selected-size-label');
+    if (lbl) lbl.textContent = size;
+  }
+}
+
+/**
+ * Adds an item variant (with selected size) into the multi-size shopping cart
+ * @param {string} key
+ * @param {string} [customSize]
+ * @param {number} [quantity=1]
+ */
+function addUniformToCart(key, customSize, quantity) {
+  var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
+  if (!item) return;
+
+  var sizes = getItemSizes(item);
+  var size = customSize || itemSelectedSizes[key] || itemSizes[key] || (sizes.length ? sizes[0] : '');
+  if (sizes.length && !size) {
+    if (typeof showToast === 'function') showToast('Please select a size first!', 'warning');
+    return;
+  }
+
+  var qtyToAdd = Math.max(1, parseInt(quantity, 10) || 1);
+  var priceNum = parseFloat(item.price) || prices[key] || 0;
+  var safeSizeId = size ? size.replace(/[^a-zA-Z0-9_-]/g, '_') : 'std';
+  var cartId = key + '__' + safeSizeId;
+
+  var existing = uniformCart.find(function (ci) { return ci.id === cartId; });
+  if (existing) {
+    existing.qty += qtyToAdd;
+  } else {
+    uniformCart.push({
+      id: cartId,
+      key: key,
+      name: item.name,
+      size: size || '',
+      qty: qtyToAdd,
+      price: priceNum
+    });
+  }
+
+  // Synchronize legacy itemQtys and itemSizes for backward compatibility
+  itemQtys[key] = uniformCart.filter(function (ci) { return ci.key === key; }).reduce(function (s, ci) { return s + ci.qty; }, 0);
+  itemSizes[key] = size;
+
+  // Visual button animation feedback
+  if (typeof document !== 'undefined') {
+    var btn = document.getElementById(key + '-add-btn');
+    if (btn) {
+      var origHtml = btn.innerHTML;
+      btn.classList.add('added');
+      btn.innerHTML = '✓ Added!';
+      setTimeout(function () {
+        if (btn) {
+          btn.classList.remove('added');
+          btn.innerHTML = origHtml;
+        }
+      }, 900);
+    }
+    var card = document.getElementById('ui-' + key);
+    if (card) card.classList.add('has-qty');
+
+    var inCartEl = document.getElementById(key + '-in-cart');
+    if (inCartEl) {
+      inCartEl.textContent = getProductInCartSummary(key);
+      inCartEl.style.display = 'block';
+    }
+  }
+
+  updateTotal();
+  if (typeof showToast === 'function') {
+    showToast('Added ' + item.name + (size ? ' (' + size + ')' : '') + ' to cart!', 'success', 1800);
+  }
+}
+
+/**
+ * Updates quantity of a specific cart item
+ * @param {string} cartId
+ * @param {number} delta
+ */
+function updateCartItemQty(cartId, delta) {
+  var itemIndex = uniformCart.findIndex(function (ci) { return ci.id === cartId; });
+  if (itemIndex === -1) return;
+
+  var ci = uniformCart[itemIndex];
+  ci.qty += delta;
+
+  if (ci.qty <= 0) {
+    var removedKey = ci.key;
+    uniformCart.splice(itemIndex, 1);
+    // Sync legacy itemQtys
+    itemQtys[removedKey] = uniformCart.filter(function (x) { return x.key === removedKey; }).reduce(function (s, x) { return s + x.qty; }, 0);
+    if (itemQtys[removedKey] === 0) {
+      delete itemSizes[removedKey];
+      if (typeof document !== 'undefined') {
+        var card = document.getElementById('ui-' + removedKey);
+        if (card) card.classList.remove('has-qty');
+        var inCartEl = document.getElementById(removedKey + '-in-cart');
+        if (inCartEl) inCartEl.style.display = 'none';
+      }
+    } else if (typeof document !== 'undefined') {
+      var inCartEl2 = document.getElementById(removedKey + '-in-cart');
+      if (inCartEl2) inCartEl2.textContent = getProductInCartSummary(removedKey);
+    }
+  } else {
+    itemQtys[ci.key] = uniformCart.filter(function (x) { return x.key === ci.key; }).reduce(function (s, x) { return s + x.qty; }, 0);
+    if (typeof document !== 'undefined') {
+      var inCartEl3 = document.getElementById(ci.key + '-in-cart');
+      if (inCartEl3) inCartEl3.textContent = getProductInCartSummary(ci.key);
+    }
+  }
+
+  updateTotal();
+}
+
+/**
+ * Removes a specific item variant entirely from the cart
+ * @param {string} cartId
+ */
+function removeUniformCartItem(cartId) {
+  var item = uniformCart.find(function (ci) { return ci.id === cartId; });
+  if (!item) return;
+  updateCartItemQty(cartId, -item.qty);
+}
+
+/**
+ * Clears all items from the uniform cart
+ */
+function clearUniformCart() {
+  uniformCart.length = 0;
+      UNIFORM_ITEMS.forEach(function (i) {
+        itemQtys[i.key] = 0;
+        delete itemSizes[i.key];
+    if (typeof document !== 'undefined') {
+      var el = document.getElementById(i.key + '-qty');
+      if (el) el.textContent = '0';
+      var card = document.getElementById('ui-' + i.key);
+      if (card) card.classList.remove('has-qty');
+      var inCartEl = document.getElementById(i.key + '-in-cart');
+      if (inCartEl) inCartEl.style.display = 'none';
+    }
+  });
+  updateTotal();
+  if (typeof showToast === 'function') showToast('Cart cleared', 'info', 1200);
+}
+
+/**
+ * Scrolls smoothly to the Cart section
+ */
+function scrollToCartSection() {
+  if (typeof document === 'undefined') return;
+  var el = document.getElementById('uniform-cart-section');
+  if (el && el.scrollIntoView) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+/**
+ * Renders the active cart section in the DOM
+ */
+function renderCartSection() {
+  if (typeof document === 'undefined') return;
+  var container = document.getElementById('uniform-cart-section');
+  if (!container) return;
+
+  if (!uniformCart.length) {
+    container.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  var totalCount = uniformCart.reduce(function (s, ci) { return s + ci.qty; }, 0);
+  var rowsHtml = '';
+  uniformCart.forEach(function (ci) {
+    var subtotal = ci.qty * ci.price;
+    rowsHtml += '<div class="cart-row" data-cart-id="' + escapeHtml(ci.id) + '">' +
+      '<div class="cart-row-main">' +
+      '<div class="cart-row-title">' + escapeHtml(ci.name) + '</div>' +
+      '<div class="cart-row-details">' +
+      (ci.size ? '<span class="cart-row-size-pill">Size: ' + escapeHtml(ci.size) + '</span>' : '') +
+      '<span class="cart-row-price">RM ' + ci.price.toFixed(2) + ' each</span>' +
+      '</div>' +
+      '</div>' +
+      '<div class="cart-row-actions">' +
+      '<div class="cart-row-stepper">' +
+      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', 1)" aria-label="Increase quantity">+</button>' +
+      '<span class="cart-step-qty">' + ci.qty + '</span>' +
+      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', 1)" aria-label="Increase quantity">+</button>' +
+      '</div>' +
+      '<div class="cart-row-subtotal">RM ' + subtotal.toFixed(2) + '</div>' +
+      '<button type="button" class="cart-row-remove-btn" onclick="removeUniformCartItem(\'' + escapeHtml(ci.id) + '\')" title="Remove item" aria-label="Remove item">' +
+      '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+      '</button>' +
+      '</div>' +
+      '</div>';
+  });
+
+  container.innerHTML = '<div class="uniform-cart-card">' +
+    '<div class="uniform-cart-header">' +
+    '<div class="uniform-cart-title">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
+    '<span>Your Cart</span>' +
+    '<span class="cart-pill-count">' + totalCount + (totalCount === 1 ? ' item' : ' items') + '</span>' +
+    '</div>' +
+    '<button type="button" class="uniform-cart-clear-btn" onclick="clearUniformCart()">Clear All</button>' +
+    '</div>' +
+    '<div class="uniform-cart-table">' + rowsHtml + '</div>' +
+    '</div>';
+  container.style.display = 'block';
+}
+
 function validateOrderCart(catalog, qtys, sizes) {
   var cat = catalog && Array.isArray(catalog) ? catalog : UNIFORM_ITEMS;
   var q = qtys || itemQtys;
@@ -278,12 +537,22 @@ function validateOrderCart(catalog, qtys, sizes) {
 function updateTotal() {
   var total = 0;
   var totalCount = 0;
-  UNIFORM_ITEMS.forEach(function (item) {
-    var qty = itemQtys[item.key] || 0;
-    var unitPrice = parseFloat(item.price) || prices[item.key] || 0;
-    total += qty * unitPrice;
-    totalCount += qty;
-  });
+
+  if (uniformCart && uniformCart.length > 0) {
+    uniformCart.forEach(function (ci) {
+      var prod = UNIFORM_ITEMS.find(function (i) { return i.key === ci.key; });
+      var unitPrice = (prod && !isNaN(parseFloat(prod.price))) ? parseFloat(prod.price) : (ci.price || prices[ci.key] || 0);
+      total += ci.qty * unitPrice;
+      totalCount += ci.qty;
+    });
+  } else {
+    UNIFORM_ITEMS.forEach(function (item) {
+      var qty = itemQtys[item.key] || 0;
+      var unitPrice = parseFloat(item.price) || prices[item.key] || 0;
+      total += qty * unitPrice;
+      totalCount += qty;
+    });
+  }
 
   if (typeof document !== 'undefined') {
     var el = document.getElementById('order-total');
@@ -300,6 +569,8 @@ function updateTotal() {
       ctaBtn.disabled = totalCount === 0;
       ctaBtn.classList.toggle('active', totalCount > 0);
     }
+
+    renderCartSection();
   }
   return total;
 }
@@ -314,19 +585,64 @@ function changeQty(key, delta) {
   var next = Math.max(0, current + delta);
   itemQtys[key] = next;
 
+  // Sync with uniformCart
+  var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
+  var sizes = getItemSizes(item);
+  var size = itemSizes[key] || (sizes.length ? sizes[0] : '');
+
+  if (delta > 0) {
+    var safeSizeId = size ? size.replace(/[^a-zA-Z0-9_-]/g, '_') : 'std';
+    var cartId = key + '__' + safeSizeId;
+    var existing = uniformCart.find(function (ci) { return ci.id === cartId; });
+    if (existing) {
+      existing.qty += delta;
+      if (item && !isNaN(parseFloat(item.price))) existing.price = parseFloat(item.price);
+    } else if (item) {
+      uniformCart.push({
+        id: cartId,
+        key: key,
+        name: item.name,
+        size: size || '',
+        qty: delta,
+        price: parseFloat(item.price) || prices[key] || 0
+      });
+    }
+  } else if (delta < 0) {
+    if (next === 0) {
+      for (var ciIdx = uniformCart.length - 1; ciIdx >= 0; ciIdx--) {
+        if (uniformCart[ciIdx].key === key) {
+          uniformCart.splice(ciIdx, 1);
+        }
+      }
+    } else {
+      for (var i = uniformCart.length - 1; i >= 0; i--) {
+        if (uniformCart[i].key === key) {
+          uniformCart[i].qty += delta;
+          if (uniformCart[i].qty <= 0) {
+            uniformCart.splice(i, 1);
+          }
+          break;
+        }
+      }
+    }
+  }
+
   if (typeof document !== 'undefined') {
     var qtyEl = document.getElementById(key + '-qty');
     if (qtyEl) qtyEl.textContent = next;
 
-    var item = UNIFORM_ITEMS.find(function (i) {
-      return i.key === key;
-    });
-    var sizes = getItemSizes(item);
     var wrap = document.getElementById(key + '-size-wrap');
     var card = document.getElementById('ui-' + key);
 
-    if (wrap) wrap.style.display = next > 0 && sizes.length ? 'block' : 'none';
+    if (wrap) wrap.style.display = sizes.length ? 'block' : 'none';
     if (card) card.classList.toggle('has-qty', next > 0);
+
+    var inCartEl = document.getElementById(key + '-in-cart');
+    if (inCartEl) {
+      var summary = getProductInCartSummary(key);
+      inCartEl.textContent = summary;
+      inCartEl.style.display = summary ? 'block' : 'none';
+    }
   }
 
   if (next === 0) delete itemSizes[key];
@@ -340,20 +656,7 @@ function changeQty(key, delta) {
  * @param {HTMLElement} btn
  */
 function selectSize(item, size, btn) {
-  itemSizes[item] = size;
-  if (typeof document !== 'undefined') {
-    var grid = document.getElementById(item + '-size-grid');
-    if (grid) {
-      grid.querySelectorAll('.size-btn, .size-pill').forEach(function (b) {
-        b.classList.remove('selected');
-      });
-    }
-    if (btn && btn.classList) {
-      btn.classList.add('selected');
-    }
-    var lbl = document.getElementById(item + '-selected-size-label');
-    if (lbl) lbl.textContent = size;
-  }
+  selectUniformCardSize(item, size, btn);
 }
 
 /**
@@ -576,15 +879,18 @@ function renderOrderItems(memberRank) {
   var html = '';
   visible.forEach(function (item) {
     var sizes = getItemSizes(item);
+    var currentSize = itemSelectedSizes[item.key] || itemSizes[item.key] || (sizes.length ? sizes[0] : '');
+    itemSelectedSizes[item.key] = currentSize;
+
     var sizeButtons = '';
     sizes.forEach(function (s) {
-      var isSel = itemSizes[item.key] === s;
+      var isSel = currentSize === s;
       sizeButtons +=
         '<button type="button" class="size-pill size-btn' +
         (isSel ? ' selected' : '') +
-        '" onclick="selectSize(\'' +
+        '" onclick="selectUniformCardSize(\'' +
         escapeHtml(item.key) +
-        "','" +
+        "\',\'" +
         escapeHtml(s) +
         '\',this)">' +
         escapeHtml(s) +
@@ -621,13 +927,10 @@ function renderOrderItems(memberRank) {
       : '<span class="product-card-badge cat">' + escapeHtml(catLabel) + '</span>';
 
     var currentQty = itemQtys[item.key] || 0;
-    var currentSize = itemSizes[item.key] || '';
     var sizeWrap = sizes.length
       ? '<div class="product-size-section" id="' +
         escapeHtml(item.key) +
-        '-size-wrap" style="display:' +
-        (currentQty > 0 ? 'block' : 'none') +
-        ';">' +
+        '-size-wrap" style="display:block;">' +
         '<div class="size-pills-label"><span>Select Size:</span><span class="selected-size-text" id="' +
         escapeHtml(item.key) +
         '-selected-size-label">' +
@@ -642,6 +945,7 @@ function renderOrderItems(memberRank) {
       : '';
 
     var matchCat = _activeUniformCategory === 'all' || cat === _activeUniformCategory;
+    var inCartText = getProductInCartSummary(item.key);
 
     html +=
       '<div class="uniform-product-card uniform-item' +
@@ -671,18 +975,19 @@ function renderOrderItems(memberRank) {
       '</div>' +
       sizeWrap +
       '</div>' +
+      '<div class="product-card-footer">' +
+      '<div class="product-card-in-cart" id="' + escapeHtml(item.key) + '-in-cart" style="display:' + (inCartText ? 'block' : 'none') + ';">' + inCartText + '</div>' +
+      '<div class="product-card-action-row">' +
       '<div class="product-card-stepper qty-ctrl">' +
-      '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' +
-      escapeHtml(item.key) +
-      '\',-1)" aria-label="Decrease quantity">&#8722;</button>' +
-      '<div class="stepper-count qty-display" id="' +
-      escapeHtml(item.key) +
-      '-qty">' +
-      currentQty +
+      '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity">&#8722;</button>' +
+      '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">' + currentQty + '</div>' +
+      '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity">+</button>' +
       '</div>' +
-      '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' +
-      escapeHtml(item.key) +
-      '\',1)" aria-label="Increase quantity">+</button>' +
+      '<button type="button" class="add-to-cart-btn" id="' + escapeHtml(item.key) + '-add-btn" onclick="addUniformToCart(\'' + escapeHtml(item.key) + '\')">' +
+      '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
+      '<span>Add</span>' +
+      '</button>' +
+      '</div>' +
       '</div>' +
       '</div>';
   });
@@ -718,14 +1023,25 @@ function goToOrderReview() {
   }
 
   var lines = [];
-  UNIFORM_ITEMS.forEach(function (item) {
-    var qty = itemQtys[item.key] || 0;
-    if (qty > 0) {
-      var size = itemSizes[item.key] || '';
-      var p = parseFloat(item.price) || prices[item.key] || 0;
-      lines.push({ name: item.name, qty: qty, size: size, subtotal: qty * p });
-    }
-  });
+  if (uniformCart && uniformCart.length > 0) {
+    uniformCart.forEach(function (ci) {
+      lines.push({
+        name: ci.name,
+        qty: ci.qty,
+        size: ci.size,
+        subtotal: ci.qty * ci.price
+      });
+    });
+  } else {
+    UNIFORM_ITEMS.forEach(function (item) {
+      var qty = itemQtys[item.key] || 0;
+      if (qty > 0) {
+        var size = itemSizes[item.key] || '';
+        var p = parseFloat(item.price) || prices[item.key] || 0;
+        lines.push({ name: item.name, qty: qty, size: size, subtotal: qty * p });
+      }
+    });
+  }
 
   var html = '';
   lines.forEach(function (l) {
@@ -1059,16 +1375,28 @@ async function submitOrder() {
     }
 
     var items = {};
-    UNIFORM_ITEMS.forEach(function (item) {
-      var qty = itemQtys[item.key] || 0;
-      if (qty > 0) {
-        items[item.key] = {
-          qty: qty,
-          size: itemSizes[item.key] || null,
-          price: parseFloat(item.price) || prices[item.key] || 0
+    if (uniformCart && uniformCart.length > 0) {
+      uniformCart.forEach(function (ci) {
+        items[ci.id] = {
+          key: ci.key,
+          name: ci.name,
+          qty: ci.qty,
+          size: ci.size || null,
+          price: ci.price
         };
-      }
-    });
+      });
+    } else {
+      UNIFORM_ITEMS.forEach(function (item) {
+        var qty = itemQtys[item.key] || 0;
+        if (qty > 0) {
+          items[item.key] = {
+            qty: qty,
+            size: itemSizes[item.key] || null,
+            price: parseFloat(item.price) || prices[item.key] || 0
+          };
+        }
+      });
+    }
 
     var orderNum = 'BB-' + Date.now().toString(36).toUpperCase();
     var notesRaw = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
@@ -1129,6 +1457,7 @@ async function submitOrder() {
       payment_screenshot: finalScreenshot || null
     });
     _tngScreenshotFile = null;
+    uniformCart.length = 0;
 
     if (typeof document !== 'undefined') {
       var sf = document.getElementById('step-review');
@@ -1215,13 +1544,14 @@ function renderUniformOrderInline() {
     catTabsHtml +
     '<div id="uniform-items" class="uniform-product-grid"></div>' +
     '<div id="uniform-grid-empty" style="display:none;text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px;background:var(--bg-card-subtle);border-radius:12px;margin-bottom:16px;">No products in this category.</div>' +
+    '<div id="uniform-cart-section" class="uniform-cart-section" style="display:none;"></div>' +
     '<div class="form-group" style="margin-top:12px;"><label class="form-label">Additional Notes (optional)</label><div id="order-notes-container" style="min-height:0;"></div></div>' +
     '<div class="total-row" style="margin-top:16px;"><div class="total-label">Estimated Total</div><div class="total-val" id="order-total">RM 0.00</div></div>' +
     '<button class="submit-btn btn-with-icon" style="margin-top:14px;justify-content:center;" onclick="goToOrderReview()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Review Order</button>' +
     '</div>' +
     '<div class="sticky-checkout-bar" id="sticky-checkout-bar">' +
     '<div class="checkout-bar-left">' +
-    '<div class="checkout-summary-badge" id="checkout-summary-badge"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg><span id="checkout-items-count">0 items</span></div>' +
+    '<div class="checkout-summary-badge" id="checkout-summary-badge" onclick="scrollToCartSection()" style="cursor:pointer;" title="Click to view cart"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg><span id="checkout-items-count">0 items</span></div>' +
     '<div class="checkout-total-wrap"><span class="checkout-total-label">Total</span><span class="checkout-total-val" id="order-total-sticky">RM 0.00</span></div>' +
     '</div>' +
     '<button type="button" class="checkout-cta-btn" id="checkout-cta-btn" onclick="goToOrderReview()" disabled><span>Review Order</span><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>' +
@@ -1349,13 +1679,16 @@ async function renderAdminOrders() {
       try {
         var items = JSON.parse(o.items || '{}');
         Object.entries(items).forEach(function (kv) {
+          var v = kv[1];
+          var baseKey = kv[0].split('__')[0];
           var prod = UNIFORM_ITEMS.find(function (i) {
-            return i.key === kv[0];
+            return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
           });
+          var displayName = prod ? prod.name : ((v && v.name) || baseKey);
           var v = kv[1];
           itemsDisplay +=
             '<div style="font-size:12px;color:var(--text-secondary);">' +
-            escapeHtml(prod ? prod.name : kv[0]) +
+            escapeHtml(displayName) +
             ' \xd7' +
             escapeHtml(v.qty) +
             (v.size ? ' (' + escapeHtml(v.size) + ')' : '') +
@@ -1746,7 +2079,14 @@ async function deleteProduct(key) {
 // ── Global Window Exports ──────────────────────────────────────────────────
 if (typeof window !== 'undefined') {
   window.DEFAULT_UNIFORM_ITEMS = DEFAULT_UNIFORM_ITEMS;
-  window.UNIFORM_ITEMS = UNIFORM_ITEMS;
+  window.UNIFORM_ITEMS        = UNIFORM_ITEMS;
+    window.uniformCart          = uniformCart;
+    window.addUniformToCart     = addUniformToCart;
+    window.updateCartItemQty    = updateCartItemQty;
+    window.removeUniformCartItem = removeUniformCartItem;
+    window.clearUniformCart     = clearUniformCart;
+    window.scrollToCartSection  = scrollToCartSection;
+    window.selectUniformCardSize = selectUniformCardSize;
   window.DEFAULT_PAYMENT_INFO = DEFAULT_PAYMENT_INFO;
   window.prices = prices;
   window.itemQtys = itemQtys;
@@ -1799,6 +2139,12 @@ if (typeof window !== 'undefined') {
 // ── Node.js Module Exports ──────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+  uniformCart,
+  addUniformToCart,
+  updateCartItemQty,
+  removeUniformCartItem,
+  clearUniformCart,
+  selectUniformCardSize,
     DEFAULT_UNIFORM_ITEMS: DEFAULT_UNIFORM_ITEMS,
     UNIFORM_ITEMS: UNIFORM_ITEMS,
     DEFAULT_PAYMENT_INFO: DEFAULT_PAYMENT_INFO,
