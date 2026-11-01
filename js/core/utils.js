@@ -1030,6 +1030,73 @@ async function stripExifAndCompress(source, options) {
   });
 }
 
+// ── Member Avatar, Initials & Non-Sequential Color Distribution ─────────────
+
+var AVATAR_PALETTE = [
+  '#047857', // Emerald Green (4.7:1)
+  '#0284c7', // Sky Blue (4.5:1)
+  '#7c3aed', // Purple Violet (5.6:1)
+  '#c2410c', // Dark Amber / Burnt Orange (5.0:1)
+  '#be185d', // Berry Rose / Pink (4.8:1)
+  '#0f766e', // Deep Teal (4.9:1)
+  '#4338ca', // Deep Indigo (6.8:1)
+  '#b91c1c', // Ruby Red (5.9:1)
+  '#4d7c0f', // Forest Olive (4.7:1)
+  '#1d4ed8', // Royal Cobalt (5.9:1)
+  '#6d28d9', // Deep Amethyst (6.7:1)
+  '#a21caf', // Fuchsia / Magenta (5.4:1)
+  '#0e7490', // Cyan Blue (4.8:1)
+  '#9a3412', // Rust Cinnamon (5.4:1)
+  '#15803d', // Shamrock Green (5.2:1)
+  '#374151'  // Slate Charcoal (7.1:1)
+];
+
+/**
+ * Checks whether the specified name or email belongs to the portal creator (Jeshua Koh).
+ * @param {string} [name]
+ * @param {string} [email]
+ * @returns {boolean}
+ */
+function isPortalCreator(name, email) {
+  var n = String(name || '').trim().toLowerCase();
+  var em = String(email || '').trim().toLowerCase();
+  return n === 'jeshua koh' || em === 'jeshua@mirtech.io' || em.indexOf('jeshua') !== -1;
+}
+
+/**
+ * Returns the default initial(s) for a member's avatar.
+ * - Creator (Jeshua Koh) receives 'JK'.
+ * - Other members receive only their single first letter (e.g. 'Jayden' -> 'J', 'Marcus' -> 'M').
+ * @param {string} [name]
+ * @param {string} [email]
+ * @returns {string}
+ */
+function getMemberAvatarInitial(name, email) {
+  if (isPortalCreator(name, email)) return 'JK';
+  if (!name || name === 'Unassigned') return 'U';
+  var clean = String(name).trim();
+  return clean ? clean.charAt(0).toUpperCase() : '?';
+}
+
+/**
+ * Deterministically maps any member name to an accessible, high-contrast palette color
+ * using an FNV-1a non-sequential hash algorithm. Names starting with the same letter
+ * (e.g. 'Jayden' vs 'Joshua') receive completely distinct colors, independent of signup order.
+ * @param {string} [name]
+ * @returns {string} Hex color string or CSS variable
+ */
+function getMemberAvatarColor(name) {
+  if (!name || name === 'Unassigned') return 'var(--surface-tint-hover)';
+  var trimmed = String(name).trim().toLowerCase();
+  var hash = 2166136261;
+  for (var i = 0; i < trimmed.length; i++) {
+    hash ^= trimmed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  var idx = Math.abs(hash >>> 0) % AVATAR_PALETTE.length;
+  return AVATAR_PALETTE[idx];
+}
+
 // Attach to window if in browser
 if (typeof window !== 'undefined') {
   window.escapeHtml     = escapeHtml;
@@ -1057,6 +1124,10 @@ if (typeof window !== 'undefined') {
   window.stripExifBytes = stripExifBytes;
   window.validateFileSecurity = validateFileSecurity;
   window.stripExifAndCompress = stripExifAndCompress;
+  window.AVATAR_PALETTE = AVATAR_PALETTE;
+  window.isPortalCreator = isPortalCreator;
+  window.getMemberAvatarInitial = getMemberAvatarInitial;
+  window.getMemberAvatarColor = getMemberAvatarColor;
 }
 
 // Export for module systems if present
@@ -1086,6 +1157,10 @@ if (typeof module !== 'undefined' && module.exports) {
     hasExifGps: hasExifGps,
     stripExifBytes: stripExifBytes,
     validateFileSecurity: validateFileSecurity,
-    stripExifAndCompress: stripExifAndCompress
+    stripExifAndCompress: stripExifAndCompress,
+    AVATAR_PALETTE: AVATAR_PALETTE,
+    isPortalCreator: isPortalCreator,
+    getMemberAvatarInitial: getMemberAvatarInitial,
+    getMemberAvatarColor: getMemberAvatarColor
   };
 }

@@ -508,6 +508,111 @@ async function loginMember() {
   }
 }
 
+// ── Member Avatar, Initials & Non-Sequential Color Distribution ─────────────
+
+function renderMemberAvatar(memberName, memberEmail) {
+  if (typeof document === 'undefined') return;
+  var name = memberName || (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
+  var email = memberEmail || (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshua\s+koh/i.test(name);
+  var initial = isCreator ? 'JK' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name.trim().charAt(0).toUpperCase() || '?'));
+  var color = isCreator ? '' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
+  var tooltip = name + (isCreator ? ' (Portal Creator)' : '');
+
+  // 1. Sidebar user avatar placeholder
+  var sPh = document.getElementById('sidebar-user-avatar-ph');
+  if (sPh) {
+    sPh.textContent = initial;
+    sPh.title = tooltip;
+    sPh.setAttribute('aria-label', tooltip);
+    sPh.style.color = '#ffffff';
+    sPh.style.fontSize = isCreator ? '12px' : '15px';
+    sPh.style.fontWeight = '700';
+    sPh.style.cursor = 'pointer';
+    if (isCreator) {
+      sPh.classList.add('creator-rgb-avatar');
+      sPh.style.background = '';
+    } else {
+      sPh.classList.remove('creator-rgb-avatar');
+      sPh.style.background = color;
+    }
+  }
+
+  // 2. Member hub profile placeholder (#m-pfp-ph)
+  var mPh = document.getElementById('m-pfp-ph');
+  if (mPh) {
+    mPh.textContent = initial;
+    mPh.title = tooltip;
+    mPh.setAttribute('aria-label', tooltip);
+    mPh.style.color = '#ffffff';
+    mPh.style.fontSize = isCreator ? '22px' : '26px';
+    mPh.style.fontWeight = '800';
+    mPh.style.cursor = 'pointer';
+    if (isCreator) {
+      mPh.classList.add('creator-rgb-avatar');
+      mPh.style.background = '';
+    } else {
+      mPh.classList.remove('creator-rgb-avatar');
+      mPh.style.background = color;
+    }
+  }
+
+  // 3. Top nav header placeholder (#nav-avatar-placeholder)
+  var nPh = document.getElementById('nav-avatar-placeholder');
+  if (nPh) {
+    nPh.textContent = initial;
+    nPh.title = tooltip;
+    nPh.setAttribute('aria-label', tooltip);
+    nPh.style.color = '#ffffff';
+    nPh.style.fontSize = isCreator ? '11px' : '13px';
+    nPh.style.fontWeight = '700';
+    nPh.style.cursor = 'pointer';
+    if (isCreator) {
+      nPh.classList.add('creator-rgb-avatar');
+      nPh.style.background = '';
+    } else {
+      nPh.classList.remove('creator-rgb-avatar');
+      nPh.style.background = color;
+    }
+  }
+}
+
+function resetMemberAvatar() {
+  if (typeof document === 'undefined') return;
+  var defaultSvg = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  var defaultLgSvg = '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+
+  var sPh = document.getElementById('sidebar-user-avatar-ph');
+  if (sPh) {
+    sPh.innerHTML = defaultSvg;
+    sPh.classList.remove('creator-rgb-avatar');
+    sPh.style.background = '';
+    sPh.style.color = '';
+    sPh.title = 'Guest Member';
+    sPh.removeAttribute('aria-label');
+  }
+
+  var mPh = document.getElementById('m-pfp-ph');
+  if (mPh) {
+    mPh.innerHTML = defaultLgSvg;
+    mPh.classList.remove('creator-rgb-avatar');
+    mPh.style.background = '';
+    mPh.style.color = '';
+    mPh.title = '';
+    mPh.removeAttribute('aria-label');
+  }
+
+  var nPh = document.getElementById('nav-avatar-placeholder');
+  if (nPh) {
+    nPh.innerHTML = defaultSvg;
+    nPh.classList.remove('creator-rgb-avatar');
+    nPh.style.background = '';
+    nPh.style.color = '';
+    nPh.title = 'Guest Member';
+    nPh.removeAttribute('aria-label');
+  }
+}
+
 // ── Member Dashboard & Profile ──────────────────────────────────────────────
 
 async function renderDashboard() {
@@ -605,6 +710,9 @@ async function renderDashboard() {
 
     set('sidebar-user-name', m.name || 'Member');
     set('sidebar-user-badge', (m.rank ? m.rank : '') + (m.squad ? ' · ' + m.squad + ' Sq' : (m.att_section || 'Member')));
+
+    // Render personalized initial, color & creator RGB animation on avatar placeholders
+    renderMemberAvatar(m.name, displayEmail);
 
     // Load profile avatar from Supabase Storage / local cache
     try {
@@ -718,6 +826,7 @@ async function loadMemberOrders() {
 }
 
 function logoutMember() {
+  resetMemberAvatar();
   // Completely purge session state eliminating residual keys (BUG-011)
   if (typeof sessionClear === 'function') {
     sessionClear();
@@ -1162,6 +1271,8 @@ if (typeof window !== 'undefined') {
   window.updateMemberMediaConsent     = updateMemberMediaConsent;
   window.registerMember               = registerMember;
   window.loginMember                  = loginMember;
+  window.renderMemberAvatar             = renderMemberAvatar;
+  window.resetMemberAvatar              = resetMemberAvatar;
   window.renderDashboard              = renderDashboard;
   window.loadMemberOrders             = loadMemberOrders;
   window.logoutMember                 = logoutMember;
@@ -1191,6 +1302,8 @@ if (typeof module !== 'undefined' && module.exports) {
     goToMemberTab,
     registerMember,
     loginMember,
+    renderMemberAvatar,
+    resetMemberAvatar,
     renderDashboard,
     loadMemberOrders,
     logoutMember,

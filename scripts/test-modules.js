@@ -4583,6 +4583,57 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ UI/UX design tokens, dual-theme meta synchronization, and WCAG AA contrast guards verified');
   }
 
+  // ── Member Avatar, Initials & Creator RGB Animation Verification ───────
+  console.log('Testing Member Avatar, Initials & Creator RGB Animation...');
+  {
+    const utils = require('../js/core/utils.js');
+    const memberMod = require('../js/modules/member.js');
+    const fsMod = require('fs');
+    const pathMod = require('path');
+    const compCss = fsMod.readFileSync(pathMod.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const tasksSrc = fsMod.readFileSync(pathMod.join(__dirname, '..', 'js', 'modules', 'tasks.js'), 'utf8');
+
+    // 1. Creator Detection & Initials
+    assert.strictEqual(typeof utils.isPortalCreator, 'function', 'isPortalCreator must be exported');
+    assert.strictEqual(utils.isPortalCreator('Jeshua Koh'), true, 'Jeshua Koh must be identified as creator');
+    assert.strictEqual(utils.isPortalCreator('jeshua koh'), true, 'Case-insensitive creator detection');
+    assert.strictEqual(utils.isPortalCreator('Jeshua Koh', 'jeshua@mirtech.io'), true, 'Creator email detected');
+    assert.strictEqual(utils.isPortalCreator('Jayden Wong'), false, 'Jayden Wong is not creator');
+    assert.strictEqual(utils.isPortalCreator('Marcus Tan'), false, 'Marcus Tan is not creator');
+
+    // 2. Avatar Initial Extraction
+    assert.strictEqual(typeof utils.getMemberAvatarInitial, 'function', 'getMemberAvatarInitial must be exported');
+    assert.strictEqual(utils.getMemberAvatarInitial('Jeshua Koh'), 'JK', 'Creator receives "JK"');
+    assert.strictEqual(utils.getMemberAvatarInitial('Jayden Wong'), 'J', 'Regular member receives single first letter "J"');
+    assert.strictEqual(utils.getMemberAvatarInitial('Marcus Tan'), 'M', 'Regular member receives single first letter "M"');
+    assert.strictEqual(utils.getMemberAvatarInitial('Unassigned'), 'U', 'Unassigned receives "U"');
+
+    // 3. Non-sequential FNV-1a Hash Color Distribution
+    assert.strictEqual(typeof utils.getMemberAvatarColor, 'function', 'getMemberAvatarColor must be exported');
+    assert.ok(Array.isArray(utils.AVATAR_PALETTE) && utils.AVATAR_PALETTE.length >= 16, 'Palette must have at least 16 colors');
+    const colorJayden = utils.getMemberAvatarColor('Jayden');
+    const colorJoshua = utils.getMemberAvatarColor('Joshua');
+    const colorJoel = utils.getMemberAvatarColor('Joel');
+    assert.notStrictEqual(colorJayden, colorJoshua, 'Different names starting with J get distinct colors');
+    assert.notStrictEqual(colorJayden, colorJoel, 'Different names starting with J get distinct colors');
+
+    // 4. CSS Animation & Hover Rules
+    assert.ok(compCss.includes('@keyframes avatarRgbFlow'), 'CSS must define @keyframes avatarRgbFlow');
+    assert.ok(compCss.includes('.creator-rgb-avatar'), 'CSS must define .creator-rgb-avatar');
+    assert.ok(compCss.includes('linear-gradient') && compCss.includes('avatarRgbFlow'), 'creator-rgb-avatar must use animated gradient');
+    assert.ok(compCss.includes('.task-card-avatar:hover') && compCss.includes('transform: scale('), 'Hover scale on avatars verified');
+
+    // 5. Tasks Module Integration
+    assert.ok(tasksSrc.includes('isPortalCreator') && tasksSrc.includes('creator-rgb-avatar'), 'tasks.js incorporates creator RGB avatar');
+    assert.ok(tasksSrc.includes('title=') && tasksSrc.includes('cursor:pointer'), 'tasks.js sets hover title and pointer cursor');
+
+    // 6. Member Module Integration
+    assert.strictEqual(typeof memberMod.renderMemberAvatar, 'function', 'renderMemberAvatar must be exported');
+    assert.strictEqual(typeof memberMod.resetMemberAvatar, 'function', 'resetMemberAvatar must be exported');
+
+    console.log('  ✔ Portal creator JK with RGB animation, single-letter initials, non-sequential color hashing, and hover titles verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
