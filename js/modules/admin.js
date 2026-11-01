@@ -257,6 +257,10 @@
   function verifyAdminSessionSync() {
     var token = getAdminSessionToken();
     if (!token) return false;
+    // Server-issued tokens (TSK-036) do not use dot notation; verified asynchronously
+    if (token.indexOf('.') === -1) {
+      return true;
+    }
     if (!_adminSessionData) {
       try {
         var parts = token.split('.');
@@ -289,14 +293,31 @@
   }
 
   async function verifyAdminSession() {
-    if (!verifyAdminSessionSync()) return false;
     var token = getAdminSessionToken();
     if (!token) return false;
+
+    var client = getSupabaseClient();
+    if (client && typeof client.rpc === 'function') {
+      try {
+        var verifyRes = await client.rpc('rpc_verify_admin_session', { p_token: token });
+        if (verifyRes && verifyRes.valid === true) {
+          return true;
+        } else if (verifyRes && verifyRes.valid === false) {
+          revokeAdminSession('Server rejected admin session.');
+          return false;
+        }
+      } catch (rpcErr) {
+        console.warn('RPC session verify fallback:', rpcErr);
+      }
+    }
+
+    if (!verifyAdminSessionSync()) return false;
     var parts = token.split('.');
     if (parts.length !== 2) {
       revokeAdminSession('Malformed session token.');
       return false;
     }
+    if (!_adminSessionData) return false;
 
     var payload = _adminSessionData;
     var signPayload = [
@@ -433,6 +454,13 @@
   }
 
   function logoutAdmin() {
+    var token = getAdminSessionToken();
+    var client = getSupabaseClient();
+    if (token && client && typeof client.rpc === 'function') {
+      try {
+        client.rpc('rpc_admin_logout', { p_token: token }).catch(function() {});
+      } catch (_) {}
+    }
     revokeAdminSession();
     if (typeof document === 'undefined') return;
 
@@ -470,17 +498,113 @@
     var passEl = document.getElementById('admin-pass');
     var pass = passEl ? passEl.value : '';
 
+    var client = getSupabaseClient();
+    var officerEmail = typeof sessionGet === 'function' ? sessionGet('email') : '';
+    var officerRank = typeof sessionGet === 'function' ? sessionGet('rank') : '';
+
+    // Calculate input SHA-256 hash
+    var inputHash = '';
+    if (typeof computeSha256 === 'function') {
+      inputHash = await computeSha256(pass);
+    } else if (typeof window !== 'undefined' && typeof window.computeSha256 === 'function') {
+      inputHash = await window.computeSha256(pass);
+    } else if (typeof crypto !== 'undefined') {
+      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
+      if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
+        var enc = new TextEncoder();
+        var buf = await cryptoObj.subtle.digest('SHA-256', enc.encode(pass));
+        var bytes = new Uint8Array(buf);
+        for (var i = 0; i < bytes.length; i++) {
+          var b = bytes[i].toString(16);
+          inputHash += b.length === 1 ? '0' + b : b;
+        }
+      }
+    }
+
+    // Try server-side RPC authentication (TSK-036)
+    if (client && typeof client.rpc === 'function') {
+      try {
+        var rpcAuth = await client.rpc('rpc_admin_login', {
+          p_password_hash: inputHash,
+          p_officer_email: officerEmail,
+          p_officer_rank: officerRank
+        });
+
+        if (rpcAuth && rpcAuth.token) {
+          _adminLoginFailures = 0;
+          _adminLockoutUntil = 0;
+          _adminSessionToken = rpcAuth.token;
+          _adminSessionData = {
+            role: rpcAuth.role || 'officer_admin',
+            officerEmail: officerEmail,
+            officerRank: officerRank,
+            issuedAt: Date.now(),
+            expiresAt: rpcAuth.expires_at ? new Date(rpcAuth.expires_at).getTime() : Date.now() + SESSION_MAX_LIFETIME_MS,
+            lastActiveAt: Date.now()
+          };
+
+          if (typeof sessionStorage !== 'undefined') {
+            try {
+              sessionStorage.setItem('bb_admin_session_token', rpcAuth.token);
+              sessionStorage.setItem('bb_admin_session_data', JSON.stringify(_adminSessionData));
+            } catch (_) {}
+          }
+
+          if (typeof sessionSet === 'function') {
+            sessionSet('adminAuthed', true);
+          }
+
+          if (passEl) passEl.value = '';
+
+          var loginBox = document.getElementById('admin-login-box');
+          if (loginBox) loginBox.style.display = 'none';
+
+          var panel = document.getElementById('admin-panel');
+          if (panel) panel.style.display = 'block';
+
+          initAdminDomGuard();
+          backToAdminHome();
+
+          if (typeof renderGallery === 'function') renderGallery();
+          if (typeof renderAnnouncements === 'function') renderAnnouncements();
+          if (typeof loadResources === 'function') loadResources();
+          if (typeof initCalendarModule === 'function') initCalendarModule();
+          return true;
+        } else if (rpcAuth && rpcAuth.success === false) {
+          _adminLoginFailures++;
+          if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
+            var lockoutMs = Math.min(
+              BASE_LOCKOUT_MS * Math.pow(2, _adminLoginFailures - MAX_LOGIN_FAILURES),
+              MAX_LOCKOUT_MS
+            );
+            _adminLockoutUntil = Date.now() + lockoutMs;
+            if (typeof showToast === 'function') {
+              showToast('Security Alert: Multiple failed attempts. Locked for ' + Math.round(lockoutMs / 1000) + 's.', 'error');
+            }
+          } else {
+            if (typeof showToast === 'function') {
+              showToast('Wrong password! Attempt ' + _adminLoginFailures + ' of ' + MAX_LOGIN_FAILURES + '.', 'error');
+            }
+          }
+          logoutAdmin();
+          return false;
+        }
+      } catch (rpcErr) {
+        console.warn('RPC admin login fallback:', rpcErr);
+      }
+    }
+
     var valid = await verifyAdminPassword(pass);
     if (!valid) {
       _adminLoginFailures++;
       if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
-        var lockoutMs = Math.min(
+        var lockoutMs2 = Math.min(
           BASE_LOCKOUT_MS * Math.pow(2, _adminLoginFailures - MAX_LOGIN_FAILURES),
           MAX_LOCKOUT_MS
         );
-        _adminLockoutUntil = Date.now() + lockoutMs;
+        _adminLockoutUntil = Date.now() + lockoutMs2;
         if (typeof showToast === 'function') {
-          showToast('Security Alert: Multiple failed attempts. Locked for ' + Math.round(lockoutMs / 1000) + 's.', 'error');
+          showToast('Security Alert: Multiple failed attempts. Locked for ' + Math.round(lockoutMs2 / 1000) + 's.', 'error');
         }
       } else {
         if (typeof showToast === 'function') {
@@ -496,17 +620,15 @@
     _adminLockoutUntil = 0;
 
     // 3. Issue cryptographic HMAC session token
-    var officerEmail = typeof sessionGet === 'function' ? sessionGet('email') : '';
-    var officerRank = typeof sessionGet === 'function' ? sessionGet('rank') : '';
     await createAdminSessionToken(officerEmail, officerRank);
 
     if (passEl) passEl.value = '';
 
-    var loginBox = document.getElementById('admin-login-box');
-    if (loginBox) loginBox.style.display = 'none';
+    var loginBoxFallback = document.getElementById('admin-login-box');
+    if (loginBoxFallback) loginBoxFallback.style.display = 'none';
 
-    var panel = document.getElementById('admin-panel');
-    if (panel) panel.style.display = 'block';
+    var panelFallback = document.getElementById('admin-panel');
+    if (panelFallback) panelFallback.style.display = 'block';
 
     initAdminDomGuard();
     backToAdminHome();

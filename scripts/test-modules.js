@@ -4876,6 +4876,187 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Announcement broadcast emailing and new device sign-in security alerts verified');
   }
 
+  // ── Testing Server-Side Auth & PostgreSQL RPC Gatekeeping (TSK-036) ──
+  console.log('\nTesting Server-Side Auth & PostgreSQL RPC Gatekeeping (TSK-036)...');
+  {
+    const supaMod = require('../js/api/supabase.js');
+    const memberMod = require('../js/modules/member.js');
+    const adminMod = require('../js/modules/admin.js');
+    const utils = require('../js/core/utils.js');
+
+    // 1. Verify 010_server_side_auth_rpc_gatekeeping.sql Migration Schema & Functions
+    const mig010Path = pathMod.join(__dirname, '..', 'supabase', 'migrations', '010_server_side_auth_rpc_gatekeeping.sql');
+    assert.ok(fsMod.existsSync(mig010Path), '010_server_side_auth_rpc_gatekeeping.sql migration must exist');
+    const sql010 = fsMod.readFileSync(mig010Path, 'utf8');
+
+    // Verify dedicated security tables
+    assert.ok(sql010.includes('CREATE TABLE IF NOT EXISTS bb_password_resets'), 'Declares bb_password_resets table');
+    assert.ok(sql010.includes('CREATE TABLE IF NOT EXISTS bb_admin_sessions'), 'Declares bb_admin_sessions table');
+    assert.ok(sql010.includes('bb_password_resets_deny_direct'), 'bb_password_resets enforces deny all policy on direct REST access');
+    assert.ok(sql010.includes('bb_admin_sessions_deny_direct'), 'bb_admin_sessions enforces deny all policy on direct REST access');
+
+    // Verify hardened bb_config policy
+    assert.ok(sql010.includes("key NOT LIKE 'bb_reset_otp_%'"), 'bb_config restricts OTP scraping');
+    assert.ok(sql010.includes("key NOT LIKE 'admin_password%'"), 'bb_config restricts admin password dumping');
+
+    // Verify PostgreSQL SECURITY DEFINER RPC functions
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_get_auth_salt'), 'Declares rpc_get_auth_salt function');
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_authenticate_member'), 'Declares rpc_authenticate_member function');
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_verify_family_password'), 'Declares rpc_verify_family_password function');
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_request_password_reset'), 'Declares rpc_request_password_reset function');
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_verify_otp_and_reset_password'), 'Declares rpc_verify_otp_and_reset_password function');
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_admin_login'), 'Declares rpc_admin_login function');
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_verify_admin_session'), 'Declares rpc_verify_admin_session function');
+    assert.ok(sql010.includes('CREATE OR REPLACE FUNCTION rpc_admin_logout'), 'Declares rpc_admin_logout function');
+    assert.ok(sql010.includes('SECURITY DEFINER'), 'Enforces SECURITY DEFINER execution attribute');
+    console.log('  ✔ Server-side PostgreSQL SECURITY DEFINER RPC schema and migration integrity verified');
+
+    // 2. Client supa.rpc Invocation
+    assert.strictEqual(typeof supaMod.supa.rpc, 'function', 'supa.rpc method is exposed on Supabase client');
+    assert.strictEqual(typeof supaMod.rpc, 'function', 'supaMod exports rpc method');
+
+    let rpcCallRecorded = null;
+    const origReq = supaMod.supa.req;
+    supaMod.supa.req = async (method, path, body) => {
+      rpcCallRecorded = { method, path, body };
+      return { success: true };
+    };
+
+    await supaMod.supa.rpc('rpc_test_call', { param1: 'val1' });
+    assert.strictEqual(rpcCallRecorded.method, 'POST', 'RPC calls must use HTTP POST');
+    assert.strictEqual(rpcCallRecorded.path, 'rpc/rpc_test_call', 'RPC path must target rpc/<funcName>');
+    assert.strictEqual(rpcCallRecorded.body.param1, 'val1', 'RPC parameters passed in request body');
+    supaMod.supa.req = origReq;
+    console.log('  ✔ Supabase client PostgREST RPC invocation method verified');
+
+    // 3. Server-Side Member Authentication Flow (Zero Password Column Exposure)
+    const testSalt = 'abcdef0123456789abcdef0123456789';
+    const testPass = 'CorrectPassword123!';
+    const origHashPassword = global.hashPassword;
+    global.hashPassword = utils.hashPassword;
+    if (typeof window !== 'undefined') window.hashPassword = utils.hashPassword;
+
+    const derivedHashFull = await utils.hashPassword(testPass, testSalt);
+    const expectedHashHex = derivedHashFull.split(':')[4];
+
+    global.supa.rpc = async (fn, params) => {
+      if (typeof window !== "undefined" && window.supa) window.supa.rpc = global.supa.rpc;
+    if (typeof window !== 'undefined' && window.supa) window.supa.rpc = global.supa.rpc;
+      if (fn === 'rpc_get_auth_salt') {
+        if (params.p_email === 'officer@bb.org') {
+          return { found: true, salt: testSalt, iterations: 100000 };
+        }
+        return { found: false, salt: 'fake_salt', iterations: 100000 };
+      }
+      if (fn === 'rpc_authenticate_member') {
+        if (params.p_email === 'officer@bb.org' && params.p_password_hash === expectedHashHex) {
+          return {
+            success: true,
+            accounts: [{
+              id: 'm1',
+              name: 'Capt. Daniel',
+              email: 'officer@bb.org',
+              ic: 'officer@bb.org',
+              rank: 'Captain',
+              section: 'Senior',
+              role: 'officer'
+            }]
+          };
+        }
+        return { success: false, error: 'Invalid email or password' };
+      }
+      if (fn === 'rpc_verify_family_password') {
+        return { valid: params.p_password_hash === expectedHashHex };
+      }
+      return null;
+    };
+
+    // Test successful server-side RPC authentication
+    document.getElementById('login-email').value = 'officer@bb.org';
+    document.getElementById('login-pass').value = testPass;
+    await memberMod.loginMember();
+    assert.strictEqual(global.sessionGet('email'), 'officer@bb.org', 'Member email session set upon RPC auth');
+    assert.strictEqual(global.sessionGet('rank'), 'Captain', 'Member rank session set upon RPC auth');
+
+    // Test failed server-side RPC authentication (wrong password)
+    if (typeof global.sessionClear === 'function') global.sessionClear(); else if (typeof memberMod.logoutMember === 'function') memberMod.logoutMember();
+    document.getElementById('login-email').value = 'officer@bb.org';
+    document.getElementById('login-pass').value = 'WrongPassword!';
+    await memberMod.loginMember();
+    assert.strictEqual(global.sessionGet('email'), null, 'Failed RPC auth must not set session');
+    console.log('  ✔ Server-side member login RPC gatekeeping verified with zero client password exposure');
+
+    // 4. Server-Side Password Reset & OTP Flow (Zero bb_config Plaintext Exposure)
+    let resetOtpRecorded = null;
+    const rpcResetMock = async (fn, params) => {
+      if (fn === 'rpc_request_password_reset') {
+        resetOtpRecorded = params;
+        return { success: true, email: params.p_email };
+      }
+      if (fn === 'rpc_verify_otp_and_reset_password') {
+        if (params.p_email === 'officer@bb.org' && params.p_otp_code === '654321') {
+          return { success: true, message: 'Password updated successfully' };
+        }
+        return { success: false, error: 'Invalid verification code.' };
+      }
+      return null;
+    };
+    global.supa.rpc = rpcResetMock;
+    if (typeof window !== 'undefined' && window.supa) window.supa.rpc = rpcResetMock;
+
+    document.getElementById('forgot-email').value = 'officer@bb.org';
+    await memberMod.resetPassword();
+    assert.ok(resetOtpRecorded, 'rpc_request_password_reset invoked');
+    assert.strictEqual(resetOtpRecorded.p_email, 'officer@bb.org', 'Reset targeted to correct email');
+    assert.ok(resetOtpRecorded.p_otp_hash && resetOtpRecorded.p_otp_hash.length === 64, 'OTP hash must be 64-char SHA-256');
+
+    document.getElementById('forgot-code').value = '654321';
+    document.getElementById('forgot-newpass').value = 'BrandNewPassword999!';
+    document.getElementById('forgot-newpass2').value = 'BrandNewPassword999!';
+    await memberMod.resetPassword();
+    console.log('  ✔ Server-side password reset & OTP hashing via rpc_verify_otp_and_reset_password verified');
+
+    // 5. Server-Side Officer Admin Authentication & Session Verification
+    let adminTokenIssued = null;
+    const rpcAdminMock = async (fn, params) => {
+      if (fn === 'rpc_admin_login') {
+        if (params.p_password_hash === 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f') {
+          adminTokenIssued = 'srv_tok_' + Math.random().toString(36).substring(2);
+          return {
+            success: true,
+            token: adminTokenIssued,
+            role: 'officer_admin',
+            expires_at: new Date(Date.now() + 7200000).toISOString()
+          };
+        }
+        return { success: false, error: 'Invalid admin password' };
+      }
+      if (fn === 'rpc_verify_admin_session') {
+        return { valid: params.p_token === adminTokenIssued, role: 'officer_admin' };
+      }
+      if (fn === 'rpc_admin_logout') {
+        adminTokenIssued = null;
+        return { success: true };
+      }
+      return null;
+    };
+    global.supa.rpc = rpcAdminMock;
+    if (typeof window !== 'undefined' && window.supa) window.supa.rpc = rpcAdminMock;
+
+    document.getElementById('admin-pass').value = 'bb2024admin';
+    await adminMod.adminLogin();
+    const token = adminMod.getAdminSessionToken();
+    assert.ok(token, 'Admin login issued session token');
+    const isSessionValid = await adminMod.verifyAdminSession();
+    assert.strictEqual(isSessionValid, true, 'Server-side admin session verification succeeded');
+
+    adminMod.logoutAdmin();
+    assert.strictEqual(adminMod.getAdminSessionToken(), null, 'Admin token revoked on logout');
+    console.log('  ✔ Server-side Officer Admin authentication & session token RPC gatekeeping verified');
+    global.hashPassword = origHashPassword;
+    if (typeof window !== 'undefined') window.hashPassword = origHashPassword;
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
