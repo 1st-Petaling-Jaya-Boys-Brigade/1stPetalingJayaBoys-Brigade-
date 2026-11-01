@@ -986,8 +986,8 @@ async function finalizeMemberRegistration(data) {
   var rememberMe = remEl ? remEl.checked : true;
   sessionSet('remember', rememberMe);
 
-  sessionSet('email', data.email);
   sessionSet('ic', data.ic);
+  sessionSet('email', data.email);
   sessionSet('name', data.name);
   sessionSet('rank', data.rank);
   sessionSet('squad', data.squad);
@@ -1116,8 +1116,8 @@ async function loginMember() {
 function completeLoginWithAccount(m, rememberMe) {
   var userEmail = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : m.ic));
   sessionSet('remember', rememberMe !== false);
-  sessionSet('email', userEmail);
   sessionSet('ic', m.ic);
+  sessionSet('email', userEmail);
   sessionSet('rank', m.rank || '');
   sessionSet('squad', m.squad || '');
   sessionSet('name', m.name || '');
@@ -1185,7 +1185,7 @@ function showAccountPickerModal(accounts, rememberMe) {
       if (acc.photo_url) {
         avatarHtml = '<img src="' + escapeHtml(acc.photo_url) + '" class="account-picker-avatar-img" alt="' + escapeHtml(acc.name) + '"/>';
       } else {
-        var isCr = (acc.ic === 'jeshuakoh2008@gmail.com' || (acc.email && acc.email.toLowerCase() === 'jeshuakoh2008@gmail.com'));
+        var isCr = (typeof isPortalCreator === 'function') ? isPortalCreator(acc.name, acc.email || acc.ic) : (acc.name && acc.name.toLowerCase() === 'jeshua koh');
         var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(acc.name) : '#047857';
         var initial = isCr ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(acc.name, acc.email) : ((acc.name || 'M').trim().charAt(0).toUpperCase() || '?'));
         if (isCr) {
@@ -1410,7 +1410,7 @@ function hasActiveCustomPhoto() {
       return true;
     }
   }
-  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   if (id) {
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     if (typeof localStorage !== 'undefined' && localStorage.getItem('bb_pfp_' + cleanFileName)) {
@@ -1449,7 +1449,7 @@ async function removePfp(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
   if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
 
-  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   if (!id) {
     if (typeof showToast === 'function') showToast('Please log in to manage your profile photo.', 'warning');
     return;
@@ -1544,7 +1544,7 @@ async function removePfp(e) {
 // ── Member Dashboard & Profile ──────────────────────────────────────────────
 
 async function renderDashboard() {
-  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   if (!id) return;
 
   var authBox = document.getElementById('m-auth');
@@ -1696,7 +1696,7 @@ async function renderDashboard() {
 }
 
 async function loadMemberOrders() {
-  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   var container = document.getElementById('member-orders-list');
   if (!id || !container) return;
 
@@ -1837,7 +1837,7 @@ function logoutMember() {
 async function uploadPfp(input) {
   var file = input.files[0];
   if (!file) return;
-  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   if (!id) return;
 
   try {
@@ -1971,19 +1971,23 @@ async function sendPasswordResetEmail() {
   try {
     var client = getSupa();
 
-    // Check if account exists in bb_members
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=ic,name,department');
-    if (!data || !data.length) {
-      // Check legacy exact case
-      data = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name,department');
+    // Check if account exists in bb_members (checking exact email, ic, or family accounts)
+    var accounts = await findMembersByEmail(email);
+    if (!accounts || !accounts.length) {
+      var rawAccounts = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name,department');
+      if (rawAccounts && rawAccounts.length) accounts = rawAccounts;
     }
-    if (!data || !data.length || data[0].department === 'deleted' || data[0].department === 'archived_deleted') {
+    // Filter out deleted members
+    accounts = (accounts || []).filter(function(a) {
+      return a.department !== 'deleted' && a.department !== 'archived_deleted';
+    });
+    if (!accounts || !accounts.length) {
       if (btn) { btn.disabled = false; btn.textContent = origText; }
       if (typeof showToast === 'function') showToast('No active account found with this email address.', 'warning');
       return;
     }
 
-    var member = data[0];
+    var member = accounts[0];
     var memberName = member.name || 'Member';
 
     // Generate secure 6-digit verification code
@@ -2016,25 +2020,51 @@ async function sendPasswordResetEmail() {
       } catch (e2) {}
     }
 
-    // Trigger Supabase Auth recovery email if user exists in auth.users
+    // Dispatch reset code via Google Apps Script Webhook
+    var hasMailer = false;
     try {
-      var authUrl = (typeof SUPA_URL !== 'undefined' ? SUPA_URL : (window.SUPA_URL || '')) + '/auth/v1/recover';
-      var authKey = typeof SUPA_KEY !== 'undefined' ? SUPA_KEY : (window.SUPA_KEY || '');
-      await fetch(authUrl, {
-        method: 'POST',
-        headers: {
-          apikey: authKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email: email })
-      });
-    } catch (recoverErr) {}
+      var scriptUrl = '';
+      var syncToken = '';
+      if (typeof window !== 'undefined' && window._masterSheetConfig) {
+        scriptUrl = window._masterSheetConfig.scriptUrl || '';
+        syncToken = window._masterSheetConfig.syncToken || '';
+      }
+      if (!scriptUrl && client && typeof client.get === 'function') {
+        var sheetRows = await client.get('bb_config?key=eq.bb_master_sheet_config&select=value');
+        if (!sheetRows || !sheetRows.length) {
+          sheetRows = await client.get('bb_config?key=eq.bb_att_sheet&select=value');
+        }
+        if (sheetRows && sheetRows.length && sheetRows[0].value) {
+          var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
+          scriptUrl = parsed.scriptUrl || '';
+          syncToken = parsed.syncToken || syncToken;
+        }
+      }
+
+      if (scriptUrl && scriptUrl.trim().length > 0) {
+        hasMailer = true;
+        var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
+          'action=sendVerificationEmail' +
+          '&email=' + encodeURIComponent(email) +
+          '&code=' + encodeURIComponent(code) +
+          '&name=' + encodeURIComponent(memberName) +
+          (syncToken ? '&token=' + encodeURIComponent(syncToken) : '');
+
+        fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function() {});
+      }
+    } catch (mailErr) {
+      console.warn('Apps Script reset mail dispatch note:', mailErr);
+    }
 
     // Update UI for Step 2
     var noticeEl = document.getElementById('forgot-notice');
     if (noticeEl) {
+      var fallbackBtn = '';
+      if (!hasMailer) {
+        fallbackBtn = '<div style="margin-top:8px;"><button type="button" onclick="document.getElementById(\'forgot-code\').value=\'' + escapeHtml(code) + '\'" style="background:var(--accent);color:#0f172a;border:none;border-radius:6px;padding:4px 12px;font-weight:700;font-size:14px;cursor:pointer;">' + escapeHtml(code) + '</button></div>';
+      }
       noticeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> A 6-digit reset code has been sent to <strong>' + escapeHtml(email) + '</strong>.</span><br>'
-        + '<span style="font-size:11px;opacity:0.9;">Please check your inbox (and spam folder) and enter the code below. Valid for 15 minutes.</span>';
+        + '<span style="font-size:11px;opacity:0.9;">Please check your inbox (and spam folder) and enter the code below. Valid for 15 minutes.</span>' + fallbackBtn;
     }
 
     var codeInp = document.getElementById('forgot-code');
