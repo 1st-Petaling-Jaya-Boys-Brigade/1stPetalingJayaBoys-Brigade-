@@ -9,7 +9,10 @@
 // ── State ──────────────────────────────────────────────────────────────────
 var announcements = [];
 
-var REACT_EMOJIS = ['👍', '❤️', '😂', '😮', '🙏', '🔥'];
+// ── Curated Positive Reaction Allowlist (TSK-040) ───────────────────────────
+// Restricts reactions exclusively to positive/affirming emojis to prevent peer shaming
+var SAFE_REACTION_EMOJIS = ['👍', '🫡', '🎉', '❤️', '🔥', '🙏'];
+var REACT_EMOJIS = SAFE_REACTION_EMOJIS;
 
 var ANN_EMOJIS = [
   '📢', '📌', '✅', '❌', '⚠️', '🎉', '🏆', '📅', '🕐', '📝', '👥', '🎖️',
@@ -237,6 +240,13 @@ async function toggleReaction(annIdx, emoji) {
 
   var a = announcements[annIdx];
   if (!a) return;
+  // Enforce curated positive reaction allowlist (TSK-040)
+  if (SAFE_REACTION_EMOJIS.indexOf(emoji) === -1) {
+    if (typeof showToast === 'function') {
+      showToast('Only approved positive reactions are permitted.', 'warning');
+    }
+    return;
+  }
   if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
   if (!Array.isArray(a.reactions[emoji])) a.reactions[emoji] = [];
 
@@ -662,6 +672,7 @@ if (typeof document !== 'undefined') {
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 if (typeof window !== 'undefined') {
   window.announcements            = announcements;
+  window.SAFE_REACTION_EMOJIS     = SAFE_REACTION_EMOJIS;
   window.REACT_EMOJIS             = REACT_EMOJIS;
   window.ANN_EMOJIS               = ANN_EMOJIS;
   window.sanitizeAnnouncementHtml = sanitizeAnnouncementHtml;
@@ -687,6 +698,7 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     announcements: announcements,
+    SAFE_REACTION_EMOJIS: SAFE_REACTION_EMOJIS,
     REACT_EMOJIS: REACT_EMOJIS,
     ANN_EMOJIS: ANN_EMOJIS,
     sanitizeAnnouncementHtml: sanitizeAnnouncementHtml,

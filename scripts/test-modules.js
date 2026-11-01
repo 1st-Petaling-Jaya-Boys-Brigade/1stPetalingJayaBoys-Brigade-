@@ -5131,6 +5131,97 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Subresource Integrity (SRI) metadata generation and cryptographic verification verified');
   }
 
+  // =========================================================================
+  // TSK-040: Minor Directory Privacy, Leaderboard PII Masking & Safe Reactions
+  // =========================================================================
+  console.log('\n--- TSK-040: Minor Directory Privacy, Leaderboard PII Masking & Safe Reactions ---');
+  {
+    // 1. Surname Masking Utilities
+    assert.strictEqual(utils.maskSurname('Jeshua Koh'), 'Jeshua K.', 'maskSurname masks 2-part name');
+    assert.strictEqual(utils.maskSurname('Tan Wei Lun'), 'Tan Wei L.', 'maskSurname masks 3-part name');
+    assert.strictEqual(utils.maskSurname('Muhammad Amir bin Abdullah'), 'Muhammad Amir bin A.', 'maskSurname masks multi-part name');
+    assert.strictEqual(utils.maskSurname('Daniel'), 'Daniel', 'maskSurname preserves single-word name');
+    assert.strictEqual(utils.maskSurname('Sgt Jeshua Koh'), 'Sgt Jeshua K.', 'maskSurname handles rank prefix');
+    assert.strictEqual(utils.maskSurname('Jeshua Koh (L1)'), 'Jeshua K. (L1)', 'maskSurname preserves parenthetical suffix');
+    assert.strictEqual(utils.maskSurname(''), '', 'maskSurname handles empty string');
+
+    assert.strictEqual(utils.maskMemberNameForDirectory('Jeshua Koh', true), 'Jeshua Koh', 'maskMemberNameForDirectory shows full name to self/Officer');
+    assert.strictEqual(utils.maskMemberNameForDirectory('Jeshua Koh', false), 'Jeshua K.', 'maskMemberNameForDirectory masks surname to peers');
+    console.log('  ✔ Surname masking utilities correctly protect minor identities across name formats');
+
+    // 2. Safe Attendance Rate Formatting & Demerits Privacy
+    const highAtt = utils.formatSafeAttendanceRate(90, false);
+    assert.strictEqual(highAtt.isMasked, false, 'High attendance is visible');
+    assert.strictEqual(highAtt.text, '90%', 'High attendance percentage formatted');
+
+    const lowAttPeer = utils.formatSafeAttendanceRate(45, false);
+    assert.strictEqual(lowAttPeer.isMasked, true, 'Low attendance is masked to peers');
+    assert.strictEqual(lowAttPeer.text, 'Protected', 'Low attendance shows Protected badge to peers');
+
+    const lowAttSelf = utils.formatSafeAttendanceRate(45, true);
+    assert.strictEqual(lowAttSelf.isMasked, false, 'Low attendance is visible to self/Officer');
+    assert.strictEqual(lowAttSelf.text, '45%', 'Low attendance shows real percentage to self/Officer');
+
+    assert.strictEqual(utils.getSafeMemberDemerits(10, true), 10, 'Officer/Self sees actual demerits');
+    assert.strictEqual(utils.getSafeMemberDemerits(10, false), 0, 'Peers see 0 demerits (demerits are confidential)');
+    console.log('  ✔ Low attendance rate and demerit confidentiality verified (prevents peer shaming)');
+
+    // 3. Curated Positive Reaction Controls
+    const annMod = typeof announcementsModule !== 'undefined' ? announcementsModule : require('../js/modules/announcements.js');
+    assert.deepStrictEqual(annMod.SAFE_REACTION_EMOJIS, ['👍', '🫡', '🎉', '❤️', '🔥', '🙏'], 'SAFE_REACTION_EMOJIS contains curated positive emojis');
+    assert.strictEqual(annMod.SAFE_REACTION_EMOJIS.includes('😂'), false, 'Mocking 😂 emoji is excluded from allowlist');
+    assert.strictEqual(annMod.SAFE_REACTION_EMOJIS.includes('😮'), false, '😮 emoji is excluded from allowlist');
+
+    // Authenticate user for reaction tests
+    global.sessionGet = (k) => (k === 'email' || k === 'ic' ? 'test@bbpj1.org' : (k === 'name' ? 'Test User' : null));
+    if (typeof window !== 'undefined') window.sessionGet = global.sessionGet;
+
+    // Verify negative or unapproved reaction is rejected
+    const prevReactionCount = (annMod.announcements[0]?.reactions?.['😂'] || []).length;
+    await annMod.toggleReaction(0, '😂');
+    const afterReactionCount = (annMod.announcements[0]?.reactions?.['😂'] || []).length;
+    assert.strictEqual(afterReactionCount, prevReactionCount, 'Unapproved emoji reaction is blocked by allowlist guard');
+
+    // Verify positive approved reaction works
+    await annMod.toggleReaction(0, '🫡');
+    assert.ok(annMod.announcements[0]?.reactions?.['🫡']?.includes('test@bbpj1.org'), 'Curated positive emoji reaction (🫡 salute) accepted');
+    console.log('  ✔ Curated positive reaction allowlist strictly enforced on announcements');
+
+    // 4. Platoon Leaderboard Roster & Privacy Verification
+    const attMod = attendanceMod;
+    let leaderboardEl = document.getElementById('company-platoon-leaderboard');
+    if (!leaderboardEl) {
+      leaderboardEl = document.createElement('div');
+      leaderboardEl.id = 'company-platoon-leaderboard';
+      document.body.appendChild(leaderboardEl);
+    }
+
+    // Set viewer as guest / peer
+    global.sessionGet = (k) => (k === 'name' ? 'Guest Visitor' : null);
+    if (typeof window !== 'undefined') window.sessionGet = global.sessionGet;
+
+    await attMod.renderCompanyLeaderboard();
+    const renderedHtml = leaderboardEl.innerHTML;
+
+    assert.ok(renderedHtml.includes('Minor Privacy &amp; Safe-Standings Active') || renderedHtml.includes('Minor Privacy'), 'Leaderboard includes active minor privacy notification');
+    assert.ok(renderedHtml.includes('Jeshua K.'), 'Leaderboard masks peer surnames (Jeshua K.)');
+    assert.ok(renderedHtml.includes('Protected'), 'Leaderboard masks peer low attendance percentage (Protected)');
+    assert.strictEqual(renderedHtml.includes('Jeshua Koh'), false, 'Full unmasked surname is NOT exposed to peers on shared board');
+
+    // Test toggleSquadRoster functionality
+    if (typeof attMod.toggleSquadRoster === 'function') {
+      const rosterDiv = document.getElementById('squad-roster-0');
+      if (rosterDiv) {
+        assert.strictEqual(rosterDiv.style.display || 'none', 'none', 'Squad roster initially collapsed');
+        attMod.toggleSquadRoster('squad-roster-0');
+        assert.strictEqual(rosterDiv.style.display, 'block', 'Squad roster expands on toggle');
+        attMod.toggleSquadRoster('squad-roster-0');
+        assert.strictEqual(rosterDiv.style.display, 'none', 'Squad roster collapses on second toggle');
+      }
+    }
+    console.log('  ✔ Shared platoon leaderboard verified with dynamic surname masking & low attendance protection');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

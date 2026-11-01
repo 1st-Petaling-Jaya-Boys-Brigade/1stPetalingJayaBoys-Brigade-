@@ -731,10 +731,32 @@ async function triggerMasterSheetFetch() {
   }
 }
 
+// ── Minor Directory Privacy & Safe-Standings Helpers (TSK-040) ──────────────
+
+/**
+ * Toggles visibility of a squad member roster on the company leaderboard
+ * @param {string} rosterId
+ */
+function toggleSquadRoster(rosterId) {
+  if (typeof document === 'undefined') return;
+  var el = document.getElementById(rosterId);
+  if (!el) return;
+  var isExpanded = el.style.display === 'block';
+  el.style.display = isExpanded ? 'none' : 'block';
+  var btn = document.querySelector('[data-roster-btn="' + rosterId + '"]');
+  if (btn) {
+    btn.innerHTML = isExpanded 
+      ? 'View Squad Roster &darr;' 
+      : 'Hide Squad Roster &uarr;';
+    btn.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+  }
+}
+
 // ── Company Leaderboard Renderer ───────────────────────────────────────────
 
 /**
  * Renders the Company Platoon Leaderboard on page-attendance
+ * Enforces surname masking and low attendance / demerit privacy protection (TSK-040).
  */
 async function renderCompanyLeaderboard() {
   var c = document.getElementById('company-platoon-leaderboard');
@@ -744,17 +766,23 @@ async function renderCompanyLeaderboard() {
   var rawSquads = (data && data.squads) ? data.squads : null;
   var _platoons = (data && data.platoons) ? data.platoons : {};
 
+  // Viewer authorization context for privacy masking
+  var viewerName = '';
+  var isOfficer = false;
+  if (typeof sessionGet === 'function') {
+    viewerName = (sessionGet('name') || '').trim();
+    isOfficer = (sessionGet('adminAuthed') === 'true' || sessionGet('rank') === 'Officer');
+  }
+
   // Standard competing squads fallback from master sheet
   var squadList = [];
   if (rawSquads && Object.keys(rawSquads).length > 0) {
     Object.keys(rawSquads).forEach(function(k) {
-      // Exclude Hotel if any
       if (k.toLowerCase().indexOf('hotel') === -1) {
         squadList.push(rawSquads[k]);
       }
     });
   } else {
-    // Default baseline matching Screenshot 2
     squadList = [
       { name: 'PAPA 1',  points: 161, rank: 1, platoon: 'Papa' },
       { name: 'PAPA 2',  points: 161, rank: 1, platoon: 'Papa' },
@@ -791,10 +819,85 @@ async function renderCompanyLeaderboard() {
     return { plt: 'Squad', color: 'var(--accent)', bg: 'rgba(200,150,30,0.1)', border: 'rgba(200,150,30,0.3)' };
   }
 
-  var html = '';
+  // Helper for masking surnames on leaderboard
+  var maskFn = (typeof window !== 'undefined' && typeof window.maskMemberNameForDirectory === 'function')
+    ? window.maskMemberNameForDirectory
+    : ((typeof global !== 'undefined' && typeof global.maskMemberNameForDirectory === 'function')
+      ? global.maskMemberNameForDirectory
+      : function(name, isAllowed) {
+          if (isAllowed) return name;
+          var p = String(name || '').trim().split(/\s+/);
+          return p.length > 1 ? (p.slice(0, -1).join(' ') + ' ' + p[p.length - 1].charAt(0).toUpperCase() + '.') : name;
+        });
 
-  // Render competing squad cards
-  squadList.forEach(function(sq) {
+  // Helper for safe attendance formatting
+  var safeAttFn = (typeof window !== 'undefined' && typeof window.formatSafeAttendanceRate === 'function')
+    ? window.formatSafeAttendanceRate
+    : ((typeof global !== 'undefined' && typeof global.formatSafeAttendanceRate === 'function')
+      ? global.formatSafeAttendanceRate
+      : function(pct, isAllowed) {
+          var p = Math.round(pct || 0);
+          if (isAllowed || p >= 75) return { text: p + '%', isMasked: false };
+          return { text: 'Protected', isMasked: true };
+        });
+
+  // Group synced members by squad
+  var squadMembersMap = {};
+  if (data && data.members && typeof data.members === 'object') {
+    Object.keys(data.members).forEach(function(k) {
+      var m = data.members[k];
+      if (!m || !m.name) return;
+      var sqKey = String(m.squad || '').toUpperCase().trim();
+      if (!squadMembersMap[sqKey]) squadMembersMap[sqKey] = [];
+      squadMembersMap[sqKey].push(m);
+    });
+  }
+
+  // Baseline sample roster for demo / empty states
+  var baselineRosters = {
+    'PAPA 1': [
+      { name: 'Jeshua Koh', rank: 'Sgt', points: { total: 55 }, paradeAttendance: { percentage: 92 } },
+      { name: 'Jason Koh', rank: 'Cpl', points: { total: 54 }, paradeAttendance: { percentage: 88 } },
+      { name: 'Samuel Tan', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 85 } }
+    ],
+    'PAPA 2': [
+      { name: 'Ethan Lim', rank: 'Cpl', points: { total: 55 }, paradeAttendance: { percentage: 90 } },
+      { name: 'Aaron Ng', rank: 'Pvt', points: { total: 54 }, paradeAttendance: { percentage: 84 } },
+      { name: 'Lucas Wong', rank: 'Pvt', points: { total: 52 }, paradeAttendance: { percentage: 50 } }
+    ],
+    'ZULU 1': [
+      { name: 'Benjamin Teoh', rank: 'Sgt', points: { total: 56 }, paradeAttendance: { percentage: 94 } },
+      { name: 'Daniel Yap', rank: 'L/Cpl', points: { total: 53 }, paradeAttendance: { percentage: 86 } },
+      { name: 'Ryan Tan', rank: 'Pvt', points: { total: 51 }, paradeAttendance: { percentage: 48 } }
+    ],
+    'ALPHA 2': [
+      { name: 'David Choong', rank: 'Cpl', points: { total: 53 }, paradeAttendance: { percentage: 88 } },
+      { name: 'Joshua Lee', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 82 } },
+      { name: 'Kevin Ong', rank: 'Pvt', points: { total: 50 }, paradeAttendance: { percentage: 76 } }
+    ],
+    'ALPHA 1': [
+      { name: 'Timothy Wong', rank: 'Sgt', points: { total: 52 }, paradeAttendance: { percentage: 85 } },
+      { name: 'Marcus Chen', rank: 'Cpl', points: { total: 49 }, paradeAttendance: { percentage: 80 } },
+      { name: 'Bryan Low', rank: 'Pvt', points: { total: 48 }, paradeAttendance: { percentage: 45 } }
+    ],
+    'ZULU 2': [
+      { name: 'Jonathan Sim', rank: 'Cpl', points: { total: 50 }, paradeAttendance: { percentage: 82 } },
+      { name: 'Nicholas Fong', rank: 'L/Cpl', points: { total: 48 }, paradeAttendance: { percentage: 78 } },
+      { name: 'Justin Chew', rank: 'Pvt', points: { total: 46 }, paradeAttendance: { percentage: 55 } }
+    ]
+  };
+
+  // 1. Child Safety & Minor Privacy Banner
+  var html = 
+    '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;margin-bottom:14px;font-size:11px;color:var(--text-secondary);">' +
+      '<svg class="ui-icon-sm" style="color:var(--blue);flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+      '<div>' +
+        '<strong style="color:var(--text-primary);">Minor Privacy & Safe-Standings Active:</strong> Surnames are masked to protect minors\' identities. Low attendance rates and individual demerits are strictly confidential.' +
+      '</div>' +
+    '</div>';
+
+  // 2. Render Competing Squad Cards with Safe Member Rosters
+  squadList.forEach(function(sq, sqIdx) {
     var st = getPlatoonStyle(sq.name);
     var pct = Math.min(100, Math.round(((sq.points || 0) / maxPts) * 100));
     var rankPill = sq.displayRank === 1
@@ -804,6 +907,67 @@ async function renderCompanyLeaderboard() {
         : (sq.displayRank === 3
           ? 'background:var(--surface-tint);color:var(--orange);border:1px solid var(--border-subtle);'
           : 'background:transparent;color:var(--text-muted);border:1px solid transparent;'));
+
+    var sqUpper = String(sq.name || '').toUpperCase().trim();
+    var members = squadMembersMap[sqUpper] || baselineRosters[sqUpper] || [];
+
+    // Sort members descending by points
+    members.sort(function(a, b) {
+      var pA = (a.points && a.points.total) ? a.points.total : 0;
+      var pB = (b.points && b.points.total) ? b.points.total : 0;
+      return pB - pA;
+    });
+
+    var rosterId = 'squad-roster-' + sqIdx;
+
+    // Build Roster HTML
+    var rosterHtml = '';
+    if (members.length > 0) {
+      rosterHtml = 
+        '<div id="' + rosterId + '" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">' +
+          '<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">' +
+            escapeAttHtml(sq.name) + ' Roster (' + members.length + ' Members)' +
+          '</div>' +
+          '<div style="display:grid;gap:6px;">';
+
+      members.forEach(function(m) {
+        var isSelf = viewerName && (normalizeMemberName(m.name) === normalizeMemberName(viewerName));
+        var isSelfOrOfficer = isSelf || isOfficer;
+        var maskedName = maskFn(m.name, isSelfOrOfficer);
+        var att = (m.paradeAttendance && typeof m.paradeAttendance.percentage === 'number') 
+          ? m.paradeAttendance.percentage 
+          : (m.attendance || 0);
+        var safeAtt = safeAttFn(att, isSelfOrOfficer);
+
+        var attBadge = safeAtt.isMasked
+          ? '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;background:var(--surface-tint);color:var(--text-muted);border:1px solid var(--border-subtle);" title="Low attendance protected for child privacy">Protected</span>'
+          : '<span style="font-size:11px;font-weight:700;color:var(--green);">' + escapeAttHtml(safeAtt.text) + '</span>';
+
+        var demeritHtml = '';
+        if (isSelfOrOfficer && m.points && m.points.demerits > 0) {
+          demeritHtml = '<span style="font-size:10px;color:var(--red);font-weight:600;">-' + m.points.demerits + ' pts demerit</span>';
+        }
+
+        var selfBadge = isSelf
+          ? '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:rgba(200,150,30,0.2);color:var(--accent);margin-left:4px;">You</span>'
+          : '';
+
+        rosterHtml +=
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;font-size:12px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<span style="font-size:10px;font-weight:700;color:var(--text-muted);width:38px;">' + escapeAttHtml(m.rank || 'Member') + '</span>' +
+              '<span style="font-weight:600;color:var(--text-primary);">' + escapeAttHtml(maskedName) + selfBadge + '</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:12px;">' +
+              demeritHtml +
+              '<span style="font-size:11px;color:var(--text-secondary);">' + ((m.points && m.points.total) ? m.points.total : 0) + ' pts</span>' +
+              attBadge +
+            '</div>' +
+          '</div>';
+      });
+
+      rosterHtml += '</div></div>';
+    }
 
     html += 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:10px;">' +
@@ -821,9 +985,15 @@ async function renderCompanyLeaderboard() {
             '<div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Points</span></div>' +
           '</div>' +
         '</div>' +
-        '<div style="height:6px;background:var(--surface-track);border-radius:3px;overflow:hidden;">' +
+        '<div style="height:6px;background:var(--surface-track);border-radius:3px;overflow:hidden;margin-bottom:8px;">' +
           '<div style="height:100%;width:' + pct + '%;background:' + st.color + ';border-radius:3px;"></div>' +
         '</div>' +
+        '<div style="display:flex;justify-content:flex-end;">' +
+          '<button type="button" data-roster-btn="' + rosterId + '" onclick="toggleSquadRoster(\'' + rosterId + '\')" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:2px 6px;">' +
+            'View Squad Roster &darr;' +
+          '</button>' +
+        '</div>' +
+        rosterHtml +
       '</div>';
   });
 
@@ -888,6 +1058,7 @@ if (typeof window !== 'undefined') {
   window.getMemberAttendanceRecord = getMemberAttendanceRecord;
   window.loadMemberAttendanceStats = loadMemberAttendanceStats;
   window.refreshMemberAttendanceStats = refreshMemberAttendanceStats;
+  window.toggleSquadRoster        = toggleSquadRoster;
   window.renderCompanyLeaderboard = renderCompanyLeaderboard;
   window.renderAdminMasterSheetPanel = renderAdminMasterSheetPanel;
   window.syncToSheets = syncToSheets;
@@ -905,6 +1076,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAttendanceRecord: getMemberAttendanceRecord,
     loadMemberAttendanceStats: loadMemberAttendanceStats,
     refreshMemberAttendanceStats: refreshMemberAttendanceStats,
+    toggleSquadRoster: toggleSquadRoster,
     renderCompanyLeaderboard: renderCompanyLeaderboard,
     renderAdminMasterSheetPanel: renderAdminMasterSheetPanel,
     syncToSheets: syncToSheets,

@@ -1313,6 +1313,89 @@ async function verifySubresourceIntegrity(content, expectedIntegrity) {
   return false;
 }
 
+/**
+ * Masks a member's surname to first name(s) + last initial for minor privacy protection (TSK-040).
+ * Prevents outsider enumeration of minors' full names on shared boards.
+ * E.g., 'Jeshua Koh' -> 'Jeshua K.', 'Tan Wei Lun' -> 'Tan Wei L.', 'Daniel' -> 'Daniel'.
+ * @param {string} fullName
+ * @returns {string}
+ */
+function maskSurname(fullName) {
+  if (!fullName || typeof fullName !== 'string') return '';
+  var trimmed = fullName.trim();
+  if (!trimmed) return '';
+
+  var suffix = '';
+  var tagMatch = trimmed.match(/\s*(\([^)]+\))$/);
+  if (tagMatch) {
+    suffix = ' ' + tagMatch[1];
+    trimmed = trimmed.slice(0, tagMatch.index).trim();
+  }
+
+  var parts = trimmed.split(/\s+/);
+  if (parts.length <= 1) return trimmed + suffix;
+
+  var lastWord = parts[parts.length - 1];
+  var lastInitial = lastWord.charAt(0).toUpperCase() + '.';
+  return parts.slice(0, -1).join(' ') + ' ' + lastInitial + suffix;
+}
+
+// Alias for explicit clarity
+var maskMemberSurname = maskSurname;
+
+/**
+ * Returns either the full name or masked name depending on viewer identity (TSK-040)
+ * @param {string} fullName
+ * @param {boolean} isSelfOrOfficer
+ * @returns {string}
+ */
+function maskMemberNameForDirectory(fullName, isSelfOrOfficer) {
+  if (!fullName) return '';
+  if (isSelfOrOfficer) return String(fullName).trim();
+  return maskSurname(fullName);
+}
+
+/**
+ * Formats attendance rate string with privacy masking for low percentages (TSK-040)
+ * Prevents peer shaming and harassment among minors.
+ * @param {number} percentage
+ * @param {boolean} isSelfOrOfficer
+ * @returns {{ text: string, isMasked: boolean, tier: 'high'|'medium'|'low'|'protected' }}
+ */
+function formatSafeAttendanceRate(percentage, isSelfOrOfficer) {
+  var pct = (typeof percentage === 'number' && !isNaN(percentage)) ? Math.round(percentage) : 0;
+  if (isSelfOrOfficer) {
+    return {
+      text: pct + '%',
+      isMasked: false,
+      tier: pct >= 80 ? 'high' : (pct >= 60 ? 'medium' : 'low')
+    };
+  }
+  if (pct >= 75) {
+    return {
+      text: pct + '%',
+      isMasked: false,
+      tier: 'high'
+    };
+  }
+  return {
+    text: 'Protected',
+    isMasked: true,
+    tier: 'protected'
+  };
+}
+
+/**
+ * Returns demerits/infractions for display, strictly hiding them from peers (TSK-040)
+ * @param {number} demerits
+ * @param {boolean} isSelfOrOfficer
+ * @returns {number}
+ */
+function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
+  if (!isSelfOrOfficer) return 0;
+  return (typeof demerits === 'number' && !isNaN(demerits)) ? Math.max(0, demerits) : 0;
+}
+
 // Attach to window if in browser
 if (typeof window !== 'undefined') {
   window.escapeHtml     = escapeHtml;
@@ -1348,6 +1431,11 @@ if (typeof window !== 'undefined') {
   window.getDeviceSecurityInfo = getDeviceSecurityInfo;
   window.computeIntegrityMetadata = computeIntegrityMetadata;
   window.verifySubresourceIntegrity = verifySubresourceIntegrity;
+  window.maskSurname            = maskSurname;
+  window.maskMemberSurname      = maskMemberSurname;
+  window.maskMemberNameForDirectory = maskMemberNameForDirectory;
+  window.formatSafeAttendanceRate = formatSafeAttendanceRate;
+  window.getSafeMemberDemerits  = getSafeMemberDemerits;
 }
 
 // Export for module systems if present
@@ -1385,6 +1473,11 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarUrl: getMemberAvatarUrl,
     getDeviceSecurityInfo: getDeviceSecurityInfo,
     computeIntegrityMetadata: computeIntegrityMetadata,
-    verifySubresourceIntegrity: verifySubresourceIntegrity
+    verifySubresourceIntegrity: verifySubresourceIntegrity,
+    maskSurname: maskSurname,
+    maskMemberSurname: maskMemberSurname,
+    maskMemberNameForDirectory: maskMemberNameForDirectory,
+    formatSafeAttendanceRate: formatSafeAttendanceRate,
+    getSafeMemberDemerits: getSafeMemberDemerits
   };
 }
