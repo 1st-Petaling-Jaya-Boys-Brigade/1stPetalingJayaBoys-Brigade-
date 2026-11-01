@@ -544,6 +544,10 @@ function doPost(e) {
   return handleIncomingApiRequest(e);
 }
 
+function handleIncomingRequest(e) {
+  return handleIncomingApiRequest(e);
+}
+
 function handleIncomingApiRequest(e) {
   var p = (e && e.parameter) ? e.parameter : {};
   if (e && e.postData && e.postData.contents) {
@@ -558,7 +562,7 @@ function handleIncomingApiRequest(e) {
   }
   var reqToken = (p.token || p.key || p.secret || '').trim();
 
-  // 1. Enforce Shared-Secret / Proxy Token Authentication
+  // 1. Enforce Shared-Secret / Proxy Token Authentication (safe check)
   if (SYNC_TOKEN && SYNC_TOKEN.trim().length > 0) {
     if (reqToken !== SYNC_TOKEN.trim()) {
       return ContentService.createTextOutput(JSON.stringify({
@@ -669,12 +673,20 @@ function handleIncomingApiRequest(e) {
         '</p>' +
         '</div>';
 
-      MailApp.sendEmail({
-        to: '1stpjbb.mailer@gmail.com',
-        bcc: recipientList.join(','),
-        subject: subject,
-        htmlBody: htmlBody
-      });
+      if (recipientList.length === 1) {
+        MailApp.sendEmail({
+          to: recipientList[0],
+          subject: subject,
+          htmlBody: htmlBody
+        });
+      } else {
+        MailApp.sendEmail({
+          to: '1stpjbb.mailer@gmail.com',
+          bcc: recipientList.join(','),
+          subject: subject,
+          htmlBody: htmlBody
+        });
+      }
 
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
