@@ -2110,6 +2110,56 @@ async function getJson(url) {
     assert.strictEqual(td.darkSchemeMeta, 'dark', 'meta[name="color-scheme"] must sync to dark when dark theme is active');
     console.log('  ✔ Headless Edge dual-theme switching and meta synchronization verified');
 
+    // ── Member Avatar, Initials & Creator RGB Animation Verification ──
+    console.log('\n[Member Avatar & Creator RGB Animation Verification]');
+    const avatarDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        // 1. Test renderMemberAvatar with Jeshua Koh (Creator)
+        if (typeof renderMemberAvatar === 'function') {
+          renderMemberAvatar('Jeshua Koh', 'jeshua@mirtech.io');
+        }
+        const sPh = document.getElementById('sidebar-user-avatar-ph');
+        const sPhText = sPh ? sPh.textContent : '';
+        const sPhHasRgb = sPh ? sPh.classList.contains('creator-rgb-avatar') : false;
+        const sPhTitle = sPh ? sPh.getAttribute('title') : '';
+
+        // 2. Test renderMemberAvatar with regular member (Jayden)
+        if (typeof renderMemberAvatar === 'function') {
+          renderMemberAvatar('Jayden Wong', 'jayden@example.com');
+        }
+        const sPhRegText = sPh ? sPh.textContent : '';
+        const sPhRegRgb = sPh ? sPh.classList.contains('creator-rgb-avatar') : false;
+        const sPhRegTitle = sPh ? sPh.getAttribute('title') : '';
+        const sPhRegBg = sPh ? sPh.style.background : '';
+
+        // Reset back to creator
+        if (typeof renderMemberAvatar === 'function') {
+          renderMemberAvatar('Jeshua Koh', 'jeshua@mirtech.io');
+        }
+
+        return {
+          creatorText: sPhText,
+          creatorHasRgb: sPhHasRgb,
+          creatorTitle: sPhTitle,
+          regText: sPhRegText,
+          regHasRgb: sPhRegRgb,
+          regTitle: sPhRegTitle,
+          regHasBg: Boolean(sPhRegBg)
+        };
+      })()`,
+      returnByValue: true
+    });
+
+    const ad = avatarDiag.result.value;
+    assert.strictEqual(ad.creatorText, 'JK', 'Creator profile avatar must display "JK"');
+    assert.strictEqual(ad.creatorHasRgb, true, 'Creator profile avatar must have creator-rgb-avatar class');
+    assert.ok(ad.creatorTitle.includes('Jeshua Koh'), 'Creator avatar must have hover tooltip with name');
+    assert.strictEqual(ad.regText, 'J', 'Regular member profile avatar must display single initial "J"');
+    assert.strictEqual(ad.regHasRgb, false, 'Regular member must not have creator-rgb-avatar class');
+    assert.strictEqual(ad.regTitle, 'Jayden Wong', 'Regular member must have hover tooltip with name');
+    assert.strictEqual(ad.regHasBg, true, 'Regular member avatar must have unique background color');
+    console.log('  ✔ Creator "JK" with RGB animation and regular member single initial with unique color and hover tooltip verified in browser');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
