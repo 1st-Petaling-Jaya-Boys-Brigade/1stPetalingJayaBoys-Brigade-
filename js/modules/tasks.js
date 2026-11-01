@@ -83,6 +83,57 @@ var _allAdminTasks      = [];
 var _taskMap            = {};
 var _deletedTaskIds    = {};
 
+// Synchronous local memory cache restoration for instant 0ms Projects & Tasks load
+try {
+  if (typeof localStorage !== 'undefined') {
+    var _cachedTasksData = JSON.parse(localStorage.getItem('bb_cached_tasks') || '[]');
+    if (Array.isArray(_cachedTasksData) && _cachedTasksData.length) {
+      _allLoadedTasks = _cachedTasksData;
+      _allLoadedTasks.forEach(function(t) {
+        if (t && t.id) _taskMap[t.id] = t;
+      });
+      if (typeof window !== 'undefined') window._taskMap = _taskMap;
+    }
+  }
+} catch (_) {}
+
+/**
+ * Priority SVG icon renderer according to requirements:
+ * - Low: Blue flat line ("-")
+ * - Medium: Yellow 1 arrow up ("^")
+ * - High: Red 2 arrows up ("^ on top of ^")
+ */
+function getPriorityIconSvg(priority, size) {
+  var s = size || 13;
+  var p = (priority || 'medium').toLowerCase();
+  if (p === 'high') {
+    return '<svg class="priority-icon-svg priority-icon-high" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>';
+  }
+  if (p === 'low') {
+    return '<svg class="priority-icon-svg priority-icon-low" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  }
+  return '<svg class="priority-icon-svg priority-icon-medium" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>';
+}
+
+/**
+ * Opens native browser date picker directly on due date button click
+ */
+function openTaskDueDatePicker(e) {
+  if (e && e.target && e.target.classList && e.target.classList.contains('tdm-due-input')) {
+    return;
+  }
+  var input = document.querySelector('.tdm-due-input');
+  if (input) {
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker();
+        return;
+      } catch (_) {}
+    }
+    input.focus();
+  }
+}
+
 /**
  * Extracts project name from task object (column or description tag)
  */
@@ -92,6 +143,14 @@ function getTaskProjectName(t) {
   if (t.description) {
     var match = t.description.match(/\[Project:\s*([^\]|]+)/i);
     if (match && match[1] && match[1].trim()) return match[1].trim();
+  }
+  if (t.code && _companyProjects && _companyProjects.length) {
+    var prefix = String(t.code).split('-')[0].toUpperCase();
+    var found = _companyProjects.find(function(cp) {
+      var cpLetters = cp.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+      return cpLetters === prefix;
+    });
+    if (found) return found;
   }
   return '';
 }
@@ -386,6 +445,20 @@ async function checkTasksAccess() {
     if (gate) gate.style.display = 'block';
     if (board) board.style.display = 'none';
     return;
+  }
+
+  // Fast-path: reveal instantly (< 1ms) if permissions are already in active session
+  var cachedDept = (typeof sessionGet === 'function') ? sessionGet('department') : '';
+  var cachedRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
+  if (cachedDept || cachedRank) {
+    var fastAllowed = hasDepartmentRole({ department: cachedDept, rank: cachedRank }, cachedRank);
+    if (fastAllowed) {
+      if (boardPill) boardPill.style.display = 'inline-flex';
+      if (snavTasks) snavTasks.style.display = 'flex';
+      if (gate) gate.style.display = 'none';
+      if (board) board.style.display = 'block';
+      setTasksViewMode(_tasksViewMode || 'projects');
+    }
   }
 
   var client = getSupaClient();
@@ -1020,7 +1093,9 @@ function renderColumnsFromTasks(tasksList) {
 
       var priorityP = (t.priority || 'medium').toLowerCase();
       var chevronCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
-      var priorityChevron = '<span class="task-card-priority-chevron ' + chevronCls + '" title="' + priorityP.toUpperCase() + ' Priority">&#94;</span>';
+      var priorityChevron = '<span class="task-card-priority-chevron ' + chevronCls + '" title="' + priorityP.toUpperCase() + ' Priority">'
+        + getPriorityIconSvg(priorityP, 14)
+        + '</span>';
 
       var avatarHtml = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 24);
 
@@ -1122,6 +1197,7 @@ async function renderTasksBoard(deptOrProject) {
         _taskMap = {};
         _allLoadedTasks.forEach(function(t) { _taskMap[t.id] = t; });
         if (typeof window !== 'undefined') window._taskMap = _taskMap;
+        try { if (typeof localStorage !== 'undefined') localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
 
         renderColumnsFromTasks(_allLoadedTasks);
 
@@ -1360,12 +1436,17 @@ function renderMyTasksView() {
       + 'No tasks found for your current filter criteria.</td></tr>';
   } else {
     filtered.forEach(function(t, idx) {
+      _taskMap[t.id] = t;
+      if (typeof window !== 'undefined') {
+        window._taskMap = window._taskMap || {};
+        window._taskMap[t.id] = t;
+      }
       var normStatus = normalizeTaskStatus(t.status);
       var isDone = normStatus === 'completed';
       var statusClass = STATUS_CONFIG[normStatus].cls;
       var statusLabel = STATUS_CONFIG[normStatus].label;
       var taskId = formatTaskId(t, idx);
-      var projectName = t.project_name || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'General Task');
+      var projectName = getTaskProjectName(t) || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'General Project');
 
       var dueStr = '—';
       var isOverdue = false;
@@ -1375,7 +1456,13 @@ function renderMyTasksView() {
         dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
       }
 
-      var priorityIcon = t.priority === 'high' ? '⌃ High' : (t.priority === 'low' ? '⌄ Low' : '— Med');
+      var priorityP = (t.priority || 'medium').toLowerCase();
+      var pLabel = priorityP === 'high' ? 'High' : (priorityP === 'low' ? 'Low' : 'Med');
+      var pCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
+      var priorityCellHtml = '<div class="my-tasks-priority-cell ' + pCls + '">'
+        + getPriorityIconSvg(priorityP, 13)
+        + '<span>' + pLabel + '</span>'
+        + '</div>';
       var assigneeName = t.assignee_name || 'Unassigned';
       var estimate = t.estimate || '—';
 
@@ -1389,7 +1476,7 @@ function renderMyTasksView() {
         + '<td><span class="my-tasks-status-pill ' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>'
         + '<td><div class="my-tasks-project-cell"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>' + escapeHtml(projectName) + '</div></td>'
         + '<td><span class="task-id-badge">' + escapeHtml(taskId) + '</span></td>'
-        + '<td style="font-size:11px;font-weight:600;">' + escapeHtml(priorityIcon) + '</td>'
+        + '<td style="font-size:12px;font-weight:600;">' + priorityCellHtml + '</td>'
         + '<td><div style="display:flex;align-items:center;gap:6px;">' + getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20) + '<span>' + escapeHtml(assigneeName) + '</span></div></td>'
         + '<td style="' + (isOverdue ? 'color:var(--red);font-weight:700;' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' + escapeHtml(dueStr) + '</td>'
         + '<td style="color:var(--text-secondary);font-size:12px;">' + escapeHtml(estimate) + '</td>'
@@ -1446,8 +1533,28 @@ function openTaskDetail(id) {
     _justDragged = false;
     return;
   }
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id] || {};
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id];
+  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
+    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+  }
+  if (!t) {
+    try {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_tasks') || '[]');
+      if (Array.isArray(cached)) {
+        t = cached.find(function(x) { return String(x.id) === String(id); });
+      }
+    } catch (_) {}
+  }
+  if (!t) t = {};
+
   _activeDetailTaskId = id;
+  if (t && t.id) {
+    _taskMap[t.id] = t;
+    if (typeof window !== 'undefined') {
+      window._taskMap = window._taskMap || {};
+      window._taskMap[t.id] = t;
+    }
+  }
 
   var set = function(elId, val) {
     var el = document.getElementById(elId);
@@ -1507,24 +1614,38 @@ function openTaskDetail(id) {
   }
   set('tdm-assignee', aName);
 
-  // Priority Pill matching Image 2
-  var priorityVal = t.priority || 'medium';
-  var pLabel = priorityVal.charAt(0).toUpperCase() + priorityVal.slice(1);
-  var pIcon = priorityVal === 'high' ? '⌃' : (priorityVal === 'low' ? '⌄' : '—');
+  // Priority Pill matching Image 2, 4, 5
+  var priorityVal = (t.priority || 'medium').toLowerCase();
+  var pLabel = priorityVal === 'high' ? 'High' : (priorityVal === 'low' ? 'Low' : 'Medium');
+  var pCls = priorityVal === 'high' ? 'priority-high' : (priorityVal === 'low' ? 'priority-low' : 'priority-medium');
   var pIconEl = document.querySelector('.tdm-priority-icon');
-  if (pIconEl) pIconEl.textContent = pIcon;
+  if (pIconEl) {
+    pIconEl.innerHTML = getPriorityIconSvg(priorityVal, 14);
+    pIconEl.className = 'tdm-priority-icon ' + pCls;
+  }
   var pTextEl = document.querySelector('.tdm-priority-text');
-  if (pTextEl) pTextEl.textContent = pLabel;
+  if (pTextEl) {
+    pTextEl.textContent = pLabel;
+    pTextEl.className = 'tdm-priority-text ' + pCls;
+  }
+  var pBtn = document.querySelector('.tdm-priority-btn');
+  if (pBtn) {
+    pBtn.className = 'task-prop-pill-btn tdm-priority-btn ' + pCls;
+  }
 
-  // Due Date Pill matching Image 2
+  // Due Date Pill matching Image 2 & 4
   var dueStr = 'Due Date';
   if (t.due_date) {
     var d = new Date(t.due_date);
-    dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+    if (!isNaN(d.getTime())) {
+      dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+    }
   }
   set('tdm-due', dueStr);
   var dueInput = document.querySelector('.tdm-due-input');
-  if (dueInput && t.due_date) dueInput.value = t.due_date.split('T')[0];
+  if (dueInput) {
+    dueInput.value = (t.due_date && typeof t.due_date === 'string') ? t.due_date.split('T')[0] : '';
+  }
 
   // Estimate Pill matching Image 2
   var estStr = t.estimate || 'Estimate';
@@ -1663,11 +1784,31 @@ function saveActiveTaskBrief() {
  */
 async function saveTaskField(id, field, value) {
   var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id];
+  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
+    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+  }
+  if (!t) {
+    try {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_tasks') || '[]');
+      if (Array.isArray(cached)) {
+        t = cached.find(function(x) { return String(x.id) === String(id); });
+      }
+    } catch (_) {}
+  }
   if (!t) return;
   t[field] = value;
+  _taskMap[id] = t;
+  if (typeof window !== 'undefined') {
+    window._taskMap = window._taskMap || {};
+    window._taskMap[id] = t;
+  }
   var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
   if (loaded) loaded[field] = value;
-
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks));
+    }
+  } catch (_) {}
   // Optimistic updates on board
   if (_tasksViewMode === 'board') {
     renderColumnsFromTasks(_allLoadedTasks);
@@ -1928,7 +2069,10 @@ async function selectTaskDetailAssignee(ic, name) {
 function cycleTaskDetailPriority(e) {
   if (e) e.stopPropagation();
   if (!_activeDetailTaskId) return;
-  var t = _taskMap[_activeDetailTaskId];
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
+  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
+    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
+  }
   if (!t) return;
   var order = ['low', 'medium', 'high'];
   var cur = (t.priority || 'medium').toLowerCase();
@@ -1936,12 +2080,22 @@ function cycleTaskDetailPriority(e) {
   var next = order[nextIdx];
   saveTaskField(_activeDetailTaskId, 'priority', next);
 
-  var pLabel = next.charAt(0).toUpperCase() + next.slice(1);
-  var pIcon = next === 'high' ? '▲' : (next === 'low' ? '▼' : '—');
+  var pLabel = next === 'high' ? 'High' : (next === 'low' ? 'Low' : 'Medium');
+  var pCls = next === 'high' ? 'priority-high' : (next === 'low' ? 'priority-low' : 'priority-medium');
   var pIconEl = document.querySelector('.tdm-priority-icon');
-  if (pIconEl) pIconEl.textContent = pIcon;
+  if (pIconEl) {
+    pIconEl.innerHTML = getPriorityIconSvg(next, 14);
+    pIconEl.className = 'tdm-priority-icon ' + pCls;
+  }
   var pTextEl = document.querySelector('.tdm-priority-text');
-  if (pTextEl) pTextEl.textContent = pLabel;
+  if (pTextEl) {
+    pTextEl.textContent = pLabel;
+    pTextEl.className = 'tdm-priority-text ' + pCls;
+  }
+  var pBtn = document.querySelector('.tdm-priority-btn');
+  if (pBtn) {
+    pBtn.className = 'task-prop-pill-btn tdm-priority-btn ' + pCls;
+  }
 }
 
 /**
@@ -1949,9 +2103,14 @@ function cycleTaskDetailPriority(e) {
  */
 function handleTaskDetailDueChange(val) {
   if (!_activeDetailTaskId) return;
-  saveTaskField(_activeDetailTaskId, 'due_date', val);
-  var d = new Date(val);
-  var dueStr = val ? d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }) : 'Due Date';
+  saveTaskField(_activeDetailTaskId, 'due_date', val || null);
+  var dueStr = 'Due Date';
+  if (val) {
+    var d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+    }
+  }
   var dueEl = document.getElementById('tdm-due');
   if (dueEl) dueEl.textContent = dueStr;
 }
@@ -2741,6 +2900,8 @@ if (typeof window !== 'undefined') {
   window.toggleTaskDetailAssigneeMenu = toggleTaskDetailAssigneeMenu;
   window.selectTaskDetailAssignee   = selectTaskDetailAssignee;
   window.cycleTaskDetailPriority    = cycleTaskDetailPriority;
+    window.openTaskDueDatePicker      = openTaskDueDatePicker;
+    window.getPriorityIconSvg         = getPriorityIconSvg;
   window.handleTaskDetailDueChange  = handleTaskDetailDueChange;
   window.editTaskDetailEstimate     = editTaskDetailEstimate;
   window.handleTaskDetailDescChange = handleTaskDetailDescChange;
@@ -2818,6 +2979,8 @@ if (typeof module !== 'undefined' && module.exports) {
     toggleTaskDetailAssigneeMenu,
     selectTaskDetailAssignee,
     cycleTaskDetailPriority,
+    openTaskDueDatePicker,
+    getPriorityIconSvg,
     handleTaskDetailDueChange,
     editTaskDetailEstimate,
     handleTaskDetailDescChange,

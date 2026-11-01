@@ -4871,7 +4871,7 @@ select.form-input,
   object-fit: cover;
 }
 
-/* ── Interactive Task Brief Modal (Image 2) ── */
+/* ── Interactive Task Brief Modal (Image 2 & 5) ── */
 .task-prop-pill-btn {
   display: inline-flex;
   align-items: center;
@@ -4879,19 +4879,40 @@ select.form-input,
   background: var(--bg-card-subtle);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-pill);
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-family: var(--font-headline);
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
   cursor: pointer;
   transition: var(--transition-fast);
   position: relative;
   user-select: none;
+  white-space: nowrap;
+  min-height: 32px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .task-prop-pill-btn:hover {
   border-color: var(--accent);
   background: var(--bg-card-hover);
+}
+
+.task-prop-pill-btn.priority-low,
+.task-prop-pill-btn .priority-low {
+  color: var(--brand-blue, #3b82f6) !important;
+}
+
+.task-prop-pill-btn.priority-medium,
+.task-prop-pill-btn .priority-medium {
+  color: var(--brand-amber, #eab308) !important;
+}
+
+.task-prop-pill-btn.priority-high,
+.task-prop-pill-btn .priority-high {
+  color: var(--red, #ef4444) !important;
 }
 
 .task-editable-title {
@@ -4950,6 +4971,10 @@ select.form-input,
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   padding: 6px;
   min-width: 170px;
+  font-family: var(--font-headline);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   max-height: 240px;
   overflow-y: auto;
   display: flex;
@@ -4960,7 +4985,10 @@ select.form-input,
 .task-prop-dropdown-item {
   padding: 8px 12px;
   font-size: 12px;
-  font-weight: 500;
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
   border-radius: var(--radius-xs);
   cursor: pointer;
@@ -5062,9 +5090,9 @@ select.form-input,
 }
 
 .task-card-priority.priority-low {
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.35);
 }
 
 [data-theme='light'] .task-card-priority.priority-high {
@@ -5078,9 +5106,9 @@ select.form-input,
   border-color: #fde68a;
 }
 [data-theme='light'] .task-card-priority.priority-low {
-  background: #f1f5f9;
-  color: #475569;
-  border-color: #cbd5e1;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
 }
 
 /* ── Modern Kanban Card Layout (Exact match to Image 3) ── */
@@ -5256,10 +5284,30 @@ select.form-input,
   line-height: 1;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 }
-.task-card-priority-chevron.priority-high { color: var(--red); }
-.task-card-priority-chevron.priority-medium { color: var(--accent); }
-.task-card-priority-chevron.priority-low { color: var(--text-muted); }
+.task-card-priority-chevron.priority-high { color: var(--red) !important; }
+.task-card-priority-chevron.priority-medium { color: var(--brand-amber) !important; }
+.task-card-priority-chevron.priority-low { color: var(--brand-blue) !important; }
+
+/* Priority Icons & Cell Formatting */
+.priority-icon-svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.my-tasks-priority-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-headline);
+  font-size: 12px;
+  font-weight: 700;
+}
+.my-tasks-priority-cell.priority-high { color: var(--red); }
+.my-tasks-priority-cell.priority-medium { color: var(--brand-amber); }
+.my-tasks-priority-cell.priority-low { color: var(--brand-blue); }
 
 .task-card-avatar {
   width: 24px;
