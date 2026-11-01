@@ -4619,6 +4619,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.notStrictEqual(colorJayden, colorJoel, 'Different names starting with J get distinct colors');
 
     // 4. CSS Animation & Hover Rules
+    assert.ok(compCss.includes('@keyframes creatorOutlineRotate'), 'CSS must define @keyframes creatorOutlineRotate');
+    assert.ok(compCss.includes('.creator-outline-avatar'), 'CSS must define .creator-outline-avatar');
     assert.ok(compCss.includes('@keyframes creatorSnowFall'), 'CSS must define @keyframes creatorSnowFall');
     assert.ok(compCss.includes('.creator-snow-avatar'), 'CSS must define .creator-snow-avatar');
     assert.ok(compCss.includes('.creator-rgb-avatar'), 'CSS must define .creator-rgb-avatar');
@@ -4639,7 +4641,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof memberMod.removePfp, 'function', 'removePfp must be exported');
     assert.ok(compCss.includes('.m-pfp-remove-btn') && compCss.includes('.m-pfp-remove-text-btn'), 'components.css defines remove photo buttons');
 
-    console.log('  ✔ Portal creator J with snowing animation, single-letter initials, non-sequential color hashing, and hover titles verified');
+    console.log('  ✔ Portal creator J with rotating 4-color outline animation, single-letter initials, non-sequential color hashing, and hover titles verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
