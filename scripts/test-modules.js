@@ -5057,6 +5057,80 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     if (typeof window !== 'undefined') window.hashPassword = origHashPassword;
   }
 
+  // =========================================================================
+  // TSK-037: Content Security Policy (CSP), Anti-Clickjacking & Referrer Security
+  // =========================================================================
+  console.log('\n--- TSK-037: Content Security Policy (CSP), Anti-Clickjacking & Referrer Security ---');
+  {
+    // 1. Verify index.html CSP, anti-clickjacking, and referrer meta tags
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+
+    // CSP meta tag
+    assert.ok(indexHtml.includes('http-equiv="Content-Security-Policy"'), 'index.html contains Content-Security-Policy meta tag');
+    assert.ok(indexHtml.includes("default-src 'self'"), "CSP contains default-src 'self'");
+    assert.ok(indexHtml.includes("script-src 'self' 'unsafe-inline'"), "CSP contains script-src 'self' 'unsafe-inline'");
+    assert.ok(indexHtml.includes("connect-src 'self' https://*.supabase.co wss://*.supabase.co https://script.google.com https://script.googleusercontent.com"), 'CSP contains restricted connect-src for Supabase and Google Apps Script');
+    assert.ok(indexHtml.includes("object-src 'none'"), "CSP contains object-src 'none'");
+    assert.ok(indexHtml.includes("base-uri 'self'"), "CSP contains base-uri 'self'");
+    assert.ok(indexHtml.includes("form-action 'self'"), "CSP contains form-action 'self'");
+
+    // Anti-clickjacking & Referrer headers
+    assert.ok(indexHtml.includes('meta name="referrer" content="no-referrer"'), 'index.html contains Referrer-Policy no-referrer meta tag');
+    assert.ok(indexHtml.includes('http-equiv="X-Content-Type-Options" content="nosniff"'), 'index.html contains X-Content-Type-Options nosniff meta tag');
+    assert.ok(indexHtml.includes('http-equiv="X-Frame-Options" content="DENY"'), 'index.html contains X-Frame-Options DENY meta tag');
+    assert.ok(indexHtml.includes('window.top !== window.self'), 'index.html contains inline frame-busting anti-clickjacking guard');
+
+    // External font link hardening
+    assert.ok(indexHtml.includes('href="https://fonts.googleapis.com/css2?') && indexHtml.includes('crossorigin="anonymous"') && indexHtml.includes('referrerpolicy="no-referrer"'), 'Google Fonts stylesheet link includes crossorigin and referrerpolicy attributes');
+
+    console.log('  ✔ index.html CSP meta tag, frame-busting guard, and referrer policy verified');
+
+    // 2. Verify hosting response headers (_headers, vercel.json, dev-server.js, vite.config.mjs)
+    assert.ok(fs.existsSync('_headers'), '_headers configuration file exists');
+    const headersContent = fs.readFileSync('_headers', 'utf8');
+    assert.ok(headersContent.includes("frame-ancestors 'none'"), "_headers contains frame-ancestors 'none'");
+    assert.ok(headersContent.includes('X-Frame-Options: DENY'), '_headers contains X-Frame-Options: DENY');
+    assert.ok(headersContent.includes('Referrer-Policy: no-referrer'), '_headers contains Referrer-Policy: no-referrer');
+
+    assert.ok(fs.existsSync('vercel.json'), 'vercel.json configuration file exists');
+    const vercelConfig = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+    assert.ok(Array.isArray(vercelConfig.headers), 'vercel.json contains headers configuration array');
+    const rootHeaders = vercelConfig.headers[0].headers;
+    const hasCsp = rootHeaders.some(h => h.key === 'Content-Security-Policy' && h.value.includes("frame-ancestors 'none'"));
+    const hasXfo = rootHeaders.some(h => h.key === 'X-Frame-Options' && h.value === 'DENY');
+    const hasRef = rootHeaders.some(h => h.key === 'Referrer-Policy' && h.value === 'no-referrer');
+    assert.ok(hasCsp, "vercel.json enforces CSP with frame-ancestors 'none'");
+    assert.ok(hasXfo, 'vercel.json enforces X-Frame-Options: DENY');
+    assert.ok(hasRef, 'vercel.json enforces Referrer-Policy: no-referrer');
+
+    const devServerContent = fs.readFileSync('scripts/dev-server.js', 'utf8');
+    assert.ok(devServerContent.includes("frame-ancestors 'none'"), "scripts/dev-server.js serves frame-ancestors 'none'");
+    assert.ok(devServerContent.includes("'X-Frame-Options': 'DENY'"), "scripts/dev-server.js serves X-Frame-Options: DENY");
+
+    const viteConfigContent = fs.readFileSync('vite.config.mjs', 'utf8');
+    assert.ok(viteConfigContent.includes("frame-ancestors 'none'"), "vite.config.mjs serves frame-ancestors 'none'");
+    assert.ok(viteConfigContent.includes("'X-Frame-Options': 'DENY'"), "vite.config.mjs serves X-Frame-Options: DENY");
+
+    console.log('  ✔ Static hosting & dev server response headers verified (_headers, vercel.json, dev-server, vite)');
+
+    // 3. Verify Subresource Integrity (SRI) utilities in utils.js
+    const sampleScript = 'console.log("Safe subresource execution");';
+    const computedSri = await utils.computeIntegrityMetadata(sampleScript, 'sha384');
+    assert.ok(computedSri.startsWith('sha384-'), 'computeIntegrityMetadata produces sha384- prefixed hash');
+
+    const isValid = await utils.verifySubresourceIntegrity(sampleScript, computedSri);
+    assert.strictEqual(isValid, true, 'verifySubresourceIntegrity accepts genuine subresource payload');
+
+    const tampered = await utils.verifySubresourceIntegrity(sampleScript + ' /* tampered */', computedSri);
+    assert.strictEqual(tampered, false, 'verifySubresourceIntegrity rejects tampered payload');
+
+    const multiSri = 'sha256-invalidhash ' + computedSri;
+    const isValidMulti = await utils.verifySubresourceIntegrity(sampleScript, multiSri);
+    assert.strictEqual(isValidMulti, true, 'verifySubresourceIntegrity supports multi-token SRI values');
+
+    console.log('  ✔ Subresource Integrity (SRI) metadata generation and cryptographic verification verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

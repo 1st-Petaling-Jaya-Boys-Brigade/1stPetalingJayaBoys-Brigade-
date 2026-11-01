@@ -1146,42 +1146,6 @@ function getMemberAvatarUrl(name, ic) {
   return null;
 }
 
-// Attach to window if in browser
-if (typeof window !== 'undefined') {
-  window.escapeHtml     = escapeHtml;
-  window.safeUrl        = safeUrl;
-  window.sanitizeInput  = sanitizeInput;
-  window.sanitizeText   = sanitizeText;
-  window.sanitizeHtml   = sanitizeHtml;
-  window.formatDate     = formatDate;
-  window.migrateEntry   = migrateEntry;
-  window.migrateBadgeEntry = migrateBadgeEntry;
-  window.bytesToHex     = bytesToHex;
-  window.hexToBytes     = hexToBytes;
-  window.safeBase64Encode = safeBase64Encode;
-  window.safeBase64Decode = safeBase64Decode;
-  window.computeSha256   = computeSha256;
-  window.hashPassword   = hashPassword;
-  window.verifyPassword = verifyPassword;
-  window.showToast      = showToast;
-  window.showConfirmModal = showConfirmModal;
-  window.debounce       = debounce;
-  window.throttle       = throttle;
-  window.compressImage  = compressImage;
-  window.detectFileType = detectFileType;
-  window.hasExifGps     = hasExifGps;
-  window.stripExifBytes = stripExifBytes;
-  window.validateFileSecurity = validateFileSecurity;
-  window.stripExifAndCompress = stripExifAndCompress;
-  window.AVATAR_PALETTE = AVATAR_PALETTE;
-  window.isPortalCreator = isPortalCreator;
-  window.getMemberAvatarInitial = getMemberAvatarInitial;
-  window.getMemberAvatarColor = getMemberAvatarColor;
-  window.getMemberAvatarUrl   = getMemberAvatarUrl;
-  window.getDeviceSecurityInfo = getDeviceSecurityInfo;
-}
-
-
 /**
  * Detects device hardware, operating system, and browser information for security audit notices.
  * Assigns or retrieves a persistent pseudo-random device ID in localStorage to detect different devices.
@@ -1259,6 +1223,132 @@ function getDeviceSecurityInfo() {
     deviceType: deviceType
   };
 }
+/**
+ * Computes Subresource Integrity (SRI) metadata string for content (TSK-037)
+ * Complies with W3C Subresource Integrity specification.
+ * Supports 'sha256', 'sha384' (default), and 'sha512'.
+ * @param {string|Uint8Array|ArrayBuffer} content
+ * @param {'sha256'|'sha384'|'sha512'} [algorithm='sha384']
+ * @returns {Promise<string>} e.g. 'sha384-...'
+ */
+async function computeIntegrityMetadata(content, algorithm) {
+  var algo = (algorithm || 'sha384').toLowerCase();
+  if (['sha256', 'sha384', 'sha512'].indexOf(algo) === -1) {
+    algo = 'sha384';
+  }
+
+  var subtleAlgo = algo === 'sha256' ? 'SHA-256' : algo === 'sha384' ? 'SHA-384' : 'SHA-512';
+
+  var data;
+  if (typeof content === 'string') {
+    if (typeof TextEncoder !== 'undefined') {
+      data = new TextEncoder().encode(content);
+    } else if (typeof Buffer !== 'undefined') {
+      data = Buffer.from(content, 'utf8');
+    } else {
+      return '';
+    }
+  } else if (content instanceof Uint8Array) {
+    data = content;
+  } else if (content instanceof ArrayBuffer) {
+    data = new Uint8Array(content);
+  } else {
+    return '';
+  }
+
+  // 1. Web Crypto API
+  var cryptoObj =
+    typeof window !== 'undefined' && window.crypto
+      ? window.crypto
+      : typeof crypto !== 'undefined'
+        ? (crypto.webcrypto ? crypto.webcrypto : crypto)
+        : null;
+
+  if (cryptoObj && cryptoObj.subtle) {
+    try {
+      var digestBuf = await cryptoObj.subtle.digest(subtleAlgo, data);
+      var bytes = new Uint8Array(digestBuf);
+      var binary = '';
+      for (var i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      var b64 = typeof btoa === 'function' ? btoa(binary) : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : '');
+      return b64 ? algo + '-' + b64 : '';
+    } catch (_) {}
+  }
+
+  // 2. Node.js crypto fallback
+  if (typeof require !== 'undefined') {
+    try {
+      var nodeCrypto = require('crypto');
+      var nodeB64 = nodeCrypto.createHash(algo).update(data).digest('base64');
+      return algo + '-' + nodeB64;
+    } catch (_) {}
+  }
+
+  return '';
+}
+
+/**
+ * Verifies content against expected Subresource Integrity (SRI) metadata (TSK-037)
+ * @param {string|Uint8Array|ArrayBuffer} content
+ * @param {string} expectedIntegrity - Single or space-delimited SRI hashes (e.g. 'sha384-xyz')
+ * @returns {Promise<boolean>}
+ */
+async function verifySubresourceIntegrity(content, expectedIntegrity) {
+  if (!expectedIntegrity || typeof expectedIntegrity !== 'string') return false;
+  var tokens = expectedIntegrity.trim().split(/\s+/);
+  if (!tokens.length) return false;
+
+  for (var i = 0; i < tokens.length; i++) {
+    var token = tokens[i];
+    var tokenParts = token.split('-');
+    if (tokenParts.length < 2) continue;
+    var algo = tokenParts[0].toLowerCase();
+    var actual = await computeIntegrityMetadata(content, algo);
+    if (actual === token) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Attach to window if in browser
+if (typeof window !== 'undefined') {
+  window.escapeHtml     = escapeHtml;
+  window.safeUrl        = safeUrl;
+  window.sanitizeInput  = sanitizeInput;
+  window.sanitizeText   = sanitizeText;
+  window.sanitizeHtml   = sanitizeHtml;
+  window.formatDate     = formatDate;
+  window.migrateEntry   = migrateEntry;
+  window.migrateBadgeEntry = migrateBadgeEntry;
+  window.bytesToHex     = bytesToHex;
+  window.hexToBytes     = hexToBytes;
+  window.safeBase64Encode = safeBase64Encode;
+  window.safeBase64Decode = safeBase64Decode;
+  window.computeSha256   = computeSha256;
+  window.hashPassword   = hashPassword;
+  window.verifyPassword = verifyPassword;
+  window.showToast      = showToast;
+  window.showConfirmModal = showConfirmModal;
+  window.debounce       = debounce;
+  window.throttle       = throttle;
+  window.compressImage  = compressImage;
+  window.detectFileType = detectFileType;
+  window.hasExifGps     = hasExifGps;
+  window.stripExifBytes = stripExifBytes;
+  window.validateFileSecurity = validateFileSecurity;
+  window.stripExifAndCompress = stripExifAndCompress;
+  window.AVATAR_PALETTE = AVATAR_PALETTE;
+  window.isPortalCreator = isPortalCreator;
+  window.getMemberAvatarInitial = getMemberAvatarInitial;
+  window.getMemberAvatarColor = getMemberAvatarColor;
+  window.getMemberAvatarUrl   = getMemberAvatarUrl;
+  window.getDeviceSecurityInfo = getDeviceSecurityInfo;
+  window.computeIntegrityMetadata = computeIntegrityMetadata;
+  window.verifySubresourceIntegrity = verifySubresourceIntegrity;
+}
 
 // Export for module systems if present
 if (typeof module !== 'undefined' && module.exports) {
@@ -1293,6 +1383,8 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarInitial: getMemberAvatarInitial,
     getMemberAvatarColor: getMemberAvatarColor,
     getMemberAvatarUrl: getMemberAvatarUrl,
-    getDeviceSecurityInfo: getDeviceSecurityInfo
+    getDeviceSecurityInfo: getDeviceSecurityInfo,
+    computeIntegrityMetadata: computeIntegrityMetadata,
+    verifySubresourceIntegrity: verifySubresourceIntegrity
   };
 }
