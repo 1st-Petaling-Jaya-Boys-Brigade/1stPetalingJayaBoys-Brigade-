@@ -6168,3 +6168,53 @@ select.form-input,
   box-shadow: 0 0 0 3px rgba(217, 163, 35, 0.15);
   outline: none;
 }
+
+
+/* ── My Tasks Project Filter Dropdown ── */
+.my-tasks-project-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-headline);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.my-tasks-project-dropdown-item {
+  padding: 8px 12px;
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.my-tasks-project-dropdown-item:hover {
+  background: var(--bg-card-hover);
+  color: var(--accent);
+}
+
+.my-tasks-project-dropdown-item.active {
+  background: rgba(245, 197, 66, 0.12);
+  color: var(--accent);
+  font-weight: 700;
+}
