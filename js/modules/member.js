@@ -695,7 +695,7 @@ function showRegistrationVerifyView(email, _name, otpCode, hasMailer) {
         '</div>' +
         '<span style="font-size:11.5px;line-height:1.4;display:block;">Google Apps Script Webhook is pending setup in Admin Console. For testing &amp; account creation, your verification code is:</span>' +
         '<div style="margin-top:8px;">' +
-          '<button type="button" onclick="document.getElementById(\'reg-verify-code\').value=\'' + escapeHtml(otpCode) + '\'" style="background:var(--accent);color:#0f172a;border:none;border-radius:6px;padding:5px 14px;font-weight:800;cursor:pointer;font-family:var(--font-mono, monospace);font-size:16px;letter-spacing:2px;box-shadow:0 2px 6px rgba(0,0,0,0.25);" title="Click to auto-fill code">' +
+          '<button type="button" onclick="var inp=document.getElementById(\'reg-verify-code\');if(inp){inp.value=\'' + escapeHtml(otpCode) + '\';inp.focus();}" style="background:var(--accent);color:#0f172a;border:none;border-radius:6px;padding:5px 14px;font-weight:800;cursor:pointer;font-family:var(--font-mono, monospace);font-size:16px;letter-spacing:2px;box-shadow:0 2px 6px rgba(0,0,0,0.25);" title="Click to auto-fill code">' +
             escapeHtml(otpCode) +
           '</button>' +
         '</div>' +
@@ -715,7 +715,7 @@ function showRegistrationVerifyView(email, _name, otpCode, hasMailer) {
       '</p>' +
     '</div>' +
     '<div style="margin:16px 0;">' +
-      '<input type="text" id="reg-verify-code" class="reg-verify-code-input" maxlength="6" placeholder="000000" autocomplete="one-time-code" autofocus />' +
+      '<input type="text" id="reg-verify-code" class="reg-verify-code-input" maxlength="6" placeholder="000000" autocomplete="one-time-code" onkeydown="if(event.key===\'Enter\'){event.preventDefault();verifyAndCompleteRegistration();}" autofocus />' +
     '</div>' +
     fallbackHtml +
     '<div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">' +
