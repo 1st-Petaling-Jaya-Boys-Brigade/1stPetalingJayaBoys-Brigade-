@@ -903,7 +903,7 @@ function getAssigneeAvatarBg(name) {
   var palette = [
     '#be185d', // Berry pink/red (Image 3)
     '#0284c7', // Ocean blue (ILLU-290)
-    '#059669', // Emerald
+    '#047857', // Emerald
     '#c2410c', // Dark amber/orange
     '#7c3aed', // Purple
     '#0f766e', // Teal
@@ -1365,7 +1365,7 @@ function renderMyTasksView() {
         + '<td><span class="task-id-badge">' + escapeHtml(taskId) + '</span></td>'
         + '<td style="font-size:11px;font-weight:600;">' + escapeHtml(priorityIcon) + '</td>'
         + '<td><div style="display:flex;align-items:center;gap:6px;"><span class="task-assignee-avatar" style="width:20px;height:20px;font-size:9px;">' + escapeHtml(initials) + '</span><span>' + escapeHtml(assigneeName) + '</span></div></td>'
-        + '<td style="' + (isOverdue ? 'color:#ef4444;font-weight:700;' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' + escapeHtml(dueStr) + '</td>'
+        + '<td style="' + (isOverdue ? 'color:var(--red);font-weight:700;' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' + escapeHtml(dueStr) + '</td>'
         + '<td style="color:var(--text-secondary);font-size:12px;">' + escapeHtml(estimate) + '</td>'
         + '</tr>';
     });

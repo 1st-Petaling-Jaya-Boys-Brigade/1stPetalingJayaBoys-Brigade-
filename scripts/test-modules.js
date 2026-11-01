@@ -4043,6 +4043,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       indexHtmlStr.includes('id="global-search-results"'),
       'global-search-results must exist'
     );
+    assert.ok(
+      indexHtmlStr.includes('class="nav-logo" onclick="navigateHome()"'),
+      'nav-logo must be clickable and invoke navigateHome()'
+    );
+    assert.ok(
+      indexHtmlStr.includes('function navigateHome()'),
+      'navigateHome function must exist in index.html'
+    );
 
     // Verify CSS responsive and layout rules in css/base.css and css/nav.css
     const baseCss = fs.readFileSync('css/base.css', 'utf8');
