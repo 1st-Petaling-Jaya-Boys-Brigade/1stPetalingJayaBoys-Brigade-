@@ -1167,6 +1167,10 @@ async function getJson(url) {
         const sizePills = firstCard ? Array.from(firstCard.querySelectorAll('.size-pill')) : [];
         if (sizePills.length > 0) sizePills[0].click();
 
+        // Click Add to Cart button
+        const addBtn = firstCard ? firstCard.querySelector(".add-to-cart-btn") : null;
+        if (addBtn) addBtn.click();
+
         const countEl = document.getElementById('checkout-items-count');
         const totalEl = document.getElementById('order-total-sticky');
         const ctaBtn = document.getElementById('checkout-cta-btn');
@@ -1266,7 +1270,8 @@ async function getJson(url) {
       expression: `(() => {
         showToast('Browser test success toast notification', 'success', 10000);
         const container = document.getElementById('portal-toast-container');
-        const toast = container ? container.querySelector('.portal-toast-success') : null;
+        const allToasts = container ? container.querySelectorAll('.portal-toast-success') : [];
+        const toast = allToasts[allToasts.length - 1] || null;
         const closeBtn = toast ? toast.querySelector('.portal-toast-close') : null;
         return {
           hasContainer: !!container,
