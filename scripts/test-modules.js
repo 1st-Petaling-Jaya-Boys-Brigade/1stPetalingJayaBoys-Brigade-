@@ -6,6 +6,8 @@ const fs = require('fs');
 
 // ── Test Environment Simulation ──
 global.window = global;
+global.__SKIP_REG_OTP__ = true;
+global.window.__SKIP_REG_OTP__ = true;
 
 const mockElements = {};
 

@@ -77,6 +77,7 @@ var _currentDeptFilter  = 'all';
 var _taskSearchQuery    = '';
 var _myTasksScopeFilter = 'me';     // 'me' | 'all'
 var _myTasksStatusFilter = 'open';  // 'open' | 'all'
+var _myTasksProjectFilter = 'all';   // 'all' | <projectName>
 var _allLoadedTasks     = [];
 var _adminTaskFilter    = 'all';
 var _allAdminTasks      = [];
@@ -116,22 +117,70 @@ function getPriorityIconSvg(priority, size) {
 }
 
 /**
+ * Ensures project tag and estimate tag are never stripped when updating descriptions
+ */
+function buildTaskDescriptionWithMeta(t, rawCleanDesc) {
+  var pName = (t && t.project_name && t.project_name.trim()) ? t.project_name.trim() : (getTaskProjectName(t) || _activeProject || '');
+  var est = (t && t.estimate) || '';
+  if (!est && t && t.description) {
+    var estMatch = t.description.match(/\[Estimate:\s*([^\]|]+)/i);
+    if (estMatch && estMatch[1]) est = estMatch[1].trim();
+  }
+  var body = (rawCleanDesc || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
+  var tags = [];
+  if (pName && pName !== 'General Project' && !pName.toLowerCase().includes('sprint')) {
+    tags.push('Project: ' + pName);
+  }
+  if (est) {
+    tags.push('Estimate: ' + est);
+  }
+  if (tags.length) {
+    return body + (body ? '\n\n' : '') + '[' + tags.join(' | ') + ']';
+  }
+  return body;
+}
+
+/**
+ * Formats due date string safely without timezone date shifts
+ */
+function formatTaskDueDateStr(val) {
+  if (!val) return 'Due Date';
+  var parts = String(val).split('T')[0].split('-');
+  if (parts.length === 3) {
+    var year = parseInt(parts[0], 10);
+    var month = parseInt(parts[1], 10) - 1;
+    var day = parseInt(parts[2], 10);
+    var d = new Date(year, month, day);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+    }
+  }
+  var d2 = new Date(val);
+  return !isNaN(d2.getTime()) ? d2.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' }) : 'Due Date';
+}
+
+/**
  * Opens native browser date picker directly on due date button click
  */
 function openTaskDueDatePicker(e) {
-  if (e && e.target && e.target.classList && e.target.classList.contains('tdm-due-input')) {
-    return;
+  if (e) {
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (typeof e.preventDefault === 'function') e.preventDefault();
   }
   var input = document.querySelector('.tdm-due-input');
-  if (input) {
-    if (typeof input.showPicker === 'function') {
-      try {
-        input.showPicker();
-        return;
-      } catch (_) {}
+  if (!input) return;
+
+  if (typeof input.showPicker === 'function') {
+    try {
+      input.showPicker();
+      return;
+    } catch (err) {
+      console.warn('showPicker error:', err);
     }
-    input.focus();
   }
+  try {
+    input.focus();
+  } catch (_) {}
 }
 
 /**
@@ -144,13 +193,8 @@ function getTaskProjectName(t) {
     var match = t.description.match(/\[Project:\s*([^\]|]+)/i);
     if (match && match[1] && match[1].trim()) return match[1].trim();
   }
-  if (t.code && _companyProjects && _companyProjects.length) {
-    var prefix = String(t.code).split('-')[0].toUpperCase();
-    var found = _companyProjects.find(function(cp) {
-      var cpLetters = cp.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
-      return cpLetters === prefix;
-    });
-    if (found) return found;
+  if (t.department && DEPT_CONFIG[t.department.toLowerCase()]) {
+    return DEPT_CONFIG[t.department.toLowerCase()].label;
   }
   return '';
 }
@@ -1382,6 +1426,10 @@ function renderMyTasksView() {
       var s = normalizeTaskStatus(t.status);
       if (s === 'completed' || s === 'done') return false;
     }
+    if (_myTasksProjectFilter && _myTasksProjectFilter !== 'all') {
+      var tProj = (getTaskProjectName(t) || '').toLowerCase();
+      if (tProj !== _myTasksProjectFilter.toLowerCase()) return false;
+    }
     if (_taskSearchQuery) {
       var q = _taskSearchQuery.toLowerCase();
       var matchTitle = (t.title || '').toLowerCase().indexOf(q) !== -1;
@@ -1413,6 +1461,13 @@ function renderMyTasksView() {
     +   '<button type="button" class="filter-chip' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="toggleMyTasksStatus()">'
     +     'Status is: <strong>' + (_myTasksStatusFilter === 'open' ? 'Open' : 'All') + '</strong>'
     +   '</button>'
+    +   '<div class="my-tasks-project-filter-wrap" style="position:relative;display:inline-block;">'
+    +     '<button type="button" class="filter-chip' + (_myTasksProjectFilter && _myTasksProjectFilter !== 'all' ? ' active' : '') + '" onclick="toggleMyTasksProjectDropdown(event)">'
+    +       'Project is: <strong>' + (typeof escapeHtml === 'function' ? escapeHtml(_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter) : (_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter)) + '</strong>'
+    +       '<svg class="ui-icon-xs" style="margin-left:4px;vertical-align:-1px;" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>'
+    +     '</button>'
+    +     '<div class="my-tasks-project-dropdown" style="display:none;"></div>'
+    +   '</div>'
     + '</div>'
     + '<div class="my-tasks-table-container">'
     +   '<table class="my-tasks-table">'
@@ -1446,14 +1501,14 @@ function renderMyTasksView() {
       var statusClass = STATUS_CONFIG[normStatus].cls;
       var statusLabel = STATUS_CONFIG[normStatus].label;
       var taskId = formatTaskId(t, idx);
-      var projectName = getTaskProjectName(t) || (t.department && DEPT_CONFIG[t.department] ? (DEPT_CONFIG[t.department].label + ' Sprint') : 'General Project');
+      var projectName = getTaskProjectName(t) || (t.department && DEPT_CONFIG[t.department] ? DEPT_CONFIG[t.department].label : 'General Project');
 
       var dueStr = '—';
       var isOverdue = false;
       if (t.due_date) {
         var d = new Date(t.due_date); d.setHours(0, 0, 0, 0);
         isOverdue = !isDone && d < today;
-        dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
+        dueStr = formatTaskDueDateStr(t.due_date);
       }
 
       var priorityP = (t.priority || 'medium').toLowerCase();
@@ -1503,6 +1558,47 @@ function toggleMyTasksScope() {
 
 function toggleMyTasksStatus() {
   _myTasksStatusFilter = (_myTasksStatusFilter === 'open') ? 'all' : 'open';
+  renderMyTasksView();
+}
+
+function toggleMyTasksProjectDropdown(e) {
+  if (e) e.stopPropagation();
+  var menu = document.querySelector('.my-tasks-project-dropdown');
+  if (!menu) return;
+  if (menu.style.display === 'block') {
+    menu.style.display = 'none';
+    return;
+  }
+
+  var projectNamesMap = { 'all': 'All Projects' };
+  _allLoadedTasks.forEach(function(t) {
+    var p = getTaskProjectName(t);
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+      projectNamesMap[p] = p;
+    }
+  });
+  _companyProjects.forEach(function(p) {
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+      projectNamesMap[p] = p;
+    }
+  });
+
+  var html = Object.keys(projectNamesMap).map(function(pKey) {
+    var isSel = (_myTasksProjectFilter === pKey) || (pKey === 'all' && (!_myTasksProjectFilter || _myTasksProjectFilter === 'all'));
+    return '<div class="my-tasks-project-dropdown-item' + (isSel ? ' active' : '') + '" onclick="setMyTasksProjectFilter(\'' + (typeof escapeHtml === 'function' ? escapeHtml(pKey) : pKey) + '\')">'
+      + (pKey === 'all' ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>' : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>')
+      + '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(projectNamesMap[pKey]) : projectNamesMap[pKey]) + '</span>'
+      + '</div>';
+  }).join('');
+
+  menu.innerHTML = html;
+  menu.style.display = 'block';
+}
+
+function setMyTasksProjectFilter(pKey) {
+  _myTasksProjectFilter = pKey || 'all';
+  var menu = document.querySelector('.my-tasks-project-dropdown');
+  if (menu) menu.style.display = 'none';
   renderMyTasksView();
 }
 
@@ -1634,13 +1730,7 @@ function openTaskDetail(id) {
   }
 
   // Due Date Pill matching Image 2 & 4
-  var dueStr = 'Due Date';
-  if (t.due_date) {
-    var d = new Date(t.due_date);
-    if (!isNaN(d.getTime())) {
-      dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
-    }
-  }
+  var dueStr = formatTaskDueDateStr(t.due_date);
   set('tdm-due', dueStr);
   var dueInput = document.querySelector('.tdm-due-input');
   if (dueInput) {
@@ -1652,8 +1742,8 @@ function openTaskDetail(id) {
   var estValEl = document.querySelector('.tdm-estimate-val');
   if (estValEl) estValEl.textContent = estStr;
 
-  // Description: strip [Project: ...] tag for clean reading and editing
-  var cleanDesc = (t.description || '').replace(/\s*\[Project:[^\]]*\]/gi, '').trim();
+  // Description: strip [Project: ...] and [Estimate: ...] tags for clean reading and editing
+  var cleanDesc = (t.description || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
   var descEl = document.getElementById('tdm-desc');
   if (descEl) descEl.innerHTML = cleanDesc;
 
@@ -1672,7 +1762,12 @@ function handleTaskTitleBlur(el) {
 function handleTaskDescBlur(el) {
   if (!_activeDetailTaskId || !el) return;
   var val = (el.innerHTML || el.textContent || '').trim();
-  saveTaskField(_activeDetailTaskId, 'description', val);
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
+  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
+    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
+  }
+  var fullDesc = buildTaskDescriptionWithMeta(t || {}, val);
+  saveTaskField(_activeDetailTaskId, 'description', fullDesc);
 }
 
 /**
@@ -1775,8 +1870,13 @@ function handleTaskDetailDescChange(val) {
 function saveActiveTaskBrief() {
   if (!_activeDetailTaskId) return;
   var descEl = document.getElementById('tdm-desc');
-  var val = descEl ? descEl.textContent : '';
-  saveTaskField(_activeDetailTaskId, 'description', val);
+  var val = descEl ? (descEl.innerHTML || descEl.textContent || '') : '';
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
+  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
+    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
+  }
+  var fullDesc = buildTaskDescriptionWithMeta(t || {}, val);
+  saveTaskField(_activeDetailTaskId, 'description', fullDesc);
 }
 
 /**
@@ -2104,13 +2204,7 @@ function cycleTaskDetailPriority(e) {
 function handleTaskDetailDueChange(val) {
   if (!_activeDetailTaskId) return;
   saveTaskField(_activeDetailTaskId, 'due_date', val || null);
-  var dueStr = 'Due Date';
-  if (val) {
-    var d = new Date(val);
-    if (!isNaN(d.getTime())) {
-      dueStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
-    }
-  }
+  var dueStr = formatTaskDueDateStr(val);
   var dueEl = document.getElementById('tdm-due');
   if (dueEl) dueEl.textContent = dueStr;
 }
@@ -2136,6 +2230,14 @@ function editTaskDetailEstimate(e) {
  */
 function closeTaskDetail() {
   if (typeof document === 'undefined') return;
+  var titleEl = document.getElementById('tdm-title');
+  if (titleEl && _activeDetailTaskId) {
+    var titleVal = (titleEl.textContent || '').trim();
+    if (titleVal) {
+      saveTaskField(_activeDetailTaskId, 'title', titleVal);
+    }
+  }
+  saveActiveTaskBrief();
   var m = document.getElementById('task-detail-modal');
   if (m) m.style.display = 'none';
   var sMenu = document.querySelector('.tdm-status-dropdown');
@@ -2395,13 +2497,14 @@ async function handleCreateTaskSubmit(e) {
   var rawDesc = descEl ? descEl.value.trim() : '';
   var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
   var targetStatus = modal.getAttribute('data-target-status') || 'todo';
+  var fullDesc = buildTaskDescriptionWithMeta({ project_name: projectName, estimate: estimate }, desc);
 
   // 1. INSTANT OPTIMISTIC CREATION (< 10ms)
   var tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
   var localTask = {
     id: tempId,
     title: title,
-    description: desc,
+    description: fullDesc,
     department: dept,
     priority: priority,
     due_date: due || null,
@@ -2452,7 +2555,7 @@ async function handleCreateTaskSubmit(e) {
       try {
         var payload = {
           title: title,
-          description: desc,
+          description: fullDesc,
           department: dept,
           priority: priority,
           due_date: due || null,
@@ -2901,6 +3004,9 @@ if (typeof window !== 'undefined') {
   window.selectTaskDetailAssignee   = selectTaskDetailAssignee;
   window.cycleTaskDetailPriority    = cycleTaskDetailPriority;
     window.openTaskDueDatePicker      = openTaskDueDatePicker;
+    window.toggleMyTasksProjectDropdown = toggleMyTasksProjectDropdown;
+    window.setMyTasksProjectFilter    = setMyTasksProjectFilter;
+    window.formatTaskDueDateStr       = formatTaskDueDateStr;
     window.getPriorityIconSvg         = getPriorityIconSvg;
   window.handleTaskDetailDueChange  = handleTaskDetailDueChange;
   window.editTaskDetailEstimate     = editTaskDetailEstimate;
@@ -3000,7 +3106,9 @@ if (typeof module !== 'undefined' && module.exports) {
 
 if (typeof document !== 'undefined') {
   document.addEventListener('click', function(e) {
-    if (!e.target.closest || !e.target.closest('.task-prop-pill-wrapper')) {
+    if (!e.target.closest || (!e.target.closest('.task-prop-pill-wrapper') && !e.target.closest('.my-tasks-project-filter-wrap'))) {
+      var pMenu = document.querySelector('.my-tasks-project-dropdown');
+      if (pMenu) pMenu.style.display = 'none';
       var sMenu = document.querySelector('.tdm-status-dropdown');
       if (sMenu) sMenu.style.display = 'none';
       var aMenu = document.querySelector('.tdm-assignee-dropdown');
