@@ -2137,6 +2137,18 @@ async function getJson(url) {
           renderMemberAvatar('Jeshua Koh', 'jeshua@mirtech.io');
         }
 
+        // Test remove photo buttons
+        const remBtn = document.querySelector('.m-pfp-remove-btn');
+        const remTextBtn = document.querySelector('.m-pfp-remove-text-btn');
+        if (typeof setRemovePfpButtonVisible === 'function') {
+          setRemovePfpButtonVisible(true);
+        }
+        const remBtnShown = remBtn ? remBtn.style.display : 'none';
+        if (typeof setRemovePfpButtonVisible === 'function') {
+          setRemovePfpButtonVisible(false);
+        }
+        const remBtnHidden = remBtn ? remBtn.style.display : '';
+
         return {
           creatorText: sPhText,
           creatorHasRgb: sPhHasRgb,
@@ -2144,7 +2156,10 @@ async function getJson(url) {
           regText: sPhRegText,
           regHasRgb: sPhRegRgb,
           regTitle: sPhRegTitle,
-          regHasBg: Boolean(sPhRegBg)
+          regHasBg: Boolean(sPhRegBg),
+          remBtnFound: Boolean(remBtn && remTextBtn),
+          remBtnShown,
+          remBtnHidden
         };
       })()`,
       returnByValue: true
@@ -2158,7 +2173,11 @@ async function getJson(url) {
     assert.strictEqual(ad.regHasRgb, false, 'Regular member must not have creator-rgb-avatar class');
     assert.strictEqual(ad.regTitle, 'Jayden Wong', 'Regular member must have hover tooltip with name');
     assert.strictEqual(ad.regHasBg, true, 'Regular member avatar must have unique background color');
+    assert.strictEqual(ad.remBtnFound, true, 'Remove photo button elements must exist in DOM');
+    assert.strictEqual(ad.remBtnShown, 'flex', 'Remove photo button must show when photo is uploaded');
+    assert.strictEqual(ad.remBtnHidden, 'none', 'Remove photo button must hide when photo is removed');
     console.log('  ✔ Creator "JK" with RGB animation and regular member single initial with unique color and hover tooltip verified in browser');
+    console.log('  ✔ Remove profile picture toggle and buttons verified in browser');
 
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');

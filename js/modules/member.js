@@ -613,6 +613,82 @@ function resetMemberAvatar() {
   }
 }
 
+function setRemovePfpButtonVisible(visible) {
+  if (typeof document === 'undefined') return;
+  var btns = document.querySelectorAll('.m-pfp-remove-btn, .m-pfp-remove-text-btn');
+  btns.forEach(function(btn) {
+    btn.style.display = visible ? (btn.classList.contains('m-pfp-remove-btn') ? 'flex' : 'inline-block') : 'none';
+  });
+}
+
+async function removePfp() {
+  var id = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+  if (!id) {
+    if (typeof showToast === 'function') showToast('Please log in to manage your profile photo.', 'warning');
+    return;
+  }
+
+  var confirmed = (typeof showConfirmModal === 'function')
+    ? await showConfirmModal('Remove your custom profile picture and revert to your personalized initials avatar?', 'Remove Profile Picture', { confirmText: 'Remove', cancelText: 'Cancel', danger: true })
+    : true;
+  if (!confirmed) return;
+
+  var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+
+  // 1. Purge from local storage and session cache immediately
+  if (typeof sessionSet === 'function') {
+    sessionSet('pfp_cache_' + cleanFileName, null);
+    sessionSet('photo_url', null);
+  }
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.removeItem('bb_pfp_' + cleanFileName); } catch (_) {}
+  }
+
+  // 2. Delete from Supabase Storage
+  try {
+    var client = getSupa();
+    if (client && typeof client.deleteFile === 'function') {
+      await client.deleteFile('avatars', cleanFileName);
+    }
+  } catch (err) {
+    console.warn('Storage delete encountered non-fatal error:', err);
+  }
+
+  // 3. Immediately revert UI to default initials avatar
+  if (typeof document !== 'undefined') {
+    var img = document.getElementById('m-pfp-img');
+    var ph  = document.getElementById('m-pfp-ph');
+    if (img) { img.src = ''; img.style.display = 'none'; }
+    if (ph)  ph.style.display = 'flex';
+
+    var sImg = document.getElementById('sidebar-user-avatar-img');
+    var sPh  = document.getElementById('sidebar-user-avatar-ph');
+    if (sImg) { sImg.src = ''; sImg.style.display = 'none'; }
+    if (sPh)  sPh.style.display = 'flex';
+
+    var navAvatarImg = document.getElementById('nav-avatar-img');
+    var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
+    if (navAvatarImg) { navAvatarImg.src = ''; navAvatarImg.style.display = 'none'; }
+    if (navAvatarPh)  navAvatarPh.style.display = 'flex';
+
+    var fileInp = document.getElementById('pfp-upload');
+    if (fileInp) fileInp.value = '';
+
+    setRemovePfpButtonVisible(false);
+  }
+
+  // 4. Re-render initials and unique color / creator RGB animation
+  var memberName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+  var memberEmail = (typeof sessionGet === 'function') ? sessionGet('email') : '';
+  if (typeof renderMemberAvatar === 'function') {
+    renderMemberAvatar(memberName, memberEmail);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('Profile picture removed successfully.', 'success');
+  }
+}
+
 // ── Member Dashboard & Profile ──────────────────────────────────────────────
 
 async function renderDashboard() {
@@ -730,6 +806,7 @@ async function renderDashboard() {
         var csPh  = document.getElementById('sidebar-user-avatar-ph');
         if (csImg) { csImg.src = cachedPfp; csImg.style.display = 'block'; }
         if (csPh)  csPh.style.display = 'none';
+        setRemovePfpButtonVisible(true);
       }
 
       var pfpUrl = client.fileUrl('avatars', cleanFileName);
@@ -743,6 +820,10 @@ async function renderDashboard() {
         var sPh  = document.getElementById('sidebar-user-avatar-ph');
         if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
         if (sPh)  sPh.style.display = 'none';
+        setRemovePfpButtonVisible(true);
+      };
+      testImg.onerror = function() {
+        setRemovePfpButtonVisible(false);
       };
       testImg.src = pfpUrl + '?t=' + Date.now();
     } catch (e) {}
@@ -827,6 +908,7 @@ async function loadMemberOrders() {
 
 function logoutMember() {
   resetMemberAvatar();
+  setRemovePfpButtonVisible(false);
   // Completely purge session state eliminating residual keys (BUG-011)
   if (typeof sessionClear === 'function') {
     sessionClear();
@@ -920,6 +1002,7 @@ async function uploadPfp(input) {
     var sPh  = document.getElementById('sidebar-user-avatar-ph');
     if (sImg) { sImg.src = localPreviewUrl; sImg.style.display = 'block'; }
     if (sPh)  sPh.style.display = 'none';
+    setRemovePfpButtonVisible(true);
 
     var client = getSupa();
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
@@ -1273,6 +1356,8 @@ if (typeof window !== 'undefined') {
   window.loginMember                  = loginMember;
   window.renderMemberAvatar             = renderMemberAvatar;
   window.resetMemberAvatar              = resetMemberAvatar;
+  window.setRemovePfpButtonVisible    = setRemovePfpButtonVisible;
+  window.removePfp                    = removePfp;
   window.renderDashboard              = renderDashboard;
   window.loadMemberOrders             = loadMemberOrders;
   window.logoutMember                 = logoutMember;
@@ -1304,6 +1389,8 @@ if (typeof module !== 'undefined' && module.exports) {
     loginMember,
     renderMemberAvatar,
     resetMemberAvatar,
+    setRemovePfpButtonVisible,
+    removePfp,
     renderDashboard,
     loadMemberOrders,
     logoutMember,
