@@ -371,18 +371,7 @@ async function dispatchVerificationEmail(email, name, code) {
     console.warn('Apps Script mail dispatch note:', scriptErr);
   }
 
-  // 4. Parallel trigger to Supabase Auth signup if active
-  try {
-    var authUrl = (typeof SUPA_URL !== 'undefined' ? SUPA_URL : (window.SUPA_URL || '')) + '/auth/v1/signup';
-    var authKey = typeof SUPA_KEY !== 'undefined' ? SUPA_KEY : (window.SUPA_KEY || '');
-    if (authUrl && authKey) {
-      fetch(authUrl, {
-        method: 'POST',
-        headers: { apikey: authKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password: 'BB_' + code + '_Verify!' })
-      }).catch(function() {});
-    }
-  } catch (authErr) {}
+
 
   console.log('[1st PJ BB Verification Code] Code ' + code + ' generated for ' + cleanEmail + ' (hasMailer: ' + hasMailer + ')');
   return { hasMailer: hasMailer, code: code };
