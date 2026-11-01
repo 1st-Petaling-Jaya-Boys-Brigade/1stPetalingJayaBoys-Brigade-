@@ -333,6 +333,7 @@ async function dispatchVerificationEmail(email, name, code) {
   } catch (e) {}
 
   // 3. Dispatch email via Google Apps Script Webhook
+  var hasMailer = false;
   try {
     var scriptUrl = '';
     var syncToken = '';
@@ -343,15 +344,20 @@ async function dispatchVerificationEmail(email, name, code) {
     if (!scriptUrl) {
       var supaClient = getSupa();
       if (supaClient && typeof supaClient.get === 'function') {
-        var sheetRows = await supaClient.get('bb_config?key=eq.bb_att_sheet&select=value');
+        var sheetRows = await supaClient.get('bb_config?key=eq.bb_master_sheet_config&select=value');
+        if (!sheetRows || !sheetRows.length) {
+          sheetRows = await supaClient.get('bb_config?key=eq.bb_att_sheet&select=value');
+        }
         if (sheetRows && sheetRows.length && sheetRows[0].value) {
           var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
           scriptUrl = parsed.scriptUrl || '';
+          syncToken = parsed.syncToken || syncToken;
         }
       }
     }
 
-    if (scriptUrl) {
+    if (scriptUrl && scriptUrl.trim().length > 0) {
+      hasMailer = true;
       var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
         'action=sendVerificationEmail' +
         '&email=' + encodeURIComponent(cleanEmail) +
@@ -378,7 +384,8 @@ async function dispatchVerificationEmail(email, name, code) {
     }
   } catch (authErr) {}
 
-  console.log('[1st PJ BB Verification Code] Sent 6-digit code ' + code + ' to ' + cleanEmail);
+  console.log('[1st PJ BB Verification Code] Code ' + code + ' generated for ' + cleanEmail + ' (hasMailer: ' + hasMailer + ')');
+  return { hasMailer: hasMailer, code: code };
 }
 
 /**
@@ -647,8 +654,8 @@ async function registerMember() {
     _stagedRegistration = newMemberData;
     _stagedRegistration.passwordHash = await hashPassword(pass);
 
-    await dispatchVerificationEmail(email, name, otpCode);
-    showRegistrationVerifyView(email, name, otpCode);
+    var mailRes = await dispatchVerificationEmail(email, name, otpCode);
+    showRegistrationVerifyView(email, name, otpCode, mailRes ? mailRes.hasMailer : false);
 
     if (typeof showToast === 'function') {
       showToast('Verification code sent to ' + email + '! Please check your inbox.', 'success', 5000);
@@ -662,7 +669,7 @@ async function registerMember() {
   }
 }
 
-function showRegistrationVerifyView(email, _name, _otpCode) {
+function showRegistrationVerifyView(email, _name, otpCode, hasMailer) {
   var form = document.getElementById('auth-register');
   if (!form) return;
 
@@ -678,6 +685,24 @@ function showRegistrationVerifyView(email, _name, _otpCode) {
   form.style.display = 'none';
   verifyView.style.display = 'block';
 
+  var fallbackHtml = '';
+  if (!hasMailer && otpCode) {
+    fallbackHtml =
+      '<div style="background:rgba(217,163,35,0.08);border:1px solid rgba(217,163,35,0.3);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12px;color:var(--text-secondary);text-align:center;">' +
+        '<div style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--accent);font-weight:700;margin-bottom:4px;">' +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+          '<span>Google Apps Script Mailer Not Yet Linked</span>' +
+        '</div>' +
+        '<span style="font-size:11.5px;line-height:1.4;display:block;">Google Apps Script Webhook is pending setup in Admin Console. For testing &amp; account creation, your verification code is:</span>' +
+        '<div style="margin-top:8px;">' +
+          '<button type="button" onclick="document.getElementById(\'reg-verify-code\').value=\'' + escapeHtml(otpCode) + '\'" style="background:var(--accent);color:#0f172a;border:none;border-radius:6px;padding:5px 14px;font-weight:800;cursor:pointer;font-family:var(--font-mono, monospace);font-size:16px;letter-spacing:2px;box-shadow:0 2px 6px rgba(0,0,0,0.25);" title="Click to auto-fill code">' +
+            escapeHtml(otpCode) +
+          '</button>' +
+        '</div>' +
+        '<span style="font-size:11px;color:var(--text-muted);display:block;margin-top:5px;">(Click the yellow button above to auto-fill the code)</span>' +
+      '</div>';
+  }
+
   verifyView.innerHTML =
     '<div style="text-align:center;margin-bottom:12px;">' +
       '<div style="width:48px;height:48px;border-radius:50%;background:rgba(217,163,35,0.12);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:8px;">' +
@@ -685,13 +710,14 @@ function showRegistrationVerifyView(email, _name, _otpCode) {
       '</div>' +
       '<h3 style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);margin:0 0 6px;">Verify Email Address</h3>' +
       '<p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.45;">' +
-        'We sent a 6-digit verification code to <strong>' + escapeHtml(email) + '</strong>.<br>' +
+        'We generated a 6-digit verification code for <strong>' + escapeHtml(email) + '</strong>.<br>' +
         '<span style="font-size:11.5px;color:var(--text-muted);">Please check your inbox (and spam folder). Valid for 15 minutes.</span>' +
       '</p>' +
     '</div>' +
     '<div style="margin:16px 0;">' +
       '<input type="text" id="reg-verify-code" class="reg-verify-code-input" maxlength="6" placeholder="000000" autocomplete="one-time-code" autofocus />' +
     '</div>' +
+    fallbackHtml +
     '<div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">' +
       '<button type="button" class="submit-btn gold" id="btn-confirm-reg-code" onclick="verifyAndCompleteRegistration()">' +
         '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Verify &amp; Complete Registration' +
@@ -738,7 +764,8 @@ async function resendRegistrationCode() {
   }
 
   var newCode = Math.floor(100000 + Math.random() * 900000).toString();
-  await dispatchVerificationEmail(email, _stagedRegistration.name, newCode);
+  var mailRes = await dispatchVerificationEmail(email, _stagedRegistration.name, newCode);
+  showRegistrationVerifyView(email, _stagedRegistration.name, newCode, mailRes ? mailRes.hasMailer : false);
   _lastOtpTime[email] = Date.now();
   startRegOtpCooldown(60);
   if (typeof showToast === 'function') showToast('New 6-digit code sent to ' + email, 'success');
