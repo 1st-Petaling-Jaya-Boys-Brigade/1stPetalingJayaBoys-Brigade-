@@ -20,9 +20,14 @@
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
+<!-- Content Security Policy (CSP), Anti-Clickjacking & Referrer Security (TSK-037) -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com https://drive.google.com https://images.unsplash.com; media-src 'self' blob: https://*.supabase.co https://drive.google.com https://*.googleusercontent.com https://www.youtube.com https://commondatastorage.googleapis.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://script.google.com https://script.googleusercontent.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="DENY">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
 <link rel="stylesheet" href="css/variables.css?v=20261101t">
 <link rel="stylesheet" href="css/base.css?v=20261101t">
@@ -2974,6 +2979,15 @@
 <script src="js/modules/admin.js?v=20261101t"></script>
 
 <script>
+
+// ── Anti-Clickjacking Frame Buster Guard (TSK-037) ───────────────────────────
+if (window.top !== window.self) {
+  try {
+    window.top.location = window.self.location;
+  } catch (_) {
+    if (document.documentElement) document.documentElement.style.display = 'none';
+  }
+}
 
 // ── Navigation ────────────────────────────────────────────────────────────
 function switchTab(tab, btn) {

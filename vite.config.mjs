@@ -1,16 +1,26 @@
 import { defineConfig } from 'vite';
 
+const securityHeaders = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com https://drive.google.com https://images.unsplash.com; media-src 'self' blob: https://*.supabase.co https://drive.google.com https://*.googleusercontent.com https://www.youtube.com https://commondatastorage.googleapis.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://script.google.com https://script.googleusercontent.com; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()'
+};
+
 export default defineConfig({
   root: '.',
   publicDir: 'assets',
   server: {
     port: 3000,
     open: false,
-    host: true
+    host: true,
+    headers: securityHeaders
   },
   preview: {
     port: 3000,
-    open: false
+    open: false,
+    headers: securityHeaders
   },
   build: {
     outDir: 'dist',
