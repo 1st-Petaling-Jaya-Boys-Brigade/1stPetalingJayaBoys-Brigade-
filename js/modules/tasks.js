@@ -927,7 +927,7 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   }
 
   if (isCreator) {
-    return '<span class="task-card-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J</span>';
+    return '<span class="task-card-avatar creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J</span>';
   }
 
   var initial = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name) : (name.trim().charAt(0).toUpperCase() || '?');
@@ -1490,18 +1490,18 @@ function openTaskDetail(id) {
     aAvatar.style.cursor = 'pointer';
     if (photoUrl) {
       aAvatar.innerHTML = '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '"/>';
-      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = 'transparent';
     } else if (isCreator) {
       aAvatar.innerHTML = '';
       aAvatar.textContent = 'J';
-      aAvatar.classList.add('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = '';
     } else {
       var initials = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(aName) : (aName === 'Unassigned' ? 'U' : (aName.trim().charAt(0).toUpperCase() || '?'));
       aAvatar.innerHTML = '';
       aAvatar.textContent = initials;
-      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(aName) : getAssigneeAvatarBg(aName);
     }
   }
@@ -1879,18 +1879,18 @@ async function selectTaskDetailAssignee(ic, name) {
     aAvatar.style.cursor = 'pointer';
     if (photoUrl) {
       aAvatar.innerHTML = '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanName) : cleanName) + '"/>';
-      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = 'transparent';
     } else if (isCreator) {
       aAvatar.innerHTML = '';
       aAvatar.textContent = 'J';
-      aAvatar.classList.add('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = '';
     } else {
       var inits = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(cleanName) : (!cleanName || cleanName === 'Unassigned' ? 'U' : (cleanName.trim().charAt(0).toUpperCase() || '?'));
       aAvatar.innerHTML = '';
       aAvatar.textContent = inits;
-      aAvatar.classList.remove('creator-snow-avatar', 'creator-rgb-avatar');
+      aAvatar.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       aAvatar.style.background = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(cleanName) : getAssigneeAvatarBg(cleanName);
     }
   }

@@ -214,12 +214,12 @@ select.form-input,
   border-color: var(--border-card) !important;
 }
 
-[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
 [data-theme='light'] [style*='color:#f0f4ff'],
 [data-theme='light'] [style*='color:#e0e8ff'],
 [data-theme='light'] [style*='color:#dce8ff'] {
@@ -5758,74 +5758,82 @@ select.form-input,
 
 
 /* ── Creator Profile RGB Animation & Dynamic Avatar Hover Styles ── */
-@keyframes creatorSnowFall {
+@keyframes creatorOutlineRotate {
   0% {
-    background-position: 0px 0px, 0px 0px, 0px 0px, center;
-  }
-  50% {
-    background-position: 15px 75px, -15px 50px, 8px 30px, center;
+    transform: rotate(0deg);
   }
   100% {
-    background-position: 30px 150px, -30px 100px, 15px 60px, center;
+    transform: rotate(360deg);
   }
+}
+
+@keyframes creatorSnowFall {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @keyframes avatarRgbFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
+.creator-outline-avatar,
 .creator-snow-avatar,
 .creator-rgb-avatar {
-  background-color: #0b1528 !important;
-  background-image:
-    /* Layer 1: Crisp foreground falling snowflakes */
-    radial-gradient(circle at 12px 18px, #ffffff 1.6px, transparent 2px),
-    radial-gradient(circle at 45px 35px, rgba(255, 255, 255, 0.95) 1.8px, transparent 2.2px),
-    radial-gradient(circle at 28px 75px, rgba(240, 249, 255, 0.9) 1.5px, transparent 2px),
-    radial-gradient(circle at 72px 110px, #ffffff 1.8px, transparent 2.2px),
-    /* Layer 2: Midground drifting snow particles */
-    radial-gradient(circle at 20px 45px, rgba(224, 242, 254, 0.85) 1.2px, transparent 1.6px),
-    radial-gradient(circle at 65px 20px, rgba(255, 255, 255, 0.8) 1.3px, transparent 1.7px),
-    radial-gradient(circle at 82px 65px, rgba(186, 230, 253, 0.85) 1.1px, transparent 1.5px),
-    radial-gradient(circle at 38px 125px, rgba(255, 255, 255, 0.8) 1.4px, transparent 1.8px),
-    /* Layer 3: Background fine snow dust */
-    radial-gradient(circle at 8px 90px, rgba(186, 230, 253, 0.6) 0.9px, transparent 1.3px),
-    radial-gradient(circle at 55px 85px, rgba(224, 242, 254, 0.6) 0.8px, transparent 1.2px),
-    radial-gradient(circle at 78px 140px, rgba(255, 255, 255, 0.65) 0.9px, transparent 1.3px),
-    /* Base winter night sky */
-    linear-gradient(180deg, #091322 0%, #152942 55%, #0b192c 100%) !important;
-  background-size:
-    90px 150px, 90px 150px, 90px 150px, 90px 150px,
-    70px 100px, 70px 100px, 70px 100px, 70px 100px,
-    50px 60px, 50px 60px, 50px 60px,
-    100% 100% !important;
-  background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat, no-repeat !important;
-  animation: creatorSnowFall 3.8s linear infinite !important;
+  position: relative !important;
   border-radius: 50% !important;
-  overflow: hidden !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   aspect-ratio: 1 / 1 !important;
   box-sizing: border-box !important;
   color: #ffffff !important;
   font-weight: 800 !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(186, 230, 253, 0.75) !important;
-  border: 1.5px solid rgba(186, 230, 253, 0.75) !important;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.45), inset 0 0 6px rgba(14, 165, 233, 0.25) !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
-  line-height: 1 !important;
+  isolation: isolate;
+  overflow: hidden !important;
   user-select: none !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  background: transparent !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.45) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9) !important;
+  border: none !important;
 }
 
+/* Bright rotating 4-color segmented outline matching reference */
+.creator-outline-avatar::before,
+.creator-snow-avatar::before,
+.creator-rgb-avatar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -45deg,
+    #ff4b4b 0deg 90deg,   /* Bright Vivid Red */
+    #3b82f6 90deg 180deg, /* Bright Electric Blue */
+    #22c55e 180deg 270deg,/* Bright Emerald Green */
+    #facc15 270deg 360deg /* Bright Canary Yellow */
+  );
+  animation: creatorOutlineRotate 9s linear infinite;
+  z-index: -2;
+}
+
+/* Inner deep pine/teal circle with dark divider matching reference */
+.creator-outline-avatar::after,
+.creator-snow-avatar::after,
+.creator-rgb-avatar::after {
+  content: '';
+  position: absolute;
+  inset: max(2.5px, 7.5%);
+  border-radius: 50%;
+  background: #083830;
+  border: 1px solid rgba(0, 0, 0, 0.65);
+  box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.45);
+  z-index: -1;
+}
+
+.creator-outline-avatar,
 .task-card-avatar,
 .project-assignee-avatar,
 .task-assignee-avatar,
