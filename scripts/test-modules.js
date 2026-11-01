@@ -4644,6 +4644,50 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Portal creator J with rotating 4-color outline animation, single-letter initials, non-sequential color hashing, and hover titles verified');
   }
 
+  // ── Multi-Account Family Auth & Email Verification ───────────────────────
+  console.log('Testing Multi-Account Family Auth & Email Verification...');
+  {
+    const memberMod = require('../js/modules/member.js');
+    const utils = require('../js/core/utils.js');
+
+    // 1. Export verification
+    assert.strictEqual(typeof memberMod.findMembersByEmail, 'function', 'findMembersByEmail must be exported');
+    assert.strictEqual(typeof memberMod.handleRegEmailInput, 'function', 'handleRegEmailInput must be exported');
+    assert.strictEqual(typeof memberMod.verifyAndCompleteRegistration, 'function', 'verifyAndCompleteRegistration must be exported');
+    assert.strictEqual(typeof memberMod.cancelRegistrationVerification, 'function', 'cancelRegistrationVerification must be exported');
+    assert.strictEqual(typeof memberMod.resendRegistrationCode, 'function', 'resendRegistrationCode must be exported');
+    assert.strictEqual(typeof memberMod.showAccountPickerModal, 'function', 'showAccountPickerModal must be exported');
+    assert.strictEqual(typeof memberMod.switchFamilyAccount, 'function', 'switchFamilyAccount must be exported');
+
+    // 2. findMembersByEmail lookup with deduplication & deleted filtering
+    const mockAccounts = [
+      { ic: 'family@test.com', email: 'family@test.com', name: 'Child One', rank: 'Private', department: 'active', password: 'hash' },
+      { ic: 'family@test.com__child_two', email: 'family@test.com', name: 'Child Two', rank: 'Recruit', department: 'active', password: 'hash' },
+      { ic: 'family@test.com__deleted', email: 'family@test.com', name: 'Deleted Child', rank: 'Recruit', department: 'deleted', password: 'hash' }
+    ];
+    global.supa = {
+      get: async (path) => {
+        if (path.includes('bb_members?')) return mockAccounts;
+        if (path.includes('bb_config?')) return [];
+        return [];
+      }
+    };
+
+    const found = await memberMod.findMembersByEmail('family@test.com');
+    assert.strictEqual(found.length, 2, 'Must filter out deleted accounts');
+    assert.strictEqual(found[0].name, 'Child One');
+    assert.strictEqual(found[1].name, 'Child Two');
+
+    // 3. Password Verification & Matching for Shared Family Accounts
+    const testHash = await utils.hashPassword('familySecret123');
+    const validMatch = await utils.verifyPassword('familySecret123', testHash);
+    assert.strictEqual(validMatch.valid, true, 'Matching password must be valid');
+    const invalidMatch = await utils.verifyPassword('wrongSecret456', testHash);
+    assert.strictEqual(invalidMatch.valid, false, 'Mismatched password must be rejected');
+
+    console.log('  ✔ Multi-account family email lookup, deleted filtering, and password verification verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
