@@ -4630,6 +4630,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. Member Module Integration
     assert.strictEqual(typeof memberMod.renderMemberAvatar, 'function', 'renderMemberAvatar must be exported');
     assert.strictEqual(typeof memberMod.resetMemberAvatar, 'function', 'resetMemberAvatar must be exported');
+    assert.strictEqual(typeof memberMod.setRemovePfpButtonVisible, 'function', 'setRemovePfpButtonVisible must be exported');
+    assert.strictEqual(typeof memberMod.removePfp, 'function', 'removePfp must be exported');
+    assert.ok(compCss.includes('.m-pfp-remove-btn') && compCss.includes('.m-pfp-remove-text-btn'), 'components.css defines remove photo buttons');
 
     console.log('  ✔ Portal creator JK with RGB animation, single-letter initials, non-sequential color hashing, and hover titles verified');
   }

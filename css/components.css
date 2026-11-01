@@ -5807,3 +5807,19 @@ select.form-input,
   filter: brightness(1.1);
   transform: scale(1.05);
 }
+
+
+.m-pfp-remove-btn {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), filter 0.15s ease;
+}
+.m-pfp-remove-btn:hover {
+  transform: scale(1.18);
+  filter: brightness(1.15);
+}
+.m-pfp-remove-text-btn {
+  transition: opacity 0.15s ease;
+}
+.m-pfp-remove-text-btn:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
