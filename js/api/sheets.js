@@ -567,6 +567,47 @@ function handleIncomingApiRequest(e) {
     var audit = auditSheetSharingSecurity();
     return ContentService.createTextOutput(JSON.stringify(audit))
       .setMimeType(ContentService.MimeType.JSON);
+  } else if (action === 'sendVerificationEmail') {
+    var recipient = (p.email || '').trim();
+    var code = (p.code || '').trim();
+    var memberName = (p.name || 'Member').trim();
+    if (!recipient || !code) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Missing email or verification code',
+        status: 400
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    try {
+      var subject = "1st PJ Boys' Brigade - Registration Verification Code: " + code;
+      var htmlBody = '<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px;background:#ffffff;">' +
+        '<div style="text-align:center;margin-bottom:20px;">' +
+        '<h2 style="color:#0f172a;margin:0 0 6px;">1st Petaling Jaya Boys\' Brigade</h2>' +
+        '<p style="color:#64748b;font-size:14px;margin:0;">Web Portal Account Verification</p>' +
+        '</div>' +
+        '<p style="font-size:15px;color:#334155;line-height:1.5;">Hello <strong>' + memberName + '</strong>,</p>' +
+        '<p style="font-size:14px;color:#475569;line-height:1.5;">Use the following 6-digit verification code to complete your registration:</p>' +
+        '<div style="background:#f1f5f9;border-radius:8px;padding:16px;text-align:center;margin:24px 0;">' +
+        '<span style="font-family:monospace;font-size:32px;font-weight:700;letter-spacing:8px;color:#0f172a;">' + code + '</span>' +
+        '</div>' +
+        '<p style="font-size:12px;color:#94a3b8;line-height:1.4;">This code is valid for 15 minutes. If you did not attempt to register on the 1st PJ BB Web Portal, you can safely ignore this email.</p>' +
+        '<hr style="border:none;border-top:1px solid #f1f5f9;margin:20px 0;" />' +
+        '<p style="font-size:11px;color:#94a3b8;text-align:center;margin:0;">Sure &amp; Stedfast &bull; 1st Petaling Jaya Company</p>' +
+        '</div>';
+      MailApp.sendEmail({
+        to: recipient,
+        subject: subject,
+        htmlBody: htmlBody
+      });
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Verification email dispatched to ' + recipient
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch (mailErr) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Failed to send email: ' + mailErr.message,
+        status: 500
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
   }
 
   return ContentService.createTextOutput(JSON.stringify({

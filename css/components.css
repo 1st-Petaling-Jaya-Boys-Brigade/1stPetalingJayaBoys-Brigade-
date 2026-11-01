@@ -5901,3 +5901,222 @@ select.form-input,
   text-decoration: underline;
   opacity: 0.85;
 }
+
+/* ── Multi-Account Login Picker & Email Verification Styles ── */
+
+.account-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay-page, rgba(14, 17, 22, 0.85));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.account-picker-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.account-picker-header {
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.account-picker-header h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-headline);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-picker-header p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.account-picker-list {
+  padding: 14px 18px;
+  max-height: 340px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.account-picker-item:hover,
+.account-picker-item:focus-visible {
+  background: var(--surface-tint);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  outline: none;
+}
+
+.account-picker-avatar-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.account-picker-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.account-picker-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-picker-name {
+  font-family: var(--font-headline);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.account-picker-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.account-picker-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--surface-tint);
+  border: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.account-picker-arrow {
+  color: var(--text-muted);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.account-picker-item:hover .account-picker-arrow {
+  color: var(--accent);
+  transform: translateX(3px);
+}
+
+.account-picker-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card-subtle);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Family Account Detection Banner in Registration */
+.reg-family-detected-banner {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+  animation: fadeIn 0.2s ease;
+}
+
+.reg-family-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-headline);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-bottom: 4px;
+}
+
+.reg-family-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Registration Email Verification View */
+.reg-verify-box {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.reg-verify-code-input {
+  font-family: var(--font-mono, monospace);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  text-align: center;
+  width: 100%;
+  max-width: 240px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 2px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  box-sizing: border-box;
+  margin: 14px auto;
+  display: block;
+}
+
+.reg-verify-code-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(217, 163, 35, 0.15);
+  outline: none;
+}
