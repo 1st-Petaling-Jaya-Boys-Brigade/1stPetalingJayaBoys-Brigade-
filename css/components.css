@@ -5815,8 +5815,25 @@ select.form-input,
     #22c55e 180deg 270deg,/* Bright Emerald Green */
     #facc15 270deg 360deg /* Bright Canary Yellow */
   );
-  animation: creatorOutlineRotate 9s linear infinite;
+  animation-name: creatorOutlineRotate !important;
+  animation-duration: 9s !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: running !important;
+  transform-origin: center center !important;
   z-index: -2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creator-outline-avatar::before,
+  .creator-snow-avatar::before,
+  .creator-rgb-avatar::before {
+    animation-name: creatorOutlineRotate !important;
+    animation-duration: 9s !important;
+    animation-timing-function: linear !important;
+    animation-iteration-count: infinite !important;
+    animation-play-state: running !important;
+  }
 }
 
 /* Inner deep pine/teal circle with dark divider matching reference */
