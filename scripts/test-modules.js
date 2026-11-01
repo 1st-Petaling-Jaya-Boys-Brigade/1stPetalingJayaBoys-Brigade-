@@ -1525,6 +1525,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(ordersMod.uniformCart.length, 1, 'Removed variant must no longer exist in cart');
   ordersMod.clearUniformCart();
   assert.strictEqual(ordersMod.uniformCart.length, 0, 'Cart must be completely cleared');
+
+  // Test card staging and confirmAddToCart
+  ordersMod.selectSize('shirt', 'M');
+  ordersMod.stepCardQty('shirt', 2);
+  assert.strictEqual(ordersMod.itemStagedQtys['shirt'], 2, 'Staged quantity must be 2');
+  assert.strictEqual(ordersMod.uniformCart.length, 0, 'Staging does not add to cart prematurely');
+  ordersMod.confirmAddToCart('shirt');
+  assert.strictEqual(ordersMod.uniformCart.length, 1, 'confirmAddToCart adds item to cart');
+  assert.strictEqual(ordersMod.uniformCart[0].qty, 2, 'Variant qty in cart is exactly 2');
+  assert.strictEqual(ordersMod.itemStagedQtys['shirt'], 0, 'Staged quantity resets to 0 after adding');
+  ordersMod.clearUniformCart();
   console.log('  ✔ Multi-size Add-to-Cart holds distinct variants (e.g. UK 8 and UK 9 boots) and updates totals');
 
   // 4. Role Authorization

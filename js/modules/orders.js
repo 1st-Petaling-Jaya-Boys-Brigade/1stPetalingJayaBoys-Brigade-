@@ -44,6 +44,7 @@ var prices = {};
 var itemQtys = {};
 var itemSizes = {};
 var itemSelectedSizes = {};
+var itemStagedQtys = {};
 var uniformCart = [];
 var DEFAULT_PAYMENT_INFO =
   'Please transfer payment via Touch \'n Go eWallet / DuitNow QR or online bank transfer to 1st Petaling Jaya Boys\' Brigade. Upload your payment screenshot below as proof of payment.';
@@ -272,6 +273,94 @@ function getProductInCartSummary(key) {
  * @param {string} size
  * @param {HTMLElement} btn
  */
+/**
+ * Adjusts staged quantity for an item card without immediately adding to cart.
+ * The 'Add to Cart' button only appears when staged quantity > 0.
+ * @param {string} key
+ * @param {number} delta
+ * @returns {number}
+ */
+function stepCardQty(key, delta) {
+  var current = itemStagedQtys[key] || 0;
+  var next = Math.max(0, current + delta);
+  itemStagedQtys[key] = next;
+
+  if (typeof document !== 'undefined') {
+    var qtyDisplay = document.getElementById(key + '-qty');
+    if (qtyDisplay) {
+      qtyDisplay.textContent = String(next);
+    }
+
+    var minusBtn = document.getElementById(key + '-minus-btn');
+    if (minusBtn) {
+      minusBtn.disabled = next === 0;
+      minusBtn.style.opacity = next === 0 ? '0.4' : '1';
+    }
+
+    var addBtn = document.getElementById(key + '-add-btn');
+    var addLabel = document.getElementById(key + '-add-label');
+    var card = document.getElementById('ui-' + key);
+
+    if (next > 0) {
+      if (addBtn) addBtn.style.display = 'inline-flex';
+      if (addLabel) addLabel.textContent = 'Add ' + next + ' to Cart';
+      if (card) card.classList.add('has-staged-qty');
+    } else {
+      if (addBtn) addBtn.style.display = 'none';
+      if (card) card.classList.remove('has-staged-qty');
+    }
+  }
+  return next;
+}
+
+/**
+ * Confirms adding the staged quantity of an item card into the uniform cart.
+ * Adds the exact quantity staged via the stepper, then resets staged quantity to 0.
+ * @param {string} key
+ */
+function confirmAddToCart(key) {
+  var staged = itemStagedQtys[key] || 1;
+  var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
+  if (!item) return;
+
+  var sizes = getItemSizes(item);
+  var size = itemSelectedSizes[key] || itemSizes[key] || (sizes.length ? sizes[0] : '');
+  if (sizes.length && !size) {
+    if (typeof showToast === 'function') showToast('Please select a size first!', 'warning');
+    return;
+  }
+
+  addUniformToCart(key, size, staged);
+
+  // Reset staged quantity for this card
+  itemStagedQtys[key] = 0;
+  if (typeof document !== 'undefined') {
+    var qtyDisplay = document.getElementById(key + '-qty');
+    if (qtyDisplay) qtyDisplay.textContent = '0';
+
+    var minusBtn = document.getElementById(key + '-minus-btn');
+    if (minusBtn) {
+      minusBtn.disabled = true;
+      minusBtn.style.opacity = '0.4';
+    }
+
+    var addBtn = document.getElementById(key + '-add-btn');
+    if (addBtn) addBtn.style.display = 'none';
+
+    var card = document.getElementById('ui-' + key);
+    if (card) {
+      card.classList.remove('has-staged-qty');
+      card.classList.add('has-qty');
+    }
+
+    var inCartEl = document.getElementById(key + '-in-cart');
+    if (inCartEl) {
+      inCartEl.textContent = getProductInCartSummary(key);
+      inCartEl.style.display = 'block';
+    }
+  }
+}
+
 function selectUniformCardSize(itemKey, size, btn) {
   itemSelectedSizes[itemKey] = size;
   itemSizes[itemKey] = size;
@@ -416,6 +505,7 @@ function removeUniformCartItem(cartId) {
  */
 function clearUniformCart() {
   uniformCart.length = 0;
+  Object.keys(itemStagedQtys).forEach(function (k) { delete itemStagedQtys[k]; });
       UNIFORM_ITEMS.forEach(function (i) {
         itemQtys[i.key] = 0;
         delete itemSizes[i.key];
@@ -471,7 +561,7 @@ function renderCartSection() {
       '</div>' +
       '<div class="cart-row-actions">' +
       '<div class="cart-row-stepper">' +
-      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', 1)" aria-label="Increase quantity">+</button>' +
+      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', -1)" aria-label="Decrease quantity">&#8722;</button>' +
       '<span class="cart-step-qty">' + ci.qty + '</span>' +
       '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', 1)" aria-label="Increase quantity">+</button>' +
       '</div>' +
@@ -979,13 +1069,13 @@ function renderOrderItems(memberRank) {
       '<div class="product-card-in-cart" id="' + escapeHtml(item.key) + '-in-cart" style="display:' + (inCartText ? 'block' : 'none') + ';">' + inCartText + '</div>' +
       '<div class="product-card-action-row">' +
       '<div class="product-card-stepper qty-ctrl">' +
-      '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity">&#8722;</button>' +
-      '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">' + currentQty + '</div>' +
-      '<button type="button" class="stepper-btn qty-btn" onclick="changeQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity">+</button>' +
+      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-minus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity" disabled style="opacity:0.4;">&#8722;</button>' +
+      '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">0</div>' +
+      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-plus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity">+</button>' +
       '</div>' +
-      '<button type="button" class="add-to-cart-btn" id="' + escapeHtml(item.key) + '-add-btn" onclick="addUniformToCart(\'' + escapeHtml(item.key) + '\')">' +
+      '<button type="button" class="add-to-cart-btn" id="' + escapeHtml(item.key) + '-add-btn" onclick="confirmAddToCart(\'' + escapeHtml(item.key) + '\')" style="display:none;">' +
       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
-      '<span>Add</span>' +
+      '<span id="' + escapeHtml(item.key) + '-add-label">Add to Cart</span>' +
       '</button>' +
       '</div>' +
       '</div>' +
@@ -1546,8 +1636,8 @@ function renderUniformOrderInline() {
     '<div id="uniform-grid-empty" style="display:none;text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px;background:var(--bg-card-subtle);border-radius:12px;margin-bottom:16px;">No products in this category.</div>' +
     '<div id="uniform-cart-section" class="uniform-cart-section" style="display:none;"></div>' +
     '<div class="form-group" style="margin-top:12px;"><label class="form-label">Additional Notes (optional)</label><div id="order-notes-container" style="min-height:0;"></div></div>' +
-    '<div class="total-row" style="margin-top:16px;"><div class="total-label">Estimated Total</div><div class="total-val" id="order-total">RM 0.00</div></div>' +
-    '<button class="submit-btn btn-with-icon" style="margin-top:14px;justify-content:center;" onclick="goToOrderReview()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Review Order</button>' +
+    '<div class="total-row" style="margin-top:16px;display:none;"><div class="total-label">Estimated Total</div><div class="total-val" id="order-total">RM 0.00</div></div>' +
+    '<div style="height:36px;"></div>' +
     '</div>' +
     '<div class="sticky-checkout-bar" id="sticky-checkout-bar">' +
     '<div class="checkout-bar-left">' +
@@ -2087,6 +2177,9 @@ if (typeof window !== 'undefined') {
     window.clearUniformCart     = clearUniformCart;
     window.scrollToCartSection  = scrollToCartSection;
     window.selectUniformCardSize = selectUniformCardSize;
+  window.stepCardQty          = stepCardQty;
+  window.confirmAddToCart     = confirmAddToCart;
+  window.itemStagedQtys       = itemStagedQtys;
   window.DEFAULT_PAYMENT_INFO = DEFAULT_PAYMENT_INFO;
   window.prices = prices;
   window.itemQtys = itemQtys;
@@ -2145,6 +2238,9 @@ if (typeof module !== 'undefined' && module.exports) {
   removeUniformCartItem,
   clearUniformCart,
   selectUniformCardSize,
+  stepCardQty,
+  confirmAddToCart,
+  itemStagedQtys,
     DEFAULT_UNIFORM_ITEMS: DEFAULT_UNIFORM_ITEMS,
     UNIFORM_ITEMS: UNIFORM_ITEMS,
     DEFAULT_PAYMENT_INFO: DEFAULT_PAYMENT_INFO,
