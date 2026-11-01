@@ -1219,8 +1219,12 @@
       }
 
       // 3. Neutralize account credentials & mark department as deleted
+      // Archive the IC so the original email/IC is immediately freed for future re-registration
+      var archivedIc = 'archived_' + Date.now() + '_' + ic;
       try {
         await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), {
+          ic: archivedIc,
+          email: null,
           department: 'deleted',
           password: 'DELETED_' + Date.now() + '_' + Math.random().toString(36).substring(2),
           rank: 'Deleted',
