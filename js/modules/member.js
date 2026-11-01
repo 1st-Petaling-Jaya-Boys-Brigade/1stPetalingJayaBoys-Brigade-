@@ -642,6 +642,7 @@ async function registerMember() {
     var otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     _stagedRegistration = newMemberData;
     _stagedRegistration.passwordHash = await hashPassword(pass);
+    try { sessionStorage.setItem('bb_staged_reg', JSON.stringify(_stagedRegistration)); } catch (e) {}
 
     var mailRes = await dispatchVerificationEmail(email, name, otpCode);
     showRegistrationVerifyView(email, name, otpCode, mailRes ? mailRes.hasMailer : false);
@@ -731,6 +732,7 @@ function showRegistrationVerifyView(email, _name, otpCode, hasMailer) {
 
 function cancelRegistrationVerification() {
   _stagedRegistration = null;
+  try { sessionStorage.removeItem('bb_staged_reg'); } catch (e) {}
   var verifyView = document.getElementById('reg-verify-step-view');
   if (verifyView) verifyView.style.display = 'none';
 
@@ -781,6 +783,13 @@ function startRegOtpCooldown(seconds) {
 }
 
 async function verifyAndCompleteRegistration() {
+  if (!_stagedRegistration) {
+    try {
+      var storedStaged = sessionStorage.getItem('bb_staged_reg');
+      if (storedStaged) _stagedRegistration = JSON.parse(storedStaged);
+    } catch (e) {}
+  }
+
   if (!_stagedRegistration) {
     if (typeof showToast === 'function') showToast('Registration session expired. Please refill the registration form.', 'error');
     cancelRegistrationVerification();
@@ -840,7 +849,6 @@ async function verifyAndCompleteRegistration() {
 
   // Verification passed!
   var staged = _stagedRegistration;
-  _stagedRegistration = null;
 
   // Cleanup OTP
   try { sessionStorage.removeItem('bb_reg_otp_' + email); } catch (e) {}
@@ -852,7 +860,17 @@ async function verifyAndCompleteRegistration() {
     }
   } catch (e) {}
 
-  await finalizeMemberRegistration(staged);
+  try {
+    await finalizeMemberRegistration(staged);
+    _stagedRegistration = null;
+    try { sessionStorage.removeItem('bb_staged_reg'); } catch (e) {}
+  } catch (finalizeErr) {
+    _stagedRegistration = staged;
+    console.error('Finalize registration error:', finalizeErr);
+    if (typeof showToast === 'function') {
+      showToast('Registration failed: ' + (finalizeErr.message || 'Database error'), 'error');
+    }
+  }
 }
 
 async function finalizeMemberRegistration(data) {
@@ -881,15 +899,47 @@ async function finalizeMemberRegistration(data) {
     memberPayload.media_consent = data.mediaConsent;
   }
 
-  // Attempt insert with email column
+  // Attempt insert or update if previously deleted row exists with same ic
   try {
     memberPayload.email = data.email;
-    await client.post('bb_members', memberPayload);
+    memberPayload.department = null;
+    var existingRow = null;
+    try {
+      var checkRes = await client.get('bb_members?ic=eq.' + encodeURIComponent(data.ic) + '&select=ic');
+      if (checkRes && checkRes.length) existingRow = checkRes[0];
+    } catch (checkErr) {}
+
+    if (existingRow) {
+      await client.patch('bb_members?ic=eq.' + encodeURIComponent(data.ic), memberPayload);
+    } else {
+      await client.post('bb_members', memberPayload);
+    }
   } catch (postErr) {
-    // If unique constraint or schema note occurs, fallback gracefully without email column (relying on ic + bb_config)
     delete memberPayload.email;
-    await client.post('bb_members', memberPayload);
+    try {
+      var checkRes2 = await client.get('bb_members?ic=eq.' + encodeURIComponent(data.ic) + '&select=ic');
+      if (checkRes2 && checkRes2.length) {
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(data.ic), memberPayload);
+      } else {
+        await client.post('bb_members', memberPayload);
+      }
+    } catch (e2) {}
   }
+
+  // Remove from bb_deleted_members in bb_config if it was previously deleted
+  try {
+    var delCfg = await client.get('bb_config?key=eq.bb_deleted_members&select=value');
+    if (delCfg && delCfg.length && delCfg[0].value) {
+      var delList = JSON.parse(delCfg[0].value);
+      if (Array.isArray(delList) && (delList.includes(data.ic) || delList.includes(data.email))) {
+        delList = delList.filter(function(x) { return x !== data.ic && x !== data.email; });
+        await client.patch('bb_config?key=eq.bb_deleted_members', {
+          value: JSON.stringify(delList),
+          updated_at: new Date().toISOString()
+        });
+      }
+    }
+  } catch (cleanDelErr) {}
 
   // Store parental consent audit in bb_config if minor
   if (data.isMinor) {
