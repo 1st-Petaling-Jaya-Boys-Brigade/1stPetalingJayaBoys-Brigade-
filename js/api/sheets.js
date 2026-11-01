@@ -546,6 +546,16 @@ function doPost(e) {
 
 function handleIncomingApiRequest(e) {
   var p = (e && e.parameter) ? e.parameter : {};
+  if (e && e.postData && e.postData.contents) {
+    try {
+      var bodyObj = JSON.parse(e.postData.contents);
+      if (bodyObj && typeof bodyObj === 'object') {
+        for (var k in bodyObj) {
+          if (!p[k]) p[k] = bodyObj[k];
+        }
+      }
+    } catch (_) {}
+  }
   var reqToken = (p.token || p.key || p.secret || '').trim();
 
   // 1. Enforce Shared-Secret / Proxy Token Authentication
@@ -605,6 +615,147 @@ function handleIncomingApiRequest(e) {
     } catch (mailErr) {
       return ContentService.createTextOutput(JSON.stringify({
         error: 'Failed to send email: ' + mailErr.message,
+        status: 500
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+    } else if (action === 'broadcastAnnouncement') {
+    var title = (p.title || 'Company Announcement').trim();
+    var date = (p.date || '').trim();
+    var summary = (p.summary || '').trim();
+    var bodyHtml = (p.body || p.html || summary).trim();
+    var portalUrl = (p.portalUrl || 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/').trim();
+    var recipientsRaw = p.recipients || '';
+    var recipientList = [];
+    if (Array.isArray(recipientsRaw)) {
+      recipientList = recipientsRaw;
+    } else if (typeof recipientsRaw === 'string') {
+      recipientList = recipientsRaw.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s.indexOf('@') !== -1; });
+    }
+
+    if (!recipientList.length) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Missing recipient email list for announcement broadcast',
+        status: 400
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    try {
+      var subject = '📢 [1st PJ BB Announcement] ' + title;
+      var htmlBody = '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:28px 24px;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff;color:#1e293b;">' +
+        '<div style="text-align:center;margin-bottom:20px;">' +
+        '<div style="display:inline-block;padding:6px 14px;background:#fef3c7;border-radius:50px;color:#b45309;font-weight:700;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;">' +
+        '📢 Company Announcement' +
+        '</div>' +
+        '<h2 style="color:#0f172a;margin:0 0 6px;font-size:22px;font-weight:700;">1st Petaling Jaya Boys\' Brigade</h2>' +
+        '<p style="color:#64748b;font-size:13px;margin:0;">Web Portal Announcement Update' + (date ? ' &bull; ' + date : '') + '</p>' +
+        '</div>' +
+        '<div style="background:#0f172a;color:#ffffff;border-radius:10px;padding:18px 20px;margin-bottom:20px;">' +
+        '<h3 style="margin:0;font-size:18px;font-weight:700;color:#facc15;">' + title + '</h3>' +
+        '</div>' +
+        '<div style="font-size:14.5px;color:#334155;line-height:1.7;margin-bottom:24px;">' +
+        (bodyHtml ? bodyHtml : summary) +
+        '</div>' +
+        '<div style="text-align:center;margin:28px 0 16px;">' +
+        '<a href="' + portalUrl + '" target="_blank" style="display:inline-block;background:#eab308;color:#0f172a;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px;">' +
+        'View on BB Web Portal &rarr;' +
+        '</a>' +
+        '</div>' +
+        '<hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0 16px;" />' +
+        '<p style="font-size:11px;color:#94a3b8;text-align:center;margin:0;line-height:1.5;">' +
+        'You are receiving this notification because you are a registered member or parent of 1st Petaling Jaya Boys\' Brigade.<br/>' +
+        'Sure &amp; Stedfast &bull; 1st Petaling Jaya Company' +
+        '</p>' +
+        '</div>';
+
+      MailApp.sendEmail({
+        to: '1stpjbb.mailer@gmail.com',
+        bcc: recipientList.join(','),
+        subject: subject,
+        htmlBody: htmlBody
+      });
+
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        count: recipientList.length,
+        message: 'Announcement email broadcast to ' + recipientList.length + ' members'
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch (mailErr) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Failed to broadcast announcement: ' + mailErr.message,
+        status: 500
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  } else if (action === 'sendSecurityAlertEmail') {
+    var recipient = (p.email || '').trim();
+    var memberName = (p.name || 'Member').trim();
+    var device = (p.device || 'New Device').trim();
+    var browser = (p.browser || 'Web Browser').trim();
+    var time = (p.time || new Date().toLocaleString()).trim();
+    var portalUrl = (p.portalUrl || 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/').trim();
+
+    if (!recipient) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Missing recipient email for security alert',
+        status: 400
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    try {
+      var subject = 'Security alert - A new sign-in on ' + device + ' device';
+      var htmlBody = '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;max-width:540px;margin:0 auto;padding:28px 24px;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff;color:#1e293b;">' +
+        '<div style="text-align:center;margin-bottom:24px;">' +
+        '<div style="display:inline-block;padding:8px 14px;background:#fef3c7;border-radius:50px;color:#b45309;font-weight:700;font-size:12px;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">' +
+        '🛡️ Security Alert' +
+        '</div>' +
+        '<h2 style="color:#0f172a;margin:0 0 6px;font-size:22px;font-weight:700;">1st Petaling Jaya Boys\' Brigade</h2>' +
+        '<p style="color:#64748b;font-size:14px;margin:0;">Web Portal Security &amp; Sign-In Notice</p>' +
+        '</div>' +
+        '<p style="font-size:15px;color:#334155;line-height:1.6;margin-top:0;">' +
+        'Hello <strong>' + memberName + '</strong>,' +
+        '</p>' +
+        '<p style="font-size:15px;color:#334155;line-height:1.6;">' +
+        'We noticed a new sign-in to your 1stPJBB Portal account on a <strong>' + device + '</strong> device.' +
+        '</p>' +
+        '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin:20px 0;">' +
+        '<table style="width:100%;font-size:13px;border-collapse:collapse;color:#334155;">' +
+        '<tr><td style="padding:6px 0;color:#64748b;width:90px;"><strong>Device:</strong></td><td style="padding:6px 0;font-weight:600;color:#0f172a;">' + device + '</td></tr>' +
+        '<tr><td style="padding:6px 0;color:#64748b;"><strong>Browser:</strong></td><td style="padding:6px 0;font-weight:600;color:#0f172a;">' + browser + '</td></tr>' +
+        '<tr><td style="padding:6px 0;color:#64748b;"><strong>Time:</strong></td><td style="padding:6px 0;font-weight:600;color:#0f172a;">' + time + ' (Malaysia Time)</td></tr>' +
+        '</table>' +
+        '</div>' +
+        '<p style="font-size:14px;color:#475569;line-height:1.6;">' +
+        'If this was you, you don&rsquo;t need to do anything.' +
+        '</p>' +
+        '<p style="font-size:14px;color:#475569;line-height:1.6;">' +
+        'If not, we&rsquo;ll help you secure your account. Please reset your password immediately or inform a Section Officer.' +
+        '</p>' +
+        '<div style="text-align:center;margin:26px 0 16px;">' +
+        '<a href="' + portalUrl + '" target="_blank" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:600;font-size:14px;">' +
+        'Review Account Security' +
+        '</a>' +
+        '</div>' +
+        '<hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0 16px;" />' +
+        '<p style="font-size:11px;color:#94a3b8;text-align:center;margin:0;line-height:1.5;">' +
+        'Sure &amp; Stedfast &bull; 1st Petaling Jaya Company<br/>' +
+        'Trinity Methodist Church Petaling Jaya' +
+        '</p>' +
+        '</div>';
+
+      MailApp.sendEmail({
+        to: recipient,
+        subject: subject,
+        htmlBody: htmlBody
+      });
+
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Security alert dispatched to ' + recipient
+      })).setMimeType(ContentService.MimeType.JSON);
+    } catch (mailErr) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Failed to send security alert: ' + mailErr.message,
         status: 500
       })).setMimeType(ContentService.MimeType.JSON);
     }

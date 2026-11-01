@@ -4688,6 +4688,153 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Multi-account family email lookup, deleted filtering, and password verification verified');
   }
 
+
+  console.log('Testing Announcement Email Broadcast & Device Security Sign-in Alerts...');
+  {
+    const utils = require('../js/core/utils.js');
+    const memberMod = require('../js/modules/member.js');
+    const annMod = require('../js/modules/announcements.js');
+    const sheetsMod = require('../js/api/sheets.js');
+
+    // 1. Export verification
+    assert.strictEqual(typeof utils.getDeviceSecurityInfo, 'function', 'getDeviceSecurityInfo must be exported');
+    assert.strictEqual(typeof memberMod.checkAndNotifyNewDeviceLogin, 'function', 'checkAndNotifyNewDeviceLogin must be exported');
+    assert.strictEqual(typeof memberMod.dispatchDeviceSecurityAlertEmail, 'function', 'dispatchDeviceSecurityAlertEmail must be exported');
+    assert.strictEqual(typeof annMod.broadcastAnnouncementEmail, 'function', 'broadcastAnnouncementEmail must be exported');
+
+    // 2. Device Security Info Detection
+    const devInfo = utils.getDeviceSecurityInfo();
+    assert.ok(devInfo, 'devInfo must not be null');
+    assert.ok(devInfo.deviceId, 'devInfo must have deviceId');
+    assert.ok(devInfo.label, 'devInfo must have user-friendly label');
+    assert.ok(devInfo.os, 'devInfo must identify OS');
+    assert.ok(devInfo.browser, 'devInfo must identify browser');
+
+    // 3. Google Apps Script Template Handlers Verification
+    const scriptTemplate = sheetsMod.getGoogleAppsScriptTemplate(
+      'https://example.supabase.co',
+      'example_key',
+      'test_token_123'
+    );
+    assert.ok(scriptTemplate.includes("action === 'broadcastAnnouncement'"), 'Template must handle broadcastAnnouncement');
+    assert.ok(scriptTemplate.includes("action === 'sendSecurityAlertEmail'"), 'Template must handle sendSecurityAlertEmail');
+    assert.ok(scriptTemplate.includes("Security alert - A new sign-in on"), 'Template must include security alert subject');
+    assert.ok(scriptTemplate.includes("We noticed a new sign-in to your 1stPJBB Portal account"), 'Template must match user alert copy');
+
+    // 4. Device Sign-in Alert Logic
+    let dispatchedAlerts = [];
+    let savedConfig = {};
+
+    global.supa = {
+      get: async (path) => {
+        if (path.includes('bb_master_sheet_config') || path.includes('bb_att_sheet')) {
+          return [{ value: JSON.stringify({ scriptUrl: 'https://script.google.com/macros/s/TEST/exec', syncToken: 'test' }) }];
+        }
+        if (path.includes('bb_config?key=eq.bb_devices_')) {
+          const match = path.match(/bb_devices_[^&]+/);
+          const key = match ? match[0] : '';
+          return savedConfig[key] ? [{ value: JSON.stringify(savedConfig[key]) }] : [];
+        }
+        return [];
+      },
+      patch: async (path, body) => {
+        const match = path.match(/bb_devices_[^&]+/);
+        if (match) savedConfig[match[0]] = JSON.parse(body.value);
+        return [{ success: true }];
+      },
+      req: async (method, path, body) => {
+        if (body && body.key) savedConfig[body.key] = JSON.parse(body.value);
+        return [{ success: true }];
+      },
+      upsert: async (path, body) => {
+        if (body && body.key) savedConfig[body.key] = JSON.parse(body.value);
+        return [{ success: true }];
+      },
+      post: async (path, body) => {
+        if (body && body.key) savedConfig[body.key] = JSON.parse(body.value);
+        return [{ success: true }];
+      }
+    };
+
+    const origFetch = global.fetch;
+    global.fetch = async (url) => {
+      dispatchedAlerts.push(url);
+      return { ok: true, json: async () => ({ success: true }) };
+    };
+
+    // First login on baseline device: records device but sends 0 alerts
+    await memberMod.checkAndNotifyNewDeviceLogin({
+      name: 'Test Member',
+      email: 'member@test.com',
+      ic: 'member@test.com'
+    });
+    assert.strictEqual(dispatchedAlerts.length, 0, 'Initial baseline login must not trigger security alert email');
+
+    // Second login on same recognized device: sends 0 alerts
+    await memberMod.checkAndNotifyNewDeviceLogin({
+      name: 'Test Member',
+      email: 'member@test.com',
+      ic: 'member@test.com'
+    });
+    assert.strictEqual(dispatchedAlerts.length, 0, 'Re-login on same recognized device must not trigger security alert email');
+
+    // Third login from simulated different device: triggers security alert email
+    const originalGetDev = utils.getDeviceSecurityInfo;
+    global.getDeviceSecurityInfo = () => ({
+      deviceId: 'dev_different_phone_999',
+      label: 'iPhone (Safari)',
+      os: 'iOS',
+      browser: 'Safari',
+      deviceType: 'iPhone'
+    });
+
+    await memberMod.checkAndNotifyNewDeviceLogin({
+      name: 'Test Member',
+      email: 'member@test.com',
+      ic: 'member@test.com'
+    });
+    assert.strictEqual(dispatchedAlerts.length, 1, 'Login on new/different device MUST dispatch security alert email');
+    assert.ok(dispatchedAlerts[0].includes('action=sendSecurityAlertEmail'), 'Must invoke sendSecurityAlertEmail action');
+    assert.ok(dispatchedAlerts[0].includes('iPhone'), 'Must include new device label in alert');
+
+    // Restore original function
+    global.getDeviceSecurityInfo = originalGetDev;
+
+    // 5. Announcement Email Broadcast
+    global.supa.get = async (path) => {
+      if (path.includes('bb_members?select=')) {
+        return [
+          { ic: 'parent1@test.com', name: 'Child A', email: 'parent1@test.com', department: 'active' },
+          { ic: 'parent1@test.com__child_b', name: 'Child B', email: 'parent1@test.com', department: 'active' },
+          { ic: 'parent2@test.com', name: 'Member C', email: 'parent2@test.com', department: 'active' },
+          { ic: 'deleted@test.com', name: 'Deleted Member', email: 'deleted@test.com', department: 'deleted' }
+        ];
+      }
+      if (path.includes('bb_master_sheet_config')) {
+        return [{ value: JSON.stringify({ scriptUrl: 'https://script.google.com/macros/s/TEST/exec', syncToken: 'test' }) }];
+      }
+      return [];
+    };
+
+    dispatchedAlerts = [];
+    await annMod.broadcastAnnouncementEmail({
+      title: 'Company Parade Briefing',
+      body: '<p>Important briefing for all squads.</p>',
+      date: '1 NOV 2026'
+    });
+
+    assert.strictEqual(dispatchedAlerts.length, 1, 'Announcement must dispatch broadcast email');
+    assert.ok(dispatchedAlerts[0].includes('action=broadcastAnnouncement'), 'Must invoke broadcastAnnouncement action');
+    assert.ok(dispatchedAlerts[0].includes('Company%20Parade%20Briefing'), 'Must encode announcement title');
+    // Ensure deduplicated recipients and filtered deleted member
+    assert.ok(dispatchedAlerts[0].includes('parent1%40test.com'), 'Must include parent1@test.com');
+    assert.ok(dispatchedAlerts[0].includes('parent2%40test.com'), 'Must include parent2@test.com');
+    assert.ok(!dispatchedAlerts[0].includes('deleted%40test.com'), 'Must filter out deleted member email');
+
+    global.fetch = origFetch;
+    console.log('  ✔ Announcement broadcast emailing and new device sign-in security alerts verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

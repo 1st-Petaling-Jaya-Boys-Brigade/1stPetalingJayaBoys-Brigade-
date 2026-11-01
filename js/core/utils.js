@@ -1178,6 +1178,86 @@ if (typeof window !== 'undefined') {
   window.getMemberAvatarInitial = getMemberAvatarInitial;
   window.getMemberAvatarColor = getMemberAvatarColor;
   window.getMemberAvatarUrl   = getMemberAvatarUrl;
+  window.getDeviceSecurityInfo = getDeviceSecurityInfo;
+}
+
+
+/**
+ * Detects device hardware, operating system, and browser information for security audit notices.
+ * Assigns or retrieves a persistent pseudo-random device ID in localStorage to detect different devices.
+ * @returns {{ deviceId: string, label: string, os: string, browser: string, deviceType: string }}
+ */
+function getDeviceSecurityInfo() {
+  var ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+  var os = 'Unknown OS';
+  var deviceType = 'Desktop';
+  var browser = 'Browser';
+
+  // 1. Detect Operating System & Device Form Factor
+  if (/Windows NT 10.0/i.test(ua)) os = 'Windows 10/11';
+  else if (/Windows NT 6.3/i.test(ua)) os = 'Windows 8.1';
+  else if (/Windows NT 6.1/i.test(ua)) os = 'Windows 7';
+  else if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/iPhone/i.test(ua)) { os = 'iOS'; deviceType = 'iPhone'; }
+  else if (/iPad/i.test(ua) || (typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    os = 'iPadOS';
+    deviceType = 'iPad';
+  } else if (/Macintosh|Mac OS X/i.test(ua)) {
+    os = 'macOS';
+    deviceType = 'Mac';
+  } else if (/Android/i.test(ua)) {
+    os = 'Android';
+    deviceType = 'Android';
+  } else if (/CrOS/i.test(ua)) {
+    os = 'ChromeOS';
+    deviceType = 'Chromebook';
+  } else if (/Linux/i.test(ua)) {
+    os = 'Linux';
+    deviceType = 'Linux PC';
+  }
+
+  // 2. Detect Browser
+  if (/Edg\//i.test(ua)) browser = 'Microsoft Edge';
+  else if (/OPR\/|Opera/i.test(ua)) browser = 'Opera';
+  else if (/Chrome\//i.test(ua)) browser = 'Chrome';
+  else if (/Safari\//i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+  else if (/Firefox\//i.test(ua)) browser = 'Firefox';
+
+  // 3. User-friendly device label
+  var label = 'Computer';
+  if (deviceType === 'iPhone') {
+    label = 'iPhone (' + browser + ')';
+  } else if (deviceType === 'iPad') {
+    label = 'iPad (' + browser + ')';
+  } else if (deviceType === 'Android') {
+    label = 'Android (' + browser + ')';
+  } else if (os === 'macOS' || deviceType === 'Mac') {
+    label = 'Mac OS (' + browser + ')';
+  } else if (os.indexOf('Windows') !== -1) {
+    label = 'Windows PC (' + browser + ')';
+  } else {
+    label = os + ' (' + browser + ')';
+  }
+
+  // 4. Stable local device identifier stored in localStorage
+  var deviceId = 'dev_unknown';
+  try {
+    if (typeof localStorage !== 'undefined') {
+      deviceId = localStorage.getItem('bb_portal_dev_id');
+      if (!deviceId) {
+        deviceId = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
+        localStorage.setItem('bb_portal_dev_id', deviceId);
+      }
+    }
+  } catch (_) {}
+
+  return {
+    deviceId: deviceId,
+    label: label,
+    os: os,
+    browser: browser,
+    deviceType: deviceType
+  };
 }
 
 // Export for module systems if present
@@ -1212,6 +1292,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isPortalCreator: isPortalCreator,
     getMemberAvatarInitial: getMemberAvatarInitial,
     getMemberAvatarColor: getMemberAvatarColor,
-    getMemberAvatarUrl: getMemberAvatarUrl
+    getMemberAvatarUrl: getMemberAvatarUrl,
+    getDeviceSecurityInfo: getDeviceSecurityInfo
   };
 }
