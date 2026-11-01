@@ -347,6 +347,90 @@ function cancelEditAnnouncement() {
   }
 }
 
+
+/**
+ * Broadcasts an announcement notification email to all active registered members via Google Apps Script Mailer.
+ * @param {{ title: string, body: string, date: string }} ann
+ * @returns {Promise<boolean>}
+ */
+async function broadcastAnnouncementEmail(ann) {
+  if (!ann || !ann.title) return false;
+  try {
+    var client = typeof supa !== 'undefined' ? supa : null;
+    if (!client) return false;
+
+    // 1. Fetch active registered members from Supabase
+    var members = await client.get('bb_members?select=ic,name,email,department');
+    if (!members || !members.length) return false;
+
+    var emailMap = {};
+    var validEmails = [];
+    for (var i = 0; i < members.length; i++) {
+      var m = members[i];
+      if (m.department === 'deleted' || m.department === 'archived_deleted') continue;
+      var em = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : '')).trim().toLowerCase();
+      if (em && em.indexOf('@') !== -1 && !emailMap[em]) {
+        emailMap[em] = true;
+        validEmails.push(em);
+      }
+    }
+
+    if (!validEmails.length) return false;
+
+    // 2. Fetch Google Apps Script Web App URL from configuration
+    var scriptUrl = '';
+    var syncToken = '';
+    if (typeof window !== 'undefined' && window._masterSheetConfig) {
+      scriptUrl = window._masterSheetConfig.scriptUrl || '';
+      syncToken = window._masterSheetConfig.syncToken || '';
+    }
+    if (!scriptUrl && client && typeof client.get === 'function') {
+      var sheetRows = await client.get('bb_config?key=eq.bb_master_sheet_config&select=value');
+      if (!sheetRows || !sheetRows.length) {
+        sheetRows = await client.get('bb_config?key=eq.bb_att_sheet&select=value');
+      }
+      if (sheetRows && sheetRows.length && sheetRows[0].value) {
+        var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
+        scriptUrl = parsed.scriptUrl || '';
+        syncToken = parsed.syncToken || syncToken;
+      }
+    }
+
+    if (!scriptUrl) {
+      console.warn('Google Apps Script mailer URL not configured in bb_master_sheet_config.');
+      return false;
+    }
+
+    var portalUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
+      ? (window.location.origin + window.location.pathname)
+      : 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
+
+    var plainSnippet = (ann.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (plainSnippet.length > 280) plainSnippet = plainSnippet.substring(0, 277) + '...';
+
+    var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
+      'action=broadcastAnnouncement' +
+      '&title=' + encodeURIComponent(ann.title || 'New Announcement') +
+      '&date=' + encodeURIComponent(ann.date || '') +
+      '&summary=' + encodeURIComponent(plainSnippet) +
+      '&portalUrl=' + encodeURIComponent(portalUrl) +
+      '&recipients=' + encodeURIComponent(validEmails.join(',')) +
+      (syncToken ? '&token=' + encodeURIComponent(syncToken) : '');
+
+    await fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function(err) {
+      console.warn('Announcement email dispatch notice:', err);
+    });
+
+    if (typeof showToast === 'function') {
+      showToast('Announcement posted & emailed to ' + validEmails.length + ' registered members!', 'success');
+    }
+    return true;
+  } catch (err) {
+    console.warn('broadcastAnnouncementEmail error:', err);
+    return false;
+  }
+}
+
 /**
  * Creates or updates an announcement in Supabase
  */
@@ -386,6 +470,10 @@ async function addAnnouncement() {
         btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
         btn.removeAttribute('data-edit-idx');
       }
+      var broadcastCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
+      if (broadcastCheck ? broadcastCheck.checked : false) {
+        broadcastAnnouncementEmail({ title: '[Update] ' + title, body: sanitizedBody, date: dateStr });
+      }
       if (typeof showToast === 'function') {
         showToast('Announcement updated successfully!', 'success');
       }
@@ -402,6 +490,10 @@ async function addAnnouncement() {
         if (row && row[0]) {
           announcements.push(row[0]);
         }
+      }
+      var broadcastCheckNew = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
+      if (broadcastCheckNew ? broadcastCheckNew.checked : true) {
+        broadcastAnnouncementEmail({ title: title, body: sanitizedBody, date: dateStr });
       }
       if (typeof showToast === 'function') {
         showToast('Announcement posted successfully!', 'success');
@@ -581,6 +673,7 @@ if (typeof window !== 'undefined') {
   window.cancelEditAnnouncement   = cancelEditAnnouncement;
   window.addAnnouncement          = addAnnouncement;
   window.deleteAnnouncement       = deleteAnnouncement;
+  window.broadcastAnnouncementEmail = broadcastAnnouncementEmail;
   window.annSaveRange             = annSaveRange;
   window.annRestoreRange          = annRestoreRange;
   window.annFmt                   = annFmt;
@@ -605,6 +698,7 @@ if (typeof module !== 'undefined' && module.exports) {
     cancelEditAnnouncement: cancelEditAnnouncement,
     addAnnouncement: addAnnouncement,
     deleteAnnouncement: deleteAnnouncement,
+    broadcastAnnouncementEmail: broadcastAnnouncementEmail,
     annSaveRange: annSaveRange,
     annRestoreRange: annRestoreRange,
     annFmt: annFmt,

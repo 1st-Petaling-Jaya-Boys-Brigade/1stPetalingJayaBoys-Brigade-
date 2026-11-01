@@ -1003,6 +1003,7 @@ async function finalizeMemberRegistration(data) {
     sessionSet('media_consent', data.mediaConsent);
   }
 
+  
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof checkTasksAccess === 'function') checkTasksAccess();
   if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(data.ic);
@@ -1105,6 +1106,157 @@ async function loginMember() {
     if (typeof setButtonLoading === 'function' && loginBtn) {
       setButtonLoading(loginBtn, false);
     }
+  }
+}
+
+
+/**
+ * Dispatches an email notification when a login occurs on a new or unrecognized device.
+ * @param {Object} info
+ */
+async function dispatchDeviceSecurityAlertEmail(info) {
+  try {
+    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    var scriptUrl = '';
+    var syncToken = '';
+    if (typeof window !== 'undefined' && window._masterSheetConfig) {
+      scriptUrl = window._masterSheetConfig.scriptUrl || '';
+      syncToken = window._masterSheetConfig.syncToken || '';
+    }
+    if (!scriptUrl && client && typeof client.get === 'function') {
+      var sheetRows = await client.get('bb_config?key=eq.bb_master_sheet_config&select=value');
+      if (!sheetRows || !sheetRows.length) {
+        sheetRows = await client.get('bb_config?key=eq.bb_att_sheet&select=value');
+      }
+      if (sheetRows && sheetRows.length && sheetRows[0].value) {
+        var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
+        scriptUrl = parsed.scriptUrl || '';
+        syncToken = parsed.syncToken || syncToken;
+      }
+    }
+
+    if (!scriptUrl) return;
+
+    var portalUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
+      ? (window.location.origin + window.location.pathname)
+      : 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
+
+    var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
+      'action=sendSecurityAlertEmail' +
+      '&email=' + encodeURIComponent(info.email) +
+      '&name=' + encodeURIComponent(info.name || 'Member') +
+      '&device=' + encodeURIComponent(info.deviceLabel || 'New Device') +
+      '&browser=' + encodeURIComponent(info.browser || 'Web Browser') +
+      '&time=' + encodeURIComponent(info.time || '') +
+      '&portalUrl=' + encodeURIComponent(portalUrl) +
+      (syncToken ? '&token=' + encodeURIComponent(syncToken) : '');
+
+    await fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function(err) {
+      console.warn('Security alert email dispatch note:', err);
+    });
+  } catch (err) {
+    console.warn('dispatchDeviceSecurityAlertEmail note:', err);
+  }
+}
+
+/**
+ * Checks if the current sign-in is occurring on a previously recognized device.
+ * If a new/different device is detected, sends a security alert email to the member.
+ * @param {Object} m Member account object
+ */
+async function checkAndNotifyNewDeviceLogin(m) {
+  try {
+    var userEmail = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : '')).trim().toLowerCase();
+    if (!userEmail || userEmail.indexOf('@') === -1) return;
+
+    var getDevFn = (typeof window !== 'undefined' && window.getDeviceSecurityInfo) ||
+      (typeof global !== 'undefined' && global.getDeviceSecurityInfo) ||
+      (typeof getDeviceSecurityInfo === 'function' ? getDeviceSecurityInfo : null);
+    var devInfo = getDevFn ? getDevFn() : { deviceId: 'dev_default', label: 'Web Browser', os: 'Unknown OS', browser: 'Browser' };
+
+    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    if (!client) return;
+
+    var devKey = 'bb_devices_' + userEmail.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    var knownDevices = [];
+
+    try {
+      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(devKey) + '&select=value');
+      if (rows && rows.length && rows[0].value) {
+        knownDevices = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        if (!Array.isArray(knownDevices)) knownDevices = [];
+      }
+    } catch (_) {}
+
+    var nowIso = new Date().toISOString();
+    var isKnown = false;
+
+    for (var i = 0; i < knownDevices.length; i++) {
+      if (knownDevices[i].deviceId === devInfo.deviceId) {
+        isKnown = true;
+        knownDevices[i].lastSeen = nowIso;
+        knownDevices[i].label = devInfo.label;
+        break;
+      }
+    }
+
+    if (isKnown) {
+      try {
+        if (typeof client.patch === 'function') {
+          await client.patch('bb_config?key=eq.' + encodeURIComponent(devKey), { value: JSON.stringify(knownDevices) });
+        }
+      } catch (_) {}
+      return;
+    }
+
+    var isFirstBaseline = (knownDevices.length === 0);
+
+    knownDevices.push({
+      deviceId: devInfo.deviceId,
+      label: devInfo.label,
+      os: devInfo.os,
+      browser: devInfo.browser,
+      firstSeen: nowIso,
+      lastSeen: nowIso
+    });
+
+    try {
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', { key: devKey, value: JSON.stringify(knownDevices) }, 'key');
+      } else if (isFirstBaseline && typeof client.req === 'function') {
+        await client.req('POST', 'bb_config?on_conflict=key', { key: devKey, value: JSON.stringify(knownDevices) });
+      } else if (typeof client.patch === 'function') {
+        await client.patch('bb_config?key=eq.' + encodeURIComponent(devKey), { value: JSON.stringify(knownDevices) });
+      }
+    } catch (saveErr) {
+      try {
+        if (typeof client.post === 'function') {
+          await client.post('bb_config', { key: devKey, value: JSON.stringify(knownDevices) });
+        }
+      } catch (_) {}
+    }
+
+    if (!isFirstBaseline) {
+      var dateFormatted = new Date().toLocaleDateString('en-MY', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      }) + ', ' + new Date().toLocaleTimeString('en-MY', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      await dispatchDeviceSecurityAlertEmail({
+        email: userEmail,
+        name: m.name || 'Member',
+        deviceLabel: devInfo.label,
+        os: devInfo.os,
+        browser: devInfo.browser,
+        time: dateFormatted
+      });
+    }
+  } catch (err) {
+    console.warn('checkAndNotifyNewDeviceLogin note:', err);
   }
 }
 
@@ -2265,6 +2417,8 @@ if (typeof window !== 'undefined') {
   window.resendRegistrationCode       = resendRegistrationCode;
   window.showAccountPickerModal       = showAccountPickerModal;
   window.switchFamilyAccount          = switchFamilyAccount;
+  window.checkAndNotifyNewDeviceLogin = checkAndNotifyNewDeviceLogin;
+  window.dispatchDeviceSecurityAlertEmail = dispatchDeviceSecurityAlertEmail;
 
 }
 
@@ -2308,6 +2462,7 @@ if (typeof module !== 'undefined' && module.exports) {
     resendRegistrationCode,
     showAccountPickerModal,
     switchFamilyAccount,
-
-  };
+    checkAndNotifyNewDeviceLogin,
+    dispatchDeviceSecurityAlertEmail,
+};
 }
