@@ -2166,7 +2166,7 @@ async function getJson(url) {
     });
 
     const ad = avatarDiag.result.value;
-    assert.strictEqual(ad.creatorText, 'JK', 'Creator profile avatar must display "JK"');
+    assert.strictEqual(ad.creatorText, 'J', 'Creator profile avatar must display "J"');
     assert.strictEqual(ad.creatorHasRgb, true, 'Creator profile avatar must have creator-rgb-avatar class');
     assert.ok(ad.creatorTitle.includes('Jeshua Koh'), 'Creator avatar must have hover tooltip with name');
     assert.strictEqual(ad.regText, 'J', 'Regular member profile avatar must display single initial "J"');

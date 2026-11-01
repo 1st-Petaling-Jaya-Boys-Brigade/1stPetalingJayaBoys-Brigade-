@@ -4603,13 +4603,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 2. Avatar Initial Extraction
     assert.strictEqual(typeof utils.getMemberAvatarInitial, 'function', 'getMemberAvatarInitial must be exported');
-    assert.strictEqual(utils.getMemberAvatarInitial('Jeshua Koh'), 'JK', 'Creator receives "JK"');
+    assert.strictEqual(utils.getMemberAvatarInitial('Jeshua Koh'), 'J', 'Creator receives "J"');
     assert.strictEqual(utils.getMemberAvatarInitial('Jayden Wong'), 'J', 'Regular member receives single first letter "J"');
     assert.strictEqual(utils.getMemberAvatarInitial('Marcus Tan'), 'M', 'Regular member receives single first letter "M"');
     assert.strictEqual(utils.getMemberAvatarInitial('Unassigned'), 'U', 'Unassigned receives "U"');
 
     // 3. Non-sequential FNV-1a Hash Color Distribution
     assert.strictEqual(typeof utils.getMemberAvatarColor, 'function', 'getMemberAvatarColor must be exported');
+    assert.strictEqual(typeof utils.getMemberAvatarUrl, 'function', 'getMemberAvatarUrl must be exported');
     assert.ok(Array.isArray(utils.AVATAR_PALETTE) && utils.AVATAR_PALETTE.length >= 16, 'Palette must have at least 16 colors');
     const colorJayden = utils.getMemberAvatarColor('Jayden');
     const colorJoshua = utils.getMemberAvatarColor('Joshua');
@@ -4618,7 +4619,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.notStrictEqual(colorJayden, colorJoel, 'Different names starting with J get distinct colors');
 
     // 4. CSS Animation & Hover Rules
-    assert.ok(compCss.includes('@keyframes avatarRgbFlow'), 'CSS must define @keyframes avatarRgbFlow');
+    assert.ok(compCss.includes('@keyframes creatorSnowFall'), 'CSS must define @keyframes creatorSnowFall');
+    assert.ok(compCss.includes('.creator-snow-avatar'), 'CSS must define .creator-snow-avatar');
     assert.ok(compCss.includes('.creator-rgb-avatar'), 'CSS must define .creator-rgb-avatar');
     assert.ok(compCss.includes('linear-gradient') && compCss.includes('avatarRgbFlow'), 'creator-rgb-avatar must use animated gradient');
     assert.ok(compCss.includes('.task-card-avatar:hover') && compCss.includes('transform: scale('), 'Hover scale on avatars verified');
@@ -4626,6 +4628,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 5. Tasks Module Integration
     assert.ok(tasksSrc.includes('isPortalCreator') && tasksSrc.includes('creator-rgb-avatar'), 'tasks.js incorporates creator RGB avatar');
     assert.ok(tasksSrc.includes('title=') && tasksSrc.includes('cursor:pointer'), 'tasks.js sets hover title and pointer cursor');
+    assert.ok(tasksSrc.includes('getAssigneeAvatarHtml'), 'tasks.js implements getAssigneeAvatarHtml');
 
     // 6. Member Module Integration
     assert.strictEqual(typeof memberMod.renderMemberAvatar, 'function', 'renderMemberAvatar must be exported');
@@ -4636,7 +4639,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof memberMod.removePfp, 'function', 'removePfp must be exported');
     assert.ok(compCss.includes('.m-pfp-remove-btn') && compCss.includes('.m-pfp-remove-text-btn'), 'components.css defines remove photo buttons');
 
-    console.log('  ✔ Portal creator JK with RGB animation, single-letter initials, non-sequential color hashing, and hover titles verified');
+    console.log('  ✔ Portal creator J with snowing animation, single-letter initials, non-sequential color hashing, and hover titles verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
