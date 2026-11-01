@@ -38,6 +38,30 @@
   padding: 4px 0;
   flex: 1;
   min-width: 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  text-decoration: none;
+}
+
+.nav-logo:hover {
+  opacity: 0.88;
+}
+
+.nav-logo:hover .nav-name {
+  color: var(--accent);
+  transition: color 0.18s ease;
+}
+
+.nav-logo:active {
+  transform: scale(0.98);
+}
+
+.nav-logo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .nav-logo img {

@@ -1880,6 +1880,30 @@ async function getJson(url) {
     assert.strictEqual(m.themeHidden, true, 'Desktop theme text button must be hidden on mobile header');
     console.log('  ✔ Mobile header alignment, 36px uniform scaling, and 0px overflow verified at 390px viewport');
 
+    // Test top-left logo home navigation
+    await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        if (typeof switchTabNav === 'function') switchTabNav('order');
+        const logo = document.querySelector('.nav-logo');
+        if (logo) logo.click();
+      })()`
+    });
+    await new Promise(r => setTimeout(r, 200));
+    const navLogoDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const homePage = document.getElementById('page-home');
+        const logo = document.querySelector('.nav-logo');
+        return {
+          homeActive: homePage ? homePage.classList.contains('active') : false,
+          hasPointerCursor: logo ? window.getComputedStyle(logo).cursor === 'pointer' : false
+        };
+      })()`,
+      returnByValue: true
+    });
+    assert.strictEqual(navLogoDiag.result.value.homeActive, true, 'Clicking top-left logo must navigate back to homepage');
+    assert.strictEqual(navLogoDiag.result.value.hasPointerCursor, true, 'Top-left logo must have pointer cursor');
+    console.log('  ✔ Top-left logo navigation and pointer cursor verified in browser');
+
     // Test search expansion on mobile
     await sendCmd('Runtime.evaluate', { expression: 'openGlobalSearch()' });
     await new Promise(r => setTimeout(r, 200));
