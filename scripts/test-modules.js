@@ -5744,6 +5744,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(adminJs.includes("3-Tier RBAC governance: Assign scoped module permissions to Admins"), false, '3-Tier RBAC governance subtitle removed from admin.js');
     console.log('  ✔ Admin console member route protection, modular permission gating & Super Admin console verified');
 
+    // 7b. Admin Console View Mode Layout Toggle (List View vs Grid View)
+    assert.ok(adminJs.includes("setAdminViewMode"), 'admin.js exports setAdminViewMode');
+    assert.ok(adminJs.includes("getAdminViewMode"), 'admin.js exports getAdminViewMode');
+    assert.ok(adminJs.includes("bb_admin_view_mode"), 'admin.js persists view mode preference in localStorage');
+    const adminCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'admin.css'), 'utf8');
+    assert.ok(adminCss.includes(".adm-view-toggle"), 'admin.css styles segmented view toggle control');
+    assert.ok(adminCss.includes(".adm-view-grid"), 'admin.css styles grid view layout');
+    assert.ok(adminCss.includes(".adm-view-list"), 'admin.css styles list view layout');
+    console.log('  ✔ Admin console List View vs Grid View layout toggle and CSS grid rules verified');
+
     // 8. PostgreSQL Migration Schema Integrity (013_granular_rbac_permissions.sql)
     const migrationPath = path.join(__dirname, '..', 'supabase', 'migrations', '013_granular_rbac_permissions.sql');
     assert.ok(fs.existsSync(migrationPath), 'Migration 013_granular_rbac_permissions.sql must exist');

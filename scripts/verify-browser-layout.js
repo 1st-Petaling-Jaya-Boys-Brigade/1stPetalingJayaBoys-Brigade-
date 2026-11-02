@@ -1558,11 +1558,41 @@ async function getJson(url) {
           modalHidden: !editMemberModal || editMemberModal.style.display === 'none'
         };
 
-        // 5. Back to admin home and close overlay
+        // 5. Back to admin home and test view mode toggle (List vs Grid)
         window.backToAdminHome();
         const homeState = {
           backBarHidden: !backBar || backBar.style.display === 'none',
           tasksHidden: !tasksSec || tasksSec.style.display === 'none'
+        };
+
+        const viewToggle = document.querySelector('.adm-view-toggle');
+        const listBtn = document.querySelector('.adm-view-btn-list');
+        const gridBtn = document.querySelector('.adm-view-btn-grid');
+        const navContainer = document.querySelector('.adm-section-nav');
+
+        const initialIsList = navContainer ? navContainer.classList.contains('adm-view-list') : false;
+        const initialListBtnActive = listBtn ? listBtn.classList.contains('active') : false;
+
+        // Toggle to Grid view
+        if (typeof window.setAdminViewMode === 'function') window.setAdminViewMode('grid');
+        const toggledIsGrid = navContainer ? navContainer.classList.contains('adm-view-grid') : false;
+        const toggledGridBtnActive = gridBtn ? gridBtn.classList.contains('active') : false;
+
+        // Toggle back to List view
+        if (typeof window.setAdminViewMode === 'function') window.setAdminViewMode('list');
+        const revertedIsList = navContainer ? navContainer.classList.contains('adm-view-list') : false;
+        const revertedListBtnActive = listBtn ? listBtn.classList.contains('active') : false;
+
+        const viewModeState = {
+          hasViewToggle: !!viewToggle,
+          hasListBtn: !!listBtn,
+          hasGridBtn: !!gridBtn,
+          initialIsList,
+          initialListBtnActive,
+          toggledIsGrid,
+          toggledGridBtnActive,
+          revertedIsList,
+          revertedListBtnActive
         };
 
         window.closeAdmin();
@@ -1593,6 +1623,7 @@ async function getJson(url) {
           modalOpenState,
           modalCloseState,
           homeState,
+          viewModeState,
           closeState,
           passAttributes,
           initialMasked,
@@ -1684,8 +1715,20 @@ async function getJson(url) {
       true,
       'closeAdmin must dismiss admin overlay'
     );
+
+    assert.strictEqual(adminResult.viewModeState.hasViewToggle, true, 'Admin console renders segmented view toggle');
+    assert.strictEqual(adminResult.viewModeState.hasListBtn, true, 'Admin view toggle includes List button');
+    assert.strictEqual(adminResult.viewModeState.hasGridBtn, true, 'Admin view toggle includes Grid button');
+    assert.strictEqual(adminResult.viewModeState.initialIsList, true, 'Default admin view mode is list');
+    assert.strictEqual(adminResult.viewModeState.toggledIsGrid, true, 'setAdminViewMode(grid) activates grid view');
+    assert.strictEqual(adminResult.viewModeState.toggledGridBtnActive, true, 'Grid button is active in grid view');
+    assert.strictEqual(adminResult.viewModeState.revertedIsList, true, 'setAdminViewMode(list) reverts to list view');
+    assert.strictEqual(adminResult.viewModeState.revertedListBtnActive, true, 'List button is active in list view');
     console.log(
       '  ✔ Admin console back-office navigation, section routing, and member/task modal controls verified in browser'
+    );
+    console.log(
+      '  ✔ Admin console List View vs Grid View layout switching and button active state verified in browser'
     );
 
     // ── Modern App Shell & Top Header Controls Verification ──

@@ -1848,10 +1848,28 @@
     <!-- Admin panel (shown after login) -->
     <div id="admin-panel" style="display:none;">
 
+      <!-- View mode toolbar -->
+      <div class="adm-toolbar-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px;">
+          <span>Admin Modules</span>
+          <span class="adm-modules-count" style="font-size:11px;padding:2px 8px;border-radius:12px;background:var(--bg-card-subtle);color:var(--text-muted);border:1px solid var(--border-subtle);font-weight:600;"></span>
+        </div>
+        <div class="adm-view-toggle" role="group" aria-label="View mode layout switch">
+          <button type="button" class="adm-view-btn adm-view-btn-list active" onclick="setAdminViewMode('list')" aria-label="List view" title="List view" aria-pressed="true">
+            <svg class="adm-view-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </button>
+          <button type="button" class="adm-view-btn adm-view-btn-grid" onclick="setAdminViewMode('grid')" aria-label="Grid view" title="Grid view" aria-pressed="false">
+            <svg class="adm-view-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          </button>
+        </div>
+      </div>
+
       <!-- ══════════════════════════════════════════════
            SECTION NAV
       ══════════════════════════════════════════════ -->
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:24px;">
+      <div class="adm-section-nav adm-view-list" style="margin-bottom:24px;">
 
         <!-- Section: Members -->
         <div class="adm-section-btn" id="sec-btn-members" onclick="switchAdminSection('members')">

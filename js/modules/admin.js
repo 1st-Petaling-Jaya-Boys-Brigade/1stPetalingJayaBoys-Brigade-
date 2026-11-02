@@ -695,10 +695,50 @@
     return true;
   }
 
+  function setAdminViewMode(mode) {
+    if (typeof document === 'undefined') return;
+    var nav = document.querySelector('.adm-section-nav');
+    var isGrid = (mode === 'grid');
+
+    if (nav) {
+      nav.classList.toggle('adm-view-grid', isGrid);
+      nav.classList.toggle('adm-view-list', !isGrid);
+    }
+
+    var listBtn = document.querySelector('.adm-view-btn-list');
+    var gridBtn = document.querySelector('.adm-view-btn-grid');
+    if (listBtn) {
+      listBtn.classList.toggle('active', !isGrid);
+      listBtn.setAttribute('aria-pressed', !isGrid ? 'true' : 'false');
+    }
+    if (gridBtn) {
+      gridBtn.classList.toggle('active', isGrid);
+      gridBtn.setAttribute('aria-pressed', isGrid ? 'true' : 'false');
+    }
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_admin_view_mode', isGrid ? 'grid' : 'list');
+      }
+    } catch (_) {}
+  }
+
+  function getAdminViewMode() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        return localStorage.getItem('bb_admin_view_mode') || 'list';
+      }
+    } catch (_) {}
+    return 'list';
+  }
+
   function backToAdminHome() {
     if (typeof document === 'undefined') return;
     var backBar = document.getElementById('adm-back-bar');
     if (backBar) backBar.style.display = 'none';
+
+    var toolbar = document.querySelector('.adm-toolbar-row');
+    if (toolbar) toolbar.style.display = 'flex';
 
     ADMIN_SECTIONS.forEach(function(s) {
       var el = document.getElementById('adm-section-' + s);
@@ -707,7 +747,7 @@
     var rolesSec = document.getElementById('adm-section-roles');
     if (rolesSec) rolesSec.style.display = 'none';
 
-        // Scoped Admin UI Filtering (TSK-049)
+    // Scoped Admin UI Filtering (TSK-049)
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
 
     // Dynamically inject Super Admin Roles & Permissions button if missing
@@ -724,20 +764,31 @@
       }
     }
 
+    var visibleCount = 0;
     document.querySelectorAll('.adm-section-btn').forEach(function(b) {
       var secId = b.id.replace('sec-btn-', '');
+      var isVisible = true;
       if (secId === 'roles') {
-        b.style.display = isSuper ? 'flex' : 'none';
+        isVisible = isSuper;
       } else if (typeof RBAC !== 'undefined' && typeof RBAC.hasModulePermission === 'function') {
-        b.style.display = RBAC.hasModulePermission(secId) ? 'flex' : 'none';
-      } else {
-        b.style.display = 'flex';
+        isVisible = RBAC.hasModulePermission(secId);
       }
+      b.style.display = isVisible ? 'flex' : 'none';
+      if (isVisible) visibleCount++;
     });
+
+    var countEl = document.querySelector('.adm-modules-count');
+    if (countEl) countEl.textContent = visibleCount + ' Modules';
+
+    setAdminViewMode(getAdminViewMode());
   }
 
   function switchAdminSection(section) {
     if (typeof document === 'undefined') return;
+
+    var toolbar = document.querySelector('.adm-toolbar-row');
+    if (toolbar) toolbar.style.display = 'none';
+
     if (!verifyAdminSessionSync()) {
       if (typeof showToast === 'function') showToast('Unauthorized: Valid officer session token required.', 'error');
       logoutAdmin();
@@ -2173,6 +2224,8 @@
     global.filterRbacMembers         = filterRbacMembers;
     global.selectAllRbacPerms        = selectAllRbacPerms;
     global.saveMemberRbacPermissions = saveMemberRbacPermissions;
+    global.setAdminViewMode          = setAdminViewMode;
+    global.getAdminViewMode          = getAdminViewMode;
     global._adminMembers            = _adminMembers;
     global._allAdminTasks           = _allAdminTasks;
   }
@@ -2223,6 +2276,8 @@
       filterRbacMembers: filterRbacMembers,
       selectAllRbacPerms: selectAllRbacPerms,
       saveMemberRbacPermissions: saveMemberRbacPermissions,
+      setAdminViewMode: setAdminViewMode,
+      getAdminViewMode: getAdminViewMode,
       renderAdminAuditLogs: renderAdminAuditLogs,
       SESSION_IDLE_TIMEOUT_MS: SESSION_IDLE_TIMEOUT_MS,
       getAdminMembers: function() { return _adminMembers; },
