@@ -421,6 +421,14 @@
         </span>
       </button>
 
+      <!-- Active Role Badge (TSK-049: Member / Admin / Super Admin) -->
+      <div class="nav-role-badge-wrap">
+        <span class="nav-role-badge" role="status" aria-label="Current Role: Member" title="Current Role: Member">
+          <span class="nav-role-badge-icon"></span>
+          <span class="nav-role-badge-text">Member</span>
+        </span>
+      </div>
+
       <!-- 5. Theme Toggle Button -->
       <button class="theme-toggle-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle Light / Dark mode" type="button">
         <span class="theme-toggle-icon"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
@@ -2972,6 +2980,7 @@
 <script src="js/config.js?v=20261102a"></script>
 <script src="js/api/supabase.js?v=20261102a"></script>
 <script src="js/core/session.js?v=20261102a"></script>
+<script src="js/core/rbac.js?v=20261102a"></script>
 <script src="js/core/utils.js?v=20261102a"></script>
 <script src="js/core/ui.js?v=20261102a"></script>
 <script src="js/core/loading.js?v=20261102a"></script>
@@ -3859,6 +3868,9 @@ function updateNavUserHeader() {
         renderMemberAvatar(mName, mEmail);
       }
     }
+    if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {
+      RBAC.renderHeaderRoleBadge();
+    }
   } else {
     if (statusDot) statusDot.style.background = '#6b7280';
     if (avatarImg) avatarImg.style.display = 'none';
@@ -3867,6 +3879,9 @@ function updateNavUserHeader() {
       if (typeof resetMemberAvatar === 'function') {
         resetMemberAvatar();
       }
+    }
+    if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {
+      RBAC.renderHeaderRoleBadge();
     }
     var profBtnGuest = document.getElementById('nav-profile-btn');
     if (profBtnGuest) {

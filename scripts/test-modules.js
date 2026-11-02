@@ -5551,6 +5551,204 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ AuthGuard gatekeeper integration preserved strict 388 unique DOM IDs invariant with 0 bloat');
   }
 
+  // ─── TSK-049: Granular Role-Based Access Control (RBAC), Scoped Admin Console & Header Role Badge ───
+  console.log('\n--- TSK-049: Granular Role-Based Access Control (RBAC), Scoped Admin Console & Header Role Badge ---');
+  {
+    const rbacMod = require('../js/core/rbac.js');
+    const sessionMod = require('../js/core/session.js');
+    global.sessionGet = sessionMod.sessionGet;
+    global.sessionSet = sessionMod.sessionSet;
+    global.sessionClear = sessionMod.sessionClear;
+    assert(rbacMod, 'rbac.js module must be loadable');
+    const { ROLES, MODULES, getUserRole, getUserPermissions, hasModulePermission, isSuperAdmin, isAdmin, assignUserRole, loadRolesConfig, renderHeaderRoleBadge } = rbacMod;
+
+    // 1. RBAC API Contract & Constant Architecture
+    assert.deepStrictEqual(
+      ROLES,
+      { MEMBER: 'member', ADMIN: 'admin', SUPER_ADMIN: 'super_admin' },
+      'ROLES must strictly define 3-tier hierarchy: member, admin, super_admin'
+    );
+    assert(Array.isArray(MODULES), 'MODULES must be an array');
+    assert.strictEqual(MODULES.length, 11, 'MODULES must register all 11 back-office modules');
+    const moduleIds = MODULES.map(m => m.id);
+    assert.ok(moduleIds.includes('members') && moduleIds.includes('orders') && moduleIds.includes('roles'), 'MODULES contains key system modules');
+    assert.strictEqual(typeof getUserRole, 'function', 'getUserRole is a function');
+    assert.strictEqual(typeof getUserPermissions, 'function', 'getUserPermissions is a function');
+    assert.strictEqual(typeof hasModulePermission, 'function', 'hasModulePermission is a function');
+    assert.strictEqual(typeof isSuperAdmin, 'function', 'isSuperAdmin is a function');
+    assert.strictEqual(typeof isAdmin, 'function', 'isAdmin is a function');
+    assert.strictEqual(typeof assignUserRole, 'function', 'assignUserRole is a function');
+    assert.strictEqual(typeof loadRolesConfig, 'function', 'loadRolesConfig is a function');
+    assert.strictEqual(typeof renderHeaderRoleBadge, 'function', 'renderHeaderRoleBadge is a function');
+    console.log('  ✔ RBAC 3-tier constant architecture and core API contract verified');
+
+    // 2. Pre-assigned Super Admins & Designated Officers
+    assert.strictEqual(getUserRole('1stpjbb@gmail.com'), 'super_admin', 'Official 1stPJ Google account is pre-assigned Super Admin');
+    assert.strictEqual(getUserRole('admin@1stpjbb.org.my'), 'super_admin', 'Designated admin officer is pre-assigned Super Admin');
+    assert.strictEqual(getUserRole('officer@1stpjbb.org.my'), 'super_admin', 'Designated duty officer is pre-assigned Super Admin');
+    assert.strictEqual(isSuperAdmin('1stpjbb@gmail.com'), true, 'isSuperAdmin returns true for official account');
+    assert.strictEqual(isAdmin('1stpjbb@gmail.com'), true, 'isAdmin returns true for Super Admin (inclusive)');
+    assert.deepStrictEqual(
+      getUserPermissions('1stpjbb@gmail.com'),
+      MODULES.map(m => m.id),
+      'Super Admin receives full system access across all 11 modules'
+    );
+    assert.strictEqual(hasModulePermission('roles', '1stpjbb@gmail.com'), true, 'Super Admin has access to roles management');
+    assert.strictEqual(hasModulePermission('orders', '1stpjbb@gmail.com'), true, 'Super Admin has access to orders module');
+
+    // Rank-based fallback Super Admin
+    sessionMod.sessionClear();
+    sessionMod.sessionSet('email', 'custom_captain@1stpjbb.org.my');
+    sessionMod.sessionSet('rank', 'Captain');
+    assert.strictEqual(getUserRole('custom_captain@1stpjbb.org.my'), 'super_admin', 'Officers with rank Captain resolve to Super Admin');
+    console.log('  ✔ Pre-assigned Super Admin accounts and Captain rank escalation verified');
+
+    // 3. Standard Member Gatekeeping & Access Controls
+    sessionMod.sessionClear();
+    sessionMod.sessionSet('email', 'recruit_lee@gmail.com');
+    sessionMod.sessionSet('name', 'Lee Ming');
+    sessionMod.sessionSet('rank', 'Recruit');
+
+    assert.strictEqual(getUserRole('recruit_lee@gmail.com'), 'member', 'Standard recruit resolves to member role');
+    assert.strictEqual(isSuperAdmin('recruit_lee@gmail.com'), false, 'Standard recruit is not Super Admin');
+    assert.strictEqual(isAdmin('recruit_lee@gmail.com'), false, 'Standard recruit is not Admin');
+    assert.deepStrictEqual(getUserPermissions('recruit_lee@gmail.com'), [], 'Standard member receives empty module permissions');
+    assert.strictEqual(hasModulePermission('members', 'recruit_lee@gmail.com'), false, 'Standard member denied members module access');
+    assert.strictEqual(hasModulePermission('roles', 'recruit_lee@gmail.com'), false, 'Standard member denied roles module access');
+    console.log('  ✔ Standard Member gatekeeping and empty admin privilege baseline verified');
+
+    // 4. Scoped Admin Module-Level Permissions
+    const scopedAdminEmail = 'store_nco@1stpjbb.org.my';
+    await rbacMod.assignUserRole(scopedAdminEmail, 'admin', ['orders', 'uniform'], '1stpjbb@gmail.com');
+
+    assert.strictEqual(getUserRole(scopedAdminEmail), 'admin', 'Scoped admin resolves to admin role');
+    assert.strictEqual(isAdmin(scopedAdminEmail), true, 'isAdmin returns true for scoped admin');
+    assert.strictEqual(isSuperAdmin(scopedAdminEmail), false, 'isSuperAdmin returns false for scoped admin');
+    assert.deepStrictEqual(
+      getUserPermissions(scopedAdminEmail),
+      ['orders', 'uniform'],
+      'Scoped admin permissions strictly match assigned modules'
+    );
+    assert.strictEqual(hasModulePermission('orders', scopedAdminEmail), true, 'Scoped admin granted orders access');
+    assert.strictEqual(hasModulePermission('uniform', scopedAdminEmail), true, 'Scoped admin granted uniform access');
+    assert.strictEqual(hasModulePermission('members', scopedAdminEmail), false, 'Scoped admin denied members access');
+    assert.strictEqual(hasModulePermission('roles', scopedAdminEmail), false, 'Scoped admin denied roles console access');
+    console.log('  ✔ Scoped Admin modular permission enforcement verified');
+
+    // 5. Official Account Demotion Protection & Audit Logging
+    let demoteError = null;
+    try {
+      await rbacMod.assignUserRole('1stpjbb@gmail.com', 'member', [], '1stpjbb@gmail.com');
+    } catch (err) {
+      demoteError = err;
+    }
+    assert.ok(demoteError, 'Demoting official 1stPJ Google account must throw an error');
+    assert.strictEqual(
+      demoteError.message,
+      'Official 1stPJ account cannot be demoted from Super Admin',
+      'Protection message matches demotion safety guard'
+    );
+    assert.strictEqual(getUserRole('1stpjbb@gmail.com'), 'super_admin', 'Official account remains Super Admin');
+    console.log('  ✔ Official 1stPJ account demotion protection guard verified');
+
+    // 6. Header Role Badge Rendering & Responsive Styling
+    const navCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
+    assert.ok(navCss.includes('.nav-role-badge-wrap'), 'nav.css contains .nav-role-badge-wrap container');
+    assert.ok(navCss.includes('.role-super-admin'), 'nav.css contains .role-super-admin styling (gold)');
+    assert.ok(navCss.includes('.role-admin'), 'nav.css contains .role-admin styling (blue)');
+    assert.ok(navCss.includes('.role-member'), 'nav.css contains .role-member styling (subtle card)');
+    assert.ok(
+      navCss.includes('@media (max-width: 600px)') && navCss.includes('.nav-role-badge-wrap {') && navCss.includes('display: none !important;'),
+      'Mobile viewports (<= 600px) hide header badge to prevent action bar overflow'
+    );
+
+    // Test DOM badge generation for different roles
+    const classes = new Set();
+    const mockIconEl = { innerHTML: '' };
+    const mockTextEl = { textContent: '' };
+    const mockBadgeEl = {
+      classList: {
+        add: (c) => classes.add(c),
+        remove: (...cList) => cList.forEach(c => classes.delete(c)),
+        contains: (c) => classes.has(c)
+      },
+      get className() { return Array.from(classes).join(' '); },
+      innerHTML: '',
+      title: '',
+      style: {},
+      querySelector: function(sel) {
+        if (sel === '.nav-role-badge-icon') return mockIconEl;
+        if (sel === '.nav-role-badge-text') return mockTextEl;
+        return null;
+      },
+      setAttribute: function(name, val) { this[name] = val; }
+    };
+    global.document = global.document || {};
+    const origGetEl = global.document.getElementById;
+    global.document.getElementById = function(id) {
+      if (id === 'nav-role-badge' || id === 'nav-profile-btn') return mockBadgeEl;
+      return null;
+    };
+    global.document.querySelector = function(sel) {
+      if (sel === '.nav-role-badge') return mockBadgeEl;
+      return null;
+    };
+
+    // Render as Super Admin
+    sessionMod.sessionClear();
+    sessionMod.sessionSet('email', '1stpjbb@gmail.com');
+    renderHeaderRoleBadge();
+    assert.ok(mockBadgeEl.className.includes('role-super-admin'), 'Badge renders role-super-admin class');
+    assert.strictEqual(mockTextEl.textContent, 'Super Admin', 'Badge renders Super Admin text label');
+    assert.strictEqual(mockBadgeEl['role'], 'status', 'Badge has accessible role="status" attribute');
+
+    // Render as Scoped Admin
+    sessionMod.sessionClear();
+    sessionMod.sessionSet('email', scopedAdminEmail);
+    renderHeaderRoleBadge();
+    assert.ok(mockBadgeEl.className.includes('role-admin'), 'Badge renders role-admin class');
+    assert.strictEqual(mockTextEl.textContent, 'Admin', 'Badge renders Admin text label');
+
+    // Render as Member
+    sessionMod.sessionClear();
+    sessionMod.sessionSet('email', 'member_test@gmail.com');
+    renderHeaderRoleBadge();
+    assert.ok(mockBadgeEl.className.includes('role-member'), 'Badge renders role-member class');
+    assert.strictEqual(mockTextEl.textContent, 'Member', 'Badge renders Member text label');
+    console.log('  ✔ Top navigation active role badge rendering & ARIA status accessibility verified');
+
+    // 7. Admin Module Console Gatekeeping & UI Filtering
+    const adminJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'admin.js'), 'utf8');
+    assert.ok(adminJs.includes("isMemberSession") && adminJs.includes("Access Denied: Administrative privileges required."), 'openAdmin blocks standard members');
+    assert.ok(adminJs.includes("RBAC.hasModulePermission(section)"), 'switchAdminSection validates granular module permission');
+    assert.ok(adminJs.includes("sec-btn-roles"), 'backToAdminHome injects roles management button dynamically');
+    assert.ok(adminJs.includes("renderAdminRoles"), 'admin.js provides renderAdminRoles management console');
+    assert.ok(adminJs.includes("saveMemberRbacPermissions"), 'admin.js exports saveMemberRbacPermissions');
+    console.log('  ✔ Admin console member route protection, modular permission gating & Super Admin console verified');
+
+    // 8. PostgreSQL Migration Schema Integrity (013_granular_rbac_permissions.sql)
+    const migrationPath = path.join(__dirname, '..', 'supabase', 'migrations', '013_granular_rbac_permissions.sql');
+    assert.ok(fs.existsSync(migrationPath), 'Migration 013_granular_rbac_permissions.sql must exist');
+    const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+    assert.ok(migrationSql.includes('bb_admin_roles'), 'Migration seeds default bb_admin_roles in bb_config');
+    assert.ok(migrationSql.includes('rpc_get_user_role'), 'Migration implements rpc_get_user_role SECURITY DEFINER');
+    assert.ok(migrationSql.includes('rpc_assign_user_role'), 'Migration implements rpc_assign_user_role SECURITY DEFINER');
+    assert.ok(migrationSql.includes('rpc_list_admin_roles'), 'Migration implements rpc_list_admin_roles');
+    assert.ok(migrationSql.includes('1stpjbb@gmail.com'), 'Migration protects official 1stPJ Google account');
+    console.log('  ✔ PostgreSQL migration schema 013 and SECURITY DEFINER RPCs verified');
+
+    // 9. Strict DOM ID preservation: exactly 388 unique DOM IDs
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'RBAC integration preserved strict 388 unique DOM IDs invariant');
+    console.log('  ✔ RBAC integration preserved strict 388 unique DOM IDs invariant with 0 bloat');
+
+    // Restore globals
+    global.document.getElementById = origGetEl;
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

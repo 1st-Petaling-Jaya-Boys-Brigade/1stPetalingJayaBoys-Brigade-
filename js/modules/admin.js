@@ -402,6 +402,29 @@
 
   function openAdmin() {
     if (typeof document === 'undefined') return;
+
+    // RBAC Gatekeeper: Block standard members from accessing admin routes/console (TSK-049)
+    var isMemberSession = false;
+    if (typeof sessionGet === 'function') {
+      var sessEmail = sessionGet('email') || sessionGet('ic');
+      if (sessEmail) {
+        var rank = sessionGet('rank');
+        var isOfficer = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
+        var role = (typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function')
+          ? RBAC.getUserRole(sessEmail)
+          : (sessionGet('role') || 'member');
+        if (role === 'member' && !isOfficer && !verifyAdminSessionSync()) {
+          isMemberSession = true;
+        }
+      }
+    }
+
+    if (isMemberSession) {
+      if (typeof showToast === 'function') {
+        showToast('Access Denied: Administrative privileges required.', 'error');
+      }
+      return;
+    }
     var overlay = document.getElementById('admin-overlay');
     if (overlay) overlay.style.display = 'block';
     if (document.body) document.body.style.overflow = 'hidden';
@@ -649,9 +672,35 @@
       var el = document.getElementById('adm-section-' + s);
       if (el) el.style.display = 'none';
     });
+    var rolesSec = document.getElementById('adm-section-roles');
+    if (rolesSec) rolesSec.style.display = 'none';
+
+        // Scoped Admin UI Filtering (TSK-049)
+    var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
+
+    // Dynamically inject Super Admin Roles & Permissions button if missing
+    var rolesBtn = document.getElementById('sec-btn-roles');
+    if (!rolesBtn) {
+      var calBtn = document.getElementById('sec-btn-calendar');
+      if (calBtn && calBtn.parentNode) {
+        rolesBtn = document.createElement('div');
+        rolesBtn.className = 'adm-section-btn';
+        rolesBtn.id = 'sec-btn-roles';
+        rolesBtn.onclick = function() { switchAdminSection('roles'); };
+        rolesBtn.innerHTML = '<div style="display:flex;align-items:center;gap:12px;"><div class="adm-sec-icon" style="background:rgba(217,163,35,0.15);color:var(--gold);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div><div class="adm-sec-title">Roles &amp; Permissions</div><div class="adm-sec-sub">Manage 3-tier RBAC &amp; scoped Admin privileges</div></div></div><div class="adm-sec-arrow">›</div>';
+        calBtn.parentNode.appendChild(rolesBtn);
+      }
+    }
 
     document.querySelectorAll('.adm-section-btn').forEach(function(b) {
-      b.style.display = 'flex';
+      var secId = b.id.replace('sec-btn-', '');
+      if (secId === 'roles') {
+        b.style.display = isSuper ? 'flex' : 'none';
+      } else if (typeof RBAC !== 'undefined' && typeof RBAC.hasModulePermission === 'function') {
+        b.style.display = RBAC.hasModulePermission(secId) ? 'flex' : 'none';
+      } else {
+        b.style.display = 'flex';
+      }
     });
   }
 
@@ -661,6 +710,24 @@
       if (typeof showToast === 'function') showToast('Unauthorized: Valid officer session token required.', 'error');
       logoutAdmin();
       return;
+    }
+
+    // Scoped Admin Permission Gate (TSK-049)
+    if (typeof RBAC !== 'undefined' && typeof RBAC.hasModulePermission === 'function') {
+      if (!RBAC.hasModulePermission(section)) {
+        if (typeof showToast === 'function') {
+          showToast('Access Denied: You do not have permission to access the ' + section + ' module.', 'error');
+        }
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'admin.unauthorized_section_attempt',
+            targetType: 'admin_module',
+            targetId: section,
+            details: { attempted_section: section }
+          });
+        }
+        return;
+      }
     }
 
     document.querySelectorAll('.adm-section-btn').forEach(function(b) {
@@ -675,6 +742,8 @@
       if (el) el.style.display = 'none';
     });
 
+    var rolesSec = document.getElementById('adm-section-roles');
+    if (rolesSec && section !== 'roles') rolesSec.style.display = 'none';
     var target = document.getElementById('adm-section-' + section);
     if (target) target.style.display = 'block';
 
@@ -725,6 +794,10 @@
 
     if (section === 'calendar') {
       if (typeof renderAdminCalendarGrid === 'function') renderAdminCalendarGrid();
+    }
+
+    if (section === 'roles') {
+      renderAdminRoles();
     }
   }
 
@@ -1711,6 +1784,165 @@
     el.innerHTML = html;
   }
 
+  // ── Super Admin Roles & Permissions Management Console (TSK-049) ─────────
+  async function renderAdminRoles() {
+    if (typeof document === 'undefined') return;
+    var panel = document.getElementById('admin-panel');
+    if (!panel) return;
+
+    var rolesSec = document.getElementById('adm-section-roles');
+    if (!rolesSec) {
+      rolesSec = document.createElement('div');
+      rolesSec.id = 'adm-section-roles';
+      rolesSec.style.display = 'none';
+      panel.appendChild(rolesSec);
+    }
+    rolesSec.style.display = 'block';
+
+    if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
+      try {
+        await Promise.race([
+          RBAC.loadRolesConfig(),
+          new Promise(function(r) { setTimeout(r, 200); })
+        ]);
+      } catch (_) {}
+    }
+
+    var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
+    if (!isSuper) {
+      rolesSec.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);"><div style="font-size:32px;margin-bottom:8px;">🔒</div><div style="font-size:16px;font-weight:700;color:var(--text-primary);">Access Denied</div><div>Only Super Admins can manage roles and permissions.</div></div>';
+      return;
+    }
+
+    var headerHtml = '<div class="adm-section-header">' +
+      '<div class="adm-sec-icon" style="background:rgba(217,163,35,0.15);color:var(--gold);">' +
+        '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>' +
+      '</div>' +
+      '<div>' +
+        '<div class="adm-section-title">Roles &amp; Permissions Manager</div>' +
+        '<div class="adm-sec-sub">3-Tier RBAC governance: Assign scoped module permissions to Admins</div>' +
+      '</div>' +
+    '</div>';
+
+    var rolesInfoBanner = '<div style="background:rgba(217,163,35,0.08);border:1px solid rgba(217,163,35,0.25);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-secondary);line-height:1.5;">' +
+      '<strong style="color:var(--gold);">Least-Privilege RBAC Model:</strong> Members are blocked from all Admin views. Admins only see assigned modules. Super Admins hold full system authority and role governance.' +
+    '</div>';
+
+    // Fetch members to display in table
+    var membersList = [];
+    if (_adminMembers && Object.keys(_adminMembers).length) {
+      membersList = Object.values(_adminMembers);
+    }
+
+    // Default fallback demo users if table is empty
+    if (!membersList.length) {
+      membersList = [
+        { email: '1stpjbb@gmail.com', name: 'Official 1stPJ Account', rank: 'Captain' },
+        { email: 'admin@1stpjbb.org.my', name: 'System Administrator', rank: 'Captain' },
+        { email: 'officer@1stpjbb.org.my', name: 'Duty Officer', rank: 'Lieutenant' },
+        { email: 'member@1stpjbb.org.my', name: 'Test Member', rank: 'Sergeant' }
+      ];
+    }
+
+    var listHtml = '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;overflow:hidden;">' +
+      '<div style="padding:14px 18px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+        '<div style="font-weight:700;color:var(--text-primary);font-size:14px;">Configured Accounts &amp; Permissions (' + membersList.length + ')</div>' +
+        '<input type="text" id="rbac-search-input" placeholder="Search by name or email..." oninput="filterRbacMembers(this.value)" style="background:var(--bg-input);border:1px solid var(--border-card);color:var(--text-primary);border-radius:8px;padding:6px 12px;font-size:12px;width:220px;" />' +
+      '</div>' +
+      '<div id="rbac-members-container" style="display:flex;flex-direction:column;divide-y:1px solid var(--border-subtle);">';
+
+    var modules = (typeof RBAC !== 'undefined') ? RBAC.MODULES.filter(function(m) { return m.id !== 'roles'; }) : [];
+
+    membersList.forEach(function(m, idx) {
+      var email = m.email || m.ic || '';
+      var currentRole = (typeof RBAC !== 'undefined') ? RBAC.getUserRole(email) : 'member';
+      var currentPerms = (typeof RBAC !== 'undefined') ? RBAC.getUserPermissions(email) : [];
+      var isAdminUser = currentRole === 'admin';
+
+      listHtml += '<div class="rbac-member-row" data-name="' + (typeof escapeHtml === 'function' ? escapeHtml((m.name || '').toLowerCase()) : '') + '" data-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email.toLowerCase()) : '') + '" style="padding:16px 18px;border-bottom:1px solid var(--border-card);display:flex;flex-direction:column;gap:10px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+          '<div>' +
+            '<div style="font-weight:700;color:var(--text-primary);font-size:14px;">' + (typeof escapeHtml === 'function' ? escapeHtml(m.name || 'Unnamed Member') : m.name) + '</div>' +
+            '<div style="font-size:12px;color:var(--text-muted);">' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + (m.rank ? (' • ' + m.rank) : '') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<select class="form-select rbac-role-select" data-user-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" onchange="handleRbacRoleChange(\'' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '\', this.value)" style="font-size:12px;padding:6px 10px;border-radius:6px;min-width:130px;">' +
+              '<option value="member"' + (currentRole === 'member' ? ' selected' : '') + '>Member</option>' +
+              '<option value="admin"' + (currentRole === 'admin' ? ' selected' : '') + '>Admin (Scoped)</option>' +
+              '<option value="super_admin"' + (currentRole === 'super_admin' ? ' selected' : '') + '>Super Admin</option>' +
+            '</select>' +
+            '<button type="button" class="action-btn rbac-save-btn" onclick="saveMemberRbacPermissions(\'' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '\')" style="font-size:12px;padding:6px 14px;border-radius:6px;background:var(--accent);color:#ffffff;border:none;cursor:pointer;font-weight:600;">Save</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="rbac-perms-box" id="rbac-perms-' + idx + '" style="margin-top:6px;padding:10px 12px;background:var(--bg-card-subtle);border-radius:8px;border:1px solid var(--border-subtle);display:' + (isAdminUser ? 'block' : 'none') + ';">' +
+          '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Scoped Module Permissions:</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:8px;">';
+
+      modules.forEach(function(mod) {
+        var isChecked = currentPerms.includes(mod.id);
+        listHtml += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);cursor:pointer;">' +
+          '<input type="checkbox" class="rbac-mod-checkbox" data-user="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" value="' + mod.id + '"' + (isChecked ? ' checked' : '') + ' style="accent-color:var(--accent);" />' +
+          '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(mod.label) : mod.label) + '</span>' +
+        '</label>';
+      });
+
+      listHtml += '</div></div></div>';
+    });
+
+    listHtml += '</div></div>';
+
+    rolesSec.innerHTML = headerHtml + rolesInfoBanner + listHtml;
+  }
+
+  function handleRbacRoleChange(email, newRole) {
+    var rows = document.querySelectorAll('.rbac-member-row');
+    rows.forEach(function(row) {
+      var rowEmail = row.getAttribute('data-email');
+      if (rowEmail === email.toLowerCase()) {
+        var permsBox = row.querySelector('.rbac-perms-box');
+        if (permsBox) {
+          permsBox.style.display = (newRole === 'admin') ? 'block' : 'none';
+        }
+      }
+    });
+  }
+
+  function filterRbacMembers(query) {
+    var q = (query || '').toLowerCase().trim();
+    document.querySelectorAll('.rbac-member-row').forEach(function(r) {
+      var n = r.getAttribute('data-name') || '';
+      var e = r.getAttribute('data-email') || '';
+      r.style.display = (!q || n.includes(q) || e.includes(q)) ? 'flex' : 'none';
+    });
+  }
+
+  async function saveMemberRbacPermissions(email) {
+    if (!email) return;
+    var row = document.querySelector('.rbac-member-row[data-email="' + email.toLowerCase() + '"]');
+    if (!row) return;
+
+    var roleSelect = row.querySelector('.rbac-role-select');
+    var newRole = roleSelect ? roleSelect.value : 'member';
+
+    var checkedPerms = [];
+    row.querySelectorAll('.rbac-mod-checkbox:checked').forEach(function(cb) {
+      checkedPerms.push(cb.value);
+    });
+
+    try {
+      if (typeof RBAC !== 'undefined' && typeof RBAC.assignUserRole === 'function') {
+        await RBAC.assignUserRole(email, newRole, checkedPerms);
+        if (typeof showToast === 'function') {
+          showToast('Updated role to ' + newRole + ' for ' + email, 'success');
+        }
+      }
+    } catch (err) {
+      if (typeof showToast === 'function') {
+        showToast('Failed to update role: ' + err.message, 'error');
+      }
+    }
+  }
+
   // ── Window & Global Attachment ─────────────────────────────────────────────
   if (typeof global !== 'undefined') {
     global.renderAdminAuditLogs    = renderAdminAuditLogs;
@@ -1749,6 +1981,10 @@
     global.updateTaskStatus         = updateTaskStatus;
     global.editAdminTask            = editAdminTask;
     global.deleteTask               = deleteTask;
+    global.renderAdminRoles          = renderAdminRoles;
+    global.handleRbacRoleChange      = handleRbacRoleChange;
+    global.filterRbacMembers         = filterRbacMembers;
+    global.saveMemberRbacPermissions = saveMemberRbacPermissions;
     global._adminMembers            = _adminMembers;
     global._allAdminTasks           = _allAdminTasks;
   }
@@ -1794,6 +2030,10 @@
       updateTaskStatus: updateTaskStatus,
       editAdminTask: editAdminTask,
       deleteTask: deleteTask,
+      renderAdminRoles: renderAdminRoles,
+      handleRbacRoleChange: handleRbacRoleChange,
+      filterRbacMembers: filterRbacMembers,
+      saveMemberRbacPermissions: saveMemberRbacPermissions,
       renderAdminAuditLogs: renderAdminAuditLogs,
       SESSION_IDLE_TIMEOUT_MS: SESSION_IDLE_TIMEOUT_MS,
       getAdminMembers: function() { return _adminMembers; },
