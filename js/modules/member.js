@@ -1071,7 +1071,15 @@ async function finalizeMemberRegistration(data) {
   }
 
   if (typeof window !== 'undefined' && window.location) {
-    if (window.location.hash !== '#member') window.location.hash = '#member';
+    var regTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
+      ? AuthGuard.getRedirectTarget()
+      : null;
+    if (regTarget && regTarget !== 'member') {
+      AuthGuard.clearRedirectTarget();
+      window.location.hash = '#' + regTarget;
+    } else {
+      if (window.location.hash !== '#member') window.location.hash = '#member';
+    }
     window.location.reload();
   }
 }
@@ -1263,6 +1271,13 @@ async function loginMember() {
       // Single account -> direct login
       completeLoginWithAccount(accounts[0], rememberMe);
       if (typeof window !== 'undefined' && window.location) {
+        var target = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
+          ? AuthGuard.getRedirectTarget()
+          : null;
+        if (target && target !== 'member') {
+          AuthGuard.clearRedirectTarget();
+          window.location.hash = '#' + target;
+        }
         window.location.reload();
       }
     }
@@ -1535,6 +1550,13 @@ function showAccountPickerModal(accounts, rememberMe) {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         completeLoginWithAccount(acc, rememberMe);
         if (typeof window !== 'undefined' && window.location) {
+          var pickerTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
+            ? AuthGuard.getRedirectTarget()
+            : null;
+          if (pickerTarget && pickerTarget !== 'member') {
+            AuthGuard.clearRedirectTarget();
+            window.location.hash = '#' + pickerTarget;
+          }
           window.location.reload();
         }
         resolve(acc);
@@ -2151,11 +2173,17 @@ function logoutMember() {
   if (sn) sn.textContent = 'Guest Member';
   if (sb) sb.textContent = 'Login / Register';
   var sImg = document.getElementById('sidebar-user-avatar-img');
-  var sPh  = document.getElementById('sidebar-user-avatar-ph');
+    var sPh  = document.getElementById('sidebar-user-avatar-ph');
   if (sImg) sImg.style.display = 'none';
   if (sPh)  sPh.style.display = 'flex';
 
   showAuthMode('login');
+  if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
+    AuthGuard.clearRedirectTarget();
+  }
+  if (typeof switchTab === 'function') {
+    switchTab('member');
+  }
 }
 
 async function uploadPfp(input) {

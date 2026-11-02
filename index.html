@@ -3001,6 +3001,27 @@ if (window.top !== window.self) {
 
 // ── Navigation ────────────────────────────────────────────────────────────
 function switchTab(tab, btn) {
+  if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.canActivate === 'function') {
+    if (!AuthGuard.canActivate(tab)) {
+      AuthGuard.setRedirectTarget(tab);
+      var tabLabel = tab.charAt(0).toUpperCase() + tab.slice(1);
+      if (tab === 'order') tabLabel = 'Forms & Store';
+      else if (tab === 'attendance') tabLabel = 'Squad Leaderboard';
+      else if (tab === 'tasks') tabLabel = 'Projects & Tasks';
+      else if (tab === 'home') tabLabel = 'Home Dashboard';
+      else if (tab === 'gallery') tabLabel = 'Media Gallery';
+      else if (tab === 'resources') tabLabel = 'Company Resources';
+      else if (tab === 'badges') tabLabel = 'Awards & Badges';
+      if (typeof showToast === 'function') {
+        showToast('Authentication required to access ' + tabLabel + '. Please sign in or register.', 'info', 4000);
+      }
+      tab = 'member';
+      btn = document.getElementById('tab-member');
+      if (typeof history !== 'undefined' && history.replaceState) {
+        history.replaceState(null, '', '#member');
+      }
+    }
+  }
   if (typeof TopRouteProgress !== 'undefined') {
     TopRouteProgress.start();
     setTimeout(function() { TopRouteProgress.complete(); }, 150);
@@ -3396,7 +3417,7 @@ window.addEventListener('load', function() {
   if (typeof initQuickCardsCarousel === 'function') initQuickCardsCarousel();
   loadCustomForms();
   renderOrderItems();
-  var ic = sessionGet('ic');
+    var ic = sessionGet('ic');
   if (ic) {
     renderDashboard();
     checkTasksAccess();
@@ -3404,6 +3425,29 @@ window.addEventListener('load', function() {
     var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
     if (typeof checkAttendanceTabVisibility === 'function') {
       checkAttendanceTabVisibility(ic);
+    }
+    // Post-authentication redirect if deep-link was queued
+    var pendingTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
+      ? AuthGuard.getRedirectTarget()
+      : null;
+    if (pendingTarget && pendingTarget !== 'member') {
+      AuthGuard.clearRedirectTarget();
+      switchTabNav(pendingTarget);
+      if (typeof history !== 'undefined' && history.replaceState) {
+        history.replaceState(null, '', '#' + pendingTarget);
+      }
+    }
+  } else {
+    // Unauthenticated visitor -> Gatekeeper redirects to Member Login/Register (TSK-045)
+    var currentHash = (window.location.hash || '').replace('#', '');
+    if (currentHash !== 'member' && currentHash !== 'admin') {
+      if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.setRedirectTarget === 'function') {
+        AuthGuard.setRedirectTarget(currentHash || 'home');
+      }
+      switchTab('member');
+      if (typeof history !== 'undefined' && history.replaceState) {
+        history.replaceState(null, '', '#member');
+      }
     }
   }
   updateOfflineIndicator();
@@ -3790,6 +3834,17 @@ function updateNavUserHeader() {
 
   if (ic) {
     if (statusDot) statusDot.style.background = '#10b981';
+    var profBtn = document.getElementById('nav-profile-btn');
+    if (profBtn) {
+      var displayName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      profBtn.title = displayName ? ('Member Profile: ' + displayName) : 'Member Profile';
+      profBtn.setAttribute('aria-label', displayName ? ('Member Profile: ' + displayName) : 'Member Profile');
+    }
+    var ptsBadge = document.getElementById('nav-points-badge');
+    if (ptsBadge) {
+      ptsBadge.title = 'Your Total Points: ' + pts + ' (Click to view Leaderboard)';
+      ptsBadge.setAttribute('aria-label', 'Points: ' + pts);
+    }
     var photoUrl = (typeof sessionGet === 'function') ? sessionGet('photo_url') : null;
     if (photoUrl && avatarImg) {
       avatarImg.src = photoUrl;
@@ -3812,6 +3867,16 @@ function updateNavUserHeader() {
       if (typeof resetMemberAvatar === 'function') {
         resetMemberAvatar();
       }
+    }
+    var profBtnGuest = document.getElementById('nav-profile-btn');
+    if (profBtnGuest) {
+      profBtnGuest.title = 'Sign In / Register';
+      profBtnGuest.setAttribute('aria-label', 'Sign In / Register');
+    }
+    var ptsBadgeGuest = document.getElementById('nav-points-badge');
+    if (ptsBadgeGuest) {
+      ptsBadgeGuest.title = 'Sign in to view total points';
+      ptsBadgeGuest.setAttribute('aria-label', 'Points: 0 (Sign in to view)');
     }
   }
 }

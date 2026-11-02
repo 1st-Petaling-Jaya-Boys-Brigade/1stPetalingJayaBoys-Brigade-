@@ -200,7 +200,9 @@ export default [
         resetTurnstileWidget: 'readonly',
         verifyTurnstileTokenServerSide: 'readonly',
         initAllTurnstileWidgets: 'readonly',
-        callSheetsApi: 'readonly'
+        callSheetsApi: 'readonly',
+        AuthGuard: 'readonly',
+        isUserAuthenticated: 'readonly'
       }
     },
     rules: {

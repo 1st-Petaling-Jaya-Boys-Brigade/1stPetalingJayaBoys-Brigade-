@@ -5,6 +5,7 @@
  */
 
 var REMEMBER_ME_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds (TSK-041)
+var _redirectTarget = null; // Post-login redirect memory (TSK-045)
 
 /**
  * Checks whether a saved Remember Me session timestamp has exceeded 14 days
@@ -78,6 +79,7 @@ function handleSyncMessage(data) {
     if (typeof window !== 'undefined') {
       if (typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
       if (typeof window.renderDashboard === 'function') window.renderDashboard();
+      if (typeof window.switchTab === 'function') window.switchTab('member');
       if (typeof window.dispatchEvent === 'function') {
         window.dispatchEvent(new CustomEvent('bb:session_sync', { detail: data }));
       }
@@ -176,9 +178,11 @@ function sessionClear() {
     }
   }
   delete _session._session_saved_at;
+  _redirectTarget = null;
   try {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem('bb_session');
+      sessionStorage.removeItem('bb_redirect_target');
     }
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('bb_session');
@@ -257,6 +261,125 @@ async function signOutEverywhere() {
   return { success: true };
 }
 
+/**
+ * Global Route-Protection Middleware & Authenticated Portal Gatekeeper (TSK-045)
+ */
+var AuthGuard = {
+  PROTECTED_ROUTES: ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery'],
+  PUBLIC_ROUTES: ['member', 'admin'],
+
+  /**
+   * Checks whether the current user has an active, valid authentication session.
+   * @returns {boolean}
+   */
+  isUserAuthenticated: function() {
+    try {
+      var ic = sessionGet('ic');
+      var email = sessionGet('email');
+      if (!ic && !email) return false;
+
+      // Check if session has expired via Remember Me TTL
+      var savedAt = _session && _session._session_saved_at;
+      if (savedAt && typeof isRememberMeExpired === 'function' && isRememberMeExpired(savedAt)) {
+        sessionClear();
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  },
+
+  /**
+   * Determines whether a route/tab can be activated based on authentication state.
+   * @param {string} route
+   * @returns {boolean}
+   */
+  canActivate: function(route) {
+    if (!route) return false;
+    var cleanRoute = String(route).toLowerCase().trim().replace(/^#/, '');
+
+    // Public routes are always accessible
+    if (this.PUBLIC_ROUTES.indexOf(cleanRoute) !== -1) {
+      return true;
+    }
+
+    // All internal portal routes require authentication
+    return this.isUserAuthenticated();
+  },
+
+  /**
+   * Stores the intended destination route when unauthenticated access is intercepted.
+   * @param {string} route
+   */
+  setRedirectTarget: function(route) {
+    if (!route) return;
+    var cleanRoute = String(route).toLowerCase().trim().replace(/^#/, '');
+    // Do not set 'member' or 'admin' as redirect targets
+    if (cleanRoute === 'member' || cleanRoute === 'admin') return;
+    _redirectTarget = cleanRoute;
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('bb_redirect_target', cleanRoute);
+      }
+    } catch (_) {}
+  },
+
+  /**
+   * Retrieves the stored post-login redirect destination.
+   * @returns {string|null}
+   */
+  getRedirectTarget: function() {
+    if (_redirectTarget) return _redirectTarget;
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        var saved = sessionStorage.getItem('bb_redirect_target');
+        if (saved && saved !== 'member' && saved !== 'admin') {
+          return saved;
+        }
+      }
+    } catch (_) {}
+    return null;
+  },
+
+  /**
+   * Clears the stored redirect target after navigation has completed.
+   */
+  clearRedirectTarget: function() {
+    _redirectTarget = null;
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('bb_redirect_target');
+      }
+    } catch (_) {}
+  },
+
+  /**
+   * Checks route authorization and returns a routing decision.
+   * @param {string} targetRoute
+   * @returns {{ allowed: boolean, redirect?: string, reason?: string }}
+   */
+  enforceRouteProtection: function(targetRoute) {
+    if (this.canActivate(targetRoute)) {
+      return { allowed: true };
+    }
+    this.setRedirectTarget(targetRoute);
+    return {
+      allowed: false,
+      redirect: 'member',
+      reason: 'unauthenticated'
+    };
+  }
+};
+
+/**
+ * Top-level convenience alias for AuthGuard.isUserAuthenticated
+ * @returns {boolean}
+ */
+function isUserAuthenticated() {
+  return AuthGuard.isUserAuthenticated();
+}
+
 // Attach to window for global access across the app
 if (typeof window !== 'undefined') {
   window._session = _session;
@@ -267,6 +390,8 @@ if (typeof window !== 'undefined') {
   window.REMEMBER_ME_TTL_MS = REMEMBER_ME_TTL_MS;
   window.isRememberMeExpired = isRememberMeExpired;
   window.signOutEverywhere = signOutEverywhere;
+  window.AuthGuard = AuthGuard;
+  window.isUserAuthenticated = isUserAuthenticated;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -278,6 +403,8 @@ if (typeof module !== 'undefined' && module.exports) {
     handleSyncMessage,
     REMEMBER_ME_TTL_MS,
     isRememberMeExpired,
-    signOutEverywhere
+    signOutEverywhere,
+    AuthGuard,
+    isUserAuthenticated
   };
 }
