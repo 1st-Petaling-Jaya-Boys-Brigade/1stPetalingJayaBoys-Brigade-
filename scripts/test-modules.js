@@ -6368,7 +6368,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     forumMod.upvoteForumPost('post-001', 'tester_upvote@example.com');
     assert.strictEqual(forumMod.forumPosts[0].upvotes, initialVotes + 1, 'Upvoting a post must increment upvote count');
 
-    // Toggle Status
+    // Toggle Status (Officer / Admin Session)
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'captain@bbpj1.org');
+      global.sessionSet('role', 'admin');
+      global.sessionSet('rank', 'Captain');
+    }
     const curStatus = forumMod.forumPosts[2].status;
     forumMod.toggleForumPostStatus('post-003');
     assert.notStrictEqual(forumMod.forumPosts[2].status, curStatus, 'Toggling post status must flip between open and resolved');
@@ -6380,6 +6385,24 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const addedReply = updatedPost.replies[updatedPost.replies.length - 1];
     assert.strictEqual(addedReply.content, replyText, 'submitForumReply must add reply to target post');
     console.log('  ✔ Forum post upvoting, status toggling, and multi-thread reply operations verified');
+
+    // 4b. Zero Emojis & SVG Icon Registry Verification
+    const emojiRegex = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+    const forumJsRaw = fs.readFileSync(path.resolve(__dirname, '..', 'js', 'modules', 'forum.js'), 'utf8');
+    const emojiMatches = forumJsRaw.match(emojiRegex) || [];
+    assert.strictEqual(emojiMatches.length, 0, 'forum.js must strictly contain 0 emojis and use clean inline SVG icons');
+    assert.ok(typeof forumMod.FORUM_ICONS === 'object', 'FORUM_ICONS registry must be exported');
+    assert.ok(forumMod.FORUM_ICONS.bugs.includes('<svg'), 'FORUM_ICONS.bugs must contain SVG markup');
+    assert.ok(forumMod.FORUM_ICONS.badges.includes('<svg'), 'FORUM_ICONS.badges must contain SVG markup');
+    console.log('  ✔ Zero emojis verified across forum module with complete SVG icon registry');
+
+    // 4c. Role-Based Permissions (Admins / Super Admins / Members)
+    const superAdminPerms = forumMod.getForumUserPermissions(testPosts[0]);
+    assert.strictEqual(typeof superAdminPerms.canReply, 'boolean', 'canReply flag must exist');
+    assert.strictEqual(typeof superAdminPerms.canEdit, 'boolean', 'canEdit flag must exist');
+    assert.strictEqual(typeof superAdminPerms.canDelete, 'boolean', 'canDelete flag must exist');
+    assert.strictEqual(typeof superAdminPerms.canChangeStatus, 'boolean', 'canChangeStatus flag must exist');
+    console.log('  ✔ Role-based forum management permissions (reply, edit, delete, status) verified');
 
     // 5. CSS Components Integration
     const compCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');

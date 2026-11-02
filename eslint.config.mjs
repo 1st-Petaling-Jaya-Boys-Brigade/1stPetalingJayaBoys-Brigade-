@@ -235,6 +235,13 @@ export default [
         openForumPostDetail: 'readonly',
         toggleForumPostStatus: 'readonly',
         submitForumReply: 'readonly',
+        FORUM_ICONS: 'readonly',
+        ensureForumPageDOM: 'readonly',
+        openEditForumPostModal: 'readonly',
+        submitEditForumPost: 'readonly',
+        deleteForumPost: 'readonly',
+        deleteForumReply: 'readonly',
+        getForumUserPermissions: 'readonly',
 
         getTaskComments: 'readonly',
         renderTaskComments: 'readonly',
