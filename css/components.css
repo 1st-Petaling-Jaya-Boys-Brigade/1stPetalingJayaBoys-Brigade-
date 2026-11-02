@@ -5916,6 +5916,152 @@ select.form-input,
   white-space: pre-wrap;
 }
 
+/* ── Task Comment Actions (3-Dots Menu, Inline Edit & Delete) ── */
+.tb-comment-actions {
+  margin-left: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tb-comment-more-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.tb-comment-more-btn:hover {
+  background: var(--surface-tint);
+  color: var(--text-primary);
+}
+
+.tb-comment-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 120px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 4px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(12px);
+}
+
+.tb-comment-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.tb-comment-dropdown-item:hover {
+  background: rgba(217, 163, 35, 0.12);
+  color: var(--accent);
+}
+
+.tb-comment-dropdown-delete:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
+}
+
+.tb-comment-edited {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-left: 4px;
+  opacity: 0.85;
+}
+
+.tb-comment-edit-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.tb-comment-edit-input {
+  width: 100%;
+  min-height: 64px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.tb-comment-edit-input:focus {
+  border-color: var(--accent);
+}
+
+.tb-comment-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tb-comment-btn-cancel {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tb-comment-btn-cancel:hover {
+  background: var(--surface-tint);
+  color: var(--text-primary);
+}
+
+.tb-comment-btn-save {
+  background: var(--brand-gold, #f5c542);
+  border: none;
+  color: #000000;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tb-comment-btn-save:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
 .tb-comment-box {
   border-top: 1px solid var(--border-subtle);
   padding-top: 14px;
