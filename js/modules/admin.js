@@ -403,6 +403,15 @@
   async function openAdmin() {
     if (typeof document === 'undefined') return;
 
+    if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
+      try {
+        await Promise.race([
+          RBAC.loadRolesConfig(),
+          new Promise(function(resolve) { setTimeout(resolve, 600); })
+        ]);
+      } catch (_) {}
+    }
+
     // RBAC Gatekeeper: Block standard members from accessing admin routes/console (TSK-049)
     var isMemberSession = false;
     var sessEmail = null;
@@ -943,6 +952,43 @@
     renderAdminList();
   }
 
+  function getAdminMemberAvatarHtml(name, emailOrIc, size) {
+    var sz = size || 36;
+    var fs = Math.max(12, Math.round(sz * 0.42));
+    var cleanNm = name || 'Member';
+    var isCreator = false;
+    if (typeof isPortalCreator === 'function') {
+      isCreator = isPortalCreator(cleanNm);
+    } else {
+      isCreator = /jeshua\s+koh/i.test(cleanNm) || (emailOrIc && emailOrIc.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1);
+    }
+    var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanNm) : cleanNm;
+    var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');
+
+    var photoUrl = null;
+    if (typeof getMemberAvatarUrl === 'function') {
+      photoUrl = getMemberAvatarUrl(cleanNm, emailOrIc);
+    }
+
+    if (photoUrl) {
+      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;overflow:hidden;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="' + safeName + '"/></span>';
+    }
+
+    if (isCreator) {
+      return '<span class="admin-member-avatar creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;font-size:' + fs + 'px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">J</span>';
+    }
+
+    var initial = (typeof getMemberAvatarInitial === 'function')
+      ? getMemberAvatarInitial(cleanNm, emailOrIc)
+      : (cleanNm.trim().charAt(0).toUpperCase() || '?');
+
+    var color = (typeof getMemberAvatarColor === 'function')
+      ? getMemberAvatarColor(cleanNm)
+      : '#0284c7';
+
+    return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>';
+  }
+
   async function renderAdminList() {
     if (typeof document === 'undefined') return;
     var search = ((document.getElementById('admin-search') || {}).value || '').toLowerCase();
@@ -1078,7 +1124,10 @@
           deptBadge = ' <span title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;margin-left:4px;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
         }
 
-        html += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:10px;">'
+        var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 36);
+
+        html += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:12px;">'
+          + avatarHtml
           + '<div style="flex:1;min-width:0;">'
             + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + deptBadge + '</div>'
             + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + (m.squad ? safeSquad + ' Platoon' : 'No platoon') + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + '</div>'
@@ -2039,11 +2088,16 @@
       }
       var rankSubtitle = subtitleParts.join(' • ');
 
+      var avatarHtml = getAdminMemberAvatarHtml(m.name, email, 38);
+
       listHtml += '<div class="rbac-member-row admin-row" data-name="' + (typeof escapeHtml === 'function' ? escapeHtml((m.name || '').toLowerCase()) : '') + '" data-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email.toLowerCase()) : '') + '" data-role="' + currentRole + '" style="cursor:default;margin-bottom:0;display:flex;flex-direction:column;gap:12px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%;">' +
-          '<div style="flex:1;min-width:180px;">' +
-            '<div class="admin-name" style="font-size:15px;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(m.name || 'Unnamed Member') : m.name) + '</div>' +
-            '<div class="admin-sub" style="font-size:12px;margin-top:3px;color:var(--text-muted);">' + rankSubtitle + '</div>' +
+          '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:180px;">' +
+            avatarHtml +
+            '<div style="flex:1;min-width:0;">' +
+              '<div class="admin-name" style="font-size:15px;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(m.name || 'Unnamed Member') : m.name) + '</div>' +
+              '<div class="admin-sub" style="font-size:12px;margin-top:3px;color:var(--text-muted);">' + rankSubtitle + '</div>' +
+            '</div>' +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
             '<select class="form-select rbac-role-select" data-user-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" onchange="handleRbacRoleChange(this.getAttribute(&quot;data-user-email&quot;), this.value)">' +
@@ -2188,6 +2242,7 @@
     global.ADMIN_SECTIONS           = ADMIN_SECTIONS;
     global.RANK_ORDER               = RANK_ORDER;
     global.openAdmin                = openAdmin;
+    global.getAdminMemberAvatarHtml = getAdminMemberAvatarHtml;
     global.closeAdmin               = closeAdmin;
     global.logoutAdmin              = logoutAdmin;
     global.adminLogin               = adminLogin;
@@ -2237,6 +2292,7 @@
       RANK_ORDER: RANK_ORDER,
     DEFAULT_DEPT_CONFIG,
       openAdmin: openAdmin,
+      getAdminMemberAvatarHtml: getAdminMemberAvatarHtml,
       closeAdmin: closeAdmin,
       logoutAdmin: logoutAdmin,
       getAdminPasswordHash: getAdminPasswordHash,

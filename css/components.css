@@ -5512,18 +5512,83 @@ select.form-input,
   padding: 6px 0;
 }
 
+.tb-comments-section {
+  margin-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 14px;
+}
+
+.tb-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+.tb-comment-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  transition: var(--transition-smooth);
+}
+
+.tb-comment-item:hover {
+  border-color: var(--border-card);
+}
+
+.tb-comment-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tb-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tb-comment-author {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tb-comment-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tb-comment-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
 .tb-comment-box {
   border-top: 1px solid var(--border-subtle);
-  padding-top: 16px;
+  padding-top: 14px;
   margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tb-comment-input {
-  width: 100%;
+  flex: 1;
+  width: auto;
+  min-width: 0;
   background: var(--bg-input);
   border: 1px solid var(--border-card);
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 11px 14px;
   font-size: 13px;
   color: var(--text-primary);
   outline: none;
@@ -5533,6 +5598,41 @@ select.form-input,
 
 .tb-comment-input:focus {
   border-color: var(--accent);
+}
+
+.tb-comment-send-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 8px;
+  background: #0284c7;
+  border: none;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.tb-comment-send-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+}
+
+.tb-comment-send-btn:active {
+  transform: scale(0.96);
+}
+
+.admin-member-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
 }
 
 /* ── Modal Scroll Containment & Dynamic Viewport Ergonomics ── */

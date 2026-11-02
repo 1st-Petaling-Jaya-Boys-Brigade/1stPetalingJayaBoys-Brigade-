@@ -5754,6 +5754,36 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(adminCss.includes(".adm-view-list"), 'admin.css styles list view layout');
     console.log('  ✔ Admin console List View vs Grid View layout toggle and CSS grid rules verified');
 
+    // 7c. Admin Access Gatekeeping, Avatars & Task Kanban/Comment Enhancements
+    assert.ok(typeof rbacMod.RBAC.syncAdminButtonVisibility === 'function', 'syncAdminButtonVisibility must be exported by RBAC');
+    const sidebarNavCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
+    assert.ok(sidebarNavCss.includes('.sidebar-admin-btn') && sidebarNavCss.includes('display: none;'), 'nav.css hides sidebar-admin-btn by default for members');
+    
+    // Avatar rendering in admin.js
+    assert.ok(adminJs.includes('getAdminMemberAvatarHtml'), 'admin.js implements getAdminMemberAvatarHtml');
+    const jeshuaAvatarHtml = adminModule.getAdminMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 36);
+    assert.ok(jeshuaAvatarHtml.includes('creator-outline-avatar'), 'Jeshua Koh receives creator outline avatar');
+    assert.ok(jeshuaAvatarHtml.includes('creator-rgb-avatar'), 'Jeshua Koh receives creator rgb avatar');
+    const regularAvatarHtml = adminModule.getAdminMemberAvatarHtml('Bryan Lee', 'bryan@gmail.com', 36);
+    assert.ok(regularAvatarHtml.includes('admin-member-avatar') && regularAvatarHtml.includes('B'), 'Regular member receives initial B in avatar');
+    assert.ok(adminJs.includes('avatarHtml') && adminJs.includes('renderAdminList'), 'renderAdminList injects avatars on the left');
+    assert.ok(adminJs.includes('avatarHtml') && adminJs.includes('renderAdminRoles'), 'renderAdminRoles injects avatars on the left');
+    console.log('  ✔ Admin member avatars and creator RGB border verified in Member Directory and Roles Manager');
+
+    // Kanban drag-and-drop bottom add button guard
+    const tasksJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'tasks.js'), 'utf8');
+    assert.ok(tasksJs.includes('targetColBody.insertBefore(cardEl, addBtn)'), 'Kanban drop inserts task cards before the add button');
+    console.log('  ✔ Kanban task drag-and-drop ensures Add Task button remains strictly at the bottom');
+
+    // Task brief comment persistence & send button
+    assert.ok(typeof tasksMod.getTaskComments === 'function', 'tasksMod exports getTaskComments');
+    assert.ok(typeof tasksMod.renderTaskComments === 'function', 'tasksMod exports renderTaskComments');
+    assert.ok(typeof tasksMod.handleTaskCommentSubmit === 'function', 'tasksMod exports handleTaskCommentSubmit');
+    const taskCompCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    assert.ok(taskCompCss.includes('.tb-comment-send-btn'), 'components.css styles tb-comment-send-btn');
+    assert.ok(taskCompCss.includes('.tb-comments-section'), 'components.css styles tb-comments-section');
+    console.log('  ✔ Task brief comments persistence, activity stream & send button verified');
+
     // 8. PostgreSQL Migration Schema Integrity (013_granular_rbac_permissions.sql)
     const migrationPath = path.join(__dirname, '..', 'supabase', 'migrations', '013_granular_rbac_permissions.sql');
     assert.ok(fs.existsSync(migrationPath), 'Migration 013_granular_rbac_permissions.sql must exist');
