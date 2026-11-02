@@ -3978,10 +3978,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     swMod.PRECACHE_ASSETS.includes('./js/core/rbac.js'),
     'sw.js PRECACHE_ASSETS must include ./js/core/rbac.js for full offline RBAC governance'
   );
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./js/modules/forum.js'),
+    'sw.js PRECACHE_ASSETS must include ./js/modules/forum.js for full offline forum and helper agent capability'
+  );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261102d',
-    'sw.js CACHE_VERSION must be 20261102d'
+    '20261102e',
+    'sw.js CACHE_VERSION must be 20261102e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -6304,6 +6308,101 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(uniqueIds.length, 388, 'TSK-058 preserved strict 388 unique DOM IDs invariant');
     console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
   }
+
+  
+  // ── TSK-046: AI Support Helper Agent ("Ask Stedfast") & Bug Forum ────────
+  {
+    console.log('\nTesting AI Support Helper Agent & Bug Forum (TSK-046)...');
+    const forumMod = require('../js/modules/forum.js');
+
+    // 1. Module Exports & Seed Discussions
+    assert.ok(Array.isArray(forumMod.DEFAULT_FORUM_POSTS), 'DEFAULT_FORUM_POSTS must be an array');
+    assert.ok(forumMod.DEFAULT_FORUM_POSTS.length >= 3, 'Must have at least 3 initial seed forum discussions');
+    assert.strictEqual(typeof forumMod.queryHelperAgent, 'function', 'queryHelperAgent must be exported');
+    assert.strictEqual(typeof forumMod.triageUserQuery, 'function', 'triageUserQuery must be exported');
+    console.log('  ✔ Forum module exports and seed discussions verified');
+
+    // 2. Helper Agent FAQ Knowledge Base Matching
+    const resAtt = forumMod.queryHelperAgent('What is the 80% attendance rule?');
+    assert.ok(resAtt && resAtt.text, 'Attendance query should return an answer');
+    assert.strictEqual(resAtt.triage, null, 'Matched FAQ should not trigger bug triage');
+    assert.ok(resAtt.text.includes('80%') && resAtt.text.includes('One Year Service'), 'Attendance reply must explain 80% threshold and One Year Service award');
+
+    const resParade = forumMod.queryHelperAgent('When does Saturday parade start?');
+    assert.ok(resParade && resParade.text, 'Parade query should return an answer');
+    assert.strictEqual(resParade.triage, null, 'Matched parade FAQ should not trigger bug triage');
+    assert.ok(resParade.text.includes('2:15 PM') && resParade.text.includes('Saturday'), 'Parade reply must provide Saturday parade timing');
+
+    const resStore = forumMod.queryHelperAgent('How do boot sizes work for uniform orders?');
+    assert.ok(resStore && resStore.text, 'Store query should return an answer');
+    assert.strictEqual(resStore.triage, null, 'Matched store FAQ should not trigger bug triage');
+    assert.ok(resStore.text.includes('UK sizing'), 'Store reply must specify UK sizing');
+
+    // Test Unresolved / Bug Query Triggers Triage and Forum Escalation Card
+    const resBug = forumMod.queryHelperAgent('I found a bug where my badge points are completely wrong');
+    assert.ok(resBug && resBug.triage, 'Unmatched bug query must generate automatic triage metadata');
+    assert.ok(resBug.text.includes('escalate') || resBug.text.includes('Forum'), 'Fallback reply must recommend escalating to Support Forum');
+    console.log('  ✔ Helper Agent conversational FAQ matching and intelligent triage fallback verified');
+
+    // 3. Automated Issue Triage & Bug Classification
+    const triageBadge = forumMod.triageUserQuery('Badge calculation is broken on mobile');
+    assert.strictEqual(triageBadge.category, 'badges');
+    assert.strictEqual(triageBadge.tag, 'bug: badge-tracker');
+
+    const triageAccount = forumMod.triageUserQuery('Cannot sign in or change my password');
+    assert.strictEqual(triageAccount.category, 'account');
+    assert.strictEqual(triageAccount.tag, 'account-issue');
+    assert.strictEqual(triageAccount.categoryLabel, 'Account & Access');
+
+    const triageStore = forumMod.triageUserQuery('Order checkout button is frozen');
+    assert.strictEqual(triageStore.category, 'store');
+    assert.strictEqual(triageStore.tag, 'bug: store-checkout');
+    console.log('  ✔ Automated issue triage and tag classification verified across categories');
+
+    // 4. Forum Post Operations & Persistence
+    let testPosts = JSON.parse(JSON.stringify(forumMod.DEFAULT_FORUM_POSTS));
+    forumMod.forumPosts = testPosts;
+
+    // Upvote
+    const initialVotes = testPosts[0].upvotes;
+    forumMod.upvoteForumPost('post-001', 'tester_upvote@example.com');
+    assert.strictEqual(forumMod.forumPosts[0].upvotes, initialVotes + 1, 'Upvoting a post must increment upvote count');
+
+    // Toggle Status
+    const curStatus = forumMod.forumPosts[2].status;
+    forumMod.toggleForumPostStatus('post-003');
+    assert.notStrictEqual(forumMod.forumPosts[2].status, curStatus, 'Toggling post status must flip between open and resolved');
+
+    // Reply Submission
+    const replyText = 'This is an automated integration test reply';
+    forumMod.submitForumReply('post-001', replyText);
+    const updatedPost = forumMod.forumPosts.find(p => p.id === 'post-001');
+    const addedReply = updatedPost.replies[updatedPost.replies.length - 1];
+    assert.strictEqual(addedReply.content, replyText, 'submitForumReply must add reply to target post');
+    console.log('  ✔ Forum post upvoting, status toggling, and multi-thread reply operations verified');
+
+    // 5. CSS Components Integration
+    const compCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');
+    assert.ok(compCss.includes('.helper-agent-btn'), 'components.css must define .helper-agent-btn');
+    assert.ok(compCss.includes('.helper-agent-drawer'), 'components.css must define .helper-agent-drawer');
+    assert.ok(compCss.includes('.forum-container'), 'components.css must define .forum-container');
+    assert.ok(compCss.includes('.forum-hero-card'), 'components.css must define .forum-hero-card');
+    assert.ok(compCss.includes('.forum-post-card'), 'components.css must define .forum-post-card');
+    console.log('  ✔ Helper Agent and Support Forum UI styles verified in components.css');
+
+    // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
+    const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261102e'), 'index.html must load forum.js with cache bust version');
+
+    const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
+  }
+
+
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
