@@ -1917,6 +1917,15 @@ async function updateOrderStatus(orderNum, status) {
     });
     renderAdminOrders();
     if (typeof showToast === 'function') showToast('Order status updated to ' + status, 'success');
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'order.status_update',
+        targetType: 'order',
+        targetId: orderNum,
+        actorRole: 'officer_admin',
+        details: { status: status }
+      });
+    }
   } catch (e) {
     if (typeof showToast === 'function') showToast('Failed to update status.', 'error');
   }

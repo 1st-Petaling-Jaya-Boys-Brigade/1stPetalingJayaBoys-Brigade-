@@ -1044,6 +1044,20 @@ async function finalizeMemberRegistration(data) {
 }
 
 async function loginMember() {
+  // Server-side brute-force lockout check (TSK-041)
+  var preIdEl = document.getElementById('login-email') || document.getElementById('login-ic') || {};
+  var preIdentifier = (preIdEl.value || '').trim();
+  if (preIdentifier && typeof checkAuthLockout === 'function') {
+    var lockStatus = await checkAuthLockout(preIdentifier);
+    if (lockStatus && lockStatus.locked) {
+      var remMins = Math.ceil((lockStatus.remaining_seconds || 900) / 60);
+      if (typeof showToast === 'function') {
+        showToast('Account is temporarily locked due to 5 failed attempts. Please retry in ' + remMins + ' minutes.', 'error');
+      }
+      return;
+    }
+  }
+
   // Auth Cooldown Timer Check (TSK-025)
   if (Date.now() < _authFailures.lockedUntil) {
     var remSec = Math.ceil((_authFailures.lockedUntil - Date.now()) / 1000);
@@ -1083,8 +1097,20 @@ async function loginMember() {
           if (authRes && authRes.success && authRes.accounts && authRes.accounts.length) {
             accounts = authRes.accounts;
             loginSuccess = true;
+            if (typeof recordAuthAttempt === 'function') {
+              await recordAuthAttempt(queryEmail, true);
+            }
           } else if (authRes && authRes.success === false) {
             _authFailures.count++;
+            if (typeof recordAuthAttempt === 'function') {
+              var recRes = await recordAuthAttempt(queryEmail, false);
+              if (recRes && recRes.locked) {
+                if (typeof showToast === 'function') {
+                  showToast('Account locked for 15 minutes due to 5 consecutive failed attempts.', 'error');
+                }
+                return;
+              }
+            }
             if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
               _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
               if (typeof showToast === 'function') {
@@ -1120,6 +1146,15 @@ async function loginMember() {
       var check = await verifyPassword(pass, accounts[0].password || '');
       if (!check.valid) {
         _authFailures.count++;
+        if (typeof recordAuthAttempt === 'function') {
+          var directRec = await recordAuthAttempt(queryEmail, false);
+          if (directRec && directRec.locked) {
+            if (typeof showToast === 'function') {
+              showToast('Account locked for 15 minutes due to 5 consecutive failed attempts.', 'error');
+            }
+            return;
+          }
+        }
         if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
           _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
           if (typeof showToast === 'function') {
@@ -1131,6 +1166,9 @@ async function loginMember() {
         return;
       }
 
+      if (typeof recordAuthAttempt === 'function') {
+        await recordAuthAttempt(queryEmail, true);
+      }
       // Reset lockout counters on successful login
       _authFailures.count = 0;
       _authFailures.lockedUntil = 0;

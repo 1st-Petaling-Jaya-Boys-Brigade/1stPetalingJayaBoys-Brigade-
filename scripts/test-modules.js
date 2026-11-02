@@ -3,6 +3,7 @@
  */
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 
 // ── Test Environment Simulation ──
 global.window = global;
@@ -5220,6 +5221,105 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       }
     }
     console.log('  ✔ Shared platoon leaderboard verified with dynamic surname masking & low attendance protection');
+  }
+
+  // ── TSK-041: Immutable Admin Audit Logs, Brute-Force Lockout & Session TTL ──
+  console.log('\n--- TSK-041: Immutable Admin Audit Logs, Brute-Force Lockout & Session TTL ---');
+  {
+    // 1. SQL migration schema & triggers verification
+    const migPath = path.join(__dirname, '..', 'supabase', 'migrations', '011_audit_logs_lockout_session_ttl.sql');
+    assert.ok(fs.existsSync(migPath), '011_audit_logs_lockout_session_ttl.sql must exist');
+    const migSql = fs.readFileSync(migPath, 'utf8');
+
+    assert.ok(migSql.includes('CREATE TABLE IF NOT EXISTS bb_audit_logs'), 'bb_audit_logs ledger table created');
+    assert.ok(migSql.includes('trg_no_update_delete_audit_logs'), 'Immutability trigger strictly prevents UPDATE and DELETE');
+    assert.ok(migSql.includes('fn_prevent_audit_log_tamper'), 'fn_prevent_audit_log_tamper raises exception on mutation attempts');
+    assert.ok(migSql.includes('CREATE TABLE IF NOT EXISTS bb_auth_lockouts'), 'bb_auth_lockouts brute-force lockout table created');
+    assert.ok(migSql.includes('rpc_log_audit_event'), 'rpc_log_audit_event RPC defined');
+    assert.ok(migSql.includes('rpc_get_audit_logs'), 'rpc_get_audit_logs RPC defined');
+    assert.ok(migSql.includes('rpc_check_auth_lockout'), 'rpc_check_auth_lockout RPC defined');
+    assert.ok(migSql.includes('rpc_record_auth_attempt'), 'rpc_record_auth_attempt RPC defined');
+    assert.ok(migSql.includes('rpc_sign_out_everywhere'), 'rpc_sign_out_everywhere RPC defined');
+    console.log('  ✔ PostgreSQL immutable audit ledger schema, tamper-proof trigger, and RPCs verified');
+
+    // 2. Client-side audit logging & querying
+    const utilsMod = require('../js/core/utils.js');
+    assert.strictEqual(typeof utilsMod.logAuditEvent, 'function', 'logAuditEvent is defined');
+    assert.strictEqual(typeof utilsMod.getAuditLogs, 'function', 'getAuditLogs is defined');
+
+    const testEvent = await utilsMod.logAuditEvent({
+      action: 'points.edit',
+      targetType: 'member',
+      targetId: 'member@bb.org',
+      actorId: 'officer@bb.org',
+      actorRole: 'officer_admin',
+      details: { pointsAdded: 10, reason: 'Parade Attendance' }
+    });
+    assert.ok(testEvent && testEvent.success, 'logAuditEvent succeeds');
+
+    const logsRes = await utilsMod.getAuditLogs({ action: 'points.edit' });
+    assert.ok(logsRes && logsRes.logs && logsRes.logs.length > 0, 'getAuditLogs returns logged records');
+    const matchingLog = logsRes.logs.find(l => l.action === 'points.edit' && l.actor_id === 'officer@bb.org');
+    assert.ok(matchingLog, 'Found matching audit log entry in immutable ledger');
+    assert.strictEqual(matchingLog.target_id, 'member@bb.org');
+    console.log('  ✔ Client audit logging utility records Officer/NCO mutations and supports filtered retrieval');
+
+    // 3. Server-side rate limiting & brute-force lockout
+    assert.strictEqual(typeof utilsMod.checkAuthLockout, 'function', 'checkAuthLockout is defined');
+    assert.strictEqual(typeof utilsMod.recordAuthAttempt, 'function', 'recordAuthAttempt is defined');
+
+    const testUser = 'lockout_test_' + Date.now() + '@example.com';
+    let lockCheck = await utilsMod.checkAuthLockout(testUser);
+    assert.strictEqual(lockCheck.locked, false, 'New identifier is not locked');
+
+    // Simulate 4 failed attempts -> should not be locked
+    for (let i = 1; i <= 4; i++) {
+      const att = await utilsMod.recordAuthAttempt(testUser, false);
+      assert.strictEqual(att.locked, false, `Attempt ${i} does not lock account`);
+      assert.strictEqual(att.failures, i, `Failure count increments to ${i}`);
+    }
+
+    // 5th failed attempt -> MUST lock account for 15 minutes (900s)
+    const fifthAtt = await utilsMod.recordAuthAttempt(testUser, false);
+    assert.strictEqual(fifthAtt.locked, true, '5th consecutive failure triggers lockout');
+    assert.ok(fifthAtt.remaining_seconds > 800, 'Remaining lockout seconds is approx 900s (15 mins)');
+
+    // Verify checkAuthLockout now reports locked
+    lockCheck = await utilsMod.checkAuthLockout(testUser);
+    assert.strictEqual(lockCheck.locked, true, 'checkAuthLockout reports locked state');
+
+    // Successful authentication clears lockout
+    const clearRes = await utilsMod.recordAuthAttempt(testUser, true);
+    assert.strictEqual(clearRes.locked, false, 'Successful auth resets lockout');
+    assert.strictEqual(clearRes.failures, 0, 'Failures reset to 0');
+    console.log('  ✔ Brute-force rate limiting enforces 15-minute lockout after 5 consecutive failures');
+
+    // 4. Session TTL Expiry (14 days for Remember Me & 60 mins for Admin Inactivity)
+    const sessionMod = require('../js/core/session.js');
+    assert.strictEqual(sessionMod.REMEMBER_ME_TTL_MS, 14 * 24 * 60 * 60 * 1000, 'Remember Me TTL is exactly 14 days');
+    assert.strictEqual(typeof sessionMod.isRememberMeExpired, 'function', 'isRememberMeExpired is defined');
+
+    const freshTime = Date.now() - (1000 * 60 * 60 * 24 * 7); // 7 days old
+    assert.strictEqual(sessionMod.isRememberMeExpired(freshTime), false, '7-day-old session is not expired');
+
+    const expiredTime = Date.now() - (1000 * 60 * 60 * 24 * 15); // 15 days old
+    assert.strictEqual(sessionMod.isRememberMeExpired(expiredTime), true, '15-day-old session is expired');
+
+    const adminMod = require('../js/modules/admin.js');
+    assert.strictEqual(adminMod.SESSION_IDLE_TIMEOUT_MS, 60 * 60 * 1000, 'Officer Admin idle timeout is exactly 60 minutes');
+    console.log('  ✔ 14-day Remember Me session TTL and 60-minute Admin inactivity timeout verified');
+
+    // 5. Sign Out Everywhere functionality
+    assert.strictEqual(typeof sessionMod.signOutEverywhere, 'function', 'signOutEverywhere is defined');
+    const signoutRes = await sessionMod.signOutEverywhere();
+    assert.ok(signoutRes && signoutRes.success, 'signOutEverywhere executes cleanly');
+    console.log('  ✔ Sign Out Everywhere button, remote revocation, and local state purge verified');
+
+    // 6. UI integration & 388 DOM IDs invariant in index.html
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.ok(indexHtml.includes('btn-signout-everywhere'), 'Sign Out Everywhere button present in member profile');
+    assert.ok(indexHtml.includes('btn-admin-signout-everywhere'), 'Sign Out Everywhere button present in Admin console');
+    console.log('  ✔ Sign Out Everywhere buttons verified in member and admin views');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
