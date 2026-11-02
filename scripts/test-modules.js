@@ -5948,7 +5948,103 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(galJs.includes('syncHighlightNotifications(storyHighlights)'), 'gallery.js triggers syncHighlightNotifications');
     console.log('  ✔ Portal notification sync hooks connected to announcements, forms, and story highlights');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Comment Actions (3-Dots Menu, Edit, Delete) & Accurate Mention Notification Delivery
+    assert.strictEqual(typeof tasksMod.toggleTaskCommentMenu, 'function', 'toggleTaskCommentMenu must be exported');
+    assert.strictEqual(typeof tasksMod.startEditTaskComment, 'function', 'startEditTaskComment must be exported');
+    assert.strictEqual(typeof tasksMod.saveEditTaskComment, 'function', 'saveEditTaskComment must be exported');
+    assert.strictEqual(typeof tasksMod.deleteTaskComment, 'function', 'deleteTaskComment must be exported');
+    assert.strictEqual(typeof tasksMod.isUserMentionedInComment, 'function', 'isUserMentionedInComment must be exported');
+
+    // Test isUserMentionedInComment logic:
+    // Case A: Jeshua Koh posts a comment mentioning @Jason Koh.
+    // For Jeshua Koh (the author), isUserMentionedInComment MUST BE FALSE (no self-notifications!)
+    const selfMentionCheck = tasksMod.isUserMentionedInComment(
+      'Hey @Jason Koh please review this',
+      'jeshuakoh2008@gmail.com',
+      'Jeshua Koh',
+      'Jeshua Koh',
+      'jeshuakoh2008@gmail.com',
+      'HQ',
+      'Sergeant'
+    );
+    assert.strictEqual(selfMentionCheck, false, 'Author must NEVER receive a mention notification for their own comment');
+
+    // Case B: For Jason Koh (the mentioned user), isUserMentionedInComment MUST BE TRUE
+    const recipientCheck = tasksMod.isUserMentionedInComment(
+      'Hey @Jason Koh please review this',
+      'jeshuakoh2008@gmail.com',
+      'Jeshua Koh',
+      'Jason Koh',
+      'jason@gmail.com',
+      'Media',
+      'Corporal'
+    );
+    assert.strictEqual(recipientCheck, true, 'Mentioned user (Jason Koh) MUST receive the notification');
+
+    // Case C: Unrelated member (John Doe) must NOT be notified
+    const unrelatedCheck = tasksMod.isUserMentionedInComment(
+      'Hey @Jason Koh please review this',
+      'jeshuakoh2008@gmail.com',
+      'Jeshua Koh',
+      'John Doe',
+      'john@gmail.com',
+      'Logistics',
+      'Lance Corporal'
+    );
+    assert.strictEqual(unrelatedCheck, false, 'Unrelated member must not be notified');
+
+    // Case D: Group mention @Secretariat notifies Secretariat members, not others or author
+    const groupSecCheck = tasksMod.isUserMentionedInComment(
+      'Reminder @Secretariat for the parade briefing',
+      'officer@1stpjbb.org.my',
+      'Officer',
+      'Secretary Member',
+      'sec@gmail.com',
+      'Secretariat',
+      'Corporal'
+    );
+    assert.strictEqual(groupSecCheck, true, 'Department member notified on @Secretariat group mention');
+
+    const groupOtherCheck = tasksMod.isUserMentionedInComment(
+      'Reminder @Secretariat for the parade briefing',
+      'officer@1stpjbb.org.my',
+      'Officer',
+      'Logistics Member',
+      'log@gmail.com',
+      'Logistics',
+      'Corporal'
+    );
+    assert.strictEqual(groupOtherCheck, false, 'Non-department member NOT notified on @Secretariat group mention');
+    console.log('  ✔ isUserMentionedInComment accurately routes notifications and strictly excludes author');
+
+    // Test Comment Editing and Deleting in memory/storage
+    const testCmtTaskId = 'test-comment-crud-task';
+    const sampleComments = [
+      { id: 'cmt_001', task_id: testCmtTaskId, author_name: 'Jeshua Koh', author_email: 'jeshuakoh2008@gmail.com', text: 'Original text', created_at: new Date().toISOString() },
+      { id: 'cmt_002', task_id: testCmtTaskId, author_name: 'Jason Koh', author_email: 'jason@gmail.com', text: 'Another comment', created_at: new Date().toISOString() }
+    ];
+    tasksMod.saveTaskComments(testCmtTaskId, sampleComments);
+    assert.strictEqual(tasksMod.getTaskComments(testCmtTaskId).length, 2);
+
+    // Edit cmt_001
+    const commentsList = tasksMod.getTaskComments(testCmtTaskId);
+    const targetC = commentsList.find(c => c.id === 'cmt_001');
+    targetC.text = 'Updated text by author';
+    targetC.edited_at = new Date().toISOString();
+    tasksMod.saveTaskComments(testCmtTaskId, commentsList);
+
+    const reloadedComments = tasksMod.getTaskComments(testCmtTaskId);
+    assert.strictEqual(reloadedComments[0].text, 'Updated text by author');
+    assert.ok(reloadedComments[0].edited_at, 'Edited comment records edited_at timestamp');
+
+    // Delete cmt_002
+    const filteredComments = reloadedComments.filter(c => c.id !== 'cmt_002');
+    tasksMod.saveTaskComments(testCmtTaskId, filteredComments);
+    assert.strictEqual(tasksMod.getTaskComments(testCmtTaskId).length, 1);
+    assert.strictEqual(tasksMod.getTaskComments(testCmtTaskId)[0].id, 'cmt_001');
+    console.log('  ✔ Task comment editing, edited_at timestamping, and deletion verified');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));

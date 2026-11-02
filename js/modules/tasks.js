@@ -1898,6 +1898,11 @@ function renderTaskComments(taskId) {
     return;
   }
 
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  var myEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  var isSuperAdmin = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin(myEmail) : false;
+  var isAdmin = (typeof RBAC !== 'undefined' && typeof RBAC.isAdmin === 'function') ? RBAC.isAdmin(myEmail) : false;
+
   var html = '';
   comments.forEach(function(c) {
     var author = c.author_name || 'Member';
@@ -1915,19 +1920,225 @@ function renderTaskComments(taskId) {
       } catch (_) {}
     }
 
-    html += '<div class="tb-comment-item">'
+    var isAuthor = (myEmail && c.author_email && myEmail.toLowerCase() === c.author_email.toLowerCase())
+      || (myName && c.author_name && myName.toLowerCase() === c.author_name.toLowerCase());
+    var canEdit = isAuthor;
+    var canDelete = isAuthor || isAdmin || isSuperAdmin;
+
+    var actionsHtml = '';
+    if (canEdit || canDelete) {
+      actionsHtml = '<div class="tb-comment-actions">'
+        + '<button type="button" class="tb-comment-more-btn" onclick="toggleTaskCommentMenu(\'' + c.id + '\', event)" title="Comment options" aria-label="Comment options">'
+          + '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>'
+        + '</button>'
+        + '<div class="tb-comment-dropdown" data-comment-id="' + c.id + '" style="display:none;" role="menu">'
+          + (canEdit ? ('<button type="button" class="tb-comment-dropdown-item" role="menuitem" onclick="startEditTaskComment(\'' + tid + '\', \'' + c.id + '\')"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg><span>Edit</span></button>') : '')
+          + (canDelete ? ('<button type="button" class="tb-comment-dropdown-item tb-comment-dropdown-delete" role="menuitem" onclick="deleteTaskComment(\'' + tid + '\', \'' + c.id + '\')"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg><span>Delete</span></button>') : '')
+        + '</div>'
+      + '</div>';
+    }
+
+    var editedHtml = c.edited_at ? ' <span class="tb-comment-edited" title="Edited">(edited)</span>' : '';
+
+    html += '<div class="tb-comment-item" id="tb-comment-' + c.id + '">'
       + avatarHtml
       + '<div class="tb-comment-content">'
         + '<div class="tb-comment-header">'
           + '<span class="tb-comment-author">' + safeAuthor + '</span>'
-          + '<span class="tb-comment-time">' + timeStr + '</span>'
+          + '<span class="tb-comment-time">' + timeStr + editedHtml + '</span>'
+          + actionsHtml
         + '</div>'
-        + '<div class="tb-comment-text">' + formatCommentMentions(safeText) + '</div>'
+        + '<div class="tb-comment-text" data-comment-id="' + c.id + '">' + formatCommentMentions(safeText) + '</div>'
       + '</div>'
       + '</div>';
   });
 
   list.innerHTML = html;
+}
+
+/**
+ * Toggles the 3-dots action dropdown menu for a specific comment
+ * @param {string} commentId
+ * @param {Event} [event]
+ */
+function toggleTaskCommentMenu(commentId, event) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+  var allMenus = (typeof document !== 'undefined') ? document.querySelectorAll('.tb-comment-dropdown') : [];
+  var targetMenu = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-dropdown[data-comment-id="' + commentId + '"]') : null;
+  if (!targetMenu) return;
+
+  var isCurrentlyOpen = targetMenu.style.display !== 'none';
+  allMenus.forEach(function(m) { m.style.display = 'none'; });
+
+  if (!isCurrentlyOpen) {
+    targetMenu.style.display = 'flex';
+  }
+}
+
+/**
+ * Activates inline editing for a task comment
+ * @param {string} taskId
+ * @param {string} commentId
+ */
+function startEditTaskComment(taskId, commentId) {
+  var tid = taskId || _activeDetailTaskId;
+  if (!tid) return;
+
+  // Close all open menus
+  var allMenus = (typeof document !== 'undefined') ? document.querySelectorAll('.tb-comment-dropdown') : [];
+  allMenus.forEach(function(m) { m.style.display = 'none'; });
+
+  var comments = getTaskComments(tid);
+  var targetComment = comments.find(function(c) { return String(c.id) === String(commentId); });
+  if (!targetComment) return;
+
+  var textContainer = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-text[data-comment-id="' + commentId + '"]') : null;
+  if (!textContainer) return;
+
+  var rawText = targetComment.text || '';
+  var safeRaw = (typeof escapeHtml === 'function') ? escapeHtml(rawText) : rawText;
+
+  textContainer.innerHTML = '<div class="tb-comment-edit-wrap">'
+    + '<textarea class="tb-comment-edit-input" rows="2" data-edit-cid="' + commentId + '" '
+      + 'onkeydown="if((event.ctrlKey||event.metaKey)&&event.key===\'Enter\'){saveEditTaskComment(\'' + tid + '\', \'' + commentId + '\');}else if(event.key===\'Escape\'){cancelEditTaskComment(\'' + tid + '\', \'' + commentId + '\');}">'
+      + safeRaw
+    + '</textarea>'
+    + '<div class="tb-comment-edit-actions">'
+      + '<button type="button" class="tb-comment-btn-cancel" onclick="cancelEditTaskComment(\'' + tid + '\', \'' + commentId + '\')">Cancel</button>'
+      + '<button type="button" class="tb-comment-btn-save" onclick="saveEditTaskComment(\'' + tid + '\', \'' + commentId + '\')">Save</button>'
+    + '</div>'
+  + '</div>';
+
+  var textarea = textContainer.querySelector('.tb-comment-edit-input');
+  if (textarea) {
+    textarea.focus();
+    var len = textarea.value.length;
+    if (typeof textarea.setSelectionRange === 'function') {
+      textarea.setSelectionRange(len, len);
+    }
+  }
+}
+
+/**
+ * Saves changes to an edited task comment
+ * @param {string} taskId
+ * @param {string} commentId
+ */
+function saveEditTaskComment(taskId, commentId) {
+  var tid = taskId || _activeDetailTaskId;
+  if (!tid) return;
+
+  var textarea = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-edit-input[data-edit-cid="' + commentId + '"]') : null;
+  if (!textarea) return;
+
+  var updatedText = textarea.value.trim();
+  if (!updatedText) {
+    if (typeof showToast === 'function') {
+      showToast('Comment cannot be empty', 'warning');
+    }
+    return;
+  }
+
+  var comments = getTaskComments(tid);
+  var targetComment = comments.find(function(c) { return String(c.id) === String(commentId); });
+  if (targetComment) {
+    if (targetComment.text !== updatedText) {
+      targetComment.text = updatedText;
+      targetComment.edited_at = new Date().toISOString();
+      saveTaskComments(tid, comments);
+    }
+  }
+
+  renderTaskComments(tid);
+  if (typeof showToast === 'function') {
+    showToast('Comment updated', 'success', 1500);
+  }
+}
+
+/**
+ * Cancels editing a task comment and restores original text
+ * @param {string} taskId
+ * @param {string} commentId
+ */
+function cancelEditTaskComment(taskId, _commentId) {
+  var tid = taskId || _activeDetailTaskId;
+  renderTaskComments(tid);
+}
+
+/**
+ * Deletes a task comment with confirmation
+ * @param {string} taskId
+ * @param {string} commentId
+ */
+async function deleteTaskComment(taskId, commentId) {
+  var tid = taskId || _activeDetailTaskId;
+  if (!tid) return;
+
+  // Close menus
+  var allMenus = (typeof document !== 'undefined') ? document.querySelectorAll('.tb-comment-dropdown') : [];
+  allMenus.forEach(function(m) { m.style.display = 'none'; });
+
+  if (typeof showConfirmModal === 'function') {
+    var confirmed = await showConfirmModal(
+      'Are you sure you want to delete this comment? This action cannot be undone.',
+      'Delete Comment',
+      'Delete',
+      'Cancel'
+    );
+    if (!confirmed) return;
+  }
+
+  var comments = getTaskComments(tid);
+  var filtered = comments.filter(function(c) { return String(c.id) !== String(commentId); });
+  saveTaskComments(tid, filtered);
+  renderTaskComments(tid);
+
+  if (typeof showToast === 'function') {
+    showToast('Comment deleted', 'info', 1500);
+  }
+}
+
+/**
+ * Evaluates whether a comment mentions the specific logged-in user (strictly excludes the author)
+ * @param {string} text
+ * @param {string} authorEmail
+ * @param {string} authorName
+ * @param {string} myName
+ * @param {string} myEmail
+ * @param {string} [myDept]
+ * @param {string} [myRank]
+ * @returns {boolean}
+ */
+function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail, myDept, myRank) {
+  if (!text) return false;
+
+  // Rule 1: The author of the comment is NEVER notified about their own comment!
+  if (myEmail && authorEmail && myEmail.toLowerCase().trim() === authorEmail.toLowerCase().trim()) return false;
+  if (myName && authorName && myName.toLowerCase().trim() === authorName.toLowerCase().trim()) return false;
+
+  var lower = text.toLowerCase();
+
+  // Rule 2: @all mentions all members (except the author who created it)
+  if (/\b@all\b/i.test(lower)) return true;
+
+  // Rule 3: Individual @Name mention (e.g. "@Jason Koh" or "@Jason")
+  if (myName) {
+    var myNameLower = myName.toLowerCase().trim();
+    if (lower.indexOf('@' + myNameLower) !== -1) return true;
+    var firstName = myNameLower.split(/\s+/)[0];
+    if (firstName && firstName.length >= 3) {
+      var rx = new RegExp('@' + firstName + '\\b', 'i');
+      if (rx.test(lower)) return true;
+    }
+  }
+
+  // Rule 4: Department group mention (e.g. @Secretariat, @Logistics, @Media, @HQ, @Band)
+  if (myDept && lower.indexOf('@' + myDept.toLowerCase().trim()) !== -1) return true;
+
+  // Rule 5: @Officers mention
+  if (myRank && ['Officer', 'Lieutenant', 'Captain', 'Chaplain'].indexOf(myRank) !== -1 && /\b@officers\b/i.test(lower)) return true;
+
+  return false;
 }
 
 /**
@@ -1959,29 +2170,11 @@ function handleTaskCommentSubmit(input) {
 
   renderTaskComments(tid);
 
-  // Dispatch portal notification if comment contains @mentions
-  var mentionMatches = commentText.match(/@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)/g);
-  if (mentionMatches && mentionMatches.length) {
-    var notifFn = (typeof addPortalNotification === 'function')
-      ? addPortalNotification
-      : (typeof window !== 'undefined' && typeof window.addPortalNotification === 'function' ? window.addPortalNotification : null);
-    if (notifFn) {
-      notifFn({
-        id: 'notif-mention-' + newComment.id,
-        category: 'tasks',
-        group: 'Today',
-        icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-        title: authorName + ' mentioned you in a task',
-        snippet: commentText.slice(0, 70),
-        time: 'Today',
-        unread: true,
-        action: function() {
-          if (typeof switchTabNav === 'function') switchTabNav('tasks');
-          if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
-          if (typeof openTaskDetail === 'function') openTaskDetail(tid);
-        }
-      });
-    }
+  // Sync notifications across tasks, ensuring the author is NOT notified
+  if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
+    syncTaskNotifications(_allLoadedTasks);
+  } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function' && typeof window._allLoadedTasks !== 'undefined') {
+    window.syncTaskNotifications(window._allLoadedTasks);
   }
 
   if (typeof showToast === 'function') {
@@ -3616,6 +3809,7 @@ if (typeof window !== 'undefined') {
   window.addActiveTaskLink          = addActiveTaskLink;
   window.handleTaskCommentSubmit    = handleTaskCommentSubmit;
   window.getTaskComments            = getTaskComments;
+  window.saveTaskComments           = saveTaskComments;
   window.renderTaskComments         = renderTaskComments;
   window.handleTaskAttachmentUpload = handleTaskAttachmentUpload;
   window.getTaskAttachments         = getTaskAttachments;
@@ -3627,6 +3821,12 @@ if (typeof window !== 'undefined') {
   window.handleTaskCommentKeyDown   = handleTaskCommentKeyDown;
   window.selectMentionCandidate     = selectMentionCandidate;
   window.formatCommentMentions      = formatCommentMentions;
+  window.toggleTaskCommentMenu      = toggleTaskCommentMenu;
+  window.startEditTaskComment       = startEditTaskComment;
+  window.saveEditTaskComment        = saveEditTaskComment;
+  window.cancelEditTaskComment      = cancelEditTaskComment;
+  window.deleteTaskComment          = deleteTaskComment;
+  window.isUserMentionedInComment   = isUserMentionedInComment;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
 }
 
@@ -3702,6 +3902,7 @@ if (typeof module !== 'undefined' && module.exports) {
     deleteActiveProject,
     renderColumnsFromTasks,
     getTaskComments,
+    saveTaskComments,
     renderTaskComments,
     handleTaskCommentSubmit,
     handleTaskAttachmentUpload,
@@ -3713,12 +3914,22 @@ if (typeof module !== 'undefined' && module.exports) {
     handleTaskCommentInput,
     handleTaskCommentKeyDown,
     selectMentionCandidate,
-    formatCommentMentions
+    formatCommentMentions,
+    toggleTaskCommentMenu,
+    startEditTaskComment,
+    saveEditTaskComment,
+    cancelEditTaskComment,
+    deleteTaskComment,
+    isUserMentionedInComment
   };
 }
 
 if (typeof document !== 'undefined') {
   document.addEventListener('click', function(e) {
+    if (!e.target.closest || !e.target.closest('.tb-comment-actions')) {
+      var commentMenus = document.querySelectorAll('.tb-comment-dropdown');
+      commentMenus.forEach(function(m) { m.style.display = 'none'; });
+    }
     if (!e.target.closest || (!e.target.closest('.task-prop-pill-wrapper') && !e.target.closest('.my-tasks-project-filter-wrap'))) {
       var pMenu = document.querySelector('.my-tasks-project-dropdown');
       if (pMenu) pMenu.style.display = 'none';

@@ -3623,6 +3623,11 @@ function setDismissedNotifId(id) {
 
 function addPortalNotification(notif) {
   if (!notif || !notif.id) return;
+  // Guard against self-mentions: never notify the author about their own comment
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (notif.id.indexOf('notif-mention-') === 0 && myName && notif.title && notif.title.indexOf(myName + ' mentioned you') === 0) {
+    return;
+  }
   var dismissed = getDismissedNotifIds();
   if (dismissed.indexOf(notif.id) !== -1) return;
   var existing = _allPortalNotifications.find(function(n) { return n.id === notif.id; });
@@ -3674,7 +3679,7 @@ function syncTaskNotifications(tasks) {
           group: 'Today',
           avatarInitials: initials,
           title: (t.creator_name || (deptLabel + ' Lead')) + ' assigned a task',
-          snippet: (t.id ? (t.id.toUpperCase() + ' - ') : '') + t.title,
+          snippet: (t.id ? (String(t.id).toUpperCase() + ' - ') : '') + t.title,
           time: timeStr,
           unread: true,
           action: function() {
@@ -3719,6 +3724,60 @@ function syncTaskNotifications(tasks) {
       } catch (_) {}
     }
   });
+
+  // 3. Task Comment Mentions Notification (only if current user is mentioned and NOT the author)
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
+  var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
+  var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '') : '';
+
+  // Purge any legacy or self-mention notifications where the author is the current user
+  _allPortalNotifications = _allPortalNotifications.filter(function(n) {
+    if (n && n.id && n.id.indexOf('notif-mention-') === 0) {
+      if (myName && n.title && n.title.indexOf(myName + ' mentioned you') === 0) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  if (typeof getTaskComments === 'function') {
+    tasks.forEach(function(t) {
+      if (!t || !t.id) return;
+      var comments = getTaskComments(t.id);
+      if (!Array.isArray(comments)) return;
+      comments.forEach(function(c) {
+        if (!c || !c.id || !c.text) return;
+        var notifId = 'notif-mention-' + c.id;
+        if (dismissed.indexOf(notifId) !== -1) return;
+
+        var checkFn = (typeof isUserMentionedInComment === 'function')
+          ? isUserMentionedInComment
+          : (typeof window !== 'undefined' && typeof window.isUserMentionedInComment === 'function' ? window.isUserMentionedInComment : null);
+
+        var isMentioned = checkFn ? checkFn(c.text, c.author_email, c.author_name, myName, myEmail, myDept, myRank) : false;
+        if (isMentioned) {
+          var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+          if (!existing) {
+            _allPortalNotifications.unshift({
+              id: notifId,
+              category: 'tasks',
+              group: 'Today',
+              icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+              title: (c.author_name || 'Member') + ' mentioned you in a task',
+              snippet: c.text.slice(0, 70),
+              time: 'Today',
+              unread: true,
+              action: function() {
+                switchTabNav('tasks');
+                if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+                if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+              }
+            });
+          }
+        }
+      });
+    });
+  }
 
   renderNotifications();
 }
