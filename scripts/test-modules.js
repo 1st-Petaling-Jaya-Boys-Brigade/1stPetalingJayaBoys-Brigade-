@@ -5272,16 +5272,18 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     let lockCheck = await utilsMod.checkAuthLockout(testUser);
     assert.strictEqual(lockCheck.locked, false, 'New identifier is not locked');
 
-    // Simulate 4 failed attempts -> should not be locked
+    // Simulate 4 failed attempts -> should not be locked and show remaining attempts
     for (let i = 1; i <= 4; i++) {
       const att = await utilsMod.recordAuthAttempt(testUser, false);
       assert.strictEqual(att.locked, false, `Attempt ${i} does not lock account`);
       assert.strictEqual(att.failures, i, `Failure count increments to ${i}`);
+      assert.strictEqual(att.attempts_remaining, 5 - i, `Attempts remaining is accurately calculated as ${5 - i}`);
     }
 
-    // 5th failed attempt -> MUST lock account for 15 minutes (900s)
+    // 5th failed attempt -> MUST lock account for 15 minutes (900s) and set attempts_remaining to 0
     const fifthAtt = await utilsMod.recordAuthAttempt(testUser, false);
     assert.strictEqual(fifthAtt.locked, true, '5th consecutive failure triggers lockout');
+    assert.strictEqual(fifthAtt.attempts_remaining, 0, 'Attempts remaining is 0 upon lockout');
     assert.ok(fifthAtt.remaining_seconds > 800, 'Remaining lockout seconds is approx 900s (15 mins)');
 
     // Verify checkAuthLockout now reports locked

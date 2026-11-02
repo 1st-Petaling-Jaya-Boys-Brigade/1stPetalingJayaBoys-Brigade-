@@ -1102,22 +1102,24 @@ async function loginMember() {
             }
           } else if (authRes && authRes.success === false) {
             _authFailures.count++;
+            var rpcAttemptsLeft = Math.max(0, 5 - _authFailures.count);
             if (typeof recordAuthAttempt === 'function') {
               var recRes = await recordAuthAttempt(queryEmail, false);
               if (recRes && recRes.locked) {
                 if (typeof showToast === 'function') {
-                  showToast('Account locked for 15 minutes due to 5 consecutive failed attempts.', 'error');
+                  showToast('Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.', 'error');
                 }
                 return;
               }
-            }
-            if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
-              _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
-              if (typeof showToast === 'function') {
-                showToast('Too many failed attempts. Login locked for 30 seconds.', 'error');
+              if (recRes && typeof recRes.attempts_remaining === 'number') {
+                rpcAttemptsLeft = recRes.attempts_remaining;
               }
-            } else if (typeof showToast === 'function') {
-              showToast('Incorrect password!', 'error');
+            }
+            if (typeof showToast === 'function') {
+              var rpcMsg = rpcAttemptsLeft > 0
+                ? ('Incorrect password! You have ' + rpcAttemptsLeft + ' attempt' + (rpcAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
+                : 'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.';
+              showToast(rpcMsg, 'error');
             }
             return;
           }
@@ -1146,22 +1148,24 @@ async function loginMember() {
       var check = await verifyPassword(pass, accounts[0].password || '');
       if (!check.valid) {
         _authFailures.count++;
+        var directAttemptsLeft = Math.max(0, 5 - _authFailures.count);
         if (typeof recordAuthAttempt === 'function') {
           var directRec = await recordAuthAttempt(queryEmail, false);
           if (directRec && directRec.locked) {
             if (typeof showToast === 'function') {
-              showToast('Account locked for 15 minutes due to 5 consecutive failed attempts.', 'error');
+              showToast('Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.', 'error');
             }
             return;
           }
-        }
-        if (_authFailures.count >= AUTH_MAX_ATTEMPTS) {
-          _authFailures.lockedUntil = Date.now() + AUTH_LOCKOUT_MS;
-          if (typeof showToast === 'function') {
-            showToast('Too many failed attempts. Login locked for 30 seconds.', 'error');
+          if (directRec && typeof directRec.attempts_remaining === 'number') {
+            directAttemptsLeft = directRec.attempts_remaining;
           }
-        } else if (typeof showToast === 'function') {
-          showToast('Incorrect password!', 'error');
+        }
+        if (typeof showToast === 'function') {
+          var directMsg = directAttemptsLeft > 0
+            ? ('Incorrect password! You have ' + directAttemptsLeft + ' attempt' + (directAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
+            : 'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.';
+          showToast(directMsg, 'error');
         }
         return;
       }
