@@ -6368,15 +6368,24 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     forumMod.upvoteForumPost('post-001', 'tester_upvote@example.com');
     assert.strictEqual(forumMod.forumPosts[0].upvotes, initialVotes + 1, 'Upvoting a post must increment upvote count');
 
-    // Toggle Status (Officer / Admin Session)
+    // Toggle Status: Non-Super Admin must be rejected
     if (typeof global.sessionSet === 'function') {
-      global.sessionSet('email', 'captain@bbpj1.org');
+      global.sessionSet('email', 'lieutenant@bbpj1.org');
       global.sessionSet('role', 'admin');
+      global.sessionSet('rank', 'Lieutenant');
+    }
+    const preStatus = forumMod.forumPosts[2].status;
+    forumMod.toggleForumPostStatus('post-003');
+    assert.strictEqual(forumMod.forumPosts[2].status, preStatus, 'Regular admins/officers must not be able to toggle thread status');
+
+    // Toggle Status: Super Admin Session succeeds
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'superadmin@bbpj1.org');
+      global.sessionSet('role', 'super_admin');
       global.sessionSet('rank', 'Captain');
     }
-    const curStatus = forumMod.forumPosts[2].status;
     forumMod.toggleForumPostStatus('post-003');
-    assert.notStrictEqual(forumMod.forumPosts[2].status, curStatus, 'Toggling post status must flip between open and resolved');
+    assert.notStrictEqual(forumMod.forumPosts[2].status, preStatus, 'Super Admin must be allowed to toggle post status between open and resolved');
 
     // Reply Submission
     const replyText = 'This is an automated integration test reply';
@@ -6396,13 +6405,43 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(forumMod.FORUM_ICONS.badges.includes('<svg'), 'FORUM_ICONS.badges must contain SVG markup');
     console.log('  ✔ Zero emojis verified across forum module with complete SVG icon registry');
 
-    // 4c. Role-Based Permissions (Admins / Super Admins / Members)
+    // 4c. Role-Based Permissions (Super Admins vs Regular Admins vs Members)
+    // 1) Super Admin Session
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'superadmin@bbpj1.org');
+      global.sessionSet('role', 'super_admin');
+      global.sessionSet('rank', 'Captain');
+    }
     const superAdminPerms = forumMod.getForumUserPermissions(testPosts[0]);
-    assert.strictEqual(typeof superAdminPerms.canReply, 'boolean', 'canReply flag must exist');
-    assert.strictEqual(typeof superAdminPerms.canEdit, 'boolean', 'canEdit flag must exist');
-    assert.strictEqual(typeof superAdminPerms.canDelete, 'boolean', 'canDelete flag must exist');
-    assert.strictEqual(typeof superAdminPerms.canChangeStatus, 'boolean', 'canChangeStatus flag must exist');
-    console.log('  ✔ Role-based forum management permissions (reply, edit, delete, status) verified');
+    assert.strictEqual(superAdminPerms.canReply, true, 'Super Admin must be allowed to reply');
+    assert.strictEqual(superAdminPerms.canEdit, true, 'Super Admin must be allowed to edit posts');
+    assert.strictEqual(superAdminPerms.canDelete, true, 'Super Admin must be allowed to delete posts');
+    assert.strictEqual(superAdminPerms.canChangeStatus, true, 'Super Admin must be allowed to change status');
+
+    // 2) Regular Admin Session (e.g. Lieutenant)
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'lieutenant@bbpj1.org');
+      global.sessionSet('role', 'admin');
+      global.sessionSet('rank', 'Lieutenant');
+    }
+    const regularAdminPerms = forumMod.getForumUserPermissions(testPosts[0]);
+    assert.strictEqual(regularAdminPerms.canReply, true, 'Regular Admin must be allowed to reply');
+    assert.strictEqual(regularAdminPerms.canEdit, false, 'Regular Admin must not be allowed to edit posts');
+    assert.strictEqual(regularAdminPerms.canDelete, false, 'Regular Admin must not be allowed to delete posts');
+    assert.strictEqual(regularAdminPerms.canChangeStatus, false, 'Regular Admin must not be allowed to change status');
+
+    // 3) Member Session (e.g. Private)
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'private@bbpj1.org');
+      global.sessionSet('role', 'member');
+      global.sessionSet('rank', 'Private');
+    }
+    const memberPerms = forumMod.getForumUserPermissions(testPosts[0]);
+    assert.strictEqual(memberPerms.canReply, true, 'Member must be allowed to reply');
+    assert.strictEqual(memberPerms.canEdit, false, 'Member must not be allowed to edit posts');
+    assert.strictEqual(memberPerms.canDelete, false, 'Member must not be allowed to delete posts');
+    assert.strictEqual(memberPerms.canChangeStatus, false, 'Member must not be allowed to change status');
+    console.log('  ✔ Role-based forum management permissions (super admin exclusive status/edit/delete, universal reply) verified');
 
     // 5. CSS Components Integration
     const compCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');
