@@ -1157,23 +1157,21 @@ function updateStorySlideView() {
         videoEl.style.display = 'block';
         videoEl.autoplay = true;
         videoEl.playsInline = true;
+        videoEl.controls = false;
         if (videoEl.src !== safeMediaUrl) {
           videoEl.src = safeMediaUrl;
         }
         videoEl.currentTime = 0;
 
-        // Auto-adapt story timer to video duration when metadata is ready
+        // Auto-adapt story duration to video length when metadata is ready (TSK-058)
         videoEl.onloadedmetadata = function() {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
-            if (!curSlide.duration || Number(curSlide.duration) === 30) {
-              _storySlideDuration = Math.round(videoEl.duration * 1000);
-              _storyRemainingTime = _storySlideDuration;
-              startStoryTimer(_storySlideDuration);
-            }
+            _storySlideDuration = Math.round(videoEl.duration * 1000);
+            _storyRemainingTime = _storySlideDuration;
           }
         };
 
-        // Frame-synchronized progress bar based on actual video playback
+        // Synchronize top segmented progress bar dynamically with video currentTime / duration (TSK-058)
         videoEl.ontimeupdate = function() {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
             var pct = Math.min(100, (videoEl.currentTime / videoEl.duration) * 100);
@@ -1185,9 +1183,14 @@ function updateStorySlideView() {
           }
         };
 
-        // When video ends, advance to next slide
+        // When video ends, advance to next slide (TSK-058)
         videoEl.onended = function() {
           nextStorySlide();
+        };
+
+        // Fallback safety timeout if video stalls or encounters error
+        videoEl.onerror = function() {
+          startStoryTimer(_storySlideDuration);
         };
 
         // Attempt playback with fallback to muted if browser blocks sound
@@ -1200,7 +1203,8 @@ function updateStorySlideView() {
           });
         }
       }
-      startStoryTimer(_storySlideDuration);
+      // Safety timer for video stalls (allows generous buffer past duration)
+      startStoryTimer(_storySlideDuration + 3000);
     }
   } else {
     // Standard Photo Slide
