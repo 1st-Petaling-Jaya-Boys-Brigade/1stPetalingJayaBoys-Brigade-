@@ -1502,21 +1502,22 @@
         <div id="tdm-status-btns" style="display:none !important;"></div>
 
         <!-- Attachments Section (Image 5) -->
-        <div class="task-brief-section">
+        <div class="task-brief-section tb-attachments-section">
           <div class="tb-section-header">
             <div class="tb-section-title">
               <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              <span>Attachments</span>
+              <span class="tb-attachments-count-title">Attachments</span>
             </div>
             <label class="tb-upload-btn" title="Upload attachment">
               <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <span>Upload file</span>
-              <input type="file" style="display:none;" onchange="handleTaskAttachmentUpload(event)" />
+              <input type="file" multiple style="display:none;" onchange="handleTaskAttachmentUpload(event)" />
             </label>
           </div>
-          <div class="tb-dropzone" onclick="this.previousElementSibling.querySelector('input').click()">
+          <div class="tb-attachments-list"></div>
+          <div class="tb-dropzone" onclick="var inp=this.parentElement.querySelector('input[type=file]');if(inp)inp.click();">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            <span>Drop files here or click to browse</span>
+            <span>Drop files here or click to browse (supports multiple files)</span>
           </div>
         </div>
 
@@ -1556,11 +1557,12 @@
         </div>
 
         <!-- Comment Box (Image 5) -->
-        <div class="tb-comment-box">
-          <input type="text" class="tb-comment-input" placeholder="Leave a comment... (@ to mention). Ctrl+Enter to send" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){handleTaskCommentSubmit(this);}" />
+        <div class="tb-comment-box" style="position:relative;">
+          <input type="text" class="tb-comment-input" placeholder="Leave a comment... (@ to mention). Ctrl+Enter to send" onkeydown="handleTaskCommentKeyDown(event, this)" oninput="handleTaskCommentInput(this)" />
           <button type="button" class="tb-comment-send-btn" onclick="handleTaskCommentSubmit(this.previousElementSibling)" title="Send Comment" aria-label="Send Comment">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;transform:translateX(1px);"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
+          <div class="tb-mentions-dropdown" style="display:none;" role="listbox" aria-label="Member mentions"></div>
         </div>
       </div>
     </div>
@@ -1840,7 +1842,6 @@
         <div style="font-size:11px;color:var(--text-secondary);letter-spacing:2px;text-transform:uppercase;margin-top:2px;">1st Petaling Jaya Boys Brigade</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button onclick="logoutAdmin()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:8px 14px;border-radius:10px;cursor:pointer;font-family:var(--font-headline);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Lock</button>
         <button type="button" class="btn-admin-signout-everywhere" onclick="signOutEverywhere()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:8px 14px;border-radius:10px;cursor:pointer;font-family:var(--font-headline);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg> Sign Out Everywhere</button>
         <button onclick="closeAdmin()" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);padding:8px 16px;border-radius:10px;cursor:pointer;font-family:var(--font-headline);font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Close</button>
       </div>
@@ -3620,11 +3621,36 @@ function setDismissedNotifId(id) {
   }
 }
 
+function addPortalNotification(notif) {
+  if (!notif || !notif.id) return;
+  var dismissed = getDismissedNotifIds();
+  if (dismissed.indexOf(notif.id) !== -1) return;
+  var existing = _allPortalNotifications.find(function(n) { return n.id === notif.id; });
+  if (!existing) {
+    _allPortalNotifications.unshift(notif);
+    renderNotifications();
+  }
+}
+
 function syncTaskNotifications(tasks) {
   if (!Array.isArray(tasks)) return;
   var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
   var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
   if (!myIc && !myName) return;
+
+  // Check if member has department role (requirement: only for members with department roles)
+  var hasDept = false;
+  if (typeof hasDepartmentRole === 'function') {
+    hasDept = hasDepartmentRole();
+  } else if (typeof window !== 'undefined' && typeof window.hasDepartmentRole === 'function') {
+    hasDept = window.hasDepartmentRole();
+  } else if (typeof sessionGet === 'function') {
+    var sDept = sessionGet('department');
+    var sRank = sessionGet('rank');
+    hasDept = !!(sDept || (sRank && ['Officer', 'Lieutenant', 'Captain', 'Chaplain'].indexOf(sRank) !== -1));
+  }
+  if (!hasDept) return;
+
   var dismissed = getDismissedNotifIds();
 
   tasks.forEach(function(t) {
@@ -3633,34 +3659,170 @@ function syncTaskNotifications(tasks) {
       || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1);
     if (!isAssigned) return;
 
+    // 1. Task Assigned Notification
     var notifId = 'notif-task-' + t.id;
-    if (dismissed.indexOf(notifId) !== -1) return;
+    if (dismissed.indexOf(notifId) === -1) {
+      var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+      if (!existing) {
+        var deptLabel = (typeof DEPT_CONFIG !== 'undefined' && DEPT_CONFIG[t.department]) ? DEPT_CONFIG[t.department].label : 'Department';
+        var initials = (t.assignee_name || myName || 'BB').split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+        var timeStr = 'Today';
 
+        _allPortalNotifications.unshift({
+          id: notifId,
+          category: 'tasks',
+          group: 'Today',
+          avatarInitials: initials,
+          title: (t.creator_name || (deptLabel + ' Lead')) + ' assigned a task',
+          snippet: (t.id ? (t.id.toUpperCase() + ' - ') : '') + t.title,
+          time: timeStr,
+          unread: true,
+          action: function() {
+            switchTabNav('tasks');
+            if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+            if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+          }
+        });
+      }
+    }
+
+    // 2. Due Date Nearing Notification (only for members with department roles)
+    if (t.due_date && t.status !== 'done') {
+      try {
+        var dueTime = new Date(t.due_date).getTime();
+        var now = Date.now();
+        var diffDays = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
+        if (!isNaN(dueTime) && diffDays <= 2 && diffDays >= -2) {
+          var dueNotice = (diffDays < 0) ? 'Overdue' : (diffDays === 0 ? 'Due Today' : (diffDays === 1 ? 'Due Tomorrow' : 'Due in 2 days'));
+          var dueId = 'notif-task-due-' + t.id + '-' + String(t.due_date).split('T')[0];
+          if (dismissed.indexOf(dueId) === -1) {
+            var existingDue = _allPortalNotifications.find(function(n) { return n.id === dueId; });
+            if (!existingDue) {
+              _allPortalNotifications.unshift({
+                id: dueId,
+                category: 'tasks',
+                group: 'Today',
+                icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+                title: 'Due Date Nearing: ' + t.title,
+                snippet: dueNotice + ' (' + String(t.due_date).split('T')[0] + ') - ' + (t.department || 'Department'),
+                time: 'Today',
+                unread: true,
+                action: function() {
+                  switchTabNav('tasks');
+                  if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+                  if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+                }
+              });
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  });
+
+  renderNotifications();
+}
+
+function syncAnnouncementNotifications(annList) {
+  var list = Array.isArray(annList) ? annList : (typeof announcements !== 'undefined' ? announcements : []);
+  if (!Array.isArray(list) || !list.length) return;
+  var dismissed = getDismissedNotifIds();
+
+  list.forEach(function(a) {
+    if (!a || !a.id) return;
+    var notifId = 'notif-announcement-' + a.id;
+    if (dismissed.indexOf(notifId) !== -1) return;
     var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
     if (!existing) {
-      var deptLabel = (typeof DEPT_CONFIG !== 'undefined' && DEPT_CONFIG[t.department]) ? DEPT_CONFIG[t.department].label : 'Department';
-      var initials = (t.assignee_name || myName || 'BB').split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-      var timeStr = 'Today, ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-
+      var snippet = (a.content || a.message || '').replace(/<[^>]+>/g, '').trim();
+      if (snippet.length > 70) snippet = snippet.slice(0, 67) + '...';
       _allPortalNotifications.unshift({
         id: notifId,
-        category: 'tasks',
-        group: 'TODAY',
-        avatarInitials: initials,
-        title: (t.creator_name || (deptLabel + ' Lead')) + ' assigned a task',
-        snippet: (t.id ? (t.id.toUpperCase() + ' - ') : '') + t.title,
-        time: timeStr,
+        category: 'announcements',
+        group: 'Today',
+        icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
+        title: 'New Announcement: ' + (a.title || 'Company Notice'),
+        snippet: snippet || 'Tap to view company announcement.',
+        time: a.date || 'Today',
         unread: true,
-        action: function() {
-          switchTabNav('tasks');
-          if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
-          if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
-        }
+        action: function() { switchTabNav('home'); }
       });
     }
   });
 
   renderNotifications();
+}
+
+function syncFormNotifications(formsList) {
+  var list = Array.isArray(formsList) ? formsList : (typeof _customForms !== 'undefined' ? _customForms : []);
+  if (!Array.isArray(list) || !list.length) return;
+  var dismissed = getDismissedNotifIds();
+
+  list.forEach(function(f) {
+    if (!f || !f.id) return;
+    var notifId = 'notif-form-' + f.id;
+    if (dismissed.indexOf(notifId) !== -1) return;
+    var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+    if (!existing) {
+      _allPortalNotifications.unshift({
+        id: notifId,
+        category: 'announcements',
+        group: 'Today',
+        icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+        title: 'New Form Available: ' + (f.title || 'Portal Form'),
+        snippet: (f.description || 'Open to submit response online.').slice(0, 70),
+        time: 'Today',
+        unread: true,
+        action: function() { switchTabNav('order'); }
+      });
+    }
+  });
+
+  renderNotifications();
+}
+
+function syncHighlightNotifications(highlightsList) {
+  var list = Array.isArray(highlightsList) ? highlightsList : (typeof storyHighlights !== 'undefined' ? storyHighlights : []);
+  if (!Array.isArray(list) || !list.length) return;
+  var dismissed = getDismissedNotifIds();
+
+  list.forEach(function(h) {
+    if (!h || (!h.id && !h.title)) return;
+    var hKey = h.id || h.title;
+    var notifId = 'notif-highlight-' + hKey;
+    if (dismissed.indexOf(notifId) !== -1) return;
+    var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+    if (!existing) {
+      _allPortalNotifications.unshift({
+        id: notifId,
+        category: 'announcements',
+        group: 'Today',
+        icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>',
+        title: 'New Story Highlight: ' + (h.title || 'Gallery Highlight'),
+        snippet: 'Explore latest photos in ' + (h.title || 'company gallery') + '!',
+        time: 'Today',
+        unread: true,
+        action: function() { switchTabNav('gallery'); }
+      });
+    }
+  });
+
+  renderNotifications();
+}
+
+function syncAllPortalNotifications() {
+  if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
+    syncTaskNotifications(_allLoadedTasks);
+  }
+  if (typeof syncAnnouncementNotifications === 'function') {
+    syncAnnouncementNotifications();
+  }
+  if (typeof syncFormNotifications === 'function') {
+    syncFormNotifications();
+  }
+  if (typeof syncHighlightNotifications === 'function') {
+    syncHighlightNotifications();
+  }
 }
 
 function renderNotifications() {
@@ -3982,6 +4144,11 @@ window.closeNotificationDropdown  = closeNotificationDropdown;
 window.filterNotifications        = filterNotifications;
 window.markAllNotificationsRead   = markAllNotificationsRead;
 window.renderNotifications        = renderNotifications;
+window.addPortalNotification      = addPortalNotification;
+window.syncAnnouncementNotifications = syncAnnouncementNotifications;
+window.syncFormNotifications      = syncFormNotifications;
+window.syncHighlightNotifications = syncHighlightNotifications;
+window.syncAllPortalNotifications = syncAllPortalNotifications;
 window.updateNavUserHeader        = updateNavUserHeader;
 window.handleNavProfileClick      = handleNavProfileClick;
 window.handleHeaderSearchKeyDown  = handleHeaderSearchKeyDown;

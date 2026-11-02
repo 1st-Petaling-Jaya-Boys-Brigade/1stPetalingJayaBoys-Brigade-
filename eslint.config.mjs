@@ -213,7 +213,12 @@ export default [
         getAdminMemberAvatarHtml: 'readonly',
         syncAdminButtonVisibility: 'readonly',
         getTaskComments: 'readonly',
-        renderTaskComments: 'readonly'
+        renderTaskComments: 'readonly',
+        syncAnnouncementNotifications: 'readonly',
+        syncFormNotifications: 'readonly',
+        syncHighlightNotifications: 'readonly',
+        addPortalNotification: 'readonly',
+        switchTabNav: 'readonly'
       }
     },
     rules: {

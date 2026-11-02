@@ -1770,6 +1770,7 @@ function openTaskDetail(id) {
   var modal = document.getElementById('task-detail-modal');
   if (modal) modal.style.display = 'block';
   renderTaskComments(id);
+  renderTaskAttachments(id);
 }
 
 function handleTaskTitleBlur(el) {
@@ -1921,7 +1922,7 @@ function renderTaskComments(taskId) {
           + '<span class="tb-comment-author">' + safeAuthor + '</span>'
           + '<span class="tb-comment-time">' + timeStr + '</span>'
         + '</div>'
-        + '<div class="tb-comment-text">' + safeText + '</div>'
+        + '<div class="tb-comment-text">' + formatCommentMentions(safeText) + '</div>'
       + '</div>'
       + '</div>';
   });
@@ -1958,27 +1959,453 @@ function handleTaskCommentSubmit(input) {
 
   renderTaskComments(tid);
 
+  // Dispatch portal notification if comment contains @mentions
+  var mentionMatches = commentText.match(/@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)/g);
+  if (mentionMatches && mentionMatches.length) {
+    var notifFn = (typeof addPortalNotification === 'function')
+      ? addPortalNotification
+      : (typeof window !== 'undefined' && typeof window.addPortalNotification === 'function' ? window.addPortalNotification : null);
+    if (notifFn) {
+      notifFn({
+        id: 'notif-mention-' + newComment.id,
+        category: 'tasks',
+        group: 'Today',
+        icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        title: authorName + ' mentioned you in a task',
+        snippet: commentText.slice(0, 70),
+        time: 'Today',
+        unread: true,
+        action: function() {
+          if (typeof switchTabNav === 'function') switchTabNav('tasks');
+          if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+          if (typeof openTaskDetail === 'function') openTaskDetail(tid);
+        }
+      });
+    }
+  }
+
   if (typeof showToast === 'function') {
     showToast('Comment posted successfully!', 'success', 1500);
   }
 }
 
 /**
- * Handles task attachment upload (Image 5)
+ * Retrieves persisted attachments array for a given task ID
+ * @param {string} taskId
+ * @returns {Array<Object>}
  */
-function handleTaskAttachmentUpload(event) {
-  var files = event && event.target && event.target.files;
-  if (files && files.length) {
-    var fName = files[0].name;
-    var dropzone = document.querySelector('.tb-dropzone');
-    if (dropzone) {
-      dropzone.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>'
-        + '<span>Uploaded: <strong>' + (typeof escapeHtml === 'function' ? escapeHtml(fName) : fName) + '</strong></span>';
+function getTaskAttachments(taskId) {
+  var tid = taskId || _activeDetailTaskId;
+  if (!tid) return [];
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
+  if (t && Array.isArray(t.attachments)) {
+    return t.attachments;
+  }
+  try {
+    var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_task_attachments_' + tid) : null;
+    if (raw) {
+      var arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        if (t) t.attachments = arr;
+        return arr;
+      }
     }
-    if (typeof showToast === 'function') {
-      showToast('Attachment staged: ' + fName, 'success', 1500);
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Persists attachments array for a given task ID into memory, localStorage, and Supabase
+ * @param {string} taskId
+ * @param {Array<Object>} attachments
+ */
+function saveTaskAttachments(taskId, attachments) {
+  var tid = taskId || _activeDetailTaskId;
+  if (!tid) return;
+  var atts = Array.isArray(attachments) ? attachments : [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_task_attachments_' + tid, JSON.stringify(atts));
+    }
+  } catch (_) {}
+
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
+  if (t) t.attachments = atts;
+
+  saveTaskField(tid, 'attachments', atts);
+}
+
+/**
+ * Renders the task attachments list inside the active task brief modal
+ * @param {string} taskId
+ */
+function renderTaskAttachments(taskId) {
+  if (typeof document === 'undefined') return;
+  var list = document.querySelector('.tb-attachments-list');
+  var countTitle = document.querySelector('.tb-attachments-count-title');
+  if (!list) return;
+
+  var tid = taskId || _activeDetailTaskId;
+  var attachments = getTaskAttachments(tid);
+
+  if (countTitle) {
+    countTitle.textContent = attachments.length ? ('Attachments (' + attachments.length + ')') : 'Attachments';
+  }
+
+  if (!attachments.length) {
+    list.innerHTML = '';
+    return;
+  }
+
+  var html = '';
+  attachments.forEach(function(att) {
+    var safeName = (typeof escapeHtml === 'function') ? escapeHtml(att.name || 'Attachment') : (att.name || 'Attachment');
+    var rawUrl = att.url || '#';
+    var safeFileUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '#') : rawUrl;
+    var ext = (att.name || '').split('.').pop().toLowerCase();
+    var iconCls = (ext === 'pdf') ? 'pdf' : ((ext === 'doc' || ext === 'docx') ? 'doc' : ((ext === 'xls' || ext === 'xlsx' || ext === 'csv') ? 'sheet' : ((ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp' || ext === 'gif') ? 'img' : 'file')));
+    var iconColor = iconCls === 'pdf' ? '#ef4444' : (iconCls === 'doc' ? '#3b82f6' : (iconCls === 'sheet' ? '#10b981' : (iconCls === 'img' ? '#f59e0b' : 'var(--accent)')));
+
+    var iconSvg = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:' + iconColor + ';flex-shrink:0;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+
+    html += '<div class="tb-attachment-chip" data-att-id="' + att.id + '">'
+      + '<span class="tb-attachment-icon">' + iconSvg + '</span>'
+      + '<a href="' + safeFileUrl + '" target="_blank" rel="noopener noreferrer" class="tb-attachment-link" title="Open and view ' + safeName + '">' + safeName + '</a>'
+      + (att.size ? ('<span class="tb-attachment-size">' + (typeof escapeHtml === 'function' ? escapeHtml(att.size) : att.size) + '</span>') : '')
+      + '<button type="button" class="tb-attachment-delete-btn" onclick="removeTaskAttachment(\'' + tid + '\', \'' + att.id + '\')" title="Remove file" aria-label="Remove attachment">'
+      + '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+      + '</button>'
+      + '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+/**
+ * Handles uploading 1 or more task attachments with storage upload and local fallback
+ * @param {Event} event
+ */
+async function handleTaskAttachmentUpload(event) {
+  var files = event && event.target && event.target.files;
+  if (!files || !files.length) return;
+  var tid = _activeDetailTaskId;
+  if (!tid) return;
+
+  var attachments = getTaskAttachments(tid);
+  var addedCount = 0;
+
+  for (var i = 0; i < files.length; i++) {
+    var file = files[i];
+    if (!file || !file.name) continue;
+
+    // Security check: prohibit SVG files to prevent stored XSS (TSK-035)
+    if (/\.svg$/i.test(file.name)) {
+      if (typeof showToast === 'function') {
+        showToast('SVG file uploads are blocked for security.', 'warning');
+      }
+      continue;
+    }
+
+    var sz = '';
+    if (file.size) {
+      sz = (file.size < 1024 * 1024)
+        ? (file.size / 1024).toFixed(1) + ' KB'
+        : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    var fileUrl = '';
+    if (typeof supa !== 'undefined' && typeof supa.uploadFile === 'function') {
+      try {
+        var cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        var remotePath = 'tasks/' + tid + '/' + Date.now() + '_' + cleanFileName;
+        await supa.uploadFile('resources', remotePath, file);
+        fileUrl = supa.fileUrl('resources', remotePath);
+      } catch (uploadErr) {
+        console.warn('Supabase storage upload fallback:', uploadErr);
+      }
+    }
+
+    if (!fileUrl && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      try {
+        fileUrl = URL.createObjectURL(file);
+      } catch (_) {}
+    }
+
+    var newAtt = {
+      id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      name: file.name,
+      url: fileUrl || '#',
+      size: sz,
+      uploadedAt: new Date().toISOString()
+    };
+
+    attachments.push(newAtt);
+    addedCount++;
+  }
+
+  saveTaskAttachments(tid, attachments);
+  renderTaskAttachments(tid);
+
+  if (event.target) event.target.value = '';
+
+  if (addedCount > 0 && typeof showToast === 'function') {
+    showToast('✓ ' + addedCount + ' file(s) attached successfully!', 'success', 2000);
+  }
+}
+
+/**
+ * Removes an attachment from the active task brief
+ * @param {string} taskId
+ * @param {string} attachmentId
+ */
+function removeTaskAttachment(taskId, attachmentId) {
+  var tid = taskId || _activeDetailTaskId;
+  if (!tid) return;
+  var attachments = getTaskAttachments(tid);
+  var filtered = attachments.filter(function(a) { return String(a.id) !== String(attachmentId); });
+  saveTaskAttachments(tid, filtered);
+  renderTaskAttachments(tid);
+  if (typeof showToast === 'function') {
+    showToast('Attachment removed', 'info', 1500);
+  }
+}
+
+// ── Mentions Engine (@ Mentions for Department Members & Groups) ───────────
+var _activeMentionIndex = 0;
+var _currentMentionCandidates = [];
+
+/**
+ * Retrieves mention candidate list for department groups and members
+ * @param {string} query
+ * @returns {Array<Object>}
+ */
+function getDepartmentMentionCandidates(query) {
+  var q = (query || '').toLowerCase().trim();
+  var candidates = [];
+
+  // Group mentions requested by user: @all, @Secretariat, @Logistics, @Media, @HQ, @Band, @Officers
+  var groups = [
+    { name: 'all', label: '@all', role: 'Group', desc: 'All department members' },
+    { name: 'Secretariat', label: '@Secretariat', role: 'Group', desc: 'Secretariat Department' },
+    { name: 'Logistics', label: '@Logistics', role: 'Group', desc: 'Logistics Department' },
+    { name: 'Media', label: '@Media', role: 'Group', desc: 'Media Department' },
+    { name: 'HQ', label: '@HQ', role: 'Group', desc: 'HQ Management' },
+    { name: 'Band', label: '@Band', role: 'Group', desc: 'Band Department' },
+    { name: 'Officers', label: '@Officers', role: 'Group', desc: 'Company Officers' }
+  ];
+
+  groups.forEach(function(g) {
+    if (!q || g.name.toLowerCase().indexOf(q) !== -1 || g.label.toLowerCase().indexOf(q) !== -1) {
+      candidates.push(g);
+    }
+  });
+
+  // Department members
+  var memberMap = {};
+  if (Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && isMemberDepartmentRole(m)) {
+        memberMap[m.name] = {
+          name: m.name,
+          label: '@' + m.name,
+          role: m.department || m.rank || 'NCO',
+          email: m.email || '',
+          desc: (m.rank || 'NCO') + (m.department ? (' · ' + m.department) : '')
+        };
+      }
+    });
+  }
+
+  // Also include current user and assignees from loaded tasks
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  if (myName && !memberMap[myName]) {
+    memberMap[myName] = {
+      name: myName,
+      label: '@' + myName,
+      role: (typeof sessionGet === 'function' ? sessionGet('department') : '') || 'Member',
+      desc: (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member'
+    };
+  }
+
+  _allLoadedTasks.forEach(function(t) {
+    if (t.assignee_name && t.assignee_name !== 'Unassigned' && !memberMap[t.assignee_name]) {
+      memberMap[t.assignee_name] = {
+        name: t.assignee_name,
+        label: '@' + t.assignee_name,
+        role: t.department || 'NCO',
+        desc: t.department ? (t.department + ' NCO') : 'Assignee'
+      };
+    }
+  });
+
+  Object.keys(memberMap).sort().forEach(function(k) {
+    var m = memberMap[k];
+    if (!q || m.name.toLowerCase().indexOf(q) !== -1 || m.label.toLowerCase().indexOf(q) !== -1) {
+      candidates.push(m);
+    }
+  });
+
+  return candidates;
+}
+
+/**
+ * Handles typing in the comment box to reveal @ mention suggestions
+ * @param {HTMLInputElement} inputEl
+ */
+function handleTaskCommentInput(inputEl) {
+  if (!inputEl) return;
+  var val = inputEl.value;
+  var cursor = (typeof inputEl.selectionStart === 'number') ? inputEl.selectionStart : val.length;
+  var before = val.slice(0, cursor);
+
+  // Match @query ending at cursor
+  var match = before.match(/@([a-zA-Z0-9_\s]*)$/);
+  if (match) {
+    var query = match[1];
+    if (query.split(/\s+/).length <= 2) {
+      showMentionDropdown(inputEl, query);
+      return;
     }
   }
+
+  hideMentionDropdown();
+}
+
+/**
+ * Renders the floating mention dropdown menu
+ * @param {HTMLInputElement} inputEl
+ * @param {string} query
+ */
+function showMentionDropdown(inputEl, query) {
+  var dropdown = (typeof document !== 'undefined') ? document.querySelector('.tb-mentions-dropdown') : null;
+  if (!dropdown) return;
+
+  var candidates = getDepartmentMentionCandidates(query);
+  _currentMentionCandidates = candidates;
+  _activeMentionIndex = 0;
+
+  if (!candidates.length) {
+    dropdown.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);font-style:italic;">No matching department members</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  var html = '';
+  candidates.slice(0, 8).forEach(function(c, i) {
+    var isGroup = c.role === 'Group';
+    var iconHtml = isGroup
+      ? '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">#</span>'
+      : getAssigneeAvatarHtml(c.name, c.email, 24);
+
+    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onmousedown="selectMentionCandidate(' + i + ', event)">'
+      + iconHtml
+      + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">'
+        + '<div class="tb-mention-name">' + (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) + '</div>'
+        + '<div style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(c.desc || '') : (c.desc || '')) + '</div>'
+      + '</div>'
+      + '<span class="tb-mention-type">' + (isGroup ? 'Group' : (c.role || 'Member')) + '</span>'
+      + '</div>';
+  });
+
+  dropdown.innerHTML = html;
+  dropdown.style.display = 'block';
+}
+
+/**
+ * Hides the mention dropdown
+ */
+function hideMentionDropdown() {
+  var dropdown = (typeof document !== 'undefined') ? document.querySelector('.tb-mentions-dropdown') : null;
+  if (dropdown) dropdown.style.display = 'none';
+  _currentMentionCandidates = [];
+  _activeMentionIndex = 0;
+}
+
+/**
+ * Handles keyboard navigation inside comment box (Arrow keys, Enter, Tab, Escape)
+ * @param {KeyboardEvent} e
+ * @param {HTMLInputElement} inputEl
+ */
+function handleTaskCommentKeyDown(e, inputEl) {
+  var dropdown = (typeof document !== 'undefined') ? document.querySelector('.tb-mentions-dropdown') : null;
+  var isDropdownOpen = dropdown && dropdown.style.display !== 'none' && _currentMentionCandidates.length > 0;
+
+  if (isDropdownOpen) {
+    var items = dropdown.querySelectorAll('.tb-mention-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _activeMentionIndex = (_activeMentionIndex + 1) % items.length;
+      updateActiveMentionItem(items);
+      return;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _activeMentionIndex = (_activeMentionIndex - 1 + items.length) % items.length;
+      updateActiveMentionItem(items);
+      return;
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      selectMentionCandidate(_activeMentionIndex);
+      return;
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideMentionDropdown();
+      return;
+    }
+  }
+
+  // Ctrl+Enter or Cmd+Enter submits comment
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    handleTaskCommentSubmit(inputEl);
+  }
+}
+
+function updateActiveMentionItem(items) {
+  items.forEach(function(el, i) {
+    el.classList.toggle('active', i === _activeMentionIndex);
+    if (i === _activeMentionIndex && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  });
+}
+
+/**
+ * Inserts the chosen mention candidate into the comment input
+ * @param {number} idx
+ * @param {Event} [event]
+ */
+function selectMentionCandidate(idx, event) {
+  if (event && typeof event.preventDefault === 'function') event.preventDefault();
+  var candidate = _currentMentionCandidates[idx];
+  if (!candidate) return;
+
+  var input = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-input') : null;
+  if (!input) return;
+
+  var val = input.value;
+  var cursor = (typeof input.selectionStart === 'number') ? input.selectionStart : val.length;
+  var before = val.slice(0, cursor);
+  var after = val.slice(cursor);
+
+  // Replace @query before cursor with @CandidateName + ' '
+  var newBefore = before.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
+  input.value = newBefore + after;
+  var newCursor = newBefore.length;
+  if (typeof input.setSelectionRange === 'function') {
+    input.setSelectionRange(newCursor, newCursor);
+  }
+  input.focus();
+  hideMentionDropdown();
+}
+
+/**
+ * Wraps @mentions in styled mention badges
+ * @param {string} text
+ * @returns {string}
+ */
+function formatCommentMentions(text) {
+  if (!text) return '';
+  return text.replace(/@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)/g, '<span class="tb-mention-pill">@$1</span>');
 }
 
 
@@ -3191,6 +3618,15 @@ if (typeof window !== 'undefined') {
   window.getTaskComments            = getTaskComments;
   window.renderTaskComments         = renderTaskComments;
   window.handleTaskAttachmentUpload = handleTaskAttachmentUpload;
+  window.getTaskAttachments         = getTaskAttachments;
+  window.saveTaskAttachments        = saveTaskAttachments;
+  window.renderTaskAttachments       = renderTaskAttachments;
+  window.removeTaskAttachment       = removeTaskAttachment;
+  window.getDepartmentMentionCandidates = getDepartmentMentionCandidates;
+  window.handleTaskCommentInput     = handleTaskCommentInput;
+  window.handleTaskCommentKeyDown   = handleTaskCommentKeyDown;
+  window.selectMentionCandidate     = selectMentionCandidate;
+  window.formatCommentMentions      = formatCommentMentions;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
 }
 
@@ -3267,7 +3703,17 @@ if (typeof module !== 'undefined' && module.exports) {
     renderColumnsFromTasks,
     getTaskComments,
     renderTaskComments,
-    handleTaskCommentSubmit
+    handleTaskCommentSubmit,
+    handleTaskAttachmentUpload,
+    getTaskAttachments,
+    saveTaskAttachments,
+    renderTaskAttachments,
+    removeTaskAttachment,
+    getDepartmentMentionCandidates,
+    handleTaskCommentInput,
+    handleTaskCommentKeyDown,
+    selectMentionCandidate,
+    formatCommentMentions
   };
 }
 

@@ -2635,7 +2635,48 @@ async function getJson(url) {
     assert.strictEqual(extResult.superAdminBtnVisible, true, 'Sidebar Admin Console button must be visible for Super Admin');
     assert.strictEqual(extResult.hasSendBtn, true, 'Task brief must have dedicated comment send button');
     assert.strictEqual(extResult.commentPostedOk, true, 'Submitting comment must persist and render in comments list');
-    console.log('  ✔ Admin Console button role-based visibility, avatars, and task comment send button verified in browser');
+    console.log('  ✔ Admin Console button role-based visibility, avatars, and task comment send button verified in browser');// [Task Multi-File Attachments, @Mentions & Portal Notifications Verification]
+    console.log('\n[Task Multi-File Attachments, @Mentions & Portal Notifications Verification]');
+    const attachDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const lockBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent && b.textContent.includes('Lock'));
+        const hasLogoutAdminLock = !!document.querySelector("button[onclick*='logoutAdmin']");
+        const attList = document.querySelector('.tb-attachments-list');
+        const multiFileInput = document.querySelector('.tb-attachments-section input[type="file"][multiple]');
+        const mentionsDropdown = document.querySelector('.tb-mentions-dropdown');
+        let notifAdded = false;
+        if (typeof window.addPortalNotification === 'function') {
+          window.addPortalNotification({
+            id: 'browser-test-notif-1',
+            category: 'announcements',
+            group: 'Today',
+            icon: '★',
+            title: 'Test Notification',
+            snippet: 'Testing portal notifications',
+            time: 'Today',
+            unread: true
+          });
+          const notifList = document.getElementById('notif-items-list');
+          notifAdded = notifList ? notifList.textContent.includes('Test Notification') : false;
+        }
+        return {
+          hasLockBtn: !hasLogoutAdminLock && !lockBtn,
+          hasAttList: !!attList,
+          hasMultiInput: !!multiFileInput,
+          hasMentionsDropdown: !!mentionsDropdown,
+          notifAdded
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+
+    const attRes = (attachDiag.result && attachDiag.result.value) || {};
+    assert.strictEqual(attRes.hasLockBtn, true, 'Admin Panel lock button must be completely absent from DOM');
+    assert.strictEqual(attRes.hasAttList, true, 'Task brief must contain .tb-attachments-list element');
+    assert.strictEqual(attRes.hasMultiInput, true, 'Task attachment file input must support multiple files');
+    assert.strictEqual(attRes.hasMentionsDropdown, true, 'Task comment box must contain .tb-mentions-dropdown');
+    console.log('  ✔ Lock button removed, multi-file attachments, and @mentions dropdown verified in browser');
 
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');

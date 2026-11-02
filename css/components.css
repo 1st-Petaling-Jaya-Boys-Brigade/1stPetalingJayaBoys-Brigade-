@@ -5703,6 +5703,153 @@ select.form-input,
   color: var(--text-secondary);
 }
 
+/* ── Task Brief Multi-File Attachments ── */
+.tb-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tb-attachments-list:empty {
+  display: none;
+}
+
+.tb-attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
+}
+
+.tb-attachment-chip:hover {
+  border-color: var(--accent);
+  background: var(--surface-tint);
+}
+
+.tb-attachment-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tb-attachment-link {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.tb-attachment-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.tb-attachment-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  padding: 2px 6px;
+  background: var(--surface-tint);
+  border-radius: 4px;
+}
+
+.tb-attachment-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.tb-attachment-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ── Task Brief Mentions Engine (@ Mentions) ── */
+.tb-mentions-dropdown {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+  padding: 4px;
+}
+
+.tb-mention-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.tb-mention-item:hover,
+.tb-mention-item.active {
+  background: rgba(217, 163, 35, 0.14);
+}
+
+.tb-mention-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tb-mention-type {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-tint);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.tb-mention-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(217, 163, 35, 0.18);
+  color: var(--brand-gold, #f5c542);
+  border: 1px solid rgba(217, 163, 35, 0.35);
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 2px;
+  vertical-align: baseline;
+}
+
 .tb-links-empty {
   font-size: 12px;
   color: var(--text-muted);
