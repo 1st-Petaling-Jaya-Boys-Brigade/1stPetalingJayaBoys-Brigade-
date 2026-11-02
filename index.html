@@ -3008,7 +3008,7 @@
 </div>
 
 <!-- Privacy-First Bot Protection (TSK-043: Cloudflare Turnstile) -->
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
 <script src="js/config.js?v=20261102e"></script>
@@ -3083,6 +3083,7 @@ function switchTab(tab, btn) {
   if (tab === 'order')      checkOrderAccess();
   if (tab === 'tasks')      checkTasksAccess();
   if (tab === 'badges')     checkBadgesAccess();
+  if (tab === 'member')     { if (typeof initAllTurnstileWidgets === 'function') initAllTurnstileWidgets(); }
   if (tab === 'attendance') { if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard(); }
   if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
   if (tab === 'gallery')    { if (typeof renderGallery === 'function') renderGallery(); }

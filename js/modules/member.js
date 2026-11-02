@@ -647,9 +647,16 @@ async function registerMember() {
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('register')
     : '';
+  if (!captchaToken) {
+    var regContainer = document.querySelector('#auth-register .cf-turnstile-container');
+    if (regContainer && typeof renderTurnstileWidget === 'function') {
+      renderTurnstileWidget(regContainer, 'register');
+    }
+    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('register') : '';
+  }
   if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
     if (typeof showToast === 'function') {
-      showToast('Please complete the security check before registering.', 'warning');
+      showToast('Please complete the security check box above before registering.', 'warning');
     }
     return;
   }
@@ -1119,9 +1126,16 @@ async function loginMember() {
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('login')
     : '';
+  if (!captchaToken) {
+    var loginContainer = document.querySelector('#auth-login .cf-turnstile-container');
+    if (loginContainer && typeof renderTurnstileWidget === 'function') {
+      renderTurnstileWidget(loginContainer, 'login');
+    }
+    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('login') : '';
+  }
   if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
     if (typeof showToast === 'function') {
-      showToast('Please complete the security check before logging in.', 'warning');
+      showToast('Please complete the security check box above before logging in.', 'warning');
     }
     return;
   }
@@ -2320,9 +2334,16 @@ async function sendPasswordResetEmail() {
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('forgot_password')
     : '';
+  if (!captchaToken) {
+    var forgotContainer = document.querySelector('#auth-forgot .cf-turnstile-container');
+    if (forgotContainer && typeof renderTurnstileWidget === 'function') {
+      renderTurnstileWidget(forgotContainer, 'forgot_password');
+    }
+    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('forgot_password') : '';
+  }
   if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
     if (typeof showToast === 'function') {
-      showToast('Please complete the security check before requesting a reset code.', 'warning');
+      showToast('Please complete the security check box above before requesting a reset code.', 'warning');
     }
     return;
   }
@@ -2755,4 +2776,18 @@ if (typeof module !== 'undefined' && module.exports) {
     checkAndNotifyNewDeviceLogin,
     dispatchDeviceSecurityAlertEmail,
 };
+}
+
+if (typeof document !== 'undefined') {
+  var autoInitLoginTurnstile = function () {
+    var c = document.querySelector('#auth-login .cf-turnstile-container');
+    if (c && typeof renderTurnstileWidget === 'function') {
+      renderTurnstileWidget(c, 'login');
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInitLoginTurnstile);
+  } else {
+    setTimeout(autoInitLoginTurnstile, 50);
+  }
 }

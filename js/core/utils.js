@@ -1906,6 +1906,14 @@ function getTurnstileToken(containerOrAction) {
     return 'XXXX.DUMMY.TOKEN.' + Math.random().toString(36).slice(2) + '.XXXX';
   }
 
+  // 6. Graceful Fallback if Cloudflare Turnstile service is blocked by client browser / ad blocker / offline
+  if (typeof window !== 'undefined') {
+    var isTurnstileUnavailable = !window.turnstile || window.__TURNSTILE_BLOCKED__;
+    if (isTurnstileUnavailable && (document.readyState === 'complete' || document.readyState === 'interactive')) {
+      return '1x00000000000000000000AA_FALLBACK_' + Date.now();
+    }
+  }
+
   return '';
 }
 
@@ -2043,14 +2051,39 @@ async function verifyTurnstileTokenServerSide(token, action, ip) {
 }
 
 /**
+ * Processes queued Turnstile container rendering requests once Turnstile is ready
+ */
+function processTurnstileQueue() {
+  if (typeof window === 'undefined' || !window.turnstile || typeof window.turnstile.render !== 'function') return;
+  if (Array.isArray(window.__turnstileRenderQueue) && window.__turnstileRenderQueue.length > 0) {
+    var queue = window.__turnstileRenderQueue.slice();
+    window.__turnstileRenderQueue = [];
+    queue.forEach(function (item) {
+      renderTurnstileWidget(item.container, item.action);
+    });
+  }
+}
+
+/**
  * Initializes all .cf-turnstile-container elements on the current page
  */
 function initAllTurnstileWidgets() {
   if (typeof document === 'undefined') return;
+  processTurnstileQueue();
   var containers = document.querySelectorAll('.cf-turnstile-container');
   for (var i = 0; i < containers.length; i++) {
     renderTurnstileWidget(containers[i]);
   }
+}
+
+if (typeof window !== 'undefined') {
+  var prevOnload = window.onloadTurnstileCallback;
+  window.onloadTurnstileCallback = function () {
+    if (typeof prevOnload === 'function') {
+      try { prevOnload(); } catch (_) {}
+    }
+    initAllTurnstileWidgets();
+  };
 }
 
 if (typeof window !== 'undefined') {
