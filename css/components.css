@@ -7184,3 +7184,71 @@ select.form-input,
   color: var(--btn-on-accent, #121418) !important;
   box-shadow: 0 2px 8px rgba(245, 197, 66, 0.35) !important;
 }
+
+
+/* ── TSK-057: Confidential Attendance Achievement Tiers & Milestone Badges ── */
+.att-tier-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-headline);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 2.5px 8.5px;
+  border-radius: 12px;
+  line-height: 1.3;
+  cursor: help;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.att-tier-pill:hover {
+  transform: translateY(-1px);
+}
+
+.att-tier-pill.tier-perfect {
+  background: rgba(245, 197, 66, 0.14);
+  color: var(--brand-gold, #f5c542);
+  border: 1px solid rgba(245, 197, 66, 0.4);
+}
+
+.att-tier-pill.tier-excellent {
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--green, #10b981);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.att-tier-pill.tier-good {
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--blue, #3b82f6);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.att-tier-pill.tier-at-risk {
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--orange, #f59e0b);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.att-milestone-status {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.att-milestone-status.qualified {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--green, #10b981);
+}
+
+.att-milestone-status.at-risk {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: var(--orange, #f59e0b);
+}

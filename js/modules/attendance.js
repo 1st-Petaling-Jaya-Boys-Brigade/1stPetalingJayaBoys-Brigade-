@@ -13,6 +13,81 @@ var MASTER_ATTENDANCE_CACHE_TTL = 10 * 1000; // 10-second cache TTL for responsi
 var _masterAttendanceCache = null;
 var _masterAttendanceCacheTime = 0;
 
+// ── TSK-057: Confidential Attendance Achievement Tiers Helper ────────────────
+var _getTierFn = (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function')
+  ? window.getAttendanceAchievementTier
+  : function(percentage) {
+      if (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function') {
+        return window.getAttendanceAchievementTier(percentage);
+      }
+      var pct = (percentage !== null && percentage !== undefined && percentage !== '') ? parseFloat(percentage) : NaN;
+      if (isNaN(pct)) {
+        return {
+          tier: 'none',
+          label: 'No Data',
+          badgeLabel: 'No Data',
+          qualifiesForOneYearService: false,
+          color: 'var(--text-muted)',
+          bg: 'var(--surface-tint)',
+          border: 'var(--border-subtle)',
+          description: 'Attendance records not yet available for this term.',
+          tooltipText: 'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
+        };
+      }
+      pct = Math.round(pct);
+      if (pct >= 100) {
+        return {
+          tier: 'perfect',
+          label: 'Perfect',
+          badgeLabel: '100% (Perfect)',
+          qualifiesForOneYearService: true,
+          color: 'var(--brand-gold, #f5c542)',
+          bg: 'rgba(245,197,66,0.14)',
+          border: 'rgba(245,197,66,0.35)',
+          description: 'Full 100% company parade commitment.',
+          tooltipText: 'Perfect Attendance (100%): Fully qualifies for the BB One Year Service award and senior badge advancement. Official minimum threshold is 80%.'
+        };
+      }
+      if (pct >= 90) {
+        return {
+          tier: 'excellent',
+          label: 'Excellent',
+          badgeLabel: '≥90% (Excellent)',
+          qualifiesForOneYearService: true,
+          color: 'var(--green, #10b981)',
+          bg: 'rgba(16,185,129,0.14)',
+          border: 'rgba(16,185,129,0.35)',
+          description: 'Exceptional parade attendance and engagement.',
+          tooltipText: 'Excellent Attendance (≥90%): Exceeds the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+        };
+      }
+      if (pct >= 80) {
+        return {
+          tier: 'good',
+          label: 'Good',
+          badgeLabel: '≥80% (Good)',
+          qualifiesForOneYearService: true,
+          color: 'var(--blue, #3b82f6)',
+          bg: 'rgba(59,130,246,0.14)',
+          border: 'rgba(59,130,246,0.35)',
+          description: 'Meets the company attendance standard.',
+          tooltipText: 'Good Attendance (≥80%): Meets the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+        };
+      }
+      return {
+        tier: 'at_risk',
+        label: 'At Risk',
+        badgeLabel: '<80% (At Risk)',
+        qualifiesForOneYearService: false,
+        color: 'var(--orange, #f59e0b)',
+        bg: 'rgba(245,158,11,0.14)',
+        border: 'rgba(245,158,11,0.35)',
+        description: 'Currently below the 80% One Year Service threshold.',
+        tooltipText: 'At Risk (<80%): Currently below the official 80% minimum attendance threshold required to qualify for the BB One Year Service award and badge advancement. Attend upcoming parades to improve standing.'
+      };
+    };
+
+
 // ── Data Ingestion & Caching ────────────────────────────────────────────────
 
 /**
@@ -179,15 +254,9 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     }
   }
 
-  // Attendance rate color badges
-  function rateColor(pct) {
-    if (pct >= 80) return { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.3)', text: 'var(--green, #10b981)' };
-    if (pct >= 60) return { bg: 'rgba(245,197,66,0.12)', border: 'rgba(245,197,66,0.3)', text: 'var(--brand-gold, #f5c542)' };
-    return { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.3)', text: 'var(--red, #ef4444)' };
-  }
-
-  var pColor = rateColor(parade.percentage || 0);
-  var bColor = isBandMember ? rateColor(band.percentage || 0) : { text: 'var(--text-muted)', bg: 'transparent' };
+  // TSK-057: Confidential Attendance Achievement Tiers
+  var pTier = _getTierFn(parade.percentage);
+  var bTier = isBandMember ? _getTierFn(band.percentage) : null;
 
   var syncTimeStr = 'Updated recently';
   if (lastSynced) {
@@ -197,8 +266,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     } catch(e) {}
   }
 
-  // Band card subtitle & rate
-  var bandPctStr = isBandMember ? ((band.percentage !== undefined && band.percentage !== null) ? band.percentage + '%' : '0%') : 'N/A';
+  // Band card subtitle
   var bandSubStr = isBandMember ? (rec.bandSection ? (rec.bandSection + ' Section') : 'Band Member') : 'Non-band';
 
   // Uniform avg string
@@ -271,32 +339,54 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '</button>' +
     '</div>' +
 
-    '<!-- 1. Hero Attendance Rate Cards -->' +
+    '<!-- 1. Hero Attendance Rate Cards (TSK-057: Confidential Achievement Tiers) -->' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;margin-bottom:14px;">' +
       '<!-- Parade Attendance -->' +
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Parade Attendance</div>' +
-        '<div style="display:flex;align-items:baseline;gap:6px;">' +
-          '<span style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:' + pColor.text + ';">' + (parade.percentage || 0) + '%</span>' +
-          '<span style="font-size:11px;color:var(--text-muted);">' + (parade.presentCount ? (parade.presentCount + '/' + parade.totalParades) : '') + '</span>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+          '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Parade Attendance</span>' +
+          '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:' + pTier.bg + ';color:' + pTier.color + ';border:1px solid ' + pTier.border + ';cursor:help;" title="' + escapeAttHtml(pTier.tooltipText) + '">80% Req. ℹ️</span>' +
         '</div>' +
-        '<div style="margin-top:6px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;">' +
-          '<div style="height:100%;width:' + Math.min(100, (parade.percentage || 0)) + '%;background:' + pColor.text + ';border-radius:3px;"></div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">' +
+          '<span style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:' + pTier.color + ';">' + escapeAttHtml(pTier.label) + '</span>' +
+          '<span class="att-tier-pill tier-' + pTier.tier.replace('_', '-') + '" title="' + escapeAttHtml(pTier.tooltipText) + '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + pTier.bg + ';color:' + pTier.color + ';border:1px solid ' + pTier.border + ';cursor:help;" aria-label="Attendance tier: ' + escapeAttHtml(pTier.label) + '">' + (pTier.qualifiesForOneYearService ? 'One Year Service Qualified' : 'One Year Service Pending') + '</span>' +
+        '</div>' +
+        '<div style="margin-top:8px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;" title="' + escapeAttHtml(pTier.tooltipText) + '">' +
+          '<div style="height:100%;width:' + Math.min(100, Math.max(0, parade.percentage || 0)) + '%;background:' + pTier.color + ';border-radius:3px;"></div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:10.5px;color:var(--text-muted);line-height:1.4;">' +
+          '<span>' + escapeAttHtml(pTier.description) + '</span>' +
+          '<span style="color:' + (pTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-secondary)') + ';font-weight:600;cursor:help;" title="' + escapeAttHtml(pTier.tooltipText) + '">One Year Service ' + (pTier.qualifiesForOneYearService ? '&check;' : '&bull;') + '</span>' +
         '</div>' +
       '</div>' +
 
       '<!-- Band Attendance -->' +
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">' +
-          (isBandMember && rec.bandSection ? ('Band Attendance &middot; ' + escapeAttHtml(rec.bandSection)) : 'Band Attendance') +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
+          '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">' +
+            (isBandMember && rec.bandSection ? ('Band Attendance &middot; ' + escapeAttHtml(rec.bandSection)) : 'Band Attendance') +
+          '</span>' +
+          (isBandMember ? ('<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:' + bTier.bg + ';color:' + bTier.color + ';border:1px solid ' + bTier.border + ';cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '">80% Req. ℹ️</span>') : '') +
         '</div>' +
-        '<div style="display:flex;align-items:baseline;gap:6px;">' +
-          '<span style="font-family:var(--font-headline);font-size:26px;font-weight:700;color:' + bColor.text + ';">' + bandPctStr + '</span>' +
-          '<span style="font-size:11px;color:var(--text-muted);">' + bandSubStr + '</span>' +
-        '</div>' +
-        '<div style="margin-top:6px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;">' +
-          '<div style="height:100%;width:' + (isBandMember ? Math.min(100, (band.percentage || 0)) : 0) + '%;background:' + bColor.text + ';border-radius:3px;"></div>' +
-        '</div>' +
+        (isBandMember ? (
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">' +
+            '<span style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:' + bTier.color + ';">' + escapeAttHtml(bTier.label) + '</span>' +
+            '<span class="att-tier-pill tier-' + bTier.tier.replace('_', '-') + '" title="' + escapeAttHtml(bTier.tooltipText) + '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + bTier.bg + ';color:' + bTier.color + ';border:1px solid ' + bTier.border + ';cursor:help;" aria-label="Band attendance tier: ' + escapeAttHtml(bTier.label) + '">' + escapeAttHtml(bandSubStr) + '</span>' +
+          '</div>' +
+          '<div style="margin-top:8px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;" title="' + escapeAttHtml(bTier.tooltipText) + '">' +
+            '<div style="height:100%;width:' + Math.min(100, Math.max(0, band.percentage || 0)) + '%;background:' + bTier.color + ';border-radius:3px;"></div>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:10.5px;color:var(--text-muted);line-height:1.4;">' +
+            '<span>' + escapeAttHtml(bTier.description) + '</span>' +
+            '<span style="color:' + (bTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-secondary)') + ';font-weight:600;cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '">One Year Service ' + (bTier.qualifiesForOneYearService ? '&check;' : '&bull;') + '</span>' +
+          '</div>'
+        ) : (
+          '<div style="display:flex;align-items:baseline;gap:6px;">' +
+            '<span style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:var(--text-muted);">Non-Band</span>' +
+            '<span style="font-size:11px;color:var(--text-muted);">(N/A)</span>' +
+          '</div>' +
+          '<div style="font-size:10.5px;color:var(--text-muted);margin-top:10px;">Not enrolled in Company Band.</div>'
+        )) +
       '</div>' +
     '</div>' +
 
@@ -837,7 +927,7 @@ async function renderCompanyLeaderboard() {
       { name: 'Samuel Tan', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 85 } }
     ],
     'PAPA 2': [
-      { name: 'Ethan Lim', rank: 'Cpl', points: { total: 55 }, paradeAttendance: { percentage: 90 } },
+      { name: 'Ethan Lim', rank: 'Cpl', points: { total: 55 }, paradeAttendance: { percentage: 100 } },
       { name: 'Aaron Ng', rank: 'Pvt', points: { total: 54 }, paradeAttendance: { percentage: 84 } },
       { name: 'Lucas Wong', rank: 'Pvt', points: { total: 52 }, paradeAttendance: { percentage: 50 } }
     ],
@@ -905,11 +995,29 @@ async function renderCompanyLeaderboard() {
           ? '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:rgba(200,150,30,0.2);color:var(--accent);margin-left:4px;">You</span>'
           : '';
 
+        var mPct = null;
+        if (m.paradeAttendance && typeof m.paradeAttendance === 'object' && m.paradeAttendance.percentage !== undefined) {
+          mPct = m.paradeAttendance.percentage;
+        } else if (typeof m.paradeAttendance === 'number') {
+          mPct = m.paradeAttendance;
+        } else if (m.percentage !== undefined) {
+          mPct = m.percentage;
+        }
+        var mTier = _getTierFn(mPct);
+
+        var tierHtml =
+          '<span class="att-tier-pill tier-' + mTier.tier.replace('_', '-') + '" title="' + escapeAttHtml(mTier.tooltipText) + '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + mTier.bg + ';color:' + mTier.color + ';border:1px solid ' + mTier.border + ';cursor:help;" aria-label="Attendance tier: ' + escapeAttHtml(mTier.label) + '">' +
+            escapeAttHtml(mTier.label) +
+          '</span>';
+
         rosterHtml +=
           '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;font-size:12px;">' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
               '<span style="font-size:10px;font-weight:700;color:var(--text-muted);width:38px;">' + escapeAttHtml(m.rank || 'Member') + '</span>' +
               '<span style="font-weight:600;color:var(--text-primary);">' + escapeAttHtml(m.name || 'Member') + selfBadge + '</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              tierHtml +
             '</div>' +
           '</div>';
       });
@@ -1015,6 +1123,8 @@ if (typeof window !== 'undefined') {
   window.generateNewMasterSyncToken = generateNewMasterSyncToken;
   window.copyMasterSyncToken = copyMasterSyncToken;
   window.handleSaveMasterConfig = handleSaveMasterConfig;
+  window.renderAttendanceBreakdownHTML = renderAttendanceBreakdownHTML;
+  window.getAttendanceAchievementTier = _getTierFn;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1031,6 +1141,8 @@ if (typeof module !== 'undefined' && module.exports) {
     triggerMasterSheetFetch: triggerMasterSheetFetch,
     generateNewMasterSyncToken: generateNewMasterSyncToken,
     copyMasterSyncToken: copyMasterSyncToken,
-    handleSaveMasterConfig: handleSaveMasterConfig
+    handleSaveMasterConfig: handleSaveMasterConfig,
+    renderAttendanceBreakdownHTML: renderAttendanceBreakdownHTML,
+    getAttendanceAchievementTier: _getTierFn
   };
 }
