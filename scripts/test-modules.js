@@ -3980,8 +3980,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261102c',
-    'sw.js CACHE_VERSION must be 20261102c'
+    '20261102d',
+    'sw.js CACHE_VERSION must be 20261102d'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -6220,6 +6220,88 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
     assert.strictEqual(uniqueIds.length, 388, 'TSK-057 attendance tiers preserved strict 388 unique DOM IDs invariant');
+    console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
+  }
+
+  // =========================================================================
+  // TSK-058: Story Highlights & Media Viewer UI/UX Overhaul
+  // =========================================================================
+  {
+    console.log('\n--- TSK-058: Story Highlights & Media Viewer UI/UX Overhaul ---');
+    const galleryMod = require('../js/modules/gallery.js');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const componentsCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+
+    // 1. Integrated Video Progress Bar & Real-time currentTime / duration synchronization
+    const mockVideoEl = document.getElementById('story-viewer-video');
+    galleryMod.openStoryViewer(2, 1); // Open Brass Band highlight, slide 1 (video)
+
+    assert.ok(mockVideoEl, 'Video element must exist in story viewer');
+    assert.strictEqual(mockVideoEl.controls, false, 'Video element must not show default browser controls');
+
+    // Simulate video playing halfway (currentTime 5s of 10s)
+    mockVideoEl.currentTime = 5;
+    mockVideoEl.duration = 10;
+    mockVideoEl.ontimeupdate();
+
+    const currentFill = document.getElementById('story-fill-1');
+    assert.ok(currentFill, 'Active story slide fill element must exist');
+    assert.strictEqual(currentFill.style.width, '50%', 'Progress bar fill must dynamically match 50% video progress');
+
+    // Simulate video ended callback triggering next slide
+    assert.strictEqual(typeof mockVideoEl.onended, 'function', 'videoEl.onended callback must be registered');
+    assert.strictEqual(document.getElementById('story-viewer-title').textContent, 'Brass Band', 'Story viewer is on Brass Band highlight before onended');
+    mockVideoEl.onended();
+    assert.strictEqual(document.getElementById('story-viewer-title').textContent, 'Drill', 'videoEl.onended must advance to next highlight');
+    console.log('  ✔ Top segmented progress bar dynamically synchronizes with video currentTime / duration and auto-advances onended');
+
+    // 2. Mobile Tap Navigation Zones (Left 33.333% / Right 66.667%)
+    assert.ok(componentsCss.includes('.story-nav-left'), 'components.css must define .story-nav-left');
+    assert.ok(componentsCss.includes('width: 33.333%'), '.story-nav-left must be set to 33.333% (left third)');
+    assert.ok(componentsCss.includes('width: 66.667%'), '.story-nav-right must be set to 66.667% (right two-thirds)');
+    console.log('  ✔ Mobile tap navigation zones configured for Instagram/WhatsApp-style tap interaction (1/3 left, 2/3 right)');
+
+    // 3. Desktop Exterior Navigation Arrows (Repositioned outside media frame container)
+    assert.ok(
+      indexHtml.includes('class="story-arrow-btn story-arrow-prev"'),
+      'Prev arrow button exists in story viewer'
+    );
+    assert.ok(
+      indexHtml.includes('class="story-arrow-btn story-arrow-next"'),
+      'Next arrow button exists in story viewer'
+    );
+    // Verify arrows are outside .story-media-container
+    const mediaContainerMatch = indexHtml.match(/<div class="story-media-container" id="story-media-wrap">([\s\S]*?)<\/div>/);
+    assert.ok(mediaContainerMatch, 'Found story-media-wrap container');
+    assert.strictEqual(
+      mediaContainerMatch[1].includes('story-arrow-btn'),
+      false,
+      'story-arrow-btn must NOT be inside story-media-wrap (must be outside media frame)'
+    );
+    console.log('  ✔ Desktop navigation arrows repositioned outside media container to prevent obstructing content');
+
+    // 4. Video duration bar & native controls suppression CSS
+    assert.ok(
+      componentsCss.includes('.story-media-video::-webkit-media-controls'),
+      'components.css must suppress native webkit media controls for video'
+    );
+
+    // 5. Mobile Arrow Overlay Suppression (<= 768px)
+    assert.ok(
+      componentsCss.includes('@media (max-width: 768px)'),
+      'components.css must include mobile media query'
+    );
+    assert.ok(
+      componentsCss.includes('.story-arrow-btn') && componentsCss.includes('display: none !important;'),
+      'components.css must hide .story-arrow-btn on mobile'
+    );
+    console.log('  ✔ Arrow buttons cleanly hidden on mobile viewports (<=768px) in favor of touch tap zones');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'TSK-058 preserved strict 388 unique DOM IDs invariant');
     console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
   }
 

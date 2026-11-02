@@ -1392,10 +1392,11 @@ select.form-input,
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 20px;
   user-select: none;
   -webkit-user-select: none;
   animation: fadeIn 0.2s ease;
+  gap: 24px;
 }
 
 .story-viewer-card {
@@ -1565,25 +1566,25 @@ select.form-input,
 }
 
 .story-nav-left {
-  width: 35%;
+  width: 33.333%;
   height: 100%;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .story-nav-right {
-  width: 65%;
+  width: 66.667%;
   height: 100%;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
+/* Desktop Exterior Navigation Arrows (TSK-058: Repositioned outside media card container) */
 .story-arrow-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  background: rgba(10, 14, 23, 0.65);
+  background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -1595,27 +1596,53 @@ select.form-input,
   z-index: 35;
   transition: all 0.15s ease;
   pointer-events: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
 }
 
 .story-arrow-btn:hover {
-  background: rgba(10, 14, 23, 0.9);
+  background: rgba(255, 255, 255, 0.25);
   border-color: var(--accent);
   color: var(--accent);
-  transform: translateY(-50%) scale(1.08);
-}
-
-.story-arrow-prev {
-  left: 10px;
-}
-
-.story-arrow-next {
-  right: 10px;
+  transform: scale(1.08);
 }
 
 .story-arrow-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+}
+
+/* Suppress any native browser/device media controls or duration bars (TSK-058) */
+.story-media-video::-webkit-media-controls,
+.story-media-video::-webkit-media-controls-panel,
+.story-media-video::-webkit-media-controls-enclosure,
+.story-media-video::-webkit-media-controls-timeline,
+.story-media-video::-webkit-media-controls-current-time-display,
+.story-media-video::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  -webkit-appearance: none !important;
+}
+
+/* Mobile Touch Tap Navigation & Arrow Suppression (TSK-058) */
+@media (max-width: 768px) {
+  .story-viewer-modal {
+    padding: 0;
+    gap: 0;
+  }
+
+  .story-viewer-card {
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+  }
+
+  .story-arrow-btn {
+    display: none !important;
+  }
 }
 
 .story-caption-overlay {

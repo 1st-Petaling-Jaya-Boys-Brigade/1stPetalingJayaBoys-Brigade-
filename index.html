@@ -29,11 +29,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261102c">
-<link rel="stylesheet" href="css/base.css?v=20261102c">
-<link rel="stylesheet" href="css/nav.css?v=20261102c">
-<link rel="stylesheet" href="css/components.css?v=20261102c">
-<link rel="stylesheet" href="css/admin.css?v=20261102c">
+<link rel="stylesheet" href="css/variables.css?v=20261102d">
+<link rel="stylesheet" href="css/base.css?v=20261102d">
+<link rel="stylesheet" href="css/nav.css?v=20261102d">
+<link rel="stylesheet" href="css/components.css?v=20261102d">
+<link rel="stylesheet" href="css/admin.css?v=20261102d">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -343,7 +343,7 @@
   background: var(--surface-tint-hover) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261102c"></script>
+<script src="js/core/theme.js?v=20261102d"></script>
 </head>
 <body>
 
@@ -2776,6 +2776,11 @@
 
 <!-- ── INSTAGRAM-STYLE FULLSCREEN STORY VIEWER MODAL (TSK-033) ── -->
 <div id="story-viewer-modal" class="story-viewer-modal" role="dialog" aria-modal="true" aria-label="Highlight Viewer">
+  <!-- Desktop Exterior Navigation Arrows (TSK-058: Repositioned outside media frame container) -->
+  <button type="button" class="story-arrow-btn story-arrow-prev" onclick="prevStorySlide()" title="Previous slide" aria-label="Previous slide">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+
   <div class="story-viewer-card">
     <!-- Top Segmented Progress Bar -->
     <div class="story-progress-container" id="story-progress-bars"></div>
@@ -2811,13 +2816,6 @@
         <div class="story-nav-left" onclick="prevStorySlide()" title="Previous slide"></div>
         <div class="story-nav-right" onclick="nextStorySlide()" title="Next slide"></div>
       </div>
-      <!-- Tactile Side Navigation Arrows (Ensures video center is 100% clickable for Drive & Reel playback) -->
-      <button type="button" class="story-arrow-btn story-arrow-prev" onclick="prevStorySlide()" title="Previous slide" aria-label="Previous slide">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <button type="button" class="story-arrow-btn story-arrow-next" onclick="nextStorySlide()" title="Next slide" aria-label="Next slide">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
     </div>
 
     <!-- Caption Overlay -->
@@ -2826,8 +2824,11 @@
       <div id="story-viewer-caption" class="story-caption-text"></div>
     </div>
   </div>
-</div>
 
+  <button type="button" class="story-arrow-btn story-arrow-next" onclick="nextStorySlide()" title="Next slide" aria-label="Next slide">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+</div>
 <!-- ── ADMIN CREATE / EDIT STORY HIGHLIGHT MODAL (TSK-033) ── -->
 <div id="adm-story-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="adm-story-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
@@ -3006,25 +3007,25 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261102c"></script>
-<script src="js/api/supabase.js?v=20261102c"></script>
-<script src="js/core/session.js?v=20261102c"></script>
-<script src="js/core/rbac.js?v=20261102c"></script>
-<script src="js/core/utils.js?v=20261102c"></script>
-<script src="js/core/ui.js?v=20261102c"></script>
-<script src="js/core/loading.js?v=20261102c"></script>
-<script src="js/modules/member.js?v=20261102c"></script>
-<script src="js/api/sheets.js?v=20261102c"></script>
-<script src="js/modules/attendance.js?v=20261102c"></script>
-<script src="js/modules/announcements.js?v=20261102c"></script>
-<script src="js/modules/gallery.js?v=20261102c"></script>
-<script src="js/modules/resources.js?v=20261102c"></script>
-<script src="js/modules/calendar.js?v=20261102c"></script>
-<script src="js/modules/orders.js?v=20261102c"></script>
-<script src="js/modules/forms.js?v=20261102c"></script>
-<script src="js/modules/badges.js?v=20261102c"></script>
-<script src="js/modules/tasks.js?v=20261102c"></script>
-<script src="js/modules/admin.js?v=20261102c"></script>
+<script src="js/config.js?v=20261102d"></script>
+<script src="js/api/supabase.js?v=20261102d"></script>
+<script src="js/core/session.js?v=20261102d"></script>
+<script src="js/core/rbac.js?v=20261102d"></script>
+<script src="js/core/utils.js?v=20261102d"></script>
+<script src="js/core/ui.js?v=20261102d"></script>
+<script src="js/core/loading.js?v=20261102d"></script>
+<script src="js/modules/member.js?v=20261102d"></script>
+<script src="js/api/sheets.js?v=20261102d"></script>
+<script src="js/modules/attendance.js?v=20261102d"></script>
+<script src="js/modules/announcements.js?v=20261102d"></script>
+<script src="js/modules/gallery.js?v=20261102d"></script>
+<script src="js/modules/resources.js?v=20261102d"></script>
+<script src="js/modules/calendar.js?v=20261102d"></script>
+<script src="js/modules/orders.js?v=20261102d"></script>
+<script src="js/modules/forms.js?v=20261102d"></script>
+<script src="js/modules/badges.js?v=20261102d"></script>
+<script src="js/modules/tasks.js?v=20261102d"></script>
+<script src="js/modules/admin.js?v=20261102d"></script>
 
 <script>
 
