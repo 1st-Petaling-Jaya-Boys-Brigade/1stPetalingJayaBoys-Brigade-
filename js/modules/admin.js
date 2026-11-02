@@ -719,7 +719,7 @@
         rolesBtn.className = 'adm-section-btn';
         rolesBtn.id = 'sec-btn-roles';
         rolesBtn.onclick = function() { switchAdminSection('roles'); };
-        rolesBtn.innerHTML = '<div style="display:flex;align-items:center;gap:12px;"><div class="adm-sec-icon" style="background:rgba(217,163,35,0.15);color:var(--gold);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div><div class="adm-sec-title">Roles &amp; Permissions</div><div class="adm-sec-sub">Manage 3-tier RBAC &amp; scoped Admin privileges</div></div></div><div class="adm-sec-arrow">›</div>';
+        rolesBtn.innerHTML = '<div style="display:flex;align-items:center;gap:12px;"><div class="adm-sec-icon" style="background:rgba(217,163,35,0.15);color:var(--gold);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div><div><div class="adm-sec-title">Roles &amp; Permissions</div><div class="adm-sec-sub">Manage Admin Privileges</div></div></div><div class="adm-sec-arrow">›</div>';
         calBtn.parentNode.appendChild(rolesBtn);
       }
     }
@@ -1835,7 +1835,7 @@
       try {
         await Promise.race([
           RBAC.loadRolesConfig(),
-          new Promise(function(r) { setTimeout(r, 200); })
+          new Promise(function(resolve) { setTimeout(resolve, 800); })
         ]);
       } catch (_) {}
     }
@@ -1855,33 +1855,39 @@
       '</div>' +
     '</div>';
 
-
     // Fetch real members asynchronously from Supabase bb_members
-    var membersList = [];
+    var rawList = [];
     var client = getSupabaseClient();
     if (client && typeof client.get === 'function') {
       try {
         var res = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,department&order=name.asc');
         if (Array.isArray(res) && res.length > 0) {
-          membersList = res.filter(function(m) {
+          rawList = res.filter(function(m) {
             return m.department !== 'deleted' && m.department !== 'archived_deleted';
           });
         }
       } catch (fetchErr) {
-        console.warn('Failed to fetch bb_members for RBAC:', fetchErr);
+        try {
+          var resFallback = await client.get('bb_members?order=name.asc');
+          if (Array.isArray(resFallback) && resFallback.length > 0) {
+            rawList = resFallback.filter(function(m) {
+              return m.department !== 'deleted' && m.department !== 'archived_deleted';
+            });
+          }
+        } catch (_) {}
       }
     }
 
-    if (!membersList.length && _adminMembers && Object.keys(_adminMembers).length) {
-      membersList = Object.values(_adminMembers);
+    if (!rawList.length && _adminMembers && Object.keys(_adminMembers).length) {
+      rawList = Object.values(_adminMembers);
     }
 
-    if (!membersList.length && typeof localStorage !== 'undefined') {
+    if (!rawList.length && typeof localStorage !== 'undefined') {
       try {
         var cached = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
         if (cached) {
           var parsedCached = JSON.parse(cached);
-          if (Array.isArray(parsedCached)) membersList = parsedCached;
+          if (Array.isArray(parsedCached)) rawList = parsedCached;
         }
       } catch (_) {}
     }
@@ -1893,16 +1899,47 @@
       'officer@1stpjbb.org.my',
       'member@1stpjbb.org.my'
     ]);
-    membersList = membersList.filter(function(m) {
+    rawList = rawList.filter(function(m) {
+      if (!m) return false;
       var em = (m.email || '').toLowerCase().trim();
-      return !excludedEmails.has(em);
+      var ic = (m.ic ? String(m.ic).trim().toLowerCase() : '');
+      return !excludedEmails.has(em) && !excludedEmails.has(ic);
+    });
+
+    // Deduplicate members list - ensure strictly ONE Jeshua Koh account
+    var seenKeys = new Set();
+    var membersList = [];
+
+    rawList.forEach(function(m) {
+      if (!m) return;
+      var em = (m.email || '').toLowerCase().trim();
+      var ic = (m.ic ? String(m.ic).trim().toLowerCase() : '');
+      var nm = (m.name || '').toLowerCase().trim();
+
+      if (em === 'jeshuakoh2008@gmail.com' || ic === 'jeshuakoh2008@gmail.com' || nm === 'jeshua koh') {
+        if (seenKeys.has('jeshua_koh')) return;
+        seenKeys.add('jeshua_koh');
+        m.email = 'jeshuakoh2008@gmail.com';
+        m.name = 'Jeshua Koh';
+        m.rank = 'Sergeant';
+        membersList.push(m);
+        return;
+      }
+
+      if (!em && ic.indexOf('@') !== -1) {
+        em = ic;
+        m.email = ic;
+      }
+
+      var key = em || ic || nm;
+      if (!key) return;
+      if (seenKeys.has(key)) return;
+      seenKeys.add(key);
+      membersList.push(m);
     });
 
     // Ensure Jeshua Koh is always included as Creator
-    var hasJeshua = membersList.some(function(m) {
-      return (m.email && m.email.toLowerCase().trim() === 'jeshuakoh2008@gmail.com');
-    });
-    if (!hasJeshua) {
+    if (!seenKeys.has('jeshua_koh')) {
       membersList.unshift({
         email: 'jeshuakoh2008@gmail.com',
         name: 'Jeshua Koh',
@@ -1910,20 +1947,28 @@
       });
     }
 
-    var listHtml = '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;overflow:hidden;">' +
-      '<div style="padding:14px 18px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
-        '<div style="font-weight:700;color:var(--text-primary);font-size:14px;">Configured Accounts &amp; Permissions (<span id="rbac-count">' + membersList.length + '</span>)</div>' +
-        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-          '<select id="rbac-role-filter" class="form-select" onchange="filterRbacMembers()" style="background:var(--bg-input);border:1px solid var(--border-card);color:var(--text-primary);border-radius:8px;padding:6px 10px;font-size:12px;min-width:140px;">' +
-            '<option value="all">All Roles</option>' +
-            '<option value="members">Members</option>' +
-            '<option value="admins">Admins</option>' +
-            '<option value="super_admins">Super Admins</option>' +
-          '</select>' +
-          '<input type="text" id="rbac-search-input" placeholder="Search by name or email..." oninput="filterRbacMembers()" style="background:var(--bg-input);border:1px solid var(--border-card);color:var(--text-primary);border-radius:8px;padding:6px 12px;font-size:12px;width:200px;" />' +
-        '</div>' +
+    // Sort: Jeshua Koh first, then alphabetical by name
+    membersList.sort(function(a, b) {
+      var aIsJeshua = (a.email || '').toLowerCase().trim() === 'jeshuakoh2008@gmail.com';
+      var bIsJeshua = (b.email || '').toLowerCase().trim() === 'jeshuakoh2008@gmail.com';
+      if (aIsJeshua) return -1;
+      if (bIsJeshua) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    var listHtml = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;padding:2px 4px;">' +
+      '<div style="font-weight:700;color:var(--text-primary);font-size:15px;letter-spacing:0.2px;">Configured Accounts &amp; Permissions (<span id="rbac-count">' + membersList.length + '</span>)</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+        '<select id="rbac-role-filter" class="form-select rbac-role-select" onchange="filterRbacMembers()" style="padding:7px 12px;font-size:12px;min-width:130px;">' +
+          '<option value="all">All Roles</option>' +
+          '<option value="members">Members</option>' +
+          '<option value="admins">Admins</option>' +
+          '<option value="super_admins">Super Admins</option>' +
+        '</select>' +
+        '<input type="text" id="rbac-search-input" placeholder="Search by name or email..." oninput="filterRbacMembers()" style="background:var(--bg-input);border:1px solid var(--border-card);color:var(--text-primary);border-radius:var(--radius-sm);padding:7px 14px;font-size:12px;width:220px;outline:none;" />' +
       '</div>' +
-      '<div id="rbac-members-container" style="display:flex;flex-direction:column;divide-y:1px solid var(--border-subtle);">';
+    '</div>' +
+    '<div id="rbac-members-container" style="display:flex;flex-direction:column;gap:10px;">';
 
     var modules = (typeof RBAC !== 'undefined') ? RBAC.MODULES.filter(function(m) { return m.id !== 'roles'; }) : [];
 
@@ -1934,34 +1979,44 @@
       var isAdminUser = currentRole === 'admin';
       var isJeshua = (email.toLowerCase().trim() === 'jeshuakoh2008@gmail.com');
       var memberRank = isJeshua ? 'Sergeant' : (m.rank || 'Recruit');
-      var rankSubtitle = (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + ' • ' + (typeof escapeHtml === 'function' ? escapeHtml(memberRank) : memberRank);
-      if (isJeshua) {
-        rankSubtitle += ' • Creator';
-      }
 
-      listHtml += '<div class="rbac-member-row" data-name="' + (typeof escapeHtml === 'function' ? escapeHtml((m.name || '').toLowerCase()) : '') + '" data-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email.toLowerCase()) : '') + '" data-role="' + currentRole + '" style="padding:16px 18px;border-bottom:1px solid var(--border-card);display:flex;flex-direction:column;gap:10px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
-          '<div>' +
-            '<div style="font-weight:700;color:var(--text-primary);font-size:14px;">' + (typeof escapeHtml === 'function' ? escapeHtml(m.name || 'Unnamed Member') : m.name) + '</div>' +
-            '<div style="font-size:12px;color:var(--text-muted);">' + rankSubtitle + '</div>';
+      var subtitleParts = [];
+      subtitleParts.push(typeof escapeHtml === 'function' ? escapeHtml(email) : email);
+      subtitleParts.push(typeof escapeHtml === 'function' ? escapeHtml(memberRank) : memberRank);
+      if (isJeshua) {
+        subtitleParts.push('<span style="color:var(--gold);font-weight:700;">Creator</span>');
+      }
+      var rankSubtitle = subtitleParts.join(' • ');
+
+      listHtml += '<div class="rbac-member-row admin-row" data-name="' + (typeof escapeHtml === 'function' ? escapeHtml((m.name || '').toLowerCase()) : '') + '" data-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email.toLowerCase()) : '') + '" data-role="' + currentRole + '" style="cursor:default;margin-bottom:0;display:flex;flex-direction:column;gap:12px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%;">' +
+          '<div style="flex:1;min-width:180px;">' +
+            '<div class="admin-name" style="font-size:15px;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(m.name || 'Unnamed Member') : m.name) + '</div>' +
+            '<div class="admin-sub" style="font-size:12px;margin-top:3px;color:var(--text-muted);">' + rankSubtitle + '</div>' +
           '</div>' +
-          '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<select class="form-select rbac-role-select" data-user-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" onchange="handleRbacRoleChange(\'' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '\', this.value)" style="font-size:12px;padding:6px 10px;border-radius:6px;min-width:130px;">' +
+          '<div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">' +
+            '<select class="form-select rbac-role-select" data-user-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" onchange="handleRbacRoleChange(this.getAttribute(&quot;data-user-email&quot;), this.value)">' +
               '<option value="member"' + (currentRole === 'member' ? ' selected' : '') + '>Member</option>' +
-              '<option value="admin"' + (currentRole === 'admin' ? ' selected' : '') + '>Admin (Scoped)</option>' +
+              '<option value="admin"' + (currentRole === 'admin' ? ' selected' : '') + '>Admin</option>' +
               '<option value="super_admin"' + (currentRole === 'super_admin' ? ' selected' : '') + '>Super Admin</option>' +
             '</select>' +
-            '<button type="button" class="action-btn rbac-save-btn" onclick="saveMemberRbacPermissions(\'' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '\')" style="font-size:12px;padding:6px 14px;border-radius:6px;background:var(--accent);color:#ffffff;border:none;cursor:pointer;font-weight:600;">Save</button>' +
           '</div>' +
         '</div>' +
-        '<div class="rbac-perms-box" id="rbac-perms-' + idx + '" style="margin-top:6px;padding:10px 12px;background:var(--bg-card-subtle);border-radius:8px;border:1px solid var(--border-subtle);display:' + (isAdminUser ? 'block' : 'none') + ';">' +
-          '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Scoped Module Permissions:</div>' +
-          '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:8px;">';
+        '<div class="rbac-perms-box" id="rbac-perms-' + idx + '" style="margin-top:4px;padding:14px 16px;background:rgba(0,0,0,0.18);border-radius:10px;border:1px solid var(--border-subtle);display:' + (isAdminUser ? 'block' : 'none') + ';width:100%;box-sizing:border-box;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">' +
+            '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Scoped Admin Permissions:</div>' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<button type="button" data-user="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" onclick="selectAllRbacPerms(this.getAttribute(&quot;data-user&quot;), true)" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:0;">Select All</button>' +
+              '<span style="color:var(--border-card);font-size:11px;">|</span>' +
+              '<button type="button" data-user="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" onclick="selectAllRbacPerms(this.getAttribute(&quot;data-user&quot;), false)" style="background:transparent;border:none;color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;padding:0;">Clear All</button>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));gap:8px;">';
 
       modules.forEach(function(mod) {
         var isChecked = currentPerms.includes(mod.id);
-        listHtml += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);cursor:pointer;">' +
-          '<input type="checkbox" class="rbac-mod-checkbox" data-user="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" value="' + mod.id + '"' + (isChecked ? ' checked' : '') + ' style="accent-color:var(--accent);" />' +
+        listHtml += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-primary);padding:6px 10px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;cursor:pointer;user-select:none;">' +
+          '<input type="checkbox" class="rbac-mod-checkbox" data-user="' + (typeof escapeHtml === 'function' ? escapeHtml(email) : email) + '" value="' + mod.id + '"' + (isChecked ? ' checked' : '') + ' onchange="saveMemberRbacPermissions(this.getAttribute(&quot;data-user&quot;), &quot;admin&quot;)" style="accent-color:var(--accent);cursor:pointer;" />' +
           '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(mod.label) : mod.label) + '</span>' +
         '</label>';
       });
@@ -1969,12 +2024,12 @@
       listHtml += '</div></div></div>';
     });
 
-    listHtml += '</div></div>';
+    listHtml += '</div>';
 
     rolesSec.innerHTML = headerHtml + listHtml;
   }
 
-  function handleRbacRoleChange(email, newRole) {
+  async function handleRbacRoleChange(email, newRole) {
     var rows = document.querySelectorAll('.rbac-member-row');
     rows.forEach(function(row) {
       var rowEmail = row.getAttribute('data-email');
@@ -1986,6 +2041,17 @@
         }
       }
     });
+
+    await saveMemberRbacPermissions(email, newRole);
+  }
+
+  function selectAllRbacPerms(email, selectAll) {
+    var row = document.querySelector('.rbac-member-row[data-email="' + email.toLowerCase() + '"]');
+    if (!row) return;
+    row.querySelectorAll('.rbac-mod-checkbox').forEach(function(cb) {
+      cb.checked = !!selectAll;
+    });
+    saveMemberRbacPermissions(email, 'admin');
   }
 
   function filterRbacMembers(query) {
@@ -2008,10 +2074,8 @@
       if (roleFilter === 'members') {
         matchesRole = (userRole === 'member');
       } else if (roleFilter === 'admins') {
-        // filtering by Admins will include Super Admins in that filter
         matchesRole = (userRole === 'admin' || userRole === 'super_admin');
       } else if (roleFilter === 'super_admins') {
-        // Super Admin filter only filters Super Admins
         matchesRole = (userRole === 'super_admin');
       }
 
@@ -2027,29 +2091,41 @@
     if (countEl) countEl.textContent = visibleCount;
   }
 
-  async function saveMemberRbacPermissions(email) {
+  async function saveMemberRbacPermissions(email, overrideRole) {
     if (!email) return;
     var row = document.querySelector('.rbac-member-row[data-email="' + email.toLowerCase() + '"]');
     if (!row) return;
 
     var roleSelect = row.querySelector('.rbac-role-select');
-    var newRole = roleSelect ? roleSelect.value : 'member';
+    var newRole = overrideRole || (roleSelect ? roleSelect.value : 'member');
 
     var checkedPerms = [];
     row.querySelectorAll('.rbac-mod-checkbox:checked').forEach(function(cb) {
       checkedPerms.push(cb.value);
     });
 
+    if (newRole === 'admin' && checkedPerms.length === 0) {
+      row.querySelectorAll('.rbac-mod-checkbox').forEach(function(cb) {
+        cb.checked = true;
+        checkedPerms.push(cb.value);
+      });
+    }
+
     try {
       if (typeof RBAC !== 'undefined' && typeof RBAC.assignUserRole === 'function') {
         await RBAC.assignUserRole(email, newRole, checkedPerms);
+        row.setAttribute('data-role', newRole);
         if (typeof showToast === 'function') {
-          showToast('Updated role to ' + newRole + ' for ' + email, 'success');
+          showToast('Updated role to ' + (newRole === 'super_admin' ? 'Super Admin' : (newRole === 'admin' ? 'Admin' : 'Member')) + ' for ' + email, 'success');
         }
       }
     } catch (err) {
       if (typeof showToast === 'function') {
         showToast('Failed to update role: ' + err.message, 'error');
+      }
+      // Revert select value if failed
+      if (roleSelect && typeof RBAC !== 'undefined') {
+        roleSelect.value = RBAC.getUserRole(email);
       }
     }
   }
@@ -2095,6 +2171,7 @@
     global.renderAdminRoles          = renderAdminRoles;
     global.handleRbacRoleChange      = handleRbacRoleChange;
     global.filterRbacMembers         = filterRbacMembers;
+    global.selectAllRbacPerms        = selectAllRbacPerms;
     global.saveMemberRbacPermissions = saveMemberRbacPermissions;
     global._adminMembers            = _adminMembers;
     global._allAdminTasks           = _allAdminTasks;
@@ -2144,6 +2221,7 @@
       renderAdminRoles: renderAdminRoles,
       handleRbacRoleChange: handleRbacRoleChange,
       filterRbacMembers: filterRbacMembers,
+      selectAllRbacPerms: selectAllRbacPerms,
       saveMemberRbacPermissions: saveMemberRbacPermissions,
       renderAdminAuditLogs: renderAdminAuditLogs,
       SESSION_IDLE_TIMEOUT_MS: SESSION_IDLE_TIMEOUT_MS,
