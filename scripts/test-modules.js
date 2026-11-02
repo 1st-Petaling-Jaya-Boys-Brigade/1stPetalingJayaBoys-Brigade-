@@ -5431,6 +5431,126 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Google Apps Script fallback siteverify webhook endpoint verified');
   }
 
+    // ──
+  // TSK-045: Authenticated Portal Gatekeeper & Member Login/Registration Flow
+  // ──
+  console.log('\n--- TSK-045: Authenticated Portal Gatekeeper & Member Route Protection ---');
+  {
+    const sessionMod = require('../js/core/session.js');
+    const { AuthGuard, isUserAuthenticated } = sessionMod;
+    const memberMod = require('../js/modules/member.js');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. AuthGuard Core Architecture & API Verification
+    assert.ok(AuthGuard, 'AuthGuard is exported from js/core/session.js');
+    assert.strictEqual(typeof AuthGuard.isUserAuthenticated, 'function', 'AuthGuard.isUserAuthenticated is a function');
+    assert.strictEqual(typeof AuthGuard.canActivate, 'function', 'AuthGuard.canActivate is a function');
+    assert.strictEqual(typeof AuthGuard.setRedirectTarget, 'function', 'AuthGuard.setRedirectTarget is a function');
+    assert.strictEqual(typeof AuthGuard.getRedirectTarget, 'function', 'AuthGuard.getRedirectTarget is a function');
+    assert.strictEqual(typeof AuthGuard.clearRedirectTarget, 'function', 'AuthGuard.clearRedirectTarget is a function');
+    assert.strictEqual(typeof AuthGuard.enforceRouteProtection, 'function', 'AuthGuard.enforceRouteProtection is a function');
+    assert.strictEqual(typeof isUserAuthenticated, 'function', 'Top-level isUserAuthenticated alias is exported');
+    console.log('  ✔ AuthGuard middleware methods and API contract verified');
+
+    // 2. Unauthenticated State & Public vs Protected Routes
+    sessionMod.sessionClear();
+    assert.strictEqual(AuthGuard.isUserAuthenticated(), false, 'isUserAuthenticated returns false with empty session');
+    assert.strictEqual(isUserAuthenticated(), false, 'Top-level isUserAuthenticated returns false with empty session');
+
+    // Public routes must always be allowed
+    assert.strictEqual(AuthGuard.canActivate('member'), true, 'Member tab is public for login/register');
+    assert.strictEqual(AuthGuard.canActivate('#member'), true, 'Hash-prefixed member tab is allowed');
+    assert.strictEqual(AuthGuard.canActivate('admin'), true, 'Admin console has independent security gate');
+
+    // Internal portal views must strictly fail closed for unauthenticated visitors
+    const internalTabs = ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery'];
+    internalTabs.forEach(tab => {
+      assert.strictEqual(
+        AuthGuard.canActivate(tab),
+        false,
+        `Unauthenticated visitor must not activate protected tab: ${tab}`
+      );
+      assert.strictEqual(
+        AuthGuard.canActivate('#' + tab),
+        false,
+        `Unauthenticated visitor must not activate hash tab: #${tab}`
+      );
+    });
+    console.log('  ✔ Strict public vs protected route boundary enforcement verified across all 7 internal tabs');
+
+    // 3. Post-Login Redirect Memory & Storage Isolation
+    AuthGuard.clearRedirectTarget();
+    assert.strictEqual(AuthGuard.getRedirectTarget(), null, 'Redirect target initialized to null');
+
+    // Setting protected route records intended destination
+    AuthGuard.setRedirectTarget('attendance');
+    assert.strictEqual(AuthGuard.getRedirectTarget(), 'attendance', 'Redirect target correctly remembers attendance');
+
+    // Setting public route 'member' or 'admin' must NOT overwrite intended destination
+    AuthGuard.setRedirectTarget('member');
+    assert.strictEqual(AuthGuard.getRedirectTarget(), 'attendance', 'AuthGuard ignores member as a redirect target');
+    AuthGuard.setRedirectTarget('admin');
+    assert.strictEqual(AuthGuard.getRedirectTarget(), 'attendance', 'AuthGuard ignores admin as a redirect target');
+
+    // EnforceRouteProtection routing decisions
+    const deniedDecision = AuthGuard.enforceRouteProtection('tasks');
+    assert.strictEqual(deniedDecision.allowed, false, 'Route protection denies unauthenticated access to tasks');
+    assert.strictEqual(deniedDecision.redirect, 'member', 'Redirect destination points to member');
+    assert.strictEqual(AuthGuard.getRedirectTarget(), 'tasks', 'EnforceRouteProtection sets redirect memory');
+
+    AuthGuard.clearRedirectTarget();
+    assert.strictEqual(AuthGuard.getRedirectTarget(), null, 'clearRedirectTarget purges redirect memory');
+    console.log('  ✔ Redirect memory records, guards against member loops, and clears correctly');
+
+    // 4. Authenticated State Activation & Remember Me TTL Validation
+    sessionMod.sessionSet('email', 'officer@1stpjbb.org.my');
+    sessionMod.sessionSet('name', 'Captain Test');
+    sessionMod.sessionSet('rank', 'Captain');
+    assert.strictEqual(AuthGuard.isUserAuthenticated(), true, 'isUserAuthenticated returns true with active session');
+    assert.strictEqual(isUserAuthenticated(), true, 'Top-level isUserAuthenticated returns true with active session');
+
+    internalTabs.forEach(tab => {
+      assert.strictEqual(
+        AuthGuard.canActivate(tab),
+        true,
+        `Authenticated member must activate internal tab: ${tab}`
+      );
+    });
+
+    const allowedDecision = AuthGuard.enforceRouteProtection('tasks');
+    assert.strictEqual(allowedDecision.allowed, true, 'EnforceRouteProtection grants access to authenticated member');
+
+    // Remember Me TTL expiration
+    sessionMod._session._session_saved_at = Date.now() - (15 * 24 * 60 * 60 * 1000); // 15 days ago
+    assert.strictEqual(AuthGuard.isUserAuthenticated(), false, 'Expired session fails AuthGuard authentication check');
+    assert.strictEqual(sessionMod.sessionGet('email'), null, 'Expired session is automatically purged from memory');
+    console.log('  ✔ Authenticated route activation and 14-day Remember Me session expiry verified');
+
+    // 5. Index.html Middleware Interception & Gatekeeper Integrity
+    assert.ok(indexHtml.includes('AuthGuard.canActivate(tab)'), 'switchTab in index.html invokes AuthGuard.canActivate');
+    assert.ok(indexHtml.includes('AuthGuard.setRedirectTarget(tab)'), 'switchTab records target before redirecting');
+    assert.ok(indexHtml.includes("showToast('Authentication required to access '"), 'Informative toast notification provided on interception');
+    assert.ok(indexHtml.includes("tab = 'member'"), 'switchTab redirects unauthorized navigation to member');
+    assert.ok(indexHtml.includes("AuthGuard.getRedirectTarget()"), 'Initial load processes post-authentication redirect');
+    assert.ok(indexHtml.includes("Sign In / Register"), 'Guest navigation header provides accessible Sign In / Register cues');
+    console.log('  ✔ Index.html switchTab and initial load event route protection gatekeeping verified');
+
+    // 6. Member Module Post-Login & Post-Registration Flow Verification
+    const memberJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'member.js'), 'utf8');
+    assert.strictEqual(typeof memberMod.logoutMember, 'function', 'memberMod.logoutMember is exported');
+    assert.ok(memberJs.includes('AuthGuard.getRedirectTarget()'), 'loginMember retrieves redirect destination upon auth');
+    assert.ok(memberJs.includes('AuthGuard.clearRedirectTarget()'), 'logoutMember cleans up redirect state');
+    assert.ok(memberJs.includes("switchTab('member')"), 'logoutMember routes back to login/registration screen');
+    console.log('  ✔ Member module post-auth redirection and logout gatekeeper lock verified');
+
+    // 7. Strict DOM ID preservation: exactly 388 unique DOM IDs
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'AuthGuard gatekeeper preserved strict 388 unique DOM IDs invariant');
+    console.log('  ✔ AuthGuard gatekeeper integration preserved strict 388 unique DOM IDs invariant with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
