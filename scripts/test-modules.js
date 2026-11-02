@@ -3973,8 +3973,47 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'calendar_code',
     'Must return cached static asset immediately'
   );
+  // 4f. RBAC module in precache assets list and version bump verification
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./js/core/rbac.js'),
+    'sw.js PRECACHE_ASSETS must include ./js/core/rbac.js for full offline RBAC governance'
+  );
+  assert.strictEqual(
+    swMod.CACHE_VERSION,
+    '20261102b',
+    'sw.js CACHE_VERSION must be 20261102b'
+  );
+
+  // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
+  const navReq = {
+    method: 'GET',
+    url: 'https://localhost:3000/index.html',
+    mode: 'navigate'
+  };
+  let navCachedClone = null;
+  const liveNavFetchFn = async () => ({
+    status: 200,
+    body: 'fresh_html_shell',
+    clone: () => {
+      navCachedClone = { status: 200, body: 'fresh_html_shell' };
+      return navCachedClone;
+    }
+  });
+  const liveNavRes = await swMod.handleFetchRequest(navReq, mockCaches, liveNavFetchFn);
+  assert.ok(liveNavRes, 'Navigation request must resolve from network when online');
+  assert.strictEqual(liveNavRes.body, 'fresh_html_shell', 'Must return live HTML document immediately');
+
+  // 4h. Navigation offline fallback to cached index.html
+  mockCacheStore[swMod.STATIC_CACHE_NAME].set('./index.html', { status: 200, body: 'cached_offline_shell' });
+  const offlineNavRes = await swMod.handleFetchRequest(navReq, mockCaches, failingFetchFn);
+  assert.ok(offlineNavRes, 'Offline navigation must resolve from static cache fallback');
+  assert.strictEqual(offlineNavRes.body, 'cached_offline_shell', 'Must return cached HTML shell when offline');
+
   console.log(
     '  ✔ sw.js Network-First offline fallback and Stale-While-Revalidate static caching verified'
+  );
+  console.log(
+    '  ✔ sw.js Network-First navigation with offline cache fallback verified'
   );
 
   console.log('\nTesting Mobile UX Polish & Theme Consistency (TSK-017)...');
