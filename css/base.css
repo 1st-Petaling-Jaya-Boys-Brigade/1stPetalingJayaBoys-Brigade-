@@ -125,7 +125,9 @@ textarea,
     max-width: 1240px !important;
     margin: 0 auto !important;
   }
-  #page-tasks.page {
+  #page-tasks.page,
+  #page-order.page,
+  #page-resources.page {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;

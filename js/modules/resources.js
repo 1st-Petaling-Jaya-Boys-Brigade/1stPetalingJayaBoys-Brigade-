@@ -217,6 +217,36 @@ function searchResources(query) {
   renderResourcesPage();
 }
 
+/**
+ * Derives document thumbnail URL from Google Drive, direct image, or stored thumbnail
+ * @param {Object} r - Resource document object
+ * @returns {string|null}
+ */
+function getResourceThumbnailUrl(r) {
+  if (!r) return null;
+  if (r.thumbnailUrl || r.thumbnail) return r.thumbnailUrl || r.thumbnail;
+  var url = (r.url || '').trim();
+  if (!url || url === '#') return null;
+
+  // Direct image files
+  if (/\.(png|jpe?g|webp|gif|svg)($|\?)/i.test(url)) {
+    return url;
+  }
+
+  // Google Drive & Google Docs thumbnails
+  var driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                   url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/) ||
+                   url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) ||
+                   url.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/) ||
+                   url.match(/\/d\/([a-zA-Z0-9_-]+)/) ||
+                   url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (driveMatch && driveMatch[1]) {
+    return 'https://drive.google.com/thumbnail?id=' + driveMatch[1] + '&sz=w400';
+  }
+
+  return null;
+}
+
 // ── Public View Rendering ──────────────────────────────────────────────────
 /**
  * Renders the Company Resources tab page
@@ -293,64 +323,80 @@ function renderResourcesPage() {
   filtered.forEach(function(r) {
     var accessible = hasResourceAccess(r.visibility);
     var safeTitle  = (typeof escapeHtml === 'function') ? escapeHtml(r.title || '') : r.title;
-    var safeDesc   = (typeof escapeHtml === 'function') ? escapeHtml(r.description || '') : r.description;
     var safeCat    = (typeof escapeHtml === 'function') ? escapeHtml(r.category || 'General') : r.category;
     var safeSize   = (typeof escapeHtml === 'function') ? escapeHtml(r.fileSize || '') : r.fileSize;
-    var safeDate   = (typeof escapeHtml === 'function') ? escapeHtml(r.updatedAt || '') : r.updatedAt;
     var rawUrl     = r.url || '#';
     var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '#') : rawUrl;
     var safeDocUrl   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
 
-    // File Type Styling & Icon
-    var typeBadge = getFileTypeBadgeHtml(r.fileType);
-
     // Visibility Badge
     var visBadge = '';
     if (r.visibility === 'nco') {
-      visBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(200,150,30,0.15);color:var(--accent);border:1px solid rgba(200,150,30,0.3);">🔒 NCOs Only</span>';
+      visBadge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(200,150,30,0.2);color:var(--accent);border:1px solid rgba(200,150,30,0.4);backdrop-filter:blur(4px);">🔒 NCO</span>';
     } else if (r.visibility === 'officer') {
-      visBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);">🛡️ Officers Only</span>';
+      visBadge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.2);color:var(--red);border:1px solid rgba(239,68,68,0.4);backdrop-filter:blur(4px);">🛡️ Officer</span>';
     } else {
-      visBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);">Public</span>';
+      visBadge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(16,185,129,0.18);color:var(--green);border:1px solid rgba(16,185,129,0.4);backdrop-filter:blur(4px);">Public</span>';
     }
 
-    // Action button
-    var actionBtnHtml = '';
-    if (accessible) {
-      actionBtnHtml = '<div style="display:flex;gap:8px;margin-top:16px;">'
-        + '<a href="' + safeDocUrl + '" target="_blank" rel="noopener noreferrer" '
-        + 'class="portal-btn portal-btn-primary" '
-        + 'style="flex:1;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-align:center;">'
-        + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
-        + 'View Document'
-        + '</a>'
-        + '<button type="button" class="portal-btn portal-btn-secondary" title="Copy Direct Link" onclick="copyResourceLink(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'' + safeTitle.replace(/'/g, "\\'") + '\')" style="padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;">'
-        + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>'
-        + '</button>'
-        + '</div>';
-    } else {
-      actionBtnHtml = '<div style="margin-top:16px;">'
-        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="goToMemberTab()" style="width:100%;text-align:center;color:var(--text-muted);cursor:pointer;">'
-        + '🔒 Login as ' + (r.visibility === 'officer' ? 'Officer' : 'NCO') + ' to Access'
-        + '</button>'
-        + '</div>';
-    }
+    var thumbUrl = getResourceThumbnailUrl(r);
+    var tType = (r.fileType || 'PDF').toUpperCase();
+    var docIconCls = tType.indexOf('DOC') !== -1 ? 'doc' : (tType.indexOf('SHEET') !== -1 ? 'sheet' : (tType.indexOf('DRIVE') !== -1 || tType.indexOf('LINK') !== -1 ? 'link' : 'pdf'));
+    var docIconColor = docIconCls === 'doc' ? '#3b82f6' : (docIconCls === 'sheet' ? '#10b981' : (docIconCls === 'link' ? '#a855f7' : '#ef4444'));
 
-    html += '<div class="resource-card">'
-      + '<div>'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-          + '<span style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.5px;text-transform:uppercase;">' + safeCat + '</span>'
-          + '<div style="display:flex;align-items:center;gap:6px;">' + typeBadge + visBadge + '</div>'
+    var docIconSvg = '<svg class="doc-type-icon ' + docIconCls + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:' + docIconColor + ';"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+
+    var previewImgHtml = thumbUrl
+      ? '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(thumbUrl) : thumbUrl) + '" class="resource-preview-img" alt="' + safeTitle + '" loading="lazy" onerror="this.style.display=\'none\';var s=this.nextElementSibling;if(s)s.style.display=\'flex\';" />'
+      : '';
+
+    var mockupDisplay = thumbUrl ? 'none' : 'flex';
+    var mockupHtml = '<div class="resource-doc-mockup" style="display:' + mockupDisplay + ';">'
+      + '<div class="doc-mockup-page">'
+        + '<div class="doc-mockup-header">'
+          + '<span class="doc-mockup-icon">' + docIconSvg + '</span>'
+          + '<div class="doc-mockup-rule-strong"></div>'
         + '</div>'
-        + '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);line-height:1.3;margin-bottom:8px;">' + safeTitle + '</div>'
-        + '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">' + safeDesc + '</div>'
+        + '<div class="doc-mockup-title-line">' + safeTitle + '</div>'
+        + '<div class="doc-mockup-lines">'
+          + '<div class="doc-mockup-line" style="width:92%;"></div>'
+          + '<div class="doc-mockup-line" style="width:78%;"></div>'
+          + '<div class="doc-mockup-line" style="width:85%;"></div>'
+          + '<div class="doc-mockup-line" style="width:65%;"></div>'
+          + '<div class="doc-mockup-line" style="width:88%;"></div>'
+          + '<div class="doc-mockup-line" style="width:72%;"></div>'
+        + '</div>'
+        + '<div class="doc-mockup-footer">'
+          + '<div class="doc-mockup-line" style="width:35%;height:4px;"></div>'
+          + '<div class="doc-mockup-seal">1PJ</div>'
+        + '</div>'
       + '</div>'
-      + '<div>'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border-subtle);padding-top:10px;margin-top:6px;">'
-          + '<span>' + (safeSize ? 'Size: ' + safeSize : 'Online Document') + '</span>'
-          + '<span>' + (safeDate ? 'Updated: ' + safeDate : '') + '</span>'
+      + '</div>';
+
+    var cardAction = accessible
+      ? 'window.open(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'_blank\', \'noopener,noreferrer\')'
+      : 'goToMemberTab()';
+
+    html += '<div class="resource-card" onclick="' + cardAction + '" title="' + safeTitle + ' (' + safeCat + ')">'
+      + '<div class="resource-card-preview">'
+        + previewImgHtml
+        + mockupHtml
+        + '<div class="resource-preview-badge">' + visBadge + '</div>'
+      + '</div>'
+      + '<div class="resource-card-footer">'
+        + '<div class="resource-card-meta">'
+          + '<span class="resource-type-icon">' + docIconSvg + '</span>'
+          + '<div style="flex:1;min-width:0;">'
+            + '<div class="resource-card-title">' + safeTitle + '</div>'
+            + '<div style="font-size:10px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (safeSize ? safeSize : safeCat) + '</div>'
+          + '</div>'
         + '</div>'
-        + actionBtnHtml
+        + '<div class="resource-card-actions">'
+          + (accessible
+            ? ('<a href="' + safeDocUrl + '" target="_blank" rel="noopener noreferrer" class="resource-action-btn view" title="View Document" onclick="event.stopPropagation();"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>'
+              + '<button type="button" class="resource-action-btn copy" title="Copy Direct Link" onclick="event.stopPropagation();copyResourceLink(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'' + safeTitle.replace(/'/g, "\\'") + '\');"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>')
+            : ('<span title="Login to access" style="font-size:11px;opacity:0.6;">🔒</span>'))
+        + '</div>'
       + '</div>'
       + '</div>';
   });
@@ -892,6 +938,8 @@ if (typeof window !== 'undefined') {
   window.setResourceCategory       = setResourceCategory;
   window.searchResources           = searchResources;
   window.renderResourcesPage       = renderResourcesPage;
+  window.getResourceThumbnailUrl   = getResourceThumbnailUrl;
+  window.getFileTypeBadgeHtml      = getFileTypeBadgeHtml;
   window.copyResourceLink          = copyResourceLink;
   window.renderAdminResourcesPanel = renderAdminResourcesPanel;
   window.renderAdminResourcesList  = renderAdminResourcesList;
@@ -919,6 +967,8 @@ if (typeof module !== 'undefined' && module.exports) {
     setResourceCategory: setResourceCategory,
     searchResources: searchResources,
     renderResourcesPage: renderResourcesPage,
+    getResourceThumbnailUrl: getResourceThumbnailUrl,
+    getFileTypeBadgeHtml: getFileTypeBadgeHtml,
     copyResourceLink: copyResourceLink,
     renderAdminResourcesPanel: renderAdminResourcesPanel,
     renderAdminResourcesList: renderAdminResourcesList,

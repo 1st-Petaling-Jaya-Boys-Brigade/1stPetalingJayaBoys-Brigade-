@@ -929,6 +929,47 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ clearAllResources empties the document repository');
 
+  // 11. Google Drive Thumbnail & Document Preview Derivation
+  const driveThumb = resourcesModule.getResourceThumbnailUrl({
+    url: 'https://drive.google.com/file/d/1X9yZ-abc123/view'
+  });
+  assert.strictEqual(
+    driveThumb,
+    'https://drive.google.com/thumbnail?id=1X9yZ-abc123&sz=w400',
+    'Derives thumbnail for Google Drive link'
+  );
+  const directImgThumb = resourcesModule.getResourceThumbnailUrl({
+    url: 'https://example.com/handbook-cover.png'
+  });
+  assert.strictEqual(directImgThumb, 'https://example.com/handbook-cover.png');
+  console.log('  ✔ getResourceThumbnailUrl derives high-resolution document thumbnails');
+
+  // 12. Render Resources with Google Drive Style Preview Cards & Fallback Mockup
+  resourcesModule.setResourceCategory('All');
+  resourcesModule.resources.push({
+    id: 'res-preview-test-1',
+    title: 'Stage Drill Handbook 2026',
+    category: 'Handbooks & Manuals',
+    fileType: 'PDF',
+    url: 'https://drive.google.com/file/d/1MockDriveFileId/view',
+    visibility: 'public'
+  });
+  resourcesModule.renderResourcesPage();
+  const resCardContainer = document.getElementById('resources-list-container');
+  assert.ok(
+    resCardContainer.innerHTML.includes('resource-card-preview'),
+    'Resource card must contain preview viewport'
+  );
+  assert.ok(
+    resCardContainer.innerHTML.includes('resource-doc-mockup'),
+    'Resource card must contain fallback document mockup'
+  );
+  assert.ok(
+    resCardContainer.innerHTML.includes('doc-mockup-seal'),
+    'Document mockup must feature 1PJ company seal'
+  );
+  console.log('  ✔ renderResourcesPage renders Google Drive style document preview cards with fallback mockup');
+
   // ── Child Safety (COPPA/PDPA) & Parental Consent Governance Tests (TSK-032) ──
   console.log('\nTesting Child Safety (COPPA/PDPA) & Parental Consent Governance (TSK-032)...');
 
@@ -1569,6 +1610,26 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   await ordersMod.renderAdminOrders();
   assert.ok(adminOrderList.innerHTML.length > 0, 'renderAdminOrders must render list');
   console.log('  ✔ admin-order-form-filter and status filtering function correctly (BUG-006)');
+
+  // Uniform Order Form Title & Icon Header (TSK-006A/UI)
+  const ordersCode = fs.readFileSync(path.join(__dirname, '../js/modules/orders.js'), 'utf8');
+  assert.ok(
+    ordersCode.includes('Uniform Order Form'),
+    'Uniform page must display Uniform Order Form title'
+  );
+  assert.ok(
+    ordersCode.includes('M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'),
+    'Uniform page must display uniform bag/box icon'
+  );
+  console.log('  ✔ Uniform Order Form header title and icon verified');
+
+  // Tasks Project Overview Subtitle
+  const tasksCode = fs.readFileSync(path.join(__dirname, '../js/modules/tasks.js'), 'utf8');
+  assert.ok(
+    tasksCode.includes('Every project in your workspace. Select a project to view its board.'),
+    'Project list view must prompt to view its board'
+  );
+  console.log('  ✔ Project overview list text updated to "Select a project to view its board."');
 
 
   // BUG-012: Empty bb_payment_info fallback validation

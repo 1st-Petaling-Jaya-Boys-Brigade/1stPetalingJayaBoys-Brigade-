@@ -1260,7 +1260,9 @@ async function getJson(url) {
           checkoutTotalText: totalEl ? totalEl.textContent : '',
           ctaBtnActive: ctaBtn ? !ctaBtn.disabled : false,
           visibleAfterFilter: visibleAfterFilter,
-          gridDisplay: gridComputed ? gridComputed.display : ''
+          gridDisplay: gridComputed ? gridComputed.display : '',
+          orderTitle: document.querySelector('#inline-form-view .page-title') ? document.querySelector('#inline-form-view .page-title').textContent.trim() : '',
+          orderIcon: !!document.querySelector('#inline-form-view svg.ui-icon-lg')
         };
       })()`,
       awaitPromise: true,
@@ -1316,8 +1318,69 @@ async function getJson(url) {
       'grid',
       'Uniform items container must have CSS grid display'
     );
+    assert.strictEqual(
+      uniformGrid.orderTitle,
+      'Uniform Order Form',
+      'Order page title must be Uniform Order Form'
+    );
+    assert.strictEqual(
+      uniformGrid.orderIcon,
+      true,
+      'Order page header must contain uniform icon'
+    );
     console.log(
       '  ✔ Responsive uniform product card grid, category tabs, size pills, and sticky checkout bar verified in browser'
+    );
+
+    // 18B. Company Resources Preview Grid & Project Board Subtitle
+    console.log('\n[Company Resources Document Previews & Space Optimization]');
+    const evalResources = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        if (typeof switchTab === 'function') {
+          switchTab('resources');
+        }
+        if (typeof renderResourcesPage === 'function') {
+          if (Array.isArray(window.resources) && window.resources.length === 0) {
+            window.resources.push({
+              id: 'browser-test-res-1',
+              title: 'BB Official Handbook 2026',
+              category: 'Handbooks & Manuals',
+              fileType: 'PDF',
+              url: 'https://drive.google.com/file/d/1DriveTestDoc/view',
+              visibility: 'public'
+            });
+          }
+          renderResourcesPage();
+        }
+
+        const resGrid = document.querySelector('.resources-grid');
+        const resCard = document.querySelector('.resource-card');
+        const preview = resCard ? resCard.querySelector('.resource-card-preview') : null;
+        const mockup = resCard ? resCard.querySelector('.resource-doc-mockup') : null;
+        const seal = mockup ? mockup.querySelector('.doc-mockup-seal') : null;
+        const footer = resCard ? resCard.querySelector('.resource-card-footer') : null;
+
+        return {
+          hasGrid: !!resGrid,
+          hasCard: !!resCard,
+          hasPreview: !!preview,
+          hasMockup: !!mockup,
+          hasSeal: !!seal,
+          hasFooter: !!footer
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const resRes = evalResources.result.value;
+    assert.strictEqual(resRes.hasGrid, true, 'Resources grid must render in browser');
+    assert.strictEqual(resRes.hasCard, true, 'Resource card must render in browser');
+    assert.strictEqual(resRes.hasPreview, true, 'Resource preview container must render');
+    assert.strictEqual(resRes.hasMockup, true, 'Fallback document mockup must render in browser');
+    assert.strictEqual(resRes.hasSeal, true, 'Mockup must contain 1PJ seal');
+    assert.strictEqual(resRes.hasFooter, true, 'Resource card footer metadata bar must render');
+    console.log(
+      '  ✔ Company Resources Google Drive preview cards, mockup seal, and footer bar verified in browser'
     );
 
     // ── Modern Toast Notification & Confirmation Modal Verification (TSK-012) ──

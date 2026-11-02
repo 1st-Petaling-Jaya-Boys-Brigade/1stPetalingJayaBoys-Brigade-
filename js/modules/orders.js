@@ -1660,7 +1660,16 @@ function renderUniformOrderInline() {
     '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>' +
     '<div id="step-form">' +
     '<div class="dark-card" style="margin-bottom:14px;">' +
-    '<div class="page-title">Uniform</div><div class="page-subtitle">Store &amp; Order Form</div><div class="page-desc">Select products, customize sizes, and review your order</div>' +
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
+    '<div style="width:40px;height:40px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--brand-gold, #f5c542);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+    '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>' +
+    '</div>' +
+    '<div>' +
+    '<div class="page-title" style="margin:0;">Uniform Order Form</div>' +
+    '<div class="page-subtitle" style="margin:0;">Store &amp; Order Form</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="page-desc">Select products, customize sizes, and review your order</div>' +
     '<div class="note-box"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Orders are confirmed by the officer in charge. You will be contacted when ready.</div>' +
     catTabsHtml +
     '<div id="uniform-items" class="uniform-product-grid"></div>' +
