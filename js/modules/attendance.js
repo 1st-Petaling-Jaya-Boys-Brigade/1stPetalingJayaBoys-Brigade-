@@ -746,8 +746,8 @@ function toggleSquadRoster(rosterId) {
   var btn = document.querySelector('[data-roster-btn="' + rosterId + '"]');
   if (btn) {
     btn.innerHTML = isExpanded 
-      ? 'View Squad Roster &darr;' 
-      : 'Hide Squad Roster &uarr;';
+      ? 'View Squad Members &darr;' 
+      : 'Hide Squad Members &uarr;';
     btn.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
   }
 }
@@ -768,10 +768,8 @@ async function renderCompanyLeaderboard() {
 
   // Viewer authorization context for privacy masking
   var viewerName = '';
-  var isOfficer = false;
   if (typeof sessionGet === 'function') {
     viewerName = (sessionGet('name') || '').trim();
-    isOfficer = (sessionGet('adminAuthed') === 'true' || sessionGet('rank') === 'Officer');
   }
 
   // Standard competing squads fallback from master sheet
@@ -819,29 +817,7 @@ async function renderCompanyLeaderboard() {
     return { plt: 'Squad', color: 'var(--accent)', bg: 'rgba(200,150,30,0.1)', border: 'rgba(200,150,30,0.3)' };
   }
 
-  // Helper for masking surnames on leaderboard
-  var maskFn = (typeof window !== 'undefined' && typeof window.maskMemberNameForDirectory === 'function')
-    ? window.maskMemberNameForDirectory
-    : ((typeof global !== 'undefined' && typeof global.maskMemberNameForDirectory === 'function')
-      ? global.maskMemberNameForDirectory
-      : function(name, isAllowed) {
-          if (isAllowed) return name;
-          var p = String(name || '').trim().split(/\s+/);
-          return p.length > 1 ? (p.slice(0, -1).join(' ') + ' ' + p[p.length - 1].charAt(0).toUpperCase() + '.') : name;
-        });
-
-  // Helper for safe attendance formatting
-  var safeAttFn = (typeof window !== 'undefined' && typeof window.formatSafeAttendanceRate === 'function')
-    ? window.formatSafeAttendanceRate
-    : ((typeof global !== 'undefined' && typeof global.formatSafeAttendanceRate === 'function')
-      ? global.formatSafeAttendanceRate
-      : function(pct, isAllowed) {
-          var p = Math.round(pct || 0);
-          if (isAllowed || p >= 75) return { text: p + '%', isMasked: false };
-          return { text: 'Protected', isMasked: true };
-        });
-
-  // Group synced members by squad
+    // Group synced members by squad
   var squadMembersMap = {};
   if (data && data.members && typeof data.members === 'object') {
     Object.keys(data.members).forEach(function(k) {
@@ -887,14 +863,7 @@ async function renderCompanyLeaderboard() {
     ]
   };
 
-  // 1. Child Safety & Minor Privacy Banner
-  var html = 
-    '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:10px;margin-bottom:14px;font-size:11px;color:var(--text-secondary);">' +
-      '<svg class="ui-icon-sm" style="color:var(--blue);flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
-      '<div>' +
-        '<strong style="color:var(--text-primary);">Minor Privacy & Safe-Standings Active:</strong> Surnames are masked to protect minors\' identities. Low attendance rates and individual demerits are strictly confidential.' +
-      '</div>' +
-    '</div>';
+  var html = '';
 
   // 2. Render Competing Squad Cards with Safe Member Rosters
   squadList.forEach(function(sq, sqIdx) {
@@ -926,28 +895,12 @@ async function renderCompanyLeaderboard() {
       rosterHtml = 
         '<div id="' + rosterId + '" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">' +
           '<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">' +
-            escapeAttHtml(sq.name) + ' Roster (' + members.length + ' Members)' +
+            escapeAttHtml(sq.name).toUpperCase() + ' MEMBERS (' + members.length + ' MEMBERS)' +
           '</div>' +
           '<div style="display:grid;gap:6px;">';
 
       members.forEach(function(m) {
         var isSelf = viewerName && (normalizeMemberName(m.name) === normalizeMemberName(viewerName));
-        var isSelfOrOfficer = isSelf || isOfficer;
-        var maskedName = maskFn(m.name, isSelfOrOfficer);
-        var att = (m.paradeAttendance && typeof m.paradeAttendance.percentage === 'number') 
-          ? m.paradeAttendance.percentage 
-          : (m.attendance || 0);
-        var safeAtt = safeAttFn(att, isSelfOrOfficer);
-
-        var attBadge = safeAtt.isMasked
-          ? '<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:12px;background:var(--surface-tint);color:var(--text-muted);border:1px solid var(--border-subtle);" title="Low attendance protected for child privacy">Protected</span>'
-          : '<span style="font-size:11px;font-weight:700;color:var(--green);">' + escapeAttHtml(safeAtt.text) + '</span>';
-
-        var demeritHtml = '';
-        if (isSelfOrOfficer && m.points && m.points.demerits > 0) {
-          demeritHtml = '<span style="font-size:10px;color:var(--red);font-weight:600;">-' + m.points.demerits + ' pts demerit</span>';
-        }
-
         var selfBadge = isSelf
           ? '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:rgba(200,150,30,0.2);color:var(--accent);margin-left:4px;">You</span>'
           : '';
@@ -956,12 +909,7 @@ async function renderCompanyLeaderboard() {
           '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;font-size:12px;">' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
               '<span style="font-size:10px;font-weight:700;color:var(--text-muted);width:38px;">' + escapeAttHtml(m.rank || 'Member') + '</span>' +
-              '<span style="font-weight:600;color:var(--text-primary);">' + escapeAttHtml(maskedName) + selfBadge + '</span>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:12px;">' +
-              demeritHtml +
-              '<span style="font-size:11px;color:var(--text-secondary);">' + ((m.points && m.points.total) ? m.points.total : 0) + ' pts</span>' +
-              attBadge +
+              '<span style="font-weight:600;color:var(--text-primary);">' + escapeAttHtml(m.name || 'Member') + selfBadge + '</span>' +
             '</div>' +
           '</div>';
       });
@@ -990,7 +938,7 @@ async function renderCompanyLeaderboard() {
         '</div>' +
         '<div style="display:flex;justify-content:flex-end;">' +
           '<button type="button" data-roster-btn="' + rosterId + '" onclick="toggleSquadRoster(\'' + rosterId + '\')" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:2px 6px;">' +
-            'View Squad Roster &darr;' +
+            'View Squad Members &darr;' +
           '</button>' +
         '</div>' +
         rosterHtml +
