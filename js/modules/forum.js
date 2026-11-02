@@ -440,6 +440,7 @@ function ensureHelperAgentDOM() {
   var chatBox = document.createElement('div');
   chatBox.id = 'helper-agent-drawer';
   chatBox.className = 'helper-agent-drawer';
+  chatBox.style.display = 'none';
   chatBox.setAttribute('role', 'dialog');
   chatBox.setAttribute('aria-label', 'Stedfast AI Helper Chat');
 
@@ -550,7 +551,10 @@ function renderChipsHtml(chips) {
     var safeLabel = (typeof escapeHtml === 'function') ? escapeHtml(c.label) : c.label;
     var safeQ = (typeof escapeHtml === 'function') ? escapeHtml(c.query) : c.query;
     var iconSvg = FORUM_ICONS[c.icon] || '';
-    h += '<button type="button" class="helper-chip" onclick="sendHelperPrompt(\'' + safeQ.replace(/'/g, "\\'") + '\')">' + iconSvg + '<span>' + safeLabel + '</span></button>';
+    h += '<button type="button" class="helper-chip" onclick="sendHelperPrompt(\'' + safeQ.replace(/'/g, "\\'") + '\')">' +
+           '<span class="helper-chip-icon">' + iconSvg + '</span>' +
+           '<span class="helper-chip-text">' + safeLabel + '</span>' +
+         '</button>';
   });
   h += '</div>';
   return h;

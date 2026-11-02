@@ -7371,6 +7371,10 @@ select.form-input,
 }
 
 /* ── Helper Agent Chat Drawer Overlay ── */
+.helper-agent-drawer.open {
+  display: flex !important;
+}
+
 .helper-agent-drawer {
   position: fixed;
   bottom: 82px;
@@ -7383,7 +7387,7 @@ select.form-input,
   background: var(--bg-card);
   border: 1.5px solid var(--border-card);
   border-radius: var(--radius-xl, 18px);
-  display: flex;
+  display: none;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75);
@@ -7531,61 +7535,62 @@ select.form-input,
   filter: brightness(1.05);
 }
 
-/* ── Message Rows & Bubbles ── */
-.helper-msg-row {
+/* ── Message Bubble Wrappers ── */
+.helper-bubble-wrap {
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
+  width: 100%;
 }
 
-.helper-msg-row.msg-user {
+.helper-bubble-wrap.agent-wrap {
+  justify-content: flex-start;
+}
+
+.helper-bubble-wrap.user-wrap {
   justify-content: flex-end;
 }
 
-.helper-msg-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(245, 197, 66, 0.15);
-  border: 1px solid rgba(245, 197, 66, 0.3);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+.helper-bubble {
+  max-width: 90%;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  position: relative;
 }
 
-.helper-msg-bubble {
-  max-width: 85%;
-  border-radius: 14px;
-  padding: 10px 13px;
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
-.msg-agent .helper-msg-bubble {
-  background: var(--bg-card-subtle);
+.helper-bubble.agent-bubble {
+  background: var(--surface-tint);
   border: 1px solid var(--border-card);
   color: var(--text-primary);
   border-bottom-left-radius: 4px;
 }
 
-.msg-user .helper-msg-bubble {
+.helper-bubble.user-bubble {
   background: var(--accent);
   color: var(--btn-on-accent, #121418);
+  border: 1px solid var(--accent);
   border-bottom-right-radius: 4px;
   font-weight: 500;
 }
 
-.helper-msg-time {
-  font-size: 9.5px;
-  color: var(--text-muted);
-  margin-top: 4px;
-  text-align: right;
+.helper-bubble-text {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: inherit;
+  word-break: break-word;
 }
 
-.msg-user .helper-msg-time {
-  color: rgba(0, 0, 0, 0.55);
+.helper-bubble-time {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: right;
+  font-weight: 500;
+}
+
+.helper-bubble.user-bubble .helper-bubble-time {
+  color: rgba(0, 0, 0, 0.65);
 }
 
 .helper-inline-code {
@@ -7600,27 +7605,56 @@ select.form-input,
 .helper-prompt-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .helper-chip {
-  background: var(--surface-tint);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 3.5px 9px;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg-card);
+  border: 1px solid rgba(245, 197, 66, 0.35);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--accent);
+  font-family: var(--font-headline);
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  line-height: 1;
+}
+
+.helper-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.helper-chip-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+  display: block;
+}
+
+.helper-chip-text {
+  display: inline-block;
+  line-height: 1.2;
 }
 
 .helper-chip:hover {
-  background: rgba(245, 197, 66, 0.15);
+  background: rgba(245, 197, 66, 0.18);
   border-color: var(--accent);
+  color: #fff;
   transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(245, 197, 66, 0.2);
 }
 
 /* ── Triage Escalation Card ── */
