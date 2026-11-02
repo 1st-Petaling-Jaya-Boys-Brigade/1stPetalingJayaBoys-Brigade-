@@ -31,6 +31,7 @@
 
   var SUPER_ADMIN_DEFAULT_EMAILS = [
     '1stpjbb@gmail.com',
+    'jeshuakoh2008@gmail.com',
     'admin@1stpjbb.org.my',
     'officer@1stpjbb.org.my'
   ];
@@ -117,11 +118,17 @@
       userEmail = cleanEmail(getSession('email') || getSession('ic'));
     }
 
-    if (!userEmail) return ROLES.MEMBER;
+    if (!userEmail) {
+      if (getSession('adminAuthed') === true) {
+        return ROLES.ADMIN;
+      }
+      return ROLES.MEMBER;
+    }
 
     // 1. Check Super Admin pre-assigned list & official Google account
     if (
       userEmail === '1stpjbb@gmail.com' ||
+      userEmail === 'jeshuakoh2008@gmail.com' ||
       userEmail === 'admin@1stpjbb.org.my' ||
       userEmail === 'officer@1stpjbb.org.my' ||
       (_rolesConfig && _rolesConfig.super_admins && _rolesConfig.super_admins.map(cleanEmail).includes(userEmail))
@@ -252,8 +259,8 @@
       throw new Error('Access Denied: Only Super Admins can manage roles and permissions.');
     }
 
-    // Protection rule: Official Google account cannot be demoted
-    if (target === '1stpjbb@gmail.com' && role !== ROLES.SUPER_ADMIN) {
+    // Protection rule: Official Google account and Super Admins cannot be demoted
+    if ((target === '1stpjbb@gmail.com' || target === 'jeshuakoh2008@gmail.com') && role !== ROLES.SUPER_ADMIN) {
       throw new Error('Official 1stPJ account cannot be demoted from Super Admin');
     }
 

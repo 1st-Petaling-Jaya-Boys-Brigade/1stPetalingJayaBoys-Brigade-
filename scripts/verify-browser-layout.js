@@ -1483,12 +1483,9 @@ async function getJson(url) {
         window.openAdmin();
         const memberBlocked = (!document.getElementById('admin-overlay') || document.getElementById('admin-overlay').style.display === 'none');
 
-        // 2b. Elevate to Officer session to authenticate via Officer Admin
-        if (typeof sessionSet === 'function') {
-          sessionSet('email', 'admin@1stpjbb.org.my');
-          sessionSet('rank', 'Captain');
-        }
-        window.openAdmin();
+        // 2b. Guest / Unauthenticated session displays fallback password prompt
+        if (typeof sessionClear === 'function') sessionClear();
+        await window.openAdmin();
         const overlay = document.getElementById('admin-overlay');
         const loginBox = document.getElementById('admin-login-box');
         const adminPanel = document.getElementById('admin-panel');
@@ -1572,6 +1569,14 @@ async function getJson(url) {
         const closeState = {
           overlayHidden: !overlay || overlay.style.display === 'none'
         };
+
+        // Restore authenticated member session for subsequent portal tests
+        if (typeof sessionSet === 'function') {
+          sessionSet('ic', '010101-14-1234');
+          sessionSet('name', 'Joshua Koh');
+          sessionSet('rank', 'Sergeant');
+          sessionSet('squad', 'Hotel Platoon');
+        }
 
         return {
           hasOpenAdmin,
@@ -2354,21 +2359,36 @@ async function getJson(url) {
         const adminBadgeClass = badge ? badge.className : '';
         const adminBadgeText = textSpan ? textSpan.textContent : '';
 
-        // Test Super Admin Badge
+        // Test Super Admin Badge (Official Account)
         sessionSet('email', '1stpjbb@gmail.com');
         sessionSet('rank', 'Captain');
         RBAC.renderHeaderRoleBadge();
         const superBadgeClass = badge ? badge.className : '';
         const superBadgeText = textSpan ? textSpan.textContent : '';
 
+        // Test Jeshua Koh Super Admin Badge & Passwordless Admin Access
+        sessionSet('email', 'jeshuakoh2008@gmail.com');
+        sessionSet('name', 'Jeshua Koh');
+        sessionSet('rank', 'Captain');
+        RBAC.renderHeaderRoleBadge();
+        const jeshuaBadgeClass = badge ? badge.className : '';
+        const jeshuaBadgeText = textSpan ? textSpan.textContent : '';
+
+        // Test Passwordless Admin Console entry for Jeshua Koh
+        await window.openAdmin();
+        const adminPanelEl = document.getElementById('admin-panel');
+        const loginBoxEl = document.getElementById('admin-login-box');
+        const jeshuaPanelDirectOpen = adminPanelEl && getComputedStyle(adminPanelEl).display !== 'none';
+        const jeshuaLoginBoxHidden = !loginBoxEl || getComputedStyle(loginBoxEl).display === 'none';
+        window.closeAdmin();
+
                 // 2. Scoped Admin Console UI Filtering
         // Open Admin Console as Scoped Admin
         sessionSet('email', 'store_officer@1stpjbb.org.my');
         sessionSet('rank', 'Lieutenant');
         window.openAdmin();
-        const passInputScoped = document.getElementById('admin-pass');
-        if (passInputScoped) passInputScoped.value = 'bb2024admin';
-        await window.adminLogin();
+        // Passwordless openAdmin automatically unlocks for Scoped Admin
+        await window.openAdmin();
         window.backToAdminHome();
 
         const btnOrders = document.getElementById('sec-btn-orders');
@@ -2412,6 +2432,10 @@ async function getJson(url) {
           adminBadgeText,
           superBadgeClass,
           superBadgeText,
+          jeshuaBadgeClass,
+          jeshuaBadgeText,
+          jeshuaPanelDirectOpen,
+          jeshuaLoginBoxHidden,
           scopedVisibility,
           superVisibility,
           rolesConsoleVisible,
@@ -2432,6 +2456,11 @@ async function getJson(url) {
     assert.strictEqual(rbacDiag.adminBadgeText, 'Admin', 'Admin badge has Admin text');
     assert.ok(rbacDiag.superBadgeClass.includes('role-super-admin'), 'Super Admin badge has role-super-admin class');
     assert.strictEqual(rbacDiag.superBadgeText, 'Super Admin', 'Super Admin badge has Super Admin text');
+    assert.ok(rbacDiag.jeshuaBadgeClass.includes('role-super-admin'), 'Jeshua Koh badge has role-super-admin class');
+    assert.strictEqual(rbacDiag.jeshuaBadgeText, 'Super Admin', 'Jeshua Koh badge displays Super Admin text');
+    assert.strictEqual(rbacDiag.jeshuaPanelDirectOpen, true, 'Jeshua Koh opens Admin Console directly without password');
+    assert.strictEqual(rbacDiag.jeshuaLoginBoxHidden, true, 'Admin password login box is hidden for Super Admin');
+    console.log('  ✔ Top navigation dynamic role badge states and passwordless Super Admin access verified for Jeshua Koh in browser');
     console.log('  ✔ Top navigation dynamic role badge states (Member / Admin / Super Admin) and ARIA status verified in browser');
 
     assert.strictEqual(rbacDiag.scopedVisibility.ordersVisible, true, 'Scoped Admin sees permitted Orders button');

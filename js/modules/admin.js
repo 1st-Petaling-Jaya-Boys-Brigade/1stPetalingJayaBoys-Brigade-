@@ -400,20 +400,25 @@
 
   // ── Admin Authentication & Back-Office Navigation ──────────────────────────
 
-  function openAdmin() {
+  async function openAdmin() {
     if (typeof document === 'undefined') return;
 
     // RBAC Gatekeeper: Block standard members from accessing admin routes/console (TSK-049)
     var isMemberSession = false;
+    var sessEmail = null;
+    var rank = null;
+    var isOfficer = false;
+    var currentRole = 'member';
+
     if (typeof sessionGet === 'function') {
-      var sessEmail = sessionGet('email') || sessionGet('ic');
+      sessEmail = sessionGet('email') || sessionGet('ic');
       if (sessEmail) {
-        var rank = sessionGet('rank');
-        var isOfficer = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
-        var role = (typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function')
+        rank = sessionGet('rank');
+        isOfficer = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
+        currentRole = (typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function')
           ? RBAC.getUserRole(sessEmail)
           : (sessionGet('role') || 'member');
-        if (role === 'member' && !isOfficer && !verifyAdminSessionSync()) {
+        if (currentRole === 'member' && !isOfficer && !verifyAdminSessionSync()) {
           isMemberSession = true;
         }
       }
@@ -425,10 +430,37 @@
       }
       return;
     }
+
     var overlay = document.getElementById('admin-overlay');
     if (overlay) overlay.style.display = 'block';
     if (document.body) document.body.style.overflow = 'hidden';
 
+    // Passwordless Access for Authenticated Admins & Super Admins (TSK-049)
+    if (sessEmail && (currentRole === 'admin' || currentRole === 'super_admin' || isOfficer)) {
+      if (!verifyAdminSessionSync()) {
+        await createAdminSessionToken(sessEmail, rank || (currentRole === 'super_admin' ? 'Super Admin' : 'Admin'));
+      }
+      if (typeof sessionSet === 'function') {
+        sessionSet('adminAuthed', true);
+      }
+
+      var loginBoxEl = document.getElementById('admin-login-box');
+      if (loginBoxEl) loginBoxEl.style.display = 'none';
+
+      var panelEl = document.getElementById('admin-panel');
+      if (panelEl) panelEl.style.display = 'block';
+
+      initAdminDomGuard();
+      backToAdminHome();
+
+      if (typeof renderGallery === 'function') renderGallery();
+      if (typeof renderAnnouncements === 'function') renderAnnouncements();
+      if (typeof loadResources === 'function') loadResources();
+      if (typeof initCalendarModule === 'function') initCalendarModule();
+      return;
+    }
+
+    // Fallback: If no authenticated member session, show password prompt
     revokeAdminSession();
 
     var loginBox = document.getElementById('admin-login-box');
@@ -1838,6 +1870,7 @@
     if (!membersList.length) {
       membersList = [
         { email: '1stpjbb@gmail.com', name: 'Official 1stPJ Account', rank: 'Captain' },
+        { email: 'jeshuakoh2008@gmail.com', name: 'Jeshua Koh', rank: 'Captain' },
         { email: 'admin@1stpjbb.org.my', name: 'System Administrator', rank: 'Captain' },
         { email: 'officer@1stpjbb.org.my', name: 'Duty Officer', rank: 'Lieutenant' },
         { email: 'member@1stpjbb.org.my', name: 'Test Member', rank: 'Sergeant' }
