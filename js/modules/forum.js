@@ -7,11 +7,36 @@
  *    - Interactive FAQ knowledge base answering member inquiries on parade timings,
  *      uniform standards, badge milestone advancement, squad leaderboard, and portal tools.
  *    - Automated issue triage & bug classification with one-click escalation to the forum.
+ *    - Clean SVG icons throughout (zero emojis).
  * 2. Support & Bug Forum Tab:
  *    - Structured community & dev bug forum with categories, statuses, upvotes, and replies.
- *    - Dynamic DOM container injection preserving strict 388 unique DOM IDs in index.html.
+ *    - Admins and Super Admins can edit/delete posts and toggle resolution status.
+ *    - Members and admins can reply to discussion threads and bug reports.
+ *    - Direct child of #app-main preserving standard portal layout and strict 388 unique DOM IDs.
  *    - Supabase bb_config persistence with offline state fallback.
  */
+
+// ── SVG Icon Registry (Zero Emojis) ──────────────────────────────────────────
+var FORUM_ICONS = {
+  all: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/></svg>',
+  bugs: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 7-3 2"/><path d="m5 7 3 2"/><path d="m19 19-3-2"/><path d="m5 19 3-2"/><path d="M20 13h-4"/><path d="M4 13h4"/><path d="m10 4 1 2"/><path d="m14 4-1 2"/></svg>',
+  badges: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
+  account: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  store: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+  attendance: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
+  general: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  parade: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  tasks: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  delete: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  send: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+  upvote: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>',
+  message: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  anchor: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>'
+};
 
 // ── Seed Forum Discussions & Bug Reports ──────────────────────────────────────
 var DEFAULT_FORUM_POSTS = [
@@ -36,10 +61,11 @@ var DEFAULT_FORUM_POSTS = [
         authorName: 'Jeshua Koh',
         authorRank: 'Sergeant',
         authorRole: 'HQ NCO',
+        authorEmail: 'jeshuakoh2008@gmail.com',
         date: '28 Oct 2026',
         time: '5:02 PM',
         isOfficial: true,
-        content: 'Hi Daniel! Under official BB Senior Section advancement criteria, parade attendance must reach at least 80% across the full service year. Band attendance is recorded separately for Company Band service awards, but both are confidential in the new Member Hub achievement tiers!'
+        content: 'Hi Daniel! Under official BB Senior Section advancement criteria, parade attendance must reach at least 80% across the full service year. Band attendance is recorded separately for Company Band service awards, but both are confidential in the new Member Hub achievement tiers.'
       }
     ],
     triagedByAgent: false
@@ -65,6 +91,7 @@ var DEFAULT_FORUM_POSTS = [
         authorName: 'Jeshua Koh',
         authorRank: 'Sergeant',
         authorRole: 'Super Admin',
+        authorEmail: 'jeshuakoh2008@gmail.com',
         date: '30 Oct 2026',
         time: '11:45 AM',
         isOfficial: true,
@@ -94,6 +121,7 @@ var DEFAULT_FORUM_POSTS = [
         authorName: 'Jason Koh',
         authorRank: 'Corporal',
         authorRole: 'Logistics',
+        authorEmail: 'jasonkoh@gmail.com',
         date: '01 Nov 2026',
         time: '3:30 PM',
         isOfficial: true,
@@ -107,26 +135,27 @@ var DEFAULT_FORUM_POSTS = [
     title: 'Task board Add Task button jumping during drag and drop',
     category: 'bugs',
     categoryLabel: 'Bugs & Glitches',
-    tag: 'ui-glitch',
+    tag: 'bug: ui-glitch',
     status: 'resolved',
     authorName: 'Ethan Lim',
     authorRank: 'Corporal',
     authorEmail: 'ethanlim@gmail.com',
     date: '02 Nov 2026',
-    time: '10:14 AM',
-    content: 'When dragging task cards between Kanban columns in Projects & Tasks, the Add Task button was previously getting stuck between cards.',
+    time: '10:05 AM',
+    content: 'When dragging task cards between Kanban columns in Projects & Tasks, the Add Task button was previously getting stuck between cards. Verified this is now resolved in the latest release.',
     upvotes: 12,
-    upvotedBy: ['jeshuakoh2008@gmail.com'],
+    upvotedBy: [],
     replies: [
       {
         id: 'rep-004-1',
         authorName: 'Jeshua Koh',
         authorRank: 'Sergeant',
-        authorRole: 'Dev Lead',
+        authorRole: 'Super Admin',
+        authorEmail: 'jeshuakoh2008@gmail.com',
         date: '02 Nov 2026',
-        time: '12:00 PM',
+        time: '10:30 AM',
         isOfficial: true,
-        content: 'Resolved in today\'s build! The Add Task button now stays strictly at the bottom of the Kanban column containers below all task cards.'
+        content: 'Resolved! Kanban columns now dynamically append drag placeholders before the static Add Task button footer, locking button alignment strictly to the column bottom.'
       }
     ],
     triagedByAgent: true
@@ -144,61 +173,148 @@ var _isHelperAgentOpen = false;
 var _helperMessages = [
   {
     sender: 'agent',
-    text: 'Hello! I\'m **Stedfast**, your 1st Petaling Jaya Boys\' Brigade AI Helper. Ask me anything about our company parade schedules, uniform standards, badge milestones, or portal features!',
+    text: 'Hello! I am Stedfast, your 1st Petaling Jaya Boys\' Brigade AI Helper. Ask me anything about our company parade schedules, uniform standards, badge milestones, or portal features.',
     time: 'Just now',
     chips: [
-      { label: '📅 Parade Timings', query: 'What time is Saturday parade and band?' },
-      { label: '🎖️ 80% Attendance Rule', query: 'How does 80% attendance work for badges?' },
-      { label: '👔 Uniform Kits', query: 'What are the official uniform kits?' },
-      { label: '📋 NCO Tasks Board', query: 'How do I use the Projects and Tasks board?' },
-      { label: '🐞 Report a Bug', query: 'I want to report a bug in the portal' }
+      { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+      { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
+      { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' },
+      { label: 'NCO Tasks Board', query: 'How do I use the Projects and Tasks board?', icon: 'tasks' },
+      { label: 'Report a Bug', query: 'I want to report a bug in the portal', icon: 'bugs' }
     ]
   }
 ];
 
-// ── Knowledge Base FAQ Engine ────────────────────────────────────────────────
+// ── Knowledge Base FAQ Engine (Zero Emojis) ──────────────────────────────────
 var FAQ_KNOWLEDGE_BASE = [
   {
     keywords: ['parade', 'time', 'timing', 'saturday', 'venue', 'where', 'start', 'band'],
-    answer: '📍 **Company Parade Schedule**:\n- **Full Company Parade**: Every Saturday from **2:15 PM – 6:00 PM**.\n- **Brass Band Sectionals**: Saturdays from **9:30 AM – 11:30 AM**.\n- **Venue**: Trinity Methodist Church Petaling Jaya (TMC PJ).\n\nCheck the **Weekly Parade** tab for the upcoming parade kit and schedule notices!'
+    answer: '**Company Parade Schedule**:\n- **Full Company Parade**: Every Saturday from **2:15 PM – 6:00 PM**.\n- **Brass Band Sectionals**: Saturdays from **9:30 AM – 11:30 AM**.\n- **Venue**: Trinity Methodist Church Petaling Jaya (TMC PJ).\n\nCheck the **Weekly Parade** tab for the upcoming parade kit and schedule notices.'
   },
   {
     keywords: ['attendance', '80%', 'milestone', 'service year', 'tier', 'perfect', 'excellent', 'at risk'],
-    answer: '🎖️ **Confidential Attendance Tiers (TSK-057)**:\n- **100%**: Perfect (Emerald)\n- **≥ 90%**: Excellent (Blue)\n- **≥ 80%**: Good (Gold) — **One Year Service Qualified ✓**\n- **< 80%**: At Risk (Orange) — One Year Service Pending •\n\nOfficial BB Rule: A minimum **80% attendance threshold** is strictly required to qualify for the BB One Year Service award and President\'s Award service years.'
+    answer: '**Confidential Attendance Tiers (TSK-057)**:\n- **100%**: Perfect (Emerald tier)\n- **≥ 90%**: Excellent (Blue tier)\n- **≥ 80%**: Good (Gold tier) — **One Year Service Qualified**\n- **< 80%**: At Risk (Orange tier) — One Year Service Pending\n\nOfficial BB Rule: A minimum **80% attendance threshold** is strictly required to qualify for the BB One Year Service award and President\'s Award service years.'
   },
   {
     keywords: ['uniform', 'kit', 'dress', 'polo', 'cap', 'belt', 'store', 'order'],
-    answer: '👔 **Official Uniform Standards & Kits**:\n- **Kit A (Full Ceremonial)**: Long sleeve uniform shirt, cross belt, badges, forage cap, black drill boots.\n- **Kit B (Day Kit)**: Company polo t-shirt, dark trousers, belt.\n- **Kit C (PT / Sports)**: Squad t-shirt, sports pants & running shoes.\n\nNeed to order replacement items? Visit the **Forms & Store** tab to submit an official Uniform Order!'
+    answer: '**Official Uniform Standards & Kits**:\n- **Kit A (Full Ceremonial)**: Long sleeve uniform shirt, cross belt, badges, forage cap, black drill boots.\n- **Kit B (Day Kit)**: Company polo t-shirt, dark trousers, belt.\n- **Kit C (PT / Sports)**: Squad t-shirt, sports pants & running shoes.\n\nNeed to order replacement items? Visit the **Forms & Store** tab to submit an official Uniform Order.'
   },
   {
     keywords: ['boot size', 'shoe size', 'sizing', 'boots size', 'boot', 'boots', 'size'],
-    answer: '👞 **Uniform Boot Sizing Chart**:\n- All official BB drill boots adhere strictly to **UK sizing**.\n- When ordering drill boots in the **Forms & Store** tab, order your exact UK shoe size, or a half-size larger if you wear thick ceremonial wool socks.\n- Check seed discussion on the Support Forum for further details!'
+    answer: '**Uniform Boot Sizing Chart**:\n- All official BB drill boots adhere strictly to **UK sizing**.\n- When ordering drill boots in the **Forms & Store** tab, order your exact UK shoe size, or a half-size larger if you wear thick ceremonial wool socks.\n- Check seed discussion on the Support Forum for further details.'
   },
   {
     keywords: ['badge', 'founder', 'president', 'syllabus', 'target', 'awards'],
-    answer: '🏅 **Badges & Awards Advancement**:\n- Track your target, compulsory, and elective badges in the **My Badges** tab.\n- Founder\'s & President\'s Awards require **3 completed Service Years** with ≥80% attendance per year, alongside required service hours and leadership courses.\n- Download official handbooks and drill manuals in the **Company Resources** tab.'
+    answer: '**Badges & Awards Advancement**:\n- Track your target, compulsory, and elective badges in the **My Badges** tab.\n- Founder\'s & President\'s Awards require **3 completed Service Years** with ≥80% attendance per year, alongside required service hours and leadership courses.\n- Download official handbooks and drill manuals in the **Company Resources** tab.'
   },
   {
     keywords: ['task', 'project', 'kanban', 'nco', 'department', 'secretariat', 'logistics', 'media', 'hq'],
-    answer: '📋 **Projects & Tasks Kanban Board**:\n- Available for NCOs and Officers assigned to company departments (HQ, Secretariat, Logistics, Media).\n- Drag and drop task cards across *To Do*, *In Progress*, and *Done*.\n- Attach documents, use `@mentions` to ping department members, and add task comments!'
+    answer: '**Projects & Tasks Kanban Board**:\n- Available for NCOs and Officers assigned to company departments (HQ, Secretariat, Logistics, Media).\n- Drag and drop task cards across *To Do*, *In Progress*, and *Done*.\n- Attach documents, use `@mentions` to ping department members, and add task comments.'
   },
   {
     keywords: ['admin', 'console', 'role', 'super admin', 'permission', 'officer'],
-    answer: '🔐 **Role-Based Access Control (RBAC)**:\n- **Member**: Access to Home, Forms, Member Hub, Weekly Parade, Badges, Leaderboard, Resources, and Gallery.\n- **Scoped Admin**: Back-office access restricted to specific departments (e.g., Uniform Store, Story Highlights).\n- **Super Admin / Captain**: Full access to Member Roles Manager and Audit Ledger without passwords.'
+    answer: '**Admin Console & Governance**:\n- Gated strictly to verified Officers and HQ Super Admins via RBAC (TSK-049).\n- Super Admins can manage member roles, sync master attendance, manage store products, and broadcast company announcements.'
   },
   {
-    keywords: ['upload', 'size', 'storage', 'limit', 'photo', 'video', 'drive'],
-    answer: '📁 **Storage Guidelines**:\n- **Photos**: Direct upload up to **15 MB** (with auto-compression).\n- **Videos**: Direct upload up to **50 MB**.\n- **Large Videos (>50 MB)**: Upload to Google Drive (set access to *"Anyone with the link can view"*) or YouTube and paste the link in Story Highlights.'
+    keywords: ['storage', 'drive', 'upload', 'file', 'limit', 'mb'],
+    answer: '**Cloud Storage & Attachments**:\n- Uploaded task briefs and order proofs are persisted securely in Supabase Storage.\n- Max upload size: 15MB for documents and photos, 50MB for video highlights.'
   },
   {
-    keywords: ['password', 'login', 'account', 'turnstile', 'captcha', 'reset', 'forgot'],
-    answer: '🔑 **Account Security & Login**:\n- Passwords use salted PBKDF2 with SHA-256 (100,000 iterations).\n- If you forgot your password, click **Forgot Password** on the Member Hub screen to receive a verification reset link.\n- Protected by Cloudflare Turnstile CAPTCHA for zero tracking and privacy.'
+    keywords: ['password', 'sign out', 'session', 'login', 'security', 'forgot'],
+    answer: '**Password & Account Security**:\n- Accounts use salted PBKDF2 with SHA-256 (100,000 iterations).\n- Use *Sign Out Everywhere* in Member Hub to invalidate sessions across all devices if your account is compromised.'
   }
 ];
 
-/**
- * Triages an issue and checks if it should be escalated to the Bug & Support Forum
- */
+// ── Persistence Layer ────────────────────────────────────────────────────────
+async function loadForumPosts() {
+  try {
+    if (typeof supa !== 'undefined' && typeof supa.getConfig === 'function') {
+      var remote = await supa.getConfig('bb_forum_posts');
+      if (Array.isArray(remote) && remote.length > 0) {
+        forumPosts = remote;
+        renderForumFeed();
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not load forum posts from Supabase:', err);
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var local = localStorage.getItem('bb_forum_posts');
+      if (local) {
+        var parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          forumPosts = parsed;
+          renderForumFeed();
+          return;
+        }
+      }
+    }
+  } catch (_) {}
+
+  forumPosts = JSON.parse(JSON.stringify(DEFAULT_FORUM_POSTS));
+  renderForumFeed();
+}
+
+async function saveForumPosts(posts) {
+  forumPosts = posts || forumPosts;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_forum_posts', JSON.stringify(forumPosts));
+    }
+  } catch (_) {}
+
+  try {
+    if (typeof supa !== 'undefined' && typeof supa.setConfig === 'function') {
+      await supa.setConfig('bb_forum_posts', forumPosts);
+    }
+  } catch (err) {
+    console.warn('Could not persist forum posts to Supabase:', err);
+  }
+  renderForumFeed();
+}
+
+// ── DOM Element Safe Removal Helper ──────────────────────────────────────────
+function removeDomElement(el) {
+  if (!el) return;
+  if (typeof el.remove === 'function') {
+    el.remove();
+  } else if (el.parentNode && typeof el.parentNode.removeChild === 'function') {
+    el.parentNode.removeChild(el);
+  }
+}
+
+// ── User Permission Helper for Forum ─────────────────────────────────────────
+function getForumUserPermissions(post) {
+  var isSuper = false;
+  var isAdm = false;
+
+  if (typeof RBAC !== 'undefined') {
+    if (typeof RBAC.isSuperAdmin === 'function') isSuper = RBAC.isSuperAdmin();
+    if (typeof RBAC.isAdmin === 'function') isAdm = RBAC.isAdmin();
+  }
+
+  var email = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
+  var role = (typeof sessionGet === 'function') ? (sessionGet('role') || '').toLowerCase().trim() : '';
+  var rank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
+  var isOfficerRank = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
+
+  var isPrivileged = isSuper || isAdm || isOfficerRank || role === 'super_admin' || role === 'admin';
+  var isAuthor = !!(post && post.authorEmail && email && (post.authorEmail.toLowerCase().trim() === email));
+
+  return {
+    isAdmin: isPrivileged,
+    isSuperAdmin: isSuper || role === 'super_admin',
+    canEdit: isPrivileged || isAuthor,
+    canDelete: isPrivileged || isAuthor,
+    canChangeStatus: isPrivileged,
+    canReply: true
+  };
+}
+
+// ── Automated Issue Triage Engine (Zero Emojis) ──────────────────────────────
 function triageUserQuery(query) {
   var q = (query || '').toLowerCase().trim();
   var isBugOrError = q.indexOf('bug') !== -1 ||
@@ -219,7 +335,7 @@ function triageUserQuery(query) {
 
   var category = 'bugs';
   var categoryLabel = 'Bugs & Glitches';
-  var tag = 'ui-glitch';
+  var tag = 'bug: ui-glitch';
 
   if (q.indexOf('badge') !== -1 || q.indexOf('president') !== -1 || q.indexOf('founder') !== -1) {
     category = 'badges';
@@ -227,7 +343,7 @@ function triageUserQuery(query) {
     tag = 'bug: badge-tracker';
   } else if (q.indexOf('attendance') !== -1 || q.indexOf('sync') !== -1 || q.indexOf('sheet') !== -1) {
     category = 'attendance';
-    categoryLabel = 'Attendance & Sync';
+    categoryLabel = 'Attendance & Standings';
     tag = 'bug: attendance-sync';
   } else if (q.indexOf('order') !== -1 || q.indexOf('uniform') !== -1 || q.indexOf('cart') !== -1 || q.indexOf('price') !== -1) {
     category = 'store';
@@ -247,17 +363,12 @@ function triageUserQuery(query) {
   };
 }
 
-/**
- * Answers a user query using the FAQ knowledge base or provides an automated escalation card
- */
+// ── Helper Agent Conversational Engine ───────────────────────────────────────
 function queryHelperAgent(userText) {
   var q = (userText || '').toLowerCase().trim();
   if (!q) return null;
 
-  // 1. Check for bug/escalation triage
   var triage = triageUserQuery(userText);
-
-  // 2. Check FAQ Knowledge Base
   var bestMatch = null;
   var highestScore = 0;
 
@@ -283,8 +394,8 @@ function queryHelperAgent(userText) {
   }
 
   if (triage) {
-    var responseText = 'I\'ve analyzed your issue regarding **' + triage.categoryLabel + '**.\n\n'
-      + '💡 **Quick Tip**: Try doing a hard refresh (`Ctrl + Shift + R` or `Cmd + Shift + R`) to ensure your browser has loaded the latest company portal version.\n\n'
+    var responseText = 'I have analyzed your issue regarding **' + triage.categoryLabel + '**.\n\n'
+      + '**Quick Tip**: Try doing a hard refresh (`Ctrl + Shift + R` or `Cmd + Shift + R`) to ensure your browser has loaded the latest company portal version.\n\n'
       + 'If the problem persists, I can escalate this directly to the 1st PJ Dev Team and Officers in our **Support & Bug Forum**:';
 
     return {
@@ -293,81 +404,63 @@ function queryHelperAgent(userText) {
     };
   }
 
-  // Fallback answer
   return {
-    text: 'I\'m not completely sure about that specific detail yet, but our Officers and Dev Team are ready to assist! You can post your question in the **Support & Bug Forum** or explore the **Resources** tab for official documentation.',
+    text: 'I could not find an exact match in our company FAQ. You can ask about parade schedules, badge advancement (80% attendance rule), uniform kits, or post your query to the **Support Forum** for officer assistance.',
     triage: {
       category: 'general',
-      categoryLabel: 'General Support',
-      tag: 'general-support',
+      categoryLabel: 'General Discussion',
+      tag: 'question',
       suggestedTitle: userText.length > 50 ? (userText.slice(0, 47) + '...') : userText
     }
   };
 }
 
-// ── Floating Button & Chat Drawer DOM Controller ──────────────────────────────
-/**
- * Injects the Helper Agent Floating Pill and Chat Drawer into the document
- */
+// ── Helper Agent DOM & UI Controller ─────────────────────────────────────────
 function ensureHelperAgentDOM() {
   if (typeof document === 'undefined') return;
-  var existingBtn = document.getElementById('helper-agent-trigger');
-  if (existingBtn) return;
 
-  // 1. Floating Pill Button (Bottom-Right)
+  var existingTrigger = document.getElementById('helper-agent-trigger');
+  if (existingTrigger) return;
+
   var trigger = document.createElement('button');
   trigger.id = 'helper-agent-trigger';
   trigger.className = 'helper-agent-btn';
   trigger.type = 'button';
   trigger.setAttribute('aria-label', 'Ask Stedfast AI Helper');
-  trigger.setAttribute('title', 'Ask Stedfast — 1st PJ Helper Agent');
+  trigger.setAttribute('title', 'Ask Stedfast (1st PJ Helper Agent)');
   trigger.onclick = toggleHelperAgent;
 
   trigger.innerHTML = 
-    '<span class="helper-agent-icon-wrap">' +
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="helper-anchor-icon">' +
-        '<circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/>' +
-      '</svg>' +
+    '<div class="helper-agent-icon-wrap">' +
+      FORUM_ICONS.anchor +
       '<span class="helper-pulse-dot"></span>' +
-    '</span>' +
+    '</div>' +
     '<span class="helper-agent-label">Ask Stedfast</span>';
 
-  // 2. Chat Drawer Modal Container
   var chatBox = document.createElement('div');
   chatBox.id = 'helper-agent-drawer';
   chatBox.className = 'helper-agent-drawer';
-  chatBox.style.display = 'none';
   chatBox.setAttribute('role', 'dialog');
-  chatBox.setAttribute('aria-label', 'Stedfast Support Helper Agent');
+  chatBox.setAttribute('aria-label', 'Stedfast AI Helper Chat');
 
   chatBox.innerHTML = 
     '<div class="helper-drawer-header">' +
-      '<div class="helper-drawer-title-group">' +
-        '<div class="helper-avatar-badge">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ui-icon-sm">' +
-            '<circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/>' +
-          '</svg>' +
-        '</div>' +
+      '<div style="display:flex;align-items:center;gap:9px;">' +
+        '<div class="helper-drawer-avatar">' + FORUM_ICONS.anchor + '</div>' +
         '<div>' +
-          '<div class="helper-drawer-name">Stedfast AI</div>' +
-          '<div class="helper-drawer-sub">1st PJ Brigade &amp; Portal Helper</div>' +
+          '<div class="helper-drawer-title">Stedfast AI Helper</div>' +
+          '<div class="helper-drawer-sub">1st PJ Boys\' Brigade Assistant</div>' +
         '</div>' +
       '</div>' +
-      '<div class="helper-drawer-actions">' +
-        '<button type="button" class="helper-icon-btn" onclick="clearHelperChat()" title="Reset Conversation" aria-label="Reset Conversation">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-xs"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>' +
-        '</button>' +
-        '<button type="button" class="helper-icon-btn" onclick="toggleHelperAgent()" title="Close Assistant" aria-label="Close Assistant">&times;</button>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+        '<button type="button" class="helper-icon-btn" onclick="clearHelperChat()" title="Clear conversation">' + FORUM_ICONS.refresh + '</button>' +
+        '<button type="button" class="helper-icon-btn" onclick="toggleHelperAgent()" title="Close chat">&times;</button>' +
       '</div>' +
     '</div>' +
-    '<div class="helper-drawer-body" id="helper-drawer-body">' +
-      '<!-- Messages injected here -->' +
-    '</div>' +
+    '<div class="helper-drawer-body" id="helper-chat-body"></div>' +
     '<form class="helper-drawer-footer" onsubmit="handleHelperSubmit(event)">' +
-      '<input type="text" id="helper-agent-input" class="helper-agent-input" placeholder="Ask Stedfast about parade, badges, tasks..." autocomplete="off" />' +
-      '<button type="submit" class="helper-send-btn" title="Send message" aria-label="Send message">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-xs"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
-      '</button>' +
+      '<input type="text" id="helper-agent-input" class="helper-chat-input" placeholder="Ask about parades, badges, uniform..." autocomplete="off" />' +
+      '<button type="submit" class="helper-send-btn" aria-label="Send">' + FORUM_ICONS.send + '</button>' +
     '</form>';
 
   document.body.appendChild(trigger);
@@ -375,9 +468,6 @@ function ensureHelperAgentDOM() {
   renderHelperMessages();
 }
 
-/**
- * Toggles helper chat drawer open / close
- */
 function toggleHelperAgent() {
   _isHelperAgentOpen = !_isHelperAgentOpen;
   var drawer = document.getElementById('helper-agent-drawer');
@@ -400,66 +490,58 @@ function toggleHelperAgent() {
   }
 }
 
-/**
- * Clears conversation history back to the initial greeting
- */
 function clearHelperChat() {
   _helperMessages = [
     {
       sender: 'agent',
-      text: 'Conversation reset! I\'m **Stedfast**, your 1st PJ portal helper. How can I assist you today?',
+      text: 'Conversation reset. How may I assist you today regarding 1st PJ Boys\' Brigade?',
       time: 'Just now',
       chips: [
-        { label: '📅 Parade Timings', query: 'What time is Saturday parade and band?' },
-        { label: '🎖️ 80% Attendance Rule', query: 'How does 80% attendance work for badges?' },
-        { label: '👔 Uniform Kits', query: 'What are the official uniform kits?' },
-        { label: '📋 NCO Tasks Board', query: 'How do I use the Projects and Tasks board?' },
-        { label: '🐞 Report a Bug', query: 'I want to report a bug in the portal' }
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+        { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
+        { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' },
+        { label: 'NCO Tasks Board', query: 'How do I use the Projects and Tasks board?', icon: 'tasks' },
+        { label: 'Report a Bug', query: 'I want to report a bug in the portal', icon: 'bugs' }
       ]
     }
   ];
   renderHelperMessages();
 }
 
-/**
- * Renders conversation messages in the Helper Agent drawer
- */
 function renderHelperMessages() {
   if (typeof document === 'undefined') return;
-  var body = document.getElementById('helper-drawer-body');
+  var body = document.getElementById('helper-chat-body');
   if (!body) return;
 
   var html = '';
-  _helperMessages.forEach(function(msg, idx) {
+  _helperMessages.forEach(function(msg) {
     var isUser = msg.sender === 'user';
     var safeText = formatHelperMarkdown(msg.text);
 
-    html += '<div class="helper-msg-row ' + (isUser ? 'msg-user' : 'msg-agent') + '">'
-      + (!isUser ? '<div class="helper-msg-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-xs"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg></div>' : '')
-      + '<div class="helper-msg-bubble">'
-        + '<div class="helper-msg-text">' + safeText + '</div>'
-        + (msg.triage ? renderTriageCardHtml(msg.triage, idx) : '')
-        + (msg.chips && msg.chips.length ? renderChipsHtml(msg.chips) : '')
-        + '<div class="helper-msg-time">' + (msg.time || '') + '</div>'
-      + '</div>'
-    + '</div>';
+    html += 
+      '<div class="helper-bubble-wrap ' + (isUser ? 'user-wrap' : 'agent-wrap') + '">' +
+        '<div class="helper-bubble ' + (isUser ? 'user-bubble' : 'agent-bubble') + '">' +
+          '<div class="helper-bubble-text">' + safeText + '</div>' +
+          (msg.triage ? renderTriageCardHtml(msg.triage) : '') +
+          (msg.chips && msg.chips.length ? renderChipsHtml(msg.chips) : '') +
+          '<div class="helper-bubble-time">' + (msg.time || '') + '</div>' +
+        '</div>' +
+      '</div>';
   });
 
   body.innerHTML = html;
   body.scrollTop = body.scrollHeight;
 }
 
-/**
- * Formats basic markdown bold, italic, code, line breaks safely
- */
 function formatHelperMarkdown(text) {
   if (!text) return '';
-  var s = (typeof escapeHtml === 'function') ? escapeHtml(text) : text;
-  s = s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  s = s.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  s = s.replace(/`([^`]+)`/g, '<code class="helper-inline-code">$1</code>');
-  s = s.replace(/\n/g, '<br/>');
-  return s;
+  var safe = (typeof escapeHtml === 'function') ? escapeHtml(text) : text;
+  safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;font-family:var(--font-mono);font-size:11px;">$1</code>');
+  safe = safe.replace(/\n- /g, '<br>&bull; ');
+  safe = safe.replace(/\n\n/g, '<br><br>');
+  safe = safe.replace(/\n/g, '<br>');
+  return safe;
 }
 
 function renderChipsHtml(chips) {
@@ -467,178 +549,115 @@ function renderChipsHtml(chips) {
   chips.forEach(function(c) {
     var safeLabel = (typeof escapeHtml === 'function') ? escapeHtml(c.label) : c.label;
     var safeQ = (typeof escapeHtml === 'function') ? escapeHtml(c.query) : c.query;
-    h += '<button type="button" class="helper-chip" onclick="sendHelperPrompt(\'' + safeQ.replace(/'/g, "\\'") + '\')">' + safeLabel + '</button>';
+    var iconSvg = FORUM_ICONS[c.icon] || '';
+    h += '<button type="button" class="helper-chip" onclick="sendHelperPrompt(\'' + safeQ.replace(/'/g, "\\'") + '\')">' + iconSvg + '<span>' + safeLabel + '</span></button>';
   });
   h += '</div>';
   return h;
 }
 
-function renderTriageCardHtml(triage, msgIdx) {
-  var safeCat = (typeof escapeHtml === 'function') ? escapeHtml(triage.categoryLabel) : triage.categoryLabel;
+function renderTriageCardHtml(triage) {
+  var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(triage.suggestedTitle) : triage.suggestedTitle;
+  var safeCat = (typeof escapeHtml === 'function') ? escapeHtml(triage.category) : triage.category;
   var safeTag = (typeof escapeHtml === 'function') ? escapeHtml(triage.tag) : triage.tag;
+  var iconSvg = FORUM_ICONS[triage.category] || FORUM_ICONS.bugs;
 
-  return '<div class="helper-triage-card">'
-    + '<div class="helper-triage-header">'
-      + '<span class="helper-tag-pill">' + safeTag + '</span>'
-      + '<span style="font-size:10.5px;color:var(--text-muted);">' + safeCat + '</span>'
-    + '</div>'
-    + '<div style="font-size:11px;color:var(--text-secondary);margin:6px 0;">Would you like me to log this bug to the community forum?</div>'
-    + '<button type="button" class="helper-escalate-btn" onclick="escalateToForumFromChat(' + msgIdx + ')">'
-      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-xs"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
-      + 'Post to Bug &amp; Support Forum'
-    + '</button>'
-  + '</div>';
+  return '<div class="helper-triage-card">' +
+    '<div class="helper-triage-header">' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+        iconSvg +
+        '<span style="font-weight:700;font-size:11.5px;color:var(--text-primary);">' + triage.categoryLabel + '</span>' +
+      '</div>' +
+      '<span class="helper-triage-tag">' + safeTag + '</span>' +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--text-secondary);margin-bottom:8px;">Suggested thread title: <em>"' + safeTitle + '"</em></div>' +
+    '<button type="button" class="helper-escalate-btn" onclick="escalateToForumFromChat(\'' + safeTitle.replace(/'/g, "\\'") + '\', \'' + safeCat + '\', \'' + safeTag + '\')">' +
+      FORUM_ICONS.plus + ' <span>Post to Bug &amp; Support Forum</span>' +
+    '</button>' +
+  '</div>';
 }
 
-/**
- * Handles text input submission to Helper Agent
- */
 function handleHelperSubmit(e) {
   if (e && e.preventDefault) e.preventDefault();
   var input = document.getElementById('helper-agent-input');
   if (!input) return;
-  var q = (input.value || '').trim();
-  if (!q) return;
+  var text = (input.value || '').trim();
+  if (!text) return;
+
   input.value = '';
-  sendHelperPrompt(q);
+  sendHelperPrompt(text);
 }
 
-function sendHelperPrompt(userText) {
+function sendHelperPrompt(userPrompt) {
   var now = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
-
-  // Add user message
   _helperMessages.push({
     sender: 'user',
-    text: userText,
+    text: userPrompt,
     time: now
   });
   renderHelperMessages();
 
-  // Generate Agent response
   setTimeout(function() {
-    var reply = queryHelperAgent(userText);
+    var reply = queryHelperAgent(userPrompt);
+    var botTime = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
     _helperMessages.push({
       sender: 'agent',
       text: reply.text,
-      time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
       triage: reply.triage,
+      time: botTime,
       chips: !reply.triage ? [
-        { label: '📅 Parade Timings', query: 'What time is Saturday parade and band?' },
-        { label: '🎖️ 80% Attendance Rule', query: 'How does 80% attendance work for badges?' },
-        { label: '👔 Uniform Kits', query: 'What are the official uniform kits?' }
-      ] : null
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+        { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
+        { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' }
+      ] : []
     });
     renderHelperMessages();
-  }, 350);
+  }, 250);
 }
 
-/**
- * Escalates an automated triage card from chat directly to the Bug Forum
- */
-function escalateToForumFromChat(msgIdx) {
-  var msg = _helperMessages[msgIdx];
-  if (!msg || !msg.triage) return;
-  var triage = msg.triage;
-
-  var author = 'Anonymous Member';
-  var email = 'member@1stpj.org';
-  var rank = 'Member';
-
-  if (typeof sessionGet === 'function') {
-    author = sessionGet('name') || author;
-    email = sessionGet('email') || email;
-    rank = sessionGet('rank') || rank;
+function escalateToForumFromChat(title, category, tag) {
+  if (_isHelperAgentOpen) toggleHelperAgent();
+  if (typeof switchTabNav === 'function') {
+    switchTabNav('forum');
+  } else if (typeof switchTab === 'function') {
+    switchTab('forum');
   }
-
-  var newPost = {
-    id: 'post-' + Date.now(),
-    title: triage.suggestedTitle,
-    category: triage.category,
-    categoryLabel: triage.categoryLabel,
-    tag: triage.tag,
-    status: 'open',
-    authorName: author,
-    authorRank: rank,
-    authorEmail: email,
-    date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
-    time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
-    content: 'Automated Issue Triage escalated via Stedfast AI Helper:\n\nUser Question/Report: "' + triage.suggestedTitle + '"\nTriaged Category: ' + triage.categoryLabel + ' (' + triage.tag + ')\nSubmitted by: ' + author + ' (' + rank + ').',
-    upvotes: 1,
-    upvotedBy: [email],
-    replies: [
-      {
-        id: 'rep-init-' + Date.now(),
-        authorName: 'Stedfast AI',
-        authorRank: 'Bot',
-        authorRole: 'Automated Triage',
-        date: 'Just now',
-        time: '',
-        isOfficial: true,
-        content: '🤖 Issue automatically triaged and assigned to Dev Team backlog. Officers and developers have been notified.'
-      }
-    ],
-    triagedByAgent: true
-  };
-
-  forumPosts.unshift(newPost);
-  saveForumPosts(forumPosts);
-
-  // Mark triage resolved in chat
-  msg.triage = null;
-  _helperMessages.push({
-    sender: 'agent',
-    text: '✅ Your issue has been successfully logged to our **Support & Bug Forum** as: *" ' + newPost.title + ' "*.\n\n[Click here to view your post in the Forum →](javascript:switchTabNav(\'forum\'))',
-    time: 'Just now'
-  });
-  renderHelperMessages();
-
-  if (typeof showToast === 'function') {
-    showToast('Bug escalated to Support Forum!', 'success');
-  }
+  setTimeout(function() {
+    openCreateForumPostModal({
+      title: title,
+      category: category,
+      tag: tag,
+      content: 'Escalated from Stedfast AI Helper conversation regarding ' + (category || 'general issue') + '.'
+    });
+  }, 200);
 }
 
-// ── Support & Bug Forum Tab Controller ────────────────────────────────────────
+// ── Support & Bug Forum Tab Controller ───────────────────────────────────────
+
 /**
- * Loads Forum posts from Supabase bb_config with fallback to default set
+ * Ensures #page-forum is properly attached as a direct child of #app-main
  */
-async function loadForumPosts() {
-  try {
-    var client = (typeof getSupa === 'function') ? getSupa() : null;
-    if (client && typeof client.get === 'function') {
-      var rows = await client.get('bb_config?key=eq.bb_forum_posts&select=value');
-      if (rows && rows.length && rows[0].value) {
-        var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
-        if (Array.isArray(parsed) && parsed.length) {
-          forumPosts = parsed;
-        }
-      }
+function ensureForumPageDOM() {
+  if (typeof document === 'undefined') return null;
+
+  var page = document.getElementById('page-forum');
+  var main = document.getElementById('app-main') || document.querySelector('.app-main') || document.querySelector('main');
+
+  if (!page) {
+    page = document.createElement('section');
+    page.id = 'page-forum';
+    page.className = 'page';
+    page.setAttribute('aria-label', 'Support & Bug Forum');
+    if (main) {
+      main.appendChild(page);
+    } else {
+      document.body.appendChild(page);
     }
-  } catch (e) {
-    console.warn('loadForumPosts error:', e);
+  } else if (main && page.parentElement !== main) {
+    main.appendChild(page);
   }
-  return forumPosts;
-}
 
-/**
- * Saves Forum posts to Supabase bb_config
- */
-async function saveForumPosts(newList) {
-  if (Array.isArray(newList)) {
-    forumPosts = newList;
-  }
-  try {
-    var client = (typeof getSupa === 'function') ? getSupa() : null;
-    if (client && typeof client.upsert === 'function') {
-      await client.upsert('bb_config', {
-        key: 'bb_forum_posts',
-        value: JSON.stringify(forumPosts)
-      }, 'key');
-    }
-  } catch (e) {
-    console.warn('saveForumPosts error:', e);
-  }
-  renderForumFeed();
-  return true;
+  return page;
 }
 
 /**
@@ -647,183 +666,203 @@ async function saveForumPosts(newList) {
 function renderForumPage() {
   if (typeof document === 'undefined') return;
 
-  // Dynamically ensure #page-forum section exists (preserves exact 388 DOM IDs in index.html)
-  var page = document.getElementById('page-forum');
-  if (!page) {
-    var main = document.querySelector('.main-content') || document.body;
-    page = document.createElement('section');
-    page.id = 'page-forum';
-    page.className = 'page active';
-    page.setAttribute('aria-label', 'Support & Bug Forum');
-    main.appendChild(page);
-  } else {
-    page.classList.add('active');
-  }
+  var page = ensureForumPageDOM();
+  if (!page) return;
+  page.classList.add('active');
 
   page.innerHTML = 
     '<div class="forum-container">' +
-      '<!-- Header Hero -->' +
-      '<div class="forum-hero-card">' +
-        '<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;">' +
-          '<div>' +
-            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--text-primary);letter-spacing:0.5px;display:flex;align-items:center;gap:10px;">' +
-              '<span class="forum-hero-icon">' +
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon">' +
-                  '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' +
-                '</svg>' +
-              '</span>' +
-              'Support &amp; Bug Forum' +
+      '<!-- Header Card matching standard portal pages -->' +
+      '<div class="card page-header-card forum-hero-card" style="margin-bottom:14px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px;">' +
+          '<div style="display:flex;align-items:center;gap:12px;">' +
+            '<div style="width:40px;height:40px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+              FORUM_ICONS.general +
             '</div>' +
-            '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;max-width:640px;line-height:1.5;">' +
-              'Ask member questions, browse official troubleshooting guides, and report portal bugs directly to the 1st PJ Dev Team.' +
+            '<div>' +
+              '<div class="page-title" style="margin:0;">Support &amp; Bug Forum</div>' +
+              '<div class="page-subtitle" style="margin:0;">Community help, questions &amp; direct bug tracking for 1st PJ Web Portal</div>' +
             '</div>' +
           '</div>' +
-          '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<button type="button" class="portal-btn portal-btn-primary" onclick="openCreateForumPostModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;">' +
-              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-xs"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
-              '+ New Post / Bug Report' +
-            '</button>' +
-          '</div>' +
+          '<button type="button" class="portal-btn portal-btn-primary" onclick="openCreateForumPostModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:8px 16px;">' +
+            FORUM_ICONS.plus + ' <span>New Post</span>' +
+          '</button>' +
         '</div>' +
+        '<div class="page-desc">Ask questions about badge advancement, uniform kits, and portal tools, or submit technical bug reports directly to the 1st PJ development team and officers.</div>' +
       '</div>' +
 
-      '<!-- Search & Filter Controls Bar -->' +
+      '<!-- Controls Bar: Search & Status Filter -->' +
       '<div class="forum-controls-bar">' +
         '<div class="forum-search-wrap">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-sm" style="color:var(--text-muted);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' +
-          '<input type="search" class="forum-search-input" placeholder="Search forum posts, bug reports, tags..." oninput="handleForumSearch(this.value)" />' +
+          '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '<input type="text" id="forum-search-input" class="forum-search-input" placeholder="Search discussions &amp; bugs..." oninput="handleForumSearch(this.value)" />' +
         '</div>' +
-        '<div class="forum-filter-scroll">' +
-          '<button type="button" class="forum-filter-pill active" data-cat="all" onclick="filterForumCategory(\'all\', this)">All Categories</button>' +
-          '<button type="button" class="forum-filter-pill" data-cat="bugs" onclick="filterForumCategory(\'bugs\', this)">🐞 Bugs</button>' +
-          '<button type="button" class="forum-filter-pill" data-cat="badges" onclick="filterForumCategory(\'badges\', this)">🎖️ Badges</button>' +
-          '<button type="button" class="forum-filter-pill" data-cat="account" onclick="filterForumCategory(\'account\', this)">🔐 Account</button>' +
-          '<button type="button" class="forum-filter-pill" data-cat="store" onclick="filterForumCategory(\'store\', this)">🛍️ Store</button>' +
-          '<button type="button" class="forum-filter-pill" data-cat="attendance" onclick="filterForumCategory(\'attendance\', this)">📊 Attendance</button>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:6px;">' +
-          '<select class="form-input" style="font-size:11px;padding:4px 8px;width:auto;" onchange="filterForumStatus(this.value)">' +
+        '<div class="forum-status-select-wrap">' +
+          '<select id="forum-status-filter" class="form-select" onchange="filterForumStatus(this.value)" style="padding:7px 12px;font-size:12.5px;height:auto;min-width:130px;">' +
             '<option value="all">All Status</option>' +
-            '<option value="open">🟢 Open</option>' +
-            '<option value="resolved">🔵 Resolved</option>' +
+            '<option value="open">Open</option>' +
+            '<option value="resolved">Resolved</option>' +
           '</select>' +
         '</div>' +
       '</div>' +
 
-      '<!-- Posts Feed Container -->' +
-      '<div class="forum-feed-container" id="forum-feed-container">' +
-        '<!-- Rendered via renderForumFeed() -->' +
+      '<!-- Category Filter Pills (Zero Emojis, Clean SVG Icons) -->' +
+      '<div class="forum-filter-scroll" style="margin-bottom:16px;">' +
+        '<button type="button" class="forum-filter-pill active" data-cat="all" onclick="filterForumCategory(\'all\', this)">' +
+          FORUM_ICONS.all + ' <span>All Topics</span>' +
+        '</button>' +
+        '<button type="button" class="forum-filter-pill" data-cat="bugs" onclick="filterForumCategory(\'bugs\', this)">' +
+          FORUM_ICONS.bugs + ' <span>Bugs</span>' +
+        '</button>' +
+        '<button type="button" class="forum-filter-pill" data-cat="badges" onclick="filterForumCategory(\'badges\', this)">' +
+          FORUM_ICONS.badges + ' <span>Badges</span>' +
+        '</button>' +
+        '<button type="button" class="forum-filter-pill" data-cat="account" onclick="filterForumCategory(\'account\', this)">' +
+          FORUM_ICONS.account + ' <span>Account</span>' +
+        '</button>' +
+        '<button type="button" class="forum-filter-pill" data-cat="store" onclick="filterForumCategory(\'store\', this)">' +
+          FORUM_ICONS.store + ' <span>Store</span>' +
+        '</button>' +
+        '<button type="button" class="forum-filter-pill" data-cat="attendance" onclick="filterForumCategory(\'attendance\', this)">' +
+          FORUM_ICONS.attendance + ' <span>Attendance</span>' +
+        '</button>' +
       '</div>' +
+
+      '<!-- Discussion Feed Stream -->' +
+      '<div id="forum-feed-container" class="forum-feed-container"></div>' +
     '</div>';
 
   renderForumFeed();
 }
 
-/**
- * Filters and renders posts into the forum feed
- */
-function renderForumFeed() {
-  if (typeof document === 'undefined') return;
-  var feed = document.getElementById('forum-feed-container');
-  if (!feed) return;
-
-  var q = (_forumSearchQuery || '').toLowerCase().trim();
-  var filtered = forumPosts.filter(function(p) {
-    if (_currentForumCategory !== 'all' && p.category !== _currentForumCategory) return false;
-    if (_currentForumStatus !== 'all' && p.status !== _currentForumStatus) return false;
-    if (q) {
-      var matchTitle = (p.title || '').toLowerCase().indexOf(q) !== -1;
-      var matchContent = (p.content || '').toLowerCase().indexOf(q) !== -1;
-      var matchTag = (p.tag || '').toLowerCase().indexOf(q) !== -1;
-      var matchAuthor = (p.authorName || '').toLowerCase().indexOf(q) !== -1;
-      if (!matchTitle && !matchContent && !matchTag && !matchAuthor) return false;
-    }
-    return true;
-  });
-
-  if (!filtered.length) {
-    feed.innerHTML = 
-      '<div class="forum-empty-card">' +
-        '<div class="forum-empty-icon">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-lg"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-        '</div>' +
-        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-top:8px;">No forum posts found</div>' +
-        '<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Try adjusting your search terms or be the first to create a post!</div>' +
-      '</div>';
-    return;
-  }
-
-  var html = '';
-  filtered.forEach(function(post) {
-    var isResolved = post.status === 'resolved';
-    var statusClass = isResolved ? 'status-resolved' : 'status-open';
-    var statusText = isResolved ? 'Resolved' : 'Open';
-    var replyCount = post.replies ? post.replies.length : 0;
-    var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(post.title) : post.title;
-    var safeTag = (typeof escapeHtml === 'function') ? escapeHtml(post.tag || post.category) : post.tag;
-    var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(post.authorName) : post.authorName;
-    var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(post.authorRank || 'Member') : post.authorRank;
-    var safeExcerpt = (typeof escapeHtml === 'function') ? escapeHtml(post.content) : post.content;
-    if (safeExcerpt.length > 180) safeExcerpt = safeExcerpt.slice(0, 177) + '...';
-
-    html += 
-      '<div class="forum-post-card" onclick="openForumPostDetail(\'' + post.id + '\')">' +
-        '<div class="forum-post-top">' +
-          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-            '<span class="forum-status-badge ' + statusClass + '">' + statusText + '</span>' +
-            '<span class="forum-category-pill">' + safeTag + '</span>' +
-            (post.triagedByAgent ? '<span class="forum-triaged-badge" title="Auto-triaged by Stedfast AI">🤖 Stedfast Triaged</span>' : '') +
-          '</div>' +
-          '<div class="forum-post-meta">' + (post.date || '') + '</div>' +
-        '</div>' +
-        '<div class="forum-post-title">' + safeTitle + '</div>' +
-        '<div class="forum-post-excerpt">' + safeExcerpt + '</div>' +
-        '<div class="forum-post-footer">' +
-          '<div class="forum-author-meta">' +
-            '<div class="forum-avatar-mini">' + (safeAuthor.charAt(0).toUpperCase()) + '</div>' +
-            '<div>' +
-              '<span class="forum-author-name">' + safeAuthor + '</span>' +
-              '<span class="forum-author-rank">&middot; ' + safeRank + '</span>' +
-            '</div>' +
-          '</div>' +
-          '<div class="forum-post-stats">' +
-            '<button type="button" class="forum-stat-btn" onclick="event.stopPropagation();upvoteForumPost(\'' + post.id + '\')" title="Upvote post">' +
-              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-xs"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>' +
-              ' ' + (post.upvotes || 0) +
-            '</button>' +
-            '<span class="forum-stat-pill">' +
-              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ui-icon-xs"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
-              ' ' + replyCount + ' replies' +
-            '</span>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-  });
-
-  feed.innerHTML = html;
-}
-
 function handleForumSearch(val) {
-  _forumSearchQuery = val || '';
+  _forumSearchQuery = (val || '').toLowerCase().trim();
   renderForumFeed();
 }
 
 function filterForumCategory(cat, btn) {
   _currentForumCategory = cat;
-  document.querySelectorAll('.forum-filter-pill').forEach(function(b) { b.classList.remove('active'); });
-  if (btn) btn.classList.add('active');
+  if (typeof document !== 'undefined') {
+    document.querySelectorAll('.forum-filter-pill').forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+  }
   renderForumFeed();
 }
 
-function filterForumStatus(st) {
-  _currentForumStatus = st;
+function filterForumStatus(status) {
+  _currentForumStatus = status;
   renderForumFeed();
 }
 
-function upvoteForumPost(postId) {
+function renderForumFeed() {
+  if (typeof document === 'undefined') return;
+  var container = document.getElementById('forum-feed-container');
+  if (!container) return;
+
+  var filtered = forumPosts.filter(function(p) {
+    if (_currentForumCategory !== 'all' && p.category !== _currentForumCategory) return false;
+    if (_currentForumStatus !== 'all' && p.status !== _currentForumStatus) return false;
+    if (_forumSearchQuery) {
+      var matchTitle = (p.title || '').toLowerCase().indexOf(_forumSearchQuery) !== -1;
+      var matchContent = (p.content || '').toLowerCase().indexOf(_forumSearchQuery) !== -1;
+      var matchAuthor = (p.authorName || '').toLowerCase().indexOf(_forumSearchQuery) !== -1;
+      var matchTag = (p.tag || '').toLowerCase().indexOf(_forumSearchQuery) !== -1;
+      if (!matchTitle && !matchContent && !matchAuthor && !matchTag) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    container.innerHTML = 
+      '<div class="forum-empty-card" style="background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;padding:36px 20px;text-align:center;">' +
+        '<div style="width:48px;height:48px;border-radius:12px;background:var(--surface-tint);color:var(--text-muted);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">' +
+          FORUM_ICONS.message +
+        '</div>' +
+        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">No discussions match your filter</div>' +
+        '<div style="font-size:12.5px;color:var(--text-muted);margin-bottom:16px;">Try adjusting your search terms or create a new post to get help.</div>' +
+        '<button type="button" class="portal-btn portal-btn-primary" onclick="openCreateForumPostModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12px;padding:7px 14px;">' +
+          FORUM_ICONS.plus + ' <span>New Post</span>' +
+        '</button>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(p) {
+    var isResolved = p.status === 'resolved';
+    var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(p.title) : p.title;
+    var safeContent = (typeof escapeHtml === 'function') ? escapeHtml(p.content) : p.content;
+    var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(p.authorName) : p.authorName;
+    var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(p.authorRank || 'Member') : p.authorRank;
+    var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
+    var excerpt = safeContent.length > 150 ? (safeContent.slice(0, 147) + '...') : safeContent;
+    var perms = getForumUserPermissions(p);
+
+    var adminActionsHtml = '';
+    if (perms.canChangeStatus) {
+      adminActionsHtml += 
+        '<button type="button" class="forum-action-btn" onclick="event.stopPropagation(); toggleForumPostStatus(\'' + p.id + '\')" title="' + (isResolved ? 'Re-open' : 'Mark as Resolved') + '">' +
+          (isResolved ? FORUM_ICONS.refresh : FORUM_ICONS.check) +
+          '<span>' + (isResolved ? 'Re-open' : 'Resolve') + '</span>' +
+        '</button>';
+    }
+    if (perms.canEdit) {
+      adminActionsHtml += 
+        '<button type="button" class="forum-action-btn" onclick="event.stopPropagation(); openEditForumPostModal(\'' + p.id + '\')" title="Edit post">' +
+          FORUM_ICONS.edit + '<span>Edit</span>' +
+        '</button>';
+    }
+    if (perms.canDelete) {
+      adminActionsHtml += 
+        '<button type="button" class="forum-action-btn btn-danger" onclick="event.stopPropagation(); deleteForumPost(\'' + p.id + '\')" title="Delete post">' +
+          FORUM_ICONS.delete + '<span>Delete</span>' +
+        '</button>';
+    }
+
+    html += 
+      '<div class="forum-post-card" onclick="openForumPostDetail(\'' + p.id + '\')">' +
+        '<div class="forum-post-top">' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<span class="forum-status-badge ' + (isResolved ? 'status-resolved' : 'status-open') + '">' +
+              (isResolved ? 'Resolved' : 'Open') +
+            '</span>' +
+            '<span class="forum-category-pill" style="display:inline-flex;align-items:center;gap:4px;">' +
+              catIcon + ' <span>' + (p.tag || p.category) + '</span>' +
+            '</span>' +
+            (p.triagedByAgent ? '<span class="forum-triaged-badge">Stedfast Triaged</span>' : '') +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            adminActionsHtml +
+            '<span class="forum-post-meta">' + (p.date || '') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="forum-post-title">' + safeTitle + '</div>' +
+        '<div class="forum-post-excerpt">' + excerpt + '</div>' +
+        '<div class="forum-post-footer">' +
+          '<div class="forum-author-meta">' +
+            '<div class="forum-avatar-mini">' + safeAuthor.charAt(0).toUpperCase() + '</div>' +
+            '<span style="font-size:12px;font-weight:600;color:var(--text-primary);">' + safeAuthor + '</span>' +
+            '<span style="font-size:11px;color:var(--text-muted);">&bull; ' + safeRank + '</span>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:14px;">' +
+            '<button type="button" class="forum-stat-pill" onclick="event.stopPropagation(); upvoteForumPost(\'' + p.id + '\')" title="Upvote discussion">' +
+              FORUM_ICONS.upvote + ' ' + (p.upvotes || 0) +
+            '</button>' +
+            '<div class="forum-stat-pill" title="Replies">' +
+              FORUM_ICONS.message + ' ' + (p.replies ? p.replies.length : 0) + ' replies' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function upvoteForumPost(postId, userEmail) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
-  var email = (typeof sessionGet === 'function') ? (sessionGet('email') || 'guest') : 'guest';
+  var email = userEmail || ((typeof sessionGet === 'function') ? (sessionGet('email') || 'guest') : 'guest');
   p.upvotedBy = p.upvotedBy || [];
   if (p.upvotedBy.indexOf(email) !== -1) {
     p.upvotes = Math.max(0, (p.upvotes || 1) - 1);
@@ -835,60 +874,63 @@ function upvoteForumPost(postId) {
   saveForumPosts(forumPosts);
 }
 
-// ── Modals: Create Post & Post Details ────────────────────────────────────────
-function removeDomElement(el) {
-  if (!el) return;
-  if (typeof el.remove === 'function') {
-    el.remove();
-  } else if (el.parentNode && typeof el.parentNode.removeChild === 'function') {
-    el.parentNode.removeChild(el);
-  }
-}
+// ── Modals: Create, Edit & Post Details ────────────────────────────────────────
 
-function openCreateForumPostModal() {
+/**
+ * Opens modal dialog to create a new discussion thread or report a bug
+ */
+function openCreateForumPostModal(prefill) {
+  if (typeof document === 'undefined') return;
+
   var existing = document.getElementById('forum-create-modal');
   removeDomElement(existing);
 
   var modal = document.createElement('div');
   modal.id = 'forum-create-modal';
-  modal.className = 'portal-modal-backdrop';
-  modal.style.display = 'flex';
+  modal.className = 'portal-modal-overlay';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
+  modal.onclick = function(e) {
+    if (e.target === modal) removeDomElement(modal);
+  };
+
+  var pf = prefill || {};
 
   modal.innerHTML = 
-    '<div class="portal-modal-card" style="max-width:560px;width:100%;">' +
+    '<div class="portal-modal-card" style="max-width:580px;width:100%;max-height:88vh;overflow-y:auto;">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">' +
-        '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);">Create Forum Post / Bug Report</div>' +
+        '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
+          FORUM_ICONS.plus + ' <span>Create Forum Post / Bug Report</span>' +
+        '</div>' +
         '<button type="button" class="helper-icon-btn" onclick="document.getElementById(\'forum-create-modal\').remove()">&times;</button>' +
       '</div>' +
       '<form onsubmit="submitNewForumPost(event)">' +
-        '<div class="form-group" style="margin-bottom:12px;">' +
-          '<label class="form-label">Post Title / Issue Summary *</label>' +
-          '<input type="text" id="forum-new-title" class="form-input" required placeholder="e.g. Cannot see uniform size options or Question on badge requirements" />' +
+        '<div class="form-group">' +
+          '<label class="form-label">Post Title</label>' +
+          '<input type="text" id="forum-new-title" class="form-input" placeholder="e.g., Cannot access badge advancement requirements..." required value="' + (pf.title ? (typeof escapeHtml === 'function' ? escapeHtml(pf.title) : pf.title) : '') + '" />' +
         '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">' +
-          '<div>' +
-            '<label class="form-label">Category *</label>' +
-            '<select id="forum-new-category" class="form-input">' +
-              '<option value="bugs">🐞 Bugs &amp; Glitches</option>' +
-              '<option value="badges">🎖️ Badges &amp; Awards</option>' +
-              '<option value="account">🔐 Account &amp; Access</option>' +
-              '<option value="store">🛍️ Uniform Store</option>' +
-              '<option value="attendance">📊 Attendance &amp; Sync</option>' +
-              '<option value="general">💬 General Support</option>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Category</label>' +
+            '<select id="forum-new-category" class="form-select">' +
+              '<option value="bugs"' + (pf.category === 'bugs' ? ' selected' : '') + '>Bugs &amp; Glitches</option>' +
+              '<option value="badges"' + (pf.category === 'badges' ? ' selected' : '') + '>Badges &amp; Awards</option>' +
+              '<option value="account"' + (pf.category === 'account' ? ' selected' : '') + '>Account &amp; Access</option>' +
+              '<option value="store"' + (pf.category === 'store' ? ' selected' : '') + '>Uniform Store</option>' +
+              '<option value="attendance"' + (pf.category === 'attendance' ? ' selected' : '') + '>Attendance &amp; Standings</option>' +
+              '<option value="general"' + (pf.category === 'general' ? ' selected' : '') + '>General Discussion</option>' +
             '</select>' +
           '</div>' +
-          '<div>' +
-            '<label class="form-label">Issue Tag</label>' +
-            '<input type="text" id="forum-new-tag" class="form-input" placeholder="e.g. ui-glitch, badge-advancement" />' +
+          '<div class="form-group">' +
+            '<label class="form-label">Tag / Component</label>' +
+            '<input type="text" id="forum-new-tag" class="form-input" placeholder="e.g., badge-tracker, ui-glitch" value="' + (pf.tag ? (typeof escapeHtml === 'function' ? escapeHtml(pf.tag) : pf.tag) : '') + '" />' +
           '</div>' +
         '</div>' +
-        '<div class="form-group" style="margin-bottom:14px;">' +
-          '<label class="form-label">Detailed Description / Steps to Reproduce *</label>' +
-          '<textarea id="forum-new-content" class="form-input" rows="4" required placeholder="Describe what happened, what you expected, and any helpful context for the officers and developers..."></textarea>' +
+        '<div class="form-group">' +
+          '<label class="form-label">Description / Steps to Reproduce</label>' +
+          '<textarea id="forum-new-content" class="form-textarea" rows="5" placeholder="Describe your question or issue in detail..." required>' + (pf.content ? (typeof escapeHtml === 'function' ? escapeHtml(pf.content) : pf.content) : '') + '</textarea>' +
         '</div>' +
-        '<div style="display:flex;justify-content:flex-end;gap:8px;">' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">' +
           '<button type="button" class="portal-btn portal-btn-secondary" onclick="document.getElementById(\'forum-create-modal\').remove()">Cancel</button>' +
           '<button type="submit" class="portal-btn portal-btn-primary" style="font-weight:700;">Publish Post</button>' +
         '</div>' +
@@ -920,19 +962,29 @@ function submitNewForumPost(e, customPost) {
   if (!title || !content) return;
 
   var author = 'Anonymous Member';
-  var email = 'member@1stpj.org';
   var rank = 'Member';
+  var email = 'guest@bb1pj.my';
+
   if (typeof sessionGet === 'function') {
     author = sessionGet('name') || author;
-    email = sessionGet('email') || email;
     rank = sessionGet('rank') || rank;
+    email = sessionGet('email') || email;
   }
+
+  var catLabels = {
+    bugs: 'Bugs & Glitches',
+    badges: 'Badges & Awards',
+    account: 'Account & Access',
+    store: 'Uniform Store',
+    attendance: 'Attendance & Standings',
+    general: 'General Discussion'
+  };
 
   var newPost = {
     id: 'post-' + Date.now(),
     title: title,
     category: cat,
-    categoryLabel: cat.charAt(0).toUpperCase() + cat.slice(1),
+    categoryLabel: catLabels[cat] || 'General',
     tag: tag,
     status: 'open',
     authorName: author,
@@ -953,10 +1005,210 @@ function submitNewForumPost(e, customPost) {
   if (typeof document !== 'undefined') {
     var modal = document.getElementById('forum-create-modal');
     removeDomElement(modal);
+    if (typeof showToast === 'function') {
+      showToast('Forum post published!', 'success');
+    }
+  }
+}
+
+/**
+ * Opens edit modal for Admins, Super Admins, or post author
+ */
+function openEditForumPostModal(postId) {
+  if (typeof document === 'undefined') return;
+  var p = forumPosts.find(function(x) { return x.id === postId; });
+  if (!p) return;
+
+  var perms = getForumUserPermissions(p);
+  if (!perms.canEdit) {
+    if (typeof showToast === 'function') showToast('You do not have permission to edit this post.', 'warning');
+    return;
+  }
+
+  var existing = document.getElementById('forum-edit-modal');
+  removeDomElement(existing);
+
+  var modal = document.createElement('div');
+  modal.id = 'forum-edit-modal';
+  modal.className = 'portal-modal-overlay';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.onclick = function(e) {
+    if (e.target === modal) removeDomElement(modal);
+  };
+
+  var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(p.title) : p.title;
+  var safeTag = (typeof escapeHtml === 'function') ? escapeHtml(p.tag || '') : (p.tag || '');
+  var safeContent = (typeof escapeHtml === 'function') ? escapeHtml(p.content) : p.content;
+
+  modal.innerHTML = 
+    '<div class="portal-modal-card" style="max-width:580px;width:100%;max-height:88vh;overflow-y:auto;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">' +
+        '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
+          FORUM_ICONS.edit + ' <span>Edit Forum Post</span>' +
+        '</div>' +
+        '<button type="button" class="helper-icon-btn" onclick="document.getElementById(\'forum-edit-modal\').remove()">&times;</button>' +
+      '</div>' +
+      '<form onsubmit="submitEditForumPost(event, \'' + p.id + '\')">' +
+        '<div class="form-group">' +
+          '<label class="form-label">Post Title</label>' +
+          '<input type="text" id="forum-edit-title" class="form-input" required value="' + safeTitle + '" />' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Category</label>' +
+            '<select id="forum-edit-category" class="form-select">' +
+              '<option value="bugs"' + (p.category === 'bugs' ? ' selected' : '') + '>Bugs &amp; Glitches</option>' +
+              '<option value="badges"' + (p.category === 'badges' ? ' selected' : '') + '>Badges &amp; Awards</option>' +
+              '<option value="account"' + (p.category === 'account' ? ' selected' : '') + '>Account &amp; Access</option>' +
+              '<option value="store"' + (p.category === 'store' ? ' selected' : '') + '>Uniform Store</option>' +
+              '<option value="attendance"' + (p.category === 'attendance' ? ' selected' : '') + '>Attendance &amp; Standings</option>' +
+              '<option value="general"' + (p.category === 'general' ? ' selected' : '') + '>General Discussion</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Tag / Component</label>' +
+            '<input type="text" id="forum-edit-tag" class="form-input" value="' + safeTag + '" />' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">Description / Content</label>' +
+          '<textarea id="forum-edit-content" class="form-textarea" rows="6" required>' + safeContent + '</textarea>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">' +
+          '<button type="button" class="portal-btn portal-btn-secondary" onclick="document.getElementById(\'forum-edit-modal\').remove()">Cancel</button>' +
+          '<button type="submit" class="portal-btn portal-btn-primary" style="font-weight:700;">Save Changes</button>' +
+        '</div>' +
+      '</form>' +
+    '</div>';
+
+  document.body.appendChild(modal);
+}
+
+function submitEditForumPost(e, postId) {
+  if (e && e.preventDefault) e.preventDefault();
+  var p = forumPosts.find(function(x) { return x.id === postId; });
+  if (!p) return;
+
+  var titleEl = document.getElementById('forum-edit-title');
+  var catEl = document.getElementById('forum-edit-category');
+  var tagEl = document.getElementById('forum-edit-tag');
+  var contEl = document.getElementById('forum-edit-content');
+
+  var title = (titleEl && titleEl.value || '').trim();
+  var cat = (catEl && catEl.value) || p.category;
+  var tag = (tagEl && tagEl.value || '').trim() || p.tag;
+  var content = (contEl && contEl.value || '').trim();
+
+  if (!title || !content) return;
+
+  var catLabels = {
+    bugs: 'Bugs & Glitches',
+    badges: 'Badges & Awards',
+    account: 'Account & Access',
+    store: 'Uniform Store',
+    attendance: 'Attendance & Standings',
+    general: 'General Discussion'
+  };
+
+  p.title = title;
+  p.category = cat;
+  p.categoryLabel = catLabels[cat] || 'General';
+  p.tag = tag;
+  p.content = content;
+  p.editedAt = new Date().toISOString();
+
+  saveForumPosts(forumPosts);
+
+  var modal = document.getElementById('forum-edit-modal');
+  removeDomElement(modal);
+
+  // If detail modal is open, re-render it
+  if (document.getElementById('forum-detail-modal')) {
+    openForumPostDetail(postId);
   }
 
   if (typeof showToast === 'function') {
-    showToast('Forum post published successfully!', 'success');
+    showToast('Forum post updated!', 'success');
+  }
+}
+
+/**
+ * Deletes a forum post (Admins, Super Admins, or Post Author)
+ */
+async function deleteForumPost(postId) {
+  var p = forumPosts.find(function(x) { return x.id === postId; });
+  if (!p) return;
+
+  var perms = getForumUserPermissions(p);
+  if (!perms.canDelete) {
+    if (typeof showToast === 'function') showToast('You do not have permission to delete this post.', 'warning');
+    return;
+  }
+
+  var confirmed = true;
+  if (typeof showConfirmModal === 'function') {
+    confirmed = await showConfirmModal(
+      'Delete Forum Post',
+      'Are you sure you want to delete "' + (p.title || 'this post') + '"? This action cannot be undone.',
+      'Delete',
+      'Cancel'
+    );
+  }
+
+  if (!confirmed) return;
+
+  forumPosts = forumPosts.filter(function(x) { return x.id !== postId; });
+  saveForumPosts(forumPosts);
+
+  if (typeof document !== 'undefined') {
+    var detailModal = document.getElementById('forum-detail-modal');
+    removeDomElement(detailModal);
+    if (typeof showToast === 'function') {
+      showToast('Post deleted successfully.', 'info');
+    }
+  }
+}
+
+/**
+ * Deletes a reply within a thread (Admins, Super Admins, or Reply Author)
+ */
+async function deleteForumReply(postId, replyId) {
+  var p = forumPosts.find(function(x) { return x.id === postId; });
+  if (!p || !p.replies) return;
+
+  var reply = p.replies.find(function(r) { return r.id === replyId; });
+  if (!reply) return;
+
+  var perms = getForumUserPermissions(p);
+  var email = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
+  var isReplyAuthor = reply.authorEmail && email && (reply.authorEmail.toLowerCase().trim() === email);
+
+  if (!perms.isAdmin && !isReplyAuthor) {
+    if (typeof showToast === 'function') showToast('You do not have permission to delete this reply.', 'warning');
+    return;
+  }
+
+  var confirmed = true;
+  if (typeof showConfirmModal === 'function') {
+    confirmed = await showConfirmModal(
+      'Delete Reply',
+      'Are you sure you want to delete this reply?',
+      'Delete',
+      'Cancel'
+    );
+  }
+
+  if (!confirmed) return;
+
+  p.replies = p.replies.filter(function(r) { return r.id !== replyId; });
+  saveForumPosts(forumPosts);
+
+  if (typeof document !== 'undefined') {
+    openForumPostDetail(postId);
+    if (typeof showToast === 'function') {
+      showToast('Reply removed.', 'info');
+    }
   }
 }
 
@@ -976,88 +1228,150 @@ function openForumPostDetail(postId) {
   var safeContent = formatHelperMarkdown(p.content);
   var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(p.authorName) : p.authorName;
   var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(p.authorRank || 'Member') : p.authorRank;
+  var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
+  var perms = getForumUserPermissions(p);
+  var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
 
   var repliesHtml = '';
   if (p.replies && p.replies.length) {
     p.replies.forEach(function(r) {
       var rAuthor = (typeof escapeHtml === 'function') ? escapeHtml(r.authorName) : r.authorName;
       var rRank = (typeof escapeHtml === 'function') ? escapeHtml(r.authorRank || '') : r.authorRank;
+      var rRole = (typeof escapeHtml === 'function') ? escapeHtml(r.authorRole || '') : r.authorRole;
       var rContent = formatHelperMarkdown(r.content);
       var isOff = r.isOfficial;
+      var canDeleteThisReply = perms.isAdmin || (r.authorEmail && curEmail && r.authorEmail.toLowerCase().trim() === curEmail);
 
       repliesHtml += 
         '<div class="forum-reply-item ' + (isOff ? 'reply-official' : '') + '">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-weight:700;font-size:12px;color:var(--text-primary);">' + rAuthor + '</span>' +
-              '<span style="font-size:11px;color:var(--text-muted);">' + rRank + '</span>' +
-              (isOff ? '<span class="forum-official-badge">✓ Official Answer</span>' : '') +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+            '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">' +
+              '<span style="font-weight:700;font-size:12.5px;color:var(--text-primary);">' + rAuthor + '</span>' +
+              '<span style="font-size:11px;color:var(--text-muted);">&bull; ' + rRank + '</span>' +
+              (rRole ? '<span style="font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--accent);">' + rRole + '</span>' : '') +
+              (isOff ? '<span class="forum-official-badge" style="display:inline-flex;align-items:center;gap:4px;">' + FORUM_ICONS.check + ' <span>Official Answer</span></span>' : '') +
             '</div>' +
-            '<span style="font-size:10px;color:var(--text-muted);">' + (r.date || '') + ' ' + (r.time || '') + '</span>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<span style="font-size:10.5px;color:var(--text-muted);">' + (r.date || '') + ' ' + (r.time || '') + '</span>' +
+              (canDeleteThisReply ? '<button type="button" class="helper-icon-btn" onclick="deleteForumReply(\'' + p.id + '\', \'' + r.id + '\')" title="Delete reply" style="padding:2px;color:var(--text-muted);">' + FORUM_ICONS.delete + '</button>' : '') +
+            '</div>' +
           '</div>' +
-          '<div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">' + rContent + '</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:2px;">' + rContent + '</div>' +
         '</div>';
     });
   } else {
-    repliesHtml = '<div style="font-size:11.5px;color:var(--text-muted);padding:10px 0;">No replies yet. Be the first to reply!</div>';
+    repliesHtml = '<div style="font-size:12px;color:var(--text-muted);padding:14px 0;text-align:center;background:var(--surface-tint);border-radius:8px;">No replies yet. Be the first to answer!</div>';
+  }
+
+  var headerActionsHtml = '';
+  if (perms.canEdit) {
+    headerActionsHtml += 
+      '<button type="button" class="forum-action-btn" onclick="openEditForumPostModal(\'' + p.id + '\')" title="Edit post">' +
+        FORUM_ICONS.edit + '<span>Edit</span>' +
+      '</button>';
+  }
+  if (perms.canDelete) {
+    headerActionsHtml += 
+      '<button type="button" class="forum-action-btn btn-danger" onclick="deleteForumPost(\'' + p.id + '\')" title="Delete post">' +
+        FORUM_ICONS.delete + '<span>Delete</span>' +
+      '</button>';
   }
 
   var modal = document.createElement('div');
   modal.id = 'forum-detail-modal';
-  modal.className = 'portal-modal-backdrop';
-  modal.style.display = 'flex';
+  modal.className = 'portal-modal-overlay';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
+  modal.onclick = function(e) {
+    if (e.target === modal) removeDomElement(modal);
+  };
 
   modal.innerHTML = 
-    '<div class="portal-modal-card" style="max-width:620px;width:100%;max-height:88vh;overflow-y:auto;">' +
+    '<div class="portal-modal-card" style="max-width:680px;width:100%;max-height:88vh;overflow-y:auto;display:flex;flex-direction:column;">' +
+      '<!-- Modal Top Bar -->' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-        '<div style="display:flex;align-items:center;gap:8px;">' +
-          '<span class="forum-status-badge ' + (isResolved ? 'status-resolved' : 'status-open') + '">' + (isResolved ? 'Resolved' : 'Open') + '</span>' +
-          '<span class="forum-category-pill">' + (p.tag || p.category) + '</span>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span class="forum-status-badge ' + (isResolved ? 'status-resolved' : 'status-open') + '">' +
+            (isResolved ? 'Resolved' : 'Open') +
+          '</span>' +
+          '<span class="forum-category-pill" style="display:inline-flex;align-items:center;gap:4px;">' +
+            catIcon + ' <span>' + (p.tag || p.category) + '</span>' +
+          '</span>' +
         '</div>' +
-        '<button type="button" class="helper-icon-btn" onclick="document.getElementById(\'forum-detail-modal\').remove()">&times;</button>' +
-      '</div>' +
-      '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">' + safeTitle + '</div>' +
-      '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-muted);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border-subtle);">' +
-        '<span>Posted by <strong>' + safeAuthor + '</strong> (' + safeRank + ')</span>' +
-        '<span>&middot;</span>' +
-        '<span>' + (p.date || '') + ' at ' + (p.time || '') + '</span>' +
-      '</div>' +
-      '<div style="font-size:13px;color:var(--text-primary);line-height:1.6;margin-bottom:16px;">' + safeContent + '</div>' +
-      
-      // Admin/Officer Status Switcher Action
-      '<div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg-card-subtle);padding:8px 12px;border-radius:8px;border:1px solid var(--border-card);margin-bottom:16px;">' +
-        '<span style="font-size:11.5px;font-weight:600;color:var(--text-secondary);">Manage Status:</span>' +
-        '<button type="button" class="portal-btn" style="font-size:11px;padding:3px 10px;" onclick="toggleForumPostStatus(\'' + p.id + '\')">' +
-          (isResolved ? 'Re-open Issue' : 'Mark as Resolved ✓') +
-        '</button>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+          headerActionsHtml +
+          '<button type="button" class="helper-icon-btn" onclick="document.getElementById(\'forum-detail-modal\').remove()">&times;</button>' +
+        '</div>' +
       '</div>' +
 
-      // Discussion Thread
-      '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">Discussion (' + (p.replies ? p.replies.length : 0) + ')</div>' +
-      '<div class="forum-replies-list" style="display:grid;gap:8px;margin-bottom:14px;">' +
+      '<!-- Title & Author Byline -->' +
+      '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:8px;line-height:1.35;">' + safeTitle + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-muted);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border-subtle);">' +
+        '<span>Posted by <strong>' + safeAuthor + '</strong> (' + safeRank + ')</span>' +
+        '<span>&bull;</span>' +
+        '<span>' + (p.date || '') + ' at ' + (p.time || '') + '</span>' +
+      '</div>' +
+
+      '<!-- Post Body -->' +
+      '<div style="font-size:13.5px;color:var(--text-primary);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;">' + safeContent + '</div>' +
+      
+      // Admin / Officer Status Switcher
+      (perms.canChangeStatus ? 
+        '<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-tint);padding:10px 14px;border-radius:10px;border:1px solid var(--border-subtle);margin-bottom:16px;">' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">Thread Status:</span>' +
+            '<span class="forum-status-badge ' + (isResolved ? 'status-resolved' : 'status-open') + '">' + (isResolved ? 'Resolved' : 'Open') + '</span>' +
+          '</div>' +
+          '<button type="button" class="portal-btn" style="font-size:11.5px;padding:4px 12px;display:inline-flex;align-items:center;gap:5px;" onclick="toggleForumPostStatus(\'' + p.id + '\')">' +
+            (isResolved ? (FORUM_ICONS.refresh + ' <span>Re-open Issue</span>') : (FORUM_ICONS.check + ' <span>Mark as Resolved</span>')) +
+          '</button>' +
+        '</div>' : ''
+      ) +
+
+      '<!-- Discussion Replies -->' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:6px;border-top:1px solid var(--border-subtle);">' +
+        '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+          FORUM_ICONS.message + ' <span>Discussion (' + (p.replies ? p.replies.length : 0) + ')</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="forum-replies-list" style="display:grid;gap:8px;margin-bottom:16px;">' +
         repliesHtml +
       '</div>' +
 
-      // Add Reply Form
-      '<form onsubmit="submitForumReply(event, \'' + p.id + '\')" style="display:flex;gap:8px;">' +
-        '<input type="text" id="forum-reply-input-' + p.id + '" class="form-input" placeholder="Write a response or solution..." required style="flex:1;" />' +
-        '<button type="submit" class="portal-btn portal-btn-primary" style="font-weight:700;font-size:11.5px;padding:6px 14px;">Reply</button>' +
+      '<!-- Reply Box for Members, Officers and Admins -->' +
+      '<form onsubmit="submitForumReply(event, \'' + p.id + '\')" style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border-subtle);">' +
+        '<div style="display:flex;gap:8px;align-items:flex-start;">' +
+          '<textarea id="forum-reply-input-' + p.id + '" class="form-textarea" rows="2" placeholder="Write a reply or solution..." required style="flex:1;resize:vertical;min-height:50px;font-size:13px;padding:8px 12px;"></textarea>' +
+          '<button type="submit" class="portal-btn portal-btn-primary" style="font-weight:700;font-size:12px;padding:8px 16px;height:auto;display:inline-flex;align-items:center;gap:6px;">' +
+            FORUM_ICONS.send + ' <span>Reply</span>' +
+          '</button>' +
+        '</div>' +
       '</form>' +
     '</div>';
 
   document.body.appendChild(modal);
 }
 
-function toggleForumPostStatus(postId) {
+function toggleForumPostStatus(postId, bypassPerms) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
+
+  var perms = getForumUserPermissions(p);
+  if (!bypassPerms && !perms.canChangeStatus) {
+    if (typeof showToast === 'function') showToast('Only Officers and Admins can update post status.', 'warning');
+    return;
+  }
+
   p.status = (p.status === 'resolved') ? 'open' : 'resolved';
   saveForumPosts(forumPosts);
-  if (typeof document !== 'undefined') openForumPostDetail(postId);
-  if (typeof showToast === 'function') {
-    showToast('Post status updated to ' + p.status + '!', 'info');
+
+  if (typeof document !== 'undefined') {
+    if (document.getElementById('forum-post-detail-modal')) {
+      openForumPostDetail(postId);
+    }
+    if (typeof showToast === 'function') {
+      showToast('Post marked as ' + p.status + '!', 'info');
+    }
   }
 }
 
@@ -1068,6 +1382,7 @@ function submitForumReply(e, postId, customText) {
     e = null;
   }
   if (e && e.preventDefault) e.preventDefault();
+
   var text = '';
   if (customText) {
     text = String(customText).trim();
@@ -1078,6 +1393,7 @@ function submitForumReply(e, postId, customText) {
       inp.value = '';
     }
   }
+
   if (!text) return;
 
   var p = forumPosts.find(function(x) { return x.id === postId; });
@@ -1086,11 +1402,13 @@ function submitForumReply(e, postId, customText) {
   var author = 'Anonymous Member';
   var rank = 'Member';
   var role = '';
+  var email = 'guest@bb1pj.my';
   var isOff = false;
 
   if (typeof sessionGet === 'function') {
     author = sessionGet('name') || author;
     rank = sessionGet('rank') || rank;
+    email = sessionGet('email') || email;
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
     var isOfficerRank = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
     if (isSuper) {
@@ -1099,6 +1417,9 @@ function submitForumReply(e, postId, customText) {
     } else if (isOfficerRank) {
       isOff = true;
       role = 'Officer';
+    } else {
+      var dept = sessionGet('department');
+      if (dept) role = dept + ' NCO';
     }
   }
 
@@ -1108,6 +1429,7 @@ function submitForumReply(e, postId, customText) {
     authorName: author,
     authorRank: rank,
     authorRole: role,
+    authorEmail: email,
     date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
     time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
     isOfficial: isOff,
@@ -1115,9 +1437,12 @@ function submitForumReply(e, postId, customText) {
   });
 
   saveForumPosts(forumPosts);
-  if (typeof document !== 'undefined') openForumPostDetail(postId);
-  if (typeof showToast === 'function') {
-    showToast('Reply posted!', 'success');
+
+  if (typeof document !== 'undefined') {
+    openForumPostDetail(postId);
+    if (typeof showToast === 'function') {
+      showToast('Reply posted!', 'success');
+    }
   }
 }
 
@@ -1125,11 +1450,13 @@ function submitForumReply(e, postId, customText) {
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
+      ensureForumPageDOM();
       ensureHelperAgentDOM();
       loadForumPosts();
     });
   } else {
     setTimeout(function() {
+      ensureForumPageDOM();
       ensureHelperAgentDOM();
       loadForumPosts();
     }, 0);
@@ -1138,9 +1465,11 @@ if (typeof document !== 'undefined') {
 
 // ── Export Interface ─────────────────────────────────────────────────────────
 if (typeof window !== 'undefined') {
+  window.FORUM_ICONS               = FORUM_ICONS;
   window.DEFAULT_FORUM_POSTS       = DEFAULT_FORUM_POSTS;
   window.loadForumPosts            = loadForumPosts;
   window.saveForumPosts            = saveForumPosts;
+  window.ensureForumPageDOM        = ensureForumPageDOM;
   window.renderForumPage           = renderForumPage;
   window.renderForumFeed           = renderForumFeed;
   window.toggleHelperAgent         = toggleHelperAgent;
@@ -1156,16 +1485,23 @@ if (typeof window !== 'undefined') {
   window.upvoteForumPost           = upvoteForumPost;
   window.openCreateForumPostModal  = openCreateForumPostModal;
   window.submitNewForumPost        = submitNewForumPost;
+  window.openEditForumPostModal    = openEditForumPostModal;
+  window.submitEditForumPost       = submitEditForumPost;
+  window.deleteForumPost           = deleteForumPost;
+  window.deleteForumReply          = deleteForumReply;
   window.openForumPostDetail       = openForumPostDetail;
   window.toggleForumPostStatus     = toggleForumPostStatus;
   window.submitForumReply          = submitForumReply;
+  window.getForumUserPermissions   = getForumUserPermissions;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    FORUM_ICONS: FORUM_ICONS,
     DEFAULT_FORUM_POSTS: DEFAULT_FORUM_POSTS,
     loadForumPosts: loadForumPosts,
     saveForumPosts: saveForumPosts,
+    ensureForumPageDOM: ensureForumPageDOM,
     renderForumPage: renderForumPage,
     renderForumFeed: renderForumFeed,
     toggleHelperAgent: toggleHelperAgent,
@@ -1181,9 +1517,14 @@ if (typeof module !== 'undefined' && module.exports) {
     upvoteForumPost: upvoteForumPost,
     openCreateForumPostModal: openCreateForumPostModal,
     submitNewForumPost: submitNewForumPost,
+    openEditForumPostModal: openEditForumPostModal,
+    submitEditForumPost: submitEditForumPost,
+    deleteForumPost: deleteForumPost,
+    deleteForumReply: deleteForumReply,
     openForumPostDetail: openForumPostDetail,
     toggleForumPostStatus: toggleForumPostStatus,
     submitForumReply: submitForumReply,
+    getForumUserPermissions: getForumUserPermissions,
     get forumPosts() { return forumPosts; },
     set forumPosts(v) { forumPosts = v; },
     get helperMessages() { return _helperMessages; }
