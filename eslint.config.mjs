@@ -191,7 +191,16 @@ export default [
         signOutEverywhere: 'readonly',
         getSupa: 'readonly',
         isAdminLoggedIn: 'readonly',
-        revokeAdminSession: 'readonly'
+        revokeAdminSession: 'readonly',
+        // Cloudflare Turnstile CAPTCHA (TSK-043)
+        turnstile: 'readonly',
+        TURNSTILE_SITE_KEY: 'readonly',
+        renderTurnstileWidget: 'readonly',
+        getTurnstileToken: 'readonly',
+        resetTurnstileWidget: 'readonly',
+        verifyTurnstileTokenServerSide: 'readonly',
+        initAllTurnstileWidgets: 'readonly',
+        callSheetsApi: 'readonly'
       }
     },
     rules: {

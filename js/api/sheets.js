@@ -773,6 +773,35 @@ function handleIncomingApiRequest(e) {
     }
   }
 
+  } else if (action === 'verifyTurnstile') {
+    var turnstileToken = (p.token || '').trim();
+    if (!turnstileToken) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Missing Turnstile verification token',
+        status: 400
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    try {
+      var turnstileSecret = (typeof SCRIPT_PROP !== 'undefined' && SCRIPT_PROP.getProperty('TURNSTILE_SECRET_KEY'))
+        ? SCRIPT_PROP.getProperty('TURNSTILE_SECRET_KEY')
+        : '1x0000000000000000000000000000000AA';
+      var cfResponse = UrlFetchApp.fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'post',
+        payload: {
+          secret: turnstileSecret,
+          response: turnstileToken
+        },
+        muteHttpExceptions: true
+      });
+      var cfData = JSON.parse(cfResponse.getContentText());
+      return ContentService.createTextOutput(JSON.stringify(cfData))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (cfErr) {
+      return ContentService.createTextOutput(JSON.stringify({
+        error: 'Cloudflare Turnstile verification failed: ' + cfErr.message,
+        status: 502
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
   return ContentService.createTextOutput(JSON.stringify({
     error: 'Unknown action: ' + action,
     status: 400

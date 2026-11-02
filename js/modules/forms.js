@@ -400,11 +400,18 @@ function renderBuiltinFormInline(form) {
     (form.desc ? '<div class="page-desc">' + escapeHtml(form.desc) + '</div>' : '') +
     '<hr class="divider"/>' +
     fieldsHtml +
+    '<div class="cf-turnstile-container" data-action="form" style="margin-bottom:14px;min-height:65px;display:flex;justify-content:center;"></div>' +
     '<button class="submit-btn gold btn-with-icon" data-submit-form="' +
     form.id +
     '" style="justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Submit</button>' +
     '<div class="success-box" id="builtin-success" style="display:none;"><div class="s-icon"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="s-title">Submitted!</div><div class="s-msg">Your form has been received.</div></div>' +
     '</div>';
+
+  if (typeof renderTurnstileWidget === 'function') {
+    setTimeout(function () {
+      renderTurnstileWidget(container.querySelector('.cf-turnstile-container'), 'form');
+    }, 50);
+  }
 
   var submitBtn = container.querySelector('[data-submit-form]');
   if (submitBtn) {
@@ -545,6 +552,29 @@ async function submitBuiltinForm(form) {
     return;
   }
 
+  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  var captchaToken = (typeof getTurnstileToken === 'function')
+    ? getTurnstileToken('form')
+    : '';
+  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
+    if (typeof showToast === 'function') {
+      showToast('Please complete the security check before submitting.', 'warning');
+    }
+    return;
+  }
+  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
+    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'form');
+    if (!captchaResult || !captchaResult.success) {
+      if (typeof resetTurnstileWidget === 'function') {
+        resetTurnstileWidget('form');
+      }
+      if (typeof showToast === 'function') {
+        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+      }
+      return;
+    }
+  }
+
   _isSubmittingBuiltinForm = true;
 
   var btn = typeof document !== 'undefined' ? document.querySelector('[data-submit-form]') : null;
@@ -610,6 +640,9 @@ async function submitBuiltinForm(form) {
     }
   } finally {
     _isSubmittingBuiltinForm = false;
+    if (typeof resetTurnstileWidget === 'function') {
+      resetTurnstileWidget('form');
+    }
   }
 }
 

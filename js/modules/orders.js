@@ -1182,6 +1182,11 @@ function goToOrderReview() {
   if (typeof window !== 'undefined' && window.scrollTo) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+  if (typeof renderTurnstileWidget === 'function') {
+    setTimeout(function () {
+      renderTurnstileWidget('.cf-turnstile-container[data-action="order"]', 'order');
+    }, 50);
+  }
 }
 
 /**
@@ -1445,6 +1450,29 @@ async function submitOrder() {
     return null;
   }
 
+  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  var captchaToken = (typeof getTurnstileToken === 'function')
+    ? getTurnstileToken('order')
+    : '';
+  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
+    if (typeof showToast === 'function') {
+      showToast('Please complete the security check before confirming your order.', 'warning');
+    }
+    return null;
+  }
+  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
+    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'order');
+    if (!captchaResult || !captchaResult.success) {
+      if (typeof resetTurnstileWidget === 'function') {
+        resetTurnstileWidget('order');
+      }
+      if (typeof showToast === 'function') {
+        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+      }
+      return null;
+    }
+  }
+
   _isSubmittingOrder = true;
   if (typeof setButtonLoading === 'function') {
     setButtonLoading(btn, true, 'Submitting...', 'Submitting uniform order...');
@@ -1592,6 +1620,9 @@ async function submitOrder() {
     throw e;
   } finally {
     _isSubmittingOrder = false;
+    if (typeof resetTurnstileWidget === 'function') {
+      resetTurnstileWidget('order');
+    }
   }
 }
 
@@ -1662,6 +1693,7 @@ function renderUniformOrderInline() {
     '<div id="tng-placeholder" style="padding:20px;text-align:center;color:var(--text-secondary);font-size:13px;"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 6px;display:block;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>Tap to upload screenshot</div>' +
     '<div id="tng-preview" style="display:none;"><img id="tng-preview-img" style="width:100%;max-height:240px;object-fit:contain;display:block;border-radius:10px;" alt="TNG Screenshot"/><button type="button" onclick="clearTngScreenshot()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;z-index:3;">&#10005;</button></div>' +
     '</div></div>' +
+    '<div class="cf-turnstile-container" data-action="order" style="margin-bottom:14px;min-height:65px;display:flex;justify-content:center;"></div>' +
     '<div style="display:flex;gap:10px;"><button class="submit-btn danger btn-with-icon" style="flex:1;margin-top:0;justify-content:center;" onclick="goBackOrder()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit</button><button class="submit-btn btn-with-icon" style="flex:2;margin-top:0;justify-content:center;" onclick="submitOrder()" id="confirm-btn"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirm &amp; Submit</button></div>' +
     '</div></div>' +
     '<div class="success-box" id="order-success" style="display:none;"><div class="s-icon"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="s-title">Order Submitted!</div><div class="s-msg">Order <strong id="s-ordernum" style="color:var(--accent);"></strong> received! The officer will contact you when ready.</div></div>';
