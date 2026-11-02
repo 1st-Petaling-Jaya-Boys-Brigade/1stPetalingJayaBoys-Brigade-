@@ -5204,10 +5204,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     await attMod.renderCompanyLeaderboard();
     const renderedHtml = leaderboardEl.innerHTML;
 
-    assert.ok(renderedHtml.includes('Minor Privacy &amp; Safe-Standings Active') || renderedHtml.includes('Minor Privacy'), 'Leaderboard includes active minor privacy notification');
-    assert.ok(renderedHtml.includes('Jeshua K.'), 'Leaderboard masks peer surnames (Jeshua K.)');
-    assert.ok(renderedHtml.includes('Protected'), 'Leaderboard masks peer low attendance percentage (Protected)');
-    assert.strictEqual(renderedHtml.includes('Jeshua Koh'), false, 'Full unmasked surname is NOT exposed to peers on shared board');
+    assert.strictEqual(renderedHtml.includes('Minor Privacy &amp; Safe-Standings Active') || renderedHtml.includes('Minor Privacy'), false, 'Leaderboard removes minor privacy notification banner');
+    assert.ok(renderedHtml.includes('Jeshua Koh'), 'Leaderboard displays full unmasked surnames (Jeshua Koh)');
+    assert.strictEqual(renderedHtml.includes('Protected'), false, 'Individual member attendance percentage/demerits removed from squad members list');
+    assert.ok(renderedHtml.includes('View Squad Members'), 'Button uses View Squad Members instead of Roster');
+    assert.ok(renderedHtml.includes('MEMBERS'), 'Section header uses MEMBERS instead of ROSTER');
 
     // Test toggleSquadRoster functionality
     if (typeof attMod.toggleSquadRoster === 'function') {
@@ -5736,6 +5737,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(adminJs.includes("renderAdminRoles"), 'admin.js provides renderAdminRoles management console');
     assert.ok(adminJs.includes("saveMemberRbacPermissions"), 'admin.js exports saveMemberRbacPermissions');
     assert.ok(adminJs.includes("Passwordless Access for Authenticated Admins & Super Admins"), 'admin.js implements passwordless console access for Admins/Super Admins');
+    assert.ok(adminJs.includes("rbac-role-filter"), 'admin.js provides role filter select dropdown in Roles & Permissions console');
+    assert.ok(adminJs.includes("filterRbacMembers"), 'admin.js provides filterRbacMembers for filtering by role and search query');
+    assert.ok(adminJs.includes("Creator"), 'admin.js provides Creator designation tag for Jeshua Koh');
+    assert.strictEqual(adminJs.includes("Least-Privilege RBAC Model:"), false, 'Least-Privilege info banner removed from admin.js');
+    assert.strictEqual(adminJs.includes("3-Tier RBAC governance: Assign scoped module permissions to Admins"), false, '3-Tier RBAC governance subtitle removed from admin.js');
     console.log('  ✔ Admin console member route protection, modular permission gating & Super Admin console verified');
 
     // 8. PostgreSQL Migration Schema Integrity (013_granular_rbac_permissions.sql)

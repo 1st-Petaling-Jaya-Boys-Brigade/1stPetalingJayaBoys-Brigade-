@@ -786,8 +786,8 @@ async function getJson(url) {
     );
     assert.strictEqual(
       csInfo.hasGalleryAdvisory,
-      true,
-      'Gallery management must feature Child Safety & Media Release advisory'
+      false,
+      'Gallery management Child Safety advisory box must be removed per user specification'
     );
     console.log(
       '  ✔ Admin console provides full section governance and child safety advisory enforcement'
@@ -2440,7 +2440,10 @@ async function getJson(url) {
           superVisibility,
           rolesConsoleVisible,
           rolesTitleText: rolesTitle ? rolesTitle.textContent : '',
-          hasSearchInput: !!searchInput
+          hasSearchInput: !!searchInput,
+          hasRoleFilter: !!document.getElementById('rbac-role-filter'),
+          hasCreatorTag: rolesSection ? rolesSection.textContent.includes('Creator') : false,
+          noLeastPrivilegeBanner: rolesSection ? !rolesSection.textContent.includes('Least-Privilege RBAC Model') : true
         };
       })()`,
       awaitPromise: true,
@@ -2463,6 +2466,9 @@ async function getJson(url) {
     console.log('  ✔ Top navigation dynamic role badge states and passwordless Super Admin access verified for Jeshua Koh in browser');
     console.log('  ✔ Top navigation dynamic role badge states (Member / Admin / Super Admin) and ARIA status verified in browser');
 
+    assert.strictEqual(rbacDiag.hasRoleFilter, true, 'Roles & Permissions Manager provides role filter dropdown');
+    assert.strictEqual(rbacDiag.hasCreatorTag, true, 'Jeshua Koh has Creator tag in Roles console');
+    assert.strictEqual(rbacDiag.noLeastPrivilegeBanner, true, 'Least-Privilege RBAC banner is removed from Roles console');
     assert.strictEqual(rbacDiag.scopedVisibility.ordersVisible, true, 'Scoped Admin sees permitted Orders button');
     assert.strictEqual(rbacDiag.scopedVisibility.uniformVisible, true, 'Scoped Admin sees permitted Uniform button');
     assert.strictEqual(rbacDiag.scopedVisibility.membersHidden, true, 'Scoped Admin does NOT see restricted Members button');
