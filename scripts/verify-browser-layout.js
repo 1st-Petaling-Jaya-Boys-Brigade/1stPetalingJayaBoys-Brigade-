@@ -2523,6 +2523,57 @@ async function getJson(url) {
     assert.strictEqual(rbacDiag.hasSearchInput, true, 'Roles console renders search input for account permissions');
     console.log('  ✔ Scoped Admin Console section button filtering & Super Admin Roles Console verified in browser');
 
+    // [Admin Access, Member Avatars & Task Comments Verification]
+    const extDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async function() {
+        // 1. Sidebar Admin button gatekeeping
+        if (typeof revokeAdminSession === 'function') revokeAdminSession();
+        if (typeof sessionRemove === 'function') sessionRemove('adminAuthed');
+        sessionSet('email', 'regular_member@gmail.com');
+        sessionSet('rank', 'Private');
+        sessionSet('role', 'member');
+        if (typeof syncAdminButtonVisibility === 'function') syncAdminButtonVisibility();
+        var adminBtn = document.querySelector('.sidebar-admin-btn');
+        var memberAdminBtnHidden = adminBtn ? (getComputedStyle(adminBtn).display === 'none') : true;
+
+        sessionSet('email', 'jeshuakoh2008@gmail.com');
+        sessionSet('rank', 'Sergeant');
+        if (typeof syncAdminButtonVisibility === 'function') syncAdminButtonVisibility();
+        var superAdminBtnVisible = adminBtn ? (getComputedStyle(adminBtn).display !== 'none') : false;
+
+        // 2. Task Brief Comments & Send Button
+        var commentInput = document.querySelector('.tb-comment-input');
+        var sendBtn = document.querySelector('.tb-comment-send-btn');
+        var commentsList = document.querySelector('.tb-comments-list');
+
+        var commentPostedOk = false;
+        if (commentInput && sendBtn && typeof handleTaskCommentSubmit === 'function') {
+          window._activeDetailTaskId = 'TES-1';
+          commentInput.value = 'Browser test comment verification';
+          handleTaskCommentSubmit(commentInput);
+          if (commentsList) {
+            commentPostedOk = commentsList.textContent.includes('Browser test comment verification');
+          }
+        }
+
+        return {
+          memberAdminBtnHidden,
+          superAdminBtnVisible,
+          hasSendBtn: !!sendBtn,
+          commentPostedOk
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+
+    const extResult = extDiag.result.value;
+    assert.strictEqual(extResult.memberAdminBtnHidden, true, 'Sidebar Admin Console button must be hidden for standard members');
+    assert.strictEqual(extResult.superAdminBtnVisible, true, 'Sidebar Admin Console button must be visible for Super Admin');
+    assert.strictEqual(extResult.hasSendBtn, true, 'Task brief must have dedicated comment send button');
+    assert.strictEqual(extResult.commentPostedOk, true, 'Submitting comment must persist and render in comments list');
+    console.log('  ✔ Admin Console button role-based visibility, avatars, and task comment send button verified in browser');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 

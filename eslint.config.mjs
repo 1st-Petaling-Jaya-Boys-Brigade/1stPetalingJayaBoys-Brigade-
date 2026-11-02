@@ -209,7 +209,11 @@ export default [
         renderAdminRoles: 'readonly',
         handleRbacRoleChange: 'readonly',
         filterRbacMembers: 'readonly',
-        saveMemberRbacPermissions: 'readonly'
+        saveMemberRbacPermissions: 'readonly',
+        getAdminMemberAvatarHtml: 'readonly',
+        syncAdminButtonVisibility: 'readonly',
+        getTaskComments: 'readonly',
+        renderTaskComments: 'readonly'
       }
     },
     rules: {

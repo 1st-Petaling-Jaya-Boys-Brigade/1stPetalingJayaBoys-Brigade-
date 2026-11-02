@@ -1338,7 +1338,19 @@ function setupKanbanDragAndDrop() {
         if (cardEl && targetColBody) {
           var emptyNotice = targetColBody.querySelector('.task-col-empty, .kanban-empty-state');
           if (emptyNotice) emptyNotice.remove();
-          targetColBody.appendChild(cardEl);
+
+          var addBtn = targetColBody.querySelector('.task-col-add-bottom-btn');
+          if (addBtn) {
+            targetColBody.insertBefore(cardEl, addBtn);
+          } else {
+            targetColBody.appendChild(cardEl);
+            var newAddBtn = document.createElement('button');
+            newAddBtn.type = 'button';
+            newAddBtn.className = 'task-col-add-bottom-btn';
+            newAddBtn.onclick = function() { openCreateTaskModal(targetStatus); };
+            newAddBtn.innerHTML = '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add Task</span>';
+            targetColBody.appendChild(newAddBtn);
+          }
         }
 
         // If previous column is now empty, render empty state
@@ -1757,6 +1769,7 @@ function openTaskDetail(id) {
 
   var modal = document.getElementById('task-detail-modal');
   if (modal) modal.style.display = 'block';
+  renderTaskComments(id);
 }
 
 function handleTaskTitleBlur(el) {
@@ -1836,15 +1849,117 @@ function addActiveTaskLink() {
   }
 }
 
+var _taskCommentsMap = {};
+
+/**
+ * Retrieves comments for a specific task
+ */
+function getTaskComments(taskId) {
+  if (!taskId) return [];
+  if (_taskCommentsMap[taskId]) return _taskCommentsMap[taskId];
+  try {
+    var stored = localStorage.getItem('bb_task_comments_' + taskId);
+    if (stored) {
+      var parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        _taskCommentsMap[taskId] = parsed;
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Persists comments for a specific task
+ */
+function saveTaskComments(taskId, comments) {
+  if (!taskId || !Array.isArray(comments)) return;
+  _taskCommentsMap[taskId] = comments;
+  try {
+    localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(comments));
+  } catch (_) {}
+}
+
+/**
+ * Renders comments in the task brief modal
+ */
+function renderTaskComments(taskId) {
+  if (typeof document === 'undefined') return;
+  var list = document.querySelector('.tb-comments-list');
+  if (!list) return;
+
+  var tid = taskId || _activeDetailTaskId;
+  var comments = getTaskComments(tid);
+
+  if (!comments.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px 0;font-style:italic;">No comments yet. Be the first to leave a comment!</div>';
+    return;
+  }
+
+  var html = '';
+  comments.forEach(function(c) {
+    var author = c.author_name || 'Member';
+    var email = c.author_email || '';
+    var avatarHtml = getAssigneeAvatarHtml(author, email, 30);
+    var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(author) : author;
+    var safeText = (typeof escapeHtml === 'function') ? escapeHtml(c.text || '') : (c.text || '');
+    var timeStr = 'Just now';
+    if (c.created_at) {
+      try {
+        var d = new Date(c.created_at);
+        if (!isNaN(d.getTime())) {
+          timeStr = d.toLocaleDateString('en-MY', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+        }
+      } catch (_) {}
+    }
+
+    html += '<div class="tb-comment-item">'
+      + avatarHtml
+      + '<div class="tb-comment-content">'
+        + '<div class="tb-comment-header">'
+          + '<span class="tb-comment-author">' + safeAuthor + '</span>'
+          + '<span class="tb-comment-time">' + timeStr + '</span>'
+        + '</div>'
+        + '<div class="tb-comment-text">' + safeText + '</div>'
+      + '</div>'
+      + '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
 /**
  * Handles comment submit on task brief (Image 5)
  */
 function handleTaskCommentSubmit(input) {
   if (!input || !input.value.trim()) return;
-  var comment = input.value.trim();
+  var commentText = input.value.trim();
   input.value = '';
+
+  var tid = _activeDetailTaskId;
+  if (!tid) return;
+
+  var authorName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
+  var authorEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+
+  var newComment = {
+    id: 'cmt_' + Date.now(),
+    task_id: tid,
+    author_name: authorName,
+    author_email: authorEmail,
+    text: commentText,
+    created_at: new Date().toISOString()
+  };
+
+  var comments = getTaskComments(tid);
+  comments.push(newComment);
+  saveTaskComments(tid, comments);
+
+  renderTaskComments(tid);
+
   if (typeof showToast === 'function') {
-    showToast('Comment posted: ' + (comment.length > 25 ? comment.slice(0, 25) + '...' : comment), 'info', 1200);
+    showToast('Comment posted successfully!', 'success', 1500);
   }
 }
 
@@ -3073,6 +3188,8 @@ if (typeof window !== 'undefined') {
   window.addActiveTaskSubtask       = addActiveTaskSubtask;
   window.addActiveTaskLink          = addActiveTaskLink;
   window.handleTaskCommentSubmit    = handleTaskCommentSubmit;
+  window.getTaskComments            = getTaskComments;
+  window.renderTaskComments         = renderTaskComments;
   window.handleTaskAttachmentUpload = handleTaskAttachmentUpload;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
 }
@@ -3147,7 +3264,10 @@ if (typeof module !== 'undefined' && module.exports) {
     deleteActiveTask,
     deleteProject,
     deleteActiveProject,
-    renderColumnsFromTasks
+    renderColumnsFromTasks,
+    getTaskComments,
+    renderTaskComments,
+    handleTaskCommentSubmit
   };
 }
 

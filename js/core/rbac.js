@@ -136,11 +136,12 @@
       return ROLES.SUPER_ADMIN;
     }
 
-    // Check session rank: Captain is designated Super Admin
+    // Check session rank: Captain is designated Super Admin, Officers are Admin
     var sessEmail = cleanEmail(getSession('email') || getSession('ic'));
     if (!email || sessEmail === userEmail) {
       var rank = getSession('rank');
       if (rank === 'Captain') return ROLES.SUPER_ADMIN;
+      if (['Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank)) return ROLES.ADMIN;
     }
 
     // 2. Check Scoped Admin list
@@ -148,8 +149,8 @@
       return ROLES.ADMIN;
     }
 
-    // 3. Fallback for authenticated Admin Console session
-    if (getSession('adminAuthed') === true && (!email || sessEmail === userEmail)) {
+    // 3. Fallback for authenticated Admin Console session (guest without signed-in member session)
+    if (!sessEmail && getSession('adminAuthed') === true) {
       return ROLES.ADMIN;
     }
 
@@ -409,6 +410,23 @@
       badge.title = 'Standard Member (Internal Portal Access)';
       badge.setAttribute('aria-label', 'Current Role: Member');
     }
+
+    syncAdminButtonVisibility();
+  }
+
+  /**
+   * Synchronizes visibility of Admin Console buttons based on active user role.
+   * Completely hides Admin Console button for members without admin/super_admin privileges.
+   */
+  function syncAdminButtonVisibility() {
+    if (typeof document === 'undefined') return;
+    var adminBtns = document.querySelectorAll('.sidebar-admin-btn');
+    if (!adminBtns || !adminBtns.length) return;
+
+    var canAccess = isAdmin();
+    for (var i = 0; i < adminBtns.length; i++) {
+      adminBtns[i].style.display = canAccess ? 'flex' : 'none';
+    }
   }
 
   // Attach to window & export
@@ -426,13 +444,15 @@
     isSuperAdmin: isSuperAdmin,
     isAdmin: isAdmin,
     assignUserRole: assignUserRole,
-    renderHeaderRoleBadge: renderHeaderRoleBadge
+    renderHeaderRoleBadge: renderHeaderRoleBadge,
+    syncAdminButtonVisibility: syncAdminButtonVisibility
   };
 
   if (typeof window !== 'undefined') {
     window.RBAC = RBAC;
     window.RBAC_ROLES = ROLES;
     window.RBAC_MODULES = MODULES;
+    window.syncAdminButtonVisibility = syncAdminButtonVisibility;
   }
 
   if (typeof module !== 'undefined' && module.exports) {
@@ -451,7 +471,8 @@
       isSuperAdmin: isSuperAdmin,
       isAdmin: isAdmin,
       assignUserRole: assignUserRole,
-      renderHeaderRoleBadge: renderHeaderRoleBadge
+      renderHeaderRoleBadge: renderHeaderRoleBadge,
+      syncAdminButtonVisibility: syncAdminButtonVisibility
     };
   }
 })(typeof window !== 'undefined' ? window : global);

@@ -1078,7 +1078,7 @@
   font-weight: 700;
   letter-spacing: 1px;
   cursor: pointer;
-  display: flex;
+  display: none; /* Hidden by default; displayed for Admins & Super Admins via RBAC */
   align-items: center;
   justify-content: center;
   gap: 8px;
