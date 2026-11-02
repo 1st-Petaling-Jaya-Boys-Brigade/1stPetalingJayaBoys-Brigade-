@@ -289,27 +289,23 @@ function removeDomElement(el) {
 // ── User Permission Helper for Forum ─────────────────────────────────────────
 function getForumUserPermissions(post) {
   var isSuper = false;
-  var isAdm = false;
 
   if (typeof RBAC !== 'undefined') {
     if (typeof RBAC.isSuperAdmin === 'function') isSuper = RBAC.isSuperAdmin();
-    if (typeof RBAC.isAdmin === 'function') isAdm = RBAC.isAdmin();
   }
 
   var email = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
   var role = (typeof sessionGet === 'function') ? (sessionGet('role') || '').toLowerCase().trim() : '';
-  var rank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
-  var isOfficerRank = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
-
-  var isPrivileged = isSuper || isAdm || isOfficerRank || role === 'super_admin' || role === 'admin';
+  var isSuperAdmin = isSuper || role === 'super_admin';
   var isAuthor = !!(post && post.authorEmail && email && (post.authorEmail.toLowerCase().trim() === email));
 
   return {
-    isAdmin: isPrivileged,
-    isSuperAdmin: isSuper || role === 'super_admin',
-    canEdit: isPrivileged || isAuthor,
-    canDelete: isPrivileged || isAuthor,
-    canChangeStatus: isPrivileged,
+    isAdmin: isSuperAdmin,
+    isSuperAdmin: isSuperAdmin,
+    isAuthor: isAuthor,
+    canEdit: isSuperAdmin,
+    canDelete: isSuperAdmin,
+    canChangeStatus: isSuperAdmin,
     canReply: true
   };
 }
@@ -1016,7 +1012,7 @@ function submitNewForumPost(e, customPost) {
 }
 
 /**
- * Opens edit modal for Admins, Super Admins, or post author
+ * Opens edit modal (Super Admins only)
  */
 function openEditForumPostModal(postId) {
   if (typeof document === 'undefined') return;
@@ -1025,7 +1021,7 @@ function openEditForumPostModal(postId) {
 
   var perms = getForumUserPermissions(p);
   if (!perms.canEdit) {
-    if (typeof showToast === 'function') showToast('You do not have permission to edit this post.', 'warning');
+    if (typeof showToast === 'function') showToast('Only Super Admins can edit forum posts.', 'warning');
     return;
   }
 
@@ -1138,7 +1134,7 @@ function submitEditForumPost(e, postId) {
 }
 
 /**
- * Deletes a forum post (Admins, Super Admins, or Post Author)
+ * Deletes a forum post (Super Admins only)
  */
 async function deleteForumPost(postId) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
@@ -1146,7 +1142,7 @@ async function deleteForumPost(postId) {
 
   var perms = getForumUserPermissions(p);
   if (!perms.canDelete) {
-    if (typeof showToast === 'function') showToast('You do not have permission to delete this post.', 'warning');
+    if (typeof showToast === 'function') showToast('Only Super Admins can delete forum posts.', 'warning');
     return;
   }
 
@@ -1175,7 +1171,7 @@ async function deleteForumPost(postId) {
 }
 
 /**
- * Deletes a reply within a thread (Admins, Super Admins, or Reply Author)
+ * Deletes a reply within a thread (Super Admins or Reply Author)
  */
 async function deleteForumReply(postId, replyId) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
@@ -1188,8 +1184,8 @@ async function deleteForumReply(postId, replyId) {
   var email = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
   var isReplyAuthor = reply.authorEmail && email && (reply.authorEmail.toLowerCase().trim() === email);
 
-  if (!perms.isAdmin && !isReplyAuthor) {
-    if (typeof showToast === 'function') showToast('You do not have permission to delete this reply.', 'warning');
+  if (!perms.isSuperAdmin && !isReplyAuthor) {
+    if (typeof showToast === 'function') showToast('Only Super Admins or the author can delete this reply.', 'warning');
     return;
   }
 
@@ -1244,7 +1240,7 @@ function openForumPostDetail(postId) {
       var rRole = (typeof escapeHtml === 'function') ? escapeHtml(r.authorRole || '') : r.authorRole;
       var rContent = formatHelperMarkdown(r.content);
       var isOff = r.isOfficial;
-      var canDeleteThisReply = perms.isAdmin || (r.authorEmail && curEmail && r.authorEmail.toLowerCase().trim() === curEmail);
+      var canDeleteThisReply = perms.isSuperAdmin || (r.authorEmail && curEmail && r.authorEmail.toLowerCase().trim() === curEmail);
 
       repliesHtml += 
         '<div class="forum-reply-item ' + (isOff ? 'reply-official' : '') + '">' +
@@ -1319,7 +1315,7 @@ function openForumPostDetail(postId) {
       '<!-- Post Body -->' +
       '<div style="font-size:13.5px;color:var(--text-primary);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;">' + safeContent + '</div>' +
       
-      // Admin / Officer Status Switcher
+      // Super Admin Status Switcher
       (perms.canChangeStatus ? 
         '<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-tint);padding:10px 14px;border-radius:10px;border:1px solid var(--border-subtle);margin-bottom:16px;">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
@@ -1356,13 +1352,16 @@ function openForumPostDetail(postId) {
   document.body.appendChild(modal);
 }
 
+/**
+ * Toggles thread status between open and resolved (Super Admins only)
+ */
 function toggleForumPostStatus(postId, bypassPerms) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
 
   var perms = getForumUserPermissions(p);
   if (!bypassPerms && !perms.canChangeStatus) {
-    if (typeof showToast === 'function') showToast('Only Officers and Admins can update post status.', 'warning');
+    if (typeof showToast === 'function') showToast('Only Super Admins can update thread status.', 'warning');
     return;
   }
 
