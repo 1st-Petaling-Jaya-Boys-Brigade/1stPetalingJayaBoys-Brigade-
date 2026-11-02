@@ -104,8 +104,8 @@
   }
 
   // ── Cryptographic Session & Gate Hardening (TSK-030) ──────────────────────
-  var SESSION_MAX_LIFETIME_MS = 60 * 60 * 1000; // 60 minutes absolute lifetime
-  var SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes idle timeout
+  var SESSION_MAX_LIFETIME_MS = 8 * 60 * 60 * 1000; // 8 hours absolute lifetime (TSK-041)
+  var SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;     // 60 minutes idle timeout (TSK-041)
   var MAX_LOGIN_FAILURES      = 5;
   var BASE_LOCKOUT_MS         = 30 * 1000;      // 30 seconds
   var MAX_LOCKOUT_MS          = 300 * 1000;     // 5 minutes max
@@ -1457,9 +1457,27 @@
       if (editId) {
         await client.patch('bb_tasks?id=eq.' + encodeURIComponent(editId), payload);
         if (typeof showToast === 'function') showToast('✅ Task updated!', 'success');
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'task.edit',
+            targetType: 'task',
+            targetId: editId,
+            actorRole: 'officer_admin',
+            details: { title: title, department: dept }
+          });
+        }
       } else {
-        await client.post('bb_tasks', payload);
+        var taskRes = await client.post('bb_tasks', payload);
         if (typeof showToast === 'function') showToast('✅ Task added!', 'success');
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'task.create',
+            targetType: 'task',
+            targetId: (taskRes && taskRes[0] && taskRes[0].id) || title,
+            actorRole: 'officer_admin',
+            details: { title: title, department: dept }
+          });
+        }
       }
 
       clearTaskForm();
@@ -1646,13 +1664,57 @@
       await client.delete('bb_tasks?id=eq.' + encodeURIComponent(id));
       renderAdminTasks(_adminTaskFilter);
       if (typeof showToast === 'function') showToast('Task deleted successfully.', 'success');
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'task.delete',
+          targetType: 'task',
+          targetId: id,
+          actorRole: 'officer_admin'
+        });
+      }
     } catch (e) {
       if (typeof showToast === 'function') showToast('Failed to delete task.', 'error');
     }
   }
 
+  // ── Audit Logs Viewer (TSK-041) ──────────────────────────────────────────
+  async function renderAdminAuditLogs(containerId) {
+    if (typeof document === 'undefined') return;
+    var el = document.getElementById(containerId || 'admin-audit-logs');
+    if (!el) return;
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">Loading audit logs...</div>';
+    var logsRes = (typeof getAuditLogs === 'function') ? await getAuditLogs({ limit: 50 }) : { logs: [] };
+    var logs = (logsRes && logsRes.logs) || [];
+    if (!logs.length) {
+      el.innerHTML = '<div style="color:var(--text-secondary);font-size:13px;text-align:center;padding:16px;">No audit logs recorded yet.</div>';
+      return;
+    }
+    var html = '<table class="audit-log-table" style="width:100%;border-collapse:collapse;font-size:12px;">' +
+      '<thead><tr style="border-bottom:1px solid var(--border-card);color:var(--text-secondary);text-align:left;">' +
+      '<th style="padding:8px;">Timestamp</th><th style="padding:8px;">Actor</th><th style="padding:8px;">Role</th><th style="padding:8px;">Action</th><th style="padding:8px;">Target</th>' +
+      '</tr></thead><tbody>';
+    logs.forEach(function(l) {
+      var timeStr = l.timestamp ? new Date(l.timestamp).toLocaleString() : '-';
+      var safeActor = typeof escapeHtml === 'function' ? escapeHtml(l.actor_id || '') : (l.actor_id || '');
+      var safeRole = typeof escapeHtml === 'function' ? escapeHtml(l.actor_role || '') : (l.actor_role || '');
+      var safeAction = typeof escapeHtml === 'function' ? escapeHtml(l.action || '') : (l.action || '');
+      var safeTarget = typeof escapeHtml === 'function' ? escapeHtml((l.target_type || '') + (l.target_id ? (':' + l.target_id) : '')) : '';
+      html += '<tr style="border-bottom:1px solid var(--border-subtle);">' +
+        '<td style="padding:8px;color:var(--text-muted);white-space:nowrap;">' + timeStr + '</td>' +
+        '<td style="padding:8px;font-weight:600;">' + safeActor + '</td>' +
+        '<td style="padding:8px;"><span class="badge-role">' + safeRole + '</span></td>' +
+        '<td style="padding:8px;color:var(--accent);font-family:var(--font-mono);">' + safeAction + '</td>' +
+        '<td style="padding:8px;">' + safeTarget + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
   // ── Window & Global Attachment ─────────────────────────────────────────────
   if (typeof global !== 'undefined') {
+    global.renderAdminAuditLogs    = renderAdminAuditLogs;
+    global.SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MS;
     global.ADMIN_SECTIONS           = ADMIN_SECTIONS;
     global.RANK_ORDER               = RANK_ORDER;
     global.openAdmin                = openAdmin;
@@ -1732,6 +1794,8 @@
       updateTaskStatus: updateTaskStatus,
       editAdminTask: editAdminTask,
       deleteTask: deleteTask,
+      renderAdminAuditLogs: renderAdminAuditLogs,
+      SESSION_IDLE_TIMEOUT_MS: SESSION_IDLE_TIMEOUT_MS,
       getAdminMembers: function() { return _adminMembers; },
       getAdminTasks: function() { return _allAdminTasks; },
       getAdminSortBy: function() { return _adminSortBy; },

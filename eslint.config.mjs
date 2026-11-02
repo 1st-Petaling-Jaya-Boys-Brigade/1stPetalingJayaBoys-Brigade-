@@ -182,7 +182,16 @@ export default [
         syncToSheets: 'readonly',
         syncAttendanceToSheets: 'readonly',
         isMinorSection: 'readonly',
-        fetchMemberConsent: 'readonly'
+        fetchMemberConsent: 'readonly',
+        // Audit Logs, Lockout & Session Lifecycle (TSK-041)
+        logAuditEvent: 'readonly',
+        getAuditLogs: 'readonly',
+        checkAuthLockout: 'readonly',
+        recordAuthAttempt: 'readonly',
+        signOutEverywhere: 'readonly',
+        getSupa: 'readonly',
+        isAdminLoggedIn: 'readonly',
+        revokeAdminSession: 'readonly'
       }
     },
     rules: {

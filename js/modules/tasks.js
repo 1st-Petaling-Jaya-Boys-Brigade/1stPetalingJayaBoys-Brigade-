@@ -859,6 +859,14 @@ async function deleteProject(projectName) {
   });
 
   await saveProjectsCatalog();
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'project.delete',
+      targetType: 'project',
+      targetId: projectName,
+      details: { taskCount: taskIdsToDelete.length }
+    });
+  }
 
   if ((_activeProject || '').toLowerCase() === lower) {
     _activeProject = '';
@@ -2315,6 +2323,14 @@ async function memberUpdateTaskStatus(id, status, dept) {
   if (!client) return;
   try {
     await client.patch('bb_tasks?id=eq.' + id, { status: status });
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'task.status_update',
+        targetType: 'task',
+        targetId: id,
+        details: { status: status, department: dept }
+      });
+    }
     // Update local cache
     if (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) {
       window._taskMap[id].status = status;
@@ -2735,10 +2751,26 @@ async function saveTask() {
       await client.patch('bb_tasks?id=eq.' + editId, payload);
       if (typeof showToast === 'function') showToast('Task updated successfully!', 'success');
       else if (typeof alert === 'function') alert('\u2705 Task updated!');
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'task.edit',
+          targetType: 'task',
+          targetId: editId,
+          details: { title: title, department: dept }
+        });
+      }
     } else {
       await client.post('bb_tasks', payload);
       if (typeof showToast === 'function') showToast('Task added successfully!', 'success');
       else if (typeof alert === 'function') alert('\u2705 Task added!');
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'task.create',
+          targetType: 'task',
+          targetId: title,
+          details: { title: title, department: dept }
+        });
+      }
     }
     clearTaskForm();
     var body = document.getElementById('task-form-body');
@@ -2862,6 +2894,14 @@ async function updateTaskStatus(id, status) {
   if (!client) return;
   try {
     await client.patch('bb_tasks?id=eq.' + id, { status: status });
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'task.status_update',
+        targetType: 'task',
+        targetId: id,
+        details: { status: status }
+      });
+    }
     renderAdminTasks(_adminTaskFilter);
   } catch (e) {
     if (typeof showToast === 'function') {
@@ -2935,6 +2975,13 @@ async function deleteTask(id) {
     }
     await client.delete('bb_tasks?id=eq.' + id);
     renderAdminTasks(_adminTaskFilter);
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'task.delete',
+        targetType: 'task',
+        targetId: id
+      });
+    }
     if (typeof showToast === 'function') {
       showToast('Task deleted successfully.', 'success');
     } else if (typeof alert === 'function') {

@@ -1,7 +1,20 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
  * Session State Management (sessionStorage) with Cross-Tab Synchronization (TSK-025)
+ * Session TTL Expiry (14-Day Remember Me) & Sign Out Everywhere (TSK-041)
  */
+
+var REMEMBER_ME_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds (TSK-041)
+
+/**
+ * Checks whether a saved Remember Me session timestamp has exceeded 14 days
+ * @param {number} savedTime
+ * @returns {boolean}
+ */
+function isRememberMeExpired(savedTime) {
+  if (!savedTime || typeof savedTime !== 'number') return false;
+  return (Date.now() - savedTime) > REMEMBER_ME_TTL_MS;
+}
 
 var _session = (function() {
   try {
@@ -13,6 +26,16 @@ var _session = (function() {
       var l = localStorage.getItem('bb_session');
       if (l) {
         var parsed = JSON.parse(l);
+        // TSK-041: Auto-expire Remember Me sessions after 14 days
+        var savedAt = parsed._session_saved_at || (parsed.expires_at ? (parsed.expires_at - REMEMBER_ME_TTL_MS) : null);
+        if (savedAt && isRememberMeExpired(savedAt)) {
+          localStorage.removeItem('bb_session');
+          localStorage.removeItem('bb_remember');
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('bb_session');
+          }
+          return {};
+        }
         if (typeof sessionStorage !== 'undefined') {
           sessionStorage.setItem('bb_session', l);
         }
@@ -106,9 +129,13 @@ function sessionSet(key, value) {
     if (typeof localStorage !== 'undefined') {
       var isRemember = _session['remember'] === true || localStorage.getItem('bb_remember') === 'true';
       if (key === 'remember' && value === false) {
+        delete _session._session_saved_at;
         localStorage.removeItem('bb_session');
         localStorage.removeItem('bb_remember');
       } else if (isRemember) {
+        if (!_session._session_saved_at) {
+          _session._session_saved_at = Date.now();
+        }
         localStorage.setItem('bb_session', JSON.stringify(_session));
         localStorage.setItem('bb_remember', 'true');
       }
@@ -148,6 +175,7 @@ function sessionClear() {
       delete _session[k];
     }
   }
+  delete _session._session_saved_at;
   try {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem('bb_session');
@@ -174,6 +202,61 @@ function sessionClear() {
   }
 }
 
+/**
+ * Revokes all active user sessions across all devices (TSK-041)
+ * Calls rpc_sign_out_everywhere on Supabase, purges local credentials,
+ * notifies all sibling browser tabs, and resets UI state.
+ * @returns {Promise<{success: boolean}>}
+ */
+async function signOutEverywhere() {
+  var actorId = sessionGet('email') || sessionGet('ic') || sessionGet('name') || 'anonymous';
+
+  // 1. Invalidate remote sessions and record audit trail via Supabase RPC (TSK-041)
+  try {
+    var client = null;
+    if (typeof getSupa === 'function') client = getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
+
+    if (client && typeof client.rpc === 'function') {
+      await client.rpc('rpc_sign_out_everywhere', { p_actor_id: actorId });
+    } else if (typeof logAuditEvent === 'function') {
+      await logAuditEvent({
+        action: 'auth.signout_everywhere',
+        targetType: 'auth',
+        targetId: actorId,
+        actorId: actorId,
+        details: { message: 'All active sessions invalidated across devices' }
+      });
+    }
+  } catch (err) {
+    console.warn('Remote sign out everywhere warning:', err);
+  }
+
+  // 2. Revoke Officer Admin session if present
+  try {
+    if (typeof revokeAdminSession === 'function') {
+      revokeAdminSession('Signed out of all devices.');
+    } else if (typeof window !== 'undefined' && typeof window.revokeAdminSession === 'function') {
+      window.revokeAdminSession('Signed out of all devices.');
+    }
+  } catch (_) {}
+
+  // 3. Purge local session storage & broadcast clear to other tabs
+  sessionClear();
+
+  // 4. Update UI headers and view states
+  if (typeof window !== 'undefined') {
+    if (typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+    if (typeof window.renderDashboard === 'function') window.renderDashboard();
+    if (typeof window.showToast === 'function') {
+      window.showToast('You have been signed out of all devices.', 'info');
+    }
+  }
+
+  return { success: true };
+}
+
 // Attach to window for global access across the app
 if (typeof window !== 'undefined') {
   window._session = _session;
@@ -181,8 +264,20 @@ if (typeof window !== 'undefined') {
   window.sessionGet = sessionGet;
   window.sessionClear = sessionClear;
   window.handleSyncMessage = handleSyncMessage;
+  window.REMEMBER_ME_TTL_MS = REMEMBER_ME_TTL_MS;
+  window.isRememberMeExpired = isRememberMeExpired;
+  window.signOutEverywhere = signOutEverywhere;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { _session, sessionSet, sessionGet, sessionClear, handleSyncMessage };
+  module.exports = {
+    _session,
+    sessionSet,
+    sessionGet,
+    sessionClear,
+    handleSyncMessage,
+    REMEMBER_ME_TTL_MS,
+    isRememberMeExpired,
+    signOutEverywhere
+  };
 }

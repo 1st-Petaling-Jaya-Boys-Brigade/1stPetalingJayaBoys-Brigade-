@@ -1397,6 +1397,270 @@ function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
 }
 
 // Attach to window if in browser
+// ── Section 11: Immutable Admin Audit Logs & Auth Lockout (TSK-041) ──────────
+
+var _inMemoryAuditLogs = [];
+var _localLockouts = {};
+var AUTH_LOCKOUT_MAX_ATTEMPTS = 5;
+var AUTH_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout
+
+/**
+ * Appends an audit log entry recording Officer, NCO, or system mutation (TSK-041).
+ * Attempts to persist to PostgreSQL bb_audit_logs via rpc_log_audit_event.
+ * Falls back gracefully to in-memory audit ledger.
+ *
+ * @param {Object} params
+ * @param {string} params.action - e.g. 'points.edit', 'order.status_update', 'member.delete', 'member.role_change', 'task.create'
+ * @param {string} params.targetType - 'member' | 'order' | 'task' | 'config' | 'auth'
+ * @param {string} [params.targetId] - Identifier of target record
+ * @param {string} [params.actorId] - Identity of user performing mutation
+ * @param {string} [params.actorRole] - Role of user ('officer_admin', 'nco', 'member', 'system')
+ * @param {Object} [params.details] - Detailed before/after diff or metadata
+ * @returns {Promise<{success: boolean, log_id?: string, entry?: Object}>}
+ */
+async function logAuditEvent(params) {
+  if (!params || typeof params !== 'object') return { success: false };
+
+  var action = (params.action || 'unknown').trim();
+  var targetType = (params.targetType || 'unknown').trim();
+  var targetId = params.targetId ? String(params.targetId).trim() : null;
+  var details = params.details || {};
+
+  var actorId = params.actorId;
+  if (!actorId) {
+    if (typeof sessionGet === 'function') {
+      actorId = sessionGet('email') || sessionGet('ic') || sessionGet('name') || null;
+    }
+    if (!actorId && typeof window !== 'undefined' && typeof window.sessionGet === 'function') {
+      actorId = window.sessionGet('email') || window.sessionGet('ic') || window.sessionGet('name') || null;
+    }
+  }
+  actorId = actorId ? String(actorId).trim() : 'anonymous';
+
+  var actorRole = params.actorRole;
+  if (!actorRole) {
+    if (typeof sessionGet === 'function') {
+      actorRole = sessionGet('role');
+    }
+    if (!actorRole && typeof isAdminLoggedIn === 'function' && isAdminLoggedIn()) {
+      actorRole = 'officer_admin';
+    }
+  }
+  actorRole = actorRole || 'member';
+
+  var entryId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : ('audit_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9));
+
+  var entry = {
+    id: entryId,
+    timestamp: new Date().toISOString(),
+    actor_id: actorId,
+    actor_role: actorRole,
+    action: action,
+    target_type: targetType,
+    target_id: targetId,
+    details: details,
+    created_at: new Date().toISOString()
+  };
+
+  _inMemoryAuditLogs.unshift(entry);
+  if (_inMemoryAuditLogs.length > 500) {
+    _inMemoryAuditLogs.pop();
+  }
+
+  // Attempt server-side persistence via Supabase RPC
+  try {
+    var client = null;
+    if (typeof getSupa === 'function') client = getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
+
+    if (client && typeof client.rpc === 'function') {
+      var rpcRes = await client.rpc('rpc_log_audit_event', {
+        p_actor_id: actorId,
+        p_actor_role: actorRole,
+        p_action: action,
+        p_target_type: targetType,
+        p_target_id: targetId,
+        p_details: details
+      });
+      if (rpcRes && rpcRes.success) {
+        return { success: true, log_id: rpcRes.log_id || entryId, entry: entry };
+      }
+    }
+  } catch (err) {
+    console.warn('Audit log server RPC warning:', err);
+  }
+
+  return { success: true, log_id: entryId, entry: entry };
+}
+
+/**
+ * Retrieves audit logs for Officer Admin view (TSK-041)
+ * @param {Object} [filter]
+ * @param {number} [filter.limit=50]
+ * @param {number} [filter.offset=0]
+ * @param {string} [filter.action]
+ * @param {string} [filter.actorId]
+ * @returns {Promise<{success: boolean, total: number, logs: Array}>}
+ */
+async function getAuditLogs(filter) {
+  var f = filter || {};
+  var limit = typeof f.limit === 'number' ? f.limit : 50;
+  var offset = typeof f.offset === 'number' ? f.offset : 0;
+  var action = f.action || null;
+  var actorId = f.actorId ? f.actorId.toLowerCase() : null;
+
+  try {
+    var client = null;
+    if (typeof getSupa === 'function') client = getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
+
+    if (client && typeof client.rpc === 'function') {
+      var rpcRes = await client.rpc('rpc_get_audit_logs', {
+        p_limit: limit,
+        p_offset: offset,
+        p_action: action,
+        p_actor_id: actorId
+      });
+      if (rpcRes && rpcRes.success && Array.isArray(rpcRes.logs)) {
+        return rpcRes;
+      }
+    }
+  } catch (err) {
+    console.warn('getAuditLogs RPC fallback:', err);
+  }
+
+  // Fallback to in-memory audit logs
+  var filtered = _inMemoryAuditLogs.filter(function(item) {
+    if (action && item.action !== action) return false;
+    if (actorId && String(item.actor_id || '').toLowerCase() !== actorId) return false;
+    return true;
+  });
+
+  var slice = filtered.slice(offset, offset + limit);
+  return {
+    success: true,
+    total: filtered.length,
+    logs: slice
+  };
+}
+
+/**
+ * Checks server-side lockout status for an identifier (email or IP) (TSK-041)
+ * @param {string} identifier
+ * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
+ */
+async function checkAuthLockout(identifier) {
+  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0 };
+  var key = String(identifier).trim().toLowerCase();
+
+  try {
+    var client = null;
+    if (typeof getSupa === 'function') client = getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
+
+    if (client && typeof client.rpc === 'function') {
+      var rpcRes = await client.rpc('rpc_check_auth_lockout', { p_identifier: key });
+      if (rpcRes && typeof rpcRes.locked === 'boolean') {
+        return rpcRes;
+      }
+    }
+  } catch (err) {
+    console.warn('checkAuthLockout RPC fallback:', err);
+  }
+
+  // Local in-memory fallback
+  var rec = _localLockouts[key];
+  if (rec && rec.lockoutUntil && rec.lockoutUntil > Date.now()) {
+    var remSec = Math.ceil((rec.lockoutUntil - Date.now()) / 1000);
+    return { locked: true, remaining_seconds: remSec, failures: rec.failedCount || 0 };
+  }
+
+  return { locked: false, remaining_seconds: 0, failures: (rec && rec.failedCount) || 0 };
+}
+
+/**
+ * Records an authentication attempt and enforces 5-failure lockout (TSK-041)
+ * @param {string} identifier
+ * @param {boolean} success
+ * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
+ */
+async function recordAuthAttempt(identifier, success) {
+  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0 };
+  var key = String(identifier).trim().toLowerCase();
+
+  try {
+    var client = null;
+    if (typeof getSupa === 'function') client = getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
+
+    if (client && typeof client.rpc === 'function') {
+      var rpcRes = await client.rpc('rpc_record_auth_attempt', {
+        p_identifier: key,
+        p_success: !!success
+      });
+      if (rpcRes && typeof rpcRes.locked === 'boolean') {
+        return rpcRes;
+      }
+    }
+  } catch (err) {
+    console.warn('recordAuthAttempt RPC fallback:', err);
+  }
+
+  // Local in-memory fallback
+  if (success) {
+    delete _localLockouts[key];
+    return { locked: false, remaining_seconds: 0, failures: 0 };
+  }
+
+  var now = Date.now();
+  var current = _localLockouts[key] || { failedCount: 0, lockoutUntil: 0, lastFailedAt: 0 };
+
+  // Reset if last failure was > 15 mins ago and not locked
+  if (!current.lockoutUntil && (now - current.lastFailedAt) > AUTH_LOCKOUT_DURATION_MS) {
+    current.failedCount = 1;
+  } else {
+    current.failedCount = (current.failedCount || 0) + 1;
+  }
+  current.lastFailedAt = now;
+
+  if (current.failedCount >= AUTH_LOCKOUT_MAX_ATTEMPTS) {
+    current.lockoutUntil = now + AUTH_LOCKOUT_DURATION_MS;
+    _localLockouts[key] = current;
+
+    // Log security lockout event
+    logAuditEvent({
+      action: 'auth.lockout',
+      targetType: 'auth',
+      targetId: key,
+      actorId: key,
+      actorRole: 'system',
+      details: {
+        reason: '5 consecutive failed attempts',
+        duration_minutes: 15,
+        lockout_until: new Date(current.lockoutUntil).toISOString()
+      }
+    });
+
+    return {
+      locked: true,
+      remaining_seconds: Math.ceil(AUTH_LOCKOUT_DURATION_MS / 1000),
+      failures: current.failedCount
+    };
+  }
+
+  _localLockouts[key] = current;
+  return {
+    locked: false,
+    remaining_seconds: 0,
+    failures: current.failedCount
+  };
+}
 if (typeof window !== 'undefined') {
   window.escapeHtml     = escapeHtml;
   window.safeUrl        = safeUrl;
@@ -1436,6 +1700,12 @@ if (typeof window !== 'undefined') {
   window.maskMemberNameForDirectory = maskMemberNameForDirectory;
   window.formatSafeAttendanceRate = formatSafeAttendanceRate;
   window.getSafeMemberDemerits  = getSafeMemberDemerits;
+  window.logAuditEvent          = logAuditEvent;
+  window.getAuditLogs           = getAuditLogs;
+  window.checkAuthLockout       = checkAuthLockout;
+  window.recordAuthAttempt      = recordAuthAttempt;
+  window.AUTH_LOCKOUT_MAX_ATTEMPTS = AUTH_LOCKOUT_MAX_ATTEMPTS;
+  window.AUTH_LOCKOUT_DURATION_MS  = AUTH_LOCKOUT_DURATION_MS;
 }
 
 // Export for module systems if present
@@ -1478,6 +1748,12 @@ if (typeof module !== 'undefined' && module.exports) {
     maskMemberSurname: maskMemberSurname,
     maskMemberNameForDirectory: maskMemberNameForDirectory,
     formatSafeAttendanceRate: formatSafeAttendanceRate,
-    getSafeMemberDemerits: getSafeMemberDemerits
+    getSafeMemberDemerits: getSafeMemberDemerits,
+    logAuditEvent: logAuditEvent,
+    getAuditLogs: getAuditLogs,
+    checkAuthLockout: checkAuthLockout,
+    recordAuthAttempt: recordAuthAttempt,
+    AUTH_LOCKOUT_MAX_ATTEMPTS: AUTH_LOCKOUT_MAX_ATTEMPTS,
+    AUTH_LOCKOUT_DURATION_MS: AUTH_LOCKOUT_DURATION_MS
   };
 }
