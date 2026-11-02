@@ -147,6 +147,11 @@ async function loadAnnouncements() {
     window.announcements = announcements;
   }
   renderAnnouncements();
+  if (typeof syncAnnouncementNotifications === 'function') {
+    syncAnnouncementNotifications(announcements);
+  } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
+    window.syncAnnouncementNotifications(announcements);
+  }
   var adminList = (typeof document !== 'undefined') ? document.getElementById('admin-ann-list') : null;
   if (adminList) {
     renderAdminAnnList();

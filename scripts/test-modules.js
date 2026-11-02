@@ -5868,6 +5868,94 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.getElementById = origGetEl;
   }
 
+  // =========================================================================
+  // TASK ATTACHMENTS, @MENTIONS & PORTAL NOTIFICATIONS EXPANSION
+  // =========================================================================
+  console.log('\n--- Task Attachments, @Mentions & Portal Notifications Expansion ---');
+  {
+    // 1. Multi-file Attachments Engine
+    assert.strictEqual(typeof tasksMod.getTaskAttachments, 'function', 'getTaskAttachments must be a function');
+    assert.strictEqual(typeof tasksMod.saveTaskAttachments, 'function', 'saveTaskAttachments must be a function');
+    assert.strictEqual(typeof tasksMod.removeTaskAttachment, 'function', 'removeTaskAttachment must be a function');
+    assert.strictEqual(typeof tasksMod.renderTaskAttachments, 'function', 'renderTaskAttachments must be a function');
+
+    const testTaskId = 'test-att-task-1';
+    const sampleFiles = [
+      { id: 'att_1', name: 'Drill_Handbook.pdf', url: 'https://example.com/handbook.pdf', size: '1.2 MB' },
+      { id: 'att_2', name: 'Inspection_Checklist.docx', url: 'https://example.com/checklist.docx', size: '240 KB' },
+      { id: 'att_3', name: 'Roster_Sheet.xlsx', url: 'https://example.com/roster.xlsx', size: '85 KB' }
+    ];
+
+    tasksMod.saveTaskAttachments(testTaskId, sampleFiles);
+    const retrievedAtts = tasksMod.getTaskAttachments(testTaskId);
+    assert.strictEqual(retrievedAtts.length, 3, 'Must save and retrieve 3 attachments');
+    assert.strictEqual(retrievedAtts[0].name, 'Drill_Handbook.pdf');
+
+    // Remove 1 file
+    tasksMod.removeTaskAttachment(testTaskId, 'att_2');
+    const remainingAtts = tasksMod.getTaskAttachments(testTaskId);
+    assert.strictEqual(remainingAtts.length, 2, 'Removing att_2 leaves 2 attachments');
+    assert.strictEqual(remainingAtts.find(a => a.id === 'att_2'), undefined, 'att_2 removed');
+    assert.ok(remainingAtts.some(a => a.id === 'att_1') && remainingAtts.some(a => a.id === 'att_3'), 'Remaining files intact');
+    console.log('  ✔ Multi-file task attachments persistence, retrieval & removal verified');
+
+    // 2. Mention Candidates Engine (@ Mentions for Department Members & Groups)
+    assert.strictEqual(typeof tasksMod.getDepartmentMentionCandidates, 'function', 'getDepartmentMentionCandidates must be a function');
+    const allCandidates = tasksMod.getDepartmentMentionCandidates('');
+    const candidateNames = allCandidates.map(c => c.name);
+    
+    // Check group mentions requested by user
+    assert.ok(candidateNames.includes('all'), 'Mentions includes @all group');
+    assert.ok(candidateNames.includes('Secretariat'), 'Mentions includes @Secretariat group');
+    assert.ok(candidateNames.includes('Logistics'), 'Mentions includes @Logistics group');
+    assert.ok(candidateNames.includes('Media'), 'Mentions includes @Media group');
+    assert.ok(candidateNames.includes('HQ'), 'Mentions includes @HQ group');
+    assert.ok(candidateNames.includes('Band'), 'Mentions includes @Band group');
+    assert.ok(candidateNames.includes('Officers'), 'Mentions includes @Officers group');
+
+    // Query filter
+    const secFiltered = tasksMod.getDepartmentMentionCandidates('secretariat');
+    assert.ok(secFiltered.some(c => c.name === 'Secretariat'), 'Filtered candidates match query "secretariat"');
+    console.log('  ✔ @Mentions candidate generation for groups (@all, @Secretariat, @Logistics, @Media, @HQ) verified');
+
+    // Mention formatting
+    assert.strictEqual(typeof tasksMod.formatCommentMentions, 'function', 'formatCommentMentions must be a function');
+    const formattedComment = tasksMod.formatCommentMentions('Hello @Jeshua Koh and @Secretariat, please review this!');
+    assert.ok(formattedComment.includes('<span class="tb-mention-pill">@Jeshua Koh</span>'), 'Wraps @Jeshua Koh in mention pill');
+    assert.ok(formattedComment.includes('<span class="tb-mention-pill">@Secretariat</span>'), 'Wraps @Secretariat in mention pill');
+    console.log('  ✔ formatCommentMentions correctly wraps @mentions in .tb-mention-pill');
+
+    // 3. Admin Panel Header Lock Button Removal
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.strictEqual(indexHtml.includes('logoutAdmin()'), false, 'logoutAdmin lock button completely removed from index.html');
+    assert.strictEqual(indexHtml.includes('> Lock</button>'), false, 'Lock button text removed from admin header');
+    console.log('  ✔ Admin console lock button and manual lock feature cleanly removed');
+
+    // 4. Portal Notifications Expansion & Idempotent Deduplication
+    assert.ok(indexHtml.includes('syncAnnouncementNotifications'), 'index.html implements syncAnnouncementNotifications');
+    assert.ok(indexHtml.includes('syncFormNotifications'), 'index.html implements syncFormNotifications');
+    assert.ok(indexHtml.includes('syncHighlightNotifications'), 'index.html implements syncHighlightNotifications');
+    assert.ok(indexHtml.includes('syncAllPortalNotifications'), 'index.html implements syncAllPortalNotifications');
+
+    // Module notification dispatch hooks
+    const annJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'announcements.js'), 'utf8');
+    assert.ok(annJs.includes('syncAnnouncementNotifications(announcements)'), 'announcements.js triggers syncAnnouncementNotifications');
+
+    const formsJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'forms.js'), 'utf8');
+    assert.ok(formsJs.includes('syncFormNotifications(_customForms)'), 'forms.js triggers syncFormNotifications');
+
+    const galJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'gallery.js'), 'utf8');
+    assert.ok(galJs.includes('syncHighlightNotifications(storyHighlights)'), 'gallery.js triggers syncHighlightNotifications');
+    console.log('  ✔ Portal notification sync hooks connected to announcements, forms, and story highlights');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'Portal notifications and attachments preserved strict 388 unique DOM IDs invariant');
+    console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

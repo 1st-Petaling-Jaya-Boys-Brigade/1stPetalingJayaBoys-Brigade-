@@ -49,6 +49,11 @@ async function loadCustomForms() {
       _customForms = [];
     }
   }
+  if (typeof syncFormNotifications === 'function') {
+    syncFormNotifications(_customForms);
+  } else if (typeof window !== 'undefined' && typeof window.syncFormNotifications === 'function') {
+    window.syncFormNotifications(_customForms);
+  }
   return _customForms;
 }
 

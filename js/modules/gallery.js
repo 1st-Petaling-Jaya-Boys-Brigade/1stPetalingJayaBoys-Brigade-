@@ -892,6 +892,11 @@ async function loadStoryHighlights() {
 
   renderStoryHighlightsReel();
   renderAdminStoryHighlights();
+  if (typeof syncHighlightNotifications === 'function') {
+    syncHighlightNotifications(storyHighlights);
+  } else if (typeof window !== 'undefined' && typeof window.syncHighlightNotifications === 'function') {
+    window.syncHighlightNotifications(storyHighlights);
+  }
   return storyHighlights;
 }
 
