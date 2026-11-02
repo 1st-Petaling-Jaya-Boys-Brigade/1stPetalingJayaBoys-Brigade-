@@ -26,6 +26,7 @@ const jsFiles = [
   'js/modules/badges.js',
   'js/modules/tasks.js',
   'js/modules/admin.js',
+  'js/modules/forum.js',
   'sw.js'
 ];
 

@@ -2728,6 +2728,77 @@ async function getJson(url) {
     assert.strictEqual(cmtRes.authorSelfNotified, false, 'Author (Jeshua Koh) must NOT receive a mention notification for mentioning Jason Koh');
     console.log('  ✔ Comment 3-dots options menu, edit/delete actions, and author mention exclusion verified in browser');
 
+
+    // ── TSK-046: AI Support Helper Agent ("Ask Stedfast") & Bug Forum Browser Verification ──
+    const forumAgentDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        if (typeof sessionSet === 'function') {
+          sessionSet('name', 'Jeshua Koh');
+          sessionSet('email', 'jeshuakoh2008@gmail.com');
+          sessionSet('ic', '080101-10-1234');
+        }
+
+        // 1. Verify Floating Trigger Button
+        const trigger = document.getElementById('helper-agent-trigger');
+        const drawer = document.getElementById('helper-agent-drawer');
+        const triggerLabel = trigger ? trigger.querySelector('.helper-agent-label').textContent : '';
+
+        // Test Drawer Toggle
+        let drawerOpened = false;
+        if (trigger && drawer) {
+          trigger.click();
+          drawerOpened = drawer.classList.contains('open');
+        }
+
+        // Test Prompt Chip in Drawer
+        const firstChip = drawer ? (drawer.querySelector('.helper-chip') || drawer.querySelector('.helper-prompt-chips')) : null;
+
+        // Close Drawer
+        if (trigger && drawer && drawerOpened) {
+          trigger.click();
+        }
+
+        // 2. Verify Forum Tab & Routing
+        const forumSidebarItem = document.querySelector('.sidebar-item[data-nav="forum"]');
+        if (typeof switchTabNav === 'function') {
+          switchTabNav('forum');
+        }
+        const forumPage = document.getElementById('page-forum');
+        const isForumActive = forumPage ? forumPage.classList.contains('active') : false;
+        const hasHeroCard = forumPage ? !!forumPage.querySelector('.forum-hero-card') : false;
+        const postCards = forumPage ? forumPage.querySelectorAll('.forum-post-card').length : 0;
+        const filterPills = forumPage ? forumPage.querySelectorAll('.forum-filter-pill').length : 0;
+
+        return {
+          hasTrigger: !!trigger,
+          triggerLabel,
+          hasDrawer: !!drawer,
+          drawerOpened,
+          hasFirstChip: !!firstChip,
+          hasForumNav: !!forumSidebarItem,
+          isForumActive,
+          hasHeroCard,
+          postCards,
+          filterPills
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+
+    const faRes = (forumAgentDiag.result && forumAgentDiag.result.value) || {};
+    assert.strictEqual(faRes.hasTrigger, true, '#helper-agent-trigger floating pill button must exist');
+    assert.ok(faRes.triggerLabel.includes('Stedfast'), 'Helper Agent trigger button must display "Ask Stedfast"');
+    assert.strictEqual(faRes.hasDrawer, true, '#helper-agent-drawer overlay must exist');
+    assert.strictEqual(faRes.drawerOpened, true, 'Clicking trigger must open helper agent drawer');
+    assert.strictEqual(faRes.hasFirstChip, true, 'Helper agent drawer must render quick prompt chips');
+    assert.strictEqual(faRes.hasForumNav, true, 'Sidebar must render Support Forum navigation item with data-nav="forum"');
+    assert.strictEqual(faRes.isForumActive, true, 'switchTabNav("forum") must activate #page-forum');
+    assert.strictEqual(faRes.hasHeroCard, true, 'Support forum must render .forum-hero-card');
+    assert.ok(faRes.postCards >= 3, 'Support forum must render initial discussion threads');
+    assert.ok(faRes.filterPills >= 6, 'Support forum must render category filter pills');
+    console.log('  ✔ Floating Helper Agent ("Ask Stedfast") drawer and Support Forum tab layout verified in browser');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
