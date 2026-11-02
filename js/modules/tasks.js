@@ -702,7 +702,7 @@ function paintProjectsList(container) {
   var html = '<div class="projects-overview-header">'
     + '<div>'
     +   '<h2 class="projects-overview-title">Projects</h2>'
-    +   '<p class="projects-overview-sub">Every project in your workspace. Select a project to view its Kanban board.</p>'
+    +   '<p class="projects-overview-sub">Every project in your workspace. Select a project to view its board.</p>'
     + '</div>'
     + '<button type="button" class="task-primary-btn" onclick="openAddProjectModal()">'
     +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
