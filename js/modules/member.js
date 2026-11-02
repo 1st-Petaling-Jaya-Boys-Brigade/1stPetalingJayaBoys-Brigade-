@@ -31,6 +31,15 @@ function showAuthMode(mode) {
   if (mode === 'forgot' && typeof showForgotStep === 'function') {
     showForgotStep(1);
   }
+  if (typeof renderTurnstileWidget === 'function') {
+    setTimeout(function() {
+      var container = document.querySelector('#auth-' + mode + ' .cf-turnstile-container');
+      if (container) {
+        var actionName = (mode === 'forgot') ? 'forgot_password' : mode;
+        renderTurnstileWidget(container, actionName);
+      }
+    }, 50);
+  }
 }
 
 function togglePassVis(inputId, btnId) {
@@ -634,6 +643,30 @@ async function registerMember() {
       return;
     }
 
+  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  var captchaToken = (typeof getTurnstileToken === 'function')
+    ? getTurnstileToken('register')
+    : '';
+  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
+    if (typeof showToast === 'function') {
+      showToast('Please complete the security check before registering.', 'warning');
+    }
+    return;
+  }
+  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
+    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'register');
+    if (!captchaResult || !captchaResult.success) {
+      if (typeof resetTurnstileWidget === 'function') {
+        resetTurnstileWidget('register');
+      }
+      if (typeof showToast === 'function') {
+        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+      }
+      return;
+    }
+  }
+
+
     var newMemberData = {
       ic: email,
       email: email,
@@ -1073,6 +1106,30 @@ async function loginMember() {
   if (!identifier || !pass) { if (typeof showToast === 'function') showToast('Please enter your email and password.', 'warning'); return; }
 
   var loginBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-login button[type="submit"]') : null;
+
+  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  var captchaToken = (typeof getTurnstileToken === 'function')
+    ? getTurnstileToken('login')
+    : '';
+  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
+    if (typeof showToast === 'function') {
+      showToast('Please complete the security check before logging in.', 'warning');
+    }
+    return;
+  }
+  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
+    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'login');
+    if (!captchaResult || !captchaResult.success) {
+      if (typeof resetTurnstileWidget === 'function') {
+        resetTurnstileWidget('login');
+      }
+      if (typeof showToast === 'function') {
+        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+      }
+      return;
+    }
+  }
+
   if (typeof setButtonLoading === 'function' && loginBtn) {
     setButtonLoading(loginBtn, true, 'Logging in...', 'Logging in to member portal...');
   }
@@ -1212,6 +1269,9 @@ async function loginMember() {
   } catch (e) {
     if (typeof showToast === 'function') showToast('Login failed: ' + e.message, 'error');
   } finally {
+    if (typeof resetTurnstileWidget === 'function') {
+      resetTurnstileWidget('login');
+    }
     if (typeof setButtonLoading === 'function' && loginBtn) {
       setButtonLoading(loginBtn, false);
     }
@@ -2227,6 +2287,30 @@ async function sendPasswordResetEmail() {
 
   var btn = document.getElementById('btn-send-reset');
   var origText = btn ? btn.textContent : '';
+
+  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  var captchaToken = (typeof getTurnstileToken === 'function')
+    ? getTurnstileToken('forgot_password')
+    : '';
+  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
+    if (typeof showToast === 'function') {
+      showToast('Please complete the security check before requesting a reset code.', 'warning');
+    }
+    return;
+  }
+  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
+    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'forgot_password');
+    if (!captchaResult || !captchaResult.success) {
+      if (typeof resetTurnstileWidget === 'function') {
+        resetTurnstileWidget('forgot_password');
+      }
+      if (typeof showToast === 'function') {
+        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+      }
+      return;
+    }
+  }
+
   if (btn) {
     btn.disabled = true;
     btn.textContent = '⏳ Sending Reset Code...';

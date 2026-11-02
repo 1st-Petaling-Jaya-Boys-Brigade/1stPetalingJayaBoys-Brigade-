@@ -9,6 +9,11 @@ var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 // Pre-computed cryptographic SHA-256 hash of default admin password (BUG-009)
 var ADMIN_PASSWORD_HASH = 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f';
 
+// Cloudflare Turnstile CAPTCHA (TSK-043)
+// 1x00000000000000000000AA: Cloudflare testing sitekey (Always passes)
+// 2x00000000000000000000AB: Cloudflare testing sitekey (Always blocks)
+var TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
+
 var NCO_RANKS = [
   'Lance Corporal',
   'Corporal',
@@ -36,10 +41,11 @@ if (typeof window !== 'undefined') {
   window.SUPA_URL = SUPA_URL;
   window.SUPA_KEY = SUPA_KEY;
   window.ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH;
+  window.TURNSTILE_SITE_KEY = TURNSTILE_SITE_KEY;
   window.NCO_RANKS = NCO_RANKS;
   window.isNcoRank = isNcoRank;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SUPA_URL, SUPA_KEY, ADMIN_PASSWORD_HASH, NCO_RANKS, isNcoRank };
+  module.exports = { SUPA_URL, SUPA_KEY, ADMIN_PASSWORD_HASH, TURNSTILE_SITE_KEY, NCO_RANKS, isNcoRank };
 }

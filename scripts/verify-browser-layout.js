@@ -2184,6 +2184,47 @@ async function getJson(url) {
     console.log('  ✔ Creator "JK" with RGB animation and regular member single initial with unique color and hover tooltip verified in browser');
     console.log('  ✔ Remove profile picture toggle and buttons verified in browser');
 
+    // ── Cloudflare Turnstile CAPTCHA Integration (TSK-043) ──
+    console.log('\n[Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA)]');
+    const turnstileDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const containers = document.querySelectorAll('.cf-turnstile-container');
+        const loginContainer = document.querySelector('#auth-login .cf-turnstile-container');
+        const regContainer = document.querySelector('#auth-register .cf-turnstile-container');
+        const forgotContainer = document.querySelector('#auth-forgot .cf-turnstile-container');
+        const scriptEl = document.querySelector('script[src*="turnstile/v0/api.js"]');
+        const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+        const cspContent = cspMeta ? cspMeta.getAttribute('content') : '';
+
+        return {
+          containerCount: containers.length,
+          loginFound: !!loginContainer,
+          loginAction: loginContainer ? loginContainer.getAttribute('data-action') : null,
+          regFound: !!regContainer,
+          regAction: regContainer ? regContainer.getAttribute('data-action') : null,
+          forgotFound: !!forgotContainer,
+          forgotAction: forgotContainer ? forgotContainer.getAttribute('data-action') : null,
+          scriptFound: !!scriptEl,
+          scriptSrc: scriptEl ? scriptEl.getAttribute('src') : null,
+          cspAllowsTurnstile: cspContent.includes('https://challenges.cloudflare.com'),
+          hasNoRecaptcha: !document.querySelector('script[src*="recaptcha"]')
+        };
+      })()`,
+      returnByValue: true
+    });
+    const cfDiag = turnstileDiag.result.value;
+    assert.ok(cfDiag.scriptFound, 'Cloudflare Turnstile script must be present in DOM');
+    assert.strictEqual(cfDiag.cspAllowsTurnstile, true, 'CSP meta tag must permit challenges.cloudflare.com');
+    assert.strictEqual(cfDiag.loginFound, true, 'Login form must include Turnstile container');
+    assert.strictEqual(cfDiag.loginAction, 'login', 'Login container action must be login');
+    assert.strictEqual(cfDiag.regFound, true, 'Register form must include Turnstile container');
+    assert.strictEqual(cfDiag.regAction, 'register', 'Register container action must be register');
+    assert.strictEqual(cfDiag.forgotFound, true, 'Forgot password form must include Turnstile container');
+    assert.strictEqual(cfDiag.forgotAction, 'forgot_password', 'Forgot container action must be forgot_password');
+    assert.strictEqual(cfDiag.hasNoRecaptcha, true, 'Zero Google reCAPTCHA scripts in DOM (privacy compliance)');
+    console.log('  ✔ Cloudflare Turnstile explicit script loader & privacy-first CSP headers verified in browser');
+    console.log('  ✔ Turnstile widget containers and data actions verified across Login, Register, and Forgot Password in browser');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
