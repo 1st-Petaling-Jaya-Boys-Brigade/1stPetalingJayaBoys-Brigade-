@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261102a';
+const CACHE_VERSION = '20261102b';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -24,6 +24,7 @@ const PRECACHE_ASSETS = [
   './js/config.js',
   './js/core/theme.js',
   './js/core/session.js',
+  './js/core/rbac.js',
   './js/core/utils.js',
   './js/core/ui.js',
   './js/core/loading.js',
@@ -103,10 +104,47 @@ async function handleFetchRequest(request, cachesInterface, fetchFn) {
     }
   }
 
-  // 2. Static Assets & App Shell Caching (Stale-While-Revalidate)
+  // 2. Navigation / App Shell Requests (Network-First with Offline Cache Fallback)
+  // Ensures online users ALWAYS receive the latest HTML app shell on reload or navigation,
+  // preventing stale cached DOM shells from masking updates while retaining full offline PWA support.
   var isLocalAsset = (typeof self !== 'undefined' && self.location)
     ? (url.origin === self.location.origin)
     : (!url.hostname.includes('supabase.co') && (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.endsWith('.png') || url.pathname.endsWith('.json')));
+
+  var isNavigation =
+    request.mode === 'navigate' ||
+    (request.headers && typeof request.headers.get === 'function' && (request.headers.get('accept') || '').includes('text/html')) ||
+    url.pathname.endsWith('.html') ||
+    (isLocalAsset && (url.pathname === '/' || url.pathname === ''));
+
+  if (isNavigation && isLocalAsset) {
+    try {
+      var netNavRes = await networkFetch(request);
+      if (netNavRes && netNavRes.status === 200 && cachesApi) {
+        var navClone = netNavRes.clone();
+        cachesApi
+          .open(STATIC_CACHE_NAME)
+          .then(function (cache) {
+            cache.put('./index.html', navClone);
+          })
+          .catch(function () {});
+      }
+      return netNavRes;
+    } catch (_navErr) {
+      if (cachesApi) {
+        var cachedNav = await cachesApi.match('./index.html', { ignoreSearch: true });
+        if (!cachedNav) {
+          cachedNav = await cachesApi.match(request, { ignoreSearch: true });
+        }
+        if (cachedNav) {
+          return cachedNav;
+        }
+      }
+      return null;
+    }
+  }
+
+  // 3. Static Assets & App Shell Caching (Stale-While-Revalidate with Cache Fallback)
   var isGoogleFont =
     url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com');
 
