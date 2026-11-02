@@ -30,6 +30,7 @@ VALUES (
   '{
     "super_admins": [
       "1stpjbb@gmail.com",
+      "jeshuakoh2008@gmail.com",
       "admin@1stpjbb.org.my",
       "officer@1stpjbb.org.my"
     ],
@@ -88,6 +89,7 @@ BEGIN
 
   -- 1. Check Super Admin pre-assigned list & official Google account
   IF v_clean_email = '1stpjbb@gmail.com' OR
+     v_clean_email = 'jeshuakoh2008@gmail.com' OR
      v_clean_email = 'admin@1stpjbb.org.my' OR
      v_clean_email = 'officer@1stpjbb.org.my' OR
      v_super_admins @> to_jsonb(v_clean_email) THEN
@@ -170,8 +172,8 @@ BEGIN
     RAISE EXCEPTION 'Access Denied: Only Super Admins can manage roles and permissions.';
   END IF;
 
-  -- Prevent demoting official 1stPJ Google account
-  IF v_target_clean = '1stpjbb@gmail.com' AND v_role_clean != 'super_admin' THEN
+  -- Prevent demoting official 1stPJ Google account and founder/super admin
+  IF (v_target_clean = '1stpjbb@gmail.com' OR v_target_clean = 'jeshuakoh2008@gmail.com') AND v_role_clean != 'super_admin' THEN
     RAISE EXCEPTION 'Protection Error: The official 1stPJ Google account cannot be demoted.';
   END IF;
 

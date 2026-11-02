@@ -5586,6 +5586,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(getUserRole('1stpjbb@gmail.com'), 'super_admin', 'Official 1stPJ Google account is pre-assigned Super Admin');
     assert.strictEqual(getUserRole('admin@1stpjbb.org.my'), 'super_admin', 'Designated admin officer is pre-assigned Super Admin');
     assert.strictEqual(getUserRole('officer@1stpjbb.org.my'), 'super_admin', 'Designated duty officer is pre-assigned Super Admin');
+    assert.strictEqual(getUserRole('jeshuakoh2008@gmail.com'), 'super_admin', 'Jeshua Koh is pre-assigned Super Admin');
+    assert.strictEqual(isSuperAdmin('jeshuakoh2008@gmail.com'), true, 'isSuperAdmin returns true for Jeshua Koh');
+    assert.strictEqual(isAdmin('jeshuakoh2008@gmail.com'), true, 'isAdmin returns true for Jeshua Koh');
     assert.strictEqual(isSuperAdmin('1stpjbb@gmail.com'), true, 'isSuperAdmin returns true for official account');
     assert.strictEqual(isAdmin('1stpjbb@gmail.com'), true, 'isAdmin returns true for Super Admin (inclusive)');
     assert.deepStrictEqual(
@@ -5649,7 +5652,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'Protection message matches demotion safety guard'
     );
     assert.strictEqual(getUserRole('1stpjbb@gmail.com'), 'super_admin', 'Official account remains Super Admin');
-    console.log('  ✔ Official 1stPJ account demotion protection guard verified');
+    let jeshuaDemoteError = null;
+    try {
+      await rbacMod.assignUserRole('jeshuakoh2008@gmail.com', 'member', [], '1stpjbb@gmail.com');
+    } catch (err) {
+      jeshuaDemoteError = err;
+    }
+    assert.ok(jeshuaDemoteError, 'Demoting Jeshua Koh account must throw an error');
+    assert.strictEqual(getUserRole('jeshuakoh2008@gmail.com'), 'super_admin', 'Jeshua Koh account remains Super Admin');
+    console.log('  ✔ Official 1stPJ account and Jeshua Koh demotion protection guard verified');
 
     // 6. Header Role Badge Rendering & Responsive Styling
     const navCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
@@ -5724,6 +5735,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(adminJs.includes("sec-btn-roles"), 'backToAdminHome injects roles management button dynamically');
     assert.ok(adminJs.includes("renderAdminRoles"), 'admin.js provides renderAdminRoles management console');
     assert.ok(adminJs.includes("saveMemberRbacPermissions"), 'admin.js exports saveMemberRbacPermissions');
+    assert.ok(adminJs.includes("Passwordless Access for Authenticated Admins & Super Admins"), 'admin.js implements passwordless console access for Admins/Super Admins');
     console.log('  ✔ Admin console member route protection, modular permission gating & Super Admin console verified');
 
     // 8. PostgreSQL Migration Schema Integrity (013_granular_rbac_permissions.sql)
@@ -5734,7 +5746,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(migrationSql.includes('rpc_get_user_role'), 'Migration implements rpc_get_user_role SECURITY DEFINER');
     assert.ok(migrationSql.includes('rpc_assign_user_role'), 'Migration implements rpc_assign_user_role SECURITY DEFINER');
     assert.ok(migrationSql.includes('rpc_list_admin_roles'), 'Migration implements rpc_list_admin_roles');
-    assert.ok(migrationSql.includes('1stpjbb@gmail.com'), 'Migration protects official 1stPJ Google account');
+    assert.ok(migrationSql.includes('1stpjbb@gmail.com') && migrationSql.includes('jeshuakoh2008@gmail.com'), 'Migration protects official 1stPJ account and Jeshua Koh');
     console.log('  ✔ PostgreSQL migration schema 013 and SECURITY DEFINER RPCs verified');
 
     // 9. Strict DOM ID preservation: exactly 388 unique DOM IDs
