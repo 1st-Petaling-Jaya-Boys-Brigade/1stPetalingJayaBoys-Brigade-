@@ -1479,6 +1479,15 @@ async function getJson(url) {
         const hasSaveTask = typeof window.saveTask === 'function';
 
         // 2. Open admin console and authenticate
+        // 2a. RBAC Gatekeeper: Standard member is blocked from opening admin console (TSK-049)
+        window.openAdmin();
+        const memberBlocked = (!document.getElementById('admin-overlay') || document.getElementById('admin-overlay').style.display === 'none');
+
+        // 2b. Elevate to Officer session to authenticate via Officer Admin
+        if (typeof sessionSet === 'function') {
+          sessionSet('email', 'admin@1stpjbb.org.my');
+          sessionSet('rank', 'Captain');
+        }
         window.openAdmin();
         const overlay = document.getElementById('admin-overlay');
         const loginBox = document.getElementById('admin-login-box');
@@ -1486,6 +1495,7 @@ async function getJson(url) {
         const passInput = document.getElementById('admin-pass');
         
         const openState = {
+          memberBlocked: memberBlocked,
           overlayVisible: overlay && overlay.style.display !== 'none',
           loginBoxVisible: loginBox && loginBox.style.display !== 'none',
           adminPanelHidden: !adminPanel || adminPanel.style.display === 'none'
@@ -1625,9 +1635,14 @@ async function getJson(url) {
     assert.strictEqual(adminResult.unmasked, 'none', 'toggleAdminPassVis must unmask password');
     assert.strictEqual(adminResult.remasked, 'disc', 'toggleAdminPassVis must remask password');
     assert.strictEqual(
+      adminResult.openState.memberBlocked,
+      true,
+      'Standard member must be blocked from opening admin console (TSK-049)'
+    );
+    assert.strictEqual(
       adminResult.openState.overlayVisible,
       true,
-      'openAdmin must display admin overlay'
+      'openAdmin must display admin overlay for officer session'
     );
     assert.strictEqual(
       adminResult.authedState.adminPanelVisible,
@@ -2313,6 +2328,122 @@ async function getJson(url) {
     assert.strictEqual(lInfo.authedNow, false, 'AuthGuard must report user unauthenticated after logout');
     assert.strictEqual(lInfo.canOrder, false, 'Internal routes must re-lock upon logout');
     console.log('  ✔ Member logout, dashboard hiding, and portal re-locking verified in browser');
+
+    // ── Granular RBAC, Scoped Admin Console & Header Role Badge Verification (TSK-049) ──
+    console.log('\n[Granular RBAC, Scoped Admin Console & Header Role Badge Verification (TSK-049)]');
+    const rbacBrowserDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        // 1. Header Role Badge for Member, Admin, and Super Admin
+        const badge = document.querySelector('.nav-role-badge');
+        const badgeWrap = document.querySelector('.nav-role-badge-wrap');
+        const textSpan = badge ? badge.querySelector('.nav-role-badge-text') : null;
+
+        // Test Member Badge
+        sessionSet('email', 'member@1stpjbb.org.my');
+        sessionSet('rank', 'Private');
+        RBAC.renderHeaderRoleBadge();
+        const memberBadgeClass = badge ? badge.className : '';
+        const memberBadgeText = textSpan ? textSpan.textContent : '';
+        const memberBadgeRole = badge ? badge.getAttribute('role') : '';
+
+        // Test Scoped Admin Badge
+        await RBAC.assignUserRole('store_officer@1stpjbb.org.my', 'admin', ['orders', 'uniform'], '1stpjbb@gmail.com');
+        sessionSet('email', 'store_officer@1stpjbb.org.my');
+        sessionSet('rank', 'Lieutenant');
+        RBAC.renderHeaderRoleBadge();
+        const adminBadgeClass = badge ? badge.className : '';
+        const adminBadgeText = textSpan ? textSpan.textContent : '';
+
+        // Test Super Admin Badge
+        sessionSet('email', '1stpjbb@gmail.com');
+        sessionSet('rank', 'Captain');
+        RBAC.renderHeaderRoleBadge();
+        const superBadgeClass = badge ? badge.className : '';
+        const superBadgeText = textSpan ? textSpan.textContent : '';
+
+                // 2. Scoped Admin Console UI Filtering
+        // Open Admin Console as Scoped Admin
+        sessionSet('email', 'store_officer@1stpjbb.org.my');
+        sessionSet('rank', 'Lieutenant');
+        window.openAdmin();
+        const passInputScoped = document.getElementById('admin-pass');
+        if (passInputScoped) passInputScoped.value = 'bb2024admin';
+        await window.adminLogin();
+        window.backToAdminHome();
+
+        const btnOrders = document.getElementById('sec-btn-orders');
+        const btnUniform = document.getElementById('sec-btn-uniform');
+        const btnMembers = document.getElementById('sec-btn-members');
+        const btnRoles = document.getElementById('sec-btn-roles');
+
+        const scopedVisibility = {
+          ordersVisible: btnOrders ? getComputedStyle(btnOrders).display !== 'none' : false,
+          uniformVisible: btnUniform ? getComputedStyle(btnUniform).display !== 'none' : false,
+          membersHidden: btnMembers ? getComputedStyle(btnMembers).display === 'none' : false,
+          rolesHidden: btnRoles ? getComputedStyle(btnRoles).display === 'none' : false
+        };
+
+        // Switch to Super Admin
+        sessionSet('email', '1stpjbb@gmail.com');
+        sessionSet('rank', 'Captain');
+        window.backToAdminHome();
+
+        const superVisibility = {
+          membersVisible: btnMembers ? getComputedStyle(btnMembers).display !== 'none' : false,
+          rolesVisible: btnRoles ? getComputedStyle(btnRoles).display !== 'none' : false
+        };
+
+        // Render Super Admin Roles Console
+        window.switchAdminSection('roles');
+        if (typeof renderAdminRoles === 'function') await renderAdminRoles();
+        const rolesSection = document.getElementById('adm-section-roles');
+        const rolesTitle = rolesSection ? rolesSection.querySelector('.adm-section-title') : null;
+        const searchInput = document.getElementById('rbac-search-input');
+        const rolesConsoleVisible = rolesSection ? getComputedStyle(rolesSection).display !== 'none' : false;
+
+        window.closeAdmin();
+
+        return {
+          hasBadgeWrap: !!badgeWrap,
+          memberBadgeClass,
+          memberBadgeText,
+          memberBadgeRole,
+          adminBadgeClass,
+          adminBadgeText,
+          superBadgeClass,
+          superBadgeText,
+          scopedVisibility,
+          superVisibility,
+          rolesConsoleVisible,
+          rolesTitleText: rolesTitle ? rolesTitle.textContent : '',
+          hasSearchInput: !!searchInput
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+
+    const rbacDiag = rbacBrowserDiag.result.value;
+    assert.strictEqual(rbacDiag.hasBadgeWrap, true, 'Top navigation must contain .nav-role-badge-wrap');
+    assert.ok(rbacDiag.memberBadgeClass.includes('role-member'), 'Member badge has role-member class');
+    assert.strictEqual(rbacDiag.memberBadgeText, 'Member', 'Member badge has Member text');
+    assert.strictEqual(rbacDiag.memberBadgeRole, 'status', 'Role badge has role="status" attribute');
+    assert.ok(rbacDiag.adminBadgeClass.includes('role-admin'), 'Admin badge has role-admin class');
+    assert.strictEqual(rbacDiag.adminBadgeText, 'Admin', 'Admin badge has Admin text');
+    assert.ok(rbacDiag.superBadgeClass.includes('role-super-admin'), 'Super Admin badge has role-super-admin class');
+    assert.strictEqual(rbacDiag.superBadgeText, 'Super Admin', 'Super Admin badge has Super Admin text');
+    console.log('  ✔ Top navigation dynamic role badge states (Member / Admin / Super Admin) and ARIA status verified in browser');
+
+    assert.strictEqual(rbacDiag.scopedVisibility.ordersVisible, true, 'Scoped Admin sees permitted Orders button');
+    assert.strictEqual(rbacDiag.scopedVisibility.uniformVisible, true, 'Scoped Admin sees permitted Uniform button');
+    assert.strictEqual(rbacDiag.scopedVisibility.membersHidden, true, 'Scoped Admin does NOT see restricted Members button');
+    assert.strictEqual(rbacDiag.scopedVisibility.rolesHidden, true, 'Scoped Admin does NOT see Super Admin Roles button');
+    assert.strictEqual(rbacDiag.superVisibility.membersVisible, true, 'Super Admin sees Members button');
+    assert.strictEqual(rbacDiag.superVisibility.rolesVisible, true, 'Super Admin sees Roles & Permissions button');
+    assert.strictEqual(rbacDiag.rolesConsoleVisible, true, 'Super Admin can switch to Roles & Permissions console');
+    assert.ok(rbacDiag.rolesTitleText.includes('Roles & Permissions Manager'), 'Roles console renders section title');
+    assert.strictEqual(rbacDiag.hasSearchInput, true, 'Roles console renders search input for account permissions');
+    console.log('  ✔ Scoped Admin Console section button filtering & Super Admin Roles Console verified in browser');
 
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');

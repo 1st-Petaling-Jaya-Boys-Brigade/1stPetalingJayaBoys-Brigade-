@@ -202,7 +202,14 @@ export default [
         initAllTurnstileWidgets: 'readonly',
         callSheetsApi: 'readonly',
         AuthGuard: 'readonly',
-        isUserAuthenticated: 'readonly'
+        isUserAuthenticated: 'readonly',
+        RBAC: 'readonly',
+        RBAC_ROLES: 'readonly',
+        RBAC_MODULES: 'readonly',
+        renderAdminRoles: 'readonly',
+        handleRbacRoleChange: 'readonly',
+        filterRbacMembers: 'readonly',
+        saveMemberRbacPermissions: 'readonly'
       }
     },
     rules: {

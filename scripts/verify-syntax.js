@@ -9,6 +9,7 @@ const jsFiles = [
   'js/config.js',
   'js/core/theme.js',
   'js/core/session.js',
+  'js/core/rbac.js',
   'js/core/utils.js',
   'js/core/ui.js',
   'js/core/loading.js',
