@@ -86,6 +86,7 @@ export default [
         stripExifBytes: 'readonly',
         PRIVATE_STORAGE_BUCKETS: 'readonly',
         loadMemberAttendanceStats: 'readonly',
+        getAttendanceAchievementTier: 'readonly',
         isNCO: 'readonly',
         isNcoRank: 'readonly',
         getSupaClient: 'readonly',

@@ -807,7 +807,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
 
   html += '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 12px;margin-bottom:' + (allDone ? '12px' : '0') + ';">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-    + '<div style="font-size:12px;font-weight:600;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-secondary)') + ';">Service Years <span style="font-size:10px;color:var(--text-muted);">(need 3)</span></div>'
+    + '<div style="font-size:12px;font-weight:600;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-secondary)') + ';" title="Official BB Rule: Minimum 80% attendance required per year for One Year Service award and badge advancement.">One Year Service Milestones <span style="font-size:10px;color:var(--text-muted);">(need 3 Service Years &middot; &ge;80% attendance required)</span></div>'
     + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-primary)') + ';">' + serviceYears + ' year' + (serviceYears !== 1 ? 's' : '') + '</div>'
     + '</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + svcDots + '</div>'

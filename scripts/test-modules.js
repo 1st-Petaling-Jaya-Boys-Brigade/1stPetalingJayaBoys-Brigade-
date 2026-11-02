@@ -3980,8 +3980,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261102b',
-    'sw.js CACHE_VERSION must be 20261102b'
+    '20261102c',
+    'sw.js CACHE_VERSION must be 20261102c'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -6088,6 +6088,138 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
     assert.strictEqual(uniqueIds.length, 388, 'Portal notifications and attachments preserved strict 388 unique DOM IDs invariant');
+    console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
+  }
+
+  
+  // =========================================================================
+  // TSK-057: Confidential Attendance Achievement Tiers & One Year Service Milestone Badges
+  // =========================================================================
+  console.log('\n--- TSK-057: Confidential Attendance Achievement Tiers & One Year Service Milestone Badges ---');
+  {
+    const attMod = attendanceMod;
+    const tierFn = utils.getAttendanceAchievementTier;
+    assert.strictEqual(typeof tierFn, 'function', 'getAttendanceAchievementTier must be exported as a function');
+
+    // 1. Attendance Achievement Tiers Evaluation
+    // 100%: Perfect
+    const t100 = tierFn(100);
+    assert.strictEqual(t100.tier, 'perfect', '100% attendance evaluates to tier perfect');
+    assert.strictEqual(t100.label, 'Perfect', '100% attendance has label Perfect');
+    assert.strictEqual(t100.badgeLabel, '100% (Perfect)', '100% attendance has badgeLabel 100% (Perfect)');
+    assert.strictEqual(t100.qualifiesForOneYearService, true, '100% attendance qualifies for One Year Service');
+
+    // >= 90%: Excellent
+    const t95 = tierFn(95);
+    assert.strictEqual(t95.tier, 'excellent', '95% attendance evaluates to tier excellent');
+    assert.strictEqual(t95.label, 'Excellent', '95% attendance has label Excellent');
+    assert.strictEqual(t95.badgeLabel, '≥90% (Excellent)', '95% attendance has badgeLabel ≥90% (Excellent)');
+    assert.strictEqual(t95.qualifiesForOneYearService, true, '95% attendance qualifies for One Year Service');
+
+    const t90 = tierFn(90);
+    assert.strictEqual(t90.tier, 'excellent', '90% attendance evaluates to tier excellent');
+    assert.strictEqual(t90.qualifiesForOneYearService, true, '90% attendance qualifies for One Year Service');
+
+    // >= 80%: Good
+    const t85 = tierFn(85);
+    assert.strictEqual(t85.tier, 'good', '85% attendance evaluates to tier good');
+    assert.strictEqual(t85.label, 'Good', '85% attendance has label Good');
+    assert.strictEqual(t85.badgeLabel, '≥80% (Good)', '85% attendance has badgeLabel ≥80% (Good)');
+    assert.strictEqual(t85.qualifiesForOneYearService, true, '85% attendance qualifies for One Year Service');
+
+    const t80 = tierFn(80);
+    assert.strictEqual(t80.tier, 'good', '80% attendance evaluates to tier good');
+    assert.strictEqual(t80.qualifiesForOneYearService, true, '80% attendance qualifies for One Year Service');
+
+    // < 80%: At Risk
+    const t79 = tierFn(79);
+    assert.strictEqual(t79.tier, 'at_risk', '79% attendance evaluates to tier at_risk');
+    assert.strictEqual(t79.label, 'At Risk', '79% attendance has label At Risk');
+    assert.strictEqual(t79.badgeLabel, '<80% (At Risk)', '79% attendance has badgeLabel <80% (At Risk)');
+    assert.strictEqual(t79.qualifiesForOneYearService, false, '79% attendance does NOT qualify for One Year Service');
+
+    const t50 = tierFn(50);
+    assert.strictEqual(t50.tier, 'at_risk', '50% attendance evaluates to tier at_risk');
+    assert.strictEqual(t50.qualifiesForOneYearService, false, '50% attendance does NOT qualify for One Year Service');
+
+    const t0 = tierFn(0);
+    assert.strictEqual(t0.tier, 'at_risk', '0% attendance evaluates to tier at_risk');
+    assert.strictEqual(t0.qualifiesForOneYearService, false, '0% attendance does NOT qualify for One Year Service');
+
+    // Empty / null data
+    const tNull = tierFn(null);
+    assert.strictEqual(tNull.tier, 'none', 'null evaluates to tier none');
+    assert.strictEqual(tNull.label, 'No Data', 'null has label No Data');
+    assert.strictEqual(tNull.qualifiesForOneYearService, false, 'null does not qualify for One Year Service');
+
+    console.log('  ✔ Attendance achievement tier evaluation strictly maps 100%, >=90%, >=80%, and <80%');
+
+    // 2. Explanatory Tooltip Outlining the 80% Minimum Threshold
+    [t100, t95, t90, t85, t80, t79, t50, tNull].forEach((t) => {
+      assert.ok(t.tooltipText.includes('80%'), 'Tooltip must state official 80% threshold');
+      assert.ok(t.tooltipText.includes('One Year Service'), 'Tooltip must outline One Year Service award');
+      assert.ok(t.tooltipText.includes('badge advancement'), 'Tooltip must outline badge advancement requirement');
+    });
+    console.log('  ✔ Explanatory tooltip outlines official 80% minimum attendance threshold for One Year Service');
+
+    // 3. Member Hub Attendance Breakdown HTML
+    const sampleRecord = {
+      name: 'Jeshua Koh',
+      platoon: 'Hotel',
+      squad: 'HQ',
+      isBandMember: true,
+      bandSection: 'Bugle',
+      paradeAttendance: { percentage: 92, presentCount: 23, totalParades: 25 },
+      bandAttendance: { percentage: 100, presentCount: 20, totalSessions: 20 },
+      points: { uniform: 48, uniformAvg: 5.8, paradeAtt: 46, bandAtt: 40, total: 134 }
+    };
+    const memberHubHtml = attMod.renderAttendanceBreakdownHTML(sampleRecord, {}, {}, new Date().toISOString());
+    assert.ok(memberHubHtml.includes('Excellent'), 'Member Hub renders Excellent tier for 92% parade attendance');
+    assert.ok(memberHubHtml.includes('Perfect'), 'Member Hub renders Perfect tier for 100% band attendance');
+    assert.ok(memberHubHtml.includes('One Year Service Qualified'), 'Member Hub highlights One Year Service qualification status');
+    assert.ok(memberHubHtml.includes('80% Req.'), 'Member Hub indicates 80% minimum requirement badge');
+
+    // Low attendance record in Member Hub
+    const lowAttRecord = {
+      name: 'Test Member',
+      platoon: 'Alpha',
+      squad: 'ALPHA 1',
+      isBandMember: false,
+      paradeAttendance: { percentage: 65, presentCount: 13, totalParades: 20 },
+      points: { uniform: 30, uniformAvg: 4.5, paradeAtt: 26, bandAtt: 0, total: 56 }
+    };
+    const lowMemberHubHtml = attMod.renderAttendanceBreakdownHTML(lowAttRecord, {}, {}, new Date().toISOString());
+    assert.ok(lowMemberHubHtml.includes('At Risk'), 'Member Hub renders At Risk tier for 65% attendance');
+    assert.ok(lowMemberHubHtml.includes('One Year Service Pending'), 'Member Hub indicates One Year Service Pending status for <80%');
+    console.log('  ✔ Member Hub attendance card renders confidential achievement tiers and milestone qualification status');
+
+    // 4. Squad Leaderboard View Squad Members Tier Badges & Confidentiality
+    let leaderboardContainer = document.getElementById('company-platoon-leaderboard');
+    if (!leaderboardContainer) {
+      leaderboardContainer = document.createElement('div');
+      leaderboardContainer.id = 'company-platoon-leaderboard';
+      document.body.appendChild(leaderboardContainer);
+    }
+    await attMod.renderCompanyLeaderboard();
+    const leaderboardHtml = leaderboardContainer.innerHTML;
+
+    assert.ok(leaderboardHtml.includes('att-tier-pill'), 'Squad members list renders att-tier-pill badges');
+    assert.ok(leaderboardHtml.includes('Perfect'), 'Squad members list displays Perfect tier badge');
+    assert.ok(leaderboardHtml.includes('Excellent'), 'Squad members list displays Excellent tier badge');
+    assert.ok(leaderboardHtml.includes('Good'), 'Squad members list displays Good tier badge');
+    assert.ok(leaderboardHtml.includes('At Risk'), 'Squad members list displays At Risk tier badge');
+    assert.ok(leaderboardHtml.includes('80% minimum attendance threshold'), 'Squad tier pills include explanatory One Year Service tooltip');
+
+    // Verify raw percentages are NOT shown in squad member rows
+    assert.strictEqual(leaderboardHtml.includes('92%'), false, 'Raw percentage 92% is not exposed to peers in squad members list');
+    assert.strictEqual(leaderboardHtml.includes('50%'), false, 'Raw percentage 50% is not exposed to peers in squad members list');
+    console.log('  ✔ Squad views display confidential achievement tiers with 80% One Year Service tooltips without leaking raw percentages');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'TSK-057 attendance tiers preserved strict 388 unique DOM IDs invariant');
     console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
   }
 

@@ -1396,6 +1396,102 @@ function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
   return (typeof demerits === 'number' && !isNaN(demerits)) ? Math.max(0, demerits) : 0;
 }
 
+/**
+ * TSK-057: Evaluates a member's attendance percentage into confidential achievement tiers:
+ * - 100%: Perfect
+ * - >= 90%: Excellent
+ * - >= 80%: Good
+ * - < 80%: At Risk
+ *
+ * Includes an explanatory tooltip outlining the official 80% minimum attendance threshold
+ * required to qualify for the BB One Year Service award and badge advancement.
+ *
+ * @param {number|string|null|undefined} percentage
+ * @returns {{
+ *   tier: 'perfect'|'excellent'|'good'|'at_risk'|'none',
+ *   label: string,
+ *   badgeLabel: string,
+ *   qualifiesForOneYearService: boolean,
+ *   color: string,
+ *   bg: string,
+ *   border: string,
+ *   description: string,
+ *   tooltipText: string
+ * }}
+ */
+function getAttendanceAchievementTier(percentage) {
+  var pct = (percentage !== null && percentage !== undefined && percentage !== '') ? parseFloat(percentage) : NaN;
+  if (isNaN(pct)) {
+    return {
+      tier: 'none',
+      label: 'No Data',
+      badgeLabel: 'No Data',
+      qualifiesForOneYearService: false,
+      color: 'var(--text-muted)',
+      bg: 'var(--surface-tint)',
+      border: 'var(--border-subtle)',
+      description: 'Attendance records not yet available for this term.',
+      tooltipText: 'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
+    };
+  }
+
+  pct = Math.round(pct);
+
+  if (pct >= 100) {
+    return {
+      tier: 'perfect',
+      label: 'Perfect',
+      badgeLabel: '100% (Perfect)',
+      qualifiesForOneYearService: true,
+      color: 'var(--brand-gold, #f5c542)',
+      bg: 'rgba(245,197,66,0.14)',
+      border: 'rgba(245,197,66,0.35)',
+      description: 'Full 100% company parade commitment.',
+      tooltipText: 'Perfect Attendance (100%): Fully qualifies for the BB One Year Service award and senior badge advancement. Official minimum threshold is 80%.'
+    };
+  }
+
+  if (pct >= 90) {
+    return {
+      tier: 'excellent',
+      label: 'Excellent',
+      badgeLabel: '≥90% (Excellent)',
+      qualifiesForOneYearService: true,
+      color: 'var(--green, #10b981)',
+      bg: 'rgba(16,185,129,0.14)',
+      border: 'rgba(16,185,129,0.35)',
+      description: 'Exceptional parade attendance and engagement.',
+      tooltipText: 'Excellent Attendance (≥90%): Exceeds the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+    };
+  }
+
+  if (pct >= 80) {
+    return {
+      tier: 'good',
+      label: 'Good',
+      badgeLabel: '≥80% (Good)',
+      qualifiesForOneYearService: true,
+      color: 'var(--blue, #3b82f6)',
+      bg: 'rgba(59,130,246,0.14)',
+      border: 'rgba(59,130,246,0.35)',
+      description: 'Meets the company attendance standard.',
+      tooltipText: 'Good Attendance (≥80%): Meets the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+    };
+  }
+
+  return {
+    tier: 'at_risk',
+    label: 'At Risk',
+    badgeLabel: '<80% (At Risk)',
+    qualifiesForOneYearService: false,
+    color: 'var(--orange, #f59e0b)',
+    bg: 'rgba(245,158,11,0.14)',
+    border: 'rgba(245,158,11,0.35)',
+    description: 'Currently below the 80% One Year Service threshold.',
+    tooltipText: 'At Risk (<80%): Currently below the official 80% minimum attendance threshold required to qualify for the BB One Year Service award and badge advancement. Attend upcoming parades to improve standing.'
+  };
+}
+
 // Attach to window if in browser
 // ── Section 11: Immutable Admin Audit Logs & Auth Lockout (TSK-041) ──────────
 
@@ -1996,6 +2092,7 @@ if (typeof window !== 'undefined') {
   window.maskMemberNameForDirectory = maskMemberNameForDirectory;
   window.formatSafeAttendanceRate = formatSafeAttendanceRate;
   window.getSafeMemberDemerits  = getSafeMemberDemerits;
+  window.getAttendanceAchievementTier = getAttendanceAchievementTier;
   window.logAuditEvent          = logAuditEvent;
   window.getAuditLogs           = getAuditLogs;
   window.checkAuthLockout       = checkAuthLockout;
@@ -2053,6 +2150,7 @@ if (typeof module !== 'undefined' && module.exports) {
     maskMemberNameForDirectory: maskMemberNameForDirectory,
     formatSafeAttendanceRate: formatSafeAttendanceRate,
     getSafeMemberDemerits: getSafeMemberDemerits,
+    getAttendanceAchievementTier: getAttendanceAchievementTier,
     logAuditEvent: logAuditEvent,
     getAuditLogs: getAuditLogs,
     checkAuthLockout: checkAuthLockout,
