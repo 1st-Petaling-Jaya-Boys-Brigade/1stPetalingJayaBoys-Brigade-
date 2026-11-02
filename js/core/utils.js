@@ -1554,7 +1554,7 @@ async function getAuditLogs(filter) {
  * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
  */
 async function checkAuthLockout(identifier) {
-  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0 };
+  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0, attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS };
   var key = String(identifier).trim().toLowerCase();
 
   try {
@@ -1566,6 +1566,9 @@ async function checkAuthLockout(identifier) {
     if (client && typeof client.rpc === 'function') {
       var rpcRes = await client.rpc('rpc_check_auth_lockout', { p_identifier: key });
       if (rpcRes && typeof rpcRes.locked === 'boolean') {
+        if (typeof rpcRes.attempts_remaining !== 'number') {
+          rpcRes.attempts_remaining = rpcRes.locked ? 0 : Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - (rpcRes.failures || 0));
+        }
         return rpcRes;
       }
     }
@@ -1577,10 +1580,16 @@ async function checkAuthLockout(identifier) {
   var rec = _localLockouts[key];
   if (rec && rec.lockoutUntil && rec.lockoutUntil > Date.now()) {
     var remSec = Math.ceil((rec.lockoutUntil - Date.now()) / 1000);
-    return { locked: true, remaining_seconds: remSec, failures: rec.failedCount || 0 };
+    return { locked: true, remaining_seconds: remSec, failures: rec.failedCount || 0, attempts_remaining: 0 };
   }
 
-  return { locked: false, remaining_seconds: 0, failures: (rec && rec.failedCount) || 0 };
+  var currentFailures = (rec && rec.failedCount) || 0;
+  return {
+    locked: false,
+    remaining_seconds: 0,
+    failures: currentFailures,
+    attempts_remaining: Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - currentFailures)
+  };
 }
 
 /**
@@ -1590,7 +1599,7 @@ async function checkAuthLockout(identifier) {
  * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
  */
 async function recordAuthAttempt(identifier, success) {
-  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0 };
+  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0, attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS };
   var key = String(identifier).trim().toLowerCase();
 
   try {
@@ -1605,6 +1614,9 @@ async function recordAuthAttempt(identifier, success) {
         p_success: !!success
       });
       if (rpcRes && typeof rpcRes.locked === 'boolean') {
+        if (typeof rpcRes.attempts_remaining !== 'number') {
+          rpcRes.attempts_remaining = rpcRes.locked ? 0 : Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - (rpcRes.failures || 0));
+        }
         return rpcRes;
       }
     }
@@ -1615,7 +1627,7 @@ async function recordAuthAttempt(identifier, success) {
   // Local in-memory fallback
   if (success) {
     delete _localLockouts[key];
-    return { locked: false, remaining_seconds: 0, failures: 0 };
+    return { locked: false, remaining_seconds: 0, failures: 0, attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS };
   }
 
   var now = Date.now();
@@ -1650,7 +1662,8 @@ async function recordAuthAttempt(identifier, success) {
     return {
       locked: true,
       remaining_seconds: Math.ceil(AUTH_LOCKOUT_DURATION_MS / 1000),
-      failures: current.failedCount
+      failures: current.failedCount,
+      attempts_remaining: 0
     };
   }
 
@@ -1658,7 +1671,8 @@ async function recordAuthAttempt(identifier, success) {
   return {
     locked: false,
     remaining_seconds: 0,
-    failures: current.failedCount
+    failures: current.failedCount,
+    attempts_remaining: Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - current.failedCount)
   };
 }
 if (typeof window !== 'undefined') {

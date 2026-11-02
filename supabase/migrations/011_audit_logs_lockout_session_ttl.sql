@@ -225,7 +225,7 @@ DECLARE
   v_remaining_secs integer := 0;
 BEGIN
   IF p_identifier IS NULL OR length(trim(p_identifier)) = 0 THEN
-    RETURN json_build_object('locked', false, 'remaining_seconds', 0, 'failures', 0);
+    RETURN json_build_object('locked', false, 'remaining_seconds', 0, 'failures', 0, 'attempts_remaining', 5);
   END IF;
 
   SELECT * INTO v_record
@@ -237,14 +237,16 @@ BEGIN
     RETURN json_build_object(
       'locked', true,
       'remaining_seconds', v_remaining_secs,
-      'failures', v_record.failed_count
+      'failures', v_record.failed_count,
+      'attempts_remaining', 0
     );
   END IF;
 
   RETURN json_build_object(
     'locked', false,
     'remaining_seconds', 0,
-    'failures', coalesce(v_record.failed_count, 0)
+    'failures', coalesce(v_record.failed_count, 0),
+    'attempts_remaining', GREATEST(0, 5 - coalesce(v_record.failed_count, 0))
   );
 END;
 $$;
@@ -332,7 +334,8 @@ BEGIN
   RETURN json_build_object(
     'locked', v_is_locked,
     'remaining_seconds', v_remaining_secs,
-    'failures', v_new_failures
+    'failures', v_new_failures,
+    'attempts_remaining', GREATEST(0, 5 - v_new_failures)
   );
 END;
 $$;
