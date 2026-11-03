@@ -1061,7 +1061,7 @@ function isPortalCreator(name, email) {
   var n = String(name || '').trim().toLowerCase();
   var em = String(email || '').trim().toLowerCase();
   if (n === 'jeshua koh') return true;
-  if (em === 'jeshuakoh2008@gmail.com' || em === 'jeshua@mirtech.io') {
+  if (em === 'jeshuakoh2008@gmail.com') {
     return !n || n.indexOf('jeshua') !== -1;
   }
   return false;

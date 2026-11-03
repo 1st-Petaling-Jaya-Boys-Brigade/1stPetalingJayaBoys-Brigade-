@@ -2305,7 +2305,7 @@ async function getJson(url) {
       expression: `(() => {
         // 1. Test renderMemberAvatar with Jeshua Koh (Creator)
         if (typeof renderMemberAvatar === 'function') {
-          renderMemberAvatar('Jeshua Koh', 'jeshua@mirtech.io');
+          renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
         }
         const sPh = document.getElementById('sidebar-user-avatar-ph');
         const sPhText = sPh ? sPh.textContent : '';
@@ -2323,7 +2323,7 @@ async function getJson(url) {
 
         // Reset back to creator
         if (typeof renderMemberAvatar === 'function') {
-          renderMemberAvatar('Jeshua Koh', 'jeshua@mirtech.io');
+          renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
         }
 
         // Test remove photo buttons

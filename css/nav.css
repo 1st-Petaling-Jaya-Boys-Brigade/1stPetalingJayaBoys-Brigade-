@@ -563,6 +563,8 @@
   border-radius: 50%;
   background: #10b981;
   border: 2px solid var(--bg-nav);
+  z-index: 10 !important;
+  box-sizing: border-box;
 }
 
 /* ── Active Role Badge (TSK-049: Member / Admin / Super Admin) ── */

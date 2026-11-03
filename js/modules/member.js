@@ -1962,7 +1962,7 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
   if (typeof isPortalCreator === 'function') {
     isCreator = isPortalCreator(cleanName, cleanKey);
   } else {
-    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanKey === 'jeshua@mirtech.io' || cleanName === 'jeshua koh');
+    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh');
   }
 
   // 1. Direct key match (by email, ic, or name)
@@ -2169,6 +2169,13 @@ function applyAvatarOutlineElement(containerEl, styleKey) {
   }
   overlay.style.zIndex = '2';
   overlay.style.pointerEvents = 'none';
+
+  // Ensure any status dot (online/idle/offline indicator) remains on top of both avatar photo and custom outline
+  var statusDot = containerEl.querySelector('.nav-avatar-status-dot, .admin-avatar-status-dot');
+  if (statusDot) {
+    statusDot.style.zIndex = '10';
+    containerEl.appendChild(statusDot);
+  }
 }
 
 function refreshActiveAvatarOutlines() {

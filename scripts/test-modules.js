@@ -4917,7 +4917,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof utils.isPortalCreator, 'function', 'isPortalCreator must be exported');
     assert.strictEqual(utils.isPortalCreator('Jeshua Koh'), true, 'Jeshua Koh must be identified as creator');
     assert.strictEqual(utils.isPortalCreator('jeshua koh'), true, 'Case-insensitive creator detection');
-    assert.strictEqual(utils.isPortalCreator('Jeshua Koh', 'jeshua@mirtech.io'), true, 'Creator email detected');
+    assert.strictEqual(utils.isPortalCreator('Jeshua Koh', 'jeshuakoh2008@gmail.com'), true, 'Creator email detected');
     assert.strictEqual(utils.isPortalCreator('Jayden Wong'), false, 'Jayden Wong is not creator');
     assert.strictEqual(utils.isPortalCreator('Marcus Tan'), false, 'Marcus Tan is not creator');
 
@@ -7250,6 +7250,59 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const taskCardAvatarHtml = tasksMod.getAssigneeAvatarHtml('Jason Koh', 'jeshuakoh1601@gmail.com', 24);
     assert.ok(taskCardAvatarHtml.includes('avatar-outline-velvet'), 'Task card avatar reflects assigned velvet outline');
     console.log('  ✔ Universal outline resolution verified across Tasks Kanban and Project assignee stacks');
+
+    // 7C. Layering Hierarchy: Status Icon (Top: z-index 10) > Outline (Middle: z-index 2) > Profile Picture (Bottom)
+    const adminAvatarHtmlWithDot = adminMod.getAdminMemberAvatarHtml('Jason Koh', 'jeshuakoh1601@gmail.com', 48);
+    assert.ok(adminAvatarHtmlWithDot.includes('z-index:10'), 'Presence status dot has z-index:10 to sit top-most above outline and photo');
+    assert.ok(adminAvatarHtmlWithDot.indexOf('avatar-outline-overlay') < adminAvatarHtmlWithDot.indexOf('admin-avatar-status-dot'), 'Status dot is placed after outline in DOM order for proper layer stacking');
+
+    const navCss = fs.readFileSync('css/nav.css', 'utf8');
+    assert.ok(navCss.includes('.nav-avatar-status-dot') && navCss.includes('z-index: 10 !important;'), 'nav.css enforces z-index: 10 !important on .nav-avatar-status-dot');
+
+    assert.ok(compCss.includes('.admin-avatar-status-dot') && compCss.includes('z-index: 10 !important;'), 'components.css enforces z-index: 10 !important on status dots');
+    console.log('  ✔ Layering hierarchy verified: Status Icon (Top-most) > Outline (Middle) > Profile Picture (Bottom)');
+
+    // 7D. Creator Avatar Outlines Studio Cold Load Without Visiting Member Management
+    const mockSupaClient = {
+      get: async (endpoint) => {
+        if (endpoint.includes('bb_members')) {
+          return [
+            { id: '1', ic: '060101-10-1111', email: 'jason@example.com', name: 'Jason Koh', rank: 'Corporal', squad: 'Papa' },
+            { id: '2', ic: '080202-10-2222', email: 'jeshuakoh2008@gmail.com', name: 'Jeshua Koh', rank: 'Sergeant', squad: 'Hotel' }
+          ];
+        }
+        if (endpoint.includes('bb_config')) {
+          return [];
+        }
+        return [];
+      }
+    };
+    global.supa = mockSupaClient;
+    global.getSupaClient = () => mockSupaClient;
+    const mockSecDiv = {
+      id: 'adm-section-creator-outlines',
+      style: {},
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+    const prevDoc = global.document;
+    global.document = {
+      getElementById: (id) => {
+        if (id === 'admin-panel') return { appendChild: () => {}, querySelector: () => null };
+        if (id === 'adm-section-creator-outlines') return mockSecDiv;
+        if (id === 'creator-outlines-grid') return { innerHTML: '', querySelectorAll: () => [] };
+        if (id === 'adm-back-bar') return { style: {}, querySelector: () => null };
+        return null;
+      },
+      querySelectorAll: () => [],
+      createElement: () => ({ style: {}, setAttribute: () => {}, querySelectorAll: () => [] })
+    };
+    global.sessionGet = (k) => (k === 'email' ? 'jeshuakoh2008@gmail.com' : 'Jeshua Koh');
+    await adminMod.renderCreatorAvatarOutlinesStudio();
+    assert.ok(adminMod.getAdminMembers && Object.keys(adminMod.getAdminMembers()).length >= 2, 'Creator Studio loaded members directly on cold start');
+    console.log('  ✔ Creator Studio loads members directly without requiring navigation to Member Management first');
+    global.document = prevDoc;
 
         // 8. Strict 388 Unique DOM IDs Invariant
     const indexHtml = fs.readFileSync('index.html', 'utf8');
