@@ -8121,6 +8121,11 @@ select.form-input,
   white-space: nowrap;
 }
 
+.arcade-tab-btn svg {
+  flex-shrink: 0;
+  display: block;
+}
+
 .arcade-tab-btn:hover {
   background: var(--bg-card-subtle, #1a202c);
   color: var(--text-primary, #f3f4f6);

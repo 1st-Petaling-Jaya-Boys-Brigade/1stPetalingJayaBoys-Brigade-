@@ -3547,18 +3547,6 @@ async function renderDashboard() {
     renderMemberAvatar(m.name, displayEmail);
     setRemovePfpButtonVisible();
 
-    var pfpBar = document.querySelector('.m-pfp-actions-bar');
-    if (pfpBar && !pfpBar.querySelector('.btn-cosmetic-shop')) {
-      var cShopBtn = document.createElement('button');
-      cShopBtn.type = 'button';
-      cShopBtn.className = 'btn-cosmetic-shop';
-      cShopBtn.onclick = function() { openCosmeticShopDrawer(); };
-      cShopBtn.title = 'Open Profile Cosmetic Shop to spend Arcade Credits';
-      cShopBtn.style.cssText = 'background:linear-gradient(135deg, rgba(217,163,35,0.18), rgba(217,163,35,0.28));border:1px solid rgba(217,163,35,0.5);color:var(--accent);font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;';
-      cShopBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span>🛍️ Profile Cosmetics</span>';
-      pfpBar.appendChild(cShopBtn);
-    }
-
     // Load profile avatar from Supabase Storage / local cache
     try {
       var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
