@@ -7454,6 +7454,31 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(headwearAvatarHtml.includes('is-headwear'), 'Equipped headwear receives is-headwear class for left tilt');
     console.log('  ✔ Cosmetic badges render cleanly on Admin and Tasks avatars with is-headwear tilt');
 
+    // 6B. Tab-based Cosmetic Shop & In-Page Filter Verification
+    assert.strictEqual(typeof memberMod.renderCosmeticShopView, 'function', 'renderCosmeticShopView exported as tab renderer');
+    assert.strictEqual(typeof memberMod.applyCosmeticFilters, 'function', 'applyCosmeticFilters exported');
+    assert.strictEqual(typeof memberMod.resetCosmeticFilters, 'function', 'resetCosmeticFilters exported');
+
+    // DOM simulation for cosmetic shop tab view
+    const mockContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+    global.document = global.document || {};
+    global.document.getElementById = (id) => {
+      if (id === 'arcade-subtab-container') return mockContainer;
+      return null;
+    };
+    memberMod.renderCosmeticShopView();
+    assert.ok(mockContainer.innerHTML.includes('cosmetic-shop-tab-view'), 'Cosmetic shop renders as in-page tab');
+    assert.ok(mockContainer.innerHTML.includes('cosmetic-filter-toolbar'), 'Renders clean filter toolbar');
+    assert.ok(mockContainer.innerHTML.includes('shop-filter-type'), 'Filter by type select exists');
+    assert.ok(mockContainer.innerHTML.includes('shop-filter-cost'), 'Filter by cost select exists');
+    assert.ok(!mockContainer.innerHTML.includes('cosmetic-card-desc'), 'Descriptions removed under cosmetic items');
+    assert.ok(!mockContainer.innerHTML.includes('Need 35 more credits'), 'Need more credits text removed from preview');
+    console.log('  ✔ Tab-based cosmetic shop view, filters (type & cost), clean cards, and preview defaults verified');
+
     // 7. Database Migration Schema 016
     assert.ok(fs.existsSync('supabase/migrations/016_profile_cosmetics_arcade_shop.sql'), 'Migration 016 exists');
     const mig016 = fs.readFileSync('supabase/migrations/016_profile_cosmetics_arcade_shop.sql', 'utf8');

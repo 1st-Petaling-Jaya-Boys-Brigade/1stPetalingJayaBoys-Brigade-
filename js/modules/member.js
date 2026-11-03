@@ -2720,87 +2720,137 @@ function refreshActiveAvatarCosmetics() {
   }
 }
 
-// ── Interactive Arcade Cosmetic Shop Drawer & Modal ─────────────────────────
-var _cosmeticShopFilter = 'all';
+// ── Interactive Arcade Cosmetic Shop Tab View ────────────────────────────────
+var _cosmeticShopTypeFilter = 'all';
+var _cosmeticShopCostFilter = 'all';
 var _cosmeticShopPreviewId = null;
 
-function openCosmeticShopDrawer() {
+function renderCosmeticShopView() {
   if (typeof document === 'undefined') return;
-  var container = document.getElementById('cosmetic-shop-modal-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'cosmetic-shop-modal-container';
-    document.body.appendChild(container);
-  }
+  var container = document.getElementById('arcade-subtab-container');
+  if (!container) return;
 
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
   var activeCosmetic = getMemberCosmetic(myEmail);
-  _cosmeticShopPreviewId = activeCosmetic.id !== 'none' ? activeCosmetic.id : 'bb_cap';
+  _cosmeticShopPreviewId = activeCosmetic.id; // Strictly 'none' if user has no equipped cosmetic!
 
   container.innerHTML =
-    '<div class="cosmetic-shop-overlay" onclick="if(event.target===this)closeCosmeticShopDrawer()">' +
-      '<div class="cosmetic-shop-modal" role="dialog" aria-modal="true" aria-label="Arcade Cosmetic Shop">' +
-        '<div class="cosmetic-shop-header">' +
-          '<div>' +
-            '<div style="display:flex;align-items:center;gap:10px;">' +
-              '<h3 style="margin:0;font-size:17px;font-weight:700;color:var(--text-primary);">1stPJ Arcade Cosmetic Shop</h3>' +
-              '<div class="cosmetic-shop-credits-pill">' +
-                '🪙 <span id="shop-credits-balance">0</span> Credits' +
-              '</div>' +
-            '</div>' +
-            '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Spend your Wordle &amp; BB Trivia Arcade Credits to unlock profile badges &amp; cosmetics!</div>' +
-          '</div>' +
-          '<button type="button" onclick="closeCosmeticShopDrawer()" style="background:transparent;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1;">✕</button>' +
-        '</div>' +
-
-        '<div class="cosmetic-shop-preview-bar">' +
-          '<div class="cosmetic-preview-avatar-box">' +
+    '<div class="cosmetic-shop-tab-view">' +
+      '<!-- Live Profile Preview Card -->' +
+      '<div class="card cosmetic-shop-preview-card" style="margin-bottom:14px;padding:16px 20px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">' +
+          '<div style="display:flex;align-items:center;gap:14px;">' +
             '<div id="shop-live-avatar-wrap" style="position:relative;width:56px;height:56px;flex-shrink:0;"></div>' +
             '<div>' +
               '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.04em;">Live Profile Preview</div>' +
-              '<div id="shop-preview-item-name" style="font-size:14px;font-weight:700;color:var(--text-primary);margin-top:2px;">Selecting cosmetic...</div>' +
+              '<div id="shop-preview-item-name" style="font-size:15px;font-weight:700;color:var(--text);margin-top:2px;">No Cosmetic Equipped</div>' +
             '</div>' +
           '</div>' +
-          '<div id="shop-preview-item-action"></div>' +
+          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+            '<div id="shop-preview-item-action"></div>' +
+            '<div class="cosmetic-shop-credits-pill" title="Current Arcade Credits">' +
+              '🪙 <span id="shop-credits-balance">0</span> Credits' +
+            '</div>' +
+          '</div>' +
         '</div>' +
-
-        '<div class="cosmetic-shop-pills">' +
-          '<button type="button" class="cosmetic-shop-pill active" onclick="filterCosmeticShop(\'all\',this)">All Items (46)</button>' +
-          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'headwear\',this)">Headwear (5)</button>' +
-          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'badges\',this)">BB Badges (41)</button>' +
-        '</div>' +
-
-        '<div class="cosmetic-shop-grid" id="cosmetic-shop-grid"></div>' +
       '</div>' +
+
+      '<!-- Filter Toolbar -->' +
+      '<div class="card cosmetic-filter-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;margin-bottom:16px;flex-wrap:wrap;">' +
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+          '<button type="button" class="btn btn-secondary cosmetic-filter-btn" onclick="resetCosmeticFilters()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;">' +
+            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
+            '<span>Filter</span>' +
+          '</button>' +
+
+          '<div style="display:inline-flex;align-items:center;gap:6px;">' +
+            '<label for="shop-filter-type" style="font-size:12px;font-weight:600;color:var(--text-muted);">Type:</label>' +
+            '<select id="shop-filter-type" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
+              '<option value="all"' + (_cosmeticShopTypeFilter === 'all' ? ' selected' : '') + '>All Types (46)</option>' +
+              '<option value="headwear"' + (_cosmeticShopTypeFilter === 'headwear' ? ' selected' : '') + '>Headwear (5)</option>' +
+              '<option value="badges"' + (_cosmeticShopTypeFilter === 'badges' ? ' selected' : '') + '>BB Badges (41)</option>' +
+            '</select>' +
+          '</div>' +
+
+          '<div style="display:inline-flex;align-items:center;gap:6px;">' +
+            '<label for="shop-filter-cost" style="font-size:12px;font-weight:600;color:var(--text-muted);">Cost:</label>' +
+            '<select id="shop-filter-cost" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
+              '<option value="all"' + (_cosmeticShopCostFilter === 'all' ? ' selected' : '') + '>All Costs</option>' +
+              '<option value="affordable"' + (_cosmeticShopCostFilter === 'affordable' ? ' selected' : '') + '>Affordable Now</option>' +
+              '<option value="under40"' + (_cosmeticShopCostFilter === 'under40' ? ' selected' : '') + '>Under 40 Credits</option>' +
+              '<option value="40to50"' + (_cosmeticShopCostFilter === '40to50' ? ' selected' : '') + '>40 – 50 Credits</option>' +
+              '<option value="over50"' + (_cosmeticShopCostFilter === 'over50' ? ' selected' : '') + '>55+ Credits</option>' +
+              '<option value="owned"' + (_cosmeticShopCostFilter === 'owned' ? ' selected' : '') + '>Owned Items</option>' +
+            '</select>' +
+          '</div>' +
+
+          '<button type="button" id="shop-filter-reset-btn" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding:5px 10px;font-size:11px;border-radius:8px;' + ((_cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all') ? '' : 'display:none;') + '">Reset</button>' +
+        '</div>' +
+
+        '<div id="shop-filter-count" style="font-size:12px;color:var(--text-muted);font-weight:600;">Showing 46 items</div>' +
+      '</div>' +
+
+      '<!-- Cosmetic Cards Grid -->' +
+      '<div class="cosmetic-shop-grid" id="cosmetic-shop-grid"></div>' +
     '</div>';
 
   var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
   var balanceEl = document.getElementById('shop-credits-balance');
   if (balanceEl) balanceEl.textContent = String(stats.credits || 0);
 
-  renderCosmeticShopCards();
+  applyCosmeticFilters();
   renderCosmeticLivePreview(_cosmeticShopPreviewId);
 }
 
-function closeCosmeticShopDrawer() {
-  var container = document.getElementById('cosmetic-shop-modal-container');
-  if (container) {
-    container.innerHTML = '';
+function openCosmeticShopDrawer() {
+  if (typeof switchTab === 'function') {
+    switchTab('arcade');
+  }
+  if (typeof switchArcadeSubtab === 'function') {
+    switchArcadeSubtab('shop');
   }
 }
 
-function filterCosmeticShop(category, btn) {
-  _cosmeticShopFilter = category;
-  if (btn && btn.parentElement) {
-    btn.parentElement.querySelectorAll('.cosmetic-shop-pill').forEach(function(p) {
-      p.classList.remove('active');
-    });
-    btn.classList.add('active');
+function closeCosmeticShopDrawer() {
+  // Retained for backwards compatibility
+}
+
+function filterCosmeticShop(category) {
+  _cosmeticShopTypeFilter = category || 'all';
+  var typeEl = document.getElementById('shop-filter-type');
+  if (typeEl) typeEl.value = _cosmeticShopTypeFilter;
+  applyCosmeticFilters();
+}
+
+function applyCosmeticFilters() {
+  var typeEl = document.getElementById('shop-filter-type');
+  var costEl = document.getElementById('shop-filter-cost');
+  if (typeEl) _cosmeticShopTypeFilter = typeEl.value;
+  if (costEl) _cosmeticShopCostFilter = costEl.value;
+
+  var resetBtn = document.getElementById('shop-filter-reset-btn');
+  if (resetBtn) {
+    var isFiltered = (_cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all');
+    resetBtn.style.display = isFiltered ? 'inline-block' : 'none';
   }
+
+  renderCosmeticShopCards();
+}
+
+function resetCosmeticFilters() {
+  _cosmeticShopTypeFilter = 'all';
+  _cosmeticShopCostFilter = 'all';
+  var typeEl = document.getElementById('shop-filter-type');
+  var costEl = document.getElementById('shop-filter-cost');
+  if (typeEl) typeEl.value = 'all';
+  if (costEl) costEl.value = 'all';
+  var resetBtn = document.getElementById('shop-filter-reset-btn');
+  if (resetBtn) resetBtn.style.display = 'none';
   renderCosmeticShopCards();
 }
 
 function renderCosmeticLivePreview(cosmeticId) {
+  _cosmeticShopPreviewId = cosmeticId;
   var wrap = document.getElementById('shop-live-avatar-wrap');
   var nameEl = document.getElementById('shop-preview-item-name');
   var actEl = document.getElementById('shop-preview-item-action');
@@ -2822,34 +2872,46 @@ function renderCosmeticLivePreview(cosmeticId) {
   var avatarDiv = wrap.firstElementChild;
   applyMemberCosmeticElement(avatarDiv, cosmeticId, 'cosmetic-lg');
 
-  var item = PROFILE_COSMETICS[cosmeticId];
-  if (item && nameEl) {
-    nameEl.textContent = item.name + ' (' + item.categoryLabel + ')';
-  } else if (nameEl) {
-    nameEl.textContent = 'None (Standard Avatar)';
-  }
-
   var myInv = getMemberCosmeticInventory(myEmail);
   var currentEquipped = getMemberCosmetic(myEmail).id;
+  var item = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId] : null;
+
+  if (cosmeticId === 'none' || !item) {
+    if (nameEl) nameEl.textContent = 'No Cosmetic Equipped';
+    if (actEl) {
+      if (currentEquipped !== 'none') {
+        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="unequipCosmetic()">Unequip Active Cosmetic</button>';
+      } else {
+        actEl.innerHTML = '';
+      }
+    }
+    return;
+  }
+
+  var isEquipped = (currentEquipped === cosmeticId);
+  var isOwned = myInv.includes(cosmeticId);
+
+  if (nameEl) {
+    if (isEquipped) {
+      nameEl.textContent = item.name + ' (' + item.categoryLabel + ') — Equipped ✓';
+    } else {
+      nameEl.textContent = item.name + ' (' + item.categoryLabel + ')';
+    }
+  }
 
   if (actEl) {
-    if (cosmeticId === 'none') {
-      if (currentEquipped === 'none') {
-        actEl.innerHTML = '<span style="font-size:12px;color:var(--text-muted);font-weight:600;">None Equipped</span>';
-      } else {
-        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="unequipCosmetic()">Unequip Active Cosmetic</button>';
-      }
-    } else if (currentEquipped === cosmeticId) {
+    if (isEquipped) {
       actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="unequipCosmetic()">Equipped ✓ (Click to Unequip)</button>';
-    } else if (myInv.includes(cosmeticId)) {
+    } else if (isOwned) {
       actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="equipCosmetic(\'' + cosmeticId + '\')">Equip Now</button>';
-    } else if (item) {
+    } else {
       var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
       var hasCredits = (stats.credits || 0) >= item.price;
       if (hasCredits) {
         actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="unlockCosmetic(\'' + cosmeticId + '\')">Unlock for ' + item.price + ' 🪙</button>';
       } else {
-        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-locked" disabled>Need ' + (item.price - (stats.credits || 0)) + ' more Credits</button>';
+        // User instruction: Remove the Need 35 more credits text and button
+        actEl.innerHTML = '';
       }
     }
   }
@@ -2867,9 +2929,46 @@ function renderCosmeticShopCards() {
 
   var keys = Object.keys(PROFILE_COSMETICS);
   var filteredKeys = keys.filter(function(k) {
-    if (_cosmeticShopFilter === 'all') return true;
-    return PROFILE_COSMETICS[k].category === _cosmeticShopFilter;
+    var item = PROFILE_COSMETICS[k];
+    if (!item) return false;
+
+    // Filter by Type
+    if (_cosmeticShopTypeFilter !== 'all' && item.category !== _cosmeticShopTypeFilter) {
+      return false;
+    }
+
+    // Filter by Cost
+    var isOwned = myInv.includes(k);
+    if (_cosmeticShopCostFilter === 'affordable') {
+      if (isOwned || myCredits < item.price) return false;
+    } else if (_cosmeticShopCostFilter === 'under40') {
+      if (item.price >= 40) return false;
+    } else if (_cosmeticShopCostFilter === '40to50') {
+      if (item.price < 40 || item.price > 50) return false;
+    } else if (_cosmeticShopCostFilter === 'over50') {
+      if (item.price < 55) return false;
+    } else if (_cosmeticShopCostFilter === 'owned') {
+      if (!isOwned) return false;
+    }
+
+    return true;
   });
+
+  var countEl = document.getElementById('shop-filter-count');
+  if (countEl) {
+    countEl.textContent = 'Showing ' + filteredKeys.length + ' item' + (filteredKeys.length === 1 ? '' : 's');
+  }
+
+  if (filteredKeys.length === 0) {
+    grid.innerHTML =
+      '<div class="card" style="grid-column: 1 / -1; padding: 32px 20px; text-align: center;">' +
+        '<div style="font-size: 28px; margin-bottom: 8px;">🔍</div>' +
+        '<div style="font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px;">No matching cosmetics found</div>' +
+        '<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">Try adjusting your type or cost filters to see more items.</div>' +
+        '<button type="button" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding: 6px 16px; font-size: 12px; border-radius: 8px;">Reset All Filters</button>' +
+      '</div>';
+    return;
+  }
 
   var html = '';
   filteredKeys.forEach(function(k) {
@@ -2882,11 +2981,11 @@ function renderCosmeticShopCards() {
     var actionBtnHtml = '';
 
     if (isEquipped) {
-      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="unequipCosmetic()">Equipped ✓</button>';
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="event.stopPropagation(); unequipCosmetic();">Equipped ✓</button>';
     } else if (isOwned) {
-      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="equipCosmetic(\'' + k + '\')">Equip</button>';
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="event.stopPropagation(); equipCosmetic(\'' + k + '\');">Equip</button>';
     } else if (canAfford) {
-      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="unlockCosmetic(\'' + k + '\')">Unlock ' + item.price + ' 🪙</button>';
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="event.stopPropagation(); unlockCosmetic(\'' + k + '\');">Unlock ' + item.price + ' 🪙</button>';
     } else {
       actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-locked" disabled title="Play Arcade to earn credits!">Locked (' + item.price + ' 🪙)</button>';
     }
@@ -2896,7 +2995,6 @@ function renderCosmeticShopCards() {
         '<div class="cosmetic-badge-preview-icon">' + item.badgeHtml + '</div>' +
         '<div class="cosmetic-card-category">' + item.categoryLabel + '</div>' +
         '<div class="cosmetic-card-name">' + item.name + '</div>' +
-        '<div class="cosmetic-card-desc">' + item.desc + '</div>' +
         '<div style="width:100%;margin-top:auto;">' + actionBtnHtml + '</div>' +
       '</div>';
   });
@@ -4327,6 +4425,9 @@ if (typeof window !== 'undefined') {
   window.applyMemberCosmeticElement   = applyMemberCosmeticElement;
   window.refreshActiveAvatarCosmetics = refreshActiveAvatarCosmetics;
   window.openCosmeticShopDrawer       = openCosmeticShopDrawer;
+  window.renderCosmeticShopView       = renderCosmeticShopView;
+  window.applyCosmeticFilters         = applyCosmeticFilters;
+  window.resetCosmeticFilters         = resetCosmeticFilters;
   window.closeCosmeticShopDrawer      = closeCosmeticShopDrawer;
   window.filterCosmeticShop           = filterCosmeticShop;
   window.renderCosmeticLivePreview    = renderCosmeticLivePreview;
@@ -4403,6 +4504,9 @@ if (typeof module !== 'undefined' && module.exports) {
     applyMemberCosmeticElement,
     refreshActiveAvatarCosmetics,
     openCosmeticShopDrawer,
+    renderCosmeticShopView,
+    applyCosmeticFilters,
+    resetCosmeticFilters,
     closeCosmeticShopDrawer,
     filterCosmeticShop,
     renderCosmeticLivePreview,
