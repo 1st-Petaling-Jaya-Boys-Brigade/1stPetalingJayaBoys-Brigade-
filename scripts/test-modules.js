@@ -6833,6 +6833,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   {
     console.log('\nTesting 1stPJ Arcade & Gamified Learning Hub (TSK-056)...');
     const arcadeMod = require('../js/modules/arcade.js');
+    global.getArcadeStats = arcadeMod.getArcadeStats;
+    global.saveArcadeStats = arcadeMod.saveArcadeStats;
     const sessionMod = require('../js/core/session.js');
 
     // 1. Curated Wordle Bank and Trivia Question Bank
@@ -7313,9 +7315,184 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
+    // ─── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ────────────
+  console.log('\nTesting Profile Cosmetics & Gamified Arcade Credit Shop (TSK-060)...');
   {
-  }
+    const memberMod = require('../js/modules/member.js');
+    const adminMod = require('../js/modules/admin.js');
+    const tasksMod = require('../js/modules/tasks.js');
+    const arcadeMod = require('../js/modules/arcade.js');
 
+    // 1. Catalog Verification (46 items: 5 Headwear + 41 BB Badges)
+    assert.ok(memberMod.PROFILE_COSMETICS, 'PROFILE_COSMETICS catalog exported');
+    const catalog = memberMod.PROFILE_COSMETICS;
+    const catKeys = Object.keys(catalog);
+    assert.strictEqual(catKeys.length, 46, 'Catalog contains exactly 46 profile cosmetics (5 Headwear + 41 BB Badges)');
+
+    const expectedCategories = ['headwear', 'badges'];
+    expectedCategories.forEach(cat => {
+      const items = Object.values(catalog).filter(it => it.category === cat);
+      assert.ok(items.length > 0, 'Category ' + cat + ' contains cosmetics');
+    });
+
+    // Verify removed categories are completely eliminated
+    assert.strictEqual(catalog.sash_sgt_red, undefined, 'Sergeant Red Sash eliminated');
+    assert.strictEqual(catalog.sash_ssgt_blue, undefined, 'Staff Sergeant Blue Sash eliminated');
+    assert.strictEqual(catalog.pet_dog, undefined, 'Pet Dog eliminated');
+    assert.strictEqual(catalog.pet_cat, undefined, 'Pet Cat eliminated');
+    assert.strictEqual(catalog.pet_falcon, undefined, 'Pet Falcon eliminated');
+    assert.strictEqual(catalog.beret, undefined, 'BB Beret replaced by BB Cap');
+    assert.strictEqual(catalog.crest_founders, undefined, 'Old SVG Founder crest replaced by BB Badges');
+
+    // Verify Headwear items
+    const expectedHeadwear = ['party_hat', 'cowboy_hat', 'chef_hat', 'bb_cap', 'santa_hat'];
+    expectedHeadwear.forEach(id => {
+      assert.ok(catalog[id], 'Headwear ' + id + ' exists in catalog');
+      assert.strictEqual(catalog[id].category, 'headwear', id + ' has category headwear');
+      assert.ok(catalog[id].badgeHtml.includes('<svg'), id + ' uses SVG graphic');
+    });
+
+    // Verify BB Badges items
+    const sampleBadges = ['badge_target', 'badge_arts', 'badge_founders_award', 'badge_presidents_award', 'badge_drill', 'badge_first_aid'];
+    sampleBadges.forEach(id => {
+      assert.ok(catalog[id], 'Badge ' + id + ' exists in catalog');
+      assert.strictEqual(catalog[id].category, 'badges', id + ' has category badges');
+      assert.strictEqual(catalog[id].categoryLabel, 'BB Badges', id + ' has category label BB Badges');
+      assert.ok(catalog[id].badgeHtml.includes('assets/BB Badges'), id + ' points to assets/BB Badges folder');
+    });
+    console.log('  ✔ PROFILE_COSMETICS catalog contains 46 items (5 Headwear + 41 BB Badges) with removed sashes & pets');
+
+    // 2. CSS Token & Positioning Verification in css/components.css
+    const compCss = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(compCss.includes('.avatar-cosmetic-badge'), 'components.css defines .avatar-cosmetic-badge');
+    assert.ok(compCss.includes('.avatar-cosmetic-badge.is-headwear'), 'components.css defines .is-headwear for headwear tilt');
+    assert.ok(compCss.includes('rotate(-18deg)') || compCss.includes('rotate(-15deg)'), 'Headwear tilted to the left (matching Image 4)');
+    assert.ok(compCss.includes('width: 21px') && compCss.includes('height: 21px'), 'cosmetic-lg sized 25% smaller to 21px');
+    assert.ok(compCss.includes('width: 15px') && compCss.includes('height: 15px'), 'cosmetic-md sized 25% smaller to 15px');
+    assert.ok(compCss.includes('width: 11px') && compCss.includes('height: 11px'), 'cosmetic-sm sized 25% smaller to 11px');
+    assert.ok(compCss.includes('width: 9px') && compCss.includes('height: 9px'), 'cosmetic-xs sized 25% smaller to 9px');
+    assert.ok(compCss.includes('.cosmetic-shop-modal') || compCss.includes('.cosmetic-shop-overlay'), 'components.css defines cosmetic shop modal');
+    console.log('  ✔ .avatar-cosmetic-badge 25% smaller sizing and left tilt (-18deg) verified');
+
+    // 3. Default Cosmetic & Retrieval
+    const defCosmetic = memberMod.getMemberCosmetic('unknown@example.com', 'Unknown Member');
+    assert.strictEqual(defCosmetic.id, 'none', 'Default member cosmetic is none');
+    assert.strictEqual(defCosmetic.svg, '', 'None cosmetic has empty SVG');
+
+    // 4. Arcade Credit Shop Flow: Insufficient Credits, Unlock, Equip, Unequip
+    const testUser = 'user123@example.com';
+    global.sessionGet = (k) => (k === 'email' ? testUser : (k === 'name' ? 'Test User' : null));
+
+    // Reset user arcade stats
+    const stats = arcadeMod.getArcadeStats();
+    stats.credits = 10; // Not enough for bb_cap (55 credits)
+    arcadeMod.saveArcadeStats(stats);
+
+    const failUnlock = await memberMod.unlockCosmetic('bb_cap');
+    assert.strictEqual(failUnlock.success, false, 'Unlocking without enough credits fails');
+    assert.strictEqual(failUnlock.need, 45, 'Calculates missing credits correctly');
+
+    // Give enough credits
+    stats.credits = 100;
+    arcadeMod.saveArcadeStats(stats);
+
+    const successUnlock = await memberMod.unlockCosmetic('bb_cap');
+    assert.strictEqual(successUnlock.success, true, 'Unlocking with enough credits succeeds');
+    const updatedStats = arcadeMod.getArcadeStats();
+    assert.strictEqual(updatedStats.credits, 45, 'Arcade credits deducted correctly (100 - 55 = 45)');
+
+    // Verify item is now equipped
+    const equipped = memberMod.getMemberCosmetic(testUser, 'Test User');
+    assert.strictEqual(equipped.id, 'bb_cap', 'Unlocked BB Cap automatically equipped');
+
+    // Verify inventory contains item
+    const inventory = memberMod.getMemberCosmeticInventory(testUser);
+    assert.ok(inventory.includes('bb_cap'), 'Inventory contains unlocked bb_cap');
+
+    // Equip unpurchased item should fail
+    const equipUnowned = await memberMod.equipCosmetic('santa_hat');
+    assert.strictEqual(equipUnowned.success, false, 'Equipping unowned cosmetic fails');
+
+    // Unequip cosmetic
+    const unequipRes = await memberMod.unequipCosmetic();
+    assert.strictEqual(unequipRes.success, true, 'Unequipping succeeds');
+    const afterUnequip = memberMod.getMemberCosmetic(testUser, 'Test User');
+    assert.strictEqual(afterUnequip.id, 'none', 'Active cosmetic set to none after unequip');
+
+    // Re-equip already owned item
+    const reEquipRes = await memberMod.equipCosmetic('bb_cap');
+    assert.strictEqual(reEquipRes.success, true, 'Equipping already unlocked cosmetic succeeds');
+    assert.strictEqual(memberMod.getMemberCosmetic(testUser, 'Test User').id, 'bb_cap', 'BB Cap re-equipped');
+    console.log('  ✔ Arcade credit deduction, inventory unlock, equip/unequip cycle verified');
+
+    // 5. Creator Governance Exclusivity
+    const creatorEmail = 'jeshuakoh2008@gmail.com';
+    const targetMember = 'target@example.com';
+    const creatorAssignRes = await memberMod.saveMemberCosmetic(targetMember, 'badge_founders_award', creatorEmail, 'Target Member');
+    assert.strictEqual(creatorAssignRes.success, true, 'Creator can assign any cosmetic to another member');
+    const targetCosmetic = memberMod.getMemberCosmetic(targetMember, 'Target Member');
+    assert.strictEqual(targetCosmetic.id, 'badge_founders_award', 'Target member has Founder Badge assigned by creator');
+
+    // Non-creator (regular user, officer, or superadmin) CANNOT assign cosmetics to other members
+    const nonCreatorEmail = 'admin@example.com';
+    const unauthorizedAssign = await memberMod.saveMemberCosmetic('someoneelse@example.com', 'badge_presidents_award', nonCreatorEmail, 'Someone Else');
+    assert.strictEqual(unauthorizedAssign.success, false, 'Non-creator cannot assign cosmetics to other members');
+    assert.ok(unauthorizedAssign.error.includes('creator'), 'Rejection error explains Creator exclusivity requirement');
+    console.log('  ✔ Creator governance exclusivity strictly enforced (only jeshuakoh2008@gmail.com can assign cosmetics to others)');
+
+    // 6. Avatar Integration: Admin & Tasks Avatars
+    const adminAvatarHtml = adminMod.getAdminMemberAvatarHtml('Target Member', targetMember, 48);
+    assert.ok(adminAvatarHtml.includes('avatar-cosmetic-badge'), 'Admin member avatar includes avatar-cosmetic-badge');
+    assert.ok(adminAvatarHtml.includes('badge_founders_award'), 'Admin avatar reflects equipped badge_founders_award');
+
+    const taskAvatarHtml = tasksMod.getAssigneeAvatarHtml('Target Member', targetMember, 32);
+    assert.ok(taskAvatarHtml.includes('avatar-cosmetic-badge'), 'Task assignee avatar includes avatar-cosmetic-badge');
+    assert.ok(taskAvatarHtml.includes('badge_founders_award'), 'Task assignee avatar reflects equipped badge_founders_award');
+
+    // Verify Headwear tilt class integration on avatars
+    const headwearAvatarHtml = adminMod.getAdminMemberAvatarHtml('Test User', testUser, 48);
+    assert.ok(headwearAvatarHtml.includes('is-headwear'), 'Equipped headwear receives is-headwear class for left tilt');
+    console.log('  ✔ Cosmetic badges render cleanly on Admin and Tasks avatars with is-headwear tilt');
+
+    // 6B. Tab-based Cosmetic Shop & In-Page Filter Verification
+    assert.strictEqual(typeof memberMod.renderCosmeticShopView, 'function', 'renderCosmeticShopView exported as tab renderer');
+    assert.strictEqual(typeof memberMod.applyCosmeticFilters, 'function', 'applyCosmeticFilters exported');
+    assert.strictEqual(typeof memberMod.resetCosmeticFilters, 'function', 'resetCosmeticFilters exported');
+
+    // DOM simulation for cosmetic shop tab view
+    const mockContainer = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+    global.document = global.document || {};
+    global.document.getElementById = (id) => {
+      if (id === 'arcade-subtab-container') return mockContainer;
+      return null;
+    };
+    memberMod.renderCosmeticShopView();
+    assert.ok(mockContainer.innerHTML.includes('cosmetic-shop-tab-view'), 'Cosmetic shop renders as in-page tab');
+    assert.ok(mockContainer.innerHTML.includes('cosmetic-filter-toolbar'), 'Renders clean filter toolbar');
+    assert.ok(mockContainer.innerHTML.includes('shop-filter-type'), 'Filter by type select exists');
+    assert.ok(mockContainer.innerHTML.includes('shop-filter-cost'), 'Filter by cost select exists');
+    assert.ok(!mockContainer.innerHTML.includes('cosmetic-card-desc'), 'Descriptions removed under cosmetic items');
+    assert.ok(!mockContainer.innerHTML.includes('Need 35 more credits'), 'Need more credits text removed from preview');
+    console.log('  ✔ Tab-based cosmetic shop view, filters (type & cost), clean cards, and preview defaults verified');
+
+    // 7. Database Migration Schema 016
+    assert.ok(fs.existsSync('supabase/migrations/016_profile_cosmetics_arcade_shop.sql'), 'Migration 016 exists');
+    const mig016 = fs.readFileSync('supabase/migrations/016_profile_cosmetics_arcade_shop.sql', 'utf8');
+    assert.ok(mig016.includes('bb_member_cosmetics'), 'Migration 016 initializes bb_member_cosmetics config key');
+    console.log('  ✔ Database migration 016_profile_cosmetics_arcade_shop.sql verified');
+
+    // 8. Strict 388 Unique DOM IDs Invariant
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'TSK-060 strictly preserves 388 unique DOM IDs invariant');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+  }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);

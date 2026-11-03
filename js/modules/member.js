@@ -1948,6 +1948,1060 @@ var _customAvatarOutlinesMap = (function() {
   return {};
 })();
 
+
+// ── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ────────────────
+var PROFILE_COSMETICS = {
+  // ── 1. Headwear ───────────────────────────────────────────────────────────
+  party_hat: {
+    id: 'party_hat',
+    name: 'Party Hat',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 40,
+    desc: 'Festive celebratory cone hat with cheerful dots, wavy streamers, and pom-pom.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4L7 27h18L16 4z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16" cy="4" r="2.5" fill="#ef4444"/><path d="M9 22c2-1 4-1 6 0s4 1 6 0" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M11 16c1.5-.8 3-.8 4.5 0s3 .8 4.5 0" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="11" r="1.2" fill="#10b981"/></svg>'
+  },
+  cowboy_hat: {
+    id: 'cowboy_hat',
+    name: 'Cowboy Hat',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 50,
+    desc: 'Rugged wild-west brown stetson with rolled brim and leather band.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="16" cy="22" rx="13" ry="4.5" fill="#78350f" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c0-6 2-11 6-11s6 5 6 11H10z" fill="#92400e" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c1.5-1 4-1.5 6-1.5s4.5.5 6 1.5" stroke="#fbbf24" stroke-width="1.5"/><path d="M13 11c1.5 1 4.5 1 6 0" stroke="#451a03" stroke-width="1.2" stroke-linecap="round"/></svg>'
+  },
+  chef_hat: {
+    id: 'chef_hat',
+    name: 'Chef Toque',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 45,
+    desc: 'Crisp white pleated culinary toque worn by master chefs.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 20h10v5H11v-5z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.2"/><path d="M11 20c-3 0-4-3-3-5 1-3 4-2 4-4 1-3 5-4 7-2 3-2 6 0 6 3 1 2 3 2 3 5 0 2-2 3-3 3H11z" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round"/><path d="M14 14v6M17 13v7M20 14v6" stroke="#cbd5e1" stroke-width="1" stroke-linecap="round"/></svg>'
+  },
+  bb_cap: {
+    id: 'bb_cap',
+    name: 'BB Cap',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 55,
+    desc: 'Official Boys Brigade ceremonial navy side cap with double white piping and silver star badge.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 24 C5 16, 9 8, 18 8 C25 8, 28 14, 29 24 Z" fill="#172554" stroke="#0f172a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 11 C17 12, 23 11, 26 15" stroke="#1e3a8a" stroke-width="1.2" stroke-linecap="round"/><path d="M4.5 24 C8 19, 17 18, 29 23 L28.5 25 C17 20, 8 21, 4.5 25.5 Z" fill="#1e3a8a"/><path d="M5.5 21.5 C10 17.5, 19 17.5, 28 21.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M6 24 C10.5 20, 19.5 20, 27.5 23.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M13 14 L14 11.5 L15 14 L17.5 15 L15 16 L14 18.5 L13 16 L10.5 15 Z" fill="#f8fafc" stroke="#cbd5e1" stroke-width="0.5"/><circle cx="14" cy="15" r="1.4" fill="#172554"/><circle cx="14" cy="15" r="0.6" fill="#f8fafc"/></svg>'
+  },
+  santa_hat: {
+    id: 'santa_hat',
+    name: 'Santa Hat',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 50,
+    desc: 'Festive Christmas holiday cap with snowy white fleece trim & pom-pom.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 22c4-12 14-14 18-10 1 1 0 3-1 3-3 0-5 2-8 5-2 1.5-6 2-9 2z" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/><rect x="7" y="21" width="18" height="5" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/><circle cx="27" cy="13" r="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/></svg>'
+  },
+
+  // ── 2. BB Badges (From assets/BB Badges) ──────────────────────────────────
+  badge_target: {
+    id: 'badge_target',
+    name: 'Target Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 30,
+    desc: 'Foundation syllabus badge covering BB history, drill, and company regulations.',
+    badgeHtml: '<img src="assets/BB Badges/0%20Target.png" alt="Target Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/0%20Target.png'
+  },
+  badge_arts: {
+    id: 'badge_arts',
+    name: 'Arts Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Proficiency in drawing, painting, photography, and creative visual arts.',
+    badgeHtml: '<img src="assets/BB Badges/Arts.png" alt="Arts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Arts.png'
+  },
+  badge_athletics: {
+    id: 'badge_athletics',
+    name: 'Athletics Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Track and field proficiency in sprinting, distance running, and jumping.',
+    badgeHtml: '<img src="assets/BB Badges/Athletics.png" alt="Athletics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Athletics.png'
+  },
+  badge_bandsman: {
+    id: 'badge_bandsman',
+    name: 'Bandsman Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Musicianship in the BB brass band, wind ensemble, or bagpipe band.',
+    badgeHtml: '<img src="assets/BB Badges/Bandsman.png" alt="Bandsman Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Bandsman.png'
+  },
+  badge_bronze_scholastic: {
+    id: 'badge_bronze_scholastic',
+    name: 'Bronze Scholastic Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 60,
+    desc: 'Academic excellence and scholastic merit in school examinations.',
+    badgeHtml: '<img src="assets/BB Badges/Bronze%20Scholastic.png" alt="Bronze Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Bronze%20Scholastic.png'
+  },
+  badge_buglers: {
+    id: 'badge_buglers',
+    name: 'Bugler\'s Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Proficiency in sounding official ceremonial BB bugle calls and fanfares.',
+    badgeHtml: '<img src="assets/BB Badges/Buglers.png" alt="Bugler\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Buglers.png'
+  },
+  badge_camping: {
+    id: 'badge_camping',
+    name: 'Camping Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Campcraft mastery including tent pitching, campsite layout, and camp cooking.',
+    badgeHtml: '<img src="assets/BB Badges/Camping.png" alt="Camping Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Camping.png'
+  },
+  badge_christian_ed: {
+    id: 'badge_christian_ed',
+    name: 'Christian Education Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Bible knowledge, Christian faith foundations, and moral character.',
+    badgeHtml: '<img src="assets/BB Badges/Christian%20Education.png" alt="Christian Education Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Christian%20Education.png'
+  },
+  badge_citizenship: {
+    id: 'badge_citizenship',
+    name: 'Citizenship Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Knowledge of Malaysian government, constitution, national heritage, and civic duties.',
+    badgeHtml: '<img src="assets/BB Badges/Citizenship.png" alt="Citizenship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Citizenship.png'
+  },
+  badge_communications: {
+    id: 'badge_communications',
+    name: 'Communications Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Mastery in public speaking, radio transmission, signals, and media.',
+    badgeHtml: '<img src="assets/BB Badges/Communications.png" alt="Communications Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Communications.png'
+  },
+  badge_community_service: {
+    id: 'badge_community_service',
+    name: 'Community Service Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Dedicated volunteer service aiding underprivileged communities.',
+    badgeHtml: '<img src="assets/BB Badges/Community%20Service.png" alt="Community Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Community%20Service.png'
+  },
+  badge_computer_knowledge: {
+    id: 'badge_computer_knowledge',
+    name: 'Computer Knowledge Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Competency in software applications, digital safety, and coding.',
+    badgeHtml: '<img src="assets/BB Badges/Computer%20Knowledge.png" alt="Computer Knowledge Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Computer%20Knowledge.png'
+  },
+  badge_crafts: {
+    id: 'badge_crafts',
+    name: 'Crafts Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Handicraft proficiency in woodwork, leatherwork, and model making.',
+    badgeHtml: '<img src="assets/BB Badges/Crafts.png" alt="Crafts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Crafts.png'
+  },
+  badge_drill: {
+    id: 'badge_drill',
+    name: 'Drill Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Precision military drill movements, squad formations, and parade discipline.',
+    badgeHtml: '<img src="assets/BB Badges/Drill.png" alt="Drill Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Drill.png'
+  },
+  badge_drummers: {
+    id: 'badge_drummers',
+    name: 'Drummer\'s Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Percussion proficiency in snare drum rudiments and pipe band drumming.',
+    badgeHtml: '<img src="assets/BB Badges/Drummers.png" alt="Drummer\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Drummers.png'
+  },
+  badge_environmental_conservation: {
+    id: 'badge_environmental_conservation',
+    name: 'Environmental Conservation Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Eco-stewardship, waste recycling, tree planting, and sustainability.',
+    badgeHtml: '<img src="assets/BB Badges/Enviromental%20Conservation.png" alt="Environmental Conservation Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Enviromental%20Conservation.png'
+  },
+  badge_expedition: {
+    id: 'badge_expedition',
+    name: 'Expedition Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 55,
+    desc: 'Multi-day wilderness hiking expedition requiring compass navigation and survival.',
+    badgeHtml: '<img src="assets/BB Badges/Expedition.png" alt="Expedition Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Expedition.png'
+  },
+  badge_financial_stewardship: {
+    id: 'badge_financial_stewardship',
+    name: 'Financial Stewardship Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Personal budgeting, prudent money management, and Biblical stewardship.',
+    badgeHtml: '<img src="assets/BB Badges/Financial%20Stewardship.png" alt="Financial Stewardship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Financial%20Stewardship.png'
+  },
+  badge_fire_and_rescue: {
+    id: 'badge_fire_and_rescue',
+    name: 'Fire and Rescue Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Fire safety precautions, extinguishers, evacuation drills, and rescue methods.',
+    badgeHtml: '<img src="assets/BB Badges/Fire%20and%20Rescue.png" alt="Fire and Rescue Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Fire%20and%20Rescue.png'
+  },
+  badge_first_aid: {
+    id: 'badge_first_aid',
+    name: 'First Aid Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Emergency lifesaving treatment, CPR, wound dressing, and casualty care.',
+    badgeHtml: '<img src="assets/BB Badges/First%20Aid.png" alt="First Aid Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/First%20Aid.png'
+  },
+  badge_founders_award: {
+    id: 'badge_founders_award',
+    name: 'Founder\'s Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 150,
+    desc: 'The pinnacle achievement for Senior Section Boys recognizing sterling leadership and service.',
+    badgeHtml: '<img src="assets/BB Badges/Founder%27s%20Award.png" alt="Founder\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Founder%27s%20Award.png'
+  },
+  badge_gold_award: {
+    id: 'badge_gold_award',
+    name: 'Gold Award Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 120,
+    desc: 'Premier Junior Section award representing outstanding diligence and excellence.',
+    badgeHtml: '<img src="assets/BB Badges/Gold%20Award.png" alt="Gold Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Gold%20Award.png'
+  },
+  badge_gold_scholastic: {
+    id: 'badge_gold_scholastic',
+    name: 'Gold Scholastic Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 85,
+    desc: 'Highest scholastic merit honoring top academic standing in major public examinations.',
+    badgeHtml: '<img src="assets/BB Badges/Gold%20Scholastic.png" alt="Gold Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Gold%20Scholastic.png'
+  },
+  badge_gymnastics: {
+    id: 'badge_gymnastics',
+    name: 'Gymnastics Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Physical agility, tumbling, balance, and gymnastic apparatus execution.',
+    badgeHtml: '<img src="assets/BB Badges/Gymnastics.png" alt="Gymnastics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Gymnastics.png'
+  },
+  badge_hobbies: {
+    id: 'badge_hobbies',
+    name: 'Hobbies Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Sustained personal dedication to a constructive hobby, craft, or collection.',
+    badgeHtml: '<img src="assets/BB Badges/Hobbies.png" alt="Hobbies Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Hobbies.png'
+  },
+  badge_international_relations: {
+    id: 'badge_international_relations',
+    name: 'International Relations Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Appreciation of global cultures, worldwide BB fellowships, and international diplomacy.',
+    badgeHtml: '<img src="assets/BB Badges/International%20Relations.png" alt="International Relations Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/International%20Relations.png'
+  },
+  badge_life_saving: {
+    id: 'badge_life_saving',
+    name: 'Life Saving Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 55,
+    desc: 'Water safety, drowning casualty rescue, resuscitation, and open-water recovery.',
+    badgeHtml: '<img src="assets/BB Badges/Life%20Saving.png" alt="Life Saving Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Life%20Saving.png'
+  },
+  badge_long_year_service: {
+    id: 'badge_long_year_service',
+    name: 'Long Year Service Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 90,
+    desc: 'Honoring long-term steadfast loyalty and continuous faithful membership in 1st PJ.',
+    badgeHtml: '<img src="assets/BB Badges/Long%20Year%20Service.png" alt="Long Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Long%20Year%20Service.png'
+  },
+  badge_nature_awareness: {
+    id: 'badge_nature_awareness',
+    name: 'Nature Awareness Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Observation and study of Malaysian flora, fauna, and natural habitats.',
+    badgeHtml: '<img src="assets/BB Badges/Nature%20Awareness.png" alt="Nature Awareness Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Nature%20Awareness.png'
+  },
+  badge_nco_proficiency: {
+    id: 'badge_nco_proficiency',
+    name: 'NCO Proficiency Star',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 100,
+    desc: 'Recognizing distinguished Non-Commissioned Officer leadership, command, and squad mentoring.',
+    badgeHtml: '<img src="assets/BB Badges/NCO%20Proficiency.png" alt="NCO Proficiency Star" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/NCO%20Proficiency.png'
+  },
+  badge_physical_training: {
+    id: 'badge_physical_training',
+    name: 'Physical Training Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'High standard of physical fitness, calisthenics, and cardiovascular endurance.',
+    badgeHtml: '<img src="assets/BB Badges/Physical%20Training.png" alt="Physical Training Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Physical%20Training.png'
+  },
+  badge_presidents_award: {
+    id: 'badge_presidents_award',
+    name: 'President\'s Award Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 140,
+    desc: 'Prestigious national award recognizing eminent leadership and distinguished Christian service.',
+    badgeHtml: '<img src="assets/BB Badges/President%27s%20Award.png" alt="President\'s Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/President%27s%20Award.png'
+  },
+  badge_recruitment: {
+    id: 'badge_recruitment',
+    name: 'Recruitment Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Awarded for bringing new friends and comrades into the fellowship of the Boys\' Brigade.',
+    badgeHtml: '<img src="assets/BB Badges/Recruitment.png" alt="Recruitment Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Recruitment.png'
+  },
+  badge_safety: {
+    id: 'badge_safety',
+    name: 'Safety Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Knowledge and practice of home, road, workshop, and sports safety precautions.',
+    badgeHtml: '<img src="assets/BB Badges/Safety.png" alt="Safety Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Safety.png'
+  },
+  badge_silver_scholastic: {
+    id: 'badge_silver_scholastic',
+    name: 'Silver Scholastic Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 70,
+    desc: 'Commendable scholastic merit awarded for high academic performance in school examinations.',
+    badgeHtml: '<img src="assets/BB Badges/Silver%20Scholastic.png" alt="Silver Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Silver%20Scholastic.png'
+  },
+  badge_social_entrepreneurship: {
+    id: 'badge_social_entrepreneurship',
+    name: 'Social Entrepreneurship Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Developing innovative social business ventures that benefit the community.',
+    badgeHtml: '<img src="assets/BB Badges/Social%20Entreprenuership.png" alt="Social Entrepreneurship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Social%20Entreprenuership.png'
+  },
+  badge_sports: {
+    id: 'badge_sports',
+    name: 'Sports Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Active team sportsmanship, rules knowledge, and fair play in athletic games.',
+    badgeHtml: '<img src="assets/BB Badges/Sports.png" alt="Sports Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Sports.png'
+  },
+  badge_sustainability: {
+    id: 'badge_sustainability',
+    name: 'Sustainability Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Renewable energy, resource conservation, carbon footprint reduction, and green living.',
+    badgeHtml: '<img src="assets/BB Badges/Sustainability.png" alt="Sustainability Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Sustainability.png'
+  },
+  badge_swimming: {
+    id: 'badge_swimming',
+    name: 'Swimming Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Proficiency in multiple swimming strokes, breath control, and water endurance.',
+    badgeHtml: '<img src="assets/BB Badges/Swimming.png" alt="Swimming Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Swimming.png'
+  },
+  badge_three_year_service: {
+    id: 'badge_three_year_service',
+    name: 'Three Year Service Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 75,
+    desc: 'Awarded upon completing three consecutive years of steadfast and faithful service in 1st PJ.',
+    badgeHtml: '<img src="assets/BB Badges/Three%20Year%20Service%20Badge.png" alt="Three Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Three%20Year%20Service%20Badge.png'
+  },
+  badge_water_adventure: {
+    id: 'badge_water_adventure',
+    name: 'Water Adventure Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Proficiency in canoeing, kayaking, rafting, and aquatic expedition techniques.',
+    badgeHtml: '<img src="assets/BB Badges/Water%20Adventure.png" alt="Water Adventure Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Water%20Adventure.png'
+  }
+};
+
+var _memberCosmeticsMap = {};
+
+function getMemberCosmeticsMap() {
+  return _memberCosmeticsMap;
+}
+
+async function loadMemberCosmetics() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_member_cosmetics');
+      if (cached) {
+        _memberCosmeticsMap = JSON.parse(cached) || {};
+      }
+    } catch (_) {}
+  }
+
+  if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  if (!client || !client.get) return _memberCosmeticsMap;
+
+  try {
+    var res = await client.get('bb_config?key=eq.bb_member_cosmetics&select=value');
+    if (res && res.length && res[0].value) {
+      var parsed = JSON.parse(res[0].value);
+      if (parsed && typeof parsed === 'object') {
+        _memberCosmeticsMap = parsed;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_member_cosmetics', JSON.stringify(parsed));
+        }
+        if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+      }
+    }
+  } catch (e) {
+    console.warn('loadMemberCosmetics non-fatal warning:', e);
+  }
+
+  return _memberCosmeticsMap;
+}
+
+function getMemberCosmetic(emailOrIc, memberName) {
+  var cleanKey = String(emailOrIc || '').trim().toLowerCase();
+  var cleanName = String(memberName || '').trim().toLowerCase();
+
+  var isCreator = false;
+  if (typeof isPortalCreator === 'function') {
+    isCreator = isPortalCreator(cleanName, cleanKey);
+  } else {
+    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh');
+  }
+
+  var record = null;
+  if (cleanKey && _memberCosmeticsMap[cleanKey]) {
+    record = _memberCosmeticsMap[cleanKey];
+  } else if (cleanName && _memberCosmeticsMap[cleanName]) {
+    record = _memberCosmeticsMap[cleanName];
+  }
+
+  // Scan entries if not matched directly
+  if (!record && (cleanKey || cleanName)) {
+    var mapKeys = Object.keys(_memberCosmeticsMap);
+    for (var i = 0; i < mapKeys.length; i++) {
+      var k = mapKeys[i];
+      var entry = _memberCosmeticsMap[k];
+      if (entry && typeof entry === 'object') {
+        var entryName = String(entry.name || '').trim().toLowerCase();
+        var entryTarget = String(entry.target || k).trim().toLowerCase();
+        if ((cleanName && entryName === cleanName) ||
+            (cleanName && entryTarget === cleanName) ||
+            (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
+          record = entry;
+          break;
+        }
+      }
+    }
+  }
+
+  var cosmeticId = 'none';
+  if (record) {
+    if (typeof record === 'string') cosmeticId = record;
+    else if (record.equipped) cosmeticId = record.equipped;
+    else if (record.id) cosmeticId = record.id;
+  }
+
+  var cfg = PROFILE_COSMETICS[cosmeticId] || null;
+  return {
+    id: cfg ? cosmeticId : 'none',
+    name: cfg ? cfg.name : 'None',
+    category: cfg ? cfg.category : '',
+    categoryLabel: cfg ? cfg.categoryLabel : '',
+    price: cfg ? cfg.price : 0,
+    svg: cfg ? cfg.badgeHtml : '',
+    config: cfg,
+    isCreator: isCreator,
+    assignedBy: (record && record.assignedBy) ? record.assignedBy : null
+  };
+}
+
+function getMemberCosmeticInventory(emailOrIc) {
+  var cleanKey = String(emailOrIc || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
+  if (!cleanKey) return [];
+  var record = _memberCosmeticsMap[cleanKey];
+  if (record && Array.isArray(record.inventory)) {
+    return record.inventory.slice();
+  }
+  return [];
+}
+
+async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targetName, isUnlock) {
+  var cleanActor = String(actorEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
+  var isCreator = (cleanActor === 'jeshuakoh2008@gmail.com');
+  var cleanTarget = String(targetEmailOrIc || '').trim().toLowerCase();
+
+  if (!cleanTarget) {
+    return { success: false, error: 'Target member identifier required.' };
+  }
+
+  // Creator can assign any cosmetic to anyone. Non-creator can ONLY equip/unequip their own owned cosmetics!
+  var isSelf = (cleanActor && (cleanActor === cleanTarget || (typeof sessionGet === 'function' && String(sessionGet('email') || sessionGet('ic')).trim().toLowerCase() === cleanTarget)));
+
+  if (!isCreator && !isSelf) {
+    return {
+      success: false,
+      error: 'Access Denied: Only the creator (jeshuakoh2008@gmail.com) has access and permissions to assign cosmetics to members.'
+    };
+  }
+
+  var validCosmeticId = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? cosmeticId : 'none';
+
+  // If non-creator self-equipping, verify that cosmetic is either 'none' or in inventory
+  if (!isCreator && !isUnlock && validCosmeticId !== 'none') {
+    var inv = getMemberCosmeticInventory(cleanTarget);
+    if (!inv.includes(validCosmeticId)) {
+      return { success: false, error: 'Cosmetic not unlocked in your inventory.' };
+    }
+  }
+
+  var existing = _memberCosmeticsMap[cleanTarget] || {};
+  var currentInv = Array.isArray(existing.inventory) ? existing.inventory.slice() : [];
+  if (validCosmeticId !== 'none' && !currentInv.includes(validCosmeticId)) {
+    currentInv.push(validCosmeticId);
+  }
+
+  var cleanName = String(targetName || existing.name || '').trim().toLowerCase();
+  if (!cleanName) {
+    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+      ? resolveMemberDirectoryInfo
+      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    if (resolver) {
+      var dirInfo = resolver(cleanTarget);
+      if (dirInfo && dirInfo.name) cleanName = String(dirInfo.name).trim().toLowerCase();
+    }
+  }
+
+  var entry = {
+    equipped: validCosmeticId,
+    inventory: currentInv,
+    assignedBy: isCreator ? cleanActor : (existing.assignedBy || 'self'),
+    updatedAt: new Date().toISOString(),
+    target: cleanTarget,
+    name: cleanName
+  };
+
+  _memberCosmeticsMap[cleanTarget] = entry;
+  if (cleanName && cleanName !== cleanTarget) {
+    _memberCosmeticsMap[cleanName] = entry;
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
+  }
+  if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  if (client && client.post) {
+    try {
+      await client.post('bb_config', {
+        key: 'bb_member_cosmetics',
+        value: JSON.stringify(_memberCosmeticsMap),
+        updated_at: new Date().toISOString()
+      }, { upsert: true });
+    } catch (dbErr) {
+      console.warn('saveMemberCosmetic db sync warning:', dbErr);
+    }
+  }
+
+  refreshActiveAvatarCosmetics();
+  return { success: true, target: cleanTarget, cosmetic: validCosmeticId };
+}
+
+async function unlockCosmetic(cosmeticId) {
+  var item = PROFILE_COSMETICS[cosmeticId];
+  if (!item) return { success: false, error: 'Cosmetic item not found.' };
+
+  var userKey = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  if (!userKey) {
+    if (typeof showToast === 'function') showToast('Please sign in to unlock profile cosmetics.', 'error');
+    return { success: false, error: 'Authentication required' };
+  }
+
+  var getStatsFn = (typeof getArcadeStats === 'function')
+    ? getArcadeStats
+    : (typeof window !== 'undefined' && window.getArcadeStats ? window.getArcadeStats : (typeof global !== 'undefined' && global.getArcadeStats ? global.getArcadeStats : null));
+  var stats = getStatsFn ? getStatsFn() : { credits: 0 };
+  var currentCredits = stats.credits || 0;
+
+  if (currentCredits < item.price) {
+    var need = item.price - currentCredits;
+    if (typeof showToast === 'function') {
+      showToast('Need ' + need + ' more Arcade Credits! Play Wordle or Trivia in 1stPJ Arcade to earn credits.', 'info');
+    }
+    return { success: false, error: 'Insufficient credits', need: need };
+  }
+
+  var saveStatsFn = (typeof saveArcadeStats === 'function')
+    ? saveArcadeStats
+    : (typeof window !== 'undefined' && window.saveArcadeStats ? window.saveArcadeStats : (typeof global !== 'undefined' && global.saveArcadeStats ? global.saveArcadeStats : null));
+
+  // Deduct credits via arcade module
+  stats.credits = currentCredits - item.price;
+  if (saveStatsFn) {
+    saveStatsFn(stats);
+  }
+
+  // Save cosmetic to inventory and equip it
+  var saveRes = await saveMemberCosmetic(userKey, cosmeticId, userKey, (typeof sessionGet === 'function' ? sessionGet('name') : ''), true);
+  if (!saveRes.success) {
+    // Refund credits on unexpected failure
+    stats.credits = currentCredits;
+    if (saveStatsFn) saveStatsFn(stats);
+    return saveRes;
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('🎉 Unlocked & equipped ' + item.name + '! (' + stats.credits + ' Credits remaining)', 'success', 4000);
+  }
+
+  // Refresh live cosmetic shop balance pill & live preview if open
+  var balanceEl = document.getElementById('shop-credits-balance');
+  if (balanceEl) balanceEl.textContent = String(stats.credits);
+  renderCosmeticShopCards();
+  renderCosmeticLivePreview(cosmeticId);
+
+  return { success: true, item: item, remainingCredits: stats.credits };
+}
+
+async function equipCosmetic(cosmeticId) {
+  var userKey = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  var res = await saveMemberCosmetic(userKey, cosmeticId, userKey, (typeof sessionGet === 'function' ? sessionGet('name') : ''), false);
+  if (res.success) {
+    var name = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId].name : 'None';
+    if (typeof showToast === 'function') {
+      showToast('Equipped ' + name + ' cosmetic!', 'success');
+    }
+    renderCosmeticShopCards();
+    renderCosmeticLivePreview(cosmeticId);
+  }
+  return res;
+}
+
+async function unequipCosmetic() {
+  return equipCosmetic('none');
+}
+
+function applyMemberCosmeticElement(containerEl, cosmeticId, sizeVariant) {
+  if (!containerEl || typeof containerEl !== 'object') return;
+  var validCosmetic = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId] : null;
+  var existingBadge = containerEl.querySelector('.avatar-cosmetic-badge');
+
+  if (!validCosmetic) {
+    if (existingBadge && existingBadge.parentNode) {
+      existingBadge.parentNode.removeChild(existingBadge);
+    }
+    return;
+  }
+
+  if (containerEl.style) {
+    containerEl.style.overflow = 'visible';
+    var pos = containerEl.style.position;
+    if (!pos || pos === 'static') {
+      containerEl.style.position = 'relative';
+    }
+  }
+
+  var sizeClass = sizeVariant || 'cosmetic-md';
+  var isHeadwear = (validCosmetic.category === 'headwear');
+  var headwearClass = isHeadwear ? ' is-headwear' : '';
+
+  if (!existingBadge) {
+    existingBadge = document.createElement('span');
+    existingBadge.setAttribute('aria-hidden', 'true');
+    containerEl.appendChild(existingBadge);
+  }
+
+  existingBadge.className = 'avatar-cosmetic-badge ' + sizeClass + headwearClass;
+  existingBadge.setAttribute('data-cosmetic-id', validCosmetic.id);
+  existingBadge.setAttribute('title', validCosmetic.name || '');
+  existingBadge.innerHTML = validCosmetic.badgeHtml;
+}
+
+function refreshActiveAvatarCosmetics() {
+  if (typeof document === 'undefined') return;
+  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  if (typeof renderMemberAvatar === 'function') {
+    renderMemberAvatar(myName, myEmail);
+  }
+}
+
+// ── Interactive Arcade Cosmetic Shop Tab View ────────────────────────────────
+var _cosmeticShopTypeFilter = 'all';
+var _cosmeticShopCostFilter = 'all';
+var _cosmeticShopPreviewId = null;
+
+function renderCosmeticShopView() {
+  if (typeof document === 'undefined') return;
+  var container = document.getElementById('arcade-subtab-container');
+  if (!container) return;
+
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var activeCosmetic = getMemberCosmetic(myEmail);
+  _cosmeticShopPreviewId = activeCosmetic.id; // Strictly 'none' if user has no equipped cosmetic!
+
+  container.innerHTML =
+    '<div class="cosmetic-shop-tab-view">' +
+      '<!-- Live Profile Preview Card -->' +
+      '<div class="card cosmetic-shop-preview-card" style="margin-bottom:14px;padding:16px 20px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">' +
+          '<div style="display:flex;align-items:center;gap:14px;">' +
+            '<div id="shop-live-avatar-wrap" style="position:relative;width:56px;height:56px;flex-shrink:0;"></div>' +
+            '<div>' +
+              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.04em;">Live Profile Preview</div>' +
+              '<div id="shop-preview-item-name" style="font-size:15px;font-weight:700;color:var(--text);margin-top:2px;">No Cosmetic Equipped</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+            '<div id="shop-preview-item-action"></div>' +
+            '<div class="cosmetic-shop-credits-pill" title="Current Arcade Credits">' +
+              '🪙 <span id="shop-credits-balance">0</span> Credits' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<!-- Filter Toolbar -->' +
+      '<div class="card cosmetic-filter-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;margin-bottom:16px;flex-wrap:wrap;">' +
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+          '<button type="button" class="btn btn-secondary cosmetic-filter-btn" onclick="resetCosmeticFilters()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;">' +
+            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
+            '<span>Filter</span>' +
+          '</button>' +
+
+          '<div style="display:inline-flex;align-items:center;gap:6px;">' +
+            '<label for="shop-filter-type" style="font-size:12px;font-weight:600;color:var(--text-muted);">Type:</label>' +
+            '<select id="shop-filter-type" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
+              '<option value="all"' + (_cosmeticShopTypeFilter === 'all' ? ' selected' : '') + '>All Types (46)</option>' +
+              '<option value="headwear"' + (_cosmeticShopTypeFilter === 'headwear' ? ' selected' : '') + '>Headwear (5)</option>' +
+              '<option value="badges"' + (_cosmeticShopTypeFilter === 'badges' ? ' selected' : '') + '>BB Badges (41)</option>' +
+            '</select>' +
+          '</div>' +
+
+          '<div style="display:inline-flex;align-items:center;gap:6px;">' +
+            '<label for="shop-filter-cost" style="font-size:12px;font-weight:600;color:var(--text-muted);">Cost:</label>' +
+            '<select id="shop-filter-cost" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
+              '<option value="all"' + (_cosmeticShopCostFilter === 'all' ? ' selected' : '') + '>All Costs</option>' +
+              '<option value="affordable"' + (_cosmeticShopCostFilter === 'affordable' ? ' selected' : '') + '>Affordable Now</option>' +
+              '<option value="under40"' + (_cosmeticShopCostFilter === 'under40' ? ' selected' : '') + '>Under 40 Credits</option>' +
+              '<option value="40to50"' + (_cosmeticShopCostFilter === '40to50' ? ' selected' : '') + '>40 – 50 Credits</option>' +
+              '<option value="over50"' + (_cosmeticShopCostFilter === 'over50' ? ' selected' : '') + '>55+ Credits</option>' +
+              '<option value="owned"' + (_cosmeticShopCostFilter === 'owned' ? ' selected' : '') + '>Owned Items</option>' +
+            '</select>' +
+          '</div>' +
+
+          '<button type="button" id="shop-filter-reset-btn" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding:5px 10px;font-size:11px;border-radius:8px;' + ((_cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all') ? '' : 'display:none;') + '">Reset</button>' +
+        '</div>' +
+
+        '<div id="shop-filter-count" style="font-size:12px;color:var(--text-muted);font-weight:600;">Showing 46 items</div>' +
+      '</div>' +
+
+      '<!-- Cosmetic Cards Grid -->' +
+      '<div class="cosmetic-shop-grid" id="cosmetic-shop-grid"></div>' +
+    '</div>';
+
+  var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+  var balanceEl = document.getElementById('shop-credits-balance');
+  if (balanceEl) balanceEl.textContent = String(stats.credits || 0);
+
+  applyCosmeticFilters();
+  renderCosmeticLivePreview(_cosmeticShopPreviewId);
+}
+
+function openCosmeticShopDrawer() {
+  if (typeof switchTab === 'function') {
+    switchTab('arcade');
+  }
+  if (typeof switchArcadeSubtab === 'function') {
+    switchArcadeSubtab('shop');
+  }
+}
+
+function closeCosmeticShopDrawer() {
+  // Retained for backwards compatibility
+}
+
+function filterCosmeticShop(category) {
+  _cosmeticShopTypeFilter = category || 'all';
+  var typeEl = document.getElementById('shop-filter-type');
+  if (typeEl) typeEl.value = _cosmeticShopTypeFilter;
+  applyCosmeticFilters();
+}
+
+function applyCosmeticFilters() {
+  var typeEl = document.getElementById('shop-filter-type');
+  var costEl = document.getElementById('shop-filter-cost');
+  if (typeEl) _cosmeticShopTypeFilter = typeEl.value;
+  if (costEl) _cosmeticShopCostFilter = costEl.value;
+
+  var resetBtn = document.getElementById('shop-filter-reset-btn');
+  if (resetBtn) {
+    var isFiltered = (_cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all');
+    resetBtn.style.display = isFiltered ? 'inline-block' : 'none';
+  }
+
+  renderCosmeticShopCards();
+}
+
+function resetCosmeticFilters() {
+  _cosmeticShopTypeFilter = 'all';
+  _cosmeticShopCostFilter = 'all';
+  var typeEl = document.getElementById('shop-filter-type');
+  var costEl = document.getElementById('shop-filter-cost');
+  if (typeEl) typeEl.value = 'all';
+  if (costEl) costEl.value = 'all';
+  var resetBtn = document.getElementById('shop-filter-reset-btn');
+  if (resetBtn) resetBtn.style.display = 'none';
+  renderCosmeticShopCards();
+}
+
+function renderCosmeticLivePreview(cosmeticId) {
+  _cosmeticShopPreviewId = cosmeticId;
+  var wrap = document.getElementById('shop-live-avatar-wrap');
+  var nameEl = document.getElementById('shop-preview-item-name');
+  var actEl = document.getElementById('shop-preview-item-action');
+  if (!wrap) return;
+
+  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : 'Member';
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var isCreator = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
+  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(myName, myEmail) : (myName.charAt(0) || 'M'));
+  var color = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(myName) : '#047857');
+  var outline = getMemberAvatarOutline(myEmail, myName);
+
+  wrap.innerHTML =
+    '<div style="width:56px;height:56px;border-radius:50%;background:' + color + ';color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;position:relative;overflow:visible;">' +
+      initial +
+      (outline.style !== 'none' ? '<span class="avatar-outline-overlay ' + outline.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;"></span>' : '') +
+    '</div>';
+
+  var avatarDiv = wrap.firstElementChild;
+  applyMemberCosmeticElement(avatarDiv, cosmeticId, 'cosmetic-lg');
+
+  var myInv = getMemberCosmeticInventory(myEmail);
+  var currentEquipped = getMemberCosmetic(myEmail).id;
+  var item = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId] : null;
+
+  if (cosmeticId === 'none' || !item) {
+    if (nameEl) nameEl.textContent = 'No Cosmetic Equipped';
+    if (actEl) {
+      if (currentEquipped !== 'none') {
+        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="unequipCosmetic()">Unequip Active Cosmetic</button>';
+      } else {
+        actEl.innerHTML = '';
+      }
+    }
+    return;
+  }
+
+  var isEquipped = (currentEquipped === cosmeticId);
+  var isOwned = myInv.includes(cosmeticId);
+
+  if (nameEl) {
+    if (isEquipped) {
+      nameEl.textContent = item.name + ' (' + item.categoryLabel + ') — Equipped ✓';
+    } else {
+      nameEl.textContent = item.name + ' (' + item.categoryLabel + ')';
+    }
+  }
+
+  if (actEl) {
+    if (isEquipped) {
+      actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="unequipCosmetic()">Equipped ✓ (Click to Unequip)</button>';
+    } else if (isOwned) {
+      actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="equipCosmetic(\'' + cosmeticId + '\')">Equip Now</button>';
+    } else {
+      var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+      var hasCredits = (stats.credits || 0) >= item.price;
+      if (hasCredits) {
+        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="unlockCosmetic(\'' + cosmeticId + '\')">Unlock for ' + item.price + ' 🪙</button>';
+      } else {
+        // User instruction: Remove the Need 35 more credits text and button
+        actEl.innerHTML = '';
+      }
+    }
+  }
+}
+
+function renderCosmeticShopCards() {
+  var grid = document.getElementById('cosmetic-shop-grid');
+  if (!grid) return;
+
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var myInv = getMemberCosmeticInventory(myEmail);
+  var currentEquipped = getMemberCosmetic(myEmail).id;
+  var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+  var myCredits = stats.credits || 0;
+
+  var keys = Object.keys(PROFILE_COSMETICS);
+  var filteredKeys = keys.filter(function(k) {
+    var item = PROFILE_COSMETICS[k];
+    if (!item) return false;
+
+    // Filter by Type
+    if (_cosmeticShopTypeFilter !== 'all' && item.category !== _cosmeticShopTypeFilter) {
+      return false;
+    }
+
+    // Filter by Cost
+    var isOwned = myInv.includes(k);
+    if (_cosmeticShopCostFilter === 'affordable') {
+      if (isOwned || myCredits < item.price) return false;
+    } else if (_cosmeticShopCostFilter === 'under40') {
+      if (item.price >= 40) return false;
+    } else if (_cosmeticShopCostFilter === '40to50') {
+      if (item.price < 40 || item.price > 50) return false;
+    } else if (_cosmeticShopCostFilter === 'over50') {
+      if (item.price < 55) return false;
+    } else if (_cosmeticShopCostFilter === 'owned') {
+      if (!isOwned) return false;
+    }
+
+    return true;
+  });
+
+  var countEl = document.getElementById('shop-filter-count');
+  if (countEl) {
+    countEl.textContent = 'Showing ' + filteredKeys.length + ' item' + (filteredKeys.length === 1 ? '' : 's');
+  }
+
+  if (filteredKeys.length === 0) {
+    grid.innerHTML =
+      '<div class="card" style="grid-column: 1 / -1; padding: 32px 20px; text-align: center;">' +
+        '<div style="font-size: 28px; margin-bottom: 8px;">🔍</div>' +
+        '<div style="font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px;">No matching cosmetics found</div>' +
+        '<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">Try adjusting your type or cost filters to see more items.</div>' +
+        '<button type="button" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding: 6px 16px; font-size: 12px; border-radius: 8px;">Reset All Filters</button>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  filteredKeys.forEach(function(k) {
+    var item = PROFILE_COSMETICS[k];
+    var isEquipped = (currentEquipped === k);
+    var isOwned = myInv.includes(k);
+    var canAfford = (myCredits >= item.price);
+
+    var cardCls = 'cosmetic-card' + (isEquipped ? ' equipped' : '');
+    var actionBtnHtml = '';
+
+    if (isEquipped) {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="event.stopPropagation(); unequipCosmetic();">Equipped ✓</button>';
+    } else if (isOwned) {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="event.stopPropagation(); equipCosmetic(\'' + k + '\');">Equip</button>';
+    } else if (canAfford) {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="event.stopPropagation(); unlockCosmetic(\'' + k + '\');">Unlock ' + item.price + ' 🪙</button>';
+    } else {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-locked" disabled title="Play Arcade to earn credits!">Locked (' + item.price + ' 🪙)</button>';
+    }
+
+    html +=
+      '<div class="' + cardCls + '" onclick="renderCosmeticLivePreview(\'' + k + '\')">' +
+        '<div class="cosmetic-badge-preview-icon">' + item.badgeHtml + '</div>' +
+        '<div class="cosmetic-card-category">' + item.categoryLabel + '</div>' +
+        '<div class="cosmetic-card-name">' + item.name + '</div>' +
+        '<div style="width:100%;margin-top:auto;">' + actionBtnHtml + '</div>' +
+      '</div>';
+  });
+
+  grid.innerHTML = html;
+}
+
 function isCreatorSession() {
   var em = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
   var cleanEm = String(em).trim().toLowerCase();
@@ -2216,6 +3270,7 @@ function renderMemberAvatar(memberName, memberEmail) {
   var tooltip = name + (isCreator ? ' (Portal Creator)' : '');
 
   var outline = getMemberAvatarOutline(email, name);
+  var cosmetic = getMemberCosmetic(email, name);
 
   // 1. Sidebar user avatar placeholder
   var sPh = document.getElementById('sidebar-user-avatar-ph');
@@ -2243,6 +3298,7 @@ function renderMemberAvatar(memberName, memberEmail) {
       sPh.style.background = isCreator ? '#083830' : color;
     }
     applyAvatarOutlineElement(sPh.parentElement, outline.style);
+    applyMemberCosmeticElement(sPh.parentElement, cosmetic.id, 'cosmetic-sm');
   }
 
   // 2. Member hub profile placeholder (#m-pfp-ph) & ring (#m-pfp-ring)
@@ -2273,6 +3329,7 @@ function renderMemberAvatar(memberName, memberEmail) {
   }
   if (mRing) {
     applyAvatarOutlineElement(mRing, outline.style);
+    applyMemberCosmeticElement(mRing, cosmetic.id, 'cosmetic-lg');
   }
 
   // 3. Top nav header placeholder (#nav-avatar-placeholder)
@@ -2303,6 +3360,7 @@ function renderMemberAvatar(memberName, memberEmail) {
   }
   if (navCircle) {
     applyAvatarOutlineElement(navCircle, outline.style);
+    applyMemberCosmeticElement(navCircle, cosmetic.id, 'cosmetic-sm');
   }
 }
 
@@ -3355,6 +4413,25 @@ if (typeof window !== 'undefined') {
   window.getSectionForRank            = getSectionForRank;
   window.getRanksForSection           = getRanksForSection;
   window.populateRankOptions          = populateRankOptions;
+  window.PROFILE_COSMETICS            = PROFILE_COSMETICS;
+  window.getMemberCosmeticsMap        = getMemberCosmeticsMap;
+  window.loadMemberCosmetics          = loadMemberCosmetics;
+  window.getMemberCosmetic            = getMemberCosmetic;
+  window.getMemberCosmeticInventory   = getMemberCosmeticInventory;
+  window.saveMemberCosmetic           = saveMemberCosmetic;
+  window.unlockCosmetic               = unlockCosmetic;
+  window.equipCosmetic                = equipCosmetic;
+  window.unequipCosmetic              = unequipCosmetic;
+  window.applyMemberCosmeticElement   = applyMemberCosmeticElement;
+  window.refreshActiveAvatarCosmetics = refreshActiveAvatarCosmetics;
+  window.openCosmeticShopDrawer       = openCosmeticShopDrawer;
+  window.renderCosmeticShopView       = renderCosmeticShopView;
+  window.applyCosmeticFilters         = applyCosmeticFilters;
+  window.resetCosmeticFilters         = resetCosmeticFilters;
+  window.closeCosmeticShopDrawer      = closeCosmeticShopDrawer;
+  window.filterCosmeticShop           = filterCosmeticShop;
+  window.renderCosmeticLivePreview    = renderCosmeticLivePreview;
+  window.renderCosmeticShopCards      = renderCosmeticShopCards;
 
 }
 
@@ -3415,6 +4492,25 @@ if (typeof module !== 'undefined' && module.exports) {
     switchFamilyAccount,
     checkAndNotifyNewDeviceLogin,
     dispatchDeviceSecurityAlertEmail,
+    PROFILE_COSMETICS,
+    getMemberCosmeticsMap,
+    loadMemberCosmetics,
+    getMemberCosmetic,
+    getMemberCosmeticInventory,
+    saveMemberCosmetic,
+    unlockCosmetic,
+    equipCosmetic,
+    unequipCosmetic,
+    applyMemberCosmeticElement,
+    refreshActiveAvatarCosmetics,
+    openCosmeticShopDrawer,
+    renderCosmeticShopView,
+    applyCosmeticFilters,
+    resetCosmeticFilters,
+    closeCosmeticShopDrawer,
+    filterCosmeticShop,
+    renderCosmeticLivePreview,
+    renderCosmeticShopCards,
 };
 }
 

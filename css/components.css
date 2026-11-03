@@ -8121,6 +8121,11 @@ select.form-input,
   white-space: nowrap;
 }
 
+.arcade-tab-btn svg {
+  flex-shrink: 0;
+  display: block;
+}
+
 .arcade-tab-btn:hover {
   background: var(--bg-card-subtle, #1a202c);
   color: var(--text-primary, #f3f4f6);
@@ -8743,4 +8748,358 @@ select.form-input,
   display: inline-block;
   flex-shrink: 0;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.25);
+}
+
+
+/* ── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ── */
+
+/* 1. Modular Avatar Cosmetic Badges (Top-Left Corner Placement) */
+.avatar-cosmetic-badge {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  z-index: 5; /* Pinned above photo, initials, and outline overlay */
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-sizing: border-box;
+}
+
+.avatar-cosmetic-badge svg,
+.avatar-cosmetic-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Sizing variants: exactly 25% smaller than original (28px->21px, 20px->15px, 14px->11px, 12px->9px) */
+.avatar-cosmetic-badge.cosmetic-lg {
+  top: -3px;
+  left: -3px;
+  width: 21px;
+  height: 21px;
+}
+
+.avatar-cosmetic-badge.cosmetic-md {
+  top: -2px;
+  left: -2px;
+  width: 15px;
+  height: 15px;
+}
+
+.avatar-cosmetic-badge.cosmetic-sm {
+  top: -2px;
+  left: -2px;
+  width: 11px;
+  height: 11px;
+}
+
+.avatar-cosmetic-badge.cosmetic-xs {
+  top: -1px;
+  left: -1px;
+  width: 9px;
+  height: 9px;
+}
+
+/* Headwear: angled, aligned, and placed on top-left corner tilted to the left (matching Image 4) */
+.avatar-cosmetic-badge.is-headwear {
+  transform: rotate(-18deg);
+  transform-origin: 50% 90%;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-lg {
+  top: -7px;
+  left: 0px;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-md {
+  top: -5px;
+  left: 0px;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-sm {
+  top: -3px;
+  left: 0px;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-xs {
+  top: -2px;
+  left: 0px;
+}
+
+/* 2. Interactive Arcade Cosmetic Shop Drawer & Live Preview Modal */
+.cosmetic-shop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.cosmetic-shop-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg, 16px);
+  width: 100%;
+  max-width: 680px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.cosmetic-shop-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cosmetic-shop-credits-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(217, 163, 35, 0.15);
+  border: 1px solid rgba(217, 163, 35, 0.35);
+  color: var(--gold, #d9a323);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cosmetic-shop-preview-bar {
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cosmetic-preview-avatar-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cosmetic-shop-pills {
+  display: flex;
+  gap: 8px;
+  padding: 10px 22px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  scrollbar-width: thin;
+}
+
+.cosmetic-shop-pill {
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.cosmetic-shop-pill:hover,
+.cosmetic-shop-pill.active {
+  background: var(--accent);
+  color: var(--btn-on-accent, #121418);
+  border-color: var(--accent);
+}
+
+
+.cosmetic-filter-toolbar {
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md, 12px);
+}
+
+.cosmetic-filter-select {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+  cursor: pointer;
+}
+
+.cosmetic-filter-select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.cosmetic-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.cosmetic-card {
+  background: var(--bg-card-subtle);
+  border: 1.5px solid var(--border-card);
+  border-radius: 12px;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.cosmetic-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.cosmetic-card.equipped {
+  border-color: var(--accent);
+  background: rgba(217, 163, 35, 0.08);
+}
+
+.cosmetic-badge-preview-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+  margin-bottom: 4px;
+}
+
+.cosmetic-badge-preview-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cosmetic-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.cosmetic-card-category {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.cosmetic-card-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-bottom: 4px;
+  flex: 1;
+}
+
+.cosmetic-card-action-btn {
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.cosmetic-card-action-btn.btn-buy {
+  background: var(--accent);
+  color: var(--btn-on-accent, #121418);
+}
+
+.cosmetic-card-action-btn.btn-buy:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.cosmetic-card-action-btn.btn-equip {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.cosmetic-card-action-btn.btn-equip:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: var(--accent);
+}
+
+.cosmetic-card-action-btn.btn-equipped {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  cursor: default;
+}
+
+.cosmetic-card-action-btn.btn-locked {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: not-allowed;
+}
+
+/* 3. Member Hub Action Bar Cosmetic Shop Trigger Button */
+.btn-cosmetic-shop {
+  background: rgba(217, 163, 35, 0.12);
+  color: var(--gold, #d9a323);
+  border: 1px solid rgba(217, 163, 35, 0.3);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.btn-cosmetic-shop:hover {
+  background: rgba(217, 163, 35, 0.22);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* 4. Reduced Motion Safety */
+@media (prefers-reduced-motion: reduce) {
+  .avatar-cosmetic-badge,
+  .cosmetic-shop-modal,
+  .cosmetic-card {
+    transition: none !important;
+    animation: none !important;
+  }
 }
