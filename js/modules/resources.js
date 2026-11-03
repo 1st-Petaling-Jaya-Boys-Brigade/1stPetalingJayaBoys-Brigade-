@@ -27,11 +27,11 @@ var RESOURCE_CATEGORIES = [
 
 var STANDARD_NCO_RANKS = [
   'Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant',
-  'Warrant Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Officer'
+  'Warrant Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Officer', 'Instructor'
 ];
 
 var STANDARD_OFFICER_RANKS = [
-  'Warrant Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Officer'
+  'Warrant Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Officer', 'Instructor', 'Staff Sergeant'
 ];
 
 // ── Data Ingestion & Persistence ───────────────────────────────────────────

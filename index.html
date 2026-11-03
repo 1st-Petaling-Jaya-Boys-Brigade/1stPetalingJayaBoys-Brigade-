@@ -886,27 +886,22 @@
             <label class="form-label" for="reg-section">Section</label>
             <select class="form-select" id="reg-section" name="section" onchange="handleSectionChange()">
               <option value="">Select section...</option>
-              <option value="Pre-Junior">Pre-Junior (Ages 6 - 8)</option>
-              <option value="Junior">Junior (Ages 9 - 11)</option>
-              <option value="Senior">Senior (Ages 12 - 18)</option>
+              <option value="Junior">Junior Section</option>
+              <option value="Senior">Senior Section</option>
+              <option value="Officer">Officer / Staff</option>
+              <option value="Pre-Junior" style="display:none;">Pre-Junior</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label" for="reg-age">Age</label>
-            <input class="form-input" id="reg-age" name="age" type="number" min="5" max="25" placeholder="e.g. 14" oninput="handleSectionChange()"/>
+            <input class="form-input" id="reg-age" name="age" type="number" min="5" max="100" placeholder="e.g. 14" oninput="handleSectionChange()"/>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="reg-rank">Rank</label>
             <select class="form-select" id="reg-rank" name="rank">
-              <option value="">Select rank...</option>
-              <option>Recruit</option>
-              <option>Private</option>
-              <option>Lance Corporal</option>
-              <option>Corporal</option>
-              <option>Sergeant</option>
-              <option>Staff Sergeant</option>
+              <option value="">Select section first...</option>
             </select>
           </div>
           <div class="form-group">
@@ -2070,18 +2065,41 @@
               <label class="form-label" for="em-section">Section (PDPA/COPPA Governance)</label>
               <select class="form-select" id="em-section" onchange="handleAdminSectionChange()">
                 <option value="">Select section...</option>
-                <option value="Pre-Junior">Pre-Junior (Ages 6 - 8)</option>
-                <option value="Junior">Junior (Ages 9 - 11)</option>
-                <option value="Senior">Senior (Ages 12 - 18)</option>
+                <option value="Junior">Junior Section</option>
+                <option value="Senior">Senior Section</option>
+                <option value="Officer">Officer / Staff</option>
+                <option value="Pre-Junior" style="display:none;">Pre-Junior</option>
               </select>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">Rank</label>
+                <label class="form-label" for="em-rank">Rank</label>
                 <select class="form-select" id="em-rank">
                   <option value="">No rank</option>
-                  <option>Recruit</option><option>Private</option><option>Lance Corporal</option>
-                  <option>Corporal</option><option>Sergeant</option><option>Staff Sergeant</option>
+                  <optgroup label="Junior Ranks">
+                    <option value="Pre-Junior">Pre-Junior</option>
+                    <option value="Junior">Junior</option>
+                    <option value="Assistance Junior Leader">Assistance Junior Leader</option>
+                    <option value="Junior Leader">Junior Leader</option>
+                    <option value="Chief Junior Leader">Chief Junior Leader</option>
+                  </optgroup>
+                  <optgroup label="Senior Ranks">
+                    <option value="Recruit">Recruit</option>
+                    <option value="Private">Private</option>
+                  </optgroup>
+                  <optgroup label="NCO Ranks">
+                    <option value="Lance Corporal">Lance Corporal</option>
+                    <option value="Corporal">Corporal</option>
+                    <option value="Sergeant">Sergeant</option>
+                  </optgroup>
+                  <optgroup label="Officer Ranks">
+                    <option value="Captain">Captain</option>
+                    <option value="Honarary Captain">Honarary Captain</option>
+                    <option value="Lieutenant">Lieutenant</option>
+                    <option value="Warrant Officer">Warrant Officer</option>
+                    <option value="Instructor">Instructor</option>
+                    <option value="Staff Sergeant">Staff Sergeant</option>
+                  </optgroup>
                 </select>
               </div>
               <div class="form-group">

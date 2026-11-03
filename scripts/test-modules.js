@@ -24,6 +24,9 @@ function createMockElement(tag) {
     },
     set innerHTML(val) {
       this._innerHTML = val;
+      if (val === '') {
+        this.children = [];
+      }
       // Simple parsing of buttons/inputs if inserted
       if (val.includes('class="portal-toast-close"')) {
         const closeBtn = createMockElement('button');
@@ -49,6 +52,15 @@ function createMockElement(tag) {
     disabled: false,
     files: [],
     children: [],
+    get options() {
+      const opts = [];
+      const findOpts = node => {
+        if (node.tagName === 'OPTION') opts.push(node);
+        (node.children || []).forEach(findOpts);
+      };
+      (this.children || []).forEach(findOpts);
+      return opts;
+    },
     parentNode: null,
     _attrs: {},
     setAttribute: function (k, v) {
@@ -124,10 +136,14 @@ function createMockElement(tag) {
         if (sel.startsWith('.')) {
           const cls = sel.slice(1);
           if (node.className && node.className.includes(cls)) matches.push(node);
+        } else if (sel.startsWith('#')) {
+          if (node.id === sel.slice(1)) matches.push(node);
+        } else if (node.tagName && node.tagName.toLowerCase() === sel.toLowerCase()) {
+          matches.push(node);
         }
         (node.children || []).forEach(check);
       };
-      check(this);
+      (this.children || []).forEach(check);
       return matches;
     },
     addEventListener: function (evt, handler) {
@@ -1176,6 +1192,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   mockEmail.value = 'senior@test.com';
   mockSection.value = 'Senior';
   mockAge.value = '15';
+  memberModule.handleSectionChange();
+  mockRankInp.value = 'Private';
   mockPName.value = '';
   mockPContact.value = '';
   mockPConsent.checked = false;
@@ -1189,6 +1207,51 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'Senior member does not require parent fields'
   );
   console.log('  ✔ Senior section registration proceeds without parental consent roadblock');
+
+  // 5B. Officer Registration with adult age and officer ranks
+  mockFullname.value = 'Officer Sarah';
+  mockEmail.value = 'officer.sarah@1stpjbb.org.my';
+  mockSection.value = 'Officer';
+  mockAge.value = '32';
+  memberModule.handleSectionChange();
+  const officerOptions = Array.prototype.slice.call(mockRankInp.querySelectorAll('option')).map(o => o.value).filter(Boolean);
+  assert.deepStrictEqual(
+    officerOptions,
+    ['Captain', 'Honarary Captain', 'Lieutenant', 'Warrant Officer', 'Instructor', 'Staff Sergeant'],
+    'Selecting Officer section must populate exactly the officer ranks'
+  );
+  mockRankInp.value = 'Lieutenant';
+  mockPName.value = '';
+  mockPContact.value = '';
+  mockPConsent.checked = false;
+  lastPosted = null;
+
+  await memberModule.registerMember();
+  assert.ok(lastPosted && lastPosted.body, 'Officer should register successfully with adult age');
+  assert.strictEqual(lastPosted.body.rank, 'Lieutenant');
+  assert.strictEqual(lastPosted.body.att_section, 'Officer');
+  assert.strictEqual(lastPosted.body.parent_name, undefined, 'Officer must never require parental consent');
+  console.log('  ✔ Officer registration with adult age and dynamic ranks verified');
+
+  // 5C. Junior Section Dynamic Ranks verification
+  mockSection.value = 'Junior';
+  memberModule.handleSectionChange();
+  const juniorOptions = Array.prototype.slice.call(mockRankInp.querySelectorAll('option')).map(o => o.value).filter(Boolean);
+  assert.deepStrictEqual(
+    juniorOptions,
+    ['Pre-Junior', 'Junior', 'Assistance Junior Leader', 'Junior Leader', 'Chief Junior Leader'],
+    'Selecting Junior section must populate exactly the junior ranks'
+  );
+
+  // 5D. Senior Section Dynamic Ranks verification
+  mockSection.value = 'Senior';
+  memberModule.handleSectionChange();
+  const seniorOptions = Array.prototype.slice.call(mockRankInp.querySelectorAll('option')).map(o => o.value).filter(Boolean);
+  assert.deepStrictEqual(
+    seniorOptions,
+    ['Recruit', 'Private', 'Lance Corporal', 'Corporal', 'Sergeant'],
+    'Selecting Senior section must populate Senior and NCO ranks'
+  );
 
   // 6. Child Safety Policy Modal
   const mockModal = document.getElementById('child-safety-modal');
@@ -3033,11 +3096,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'ADMIN_SECTIONS must match standard back-office tabs'
   );
   assert(Array.isArray(adminModule.RANK_ORDER), 'RANK_ORDER must be an array');
-  assert.strictEqual(
-    adminModule.RANK_ORDER.length,
-    6,
-    'RANK_ORDER must contain all 6 company ranks'
+  assert.ok(
+    adminModule.RANK_ORDER.length >= 16,
+    'RANK_ORDER must contain all ranks across Junior, Senior, NCO, and Officer sections'
   );
+  ['Pre-Junior', 'Junior', 'Recruit', 'Private', 'Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant', 'Lieutenant', 'Captain'].forEach(r => {
+    assert.ok(adminModule.RANK_ORDER.includes(r), 'RANK_ORDER must contain ' + r);
+  });
   console.log('  ✔ ADMIN_SECTIONS and RANK_ORDER constants verified');
 
   // Test calcAge

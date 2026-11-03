@@ -1413,7 +1413,7 @@ function submitForumReply(e, postId, customText) {
     rank = sessionGet('rank') || rank;
     email = sessionGet('email') || email;
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
-    var isOfficerRank = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
+    var isOfficerRank = rank && ['Captain', 'Honarary Captain', 'Honorary Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].includes(rank);
     if (isSuper) {
       isOff = true;
       role = 'Super Admin';
