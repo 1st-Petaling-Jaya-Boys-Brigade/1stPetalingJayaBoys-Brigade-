@@ -1055,6 +1055,18 @@
       outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
     }
 
+    // Profile Cosmetic Layering (TSK-060)
+    var cosmeticInfo = (typeof getMemberCosmetic === 'function')
+      ? getMemberCosmetic(emailOrIc, cleanNm)
+      : null;
+    var cosmeticHtml = '';
+    if (cosmeticInfo && cosmeticInfo.id && cosmeticInfo.id !== 'none' && (cosmeticInfo.svg || (cosmeticInfo.config && cosmeticInfo.config.badgeHtml))) {
+      var cosSvg = cosmeticInfo.svg || cosmeticInfo.config.badgeHtml;
+      var cosName = cosmeticInfo.name || (cosmeticInfo.config && cosmeticInfo.config.name) || '';
+      var cosCls = sz >= 40 ? 'cosmetic-lg' : (sz >= 28 ? 'cosmetic-md' : (sz >= 22 ? 'cosmetic-sm' : 'cosmetic-xs'));
+      cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosName) : cosName) + '" aria-hidden="true">' + cosSvg + '</span>';
+    }
+
     var photoUrl = null;
     if (typeof getMemberAvatarUrl === 'function') {
       photoUrl = getMemberAvatarUrl(cleanNm, emailOrIc);
@@ -1064,6 +1076,7 @@
       return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
         '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;" alt="' + safeName + '"/>' +
         outlineHtml +
+        cosmeticHtml +
         dotHtml +
       '</span>';
     }
@@ -1074,6 +1087,7 @@
       return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
         '<span class="' + creatorCls + '" style="width:100%;height:100%;border-radius:50%;background:#083830;color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
         outlineHtml +
+        cosmeticHtml +
         dotHtml +
       '</span>';
     }
@@ -1089,6 +1103,7 @@
     return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
       '<span style="width:100%;height:100%;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>' +
       outlineHtml +
+      cosmeticHtml +
       dotHtml +
     '</span>';
   }
@@ -2567,7 +2582,7 @@
     if (backBar) {
       backBar.style.display = 'block';
       var titleSpan = backBar.querySelector('.adm-back-title') || backBar.querySelector('span');
-      if (titleSpan) titleSpan.textContent = 'Creator Avatar Outlines Studio';
+      if (titleSpan) titleSpan.textContent = 'Creator Avatar Outlines &amp; Cosmetics Studio';
     }
 
     sec.innerHTML = (typeof renderSkeletonTable === 'function')
@@ -2735,6 +2750,25 @@
 
         var avatarHtml = getAdminMemberAvatarHtml(m.name, cleanTarget, 48);
 
+        var curCosmetic = (typeof getMemberCosmetic === 'function')
+          ? getMemberCosmetic(cleanTarget, m.name)
+          : { id: 'none' };
+
+        var cosmeticsCatalog = (typeof PROFILE_COSMETICS !== 'undefined') ? PROFILE_COSMETICS : {};
+        var cosmeticsOptionsHtml = '<option value="none"' + (curCosmetic.id === 'none' ? ' selected' : '') + '>None (No cosmetic)</option>';
+        var cats = ['headwear', 'companion', 'crests', 'leadership'];
+        cats.forEach(function(cKey) {
+          var matching = Object.values(cosmeticsCatalog).filter(function(it) { return it.category === cKey; });
+          if (matching.length) {
+            cosmeticsOptionsHtml += '<optgroup label="' + matching[0].categoryLabel + '">';
+            matching.forEach(function(it) {
+              var sel = (it.id === curCosmetic.id) ? ' selected' : '';
+              cosmeticsOptionsHtml += '<option value="' + it.id + '"' + sel + '>' + it.name + ' (' + it.price + ' 🪙)' + '</option>';
+            });
+            cosmeticsOptionsHtml += '</optgroup>';
+          }
+        });
+
         var optionsHtml = '';
         stylesList.forEach(function(st) {
           var selected = (st.id === curOut.style) ? ' selected' : '';
@@ -2751,13 +2785,29 @@
                 '<div style="font-size:10px;color:var(--accent);margin-top:2px;font-family:monospace;">' + safeTarget + '</div>' +
               '</div>' +
             '</div>' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-top:auto;">' +
-              '<select class="form-input creator-outline-select" style="font-size:12px;padding:6px 10px;flex:1;">' +
-                optionsHtml +
-              '</select>' +
-              '<button type="button" class="creator-apply-btn" style="background:var(--accent);color:var(--btn-on-accent,#121418);border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">' +
-                'Apply' +
-              '</button>' +
+            '<div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">' +
+              '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                '<label style="font-size:10px;text-transform:uppercase;letter-spacing:0.04em;font-weight:700;color:var(--text-muted);">Avatar Outline</label>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                  '<select class="form-input creator-outline-select" style="font-size:12px;padding:6px 10px;flex:1;">' +
+                    optionsHtml +
+                  '</select>' +
+                  '<button type="button" class="creator-apply-btn" style="background:var(--accent);color:var(--btn-on-accent,#121418);border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">' +
+                    'Apply' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+              '<div style="display:flex;flex-direction:column;gap:4px;">' +
+                '<label style="font-size:10px;text-transform:uppercase;letter-spacing:0.04em;font-weight:700;color:var(--text-muted);">Profile Cosmetic (TSK-060)</label>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                  '<select class="form-input creator-cosmetic-select" style="font-size:12px;padding:6px 10px;flex:1;">' +
+                    cosmeticsOptionsHtml +
+                  '</select>' +
+                  '<button type="button" class="creator-apply-cosmetic-btn" style="background:var(--secondary,#1e3a8a);color:#ffffff;border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">' +
+                    'Give / Set' +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
           '</div>';
       });
@@ -2805,6 +2855,49 @@
             } finally {
               applyBtn.disabled = false;
               applyBtn.textContent = 'Apply';
+            }
+          });
+        }
+
+        var cosmeticSelect = card.querySelector('.creator-cosmetic-select');
+        var applyCosmeticBtn = card.querySelector('.creator-apply-cosmetic-btn');
+
+        if (cosmeticSelect && avatarWrap) {
+          cosmeticSelect.addEventListener('change', function() {
+            var newCosId = cosmeticSelect.value;
+            if (typeof _memberCosmeticsMap !== 'undefined' && _memberCosmeticsMap) {
+              var existing = _memberCosmeticsMap[targetId.toLowerCase()] || {};
+              _memberCosmeticsMap[targetId.toLowerCase()] = Object.assign({}, existing, { activeId: newCosId });
+            }
+            var mem = members.find(function(m) { return (m.email || m.ic) === targetId; }) || { name: targetId };
+            avatarWrap.innerHTML = getAdminMemberAvatarHtml(mem.name, targetId, 48);
+          });
+        }
+
+        if (applyCosmeticBtn && cosmeticSelect) {
+          applyCosmeticBtn.addEventListener('click', async function() {
+            var newCosId = cosmeticSelect.value;
+            applyCosmeticBtn.disabled = true;
+            applyCosmeticBtn.textContent = 'Saving...';
+            try {
+              var mem = members.find(function(m) { return (m.email || m.ic) === targetId; }) || { name: targetId };
+              var actorEmail = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'jeshuakoh2008@gmail.com';
+              var res = await saveMemberCosmetic(targetId, newCosId, actorEmail, mem.name);
+              if (res.success) {
+                if (typeof showToast === 'function') {
+                  showToast('Profile cosmetic granted to ' + (mem.name || targetId) + '!', 'success');
+                }
+                avatarWrap.innerHTML = getAdminMemberAvatarHtml(mem.name, targetId, 48);
+              } else {
+                if (typeof showToast === 'function') {
+                  showToast(res.error || 'Failed to grant cosmetic.', 'error');
+                }
+              }
+            } catch (err) {
+              if (typeof showToast === 'function') showToast('Error saving: ' + (err.message || err), 'error');
+            } finally {
+              applyCosmeticBtn.disabled = false;
+              applyCosmeticBtn.textContent = 'Give / Set';
             }
           });
         }

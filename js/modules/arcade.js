@@ -1403,6 +1403,7 @@
     window.getArcadeUserKey               = getArcadeUserKey;
     window.getTriviaUserKey               = getTriviaUserKey;
     window.getArcadeStats                 = getArcadeStats;
+    window.saveArcadeStats                = saveArcadeStats;
     window.recordGameParticipation        = recordGameParticipation;
     window.awardCredits                   = awardCredits;
     window.updateArcadeHeaderBadge        = updateArcadeHeaderBadge;
@@ -1423,6 +1424,11 @@
     window.isValidWordleWord              = isValidWordleWord;
     window.showWordleToast                = showWordleToast;
     window.ArcadeModule                   = ArcadeModule;
+  }
+
+  if (typeof global !== 'undefined') {
+    global.getArcadeStats = getArcadeStats;
+    global.saveArcadeStats = saveArcadeStats;
   }
 
   if (typeof module !== 'undefined' && module.exports) {

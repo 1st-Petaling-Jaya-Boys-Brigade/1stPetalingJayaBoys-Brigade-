@@ -1948,6 +1948,657 @@ var _customAvatarOutlinesMap = (function() {
   return {};
 })();
 
+
+// ── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ────────────────
+var PROFILE_COSMETICS = {
+  // ── 1. Headwear ───────────────────────────────────────────────────────────
+  party_hat: {
+    id: 'party_hat',
+    name: 'Party Hat',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 40,
+    desc: 'Festive celebratory cone hat with cheerful dots and pom-pom.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4L7 27h18L16 4z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16" cy="4" r="2.5" fill="#ef4444"/><path d="M9 22c2-1 4-1 6 0s4 1 6 0" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M11 16c1.5-.8 3-.8 4.5 0s3 .8 4.5 0" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="11" r="1.2" fill="#10b981"/></svg>'
+  },
+  cowboy_hat: {
+    id: 'cowboy_hat',
+    name: 'Cowboy Hat',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 50,
+    desc: 'Rugged wild-west brown stetson with rolled brim and leather band.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="16" cy="22" rx="13" ry="4.5" fill="#78350f" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c0-6 2-11 6-11s6 5 6 11H10z" fill="#92400e" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c1.5-1 4-1.5 6-1.5s4.5.5 6 1.5" stroke="#fbbf24" stroke-width="1.5"/><path d="M13 11c1.5 1 4.5 1 6 0" stroke="#451a03" stroke-width="1.2" stroke-linecap="round"/></svg>'
+  },
+  chef_hat: {
+    id: 'chef_hat',
+    name: 'Chef Toque',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 45,
+    desc: 'Crisp white pleated culinary toque worn by master chefs.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 20h10v5H11v-5z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.2"/><path d="M11 20c-3 0-4-3-3-5 1-3 4-2 4-4 1-3 5-4 7-2 3-2 6 0 6 3 1 2 3 2 3 5 0 2-2 3-3 3H11z" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round"/><path d="M14 14v6M17 13v7M20 14v6" stroke="#cbd5e1" stroke-width="1" stroke-linecap="round"/></svg>'
+  },
+  beret: {
+    id: 'beret',
+    name: 'BB Beret',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 60,
+    desc: 'Official Boys Brigade ceremonial navy blue beret with brass crest.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="16" cy="18" rx="12" ry="5.5" fill="#1e293b" stroke="#0f172a" stroke-width="1.2"/><path d="M7 18c0-5 5-9 11-9 4 0 7 2 8 5-3 1-8 2-13 4-3 1-5 1.5-6 0z" fill="#1e3a8a" stroke="#0f172a" stroke-width="1.2"/><circle cx="12" cy="16" r="2.2" fill="#fbbf24" stroke="#d97706" stroke-width="0.8"/><path d="M12 14.5v3M10.8 16h2.4" stroke="#78350f" stroke-width="0.6"/></svg>'
+  },
+  santa_hat: {
+    id: 'santa_hat',
+    name: 'Santa Hat',
+    category: 'headwear',
+    categoryLabel: 'Headwear',
+    price: 50,
+    desc: 'Festive Christmas holiday cap with snowy white fleece trim & pom-pom.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 22c4-12 14-14 18-10 1 1 0 3-1 3-3 0-5 2-8 5-2 1.5-6 2-9 2z" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/><rect x="7" y="21" width="18" height="5" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/><circle cx="27" cy="13" r="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/></svg>'
+  },
+
+  // ── 2. Pet / Companion Badges ─────────────────────────────────────────────
+  pet_dog: {
+    id: 'pet_dog',
+    name: 'Companion Pup',
+    category: 'companion',
+    categoryLabel: 'Pet & Companions',
+    price: 70,
+    desc: 'Friendly golden pup companion badge cheering you on every parade.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/><ellipse cx="11" cy="12" rx="2.5" ry="5" fill="#b45309" transform="rotate(-15 11 12)"/><ellipse cx="21" cy="12" rx="2.5" ry="5" fill="#b45309" transform="rotate(15 21 12)"/><circle cx="16" cy="17" r="7.5" fill="#f59e0b"/><circle cx="13.5" cy="15.5" r="1.5" fill="#1e293b"/><circle cx="18.5" cy="15.5" r="1.5" fill="#1e293b"/><ellipse cx="16" cy="18.5" rx="2.2" ry="1.4" fill="#0f172a"/><path d="M14.5 20.5c.8.8 2.2.8 3 0" stroke="#0f172a" stroke-width="1" stroke-linecap="round"/></svg>'
+  },
+  pet_cat: {
+    id: 'pet_cat',
+    name: 'Whiskers Cat',
+    category: 'companion',
+    categoryLabel: 'Pet & Companions',
+    price: 70,
+    desc: 'Alert and curious calico feline companion badge.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#ffedd5" stroke="#ea580c" stroke-width="1.2"/><path d="M9 14L10 8l5 4M23 14l-1-6-5 4" fill="#f97316" stroke="#c2410c" stroke-width="1" stroke-linejoin="round"/><circle cx="16" cy="17" r="7.5" fill="#fdba74"/><ellipse cx="13" cy="16" rx="1.5" ry="2" fill="#047857"/><ellipse cx="19" cy="16" rx="1.5" ry="2" fill="#047857"/><path d="M15 19l1 1 1-1" stroke="#c2410c" stroke-width="1" stroke-linecap="round"/><path d="M10 18h3M10 20h3M22 18h-3M22 20h-3" stroke="#9a3412" stroke-width="0.8"/></svg>'
+  },
+  pet_falcon: {
+    id: 'pet_falcon',
+    name: 'Majestic Falcon',
+    category: 'companion',
+    categoryLabel: 'Pet & Companions',
+    price: 85,
+    desc: 'Soaring scout falcon badge representing keen vision and swiftness.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#e0e7ff" stroke="#4338ca" stroke-width="1.2"/><path d="M16 8c-4 0-7 3-7 7 0 5 4 9 9 9 2 0 5-1 6-3l-2-2c-1 0-2 1-4 1-3.5 0-6.5-2.5-6.5-6 0-3 2.5-5.5 5.5-5.5 2 0 3.5 1 4.5 2.5L24 9c-2-1-5.5-1-8-1z" fill="#4338ca"/><path d="M18 15l5 2-4 3c-1-1.5-1-3.5-1-5z" fill="#f59e0b"/><circle cx="15" cy="13" r="1.5" fill="#fbbf24"/><circle cx="15.2" cy="12.8" r="0.7" fill="#0f172a"/></svg>'
+  },
+
+  // ── 3. BB Syllabus Crests ─────────────────────────────────────────────────
+  crest_founders: {
+    id: 'crest_founders',
+    name: "Founder's Badge Pin",
+    category: 'crests',
+    categoryLabel: 'BB Syllabus Crests',
+    price: 150,
+    desc: "The pinnacle Senior Section honour commemorating Sir William A. Smith.",
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#78350f" stroke="#fbbf24" stroke-width="1.5"/><circle cx="16" cy="16" r="10.5" fill="#92400e" stroke="#f59e0b" stroke-width="0.8"/><path d="M16 8v16M11 13h10" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="3.5" fill="#fef3c7" stroke="#b45309" stroke-width="1"/><path d="M16 14.5l.8 1.5 1.7.3-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.3.8-1.5z" fill="#d97706"/></svg>'
+  },
+  crest_presidents: {
+    id: 'crest_presidents',
+    name: "President's Award Pin",
+    category: 'crests',
+    categoryLabel: 'BB Syllabus Crests',
+    price: 140,
+    desc: "Prestigious national badge recognizing distinguished leadership and Christian service.",
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#1e1b4b" stroke="#e11d48" stroke-width="1.5"/><path d="M16 6l2.5 7.5H26l-6 4.5 2.5 7.5-6.5-5-6.5 5 2.5-7.5-6-4.5h7.5L16 6z" fill="#e11d48" stroke="#f43f5e" stroke-width="0.8"/><circle cx="16" cy="16" r="4.5" fill="#fbbf24" stroke="#d97706" stroke-width="1"/><path d="M16 13.5v5M13.5 16h5" stroke="#78350f" stroke-width="1.2" stroke-linecap="round"/></svg>'
+  },
+  crest_target: {
+    id: 'crest_target',
+    name: 'Target & Recruit Badge',
+    category: 'crests',
+    categoryLabel: 'BB Syllabus Crests',
+    price: 55,
+    desc: 'Foundational BB syllabus compass and bullseye mark.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#065f46" stroke="#10b981" stroke-width="1.2"/><circle cx="16" cy="16" r="9" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3 2"/><circle cx="16" cy="16" r="5" fill="#ef4444" stroke="#ffffff" stroke-width="1"/><circle cx="16" cy="16" r="2" fill="#ffffff"/></svg>'
+  },
+  crest_crafts: {
+    id: 'crest_crafts',
+    name: 'Arts & Crafts Crest',
+    category: 'crests',
+    categoryLabel: 'BB Syllabus Crests',
+    price: 55,
+    desc: 'Artisan palette celebrating creative handiwork, design, and woodwork.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#0f766e" stroke="#2dd4bf" stroke-width="1.2"/><path d="M11 12c0-3 3-5 7-4s6 4 5 7c-1 3-3 4-5 3-1-.5-2 1-1 2 1 1 0 2-2 2-3 0-4-7-4-10z" fill="#f8fafc" stroke="#0f766e" stroke-width="1"/><circle cx="13" cy="12" r="1.2" fill="#ef4444"/><circle cx="17" cy="11" r="1.2" fill="#3b82f6"/><circle cx="20" cy="14" r="1.2" fill="#fbbf24"/><circle cx="17" cy="17" r="1.2" fill="#10b981"/></svg>'
+  },
+  crest_recruitment: {
+    id: 'crest_recruitment',
+    name: 'Recruitment Star Crest',
+    category: 'crests',
+    categoryLabel: 'BB Syllabus Crests',
+    price: 60,
+    desc: 'Awarded for bringing new friends and comrades into the BB family.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#1e3a8a" stroke="#60a5fa" stroke-width="1.2"/><path d="M16 7l2.8 5.6 6.2.9-4.5 4.4 1.1 6.1-5.6-3-5.6 3 1.1-6.1-4.5-4.4 6.2-.9L16 7z" fill="#facc15" stroke="#ca8a04" stroke-width="0.8"/><path d="M12 17l2 2 4-4" stroke="#1e3a8a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  },
+  crest_christian_ed: {
+    id: 'crest_christian_ed',
+    name: 'Christian Education Pin',
+    category: 'crests',
+    categoryLabel: 'BB Syllabus Crests',
+    price: 65,
+    desc: 'Open Bible illuminated by the lamp of truth and Christian faith.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#4a044e" stroke="#e879f9" stroke-width="1.2"/><path d="M16 13v9M16 13c-2-1-4-1-7 0v8c3-1 5-1 7 0M16 13c2-1 4-1 7 0v8c-3-1-5-1-7 0" fill="#fdf4ff" stroke="#a21caf" stroke-width="1.2" stroke-linecap="round"/><path d="M16 7c0 2-1 3-1 4h2c0-1-1-2-1-4z" fill="#fbbf24"/><circle cx="16" cy="7" r="1" fill="#ef4444"/></svg>'
+  },
+  crest_cross_anchor: {
+    id: 'crest_cross_anchor',
+    name: 'Sure & Stedfast Anchor',
+    category: 'crests',
+    categoryLabel: 'BB Syllabus Crests',
+    price: 90,
+    desc: 'The iconic Twin Cross and Anchor emblem from Hebrews 6:19.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.2"/><circle cx="16" cy="10" r="2.5" stroke="#fbbf24" stroke-width="1.5"/><path d="M16 12.5v11M11 15h10" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/><path d="M9 20c2 4 12 4 14 0" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/><path d="M8 19l1 1M24 19l-1 1" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/></svg>'
+  },
+
+  // ── 4. Fun Leadership Cosmetic ────────────────────────────────────────────
+  sash_sgt_red: {
+    id: 'sash_sgt_red',
+    name: 'Sergeant Red Sash',
+    category: 'leadership',
+    categoryLabel: 'Leadership Accents',
+    price: 80,
+    desc: 'Ceremonial scarlet red cross-sash pin representing Sergeant duty & discipline.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#450a0a" stroke="#ef4444" stroke-width="1.2"/><path d="M7 25L25 7l3 3L10 28z" fill="#dc2626"/><path d="M8 24L24 8" stroke="#f87171" stroke-width="1"/><path d="M12 20l4-4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/><path d="M10 22l8-8" stroke="#fbbf24" stroke-width="1.2" stroke-linecap="round"/></svg>'
+  },
+  sash_ssgt_blue: {
+    id: 'sash_ssgt_blue',
+    name: 'Staff Sergeant Blue Sash',
+    category: 'leadership',
+    categoryLabel: 'Leadership Accents',
+    price: 95,
+    desc: 'Royal blue ceremonial command sash pin signifying Staff Sergeant seniority.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#172554" stroke="#3b82f6" stroke-width="1.2"/><path d="M7 25L25 7l3 3L10 28z" fill="#1d4ed8"/><path d="M8 24L24 8" stroke="#60a5fa" stroke-width="1"/><path d="M12 20l4-4M10 22l4-4" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round"/><path d="M15 17l4-4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/></svg>'
+  }
+};
+
+var _memberCosmeticsMap = {};
+
+function getMemberCosmeticsMap() {
+  return _memberCosmeticsMap;
+}
+
+async function loadMemberCosmetics() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_member_cosmetics');
+      if (cached) {
+        _memberCosmeticsMap = JSON.parse(cached) || {};
+      }
+    } catch (_) {}
+  }
+
+  if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  if (!client || !client.get) return _memberCosmeticsMap;
+
+  try {
+    var res = await client.get('bb_config?key=eq.bb_member_cosmetics&select=value');
+    if (res && res.length && res[0].value) {
+      var parsed = JSON.parse(res[0].value);
+      if (parsed && typeof parsed === 'object') {
+        _memberCosmeticsMap = parsed;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_member_cosmetics', JSON.stringify(parsed));
+        }
+        if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+      }
+    }
+  } catch (e) {
+    console.warn('loadMemberCosmetics non-fatal warning:', e);
+  }
+
+  return _memberCosmeticsMap;
+}
+
+function getMemberCosmetic(emailOrIc, memberName) {
+  var cleanKey = String(emailOrIc || '').trim().toLowerCase();
+  var cleanName = String(memberName || '').trim().toLowerCase();
+
+  var isCreator = false;
+  if (typeof isPortalCreator === 'function') {
+    isCreator = isPortalCreator(cleanName, cleanKey);
+  } else {
+    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh');
+  }
+
+  var record = null;
+  if (cleanKey && _memberCosmeticsMap[cleanKey]) {
+    record = _memberCosmeticsMap[cleanKey];
+  } else if (cleanName && _memberCosmeticsMap[cleanName]) {
+    record = _memberCosmeticsMap[cleanName];
+  }
+
+  // Scan entries if not matched directly
+  if (!record && (cleanKey || cleanName)) {
+    var mapKeys = Object.keys(_memberCosmeticsMap);
+    for (var i = 0; i < mapKeys.length; i++) {
+      var k = mapKeys[i];
+      var entry = _memberCosmeticsMap[k];
+      if (entry && typeof entry === 'object') {
+        var entryName = String(entry.name || '').trim().toLowerCase();
+        var entryTarget = String(entry.target || k).trim().toLowerCase();
+        if ((cleanName && entryName === cleanName) ||
+            (cleanName && entryTarget === cleanName) ||
+            (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
+          record = entry;
+          break;
+        }
+      }
+    }
+  }
+
+  var cosmeticId = 'none';
+  if (record) {
+    if (typeof record === 'string') cosmeticId = record;
+    else if (record.equipped) cosmeticId = record.equipped;
+    else if (record.id) cosmeticId = record.id;
+  }
+
+  var cfg = PROFILE_COSMETICS[cosmeticId] || null;
+  return {
+    id: cfg ? cosmeticId : 'none',
+    name: cfg ? cfg.name : 'None',
+    category: cfg ? cfg.category : '',
+    categoryLabel: cfg ? cfg.categoryLabel : '',
+    price: cfg ? cfg.price : 0,
+    svg: cfg ? cfg.badgeHtml : '',
+    config: cfg,
+    isCreator: isCreator,
+    assignedBy: (record && record.assignedBy) ? record.assignedBy : null
+  };
+}
+
+function getMemberCosmeticInventory(emailOrIc) {
+  var cleanKey = String(emailOrIc || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
+  if (!cleanKey) return [];
+  var record = _memberCosmeticsMap[cleanKey];
+  if (record && Array.isArray(record.inventory)) {
+    return record.inventory.slice();
+  }
+  return [];
+}
+
+async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targetName, isUnlock) {
+  var cleanActor = String(actorEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
+  var isCreator = (cleanActor === 'jeshuakoh2008@gmail.com');
+  var cleanTarget = String(targetEmailOrIc || '').trim().toLowerCase();
+
+  if (!cleanTarget) {
+    return { success: false, error: 'Target member identifier required.' };
+  }
+
+  // Creator can assign any cosmetic to anyone. Non-creator can ONLY equip/unequip their own owned cosmetics!
+  var isSelf = (cleanActor && (cleanActor === cleanTarget || (typeof sessionGet === 'function' && String(sessionGet('email') || sessionGet('ic')).trim().toLowerCase() === cleanTarget)));
+
+  if (!isCreator && !isSelf) {
+    return {
+      success: false,
+      error: 'Access Denied: Only the creator (jeshuakoh2008@gmail.com) has access and permissions to assign cosmetics to members.'
+    };
+  }
+
+  var validCosmeticId = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? cosmeticId : 'none';
+
+  // If non-creator self-equipping, verify that cosmetic is either 'none' or in inventory
+  if (!isCreator && !isUnlock && validCosmeticId !== 'none') {
+    var inv = getMemberCosmeticInventory(cleanTarget);
+    if (!inv.includes(validCosmeticId)) {
+      return { success: false, error: 'Cosmetic not unlocked in your inventory.' };
+    }
+  }
+
+  var existing = _memberCosmeticsMap[cleanTarget] || {};
+  var currentInv = Array.isArray(existing.inventory) ? existing.inventory.slice() : [];
+  if (validCosmeticId !== 'none' && !currentInv.includes(validCosmeticId)) {
+    currentInv.push(validCosmeticId);
+  }
+
+  var cleanName = String(targetName || existing.name || '').trim().toLowerCase();
+  if (!cleanName) {
+    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+      ? resolveMemberDirectoryInfo
+      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    if (resolver) {
+      var dirInfo = resolver(cleanTarget);
+      if (dirInfo && dirInfo.name) cleanName = String(dirInfo.name).trim().toLowerCase();
+    }
+  }
+
+  var entry = {
+    equipped: validCosmeticId,
+    inventory: currentInv,
+    assignedBy: isCreator ? cleanActor : (existing.assignedBy || 'self'),
+    updatedAt: new Date().toISOString(),
+    target: cleanTarget,
+    name: cleanName
+  };
+
+  _memberCosmeticsMap[cleanTarget] = entry;
+  if (cleanName && cleanName !== cleanTarget) {
+    _memberCosmeticsMap[cleanName] = entry;
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
+  }
+  if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  if (client && client.post) {
+    try {
+      await client.post('bb_config', {
+        key: 'bb_member_cosmetics',
+        value: JSON.stringify(_memberCosmeticsMap),
+        updated_at: new Date().toISOString()
+      }, { upsert: true });
+    } catch (dbErr) {
+      console.warn('saveMemberCosmetic db sync warning:', dbErr);
+    }
+  }
+
+  refreshActiveAvatarCosmetics();
+  return { success: true, target: cleanTarget, cosmetic: validCosmeticId };
+}
+
+async function unlockCosmetic(cosmeticId) {
+  var item = PROFILE_COSMETICS[cosmeticId];
+  if (!item) return { success: false, error: 'Cosmetic item not found.' };
+
+  var userKey = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  if (!userKey) {
+    if (typeof showToast === 'function') showToast('Please sign in to unlock profile cosmetics.', 'error');
+    return { success: false, error: 'Authentication required' };
+  }
+
+  var getStatsFn = (typeof getArcadeStats === 'function')
+    ? getArcadeStats
+    : (typeof window !== 'undefined' && window.getArcadeStats ? window.getArcadeStats : (typeof global !== 'undefined' && global.getArcadeStats ? global.getArcadeStats : null));
+  var stats = getStatsFn ? getStatsFn() : { credits: 0 };
+  var currentCredits = stats.credits || 0;
+
+  if (currentCredits < item.price) {
+    var need = item.price - currentCredits;
+    if (typeof showToast === 'function') {
+      showToast('Need ' + need + ' more Arcade Credits! Play Wordle or Trivia in 1stPJ Arcade to earn credits.', 'info');
+    }
+    return { success: false, error: 'Insufficient credits', need: need };
+  }
+
+  var saveStatsFn = (typeof saveArcadeStats === 'function')
+    ? saveArcadeStats
+    : (typeof window !== 'undefined' && window.saveArcadeStats ? window.saveArcadeStats : (typeof global !== 'undefined' && global.saveArcadeStats ? global.saveArcadeStats : null));
+
+  // Deduct credits via arcade module
+  stats.credits = currentCredits - item.price;
+  if (saveStatsFn) {
+    saveStatsFn(stats);
+  }
+
+  // Save cosmetic to inventory and equip it
+  var saveRes = await saveMemberCosmetic(userKey, cosmeticId, userKey, (typeof sessionGet === 'function' ? sessionGet('name') : ''), true);
+  if (!saveRes.success) {
+    // Refund credits on unexpected failure
+    stats.credits = currentCredits;
+    if (saveStatsFn) saveStatsFn(stats);
+    return saveRes;
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('🎉 Unlocked & equipped ' + item.name + '! (' + stats.credits + ' Credits remaining)', 'success', 4000);
+  }
+
+  // Refresh live cosmetic shop balance pill & live preview if open
+  var balanceEl = document.getElementById('shop-credits-balance');
+  if (balanceEl) balanceEl.textContent = String(stats.credits);
+  renderCosmeticShopCards();
+  renderCosmeticLivePreview(cosmeticId);
+
+  return { success: true, item: item, remainingCredits: stats.credits };
+}
+
+async function equipCosmetic(cosmeticId) {
+  var userKey = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  var res = await saveMemberCosmetic(userKey, cosmeticId, userKey, (typeof sessionGet === 'function' ? sessionGet('name') : ''), false);
+  if (res.success) {
+    var name = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId].name : 'None';
+    if (typeof showToast === 'function') {
+      showToast('Equipped ' + name + ' cosmetic!', 'success');
+    }
+    renderCosmeticShopCards();
+    renderCosmeticLivePreview(cosmeticId);
+  }
+  return res;
+}
+
+async function unequipCosmetic() {
+  return equipCosmetic('none');
+}
+
+function applyMemberCosmeticElement(containerEl, cosmeticId, sizeVariant) {
+  if (!containerEl || typeof containerEl !== 'object') return;
+  var validCosmetic = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId] : null;
+  var existingBadge = containerEl.querySelector('.avatar-cosmetic-badge');
+
+  if (!validCosmetic) {
+    if (existingBadge && existingBadge.parentNode) {
+      existingBadge.parentNode.removeChild(existingBadge);
+    }
+    return;
+  }
+
+  var sizeClass = sizeVariant || 'cosmetic-md';
+  if (!existingBadge) {
+    existingBadge = document.createElement('span');
+    existingBadge.className = 'avatar-cosmetic-badge ' + sizeClass;
+    existingBadge.setAttribute('aria-hidden', 'true');
+    containerEl.appendChild(existingBadge);
+  } else {
+    existingBadge.className = 'avatar-cosmetic-badge ' + sizeClass;
+  }
+
+  existingBadge.setAttribute('data-cosmetic-id', validCosmetic.id);
+  existingBadge.title = validCosmetic.name + ' (' + validCosmetic.categoryLabel + ')';
+  existingBadge.innerHTML = validCosmetic.badgeHtml;
+}
+
+function refreshActiveAvatarCosmetics() {
+  if (typeof document === 'undefined') return;
+  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  if (typeof renderMemberAvatar === 'function') {
+    renderMemberAvatar(myName, myEmail);
+  }
+}
+
+// ── Interactive Arcade Cosmetic Shop Drawer & Modal ─────────────────────────
+var _cosmeticShopFilter = 'all';
+var _cosmeticShopPreviewId = null;
+
+function openCosmeticShopDrawer() {
+  if (typeof document === 'undefined') return;
+  var container = document.getElementById('cosmetic-shop-modal-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'cosmetic-shop-modal-container';
+    document.body.appendChild(container);
+  }
+
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var activeCosmetic = getMemberCosmetic(myEmail);
+  _cosmeticShopPreviewId = activeCosmetic.id !== 'none' ? activeCosmetic.id : 'beret';
+
+  container.innerHTML =
+    '<div class="cosmetic-shop-overlay" onclick="if(event.target===this)closeCosmeticShopDrawer()">' +
+      '<div class="cosmetic-shop-modal" role="dialog" aria-modal="true" aria-label="Arcade Cosmetic Shop">' +
+        '<div class="cosmetic-shop-header">' +
+          '<div>' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<h3 style="margin:0;font-size:17px;font-weight:700;color:var(--text-primary);">1stPJ Arcade Cosmetic Shop</h3>' +
+              '<div class="cosmetic-shop-credits-pill">' +
+                '🪙 <span id="shop-credits-balance">0</span> Credits' +
+              '</div>' +
+            '</div>' +
+            '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Spend your Wordle &amp; BB Trivia Arcade Credits to unlock profile badges &amp; cosmetics!</div>' +
+          '</div>' +
+          '<button type="button" onclick="closeCosmeticShopDrawer()" style="background:transparent;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1;">✕</button>' +
+        '</div>' +
+
+        '<div class="cosmetic-shop-preview-bar">' +
+          '<div class="cosmetic-preview-avatar-box">' +
+            '<div id="shop-live-avatar-wrap" style="position:relative;width:56px;height:56px;flex-shrink:0;"></div>' +
+            '<div>' +
+              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.04em;">Live Profile Preview</div>' +
+              '<div id="shop-preview-item-name" style="font-size:14px;font-weight:700;color:var(--text-primary);margin-top:2px;">Selecting cosmetic...</div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="shop-preview-item-action"></div>' +
+        '</div>' +
+
+        '<div class="cosmetic-shop-pills">' +
+          '<button type="button" class="cosmetic-shop-pill active" onclick="filterCosmeticShop(\'all\',this)">All Cosmetics</button>' +
+          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'headwear\',this)">🎩 Headwear</button>' +
+          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'companion\',this)">🐾 Companions</button>' +
+          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'crests\',this)">🏅 BB Crests</button>' +
+          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'leadership\',this)">🎖️ Leadership</button>' +
+        '</div>' +
+
+        '<div class="cosmetic-shop-grid" id="cosmetic-shop-grid"></div>' +
+      '</div>' +
+    '</div>';
+
+  var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+  var balanceEl = document.getElementById('shop-credits-balance');
+  if (balanceEl) balanceEl.textContent = String(stats.credits || 0);
+
+  renderCosmeticShopCards();
+  renderCosmeticLivePreview(_cosmeticShopPreviewId);
+}
+
+function closeCosmeticShopDrawer() {
+  var container = document.getElementById('cosmetic-shop-modal-container');
+  if (container) {
+    container.innerHTML = '';
+  }
+}
+
+function filterCosmeticShop(category, btn) {
+  _cosmeticShopFilter = category;
+  if (btn && btn.parentElement) {
+    btn.parentElement.querySelectorAll('.cosmetic-shop-pill').forEach(function(p) {
+      p.classList.remove('active');
+    });
+    btn.classList.add('active');
+  }
+  renderCosmeticShopCards();
+}
+
+function renderCosmeticLivePreview(cosmeticId) {
+  var wrap = document.getElementById('shop-live-avatar-wrap');
+  var nameEl = document.getElementById('shop-preview-item-name');
+  var actEl = document.getElementById('shop-preview-item-action');
+  if (!wrap) return;
+
+  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : 'Member';
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var isCreator = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
+  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(myName, myEmail) : (myName.charAt(0) || 'M'));
+  var color = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(myName) : '#047857');
+  var outline = getMemberAvatarOutline(myEmail, myName);
+
+  wrap.innerHTML =
+    '<div style="width:56px;height:56px;border-radius:50%;background:' + color + ';color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;position:relative;overflow:visible;">' +
+      initial +
+      (outline.style !== 'none' ? '<span class="avatar-outline-overlay ' + outline.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;"></span>' : '') +
+    '</div>';
+
+  var avatarDiv = wrap.firstElementChild;
+  applyMemberCosmeticElement(avatarDiv, cosmeticId, 'cosmetic-lg');
+
+  var item = PROFILE_COSMETICS[cosmeticId];
+  if (item && nameEl) {
+    nameEl.textContent = item.name + ' (' + item.categoryLabel + ')';
+  } else if (nameEl) {
+    nameEl.textContent = 'None (Standard Avatar)';
+  }
+
+  var myInv = getMemberCosmeticInventory(myEmail);
+  var currentEquipped = getMemberCosmetic(myEmail).id;
+
+  if (actEl) {
+    if (cosmeticId === 'none') {
+      if (currentEquipped === 'none') {
+        actEl.innerHTML = '<span style="font-size:12px;color:var(--text-muted);font-weight:600;">None Equipped</span>';
+      } else {
+        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="unequipCosmetic()">Unequip Active Cosmetic</button>';
+      }
+    } else if (currentEquipped === cosmeticId) {
+      actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="unequipCosmetic()">Equipped ✓ (Click to Unequip)</button>';
+    } else if (myInv.includes(cosmeticId)) {
+      actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="equipCosmetic(\'' + cosmeticId + '\')">Equip Now</button>';
+    } else if (item) {
+      var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+      var hasCredits = (stats.credits || 0) >= item.price;
+      if (hasCredits) {
+        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="unlockCosmetic(\'' + cosmeticId + '\')">Unlock for ' + item.price + ' 🪙</button>';
+      } else {
+        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-locked" disabled>Need ' + (item.price - (stats.credits || 0)) + ' more Credits</button>';
+      }
+    }
+  }
+}
+
+function renderCosmeticShopCards() {
+  var grid = document.getElementById('cosmetic-shop-grid');
+  if (!grid) return;
+
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var myInv = getMemberCosmeticInventory(myEmail);
+  var currentEquipped = getMemberCosmetic(myEmail).id;
+  var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+  var myCredits = stats.credits || 0;
+
+  var keys = Object.keys(PROFILE_COSMETICS);
+  var filteredKeys = keys.filter(function(k) {
+    if (_cosmeticShopFilter === 'all') return true;
+    return PROFILE_COSMETICS[k].category === _cosmeticShopFilter;
+  });
+
+  var html = '';
+  filteredKeys.forEach(function(k) {
+    var item = PROFILE_COSMETICS[k];
+    var isEquipped = (currentEquipped === k);
+    var isOwned = myInv.includes(k);
+    var canAfford = (myCredits >= item.price);
+
+    var cardCls = 'cosmetic-card' + (isEquipped ? ' equipped' : '');
+    var actionBtnHtml = '';
+
+    if (isEquipped) {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="unequipCosmetic()">Equipped ✓</button>';
+    } else if (isOwned) {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="equipCosmetic(\'' + k + '\')">Equip</button>';
+    } else if (canAfford) {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="unlockCosmetic(\'' + k + '\')">Unlock ' + item.price + ' 🪙</button>';
+    } else {
+      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-locked" disabled title="Play Arcade to earn credits!">Locked (' + item.price + ' 🪙)</button>';
+    }
+
+    html +=
+      '<div class="' + cardCls + '" onclick="renderCosmeticLivePreview(\'' + k + '\')">' +
+        '<div class="cosmetic-badge-preview-icon">' + item.badgeHtml + '</div>' +
+        '<div class="cosmetic-card-category">' + item.categoryLabel + '</div>' +
+        '<div class="cosmetic-card-name">' + item.name + '</div>' +
+        '<div class="cosmetic-card-desc">' + item.desc + '</div>' +
+        '<div style="width:100%;margin-top:auto;">' + actionBtnHtml + '</div>' +
+      '</div>';
+  });
+
+  grid.innerHTML = html;
+}
+
 function isCreatorSession() {
   var em = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
   var cleanEm = String(em).trim().toLowerCase();
@@ -2216,6 +2867,7 @@ function renderMemberAvatar(memberName, memberEmail) {
   var tooltip = name + (isCreator ? ' (Portal Creator)' : '');
 
   var outline = getMemberAvatarOutline(email, name);
+  var cosmetic = getMemberCosmetic(email, name);
 
   // 1. Sidebar user avatar placeholder
   var sPh = document.getElementById('sidebar-user-avatar-ph');
@@ -2243,6 +2895,7 @@ function renderMemberAvatar(memberName, memberEmail) {
       sPh.style.background = isCreator ? '#083830' : color;
     }
     applyAvatarOutlineElement(sPh.parentElement, outline.style);
+    applyMemberCosmeticElement(sPh.parentElement, cosmetic.id, 'cosmetic-sm');
   }
 
   // 2. Member hub profile placeholder (#m-pfp-ph) & ring (#m-pfp-ring)
@@ -3355,6 +4008,22 @@ if (typeof window !== 'undefined') {
   window.getSectionForRank            = getSectionForRank;
   window.getRanksForSection           = getRanksForSection;
   window.populateRankOptions          = populateRankOptions;
+  window.PROFILE_COSMETICS            = PROFILE_COSMETICS;
+  window.getMemberCosmeticsMap        = getMemberCosmeticsMap;
+  window.loadMemberCosmetics          = loadMemberCosmetics;
+  window.getMemberCosmetic            = getMemberCosmetic;
+  window.getMemberCosmeticInventory   = getMemberCosmeticInventory;
+  window.saveMemberCosmetic           = saveMemberCosmetic;
+  window.unlockCosmetic               = unlockCosmetic;
+  window.equipCosmetic                = equipCosmetic;
+  window.unequipCosmetic              = unequipCosmetic;
+  window.applyMemberCosmeticElement   = applyMemberCosmeticElement;
+  window.refreshActiveAvatarCosmetics = refreshActiveAvatarCosmetics;
+  window.openCosmeticShopDrawer       = openCosmeticShopDrawer;
+  window.closeCosmeticShopDrawer      = closeCosmeticShopDrawer;
+  window.filterCosmeticShop           = filterCosmeticShop;
+  window.renderCosmeticLivePreview    = renderCosmeticLivePreview;
+  window.renderCosmeticShopCards      = renderCosmeticShopCards;
 
 }
 
@@ -3415,6 +4084,22 @@ if (typeof module !== 'undefined' && module.exports) {
     switchFamilyAccount,
     checkAndNotifyNewDeviceLogin,
     dispatchDeviceSecurityAlertEmail,
+    PROFILE_COSMETICS,
+    getMemberCosmeticsMap,
+    loadMemberCosmetics,
+    getMemberCosmetic,
+    getMemberCosmeticInventory,
+    saveMemberCosmetic,
+    unlockCosmetic,
+    equipCosmetic,
+    unequipCosmetic,
+    applyMemberCosmeticElement,
+    refreshActiveAvatarCosmetics,
+    openCosmeticShopDrawer,
+    closeCosmeticShopDrawer,
+    filterCosmeticShop,
+    renderCosmeticLivePreview,
+    renderCosmeticShopCards,
 };
 }
 

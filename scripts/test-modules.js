@@ -6833,6 +6833,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   {
     console.log('\nTesting 1stPJ Arcade & Gamified Learning Hub (TSK-056)...');
     const arcadeMod = require('../js/modules/arcade.js');
+    global.getArcadeStats = arcadeMod.getArcadeStats;
+    global.saveArcadeStats = arcadeMod.saveArcadeStats;
     const sessionMod = require('../js/core/session.js');
 
     // 1. Curated Wordle Bank and Trivia Question Bank
@@ -7313,9 +7315,143 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
+    // ─── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ────────────
+  console.log('\nTesting Profile Cosmetics & Gamified Arcade Credit Shop (TSK-060)...');
   {
-  }
+    const memberMod = require('../js/modules/member.js');
+    const adminMod = require('../js/modules/admin.js');
+    const tasksMod = require('../js/modules/tasks.js');
+    const arcadeMod = require('../js/modules/arcade.js');
 
+    // 1. Catalog Verification (17 items, 4 categories)
+    assert.ok(memberMod.PROFILE_COSMETICS, 'PROFILE_COSMETICS catalog exported');
+    const catalog = memberMod.PROFILE_COSMETICS;
+    const catKeys = Object.keys(catalog);
+    assert.strictEqual(catKeys.length, 17, 'Catalog contains exactly 17 profile cosmetics');
+
+    const expectedCategories = ['headwear', 'companion', 'crests', 'leadership'];
+    expectedCategories.forEach(cat => {
+      const items = Object.values(catalog).filter(it => it.category === cat);
+      assert.ok(items.length > 0, 'Category ' + cat + ' contains cosmetics');
+    });
+
+    // Check specific items requested in prompt
+    const expectedIds = [
+      'party_hat', 'cowboy_hat', 'chef_hat', 'beret', 'santa_hat',
+      'pet_dog', 'pet_cat', 'pet_falcon',
+      'crest_founders', 'crest_presidents', 'crest_target', 'crest_crafts', 'crest_recruitment', 'crest_christian_ed', 'crest_cross_anchor',
+      'sash_sgt_red', 'sash_ssgt_blue'
+    ];
+    expectedIds.forEach(id => {
+      assert.ok(catalog[id], 'Cosmetic ' + id + ' exists in catalog');
+      assert.ok(catalog[id].name, 'Cosmetic ' + id + ' has name');
+      assert.ok(catalog[id].price >= 0, 'Cosmetic ' + id + ' has non-negative price');
+      assert.ok(catalog[id].badgeHtml && catalog[id].badgeHtml.includes('<svg'), 'Cosmetic ' + id + ' has valid SVG');
+      assert.ok(catalog[id].desc, 'Cosmetic ' + id + ' has description');
+    });
+    console.log('  ✔ PROFILE_COSMETICS catalog contains 17 verified items across all 4 categories');
+
+    // 2. CSS Token & Positioning Verification in css/components.css
+    const compCss = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(compCss.includes('.avatar-cosmetic-badge'), 'components.css defines .avatar-cosmetic-badge');
+    assert.ok(compCss.includes('top: -4px') || compCss.includes('top:-4px'), '.avatar-cosmetic-badge is positioned top');
+    assert.ok(compCss.includes('left: -4px') || compCss.includes('left:-4px'), '.avatar-cosmetic-badge is positioned left');
+    assert.ok(compCss.includes('z-index: 5'), '.avatar-cosmetic-badge has z-index: 5');
+    assert.ok(compCss.includes('pointer-events: none'), '.avatar-cosmetic-badge has pointer-events: none');
+    assert.ok(compCss.includes('.cosmetic-lg') && compCss.includes('.cosmetic-md') && compCss.includes('.cosmetic-sm') && compCss.includes('.cosmetic-xs'), 'components.css defines size variants');
+    assert.ok(compCss.includes('.cosmetic-shop-modal') || compCss.includes('.cosmetic-shop-overlay'), 'components.css defines cosmetic shop modal');
+    console.log('  ✔ .avatar-cosmetic-badge CSS token, top-left positioning, and sizing variants verified');
+
+    // 3. Default Cosmetic & Retrieval
+    const defCosmetic = memberMod.getMemberCosmetic('unknown@example.com', 'Unknown Member');
+    assert.strictEqual(defCosmetic.id, 'none', 'Default member cosmetic is none');
+    assert.strictEqual(defCosmetic.svg, '', 'None cosmetic has empty SVG');
+
+    // 4. Arcade Credit Shop Flow: Insufficient Credits, Unlock, Equip, Unequip
+    const testUser = 'user123@example.com';
+    global.sessionGet = (k) => (k === 'email' ? testUser : (k === 'name' ? 'Test User' : null));
+
+    // Reset user arcade stats
+    const stats = arcadeMod.getArcadeStats();
+    stats.credits = 10; // Not enough for party_hat (40 credits)
+    arcadeMod.saveArcadeStats(stats);
+
+    const failUnlock = await memberMod.unlockCosmetic('party_hat');
+    assert.strictEqual(failUnlock.success, false, 'Unlocking without enough credits fails');
+    assert.strictEqual(failUnlock.need, 30, 'Calculates missing credits correctly');
+
+    // Give enough credits
+    stats.credits = 100;
+    arcadeMod.saveArcadeStats(stats);
+
+    const successUnlock = await memberMod.unlockCosmetic('party_hat');
+    assert.strictEqual(successUnlock.success, true, 'Unlocking with enough credits succeeds');
+    const updatedStats = arcadeMod.getArcadeStats();
+    assert.strictEqual(updatedStats.credits, 60, 'Arcade credits deducted correctly (100 - 40 = 60)');
+
+    // Verify item is now equipped
+    const equipped = memberMod.getMemberCosmetic(testUser, 'Test User');
+    assert.strictEqual(equipped.id, 'party_hat', 'Unlocked cosmetic automatically equipped');
+
+    // Verify inventory contains item
+    const inventory = memberMod.getMemberCosmeticInventory(testUser);
+    assert.ok(inventory.includes('party_hat'), 'Inventory contains unlocked party_hat');
+
+    // Equip unpurchased item should fail
+    const equipUnowned = await memberMod.equipCosmetic('santa_hat');
+    assert.strictEqual(equipUnowned.success, false, 'Equipping unowned cosmetic fails');
+
+    // Unequip cosmetic
+    const unequipRes = await memberMod.unequipCosmetic();
+    assert.strictEqual(unequipRes.success, true, 'Unequipping succeeds');
+    const afterUnequip = memberMod.getMemberCosmetic(testUser, 'Test User');
+    assert.strictEqual(afterUnequip.id, 'none', 'Active cosmetic set to none after unequip');
+
+    // Re-equip already owned item
+    const reEquipRes = await memberMod.equipCosmetic('party_hat');
+    assert.strictEqual(reEquipRes.success, true, 'Equipping already unlocked cosmetic succeeds');
+    assert.strictEqual(memberMod.getMemberCosmetic(testUser, 'Test User').id, 'party_hat', 'Party hat re-equipped');
+    console.log('  ✔ Arcade credit deduction, inventory unlock, equip/unequip cycle verified');
+
+    // 5. Creator Governance Exclusivity
+    const creatorEmail = 'jeshuakoh2008@gmail.com';
+    const targetMember = 'target@example.com';
+    const creatorAssignRes = await memberMod.saveMemberCosmetic(targetMember, 'crest_founders', creatorEmail, 'Target Member');
+    assert.strictEqual(creatorAssignRes.success, true, 'Creator can assign any cosmetic to another member');
+    const targetCosmetic = memberMod.getMemberCosmetic(targetMember, 'Target Member');
+    assert.strictEqual(targetCosmetic.id, 'crest_founders', 'Target member has founder crest assigned by creator');
+
+    // Non-creator (regular user, officer, or superadmin) CANNOT assign cosmetics to other members
+    const nonCreatorEmail = 'admin@example.com';
+    const unauthorizedAssign = await memberMod.saveMemberCosmetic('someoneelse@example.com', 'crest_presidents', nonCreatorEmail, 'Someone Else');
+    assert.strictEqual(unauthorizedAssign.success, false, 'Non-creator cannot assign cosmetics to other members');
+    assert.ok(unauthorizedAssign.error.includes('creator'), 'Rejection error explains Creator exclusivity requirement');
+    console.log('  ✔ Creator governance exclusivity strictly enforced (only jeshuakoh2008@gmail.com can assign cosmetics to others)');
+
+    // 6. Avatar Integration: Admin & Tasks Avatars
+    const adminAvatarHtml = adminMod.getAdminMemberAvatarHtml('Target Member', targetMember, 48);
+    assert.ok(adminAvatarHtml.includes('avatar-cosmetic-badge'), 'Admin member avatar includes avatar-cosmetic-badge');
+    assert.ok(adminAvatarHtml.includes('crest_founders'), 'Admin avatar reflects equipped crest_founders');
+
+    const taskAvatarHtml = tasksMod.getAssigneeAvatarHtml('Target Member', targetMember, 32);
+    assert.ok(taskAvatarHtml.includes('avatar-cosmetic-badge'), 'Task assignee avatar includes avatar-cosmetic-badge');
+    assert.ok(taskAvatarHtml.includes('crest_founders'), 'Task assignee avatar reflects equipped crest_founders');
+    console.log('  ✔ Cosmetic badges render cleanly on Admin and Tasks avatars at top-left corner');
+
+    // 7. Database Migration Schema 016
+    assert.ok(fs.existsSync('supabase/migrations/016_profile_cosmetics_arcade_shop.sql'), 'Migration 016 exists');
+    const mig016 = fs.readFileSync('supabase/migrations/016_profile_cosmetics_arcade_shop.sql', 'utf8');
+    assert.ok(mig016.includes('bb_member_cosmetics'), 'Migration 016 initializes bb_member_cosmetics config key');
+    console.log('  ✔ Database migration 016_profile_cosmetics_arcade_shop.sql verified');
+
+    // 8. Strict 388 Unique DOM IDs Invariant
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'TSK-060 strictly preserves 388 unique DOM IDs invariant');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+  }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
