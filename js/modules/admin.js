@@ -412,8 +412,17 @@
 
   // ── Admin Authentication & Back-Office Navigation ──────────────────────────
 
-  async function openAdmin() {
+  async function openAdmin(skipPush) {
     if (typeof document === 'undefined') return;
+
+    if (!skipPush && typeof history !== 'undefined' && history.pushState && typeof window !== 'undefined' && window.location.hash !== '#admin') {
+      var activePg = document.querySelector('.page.active');
+      var curTab = activePg ? activePg.id.replace('page-', '') : 'home';
+      history.pushState({ tab: curTab, admin: true }, '', '#admin');
+    }
+    if (typeof document !== 'undefined') {
+      document.title = 'Admin Console — 1st PJ Boys\' Brigade';
+    }
 
     if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
       try {
@@ -505,11 +514,16 @@
     }
   }
 
-  function closeAdmin() {
+  function closeAdmin(skipHistory) {
     if (typeof document === 'undefined') return;
     var overlay = document.getElementById('admin-overlay');
     if (overlay) overlay.style.display = 'none';
     if (document.body) document.body.style.overflow = '';
+    if (!skipHistory && typeof window !== 'undefined' && window.location.hash === '#admin') {
+      if (typeof history !== 'undefined' && typeof history.back === 'function') {
+        history.back();
+      }
+    }
   }
 
   function toggleAdminPassVis() {
