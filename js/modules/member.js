@@ -2032,15 +2032,11 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail) {
   }
 
   var validKey = AVATAR_OUTLINE_STYLES[styleKey] ? styleKey : 'none';
-  if (validKey === 'none') {
-    delete _customAvatarOutlinesMap[cleanTarget];
-  } else {
-    _customAvatarOutlinesMap[cleanTarget] = {
-      style: validKey,
-      assignedBy: cleanActor,
-      assignedAt: new Date().toISOString()
-    };
-  }
+  _customAvatarOutlinesMap[cleanTarget] = {
+    style: validKey,
+    assignedBy: cleanActor,
+    assignedAt: new Date().toISOString()
+  };
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(_customAvatarOutlinesMap));
@@ -2121,6 +2117,9 @@ function refreshActiveAvatarOutlines() {
   if (sAvatar) {
     applyAvatarOutlineElement(sAvatar, myOutline.style);
   }
+
+  // Synchronize placeholder elements and classes
+  renderMemberAvatar(myName, myEmail);
 }
 
 function renderMemberAvatar(memberName, memberEmail) {
@@ -2151,12 +2150,13 @@ function renderMemberAvatar(memberName, memberEmail) {
     sPh.style.display = 'flex';
     sPh.style.alignItems = 'center';
     sPh.style.justifyContent = 'center';
-    if (isCreator) {
+    var wantsRgb = (outline.style === 'rgb');
+    if (wantsRgb) {
       sPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       sPh.style.background = '#083830';
     } else {
       sPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      sPh.style.background = color;
+      sPh.style.background = isCreator ? '#083830' : color;
     }
     applyAvatarOutlineElement(sPh.parentElement, outline.style);
   }
@@ -2179,12 +2179,12 @@ function renderMemberAvatar(memberName, memberEmail) {
     mPh.style.display = 'flex';
     mPh.style.alignItems = 'center';
     mPh.style.justifyContent = 'center';
-    if (isCreator) {
+    if (wantsRgb) {
       mPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       mPh.style.background = '#083830';
     } else {
       mPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      mPh.style.background = color;
+      mPh.style.background = isCreator ? '#083830' : color;
     }
   }
   if (mRing) {
@@ -2209,12 +2209,12 @@ function renderMemberAvatar(memberName, memberEmail) {
     nPh.style.display = 'flex';
     nPh.style.alignItems = 'center';
     nPh.style.justifyContent = 'center';
-    if (isCreator) {
+    if (wantsRgb) {
       nPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       nPh.style.background = '#083830';
     } else {
       nPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      nPh.style.background = color;
+      nPh.style.background = isCreator ? '#083830' : color;
     }
   }
   if (navCircle) {
@@ -2381,6 +2381,7 @@ async function removePfp(e) {
     var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
     if (navAvatarImg) { navAvatarImg.src = ''; navAvatarImg.style.display = 'none'; }
     if (navAvatarPh)  navAvatarPh.style.display = 'flex';
+    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
 
     var fileInp = document.getElementById('pfp-upload');
     if (fileInp) fileInp.value = '';
@@ -2518,6 +2519,12 @@ async function renderDashboard() {
         var csPh  = document.getElementById('sidebar-user-avatar-ph');
         if (csImg) { csImg.src = cachedPfp; csImg.style.display = 'block'; }
         if (csPh)  csPh.style.display = 'none';
+        var cNavImg = document.getElementById('nav-avatar-img');
+        var cNavPh  = document.getElementById('nav-avatar-placeholder');
+        if (cNavImg) { cNavImg.src = cachedPfp; cNavImg.style.display = 'block'; }
+        if (cNavPh)  cNavPh.style.display = 'none';
+        if (typeof sessionSet === 'function') sessionSet('photo_url', cachedPfp);
+        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
         setRemovePfpButtonVisible(true);
       }
 
@@ -2532,6 +2539,12 @@ async function renderDashboard() {
         var sPh  = document.getElementById('sidebar-user-avatar-ph');
         if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
         if (sPh)  sPh.style.display = 'none';
+        var nImg = document.getElementById('nav-avatar-img');
+        var nPh  = document.getElementById('nav-avatar-placeholder');
+        if (nImg) { nImg.src = pfpUrl; nImg.style.display = 'block'; }
+        if (nPh)  nPh.style.display = 'none';
+        if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
+        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
         setRemovePfpButtonVisible(true);
       };
       testImg.onerror = function() {
@@ -2726,6 +2739,12 @@ async function uploadPfp(input) {
     var sPh  = document.getElementById('sidebar-user-avatar-ph');
     if (sImg) { sImg.src = localPreviewUrl; sImg.style.display = 'block'; }
     if (sPh)  sPh.style.display = 'none';
+    var navAvatarImg = document.getElementById('nav-avatar-img');
+    var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
+    if (navAvatarImg) { navAvatarImg.src = localPreviewUrl; navAvatarImg.style.display = 'block'; }
+    if (navAvatarPh)  navAvatarPh.style.display = 'none';
+    if (typeof sessionSet === 'function') sessionSet('photo_url', localPreviewUrl);
+    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
     setRemovePfpButtonVisible(true);
 
     var client = getSupa();
@@ -2777,6 +2796,9 @@ async function uploadPfp(input) {
 
       if (img) img.src = pfpUrl;
       if (sImg) sImg.src = pfpUrl;
+      if (navAvatarImg) navAvatarImg.src = pfpUrl;
+      if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
+      if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
       if (typeof showToast === 'function') {
         showToast('Profile picture updated successfully (EXIF GPS data stripped).', 'success');
       }

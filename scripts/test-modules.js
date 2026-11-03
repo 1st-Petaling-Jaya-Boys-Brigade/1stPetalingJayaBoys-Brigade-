@@ -7228,6 +7228,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(mig015.includes('idx_bb_members_avatar_outline'), 'Migration 015 defines avatar_outline index');
     console.log('  ✔ Database migration 015_creator_avatar_outlines.sql verified');
 
+    // Test Standard (None) Default Selection
+    await memberMod.saveMemberAvatarOutline('jeshuakoh2008@gmail.com', 'none', 'jeshuakoh2008@gmail.com');
+    const creatorNoneOutline = memberMod.getMemberAvatarOutline('jeshuakoh2008@gmail.com', 'Jeshua Koh');
+    assert.strictEqual(creatorNoneOutline.style, 'none', 'Explicit none selection preserves none for creator');
+    const creatorDefaultAvatarHtml = adminMod.getAdminMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 48);
+    assert.strictEqual(creatorDefaultAvatarHtml.includes('creator-rgb-avatar'), false, 'Creator with none outline does not have creator-rgb-avatar');
+    assert.strictEqual(creatorDefaultAvatarHtml.includes('avatar-outline-overlay'), false, 'Creator with none outline does not have overlay');
+    console.log('  ✔ Selecting Standard (None) properly applies default outline style without rotating RGB');
+
     // 8. Strict 388 Unique DOM IDs Invariant
     const indexHtml = fs.readFileSync('index.html', 'utf8');
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
