@@ -6150,6 +6150,52 @@ select.form-input,
   flex-shrink: 0;
   user-select: none;
   position: relative;
+  overflow: visible;
+}
+
+.admin-avatar-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6b7280;
+  border: 2px solid var(--bg-card);
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+.admin-avatar-status-dot.status-online {
+  background: #10b981;
+}
+
+.admin-avatar-status-dot.status-idle {
+  background: #f59e0b;
+}
+
+.admin-avatar-status-dot.status-offline {
+  background: #6b7280;
+}
+
+.admin-presence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.em-profile-presence-card {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 /* ── Modal Scroll Containment & Dynamic Viewport Ergonomics ── */

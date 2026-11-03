@@ -53,7 +53,8 @@
 
   // ── Internal State ────────────────────────────────────────────────────────
   var _adminSortBy     = 'name';
-  var _adminMembers    = {};
+  var _adminMembers       = {};
+  var _adminPresenceMap   = {};
   var _adminTaskFilter = 'all';
   var _allAdminTasks   = [];
 
@@ -974,11 +975,13 @@
         }
       }
       if (deptBtn) deptBtn.classList.toggle('active-sort', by === 'dept');
+      var statusBtn = document.querySelector('.adm-sort-btn[data-sort="status"]');
+      if (statusBtn) statusBtn.classList.toggle('active-sort', by === 'status');
     }
     renderAdminList();
   }
 
-  function getAdminMemberAvatarHtml(name, emailOrIc, size) {
+  function getAdminMemberAvatarHtml(name, emailOrIc, size, presence) {
     var sz = size || 36;
     var fs = Math.max(12, Math.round(sz * 0.42));
     var cleanNm = name || 'Member';
@@ -991,17 +994,32 @@
     var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanNm) : cleanNm;
     var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');
 
+    // Resolve presence status and dot indicator (matching top nav bar)
+    var pInfo = presence;
+    if (!pInfo) {
+      if (typeof getMemberPresenceStatus === 'function') {
+        pInfo = getMemberPresenceStatus({ name: cleanNm, email: emailOrIc, ic: emailOrIc }, _adminPresenceMap);
+      } else {
+        pInfo = { status: 'offline', label: 'Offline', color: '#6b7280' };
+      }
+    }
+    var dotColor = (pInfo && pInfo.color) ? pInfo.color : '#6b7280';
+    var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
+    var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
+    var dotTitle = safeName + ' (' + dotLabel + ')';
+    var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:2;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+
     var photoUrl = null;
     if (typeof getMemberAvatarUrl === 'function') {
       photoUrl = getMemberAvatarUrl(cleanNm, emailOrIc);
     }
 
     if (photoUrl) {
-      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;overflow:hidden;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;" alt="' + safeName + '"/></span>';
+      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;" alt="' + safeName + '"/>' + dotHtml + '</span>';
     }
 
     if (isCreator) {
-      return '<span class="admin-member-avatar creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;font-size:' + fs + 'px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">J</span>';
+      return '<span class="admin-member-avatar creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;font-size:' + fs + 'px;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">J' + dotHtml + '</span>';
     }
 
     var initial = (typeof getMemberAvatarInitial === 'function')
@@ -1012,7 +1030,7 @@
       ? getMemberAvatarColor(cleanNm)
       : '#0284c7';
 
-    return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>';
+    return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + dotHtml + '</span>';
   }
 
   async function renderAdminList() {
@@ -1030,7 +1048,23 @@
     }
 
     try {
-      // 1. Fetch deleted members blacklist from bb_config
+      // 1. Fetch live member presence map and deleted members blacklist from bb_config
+      _adminPresenceMap = {};
+      try {
+        var pRes = await client.get('bb_config?key=eq.bb_member_presence&select=value');
+        if (pRes && pRes.length && pRes[0].value) {
+          _adminPresenceMap = JSON.parse(pRes[0].value) || {};
+        }
+      } catch (_) {}
+      if (!_adminPresenceMap && typeof localStorage !== 'undefined') {
+        try {
+          var localPresenceRaw = localStorage.getItem('bb_member_presence');
+          if (localPresenceRaw) _adminPresenceMap = JSON.parse(localPresenceRaw);
+        } catch (_) {}
+      }
+      if (typeof global !== 'undefined') global._adminPresenceMap = _adminPresenceMap;
+
+      // 1b. Fetch deleted members blacklist from bb_config
       var deletedSet = new Set();
       try {
         var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value');
@@ -1075,6 +1109,18 @@
           if (ba === null) return -1;
           return aa - ba;
         }
+        if (_adminSortBy === 'status') {
+          var pOrder = { online: 0, idle: 1, offline: 2 };
+          var pResolver = (typeof getMemberPresenceStatus === 'function')
+            ? getMemberPresenceStatus
+            : function() { return { status: 'offline' }; };
+          var stA = pResolver(a, _adminPresenceMap).status;
+          var stB = pResolver(b, _adminPresenceMap).status;
+          var ordA = pOrder[stA] !== undefined ? pOrder[stA] : 2;
+          var ordB = pOrder[stB] !== undefined ? pOrder[stB] : 2;
+          if (ordA !== ordB) return ordA - ordB;
+          return (a.name || '').localeCompare(b.name || '');
+        }
         if (_adminSortBy === 'squad') {
           var sq = (a.squad || '').localeCompare(b.squad || '');
           return sq !== 0 ? sq : (a.name || '').localeCompare(b.name || '');
@@ -1095,6 +1141,7 @@
       _adminMembers = {};
       filtered.forEach(function(m) { _adminMembers[m.ic] = m; });
       if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
+  global._adminPresenceMap = _adminPresenceMap;
 
       // Group headers when sorting by squad
       var lastSquad = null;
@@ -1150,13 +1197,18 @@
           deptBadge = ' <span title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;margin-left:4px;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
         }
 
-        var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 36);
+        var pResolver = (typeof getMemberPresenceStatus === 'function')
+          ? getMemberPresenceStatus
+          : function() { return { status: 'offline', label: 'Offline', color: '#6b7280' }; };
+        var pInfo = pResolver(m, _adminPresenceMap);
+        var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 36, pInfo);
+        var presenceBadge = ' <span class="admin-presence-badge" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + pInfo.color + ';vertical-align:middle;margin-left:4px;" title="' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '"><span style="width:7px;height:7px;border-radius:50%;background:' + pInfo.color + ';display:inline-block;"></span> ' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '</span>';
 
         html += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:12px;">'
           + avatarHtml
           + '<div style="flex:1;min-width:0;">'
             + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + deptBadge + '</div>'
-            + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + (m.squad ? safeSquad + ' Platoon' : 'No platoon') + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + '</div>'
+            + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + (m.squad ? safeSquad + ' Platoon' : 'No platoon') + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + ' \xb7 ' + presenceBadge + '</div>'
           + '</div>'
           + '<div style="text-align:right;flex-shrink:0;">'
             + '<div class="admin-rank-badge">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.rank || '\u2014') : (m.rank || '\u2014')) + '</div>'
@@ -1253,6 +1305,8 @@
 
     var pc = document.getElementById('em-parent-consent');
     if (pc) pc.checked = false;
+    var existingPresCard = document.querySelector('.em-profile-presence-card');
+    if (existingPresCard) existingPresCard.style.display = 'none';
 
     var mc = document.getElementById('em-media-consent');
     if (mc) mc.checked = false;
@@ -1279,6 +1333,46 @@
   function openEditMember(ic) {
     if (typeof document === 'undefined') return;
     var m = (_adminMembers && _adminMembers[ic]) || { ic: ic };
+    // Dynamically inject/update member profile presence card header (TSK-062)
+    var modalContainer = document.querySelector('#edit-member-modal > div');
+    if (modalContainer) {
+      var presCard = modalContainer.querySelector('.em-profile-presence-card');
+      if (!presCard) {
+        presCard = document.createElement('div');
+        presCard.className = 'em-profile-presence-card';
+        var titleRow = modalContainer.firstElementChild;
+        if (titleRow && titleRow.nextElementSibling) {
+          modalContainer.insertBefore(presCard, titleRow.nextElementSibling);
+        } else {
+          modalContainer.appendChild(presCard);
+        }
+      }
+      presCard.style.display = 'flex';
+      var pResolver = (typeof getMemberPresenceStatus === 'function')
+        ? getMemberPresenceStatus
+        : function() { return { status: 'offline', label: 'Offline', color: '#6b7280' }; };
+      var pInfo = pResolver(m, _adminPresenceMap);
+      var presAvatar = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 44, pInfo);
+      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name || 'Member') : (m.name || 'Member');
+      var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'Member') : (m.rank || 'Member');
+      var safeId   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic || m.email || '') : (m.ic || m.email || '');
+
+      presCard.innerHTML = presAvatar +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:700;font-size:15px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + '</div>' +
+          '<div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap;">' +
+            '<span>' + safeId + '</span>' +
+            '<span>&bull;</span>' +
+            '<span>' + safeRank + '</span>' +
+            '<span>&bull;</span>' +
+            '<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:' + pInfo.color + ';">' +
+              '<span style="width:8px;height:8px;border-radius:50%;background:' + pInfo.color + ';display:inline-block;"></span> ' +
+              ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) +
+            '</span>' +
+          '</div>' +
+        '</div>';
+    }
+
 
     var set = function(id, val) {
       var el = document.getElementById(id);
@@ -2157,7 +2251,10 @@
       }
       var rankSubtitle = subtitleParts.join(' • ');
 
-      var avatarHtml = getAdminMemberAvatarHtml(m.name, email, 38);
+      var rbacPresence = (typeof getMemberPresenceStatus === 'function')
+        ? getMemberPresenceStatus(m, _adminPresenceMap)
+        : null;
+      var avatarHtml = getAdminMemberAvatarHtml(m.name, email, 38, rbacPresence);
 
       listHtml += '<div class="rbac-member-row admin-row" data-name="' + (typeof escapeHtml === 'function' ? escapeHtml((m.name || '').toLowerCase()) : '') + '" data-email="' + (typeof escapeHtml === 'function' ? escapeHtml(email.toLowerCase()) : '') + '" data-role="' + currentRole + '" style="cursor:default;margin-bottom:0;display:flex;flex-direction:column;gap:12px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%;">' +
@@ -2392,6 +2489,7 @@
       calcAge: calcAge,
       setAdminSort: setAdminSort,
       renderAdminList: renderAdminList,
+    _adminPresenceMap: _adminPresenceMap,
       handleAdminSectionChange: handleAdminSectionChange,
       openAddMember: openAddMember,
       openEditMember: openEditMember,
