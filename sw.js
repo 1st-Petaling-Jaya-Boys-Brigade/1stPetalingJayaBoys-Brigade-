@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261103c';
+const CACHE_VERSION = '20261103d';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -169,6 +169,37 @@ async function handleFetchRequest(request, cachesInterface, fetchFn) {
 
   if (isLocalAsset || isGoogleFont) {
     var cachedAsset = cachesApi ? await cachesApi.match(request, { ignoreSearch: true }) : null;
+
+    // Detect explicit browser reloads (Reload button / Cache-Control: max-age=0 / no-cache)
+    // Ensures normal browser reloads deliver the latest scripts and stylesheets immediately when online
+    var isExplicitReload =
+      request.cache === 'reload' ||
+      request.cache === 'no-cache' ||
+      (request.headers && typeof request.headers.get === 'function' && (
+        (request.headers.get('cache-control') || '').includes('no-cache') ||
+        (request.headers.get('cache-control') || '').includes('max-age=0') ||
+        (request.headers.get('pragma') || '').includes('no-cache')
+      ));
+
+    if (isExplicitReload && isLocalAsset) {
+      try {
+        var freshNetRes = await fetchWithTimeout(networkFetch, request, 3500);
+        if (freshNetRes && freshNetRes.status === 200 && cachesApi) {
+          var freshClone = freshNetRes.clone();
+          cachesApi
+            .open(STATIC_CACHE_NAME)
+            .then(function (cache) {
+              cache.put(request, freshClone);
+            })
+            .catch(function () {});
+        }
+        return freshNetRes;
+      } catch (_reloadErr) {
+        if (cachedAsset) {
+          return cachedAsset;
+        }
+      }
+    }
 
     // Background revalidation
     var bgFetch = networkFetch(request)
