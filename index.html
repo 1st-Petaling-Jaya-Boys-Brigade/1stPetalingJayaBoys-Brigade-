@@ -3061,8 +3061,21 @@ if (window.top !== window.self) {
   }
 }
 
-// ── Navigation ────────────────────────────────────────────────────────────
-function switchTab(tab, btn) {
+// ── Navigation & Browser History (TSK-059) ─────────────────────────────────
+var TAB_TITLES = {
+  home: 'Home Dashboard — 1st PJ Boys\' Brigade',
+  order: 'Forms & Store — 1st PJ Boys\' Brigade',
+  member: 'Member Hub — 1st PJ Boys\' Brigade',
+  parade: 'Weekly Parade — 1st PJ Boys\' Brigade',
+  tasks: 'Projects & Tasks — 1st PJ Boys\' Brigade',
+  badges: 'Badges & Awards — 1st PJ Boys\' Brigade',
+  attendance: 'Squad Leaderboard — 1st PJ Boys\' Brigade',
+  resources: 'Company Resources — 1st PJ Boys\' Brigade',
+  gallery: 'Media Gallery — 1st PJ Boys\' Brigade',
+  forum: 'Support & Bug Forum — 1st PJ Boys\' Brigade'
+};
+
+function switchTab(tab, btn, skipPush) {
   if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.canActivate === 'function') {
     if (!AuthGuard.canActivate(tab)) {
       AuthGuard.setRedirectTarget(tab);
@@ -3081,10 +3094,23 @@ function switchTab(tab, btn) {
       tab = 'member';
       btn = document.getElementById('tab-member');
       if (typeof history !== 'undefined' && history.replaceState) {
-        history.replaceState(null, '', '#member');
+        history.replaceState({ tab: 'member' }, '', '#member');
       }
     }
   }
+
+  // Record browser history state on tab navigation for native Undo/Redo (TSK-059)
+  if (!skipPush && typeof history !== 'undefined' && history.pushState && typeof window !== 'undefined') {
+    var curHash = (window.location.hash || '').replace('#', '').trim();
+    if (curHash !== tab) {
+      history.pushState({ tab: tab }, '', '#' + tab);
+    }
+  }
+
+  if (typeof document !== 'undefined' && TAB_TITLES && TAB_TITLES[tab]) {
+    document.title = TAB_TITLES[tab];
+  }
+
   if (typeof TopRouteProgress !== 'undefined') {
     TopRouteProgress.start();
     setTimeout(function() { TopRouteProgress.complete(); }, 150);
@@ -3121,9 +3147,9 @@ function navigateHome() {
 window.navigateHome = navigateHome;
 
 // switchTabNav — called by bottom nav and sidebar buttons
-function switchTabNav(tab) {
+function switchTabNav(tab, skipPush) {
   var fakeBtn = document.getElementById('tab-' + tab);
-  switchTab(tab, fakeBtn);
+  switchTab(tab, fakeBtn, skipPush);
 }
 
 // ── Quick Access Carousel Controller (TSK-CAROUSEL) ────────────────────────
@@ -3541,17 +3567,71 @@ window.addEventListener('load', function() {
   updateOfflineIndicator();
   updateNavUserHeader();
   renderNotifications();
+
+  // Initialize initial history state for browser Undo/Redo stack (TSK-059)
+  var initialHash = (typeof window !== 'undefined' && window.location.hash ? window.location.hash.replace('#', '').trim() : '') || 'home';
+  var validInitialTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum'];
+  if (validInitialTabs.indexOf(initialHash) === -1 && initialHash !== 'admin') {
+    initialHash = 'home';
+  }
+  if (typeof history !== 'undefined' && history.replaceState) {
+    history.replaceState({ tab: initialHash, admin: initialHash === 'admin' }, '', '#' + initialHash);
+  }
   handleHashNavigation();
 });
 
-function handleHashNavigation() {
-  var hash = (window.location.hash || '').replace('#', '');
-  if (hash === 'admin') {
-    openAdmin();
-  } else if (['member', 'order', 'tasks', 'badges', 'attendance', 'home', 'resources', 'gallery'].indexOf(hash) !== -1) {
-    switchTabNav(hash);
+function handleHashNavigation(event) {
+  var state = (event && event.state) || null;
+  var hash = (typeof window !== 'undefined' && window.location.hash ? window.location.hash.replace('#', '').trim() : '');
+
+  // 1. Admin Console routing
+  if (hash === 'admin' || (state && state.admin)) {
+    if (typeof openAdmin === 'function') {
+      openAdmin(true);
+    }
+    return;
+  }
+
+  // If Admin Console is currently open but user popped back to a standard page, close it
+  var adminOverlay = document.getElementById('admin-overlay');
+  if (adminOverlay && adminOverlay.style.display !== 'none' && typeof closeAdmin === 'function') {
+    closeAdmin(true);
+  }
+
+  // 2. Dismiss any active modal overlays on back navigation
+  var taskDetailModal = document.getElementById('task-detail-modal');
+  if (taskDetailModal && taskDetailModal.style.display !== 'none' && (!state || !state.taskDetail) && typeof closeTaskDetail === 'function') {
+    closeTaskDetail(true);
+  }
+
+  var storyModal = document.getElementById('story-viewer-modal');
+  if (storyModal && storyModal.style.display !== 'none' && (!state || !state.storyViewer) && typeof closeStoryViewer === 'function') {
+    closeStoryViewer(true);
+  }
+
+  var editMemberModal = document.getElementById('edit-member-modal');
+  if (editMemberModal && editMemberModal.style.display !== 'none' && typeof closeEditMember === 'function') {
+    closeEditMember();
+  }
+
+  var childSafetyModal = document.getElementById('child-safety-modal');
+  if (childSafetyModal && childSafetyModal.style.display !== 'none' && typeof closeChildSafetyModal === 'function') {
+    closeChildSafetyModal();
+  }
+
+  var sidebarOverlay = document.getElementById('sidebar-overlay');
+  if (sidebarOverlay && sidebarOverlay.classList.contains('open') && typeof closeSidebar === 'function') {
+    closeSidebar();
+  }
+
+  // 3. Tab routing across all portal pages
+  var targetTab = (state && state.tab) || hash || 'home';
+  var allValidTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum'];
+  if (allValidTabs.indexOf(targetTab) !== -1) {
+    switchTabNav(targetTab, true);
   }
 }
+window.addEventListener('popstate', handleHashNavigation);
 window.addEventListener('hashchange', handleHashNavigation);
 // ── Offline Connectivity & PWA Service Worker (TSK-016) ────────────────────
 function updateOfflineIndicator() {
@@ -4204,8 +4284,36 @@ function handleNavProfileClick() {
   switchTabNav('member');
 }
 
-// Global Keyboard Shortcuts (Ctrl+K for search, Escape for popups)
+// Global Keyboard Shortcuts (Ctrl+K for search, Escape for popups, Ctrl+Z / Ctrl+Y for Undo / Redo navigation)
 document.addEventListener('keydown', function(e) {
+  var activeEl = document.activeElement;
+  var isEditingText = activeEl && (
+    activeEl.tagName === 'INPUT' ||
+    activeEl.tagName === 'TEXTAREA' ||
+    activeEl.isContentEditable ||
+    (activeEl.classList && activeEl.classList.contains('rich-editor-content'))
+  );
+
+  // Browser navigation Undo (Ctrl+Z / Cmd+Z) outside editable fields (TSK-059)
+  if (!isEditingText && (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+    e.preventDefault();
+    if (typeof history !== 'undefined' && typeof history.back === 'function') {
+      history.back();
+    }
+    return;
+  }
+  // Browser navigation Redo (Ctrl+Y or Ctrl+Shift+Z or Cmd+Shift+Z) outside editable fields (TSK-059)
+  if (!isEditingText && (
+    ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
+    ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
+  )) {
+    e.preventDefault();
+    if (typeof history !== 'undefined' && typeof history.forward === 'function') {
+      history.forward();
+    }
+    return;
+  }
+
   if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
     e.preventDefault();
     openGlobalSearch();
