@@ -1799,6 +1799,330 @@ async function switchFamilyAccount() {
   }
 }
 
+// ── TSK-062: Creator Profile Avatar Outlines, Gradients & Animations ────────
+var AVATAR_OUTLINE_STYLES = {
+  none: {
+    id: 'none',
+    label: 'Standard (None)',
+    category: 'standard',
+    badge: 'Default',
+    description: 'Company standard border',
+    className: ''
+  },
+  rgb: {
+    id: 'rgb',
+    label: 'Animated RGB Rainbow',
+    category: 'animated',
+    badge: 'Animated',
+    description: '360° rotating chromatic spectrum with electric glow',
+    className: 'avatar-outline-rgb',
+    swatch: 'conic-gradient(from -45deg, #ff4b4b 0deg 90deg, #3b82f6 90deg 180deg, #22c55e 180deg 270deg, #facc15 270deg 360deg)',
+    animated: true
+  },
+  sunset: {
+    id: 'sunset',
+    label: 'Purplish-Orange Sunset',
+    category: 'gradient',
+    badge: 'Gradient',
+    description: 'Deep violet transitioning to vibrant sunrise orange',
+    className: 'avatar-outline-sunset',
+    swatch: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%)'
+  },
+  cyber: {
+    id: 'cyber',
+    label: 'Cyber Neon Cyan-Purple',
+    category: 'gradient',
+    badge: 'Gradient',
+    description: 'High-voltage electric cyan into vivid magenta',
+    className: 'avatar-outline-cyber',
+    swatch: 'linear-gradient(135deg, #06b6d4 0%, #a855f7 50%, #ec4899 100%)'
+  },
+  gold: {
+    id: 'gold',
+    label: 'Gold Flare (Anchor Gold)',
+    category: 'gradient',
+    badge: 'Gradient',
+    description: 'Royal amber and radiant 24K BB anchor gold flare',
+    className: 'avatar-outline-gold',
+    swatch: 'linear-gradient(135deg, #b45309 0%, #f59e0b 50%, #fde047 100%)'
+  },
+  velvet: {
+    id: 'velvet',
+    label: 'Royal Velvet',
+    category: 'gradient',
+    badge: 'Gradient',
+    description: 'Midnight navy indigo through royal violet to lilac',
+    className: 'avatar-outline-velvet',
+    swatch: 'linear-gradient(135deg, #312e81 0%, #7c3aed 50%, #c084fc 100%)'
+  },
+  aurora: {
+    id: 'aurora',
+    label: 'Northern Lights (Aurora)',
+    category: 'gradient',
+    badge: 'Gradient',
+    description: 'Glacial emerald teal into deep arctic sky blue',
+    className: 'avatar-outline-aurora',
+    swatch: 'linear-gradient(135deg, #059669 0%, #06b6d4 50%, #3b82f6 100%)'
+  },
+  'solid-red': {
+    id: 'solid-red',
+    label: 'Crimson Red',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Bold company red accent ring',
+    className: 'avatar-outline-solid-red',
+    swatch: '#ef4444'
+  },
+  'solid-blue': {
+    id: 'solid-blue',
+    label: 'Cobalt Blue',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Royal brigade cobalt blue accent ring',
+    className: 'avatar-outline-solid-blue',
+    swatch: '#3b82f6'
+  },
+  'solid-green': {
+    id: 'solid-green',
+    label: 'Emerald Green',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Vivid forest emerald green accent ring',
+    className: 'avatar-outline-solid-green',
+    swatch: '#10b981'
+  },
+  'solid-yellow': {
+    id: 'solid-yellow',
+    label: 'Golden Yellow',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Warm canary yellow accent ring',
+    className: 'avatar-outline-solid-yellow',
+    swatch: '#eab308'
+  },
+  'solid-orange': {
+    id: 'solid-orange',
+    label: 'Tangerine Orange',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Energetic tangerine orange accent ring',
+    className: 'avatar-outline-solid-orange',
+    swatch: '#f97316'
+  },
+  'solid-pink': {
+    id: 'solid-pink',
+    label: 'Neon Pink',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Radiant vibrant pink accent ring',
+    className: 'avatar-outline-solid-pink',
+    swatch: '#ec4899'
+  },
+  'solid-white': {
+    id: 'solid-white',
+    label: 'Pure White',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Clean high-contrast white halo outline',
+    className: 'avatar-outline-solid-white',
+    swatch: '#ffffff'
+  },
+  'solid-black': {
+    id: 'solid-black',
+    label: 'Midnight Black',
+    category: 'solid',
+    badge: 'Solid',
+    description: 'Sleek dark obsidian ring with subtle contrast',
+    className: 'avatar-outline-solid-black',
+    swatch: '#0f172a'
+  }
+};
+
+var _customAvatarOutlinesMap = {};
+
+function isCreatorSession() {
+  var em = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  var cleanEm = String(em).trim().toLowerCase();
+  return cleanEm === 'jeshuakoh2008@gmail.com';
+}
+
+function getMemberAvatarOutline(emailOrIc, memberName) {
+  var cleanKey = String(emailOrIc || '').trim().toLowerCase();
+  var cleanName = String(memberName || '').trim().toLowerCase();
+
+  var isCreator = false;
+  if (typeof isPortalCreator === 'function') {
+    isCreator = isPortalCreator(cleanName, cleanKey);
+  } else {
+    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanKey === 'jeshua@mirtech.io' || cleanName === 'jeshua koh');
+  }
+
+  // Creator receives animated RGB rainbow outline by default unless assigned another style
+  var assigned = null;
+  if (cleanKey && _customAvatarOutlinesMap[cleanKey]) {
+    assigned = _customAvatarOutlinesMap[cleanKey];
+  } else if (cleanName && _customAvatarOutlinesMap[cleanName]) {
+    assigned = _customAvatarOutlinesMap[cleanName];
+  }
+
+  var styleKey = 'none';
+  if (assigned) {
+    styleKey = (typeof assigned === 'object' && assigned.style) ? assigned.style : assigned;
+  } else if (isCreator) {
+    styleKey = 'rgb';
+  }
+
+  var cfg = AVATAR_OUTLINE_STYLES[styleKey] || AVATAR_OUTLINE_STYLES.none;
+  return {
+    style: styleKey,
+    config: cfg,
+    isCreator: isCreator,
+    assignedBy: assigned && assigned.assignedBy ? assigned.assignedBy : (isCreator ? 'Creator Default' : null)
+  };
+}
+
+async function loadCustomAvatarOutlines() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_custom_avatar_outlines');
+      if (cached) {
+        _customAvatarOutlinesMap = JSON.parse(cached) || {};
+      }
+    } catch (_) {}
+  }
+
+  if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  if (!client || !client.get) return _customAvatarOutlinesMap;
+
+  try {
+    var res = await client.get('bb_config?key=eq.bb_custom_avatar_outlines&select=value');
+    if (res && res.length && res[0].value) {
+      var parsed = JSON.parse(res[0].value);
+      if (parsed && typeof parsed === 'object') {
+        _customAvatarOutlinesMap = parsed;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(parsed));
+        }
+        if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+      }
+    }
+  } catch (e) {
+    console.warn('loadCustomAvatarOutlines non-fatal warning:', e);
+  }
+
+  return _customAvatarOutlinesMap;
+}
+
+async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail) {
+  var cleanActor = String(actorEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
+  var isCreator = (cleanActor === 'jeshuakoh2008@gmail.com');
+
+  if (!isCreator) {
+    return {
+      success: false,
+      error: 'Access Denied: Only jeshuakoh2008@gmail.com can assign custom profile avatar outlines.'
+    };
+  }
+
+  var cleanTarget = String(targetEmailOrIc || '').trim().toLowerCase();
+  if (!cleanTarget) {
+    return { success: false, error: 'Target member identifier required.' };
+  }
+
+  var validKey = AVATAR_OUTLINE_STYLES[styleKey] ? styleKey : 'none';
+  if (validKey === 'none') {
+    delete _customAvatarOutlinesMap[cleanTarget];
+  } else {
+    _customAvatarOutlinesMap[cleanTarget] = {
+      style: validKey,
+      assignedBy: cleanActor,
+      assignedAt: new Date().toISOString()
+    };
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(_customAvatarOutlinesMap));
+  }
+  if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  if (client && client.post) {
+    try {
+      await client.post('bb_config', {
+        key: 'bb_custom_avatar_outlines',
+        value: JSON.stringify(_customAvatarOutlinesMap),
+        updated_at: new Date().toISOString()
+      }, { upsert: true });
+    } catch (dbErr) {
+      console.warn('saveMemberAvatarOutline db sync warning:', dbErr);
+    }
+  }
+
+  refreshActiveAvatarOutlines();
+  return { success: true, target: cleanTarget, style: validKey };
+}
+
+function applyAvatarOutlineElement(containerEl, styleKey) {
+  if (!containerEl || typeof containerEl !== 'object' || !containerEl.classList) return;
+  var validStyle = AVATAR_OUTLINE_STYLES[styleKey] ? styleKey : 'none';
+  var cfg = AVATAR_OUTLINE_STYLES[validStyle];
+
+  var overlay = containerEl.querySelector('.avatar-outline-overlay');
+  if (validStyle === 'none' || !cfg || !cfg.className) {
+    containerEl.classList.remove('has-custom-outline');
+    if (overlay) {
+      overlay.style.display = 'none';
+      overlay.className = 'avatar-outline-overlay';
+    }
+    return;
+  }
+
+  containerEl.classList.add('has-custom-outline', 'avatar-outline-container');
+  if (!overlay) {
+    overlay = document.createElement('span');
+    overlay.className = 'avatar-outline-overlay ' + cfg.className;
+    overlay.setAttribute('aria-hidden', 'true');
+    containerEl.appendChild(overlay);
+  } else {
+    // Clear previous outline classes
+    Object.keys(AVATAR_OUTLINE_STYLES).forEach(function(k) {
+      var cls = AVATAR_OUTLINE_STYLES[k].className;
+      if (cls) overlay.classList.remove(cls);
+    });
+    overlay.classList.add(cfg.className);
+    overlay.style.display = 'block';
+  }
+  overlay.style.zIndex = '2';
+  overlay.style.pointerEvents = 'none';
+}
+
+function refreshActiveAvatarOutlines() {
+  if (typeof document === 'undefined') return;
+  var myEmail = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  var myOutline = getMemberAvatarOutline(myEmail, myName);
+
+  // 1. Member Hub profile ring
+  var mRing = document.getElementById('m-pfp-ring');
+  if (mRing) {
+    applyAvatarOutlineElement(mRing, myOutline.style);
+  }
+
+  // 2. Navigation header avatar
+  var navCircle = document.querySelector('.nav-avatar-circle');
+  if (navCircle) {
+    applyAvatarOutlineElement(navCircle, myOutline.style);
+  }
+
+  // 3. Sidebar user card avatar
+  var sAvatar = document.querySelector('.suc-avatar');
+  if (sAvatar) {
+    applyAvatarOutlineElement(sAvatar, myOutline.style);
+  }
+}
+
 function renderMemberAvatar(memberName, memberEmail) {
   if (typeof document === 'undefined') return;
   var name = memberName || (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
@@ -1807,6 +2131,8 @@ function renderMemberAvatar(memberName, memberEmail) {
   var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name.trim().charAt(0).toUpperCase() || '?'));
   var color = isCreator ? '' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
   var tooltip = name + (isCreator ? ' (Portal Creator)' : '');
+
+  var outline = getMemberAvatarOutline(email, name);
 
   // 1. Sidebar user avatar placeholder
   var sPh = document.getElementById('sidebar-user-avatar-ph');
@@ -1827,15 +2153,17 @@ function renderMemberAvatar(memberName, memberEmail) {
     sPh.style.justifyContent = 'center';
     if (isCreator) {
       sPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      sPh.style.background = '';
+      sPh.style.background = '#083830';
     } else {
       sPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       sPh.style.background = color;
     }
+    applyAvatarOutlineElement(sPh.parentElement, outline.style);
   }
 
-  // 2. Member hub profile placeholder (#m-pfp-ph)
+  // 2. Member hub profile placeholder (#m-pfp-ph) & ring (#m-pfp-ring)
   var mPh = document.getElementById('m-pfp-ph');
+  var mRing = document.getElementById('m-pfp-ring');
   if (mPh) {
     mPh.textContent = initial;
     mPh.title = tooltip;
@@ -1853,15 +2181,19 @@ function renderMemberAvatar(memberName, memberEmail) {
     mPh.style.justifyContent = 'center';
     if (isCreator) {
       mPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      mPh.style.background = '';
+      mPh.style.background = '#083830';
     } else {
       mPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       mPh.style.background = color;
     }
   }
+  if (mRing) {
+    applyAvatarOutlineElement(mRing, outline.style);
+  }
 
   // 3. Top nav header placeholder (#nav-avatar-placeholder)
   var nPh = document.getElementById('nav-avatar-placeholder');
+  var navCircle = document.querySelector('.nav-avatar-circle');
   if (nPh) {
     nPh.textContent = initial;
     nPh.title = tooltip;
@@ -1879,11 +2211,14 @@ function renderMemberAvatar(memberName, memberEmail) {
     nPh.style.justifyContent = 'center';
     if (isCreator) {
       nPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      nPh.style.background = '';
+      nPh.style.background = '#083830';
     } else {
       nPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       nPh.style.background = color;
     }
+  }
+  if (navCircle) {
+    applyAvatarOutlineElement(navCircle, outline.style);
   }
 }
 
@@ -2870,6 +3205,14 @@ if (typeof window !== 'undefined') {
   window.updateMemberMediaConsent     = updateMemberMediaConsent;
   window.registerMember               = registerMember;
   window.loginMember                  = loginMember;
+  window.AVATAR_OUTLINE_STYLES          = AVATAR_OUTLINE_STYLES;
+  window.getMemberAvatarOutline         = getMemberAvatarOutline;
+  window.loadCustomAvatarOutlines       = loadCustomAvatarOutlines;
+  window.saveMemberAvatarOutline        = saveMemberAvatarOutline;
+  window.applyAvatarOutlineElement      = applyAvatarOutlineElement;
+  window.refreshActiveAvatarOutlines    = refreshActiveAvatarOutlines;
+  window._customAvatarOutlinesMap        = _customAvatarOutlinesMap;
+  window.isCreatorSession               = isCreatorSession;
   window.renderMemberAvatar             = renderMemberAvatar;
   window.resetMemberAvatar              = resetMemberAvatar;
   window.hasActiveCustomPhoto          = hasActiveCustomPhoto;
@@ -2931,6 +3274,13 @@ if (typeof module !== 'undefined' && module.exports) {
     goToMemberTab,
     registerMember,
     loginMember,
+    AVATAR_OUTLINE_STYLES,
+    getMemberAvatarOutline,
+    loadCustomAvatarOutlines,
+    saveMemberAvatarOutline,
+    applyAvatarOutlineElement,
+    refreshActiveAvatarOutlines,
+    isCreatorSession,
     renderMemberAvatar,
     resetMemberAvatar,
     hasActiveCustomPhoto,

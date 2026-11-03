@@ -306,9 +306,9 @@ textarea,
   html {
     scroll-behavior: auto !important;
   }
-  *:not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar),
-  *:not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar)::before,
-  *:not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar)::after {
+  *:not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.avatar-outline-overlay):not(.avatar-outline-rgb),
+  *:not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.avatar-outline-overlay):not(.avatar-outline-rgb)::before,
+  *:not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.avatar-outline-overlay):not(.avatar-outline-rgb)::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
