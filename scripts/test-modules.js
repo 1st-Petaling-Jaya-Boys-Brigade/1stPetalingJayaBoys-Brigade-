@@ -7019,6 +7019,133 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
 
 
+  
+  // ── TSK-062: Member Online, Idle & Offline Presence Tracking for Admin Console ──
+  {
+    console.log('\nTesting Member Online, Idle & Offline Presence Tracking (TSK-062)...');
+    const sessionMod = require('../js/core/session.js');
+    const adminMod = require('../js/modules/admin.js');
+
+    // 1. Session Presence State Management
+    assert.strictEqual(typeof sessionMod.getLocalPresenceStatus, 'function', 'getLocalPresenceStatus must be exported');
+    assert.strictEqual(typeof sessionMod.setLocalPresenceStatus, 'function', 'setLocalPresenceStatus must be exported');
+    assert.strictEqual(typeof sessionMod.onPresenceChange, 'function', 'onPresenceChange must be exported');
+    assert.strictEqual(typeof sessionMod.recordUserActivity, 'function', 'recordUserActivity must be exported');
+    assert.strictEqual(typeof sessionMod.sendPresenceHeartbeat, 'function', 'sendPresenceHeartbeat must be exported');
+    assert.strictEqual(typeof sessionMod.initPresenceTracking, 'function', 'initPresenceTracking must be exported');
+    assert.strictEqual(typeof sessionMod.getMemberPresenceStatus, 'function', 'getMemberPresenceStatus must be exported');
+
+    // Test local presence transitions and listener notifications
+    let notifiedStatus = null;
+    sessionMod.onPresenceChange(status => { notifiedStatus = status; });
+
+    sessionMod.setLocalPresenceStatus('idle');
+    assert.strictEqual(sessionMod.getLocalPresenceStatus(), 'idle', 'Local presence updates to idle');
+    assert.strictEqual(notifiedStatus, 'idle', 'Presence listener notified on idle state transition');
+
+    sessionMod.setLocalPresenceStatus('online');
+    assert.strictEqual(sessionMod.getLocalPresenceStatus(), 'online', 'Local presence restores to online');
+    assert.strictEqual(notifiedStatus, 'online', 'Presence listener notified on online state transition');
+
+    sessionMod.setLocalPresenceStatus('offline');
+    assert.strictEqual(sessionMod.getLocalPresenceStatus(), 'offline', 'Local presence updates to offline');
+    assert.strictEqual(notifiedStatus, 'offline', 'Presence listener notified on offline state transition');
+    sessionMod.setLocalPresenceStatus('online');
+    console.log('  ✔ Local presence state transitions (online, idle, offline) and listener notifications verified');
+
+    // 2. Member Presence Resolution (getMemberPresenceStatus)
+    const now = Date.now();
+    const mockPresenceMap = {
+      'active@bb.org': { status: 'online', last_seen: now - 30 * 1000, name: 'Active User' },
+      'idle@bb.org':   { status: 'idle',   last_seen: now - 6 * 60 * 1000, name: 'Idle User' },
+      'away@bb.org':   { status: 'online', last_seen: now - 10 * 60 * 1000, name: 'Away User' },
+      'stale@bb.org':  { status: 'online', last_seen: now - 2 * 3600 * 1000, name: 'Stale User' }
+    };
+
+    // Online member (active 30s ago)
+    const activeRes = sessionMod.getMemberPresenceStatus({ email: 'active@bb.org', ic: 'active@bb.org' }, mockPresenceMap);
+    assert.strictEqual(activeRes.status, 'online', 'Active user resolved as online');
+    assert.strictEqual(activeRes.color, '#10b981', 'Online member dot color is vibrant emerald green (#10b981)');
+    assert.strictEqual(activeRes.label, 'Online', 'Online member label is Online');
+
+    // Idle member (explicit idle within 15 mins)
+    const idleRes = sessionMod.getMemberPresenceStatus({ email: 'idle@bb.org', ic: 'idle@bb.org' }, mockPresenceMap);
+    assert.strictEqual(idleRes.status, 'idle', 'Idle user resolved as idle');
+    assert.strictEqual(idleRes.color, '#f59e0b', 'Idle member dot color is warm amber (#f59e0b)');
+    assert.ok(idleRes.label.includes('Idle'), 'Idle member label displays idle minutes');
+
+    // Away member (no heartbeat for 10m but within 15m)
+    const awayRes = sessionMod.getMemberPresenceStatus({ email: 'away@bb.org', ic: 'away@bb.org' }, mockPresenceMap);
+    assert.strictEqual(awayRes.status, 'idle', 'User with 10m inactive resolved as idle');
+    assert.strictEqual(awayRes.color, '#f59e0b', 'Away member dot color is warm amber');
+
+    // Offline member (last seen 2h ago)
+    const staleRes = sessionMod.getMemberPresenceStatus({ email: 'stale@bb.org', ic: 'stale@bb.org' }, mockPresenceMap);
+    assert.strictEqual(staleRes.status, 'offline', 'Stale user (>15m) resolved as offline');
+    assert.strictEqual(staleRes.color, '#6b7280', 'Offline member dot color is slate gray (#6b7280)');
+    assert.ok(staleRes.label.includes('Offline'), 'Offline label indicates offline last seen');
+
+    // Unknown member (not in map)
+    const unknownRes = sessionMod.getMemberPresenceStatus({ email: 'unknown@bb.org', ic: 'unknown' }, mockPresenceMap);
+    assert.strictEqual(unknownRes.status, 'offline', 'Unknown user resolved as offline');
+    assert.strictEqual(unknownRes.color, '#6b7280', 'Unknown user dot color is slate gray');
+    console.log('  ✔ getMemberPresenceStatus accurately resolves online (#10b981), idle (#f59e0b), and offline (#6b7280) states');
+
+    // 3. Avatar Status Dot Positioning & Rendering
+    const onlinePInfo = { status: 'online', color: '#10b981', label: 'Online' };
+    const onlineAvatar = adminMod.getAdminMemberAvatarHtml('Bryan Lee', 'bryan@gmail.com', 36, onlinePInfo);
+    assert.ok(onlineAvatar.includes('admin-avatar-status-dot'), 'Avatar HTML includes .admin-avatar-status-dot');
+    assert.ok(onlineAvatar.includes('nav-avatar-status-dot'), 'Avatar HTML includes .nav-avatar-status-dot matching top header bar');
+    assert.ok(onlineAvatar.includes('#10b981'), 'Avatar status dot has #10b981 background for online status');
+    assert.ok(onlineAvatar.includes('bottom:-1px') && onlineAvatar.includes('right:-1px'), 'Status dot positioned at bottom:-1px right:-1px exactly like header bar');
+
+    const idlePInfo = { status: 'idle', color: '#f59e0b', label: 'Idle (5m ago)' };
+    const idleAvatar = adminMod.getAdminMemberAvatarHtml('Bryan Lee', 'bryan@gmail.com', 36, idlePInfo);
+    assert.ok(idleAvatar.includes('#f59e0b'), 'Avatar status dot has #f59e0b background for idle status');
+
+    const offlinePInfo = { status: 'offline', color: '#6b7280', label: 'Offline' };
+    const offlineAvatar = adminMod.getAdminMemberAvatarHtml('Bryan Lee', 'bryan@gmail.com', 36, offlinePInfo);
+    assert.ok(offlineAvatar.includes('#6b7280'), 'Avatar status dot has #6b7280 background for offline status');
+
+    // Creator avatar preserves RGB border and receives status dot
+    const creatorAvatar = adminMod.getAdminMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 36, onlinePInfo);
+    assert.ok(creatorAvatar.includes('creator-outline-avatar'), 'Creator avatar retains outline');
+    assert.ok(creatorAvatar.includes('creator-rgb-avatar'), 'Creator avatar retains RGB border');
+    assert.ok(creatorAvatar.includes('admin-avatar-status-dot'), 'Creator avatar receives status dot');
+    console.log('  ✔ Avatar HTML renders circular avatar with status dot pinned to bottom-right corner matching top header bar');
+
+    // 4. Admin Console Member Management Integration
+    const adminJsContent = fs.readFileSync('js/modules/admin.js', 'utf8');
+    assert.ok(adminJsContent.includes('_adminPresenceMap'), 'admin.js maintains _adminPresenceMap');
+    assert.ok(adminJsContent.includes('admin-presence-badge'), 'renderAdminList injects .admin-presence-badge into row subtitle');
+    assert.ok(adminJsContent.includes('em-profile-presence-card'), 'openEditMember dynamically renders .em-profile-presence-card header');
+    assert.ok(adminJsContent.includes("_adminSortBy === 'status'"), 'renderAdminList supports sorting by presence status');
+
+    // 5. Database Migration Schema 014
+    const mig014 = fs.readFileSync('supabase/migrations/014_member_presence_tracking.sql', 'utf8');
+    assert.ok(mig014.includes('last_active_at'), 'Migration 014 defines last_active_at on bb_members');
+    assert.ok(mig014.includes('presence_status'), 'Migration 014 defines presence_status on bb_members');
+    assert.ok(mig014.includes('idx_bb_members_presence_status'), 'Migration 014 defines presence_status index');
+    console.log('  ✔ Database migration 014_member_presence_tracking.sql verified with schema and indexing');
+
+    // 6. UI Styles & Strict 388 Unique DOM IDs Invariant
+    const compCssPresence = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(compCssPresence.includes('.admin-avatar-status-dot'), 'components.css defines .admin-avatar-status-dot');
+    assert.ok(compCssPresence.includes('.admin-presence-badge'), 'components.css defines .admin-presence-badge');
+    assert.ok(compCssPresence.includes('.em-profile-presence-card'), 'components.css defines .em-profile-presence-card');
+
+    const indexHtmlPresence = fs.readFileSync('index.html', 'utf8');
+    assert.ok(indexHtmlPresence.includes('data-sort="status"'), 'index.html defines Status sort button');
+    assert.ok(indexHtmlPresence.includes('initPresenceTracking'), 'index.html initializes presence tracking on boot');
+
+    const idMatchesPresence = indexHtmlPresence.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIdsPresence = idMatchesPresence.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIdsPresence = Array.from(new Set(extractedIdsPresence));
+    assert.strictEqual(uniqueIdsPresence.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+  }
+
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

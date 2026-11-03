@@ -2050,6 +2050,7 @@
           <button class="adm-sort-btn"              id="sort-rank"    onclick="setAdminSort('rank')">Rank</button>
           <button class="adm-sort-btn"              id="sort-joined"  onclick="setAdminSort('joined')">Joined</button>
           <button class="adm-sort-btn"              data-sort="dept"  onclick="setAdminSort('dept')">Department</button>
+          <button class="adm-sort-btn"              data-sort="status" onclick="setAdminSort('status')">Status</button>
         </div>
         <div id="admin-members-list"></div>
 
@@ -3550,6 +3551,7 @@ window.addEventListener('load', function() {
     }
   }
   updateOfflineIndicator();
+  if (typeof initPresenceTracking === 'function') initPresenceTracking();
   updateNavUserHeader();
   renderNotifications();
 
@@ -4206,7 +4208,19 @@ function updateNavUserHeader() {
   if (ptsVal) ptsVal.textContent = String(credits);
 
   if (ic) {
-    if (statusDot) statusDot.style.background = '#10b981';
+    var pStatus = (typeof getLocalPresenceStatus === 'function') ? getLocalPresenceStatus() : 'online';
+    if (statusDot) {
+      if (pStatus === 'online') {
+        statusDot.style.background = '#10b981';
+        statusDot.title = 'Status: Online';
+      } else if (pStatus === 'idle') {
+        statusDot.style.background = '#f59e0b';
+        statusDot.title = 'Status: Away / Idle';
+      } else {
+        statusDot.style.background = '#6b7280';
+        statusDot.title = 'Status: Offline';
+      }
+    }
     var profBtn = document.getElementById('nav-profile-btn');
     if (profBtn) {
       var displayName = (typeof sessionGet === 'function') ? sessionGet('name') : '';

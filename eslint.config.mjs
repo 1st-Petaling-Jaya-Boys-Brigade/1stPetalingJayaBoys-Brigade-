@@ -221,6 +221,14 @@ export default [
         saveMemberRbacPermissions: 'readonly',
         getAdminMemberAvatarHtml: 'readonly',
         syncAdminButtonVisibility: 'readonly',
+        // Member Online, Idle & Offline Presence Tracking (TSK-062)
+        getMemberPresenceStatus: 'readonly',
+        getLocalPresenceStatus: 'readonly',
+        setLocalPresenceStatus: 'readonly',
+        sendPresenceHeartbeat: 'readonly',
+        initPresenceTracking: 'readonly',
+        onPresenceChange: 'readonly',
+        getSupabaseClient: 'readonly',
         // AI Support Helper Agent & Bug Forum Globals (TSK-046)
         DEFAULT_FORUM_POSTS: 'readonly',
         loadForumPosts: 'readonly',

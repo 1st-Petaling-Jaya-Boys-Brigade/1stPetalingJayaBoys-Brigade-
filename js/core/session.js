@@ -557,6 +557,317 @@ var AuthGuard = {
   }
 };
 
+
+// ── Member Online, Idle & Offline Presence Tracking (TSK-062) ────────────────
+var PRESENCE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;      // 5 minutes of inactivity = Idle
+var PRESENCE_HEARTBEAT_INTERVAL_MS = 60 * 1000;    // 60-second periodic heartbeat
+var _lastUserActivityTs = Date.now();
+var _localPresenceStatus = 'online';
+var _presenceHeartbeatTimer = null;
+var _presenceCheckTimer = null;
+var _presenceListeners = [];
+var _lastActivityRecordTs = 0;
+
+/**
+ * Returns current user presence status: 'online', 'idle', or 'offline'
+ * @returns {string}
+ */
+function getLocalPresenceStatus() {
+  if (typeof isUserAuthenticated === 'function' && !isUserAuthenticated()) {
+    return 'offline';
+  }
+  return _localPresenceStatus;
+}
+
+/**
+ * Sets local presence state and updates the top navigation status dot
+ * @param {string} status - 'online', 'idle', or 'offline'
+ */
+function setLocalPresenceStatus(status) {
+  var cleanStatus = (status === 'online' || status === 'idle' || status === 'offline') ? status : 'offline';
+  var changed = _localPresenceStatus !== cleanStatus;
+  _localPresenceStatus = cleanStatus;
+
+  if (typeof document !== 'undefined') {
+    var dot = document.getElementById('nav-avatar-status-dot');
+    if (dot) {
+      if (cleanStatus === 'online') {
+        dot.style.background = '#10b981';
+        dot.title = 'Status: Online';
+        dot.setAttribute('aria-label', 'Status: Online');
+      } else if (cleanStatus === 'idle') {
+        dot.style.background = '#f59e0b';
+        dot.title = 'Status: Away / Idle';
+        dot.setAttribute('aria-label', 'Status: Away / Idle');
+      } else {
+        dot.style.background = '#6b7280';
+        dot.title = 'Status: Offline';
+        dot.setAttribute('aria-label', 'Status: Offline');
+      }
+    }
+  }
+
+  if (changed) {
+    for (var i = 0; i < _presenceListeners.length; i++) {
+      try { _presenceListeners[i](_localPresenceStatus); } catch (_) {}
+    }
+  }
+}
+
+/**
+ * Subscribes to local presence status changes
+ * @param {Function} callback
+ */
+function onPresenceChange(callback) {
+  if (typeof callback === 'function') {
+    _presenceListeners.push(callback);
+    try { callback(_localPresenceStatus); } catch (_) {}
+  }
+}
+
+/**
+ * Records user interaction event (throttled to 3s)
+ */
+function recordUserActivity() {
+  var now = Date.now();
+  _lastUserActivityTs = now;
+  if (now - _lastActivityRecordTs < 3000) return;
+  _lastActivityRecordTs = now;
+
+  if (typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
+    if (_localPresenceStatus === 'idle') {
+      setLocalPresenceStatus('online');
+      if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+        sendPresenceHeartbeat('online');
+      }
+    }
+  }
+}
+
+/**
+ * Sends presence heartbeat to local cache and Supabase bb_config (leader tab only)
+ * @param {string} [forcedStatus]
+ */
+async function sendPresenceHeartbeat(forcedStatus) {
+  try {
+    if (typeof isUserAuthenticated === 'function' && !isUserAuthenticated()) {
+      return;
+    }
+    var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+    var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
+    var name = (typeof sessionGet === 'function') ? sessionGet('name') : null;
+    var rank = (typeof sessionGet === 'function') ? sessionGet('rank') : null;
+    var key = (email || ic || '').toLowerCase().trim();
+    if (!key) return;
+
+    var status = forcedStatus || getLocalPresenceStatus();
+    var payload = {
+      status: status,
+      last_seen: Date.now(),
+      name: name || 'Member',
+      email: email || '',
+      ic: ic || '',
+      rank: rank || ''
+    };
+
+    // 1. Update localStorage cache for instant cross-tab and offline availability
+    try {
+      if (typeof localStorage !== 'undefined') {
+        var raw = localStorage.getItem('bb_member_presence');
+        var map = raw ? JSON.parse(raw) : {};
+        map[key] = payload;
+        localStorage.setItem('bb_member_presence', JSON.stringify(map));
+        localStorage.setItem('bb_local_presence', JSON.stringify(payload));
+      }
+    } catch (_) {}
+
+    // 2. Persist to Supabase bb_config if leader tab
+    if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+      var client = (typeof getSupabaseClient === 'function')
+        ? getSupabaseClient()
+        : (typeof window !== 'undefined' && window.supa ? window.supa : (typeof supa !== 'undefined' ? supa : null));
+
+      if (client && typeof client.safeConfigUpdate === 'function') {
+        await client.safeConfigUpdate('bb_member_presence', function(currentRemote) {
+          var remoteMap = (currentRemote && typeof currentRemote === 'object') ? currentRemote : {};
+          var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          Object.keys(remoteMap).forEach(function(k) {
+            if (remoteMap[k] && remoteMap[k].last_seen && remoteMap[k].last_seen < cutoff) {
+              delete remoteMap[k];
+            }
+          });
+          remoteMap[key] = payload;
+          return remoteMap;
+        }, { enableMerge: false, maxRetries: 2 }).catch(function() {});
+      }
+    }
+  } catch (_) {}
+}
+
+/**
+ * Initializes activity listeners and presence intervals
+ */
+function initPresenceTracking() {
+  if (typeof window === 'undefined') return;
+
+  var events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+  events.forEach(function(ev) {
+    try {
+      window.addEventListener(ev, recordUserActivity, { passive: true });
+    } catch (_) {
+      try { window.addEventListener(ev, recordUserActivity); } catch (_) {}
+    }
+  });
+
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        recordUserActivity();
+      }
+    });
+  }
+
+  // Periodic activity checker (every 15 seconds)
+  if (_presenceCheckTimer) clearInterval(_presenceCheckTimer);
+  _presenceCheckTimer = setInterval(function() {
+    if (typeof isUserAuthenticated !== 'function' || !isUserAuthenticated()) {
+      if (_localPresenceStatus !== 'offline') setLocalPresenceStatus('offline');
+      return;
+    }
+
+    var now = Date.now();
+    var idleTime = now - _lastUserActivityTs;
+    var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+
+    if (idleTime >= PRESENCE_IDLE_TIMEOUT_MS || (isTabHidden && idleTime >= 2 * 60 * 1000)) {
+      if (_localPresenceStatus !== 'idle') {
+        setLocalPresenceStatus('idle');
+        if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+          sendPresenceHeartbeat('idle');
+        }
+      }
+    } else {
+      if (_localPresenceStatus !== 'online') {
+        setLocalPresenceStatus('online');
+        if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+          sendPresenceHeartbeat('online');
+        }
+      }
+    }
+  }, 15000);
+
+  // Periodic heartbeat timer (every 60 seconds)
+  if (_presenceHeartbeatTimer) clearInterval(_presenceHeartbeatTimer);
+  _presenceHeartbeatTimer = setInterval(function() {
+    if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+      sendPresenceHeartbeat();
+    }
+  }, PRESENCE_HEARTBEAT_INTERVAL_MS);
+
+  // Initial heartbeat if already logged in
+  if (typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
+    sendPresenceHeartbeat('online');
+  }
+}
+
+/**
+ * Resolves presence state, label, and status dot color for any member
+ * @param {Object|string} member - Member record or IC/Email
+ * @param {Object} [presenceMap] - Optional remote bb_member_presence map
+ * @returns {{ status: string, label: string, color: string, lastSeen: number|null }}
+ */
+function getMemberPresenceStatus(member, presenceMap) {
+  var now = Date.now();
+  var mObj = (typeof member === 'object' && member !== null) ? member : { ic: String(member), email: String(member) };
+  var mIc = (mObj.ic || '').trim();
+  var mEmail = (mObj.email || '').trim().toLowerCase();
+
+  var currentIc = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+  var currentEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : null;
+
+  var isSelf = (currentIc && (mIc === currentIc || mEmail === currentIc.toLowerCase())) ||
+               (currentEmail && (mEmail === currentEmail || mIc.toLowerCase() === currentEmail));
+
+  if (isSelf) {
+    var selfStatus = getLocalPresenceStatus();
+    return {
+      status: selfStatus,
+      label: selfStatus === 'idle' ? 'Away / Idle' : (selfStatus === 'online' ? 'Online' : 'Offline'),
+      color: selfStatus === 'idle' ? '#f59e0b' : (selfStatus === 'online' ? '#10b981' : '#6b7280'),
+      lastSeen: now
+    };
+  }
+
+  var map = presenceMap;
+  if (!map && typeof localStorage !== 'undefined') {
+    try {
+      var raw = localStorage.getItem('bb_member_presence');
+      if (raw) map = JSON.parse(raw);
+    } catch (_) {}
+  }
+  map = map || {};
+
+  var rec = null;
+  if (mEmail && map[mEmail]) rec = map[mEmail];
+  else if (mIc && map[mIc]) rec = map[mIc];
+  else if (mIc && map[mIc.toLowerCase()]) rec = map[mIc.toLowerCase()];
+  else {
+    var keys = Object.keys(map);
+    for (var i = 0; i < keys.length; i++) {
+      var it = map[keys[i]];
+      if (it && ((mEmail && it.email && it.email.toLowerCase() === mEmail) || (mIc && it.ic === mIc))) {
+        rec = it;
+        break;
+      }
+    }
+  }
+
+  if (!rec || !rec.last_seen || rec.status === 'offline') {
+    return {
+      status: 'offline',
+      label: 'Offline',
+      color: '#6b7280',
+      lastSeen: rec ? rec.last_seen : null
+    };
+  }
+
+  var elapsed = now - rec.last_seen;
+  if (elapsed < 4 * 60 * 1000 && rec.status === 'online') {
+    return {
+      status: 'online',
+      label: 'Online',
+      color: '#10b981',
+      lastSeen: rec.last_seen
+    };
+  }
+
+  if (elapsed < 15 * 60 * 1000) {
+    var mins = Math.max(1, Math.round(elapsed / 60000));
+    return {
+      status: 'idle',
+      label: 'Idle (' + mins + 'm ago)',
+      color: '#f59e0b',
+      lastSeen: rec.last_seen
+    };
+  }
+
+  var timeAgo = '';
+  var hrs = Math.round(elapsed / 3600000);
+  if (hrs < 24) {
+    timeAgo = hrs <= 1 ? '1h ago' : (hrs + 'h ago');
+  } else {
+    var days = Math.round(hrs / 24);
+    timeAgo = days <= 1 ? 'yesterday' : (days + 'd ago');
+  }
+
+  return {
+    status: 'offline',
+    label: 'Offline (Last seen ' + timeAgo + ')',
+    color: '#6b7280',
+    lastSeen: rec.last_seen
+  };
+}
+
 /**
  * Top-level convenience alias for AuthGuard.isUserAuthenticated
  * @returns {boolean}
@@ -581,6 +892,15 @@ if (typeof window !== 'undefined') {
   window.isLeaderTab = isLeaderTab;
   window.onLeaderChange = onLeaderChange;
   window.initLeaderElection = initLeaderElection;
+  window.getLocalPresenceStatus = getLocalPresenceStatus;
+  window.setLocalPresenceStatus = setLocalPresenceStatus;
+  window.onPresenceChange = onPresenceChange;
+  window.recordUserActivity = recordUserActivity;
+  window.sendPresenceHeartbeat = sendPresenceHeartbeat;
+  window.initPresenceTracking = initPresenceTracking;
+  window.getMemberPresenceStatus = getMemberPresenceStatus;
+  window.PRESENCE_IDLE_TIMEOUT_MS = PRESENCE_IDLE_TIMEOUT_MS;
+  window.PRESENCE_HEARTBEAT_INTERVAL_MS = PRESENCE_HEARTBEAT_INTERVAL_MS;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -598,6 +918,15 @@ if (typeof module !== 'undefined' && module.exports) {
     getTabId,
     isLeaderTab,
     onLeaderChange,
-    initLeaderElection
+    initLeaderElection,
+    getLocalPresenceStatus,
+    setLocalPresenceStatus,
+    onPresenceChange,
+    recordUserActivity,
+    sendPresenceHeartbeat,
+    initPresenceTracking,
+    getMemberPresenceStatus,
+    PRESENCE_IDLE_TIMEOUT_MS,
+    PRESENCE_HEARTBEAT_INTERVAL_MS
   };
 }
