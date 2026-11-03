@@ -1069,8 +1069,10 @@
     }
 
     if (isCreator) {
+      var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
+      var creatorCls = isRgb ? 'creator-outline-avatar creator-rgb-avatar' : '';
       return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
-        '<span class="creator-outline-avatar creator-rgb-avatar" style="width:100%;height:100%;border-radius:50%;background:#083830;color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
+        '<span class="' + creatorCls + '" style="width:100%;height:100%;border-radius:50%;background:#083830;color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
         outlineHtml +
         dotHtml +
       '</span>';

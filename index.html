@@ -4232,6 +4232,10 @@ function updateNavUserHeader() {
       ptsBadge.setAttribute('aria-label', 'Credits: ' + credits + ', Streak: ' + streak);
     }
     var photoUrl = (typeof sessionGet === 'function') ? sessionGet('photo_url') : null;
+    if (!photoUrl && typeof getMemberAvatarUrl === 'function') {
+      var displayName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      photoUrl = getMemberAvatarUrl(displayName, ic);
+    }
     if (photoUrl && avatarImg) {
       avatarImg.src = photoUrl;
       avatarImg.style.display = 'block';
