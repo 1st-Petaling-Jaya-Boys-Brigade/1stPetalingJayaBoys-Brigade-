@@ -982,7 +982,7 @@
   }
 
   function getAdminMemberAvatarHtml(name, emailOrIc, size, presence) {
-    var sz = size || 36;
+    var sz = size || 38;
     var fs = Math.max(12, Math.round(sz * 0.42));
     var cleanNm = name || 'Member';
     var isCreator = false;
@@ -1007,7 +1007,7 @@
     var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
     var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
     var dotTitle = safeName + ' (' + dotLabel + ')';
-    var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:2;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+    var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:3;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
     var photoUrl = null;
     if (typeof getMemberAvatarUrl === 'function') {
@@ -1015,11 +1015,17 @@
     }
 
     if (photoUrl) {
-      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;" alt="' + safeName + '"/>' + dotHtml + '</span>';
+      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+        '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;" alt="' + safeName + '"/>' +
+        dotHtml +
+      '</span>';
     }
 
     if (isCreator) {
-      return '<span class="admin-member-avatar creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;font-size:' + fs + 'px;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">J' + dotHtml + '</span>';
+      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+        '<span class="creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:100%;height:100%;border-radius:50%;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
+        dotHtml +
+      '</span>';
     }
 
     var initial = (typeof getMemberAvatarInitial === 'function')
@@ -1030,7 +1036,10 @@
       ? getMemberAvatarColor(cleanNm)
       : '#0284c7';
 
-    return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-weight:700;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + dotHtml + '</span>';
+    return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+      '<span style="width:100%;height:100%;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>' +
+      dotHtml +
+    '</span>';
   }
 
   async function renderAdminList() {
@@ -1201,7 +1210,7 @@
           ? getMemberPresenceStatus
           : function() { return { status: 'offline', label: 'Offline', color: '#6b7280' }; };
         var pInfo = pResolver(m, _adminPresenceMap);
-        var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 36, pInfo);
+        var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 38, pInfo);
         var presenceBadge = ' <span class="admin-presence-badge" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + pInfo.color + ';vertical-align:middle;margin-left:4px;" title="' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '"><span style="width:7px;height:7px;border-radius:50%;background:' + pInfo.color + ';display:inline-block;"></span> ' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '</span>';
 
         html += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:12px;">'
