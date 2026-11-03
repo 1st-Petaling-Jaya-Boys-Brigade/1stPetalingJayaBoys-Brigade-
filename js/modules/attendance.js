@@ -266,8 +266,6 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     } catch(e) {}
   }
 
-  // Band card subtitle
-  var bandSubStr = isBandMember ? (rec.bandSection ? (rec.bandSection + ' Section') : 'Band Member') : 'Non-band';
 
   // Uniform avg string
   var uniformAvgHtml = '';
@@ -363,15 +361,12 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<!-- Band Attendance -->' +
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
-          '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">' +
-            (isBandMember && rec.bandSection ? ('Band Attendance &middot; ' + escapeAttHtml(rec.bandSection)) : 'Band Attendance') +
-          '</span>' +
+          '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Band Attendance</span>' +
           (isBandMember ? ('<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:' + bTier.bg + ';color:' + bTier.color + ';border:1px solid ' + bTier.border + ';cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '">80% Req. ℹ️</span>') : '') +
         '</div>' +
         (isBandMember ? (
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">' +
             '<span style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:' + bTier.color + ';">' + escapeAttHtml(bTier.label) + '</span>' +
-            '<span class="att-tier-pill tier-' + bTier.tier.replace('_', '-') + '" title="' + escapeAttHtml(bTier.tooltipText) + '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + bTier.bg + ';color:' + bTier.color + ';border:1px solid ' + bTier.border + ';cursor:help;" aria-label="Band attendance tier: ' + escapeAttHtml(bTier.label) + '">' + escapeAttHtml(bandSubStr) + '</span>' +
           '</div>' +
           '<div style="margin-top:8px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;" title="' + escapeAttHtml(bTier.tooltipText) + '">' +
             '<div style="height:100%;width:' + Math.min(100, Math.max(0, band.percentage || 0)) + '%;background:' + bTier.color + ';border-radius:3px;"></div>' +
