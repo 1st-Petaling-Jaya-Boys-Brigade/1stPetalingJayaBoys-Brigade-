@@ -7237,7 +7237,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(creatorDefaultAvatarHtml.includes('avatar-outline-overlay'), false, 'Creator with none outline does not have overlay');
     console.log('  ✔ Selecting Standard (None) properly applies default outline style without rotating RGB');
 
-    // 8. Strict 388 Unique DOM IDs Invariant
+    // 7B. Universal Avatar Outline Resolution Across Projects & Tasks
+    await memberMod.saveMemberAvatarOutline('jeshuakoh1601@gmail.com', 'velvet', 'jeshuakoh2008@gmail.com', 'Jason Koh');
+    const jasonOutlineByName = memberMod.getMemberAvatarOutline('', 'Jason Koh');
+    assert.strictEqual(jasonOutlineByName.style, 'velvet', 'getMemberAvatarOutline resolves outline by member name alone');
+    const jasonOutlineByTarget = memberMod.getMemberAvatarOutline('jeshuakoh1601@gmail.com', 'Jason Koh');
+    assert.strictEqual(jasonOutlineByTarget.style, 'velvet', 'getMemberAvatarOutline resolves outline by target email');
+    const tasksMod = require('../js/modules/tasks.js');
+    const projectStackAvatarHtml = tasksMod.getAssigneeAvatarHtml('Jason Koh', '', 20);
+    assert.ok(projectStackAvatarHtml.includes('avatar-outline-velvet'), 'Project row assignee stack reflects assigned velvet outline');
+    assert.ok(projectStackAvatarHtml.includes('has-custom-outline'), 'Project row assignee stack avatar has has-custom-outline class');
+    const taskCardAvatarHtml = tasksMod.getAssigneeAvatarHtml('Jason Koh', 'jeshuakoh1601@gmail.com', 24);
+    assert.ok(taskCardAvatarHtml.includes('avatar-outline-velvet'), 'Task card avatar reflects assigned velvet outline');
+    console.log('  ✔ Universal outline resolution verified across Tasks Kanban and Project assignee stacks');
+
+        // 8. Strict 388 Unique DOM IDs Invariant
     const indexHtml = fs.readFileSync('index.html', 'utf8');
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));

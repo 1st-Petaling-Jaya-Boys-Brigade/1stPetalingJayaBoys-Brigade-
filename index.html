@@ -3551,6 +3551,7 @@ window.addEventListener('load', function() {
   }
   updateOfflineIndicator();
   if (typeof initPresenceTracking === 'function') initPresenceTracking();
+  if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
   updateNavUserHeader();
   renderNotifications();
 
