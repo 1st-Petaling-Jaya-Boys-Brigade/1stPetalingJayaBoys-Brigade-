@@ -2135,7 +2135,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(tasksMod.DEPT_CONFIG.logistics.label, 'Logistics');
   assert.strictEqual(tasksMod.DEPT_CONFIG.media.label, 'Media');
   assert.strictEqual(tasksMod.DEPT_CONFIG.hq.label, 'HQ');
-  console.log('  ✔ DEPT_CONFIG defines secretariat, logistics, media, and hq department metadata');
+  assert.strictEqual(tasksMod.DEPT_CONFIG.officers.label, 'Officers');
+  console.log('  ✔ DEPT_CONFIG defines secretariat, logistics, media, hq, and officers department metadata');
 
   // 2. Role-Based NCO Access Checks (checkIsNCO)
   assert.strictEqual(tasksMod.checkIsNCO('Lance Corporal'), true);
@@ -2337,6 +2338,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'logistics', rank: 'Private' }), true, 'Logistics member must have access');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'media', rank: 'Corporal' }), true, 'Media member must have access');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'hq', rank: 'Sergeant' }), true, 'HQ member must have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'officers', rank: 'Private' }), true, 'Officers department member must have access');
 
   // General, Band, Awards, or unassigned members CANNOT access
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'general', rank: 'Recruit' }), false, 'General member must not have access');
@@ -3404,6 +3406,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(adminModule.DEFAULT_DEPT_CONFIG.logistics, 'DEFAULT_DEPT_CONFIG must contain logistics');
   assert.ok(adminModule.DEFAULT_DEPT_CONFIG.media, 'DEFAULT_DEPT_CONFIG must contain media');
   assert.ok(adminModule.DEFAULT_DEPT_CONFIG.hq, 'DEFAULT_DEPT_CONFIG must contain hq');
+  assert.ok(adminModule.DEFAULT_DEPT_CONFIG.officers, 'DEFAULT_DEPT_CONFIG must contain officers');
 
   let deptSortBtn = document.querySelector('.adm-sort-btn[data-sort="dept"]');
   if (!deptSortBtn) {
@@ -6174,8 +6177,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // Test isUserMentionedInComment logic:
     // Case A: Jeshua Koh posts a comment mentioning @Jason Koh.
-    // For Jeshua Koh (the author), isUserMentionedInComment MUST BE FALSE (no self-notifications!)
-    const selfMentionCheck = tasksMod.isUserMentionedInComment(
+    // For Jeshua Koh (the author), isUserMentionedInComment is FALSE because Jeshua is not mentioned in the text
+    const notMentionedCheck = tasksMod.isUserMentionedInComment(
       'Hey @Jason Koh please review this',
       'jeshuakoh2008@gmail.com',
       'Jeshua Koh',
@@ -6184,7 +6187,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'HQ',
       'Sergeant'
     );
-    assert.strictEqual(selfMentionCheck, false, 'Author must NEVER receive a mention notification for their own comment');
+    assert.strictEqual(notMentionedCheck, false, 'Author is not notified when not mentioned in comment text');
 
     // Case B: For Jason Koh (the mentioned user), isUserMentionedInComment MUST BE TRUE
     const recipientCheck = tasksMod.isUserMentionedInComment(
@@ -6210,7 +6213,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     );
     assert.strictEqual(unrelatedCheck, false, 'Unrelated member must not be notified');
 
-    // Case D: Group mention @Secretariat notifies Secretariat members, not others or author
+    // Case D: Group mention @Secretariat notifies Secretariat members
     const groupSecCheck = tasksMod.isUserMentionedInComment(
       'Reminder @Secretariat for the parade briefing',
       'officer@1stpjbb.org.my',
@@ -6232,7 +6235,55 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'Corporal'
     );
     assert.strictEqual(groupOtherCheck, false, 'Non-department member NOT notified on @Secretariat group mention');
-    console.log('  ✔ isUserMentionedInComment accurately routes notifications and strictly excludes author');
+
+    // Case E: Self mention - Jeshua Koh mentions himself (@Jeshua Koh) -> MUST BE TRUE!
+    const selfNameMention = tasksMod.isUserMentionedInComment(
+      'Note to myself @Jeshua Koh check inventory',
+      'jeshuakoh2008@gmail.com',
+      'Jeshua Koh',
+      'Jeshua Koh',
+      'jeshuakoh2008@gmail.com',
+      'HQ',
+      'Sergeant'
+    );
+    assert.strictEqual(selfNameMention, true, 'Author mentioning own name (@Jeshua Koh) receives notification');
+
+    // Case F: Own department mention - Jeshua Koh mentions @HQ -> MUST BE TRUE!
+    const selfDeptMention = tasksMod.isUserMentionedInComment(
+      'Meeting scheduled for @HQ tomorrow',
+      'jeshuakoh2008@gmail.com',
+      'Jeshua Koh',
+      'Jeshua Koh',
+      'jeshuakoh2008@gmail.com',
+      'HQ',
+      'Sergeant'
+    );
+    assert.strictEqual(selfDeptMention, true, 'Author mentioning own department (@HQ) receives notification');
+
+    // Case G: @all mention - Jeshua Koh mentions @all -> MUST BE TRUE for author and all members!
+    const selfAllMention = tasksMod.isUserMentionedInComment(
+      'Company briefing for @all at 2pm',
+      'jeshuakoh2008@gmail.com',
+      'Jeshua Koh',
+      'Jeshua Koh',
+      'jeshuakoh2008@gmail.com',
+      'HQ',
+      'Sergeant'
+    );
+    assert.strictEqual(selfAllMention, true, 'Author mentioning @all receives notification');
+
+    // Case H: @Officers mention - notifies Officers department and officer ranks!
+    const officersDeptMention = tasksMod.isUserMentionedInComment(
+      'Attention @Officers meeting at mess',
+      'someone@1stpjbb.org.my',
+      'Someone',
+      'Officer Bob',
+      'bob@1stpjbb.org.my',
+      'Officers',
+      'Sergeant'
+    );
+    assert.strictEqual(officersDeptMention, true, 'Member in Officers department notified on @Officers mention');
+    console.log('  ✔ isUserMentionedInComment accurately routes notifications for @all, individual names, departments (@Secretariat, @HQ, @Logistics, @Media, @Officers) and self mentions');
 
     // Test Comment Editing and Deleting in memory/storage
     const testCmtTaskId = 'test-comment-crud-task';

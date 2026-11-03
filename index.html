@@ -1269,7 +1269,7 @@
       <div class="gate-icon" style="margin:0 auto 16px;width:56px;height:56px;border-radius:50%;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid var(--border-subtle);"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
       <div class="page-title" style="text-align:center;">Department Role Required</div>
       <div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Access Restricted</div>
-      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">Only members and NCOs assigned to a department (Secretariat, Logistics, Media, or HQ) can access Projects &amp; Tasks. Please contact an Officer to assign your Department Role in the Admin Console.</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">Only members and NCOs assigned to a department (Secretariat, Logistics, Media, HQ, or Officers) can access Projects &amp; Tasks. Please contact an Officer to assign your Department Role in the Admin Console.</div>
       <button class="submit-btn gold" onclick="goToMemberTab()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Login / Register</button>
     </div>
 
@@ -1294,6 +1294,7 @@
               <option value="logistics">Logistics</option>
               <option value="media">Media</option>
               <option value="hq">HQ</option>
+              <option value="officers">Officers</option>
             </select>
             <div class="task-view-toggle" role="group" aria-label="Task view mode">
               <button type="button" class="view-toggle-btn active" data-vmode="projects" onclick="setTasksViewMode('projects')" title="Projects Overview">
@@ -2102,6 +2103,7 @@
                 <option value="logistics">Logistics</option>
                 <option value="media">Media</option>
                 <option value="hq">HQ</option>
+                <option value="officers">Officers</option>
               </select>
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4;">
                 Assigning a department role grants this member access to the Projects &amp; Tasks tab. Members and NCOs without a department role cannot access it.
@@ -2350,6 +2352,7 @@
           <button class="adm-dept-tab" id="dtab-logistics"    style="color:var(--brand-blue);border-color:rgba(59,130,246,0.3);" onclick="switchDeptTab('logistics')">Logistics</button>
           <button class="adm-dept-tab" id="dtab-media"        style="color:#ffb74d;border-color:rgba(255,183,77,0.3);" onclick="switchDeptTab('media')">Media</button>
           <button class="adm-dept-tab" data-dept="hq"         style="color:#10b981;border-color:rgba(16,185,129,0.3);" onclick="switchDeptTab('hq')">HQ</button>
+          <button class="adm-dept-tab" data-dept="officers"   style="color:#f59e0b;border-color:rgba(245,158,11,0.3);" onclick="switchDeptTab('officers')">Officers</button>
         </div>
 
         <!-- Add/edit task form (collapsible) -->
@@ -2373,6 +2376,7 @@
                   <option value="logistics">Logistics</option>
                   <option value="media">Media</option>
                   <option value="hq">HQ</option>
+                  <option value="officers">Officers</option>
                 </select>
               </div>
               <div class="form-group">
@@ -3756,7 +3760,9 @@ function addPortalNotification(notif) {
 }
 
 function syncTaskNotifications(tasks) {
-  if (!Array.isArray(tasks)) return;
+  var taskList = Array.isArray(tasks) ? tasks : ((typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) ? _allLoadedTasks : ((typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks)) ? window._allLoadedTasks : []));
+  if (!Array.isArray(taskList)) return;
+
   var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
   var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
   if (!myIc && !myName) return;
@@ -3774,9 +3780,16 @@ function syncTaskNotifications(tasks) {
   }
   if (!hasDept) return;
 
+  if (typeof _activeDetailTaskId !== 'undefined' && _activeDetailTaskId) {
+    var activeT = (typeof _taskMap !== 'undefined' && _taskMap[_activeDetailTaskId]) || (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]);
+    if (activeT && !taskList.some(function(x) { return String(x.id) === String(_activeDetailTaskId); })) {
+      taskList = taskList.concat([activeT]);
+    }
+  }
+
   var dismissed = getDismissedNotifIds();
 
-  tasks.forEach(function(t) {
+  taskList.forEach(function(t) {
     if (!t || !t.id) return;
     var isAssigned = (t.assignee_ic && myIc && t.assignee_ic.indexOf(myIc) !== -1)
       || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1);
@@ -3843,23 +3856,49 @@ function syncTaskNotifications(tasks) {
     }
   });
 
-  // 3. Task Comment Mentions Notification (only if current user is mentioned and NOT the author)
+  // 3. Mentions in Task Brief & Comments
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
   var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
   var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '') : '';
 
-  // Purge any legacy or self-mention notifications where the author is the current user
-  _allPortalNotifications = _allPortalNotifications.filter(function(n) {
-    if (n && n.id && n.id.indexOf('notif-mention-') === 0) {
-      if (myName && n.title && n.title.indexOf(myName + ' mentioned you') === 0) {
-        return false;
+  var checkFn = (typeof isUserMentionedInComment === 'function')
+    ? isUserMentionedInComment
+    : (typeof window !== 'undefined' && typeof window.isUserMentionedInComment === 'function' ? window.isUserMentionedInComment : null);
+
+  // 3A. Mentions in Task Brief Description
+  taskList.forEach(function(t) {
+    if (!t || !t.id || !t.description) return;
+    var notifId = 'notif-task-desc-mention-' + t.id;
+    if (dismissed.indexOf(notifId) !== -1) return;
+
+    var isMentioned = checkFn ? checkFn(t.description, t.creator_email || '', t.creator_name || '', myName, myEmail, myDept, myRank) : false;
+    if (isMentioned) {
+      var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+      if (!existing) {
+        var cleanSnippet = (t.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleanSnippet.length > 70) cleanSnippet = cleanSnippet.slice(0, 67) + '...';
+        _allPortalNotifications.unshift({
+          id: notifId,
+          category: 'tasks',
+          group: 'Today',
+          icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+          title: (t.creator_name ? (t.creator_name + ' mentioned you in a task brief') : 'You were mentioned in a task brief'),
+          snippet: (t.id ? (String(t.id).toUpperCase() + ' - ') : '') + (t.title || cleanSnippet),
+          time: 'Today',
+          unread: true,
+          action: function() {
+            switchTabNav('tasks');
+            if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+            if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+          }
+        });
       }
     }
-    return true;
   });
 
+  // 3B. Mentions in Task Comments
   if (typeof getTaskComments === 'function') {
-    tasks.forEach(function(t) {
+    taskList.forEach(function(t) {
       if (!t || !t.id) return;
       var comments = getTaskComments(t.id);
       if (!Array.isArray(comments)) return;
@@ -3868,21 +3907,19 @@ function syncTaskNotifications(tasks) {
         var notifId = 'notif-mention-' + c.id;
         if (dismissed.indexOf(notifId) !== -1) return;
 
-        var checkFn = (typeof isUserMentionedInComment === 'function')
-          ? isUserMentionedInComment
-          : (typeof window !== 'undefined' && typeof window.isUserMentionedInComment === 'function' ? window.isUserMentionedInComment : null);
-
         var isMentioned = checkFn ? checkFn(c.text, c.author_email, c.author_name, myName, myEmail, myDept, myRank) : false;
         if (isMentioned) {
           var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
           if (!existing) {
+            var cSnippet = (c.text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            if (cSnippet.length > 70) cSnippet = cSnippet.slice(0, 67) + '...';
             _allPortalNotifications.unshift({
               id: notifId,
               category: 'tasks',
               group: 'Today',
               icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-              title: (c.author_name || 'Member') + ' mentioned you in a task',
-              snippet: c.text.slice(0, 70),
+              title: (c.author_name ? (c.author_name + ' mentioned you in a task') : 'You were mentioned in a task'),
+              snippet: cSnippet,
               time: 'Today',
               unread: true,
               action: function() {

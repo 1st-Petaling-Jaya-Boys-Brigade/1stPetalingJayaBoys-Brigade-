@@ -2790,6 +2790,12 @@ select.form-input,
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
+.dept-officers {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
 .ftype-btn {
   padding: 12px 8px;
   border: 1.5px solid var(--border-card);

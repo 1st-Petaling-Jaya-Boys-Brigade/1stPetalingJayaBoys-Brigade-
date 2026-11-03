@@ -48,7 +48,8 @@
     secretariat: { label: 'Secretariat', color: '#ce93d8', cls: 'dept-secretariat', prefix: 'SEC' },
     logistics:   { label: 'Logistics',   color: '#42a5f5', cls: 'dept-logistics',   prefix: 'LOG' },
     media:       { label: 'Media',       color: '#ffb74d', cls: 'dept-media',       prefix: 'MED' },
-    hq:          { label: 'HQ',          color: '#10b981', cls: 'dept-hq',          prefix: 'HQ'  }
+    hq:          { label: 'HQ',          color: '#10b981', cls: 'dept-hq',          prefix: 'HQ'  },
+    officers:    { label: 'Officers',    color: '#f59e0b', cls: 'dept-officers',    prefix: 'OFF' }
   };
 
   // ── Internal State ────────────────────────────────────────────────────────
@@ -958,8 +959,8 @@
     if (typeof document === 'undefined') return;
     var dConfig = getDeptConfig();
 
-    ['all', 'secretariat', 'logistics', 'media', 'hq'].forEach(function(d) {
-      var btn = document.getElementById('dtab-' + d);
+    ['all', 'secretariat', 'logistics', 'media', 'hq', 'officers'].forEach(function(d) {
+      var btn = document.getElementById('dtab-' + d) || document.querySelector('[data-dept="' + d + '"]');
       if (!btn) return;
       var active = (d === dept);
       btn.classList.toggle('active-dept-tab', active);
