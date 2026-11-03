@@ -280,7 +280,7 @@
       q: 'What is the highest award a Senior Section BB member can achieve in Malaysia?',
       options: ['President\'s Award', 'Founder\'s Badge', 'Gold Badge', 'Chief Leader Cross'],
       correct: 0,
-      expl: 'The President\'s Award is the highest national award in the BB Malaysia Senior Section, preceded by the prestigious Founder\'s Badge.'
+      expl: 'The Founder\'s Award is the highest national award in the BB Malaysia Senior Section.'
     },
     {
       q: 'In Foot Drill, what is the command to stand at attention in Malay?',
@@ -989,7 +989,7 @@
               '</div>' +
               '<div>' +
                 '<div class="page-title" style="margin:0;">1stPJ Arcade</div>' +
-                '<div class="page-subtitle" style="margin:0;">Daily BB Wordle, Timed Trivia &amp; Gamified Syllabus Hub</div>' +
+                '<div class="page-subtitle" style="margin:0;">Daily Wordle, Timed Trivia &amp; Gamified Syllabus Hub</div>' +
               '</div>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -1127,7 +1127,7 @@
     container.innerHTML =
       '<div class="card wordle-card">' +
         '<div style="text-align:center;margin-bottom:14px;">' +
-          '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);">Daily BB Wordle</div>' +
+          '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);">Daily Wordle</div>' +
           '<div style="font-size:12px;color:var(--text-muted);">Guess today\'s 5-letter word in 6 tries. Green = correct spot, Gold = wrong spot.</div>' +
         '</div>' +
         statusBanner +
