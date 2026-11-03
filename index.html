@@ -401,13 +401,14 @@
         </div>
       </div>
 
-      <!-- 3. Points Counter Badge -->
-      <div class="nav-points-badge" id="nav-points-badge" onclick="switchTabNav('attendance')" role="button" tabindex="0" title="Your Total Points (Click to view Leaderboard)" aria-label="Points: 0">
-        <span class="points-icon-wrap">
-          <svg class="points-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      <!-- 3. Credits & Daily Streak Counter Badge (TSK-056) -->
+      <div class="nav-points-badge" id="nav-points-badge" onclick="switchTabNav('arcade')" role="button" tabindex="0" title="Daily Streak & Credits (Click to enter 1stPJ Arcade)" aria-label="Credits: 0, Streak: 0">
+        <span class="nav-streak-wrap" title="Daily Game Participation Streak">
+          <span class="nav-streak-val">0</span>
+          <svg class="streak-fire-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
         </span>
         <span class="points-val" id="nav-points-val">0</span>
-        <span class="points-unit">Points</span>
+        <span class="points-unit">Credits</span>
       </div>
 
       <!-- 4. Member Profile Avatar -->
@@ -539,6 +540,10 @@
       <button class="sidebar-item" id="snav-resources" onclick="switchTabNav('resources');closeSidebar()">
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg></span>
         <span class="si-label">Resources</span>
+      </button>
+      <button class="sidebar-item" data-nav="arcade" onclick="switchTabNav('arcade');closeSidebar()">
+        <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg></span>
+        <span class="si-label">1stPJ Arcade</span>
       </button>
       <button class="sidebar-item" data-nav="forum" onclick="switchTabNav('forum');closeSidebar()">
         <span class="si-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg></span>
@@ -3025,6 +3030,7 @@
 <script src="js/modules/tasks.js?v=20261103c"></script>
 <script src="js/modules/admin.js?v=20261103c"></script>
 <script src="js/modules/forum.js?v=20261103c"></script>
+<script src="js/modules/arcade.js?v=20261103c"></script>
 
 <script>
 
@@ -3048,7 +3054,8 @@ var TAB_TITLES = {
   attendance: 'Squad Leaderboard — 1st PJ Boys\' Brigade',
   resources: 'Company Resources — 1st PJ Boys\' Brigade',
   gallery: 'Media Gallery — 1st PJ Boys\' Brigade',
-  forum: 'Support & Bug Forum — 1st PJ Boys\' Brigade'
+  forum: 'Support & Bug Forum — 1st PJ Boys\' Brigade',
+  arcade: '1stPJ Arcade — 1st PJ Boys\' Brigade'
 };
 
 function switchTab(tab, btn, skipPush) {
@@ -3064,6 +3071,7 @@ function switchTab(tab, btn, skipPush) {
       else if (tab === 'resources') tabLabel = 'Company Resources';
       else if (tab === 'badges') tabLabel = 'Awards & Badges';
       else if (tab === 'forum') tabLabel = 'Support & Bug Forum';
+      else if (tab === 'arcade') tabLabel = '1stPJ Arcade';
       if (typeof showToast === 'function') {
         showToast('Authentication required to access ' + tabLabel + '. Please sign in or register.', 'info', 4000);
       }
@@ -3108,6 +3116,7 @@ function switchTab(tab, btn, skipPush) {
   if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
   if (tab === 'gallery')    { if (typeof renderGallery === 'function') renderGallery(); }
   if (tab === 'forum')      { if (typeof renderForumPage === 'function') renderForumPage(); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (tab === 'arcade')     { if (typeof renderArcadePage === 'function') renderArcadePage(); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (tab === 'home')       {
     if (typeof renderCalendarWidget === 'function') renderCalendarWidget();
     if (typeof updateQuickCardsCarousel === 'function') updateQuickCardsCarousel();
@@ -3546,7 +3555,7 @@ window.addEventListener('load', function() {
 
   // Initialize initial history state for browser Undo/Redo stack (TSK-059)
   var initialHash = (typeof window !== 'undefined' && window.location.hash ? window.location.hash.replace('#', '').trim() : '') || 'home';
-  var validInitialTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum'];
+  var validInitialTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'];
   if (validInitialTabs.indexOf(initialHash) === -1 && initialHash !== 'admin') {
     initialHash = 'home';
   }
@@ -3602,7 +3611,7 @@ function handleHashNavigation(event) {
 
   // 3. Tab routing across all portal pages
   var targetTab = (state && state.tab) || hash || 'home';
-  var allValidTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum'];
+  var allValidTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'];
   if (allValidTabs.indexOf(targetTab) !== -1) {
     switchTabNav(targetTab, true);
   }
@@ -4188,15 +4197,13 @@ function updateNavUserHeader() {
   var avatarPh = document.getElementById('nav-avatar-placeholder');
   var statusDot = document.getElementById('nav-avatar-status-dot');
 
-  var pts = 0;
-  if (typeof window !== 'undefined' && window._memberAttendanceData && window._memberAttendanceData.points) {
-    pts = window._memberAttendanceData.points.total || 0;
-  } else if (typeof window !== 'undefined' && window._currentMemberData && window._currentMemberData.total_points) {
-    pts = window._currentMemberData.total_points || 0;
-  } else if (typeof sessionGet === 'function' && sessionGet('points')) {
-    pts = parseInt(sessionGet('points'), 10) || 0;
-  }
-  if (ptsVal) ptsVal.textContent = String(pts);
+  var streakValEl = document.querySelector('.nav-streak-val');
+  var arcadeStats = (typeof getArcadeStats === 'function') ? getArcadeStats() : null;
+  var streak = (arcadeStats && arcadeStats.streak) || parseInt((typeof sessionGet === 'function' && sessionGet('game_streak')) || '0', 10) || 0;
+  var credits = (arcadeStats && arcadeStats.credits) || parseInt((typeof sessionGet === 'function' && sessionGet('game_credits')) || '0', 10) || 0;
+
+  if (streakValEl) streakValEl.textContent = String(streak);
+  if (ptsVal) ptsVal.textContent = String(credits);
 
   if (ic) {
     if (statusDot) statusDot.style.background = '#10b981';
@@ -4208,8 +4215,8 @@ function updateNavUserHeader() {
     }
     var ptsBadge = document.getElementById('nav-points-badge');
     if (ptsBadge) {
-      ptsBadge.title = 'Your Total Points: ' + pts + ' (Click to view Leaderboard)';
-      ptsBadge.setAttribute('aria-label', 'Points: ' + pts);
+      ptsBadge.title = 'Daily Streak: ' + streak + ' days | Credits: ' + credits + ' (Click to enter 1stPJ Arcade)';
+      ptsBadge.setAttribute('aria-label', 'Credits: ' + credits + ', Streak: ' + streak);
     }
     var photoUrl = (typeof sessionGet === 'function') ? sessionGet('photo_url') : null;
     if (photoUrl && avatarImg) {
@@ -4250,8 +4257,8 @@ function updateNavUserHeader() {
     }
     var ptsBadgeGuest = document.getElementById('nav-points-badge');
     if (ptsBadgeGuest) {
-      ptsBadgeGuest.title = 'Sign in to view total points';
-      ptsBadgeGuest.setAttribute('aria-label', 'Points: 0 (Sign in to view)');
+      ptsBadgeGuest.title = 'Sign in to track streak & credits';
+      ptsBadgeGuest.setAttribute('aria-label', 'Credits: 0, Streak: 0 (Sign in to view)');
     }
   }
 }

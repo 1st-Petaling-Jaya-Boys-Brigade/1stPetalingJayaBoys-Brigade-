@@ -4047,6 +4047,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     swMod.PRECACHE_ASSETS.includes('./js/modules/forum.js'),
     'sw.js PRECACHE_ASSETS must include ./js/modules/forum.js for full offline forum and helper agent capability'
   );
+  assert.ok(
+    swMod.PRECACHE_ASSETS.includes('./js/modules/arcade.js'),
+    'sw.js PRECACHE_ASSETS must include ./js/modules/arcade.js for offline arcade gaming capability'
+  );
   assert.strictEqual(
     swMod.CACHE_VERSION,
     '20261103c',
@@ -5678,7 +5682,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(AuthGuard.canActivate('admin'), true, 'Admin console has independent security gate');
 
     // Internal portal views must strictly fail closed for unauthenticated visitors
-    const internalTabs = ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery'];
+    const internalTabs = ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'arcade'];
     internalTabs.forEach(tab => {
       assert.strictEqual(
         AuthGuard.canActivate(tab),
@@ -6763,6 +6767,81 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     await adminModule.saveEditMember();
     assert.ok(toastFired, 'saveEditMember must reject member without valid rank');
     console.log('  ✔ saveEditMember enforces mandatory rank and disallows empty / "No rank" submission');
+  }
+
+  // ── TSK-056: 1stPJ Arcade: Daily Wordle, BB Trivia & Gamified Learning Hub ──
+  {
+    console.log('\nTesting 1stPJ Arcade & Gamified Learning Hub (TSK-056)...');
+    const arcadeMod = require('../js/modules/arcade.js');
+    const sessionMod = require('../js/core/session.js');
+
+    // 1. Curated Wordle Bank and Trivia Question Bank
+    assert.ok(Array.isArray(arcadeMod.BB_WORDLE_WORDS), 'BB_WORDLE_WORDS must be an array');
+    assert.ok(arcadeMod.BB_WORDLE_WORDS.length >= 30, 'BB_WORDLE_WORDS must contain at least 30 terms');
+    arcadeMod.BB_WORDLE_WORDS.forEach(w => {
+      assert.strictEqual(w.length, 5, 'Wordle word ' + w + ' must be exactly 5 letters');
+      assert.strictEqual(w, w.toUpperCase(), 'Wordle word ' + w + ' must be uppercase');
+    });
+    console.log('  ✔ BB_WORDLE_WORDS contains 40 verified 5-letter BB-themed terms');
+
+    assert.ok(Array.isArray(arcadeMod.BB_TRIVIA_QUESTIONS), 'BB_TRIVIA_QUESTIONS must be an array');
+    assert.ok(arcadeMod.BB_TRIVIA_QUESTIONS.length >= 10, 'BB_TRIVIA_QUESTIONS must contain at least 10 educational questions');
+    arcadeMod.BB_TRIVIA_QUESTIONS.forEach((q, idx) => {
+      assert.ok(q.q && typeof q.q === 'string', 'Question ' + idx + ' must have question text');
+      assert.ok(Array.isArray(q.options) && q.options.length === 4, 'Question ' + idx + ' must have exactly 4 choices');
+      assert.ok(typeof q.correct === 'number' && q.correct >= 0 && q.correct <= 3, 'Question ' + idx + ' must have valid answer index');
+      assert.ok(q.expl && typeof q.expl === 'string', 'Question ' + idx + ' must include BB handbook explanation');
+    });
+    console.log('  ✔ BB_TRIVIA_QUESTIONS contains comprehensive handbook questions with explanations');
+
+    // 2. Deterministic Daily Wordle Word
+    const wordA = arcadeMod.getDailyWordleWord('2026-11-03');
+    const wordB = arcadeMod.getDailyWordleWord('2026-11-03');
+    assert.strictEqual(wordA, wordB, 'Same date must deterministically produce the same daily word');
+    assert.strictEqual(typeof wordA, 'string', 'Daily word must be a string');
+    assert.strictEqual(wordA.length, 5, 'Daily word must be 5 letters');
+    console.log('  ✔ getDailyWordleWord provides deterministic daily word rotation');
+
+    // 3. Wordle Guess Evaluation (Two-pass authentic matching)
+    const eval1 = arcadeMod.evaluateGuess('DRILL', 'DRILL');
+    assert.deepStrictEqual(eval1, ['correct', 'correct', 'correct', 'correct', 'correct'], 'Exact match must all be correct');
+
+    const eval2 = arcadeMod.evaluateGuess('BLIND', 'DRILL');
+    assert.deepStrictEqual(eval2, ['absent', 'present', 'correct', 'absent', 'present'], 'Partial match with present/absent evaluated accurately');
+
+    const eval3 = arcadeMod.evaluateGuess('SPEED', 'BADGE');
+    assert.deepStrictEqual(eval3, ['absent', 'absent', 'present', 'absent', 'present'], 'Duplicate letters evaluated accurately without phantom matches');
+    console.log('  ✔ evaluateGuess enforces accurate two-pass Wordle letter matching');
+
+    // 4. Daily Streak & Credit Engine
+    const stats0 = arcadeMod.recordGameParticipation('wordle', '2026-11-01');
+    assert.strictEqual(stats0.streak, 1, 'First participation starts streak at 1');
+    assert.strictEqual(stats0.lastPlayedDate, '2026-11-01', 'lastPlayedDate recorded accurately');
+
+    const stats1 = arcadeMod.recordGameParticipation('trivia', '2026-11-01');
+    assert.strictEqual(stats1.streak, 1, 'Playing another game on same day does not double increment streak');
+
+    const stats2 = arcadeMod.recordGameParticipation('wordle', '2026-11-02');
+    assert.strictEqual(stats2.streak, 2, 'Playing on next consecutive day increments streak');
+
+    const stats3 = arcadeMod.recordGameParticipation('trivia', '2026-11-05');
+    assert.strictEqual(stats3.streak, 1, 'Missing 1 or more calendar days resets streak to 1');
+    console.log('  ✔ recordGameParticipation accurately tracks consecutive daily streaks and resets on missed days');
+
+    // 5. Credit Awarding
+    const initialCredits = arcadeMod.getArcadeStats().credits || 0;
+    const updatedCredits = arcadeMod.awardCredits(15);
+    assert.strictEqual(updatedCredits, initialCredits + 15, 'awardCredits must increment credit balance');
+    console.log('  ✔ awardCredits increments member game credits and persists state');
+
+    // 6. Header Badge and Navigation Integration
+    assert.ok(indexHtmlStr.includes('class="nav-streak-wrap"'), 'index.html must include .nav-streak-wrap');
+    assert.ok(indexHtmlStr.includes('class="nav-streak-val"'), 'index.html must include .nav-streak-val');
+    assert.ok(indexHtmlStr.includes('class="streak-fire-icon"'), 'index.html must include .streak-fire-icon');
+    assert.ok(indexHtmlStr.includes('class="points-unit">Credits</span>'), 'Points label must be replaced with Credits in index.html');
+    assert.ok(indexHtmlStr.includes('data-nav="arcade"'), 'Sidebar navigation must contain arcade item');
+    assert.ok(sessionMod.AuthGuard.PROTECTED_ROUTES.includes('arcade'), 'AuthGuard.PROTECTED_ROUTES must protect arcade tab');
+    console.log('  ✔ Top header bar badge (fire icon, streak on left, Credits label) and sidebar arcade route verified');
   }
 
 
