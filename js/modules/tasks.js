@@ -16,7 +16,8 @@ var DEPT_CONFIG = {
   secretariat:    { label: 'Secretariat',    color: '#ce93d8',      cls: 'dept-secretariat', prefix: 'SEC' },
   logistics:      { label: 'Logistics',      color: '#42a5f5',      cls: 'dept-logistics',   prefix: 'LOG' },
   media:          { label: 'Media',          color: '#ffb74d',      cls: 'dept-media',       prefix: 'MED' },
-  hq:             { label: 'HQ',             color: '#10b981',      cls: 'dept-hq',          prefix: 'HQ'  }
+  hq:             { label: 'HQ',             color: '#10b981',      cls: 'dept-hq',          prefix: 'HQ'  },
+  officers:       { label: 'Officers',       color: '#f59e0b',      cls: 'dept-officers',    prefix: 'OFF' }
 };
 
 var STATUS_ORDER = ['planning', 'todo', 'inprogress', 'inreview', 'completed'];
@@ -358,7 +359,9 @@ function hasDepartmentRole(memberOrDept, rank) {
       dKey === 'secretariat' ||
       dKey === 'logistics' ||
       dKey === 'media' ||
-      dKey === 'hq'
+      dKey === 'hq' ||
+      dKey === 'officers' ||
+      dKey === 'officer'
     ) {
       return true;
     }
@@ -1828,6 +1831,11 @@ function handleTaskDescBlur(el) {
   }
   var fullDesc = buildTaskDescriptionWithMeta(t || {}, val);
   saveTaskField(_activeDetailTaskId, 'description', fullDesc);
+  if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
+    syncTaskNotifications(_allLoadedTasks);
+  } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function' && typeof window._allLoadedTasks !== 'undefined') {
+    window.syncTaskNotifications(window._allLoadedTasks);
+  }
 }
 
 /**
@@ -2150,31 +2158,48 @@ async function deleteTaskComment(taskId, commentId) {
 function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail, myDept, myRank) {
   if (!text) return false;
 
-  // Rule 1: The author of the comment is NEVER notified about their own comment!
-  if (myEmail && authorEmail && myEmail.toLowerCase().trim() === authorEmail.toLowerCase().trim()) return false;
-  if (myName && authorName && myName.toLowerCase().trim() === authorName.toLowerCase().trim()) return false;
+  var cleanText = String(text)
+    .replace(/&nbsp;/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  var lower = cleanText.toLowerCase();
 
-  var lower = text.toLowerCase();
+  // Rule 1: @all mentions all members (even author)
+  if (/(?:^|\W)@all\b/i.test(lower)) return true;
 
-  // Rule 2: @all mentions all members (except the author who created it)
-  if (/\b@all\b/i.test(lower)) return true;
-
-  // Rule 3: Individual @Name mention (e.g. "@Jason Koh" or "@Jason")
+  // Rule 2: Individual @Name mention (e.g. "@Jeshua Koh" or "@Jeshua" or "@Jason Koh")
   if (myName) {
     var myNameLower = myName.toLowerCase().trim();
     if (lower.indexOf('@' + myNameLower) !== -1) return true;
-    var firstName = myNameLower.split(/\s+/)[0];
-    if (firstName && firstName.length >= 3) {
-      var rx = new RegExp('@' + firstName + '\\b', 'i');
+    var nameParts = myNameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
+    for (var i = 0; i < nameParts.length; i++) {
+      var rx = new RegExp('(?:^|\\W)@' + nameParts[i] + '\\b', 'i');
       if (rx.test(lower)) return true;
     }
   }
 
-  // Rule 4: Department group mention (e.g. @Secretariat, @Logistics, @Media, @HQ, @Band)
-  if (myDept && lower.indexOf('@' + myDept.toLowerCase().trim()) !== -1) return true;
+  // Also check email user prefix if @email is mentioned
+  if (myEmail) {
+    var myEmailLower = myEmail.toLowerCase().trim();
+    if (lower.indexOf('@' + myEmailLower) !== -1) return true;
+    var emailPrefix = myEmailLower.split('@')[0];
+    if (emailPrefix && emailPrefix.length >= 3) {
+      var erx = new RegExp('(?:^|\\W)@' + emailPrefix + '\\b', 'i');
+      if (erx.test(lower)) return true;
+    }
+  }
 
-  // Rule 5: @Officers mention
-  if (myRank && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(myRank) !== -1 && /\b@officers\b/i.test(lower)) return true;
+  // Rule 3: Department group mention (e.g. @Secretariat, @Logistics, @Media, @HQ, @Officers, @Band)
+  if (myDept) {
+    var cleanDept = myDept.toLowerCase().trim();
+    if (cleanDept && lower.indexOf('@' + cleanDept) !== -1) return true;
+    if (cleanDept === 'officers' && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+    if (cleanDept === 'officer' && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+  }
+
+  // Rule 4: @Officers mention (matching rank or department)
+  var isOfficerRank = myRank && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(myRank) !== -1;
+  var isOfficerDept = myDept && (myDept.toLowerCase().trim() === 'officers' || myDept.toLowerCase().trim() === 'officer');
+  if ((isOfficerRank || isOfficerDept) && /(?:^|\W)@officers?\b/i.test(lower)) return true;
 
   return false;
 }
@@ -2697,6 +2722,14 @@ async function saveTaskField(id, field, value) {
     renderMyTasksView();
   } else if (_tasksViewMode === 'projects') {
     renderProjectsView();
+  }
+
+  if (field === 'description') {
+    if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
+      syncTaskNotifications(_allLoadedTasks);
+    } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function' && typeof window._allLoadedTasks !== 'undefined') {
+      window.syncTaskNotifications(window._allLoadedTasks);
+    }
   }
 
   // Background async patch with graceful fallback
@@ -3420,8 +3453,8 @@ async function handleCreateTaskSubmit(e) {
  */
 function switchDeptTab(dept) {
   if (typeof document === 'undefined') return;
-  ['all', 'secretariat', 'logistics', 'media', 'hq'].forEach(function(d) {
-    var btn = document.getElementById('dtab-' + d);
+  ['all', 'secretariat', 'logistics', 'media', 'hq', 'officers'].forEach(function(d) {
+    var btn = document.getElementById('dtab-' + d) || document.querySelector('[data-dept="' + d + '"]');
     if (!btn) return;
     var active = d === dept;
     btn.classList.toggle('active-dept-tab', active);
