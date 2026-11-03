@@ -870,10 +870,7 @@ function isNCO(rank) {
   if (typeof window !== 'undefined' && typeof window.isNcoRank === 'function') {
     return window.isNcoRank(rank);
   }
-  var ncoRanks =
-    typeof window !== 'undefined' && window.NCO_RANKS
-      ? window.NCO_RANKS
-      : ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant', 'Warrant Officer'];
+  var ncoRanks = ['Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant', 'Warrant Officer'];
   return ncoRanks.indexOf(rank) !== -1;
 }
 
