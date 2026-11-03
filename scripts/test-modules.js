@@ -4053,8 +4053,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261103e',
-    'sw.js CACHE_VERSION must be 20261103e'
+    '20261103f',
+    'sw.js CACHE_VERSION must be 20261103f'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4085,7 +4085,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261103e',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261103f',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6589,7 +6589,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103e'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103f'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -6892,6 +6892,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const arcadeSource = fs.readFileSync('js/modules/arcade.js', 'utf8');
     assert.ok(arcadeSource.includes('Awarded +15 Credits! Streak updated. Come back tomorrow for a fresh puzzle!'), 'Wordle victory message must invite player for fresh puzzle');
     assert.strictEqual(arcadeSource.includes('\uD83C\uDF89'), false, 'Party popper emoji must be removed from arcade module');
+    assert.ok(arcadeSource.includes('Daily Wordle, Timed Trivia &amp; Gamified Syllabus Hub'), 'Arcade hero subtitle must be Daily Wordle, Timed Trivia & Gamified Syllabus Hub');
+    assert.strictEqual(arcadeSource.includes('Daily BB Wordle, Timed Trivia'), false, 'Old Daily BB Wordle subtitle must not exist');
 
     // 9. Daily BB Trivia Determinism (5 Fixed Questions Per Day)
     assert.strictEqual(typeof arcadeMod.getDailyTriviaQuestionIndices, 'function', 'getDailyTriviaQuestionIndices must be exported');
