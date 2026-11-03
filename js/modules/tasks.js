@@ -1047,17 +1047,28 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');
   var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(name, ic) : null;
 
+  var outlineInfo = (typeof getMemberAvatarOutline === 'function')
+    ? getMemberAvatarOutline(ic || name, name)
+    : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
+
+  var outlineHtml = '';
+  var hasOutlineCls = '';
+  if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
+    hasOutlineCls = ' has-custom-outline avatar-outline-container';
+    outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
+  }
+
   if (photoUrl) {
-    return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:hidden;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + safeName + '"/></span>';
+    return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:hidden;position:relative;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + safeName + '"/>' + outlineHtml + '</span>';
   }
 
   if (isCreator) {
-    return '<span class="task-card-avatar creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J</span>';
+    return '<span class="task-card-avatar creator-outline-avatar creator-snow-avatar creator-rgb-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;position:relative;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J' + outlineHtml + '</span>';
   }
 
   var initial = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name) : (name.trim().charAt(0).toUpperCase() || '?');
   var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : getAssigneeAvatarBg(name);
-  return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>';
+  return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';position:relative;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + '</span>';
 }
 
 function getAssigneeAvatarBg(name) {

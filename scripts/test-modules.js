@@ -7144,6 +7144,97 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(uniqueIdsPresence.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
+  // =========================================================================
+  // TSK-062: Creator-Governed Custom Profile Avatar Outlines, Gradients & Animations
+  // =========================================================================
+  console.log('\nTesting Creator-Governed Custom Profile Avatar Outlines, Gradients & Animations (TSK-062)...');
+  {
+    const memberMod = require('../js/modules/member.js');
+    const adminMod = require('../js/modules/admin.js');
+
+    // 1. AVATAR_OUTLINE_STYLES Catalog Completeness
+    assert.ok(memberMod.AVATAR_OUTLINE_STYLES, 'AVATAR_OUTLINE_STYLES catalog exported');
+    const catalog = memberMod.AVATAR_OUTLINE_STYLES;
+    assert.ok(catalog.none, 'Catalog defines standard none style');
+    assert.ok(catalog.rgb, 'Catalog defines RGB rotating animation style');
+    assert.ok(catalog.sunset, 'Catalog defines Purplish Orange Sunset gradient style');
+    assert.ok(catalog.cyber, 'Catalog defines Cyber Neon gradient style');
+    assert.ok(catalog.gold, 'Catalog defines Gold Flare gradient style');
+    assert.ok(catalog.velvet, 'Catalog defines Royal Velvet gradient style');
+    assert.ok(catalog.aurora, 'Catalog defines Aurora gradient style');
+    // Solid colors
+    ['solid-red', 'solid-blue', 'solid-green', 'solid-yellow', 'solid-orange', 'solid-black', 'solid-white', 'solid-pink'].forEach(col => {
+      assert.ok(catalog[col], 'Catalog defines solid ' + col + ' outline style');
+      assert.strictEqual(catalog[col].category, 'solid', col + ' has category solid');
+    });
+    console.log('  ✔ AVATAR_OUTLINE_STYLES catalog defines RGB rotating border, premium multi-stop gradients, and solid outline accents');
+
+    // 2. Creator Governance & Authorization Check
+    assert.strictEqual(typeof memberMod.isCreatorSession, 'function', 'isCreatorSession is defined');
+    // Regular member cannot save outline
+    global.sessionGet = (key) => key === 'email' ? 'regular@gmail.com' : 'Regular Member';
+    const rejectRes = await memberMod.saveMemberAvatarOutline('target@gmail.com', 'cyber');
+    assert.strictEqual(rejectRes.success, false, 'saveMemberAvatarOutline rejects non-creator session');
+    assert.ok(rejectRes.error && rejectRes.error.includes('Only the Portal Creator'), 'saveMemberAvatarOutline provides Creator-only security message');
+
+    // Creator default outline is RGB, regular default is none
+    const creatorOutline = memberMod.getMemberAvatarOutline('jeshuakoh2008@gmail.com', 'Jeshua Koh');
+    assert.strictEqual(creatorOutline.style, 'rgb', 'Creator default avatar outline is rgb');
+
+    const regularOutline = memberMod.getMemberAvatarOutline('member@gmail.com', 'Alex Tan');
+    assert.strictEqual(regularOutline.style, 'none', 'Regular member default avatar outline is none');
+    console.log('  ✔ Outline permissions strictly governed by Creator session and defaults properly assigned');
+
+    // 3. Creator Can Assign and Persist Outline
+    global.sessionGet = (key) => key === 'email' ? 'jeshuakoh2008@gmail.com' : 'Jeshua Koh';
+    const assignRes = await memberMod.saveMemberAvatarOutline('bryan@gmail.com', 'sunset');
+    assert.strictEqual(assignRes.success, true, 'Creator successfully assigns sunset outline to member');
+    const bryanOutline = memberMod.getMemberAvatarOutline('bryan@gmail.com', 'Bryan Lee');
+    assert.strictEqual(bryanOutline.style, 'sunset', 'getMemberAvatarOutline resolves newly assigned sunset outline');
+    console.log('  ✔ Creator assigns custom outline styles persisted in outlines map and storage');
+
+    // 4. Layering Over Profile Pictures in Avatar HTML
+    const adminAvatarWithOutline = adminMod.getAdminMemberAvatarHtml('Bryan Lee', 'bryan@gmail.com', 40);
+    assert.ok(adminAvatarWithOutline.includes('avatar-outline-overlay'), 'Avatar HTML includes .avatar-outline-overlay element');
+    assert.ok(adminAvatarWithOutline.includes('avatar-outline-sunset'), 'Avatar HTML applies assigned outline class');
+    assert.ok(adminAvatarWithOutline.includes('z-index:2'), 'Avatar outline overlay has z-index:2 to layer directly over uploaded profile picture');
+    console.log('  ✔ Custom avatar outline overlay renders with z-index:2 layered on top of profile picture');
+
+    // 5. CSS Components & Conic-Gradient Keyframe Animations
+    const compCss = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(compCss.includes('@keyframes creatorOutlineRotate') || compCss.includes('@keyframes avatarRgbFlow'), 'components.css defines rotating keyframes animation');
+    assert.ok(compCss.includes('.avatar-outline-rgb'), 'components.css defines .avatar-outline-rgb');
+    assert.ok(compCss.includes('.avatar-outline-sunset'), 'components.css defines .avatar-outline-sunset');
+    assert.ok(compCss.includes('.avatar-outline-overlay'), 'components.css defines .avatar-outline-overlay');
+    assert.ok(compCss.includes('-webkit-mask-composite: destination-out') || compCss.includes('mask-composite: exclude'), 'components.css uses mask composite to hollow center and preserve photo visibility');
+    assert.ok(compCss.includes('.creator-swatch-btn'), 'components.css defines .creator-swatch-btn');
+    console.log('  ✔ CSS tokens, keyframes, and hollow mask composite verified in components.css');
+
+    // 6. Admin Module Dynamic Creator Studio & Section Routing
+    const adminJs = fs.readFileSync('js/modules/admin.js', 'utf8');
+    assert.ok(adminJs.includes('sec-btn-creator-outlines'), 'admin.js injects Creator Studio navigation button');
+    assert.ok(adminJs.includes('renderCreatorAvatarOutlinesStudio'), 'admin.js defines renderCreatorAvatarOutlinesStudio function');
+    assert.ok(adminJs.includes("section === 'creator_outlines'"), 'admin.js routes creator_outlines section');
+    console.log('  ✔ Admin console includes Creator Outlines Studio section restricted to Creator');
+
+    // 7. Database Migration Schema 015
+    assert.ok(fs.existsSync('supabase/migrations/015_creator_avatar_outlines.sql'), 'Migration 015 exists');
+    const mig015 = fs.readFileSync('supabase/migrations/015_creator_avatar_outlines.sql', 'utf8');
+    assert.ok(mig015.includes('avatar_outline'), 'Migration 015 defines avatar_outline column on bb_members');
+    assert.ok(mig015.includes('idx_bb_members_avatar_outline'), 'Migration 015 defines avatar_outline index');
+    console.log('  ✔ Database migration 015_creator_avatar_outlines.sql verified');
+
+    // 8. Strict 388 Unique DOM IDs Invariant
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+  }
+
+  {
+  }
 
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

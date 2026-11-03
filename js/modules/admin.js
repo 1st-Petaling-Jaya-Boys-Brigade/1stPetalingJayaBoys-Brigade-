@@ -800,12 +800,29 @@
       }
     }
 
+    // Dynamically inject Creator Avatar Outlines button for Jeshua Koh (TSK-062)
+    var isCreator = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
+    var creatorBtn = document.getElementById('sec-btn-creator-outlines');
+    if (!creatorBtn) {
+      var calBtnEl = document.getElementById('sec-btn-calendar');
+      if (calBtnEl && calBtnEl.parentNode) {
+        creatorBtn = document.createElement('div');
+        creatorBtn.className = 'adm-section-btn';
+        creatorBtn.id = 'sec-btn-creator-outlines';
+        creatorBtn.onclick = function() { switchAdminSection('creator_outlines'); };
+        creatorBtn.innerHTML = '<div style="display:flex;align-items:center;gap:12px;"><div class="adm-sec-icon" style="background:rgba(139,92,246,0.15);color:#a855f7;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg></div><div><div class="adm-sec-title">Creator Avatar Outlines</div><div class="adm-sec-sub">Assign Custom Outlines &amp; Animations</div></div></div><div class="adm-sec-arrow">›</div>';
+        calBtnEl.parentNode.appendChild(creatorBtn);
+      }
+    }
+
     var visibleCount = 0;
     document.querySelectorAll('.adm-section-btn').forEach(function(b) {
       var secId = b.id.replace('sec-btn-', '');
       var isVisible = true;
       if (secId === 'roles') {
         isVisible = isSuper;
+      } else if (secId === 'creator-outlines' || secId === 'creator_outlines') {
+        isVisible = isCreator;
       } else if (typeof RBAC !== 'undefined' && typeof RBAC.hasModulePermission === 'function') {
         isVisible = RBAC.hasModulePermission(secId);
       }
@@ -863,8 +880,21 @@
 
     var rolesSec = document.getElementById('adm-section-roles');
     if (rolesSec && section !== 'roles') rolesSec.style.display = 'none';
+    var creatorSec = document.getElementById('adm-section-creator-outlines');
+    if (creatorSec && section !== 'creator_outlines' && section !== 'creator-outlines') creatorSec.style.display = 'none';
     var target = document.getElementById('adm-section-' + section);
     if (target) target.style.display = 'block';
+
+    if (section === 'creator_outlines' || section === 'creator-outlines') {
+      var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
+      if (!isCreatorUser) {
+        if (typeof showToast === 'function') showToast('Access Denied: Only the Portal Creator can manage custom avatar outlines.', 'error');
+        backToAdminHome();
+        return;
+      }
+      renderCreatorAvatarOutlinesStudio();
+      return;
+    }
 
     if (section === 'members') renderAdminList();
 
@@ -1009,21 +1039,35 @@
     var dotTitle = safeName + ' (' + dotLabel + ')';
     var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:3;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
+    // Creator Avatar Outline Layering (TSK-062)
+    var outlineInfo = (typeof getMemberAvatarOutline === 'function')
+      ? getMemberAvatarOutline(emailOrIc, cleanNm)
+      : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
+
+    var outlineHtml = '';
+    var hasOutlineCls = '';
+    if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
+      hasOutlineCls = ' has-custom-outline avatar-outline-container';
+      outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
+    }
+
     var photoUrl = null;
     if (typeof getMemberAvatarUrl === 'function') {
       photoUrl = getMemberAvatarUrl(cleanNm, emailOrIc);
     }
 
     if (photoUrl) {
-      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+      return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
         '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;" alt="' + safeName + '"/>' +
+        outlineHtml +
         dotHtml +
       '</span>';
     }
 
     if (isCreator) {
-      return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+      return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
         '<span class="creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:100%;height:100%;border-radius:50%;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
+        outlineHtml +
         dotHtml +
       '</span>';
     }
@@ -1036,8 +1080,9 @@
       ? getMemberAvatarColor(cleanNm)
       : '#0284c7';
 
-    return '<span class="admin-member-avatar" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+    return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
       '<span style="width:100%;height:100%;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>' +
+      outlineHtml +
       dotHtml +
     '</span>';
   }
@@ -1383,6 +1428,73 @@
     }
 
 
+    // Creator Outline Studio Section in Member Edit Modal (TSK-062)
+    var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
+    var existingOutlineBox = modalContainer ? modalContainer.querySelector('.em-creator-outline-box') : null;
+    if (modalContainer && isCreatorUser) {
+      if (!existingOutlineBox) {
+        existingOutlineBox = document.createElement('div');
+        existingOutlineBox.className = 'em-creator-outline-box';
+        existingOutlineBox.style.cssText = 'margin-top:14px;padding:14px;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.3);border-radius:12px;';
+        var saveBtn = modalContainer.querySelector('button[type="submit"]') || modalContainer.querySelector('.modal-footer') || modalContainer.lastElementChild;
+        if (saveBtn && saveBtn.parentNode) {
+          saveBtn.parentNode.insertBefore(existingOutlineBox, saveBtn);
+        } else {
+          modalContainer.appendChild(existingOutlineBox);
+        }
+      }
+      existingOutlineBox.style.display = 'block';
+
+      var curMemOutline = (typeof getMemberAvatarOutline === 'function')
+        ? getMemberAvatarOutline(m.email || m.ic, m.name)
+        : { style: 'none', config: { label: 'Standard (None)' } };
+
+      var stylesCatalog = (typeof AVATAR_OUTLINE_STYLES !== 'undefined') ? AVATAR_OUTLINE_STYLES : {};
+      var swatchesHtml = '';
+      Object.keys(stylesCatalog).forEach(function(k) {
+        var st = stylesCatalog[k];
+        var isAct = (st.id === curMemOutline.style);
+        var swatchBg = st.swatch || (st.id === 'rgb' ? 'conic-gradient(from -45deg, #ff4b4b, #3b82f6, #22c55e, #facc15)' : 'var(--border-card)');
+        swatchesHtml +=
+          '<button type="button" class="creator-swatch-btn' + (isAct ? ' active' : '') + '" data-outline-id="' + st.id + '" style="margin:2px;">' +
+            '<span class="creator-swatch-dot" style="background:' + swatchBg + ';"></span>' +
+            '<span>' + ((typeof escapeHtml === 'function') ? escapeHtml(st.label) : st.label) + '</span>' +
+          '</button>';
+      });
+
+      existingOutlineBox.innerHTML =
+        '<div style="font-weight:700;font-size:13px;color:var(--gold);display:flex;align-items:center;gap:6px;margin-bottom:6px;">' +
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>' +
+          'Creator Avatar Outline Studio (Creator Exclusive)' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">Select custom outline, multi-stop gradient, or rotating RGB animation for this member:</div>' +
+        '<input type="hidden" id="em-chosen-outline" value="' + curMemOutline.style + '" />' +
+        '<div class="creator-swatches-wrap" style="display:flex;flex-wrap:wrap;gap:6px;">' +
+          swatchesHtml +
+        '</div>';
+
+      existingOutlineBox.querySelectorAll('.creator-swatch-btn').forEach(function(sBtn) {
+        sBtn.addEventListener('click', function() {
+          existingOutlineBox.querySelectorAll('.creator-swatch-btn').forEach(function(b) { b.classList.remove('active'); });
+          sBtn.classList.add('active');
+          var chosenStyle = sBtn.getAttribute('data-outline-id');
+          var hiddenInput = document.getElementById('em-chosen-outline');
+          if (hiddenInput) hiddenInput.value = chosenStyle;
+
+          if (_customAvatarOutlinesMap) {
+            _customAvatarOutlinesMap[(m.email || m.ic).toLowerCase()] = { style: chosenStyle };
+          }
+          if (presCard) {
+            var updatedAvatar = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 44, pInfo);
+            var avWrap = presCard.firstElementChild;
+            if (avWrap) presCard.replaceChild(document.createRange().createContextualFragment(updatedAvatar).firstElementChild, avWrap);
+          }
+        });
+      });
+    } else if (existingOutlineBox) {
+      existingOutlineBox.style.display = 'none';
+    }
+
     var set = function(id, val) {
       var el = document.getElementById(id);
       if (el) el.value = val || '';
@@ -1498,6 +1610,13 @@
     var rawPContact   = ((document.getElementById('em-parent-contact') || {}).value || '').trim();
     var parent_name   = (typeof sanitizeText === 'function') ? sanitizeText(rawPName, 100) : rawPName;
     var parent_contact= (typeof sanitizeInput === 'function') ? sanitizeInput(rawPContact, 100) : rawPContact;
+
+    var chosenOutlineInput = document.getElementById('em-chosen-outline');
+    if (chosenOutlineInput && typeof saveMemberAvatarOutline === 'function' && typeof isCreatorSession === 'function' && isCreatorSession()) {
+      var outlineToSave = chosenOutlineInput.value;
+      var actorEm = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'jeshuakoh2008@gmail.com';
+      await saveMemberAvatarOutline(ic || originalIc, outlineToSave, actorEm);
+    }
 
     var pConsentCb    = document.getElementById('em-parent-consent');
     var parental_consent_signed = pConsentCb ? !!pConsentCb.checked : false;
@@ -2410,6 +2529,223 @@
     }
   }
 
+
+  // ── Creator Avatar Outlines Studio (TSK-062) ───────────────────────────────
+  async function renderCreatorAvatarOutlinesStudio() {
+    if (typeof document === 'undefined') return;
+
+    var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
+    if (!isCreatorUser) {
+      if (typeof showToast === 'function') {
+        showToast('Access Denied: Only the Portal Creator can manage custom avatar outlines.', 'error');
+      }
+      backToAdminHome();
+      return;
+    }
+
+    var panel = document.getElementById('admin-panel');
+    if (!panel) return;
+
+    var sec = document.getElementById('adm-section-creator-outlines');
+    if (!sec) {
+      sec = document.createElement('div');
+      sec.id = 'adm-section-creator-outlines';
+      panel.appendChild(sec);
+    }
+    sec.style.display = 'block';
+
+    var backBar = document.getElementById('adm-back-bar');
+    if (backBar) {
+      backBar.style.display = 'block';
+      var titleSpan = backBar.querySelector('.adm-back-title') || backBar.querySelector('span');
+      if (titleSpan) titleSpan.textContent = 'Creator Avatar Outlines Studio';
+    }
+
+    sec.innerHTML = (typeof renderSkeletonTable === 'function')
+      ? renderSkeletonTable(4, 5)
+      : '<div class="skeleton-shimmer" style="height:200px;border-radius:12px;"></div>';
+
+    if (typeof loadCustomAvatarOutlines === 'function') {
+      await loadCustomAvatarOutlines();
+    }
+
+    var client = getSupabaseClient();
+    var members = [];
+    try {
+      members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,department&order=name.asc');
+    } catch (_) {
+      members = Object.values(_adminMembers || {});
+    }
+    if (!Array.isArray(members)) members = [];
+
+    members = members.filter(function(m) {
+      return m && m.department !== 'deleted' && m.department !== 'archived_deleted';
+    });
+
+    var stylesCatalog = (typeof AVATAR_OUTLINE_STYLES !== 'undefined') ? AVATAR_OUTLINE_STYLES : {};
+    var stylesList = Object.keys(stylesCatalog).map(function(k) { return stylesCatalog[k]; });
+
+    var customCount = 0;
+    members.forEach(function(m) {
+      var out = (typeof getMemberAvatarOutline === 'function')
+        ? getMemberAvatarOutline(m.email || m.ic, m.name)
+        : null;
+      if (out && out.style && out.style !== 'none') customCount++;
+    });
+
+    var html =
+      '<div style="margin-bottom:16px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">' +
+          '<div>' +
+            '<div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
+              '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(139,92,246,0.15);color:#a855f7;">' +
+                '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>' +
+              '</span>' +
+              'Creator Avatar Outlines Studio' +
+            '</div>' +
+            '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Exclusive Creator Studio &middot; Assign custom animated RGB, gradients, and solid outline accents to member profiles.</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:rgba(139,92,246,0.15);color:#a855f7;border:1px solid rgba(139,92,246,0.3);">' + customCount + ' Active Outlines</span>' +
+            '<span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">' + members.length + ' Total Members</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<div style="margin-bottom:14px;position:relative;">' +
+          '<input type="text" id="creator-outlines-search" class="form-input" placeholder="Search members by name, squad, rank, or outline style..." style="padding-left:36px;width:100%;box-sizing:border-box;" />' +
+          '<span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;">' +
+            '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+          '</span>' +
+        '</div>' +
+
+        '<div id="creator-outlines-grid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:12px;"></div>' +
+      '</div>';
+
+    sec.innerHTML = html;
+
+    function renderGrid(query) {
+      var q = String(query || '').toLowerCase().trim();
+      var grid = document.getElementById('creator-outlines-grid');
+      if (!grid) return;
+
+      var filtered = members.filter(function(m) {
+        if (!q) return true;
+        var curOut = (typeof getMemberAvatarOutline === 'function')
+          ? getMemberAvatarOutline(m.email || m.ic, m.name)
+          : null;
+        var outLabel = (curOut && curOut.config && curOut.config.label) ? curOut.config.label.toLowerCase() : '';
+        return (m.name || '').toLowerCase().includes(q) ||
+               (m.ic || '').toLowerCase().includes(q) ||
+               (m.rank || '').toLowerCase().includes(q) ||
+               (m.squad || '').toLowerCase().includes(q) ||
+               outLabel.includes(q);
+      });
+
+      if (!filtered.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:36px 20px;color:var(--text-muted);background:var(--bg-card-subtle);border:1px dashed var(--border-card);border-radius:12px;">No matching members found.</div>';
+        return;
+      }
+
+      var cardsHtml = '';
+      filtered.forEach(function(m) {
+        var cleanTarget = m.email || m.ic;
+        var curOut = (typeof getMemberAvatarOutline === 'function')
+          ? getMemberAvatarOutline(cleanTarget, m.name)
+          : { style: 'none', config: { label: 'Standard (None)' } };
+
+        var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name || 'Member') : (m.name || 'Member');
+        var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'Member') : (m.rank || 'Member');
+        var safeSquad = (typeof escapeHtml === 'function') ? escapeHtml(m.squad || 'No Platoon') : (m.squad || 'No Platoon');
+        var safeTarget = (typeof escapeHtml === 'function') ? escapeHtml(cleanTarget) : cleanTarget;
+
+        var avatarHtml = getAdminMemberAvatarHtml(m.name, cleanTarget, 48);
+
+        var optionsHtml = '';
+        stylesList.forEach(function(st) {
+          var selected = (st.id === curOut.style) ? ' selected' : '';
+          optionsHtml += '<option value="' + st.id + '"' + selected + '>' + ((typeof escapeHtml === 'function') ? escapeHtml(st.label) : st.label) + ' (' + st.badge + ')' + '</option>';
+        });
+
+        cardsHtml +=
+          '<div class="creator-member-card" data-member-target="' + safeTarget + '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;">' +
+            '<div style="display:flex;align-items:center;gap:12px;">' +
+              '<div class="creator-card-avatar-wrap" style="flex-shrink:0;">' + avatarHtml + '</div>' +
+              '<div style="flex:1;min-width:0;">' +
+                '<div style="font-weight:700;font-size:14px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeRank + ' &middot; ' + safeSquad + '</div>' +
+                '<div style="font-size:10px;color:var(--accent);margin-top:2px;font-family:monospace;">' + safeTarget + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-top:auto;">' +
+              '<select class="form-input creator-outline-select" style="font-size:12px;padding:6px 10px;flex:1;">' +
+                optionsHtml +
+              '</select>' +
+              '<button type="button" class="creator-apply-btn" style="background:var(--accent);color:var(--btn-on-accent,#121418);border:none;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;flex-shrink:0;">' +
+                'Apply' +
+              '</button>' +
+            '</div>' +
+          '</div>';
+      });
+
+      grid.innerHTML = cardsHtml;
+
+      grid.querySelectorAll('.creator-member-card').forEach(function(card) {
+        var targetId = card.getAttribute('data-member-target');
+        var select = card.querySelector('.creator-outline-select');
+        var applyBtn = card.querySelector('.creator-apply-btn');
+        var avatarWrap = card.querySelector('.creator-card-avatar-wrap');
+
+        if (select && avatarWrap) {
+          select.addEventListener('change', function() {
+            var newStyle = select.value;
+            if (_customAvatarOutlinesMap) {
+              _customAvatarOutlinesMap[targetId.toLowerCase()] = { style: newStyle };
+            }
+            var mem = members.find(function(m) { return (m.email || m.ic) === targetId; }) || { name: targetId };
+            avatarWrap.innerHTML = getAdminMemberAvatarHtml(mem.name, targetId, 48);
+          });
+        }
+
+        if (applyBtn && select) {
+          applyBtn.addEventListener('click', async function() {
+            var newStyle = select.value;
+            applyBtn.disabled = true;
+            applyBtn.textContent = 'Saving...';
+            try {
+              var actorEmail = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'jeshuakoh2008@gmail.com';
+              var res = await saveMemberAvatarOutline(targetId, newStyle, actorEmail);
+              if (res.success) {
+                if (typeof showToast === 'function') {
+                  showToast('Custom avatar outline applied successfully!', 'success');
+                }
+                var mem = members.find(function(m) { return (m.email || m.ic) === targetId; }) || { name: targetId };
+                avatarWrap.innerHTML = getAdminMemberAvatarHtml(mem.name, targetId, 48);
+              } else {
+                if (typeof showToast === 'function') {
+                  showToast(res.error || 'Failed to save outline.', 'error');
+                }
+              }
+            } catch (err) {
+              if (typeof showToast === 'function') showToast('Error saving: ' + (err.message || err), 'error');
+            } finally {
+              applyBtn.disabled = false;
+              applyBtn.textContent = 'Apply';
+            }
+          });
+        }
+      });
+    }
+
+    renderGrid('');
+
+    var searchInput = document.getElementById('creator-outlines-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        renderGrid(searchInput.value);
+      });
+    }
+  }
+
   // ── Window & Global Attachment ─────────────────────────────────────────────
   if (typeof global !== 'undefined') {
     global.renderAdminAuditLogs    = renderAdminAuditLogs;
@@ -2423,6 +2759,7 @@
     global.getRanksForSection       = typeof getRanksForSection === 'function' ? getRanksForSection : null;
     global.openAdmin                = openAdmin;
     global.getAdminMemberAvatarHtml = getAdminMemberAvatarHtml;
+    global.renderCreatorAvatarOutlinesStudio = renderCreatorAvatarOutlinesStudio;
     global.closeAdmin               = closeAdmin;
     global.logoutAdmin              = logoutAdmin;
     global.adminLogin               = adminLogin;
@@ -2478,6 +2815,7 @@
     DEFAULT_DEPT_CONFIG,
       openAdmin: openAdmin,
       getAdminMemberAvatarHtml: getAdminMemberAvatarHtml,
+      renderCreatorAvatarOutlinesStudio: renderCreatorAvatarOutlinesStudio,
       closeAdmin: closeAdmin,
       logoutAdmin: logoutAdmin,
       getAdminPasswordHash: getAdminPasswordHash,

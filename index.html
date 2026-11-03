@@ -4245,6 +4245,15 @@ function updateNavUserHeader() {
         renderMemberAvatar(mName, mEmail);
       }
     }
+    var navAvatarCircle = document.querySelector('.nav-avatar-circle');
+    if (navAvatarCircle && typeof applyAvatarOutlineElement === 'function') {
+      var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+      var curName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      var curOutline = (typeof getMemberAvatarOutline === 'function') ? getMemberAvatarOutline(curEmail, curName) : null;
+      if (curOutline) {
+        applyAvatarOutlineElement(navAvatarCircle, curOutline.style);
+      }
+    }
     if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {
       RBAC.renderHeaderRoleBadge();
     }
