@@ -199,7 +199,8 @@
     'WORRY WORSE WORST WORTH WOULD WOUND WOVEN WRACK WRATH WREAK WRECK WREST WRING WRIST WRITE' +
     'WRONG WROTE WRUNG WRYLY YACHT YAHOO YEARN YEAST YIELD YODEL YOUNG YOUTH ZEBRA ZESTY ZONAL';
 
-  var WORDLE_DICTIONARY_SET = new Set(WORDLE_VALID_WORDS_RAW.split(/\s+/));
+  var ALL_WORDLE_WORDS = WORDLE_VALID_WORDS_RAW.split(/\s+/);
+  var WORDLE_DICTIONARY_SET = new Set(ALL_WORDLE_WORDS);
   for (var _bw = 0; _bw < BB_WORDLE_WORDS.length; _bw++) {
     WORDLE_DICTIONARY_SET.add(BB_WORDLE_WORDS[_bw]);
   }
@@ -322,6 +323,54 @@
       options: ['John 3:16', 'Hebrews 6:19', 'Philippians 4:13', 'Psalm 23:1'],
       correct: 1,
       expl: 'Hebrews 6:19: "Which hope we have as an anchor of the soul, both sure and stedfast..."'
+    },
+    {
+      q: 'Which city and country was The Boys\' Brigade originally founded in?',
+      options: ['Glasgow, Scotland', 'London, England', 'Edinburgh, Scotland', 'Dublin, Ireland'],
+      correct: 0,
+      expl: 'The Boys\' Brigade was founded on 4th October 1883 at North Woodside Mission Hall in Glasgow, Scotland.'
+    },
+    {
+      q: 'What is the Object of The Boys\' Brigade?',
+      options: ['The advancement of Christ\'s Kingdom among Boys', 'To explore nature and wilderness', 'To teach military tactics', 'To achieve academic excellence'],
+      correct: 0,
+      expl: 'The Object is "The advancement of Christ\'s Kingdom among Boys and the promotion of habits of Obedience, Reverence, Discipline, Self-Respect and all that tends towards a true Christian manliness."'
+    },
+    {
+      q: 'What is the non-commissioned officer (NCO) rank immediately above Lance Corporal?',
+      options: ['Corporal', 'Sergeant', 'Staff Sergeant', 'Warrant Officer'],
+      correct: 0,
+      expl: 'In the Senior Section, a Lance Corporal is promoted to Corporal, and then to Sergeant.'
+    },
+    {
+      q: 'What is the traditional colour of the Senior Section BB uniform shirt in Malaysia?',
+      options: ['Royal Blue', 'Khaki', 'White', 'Navy Black'],
+      correct: 0,
+      expl: 'Senior Section members wear the regulation Royal Blue short-sleeved uniform shirt.'
+    },
+    {
+      q: 'In Foot Drill, what is the command to dismiss a parade?',
+      options: ['Keluar Baris', 'Bersurai', 'Cepat Jalan', 'Berhenti'],
+      correct: 1,
+      expl: '"Bersurai" is given when the parade has concluded for the day and members are dismissed from duty.'
+    },
+    {
+      q: 'What is the title of the Officer who leads and commands the entire BB Company?',
+      options: ['Captain', 'Lieutenant', 'Chaplain', 'Instructor'],
+      correct: 0,
+      expl: 'The Captain is the designated Officer in charge who leads and administers the Company.'
+    },
+    {
+      q: 'Which biennial national BB event brings Companies across Malaysia together for friendly competitions?',
+      options: ['National Pesta', 'Jamboree', 'BB Expo', 'Camporee'],
+      correct: 0,
+      expl: 'The National Pesta is BB Malaysia\'s biennial national gathering featuring national drill, band, and sports competitions.'
+    },
+    {
+      q: 'What is the BB hymn traditionally sung at Company opening parade?',
+      options: ['Will Your Anchor Hold', 'Amazing Grace', 'Onward Christian Soldiers', 'How Great Thou Art'],
+      correct: 0,
+      expl: '"Will Your Anchor Hold" (The Anchor Song, written by Priscilla J. Owens) is the official hymn of The Boys\' Brigade.'
     }
   ];
 
@@ -338,13 +387,13 @@
   };
 
   var _triviaState = {
-    questions: [],
+    dateKey: '',
+    questionIndices: [],
+    answers: {},
     currentIndex: 0,
+    isSubmitted: false,
     score: 0,
-    timer: 15,
-    timerInterval: null,
-    isAnswered: false,
-    isComplete: false
+    submittedAt: null
   };
 
   // ── Date & Daily Key Helpers ──────────────────────────────────────────────
@@ -387,8 +436,8 @@
     for (var i = 0; i < key.length; i++) {
       seed = (seed * 31 + key.charCodeAt(i)) % 2147483647;
     }
-    var index = Math.abs(seed) % BB_WORDLE_WORDS.length;
-    return BB_WORDLE_WORDS[index];
+    var index = Math.abs(seed) % ALL_WORDLE_WORDS.length;
+    return ALL_WORDLE_WORDS[index];
   }
 
   // ── Credits & Streak Storage Engine ───────────────────────────────────────
@@ -687,126 +736,210 @@
   }
 
   // ── BB Trivia Game Engine ────────────────────────────────────────────────
-  function initTrivia() {
-    // Shuffle and pick 5 questions for this session
-    var shuffled = BB_TRIVIA_QUESTIONS.slice().sort(function() { return 0.5 - Math.random(); });
-    _triviaState = {
-      questions: shuffled.slice(0, 5),
-      currentIndex: 0,
-      score: 0,
-      timer: 15,
-      timerInterval: null,
-      isAnswered: false,
-      isComplete: false
-    };
+  /**
+   * Deterministically returns 5 distinct question indices from BB_TRIVIA_QUESTIONS
+   * for a given calendar date key (e.g. '2026-11-03').
+   */
+  function getDailyTriviaQuestionIndices(dateKey) {
+    var key = dateKey || getTodayDateKey();
+    var seed = 0;
+    for (var i = 0; i < key.length; i++) {
+      seed = (seed * 31 + key.charCodeAt(i)) % 2147483647;
+    }
+    var total = BB_TRIVIA_QUESTIONS.length;
+    var indices = [];
+    for (var j = 0; j < total; j++) indices.push(j);
+    for (var k = indices.length - 1; k > 0; k--) {
+      seed = (seed * 9301 + 49297) % 233280;
+      var rnd = (seed % 233280) / 233280;
+      var swapIdx = Math.floor(rnd * (k + 1));
+      var tmp = indices[k];
+      indices[k] = indices[swapIdx];
+      indices[swapIdx] = tmp;
+    }
+    return indices.slice(0, 5);
+  }
 
+  function getTriviaUserKey() {
+    var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
+    return ic ? ('bb_trivia_' + String(ic).replace(/[^a-zA-Z0-9_-]/g, '_')) : 'bb_trivia_guest';
+  }
+
+  function saveTriviaState(state) {
+    var st = state || _triviaState;
+    if (!st || !st.dateKey) return;
+    try {
+      var uKey = getTriviaUserKey();
+      if (typeof localStorage !== 'undefined') {
+        var json = JSON.stringify(st);
+        localStorage.setItem(uKey + '_' + st.dateKey, json);
+        localStorage.setItem(uKey + '_active', json);
+      }
+    } catch (e) {
+      console.warn('saveTriviaState error:', e);
+    }
+  }
+
+  /**
+   * Auto-submits any unsubmitted quiz left over from a prior date.
+   * Awards credits (+5 per correct answer) and updates participation streak for that day.
+   */
+  function checkAndAutoSubmitPastTrivia(todayKey) {
+    var today = todayKey || getTodayDateKey();
+    var uKey = getTriviaUserKey();
+    try {
+      if (typeof localStorage === 'undefined') return;
+      var rawActive = localStorage.getItem(uKey + '_active');
+      if (!rawActive) return;
+      var past = JSON.parse(rawActive);
+      if (past && past.dateKey && past.dateKey < today && !past.isSubmitted) {
+        var autoScore = 0;
+        var qIndices = past.questionIndices || getDailyTriviaQuestionIndices(past.dateKey);
+        var answers = past.answers || {};
+        for (var i = 0; i < 5; i++) {
+          var chosenOpt = answers[i];
+          if (chosenOpt !== undefined && chosenOpt !== null) {
+            var realQIdx = qIndices[i];
+            if (BB_TRIVIA_QUESTIONS[realQIdx] && chosenOpt === BB_TRIVIA_QUESTIONS[realQIdx].correct) {
+              autoScore++;
+            }
+          }
+        }
+        past.score = autoScore;
+        past.isSubmitted = true;
+        past.autoSubmitted = true;
+        past.submittedAt = new Date().toISOString();
+
+        if (autoScore > 0) {
+          awardCredits(autoScore * 5, 'Past Daily BB Trivia (' + past.dateKey + ')');
+        }
+        recordGameParticipation(past.dateKey);
+
+        var stats = getArcadeStats();
+        stats.triviaPlays = (stats.triviaPlays || 0) + 1;
+        stats.triviaScoreTotal = (stats.triviaScoreTotal || 0) + autoScore;
+        saveArcadeStats(stats);
+
+        localStorage.setItem(uKey + '_' + past.dateKey, JSON.stringify(past));
+        localStorage.removeItem(uKey + '_active');
+      }
+    } catch (e) {
+      console.warn('checkAndAutoSubmitPastTrivia error:', e);
+    }
+  }
+
+  function loadTriviaState(optDate) {
+    var today = (typeof optDate === 'string' && optDate) ? getTodayDateKey(optDate) : getTodayDateKey();
+    var uKey = getTriviaUserKey();
+
+    checkAndAutoSubmitPastTrivia(today);
+
+    var saved = null;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        var raw = localStorage.getItem(uKey + '_' + today);
+        if (raw) saved = JSON.parse(raw);
+      }
+    } catch (e) {}
+
+    if (saved && saved.dateKey === today) {
+      _triviaState = saved;
+      if (!_triviaState.questionIndices || _triviaState.questionIndices.length !== 5) {
+        _triviaState.questionIndices = getDailyTriviaQuestionIndices(today);
+      }
+      if (!_triviaState.answers) _triviaState.answers = {};
+    } else {
+      _triviaState = {
+        dateKey: today,
+        questionIndices: getDailyTriviaQuestionIndices(today),
+        answers: {},
+        currentIndex: 0,
+        isSubmitted: false,
+        score: 0,
+        submittedAt: null
+      };
+      saveTriviaState(_triviaState);
+    }
+    return _triviaState;
+  }
+
+  function initTrivia(optDate) {
+    loadTriviaState(optDate);
     renderTriviaView();
-    startTriviaTimer();
   }
 
-  function startTriviaTimer() {
-    if (_triviaState.timerInterval) clearInterval(_triviaState.timerInterval);
-    _triviaState.timer = 15;
-    updateTriviaTimerUI();
-
-    _triviaState.timerInterval = setInterval(function() {
-      if (_triviaState.isAnswered || _triviaState.isComplete) {
-        clearInterval(_triviaState.timerInterval);
-        return;
-      }
-      _triviaState.timer--;
-      updateTriviaTimerUI();
-
-      if (_triviaState.timer <= 0) {
-        clearInterval(_triviaState.timerInterval);
-        handleTriviaTimeout();
-      }
-    }, 1000);
+  function selectTriviaAnswer(optIndex) {
+    if (_triviaState.isSubmitted) return;
+    _triviaState.answers[_triviaState.currentIndex] = optIndex;
+    saveTriviaState(_triviaState);
+    renderTriviaView();
   }
 
-  function updateTriviaTimerUI() {
-    var timerEl = document.getElementById('trivia-timer-val');
-    var barEl = document.getElementById('trivia-timer-bar');
-    if (timerEl) timerEl.textContent = String(_triviaState.timer);
-    if (barEl) {
-      var pct = Math.max(0, Math.min(100, (_triviaState.timer / 15) * 100));
-      barEl.style.width = pct + '%';
-      if (_triviaState.timer <= 5) {
-        barEl.style.background = 'var(--red, #ef4444)';
-      } else {
-        barEl.style.background = 'var(--accent, #d9a323)';
-      }
-    }
-  }
-
-  function handleTriviaTimeout() {
-    if (_triviaState.isAnswered) return;
-    _triviaState.isAnswered = true;
-    var currentQ = _triviaState.questions[_triviaState.currentIndex];
-
-    revealTriviaAnswers(-1, currentQ.correct);
-    showTriviaExplanation('Time expired! ' + currentQ.expl, false);
-  }
-
-  function answerTrivia(selectedIndex) {
-    if (_triviaState.isAnswered) return;
-    _triviaState.isAnswered = true;
-    if (_triviaState.timerInterval) clearInterval(_triviaState.timerInterval);
-
-    var currentQ = _triviaState.questions[_triviaState.currentIndex];
-    var isCorrect = (selectedIndex === currentQ.correct);
-
-    if (isCorrect) {
-      _triviaState.score++;
-      awardCredits(5, 'Correct Trivia Answer');
-    }
-
-    revealTriviaAnswers(selectedIndex, currentQ.correct);
-    showTriviaExplanation((isCorrect ? 'Correct! ' : 'Incorrect! ') + currentQ.expl, isCorrect);
-  }
-
-  function revealTriviaAnswers(selectedIndex, correctIndex) {
-    var buttons = document.querySelectorAll('.trivia-opt-btn');
-    buttons.forEach(function(btn, idx) {
-      btn.disabled = true;
-      if (idx === correctIndex) {
-        btn.classList.add('correct');
-      } else if (idx === selectedIndex) {
-        btn.classList.add('incorrect');
-      }
-    });
-  }
-
-  function showTriviaExplanation(text, isCorrect) {
-    var explBox = document.getElementById('trivia-expl-box');
-    var nextBtn = document.getElementById('trivia-next-btn');
-    if (explBox) {
-      explBox.style.display = 'block';
-      explBox.className = 'trivia-expl-box ' + (isCorrect ? 'correct' : 'incorrect');
-      explBox.textContent = text;
-    }
-    if (nextBtn) {
-      nextBtn.style.display = 'inline-flex';
-      nextBtn.textContent = (_triviaState.currentIndex >= 4) ? 'Finish Quiz' : 'Next Question \u2192';
+  function prevTriviaQuestion() {
+    if (_triviaState.currentIndex > 0) {
+      _triviaState.currentIndex--;
+      saveTriviaState(_triviaState);
+      renderTriviaView();
     }
   }
 
   function nextTriviaQuestion() {
-    _triviaState.currentIndex++;
-    if (_triviaState.currentIndex >= _triviaState.questions.length) {
-      // Completed full quiz!
-      _triviaState.isComplete = true;
-      recordGameParticipation();
-      var stats = getArcadeStats();
-      stats.triviaPlays = (stats.triviaPlays || 0) + 1;
-      stats.triviaScoreTotal = (stats.triviaScoreTotal || 0) + _triviaState.score;
-      saveArcadeStats(stats);
+    if (_triviaState.currentIndex < 4) {
+      _triviaState.currentIndex++;
+      saveTriviaState(_triviaState);
       renderTriviaView();
-    } else {
-      _triviaState.isAnswered = false;
-      renderTriviaView();
-      startTriviaTimer();
     }
+  }
+
+  async function submitTriviaQuiz() {
+    if (_triviaState.isSubmitted) return;
+
+    var answeredCount = Object.keys(_triviaState.answers).length;
+    if (answeredCount < 5) {
+      var proceed = true;
+      if (typeof showConfirmModal === 'function') {
+        proceed = await showConfirmModal(
+          'You have answered ' + answeredCount + ' of 5 questions. Unanswered questions will receive 0 points. Submit quiz now?',
+          'Submit Daily BB Trivia?',
+          { confirmText: 'Submit Now', cancelText: 'Review Answers' }
+        );
+      }
+      if (!proceed) return;
+    }
+
+    var score = 0;
+    var qIndices = _triviaState.questionIndices;
+    for (var i = 0; i < 5; i++) {
+      var chosen = _triviaState.answers[i];
+      if (chosen !== undefined && chosen !== null) {
+        var realIdx = qIndices[i];
+        if (BB_TRIVIA_QUESTIONS[realIdx] && chosen === BB_TRIVIA_QUESTIONS[realIdx].correct) {
+          score++;
+        }
+      }
+    }
+
+    _triviaState.score = score;
+    _triviaState.isSubmitted = true;
+    _triviaState.submittedAt = new Date().toISOString();
+    saveTriviaState(_triviaState);
+
+    if (score > 0) {
+      awardCredits(score * 5, 'Daily BB Trivia');
+    }
+    recordGameParticipation('trivia');
+
+    var stats = getArcadeStats();
+    stats.triviaPlays = (stats.triviaPlays || 0) + 1;
+    stats.triviaScoreTotal = (stats.triviaScoreTotal || 0) + score;
+    saveArcadeStats(stats);
+
+    renderTriviaView();
+  }
+
+  // Backward compatibility alias
+  function answerTrivia(selectedIndex) {
+    selectTriviaAnswer(selectedIndex);
   }
 
   // ── View Rendering Controllers ───────────────────────────────────────────
@@ -976,8 +1109,11 @@
       if (_wordleState.hasWon) {
         statusBanner =
           '<div class="arcade-result-banner success">' +
-            '<div style="font-weight:700;font-size:16px;">\uD83C\uDF89 Splendid! You solved today\'s Wordle!</div>' +
-            '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">Awarded +15 Credits! Streak updated. Come back tomorrow for a fresh BB puzzle!</div>' +
+            '<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;">' +
+              '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+              '<span>Splendid! You solved today\'s Wordle!</span>' +
+            '</div>' +
+            '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">Awarded +15 Credits! Streak updated. Come back tomorrow for a fresh puzzle!</div>' +
           '</div>';
       } else {
         statusBanner =
@@ -1003,76 +1139,140 @@
   }
 
   // ── Subtab View: BB Trivia ───────────────────────────────────────────────
+  function renderTriviaCompletedView(container) {
+    var pct = Math.round((_triviaState.score / 5) * 100);
+    var earned = _triviaState.score * 5;
+
+    var reviewHtml = '';
+    for (var i = 0; i < 5; i++) {
+      var qRealIdx = _triviaState.questionIndices[i];
+      var qObj = BB_TRIVIA_QUESTIONS[qRealIdx];
+      if (!qObj) continue;
+
+      var userAnsIdx = _triviaState.answers[i];
+      var isCorrect = (userAnsIdx === qObj.correct);
+      var isAnswered = (userAnsIdx !== undefined && userAnsIdx !== null);
+      var userAnsText = isAnswered ? qObj.options[userAnsIdx] : 'No answer submitted';
+
+      reviewHtml +=
+        '<div class="card trivia-review-card" style="padding:14px 16px;margin-bottom:10px;background:var(--bg-card-subtle, rgba(255,255,255,0.03));border:1px solid ' + (isCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)') + ';border-radius:10px;">' +
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px;">' +
+            '<div style="font-weight:700;font-size:14px;color:var(--text);">' + (i + 1) + '. ' + qObj.q + '</div>' +
+            '<span class="badge ' + (isCorrect ? 'badge-active' : 'badge-inactive') + '" style="flex-shrink:0;">' + (isCorrect ? 'Correct' : 'Incorrect') + '</span>' +
+          '</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">' +
+            '<strong>Your answer:</strong> <span style="color:' + (isCorrect ? '#34d399' : '#f87171') + ';">' + userAnsText + '</span>' +
+            (!isCorrect ? ' &middot; <strong>Correct answer:</strong> <span style="color:#34d399;">' + qObj.options[qObj.correct] + '</span>' : '') +
+          '</div>' +
+          '<div class="trivia-expl-box ' + (isCorrect ? 'correct' : 'incorrect') + '" style="margin-top:6px;padding:8px 12px;font-size:12px;">' +
+            '<strong>Handbook Note:</strong> ' + qObj.expl +
+          '</div>' +
+        '</div>';
+    }
+
+    container.innerHTML =
+      '<div class="card trivia-card" style="padding:24px 20px;">' +
+        '<!-- Header Result Banner -->' +
+        '<div class="arcade-result-banner success" style="margin-bottom:18px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;">' +
+            '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+            '<span>Today\'s BB Trivia Complete!</span>' +
+          '</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">' +
+            'You scored <strong>' + _triviaState.score + ' / 5</strong> (' + pct + '%) &middot; Awarded <strong>+' + earned + ' Credits</strong>. Daily streak recorded!' +
+          '</div>' +
+          '<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">' +
+            'You can only take the quiz once per day. Come back tomorrow for a fresh set of questions!' +
+          '</div>' +
+        '</div>' +
+
+        '<!-- Detailed Question Review -->' +
+        '<div style="margin-bottom:18px;">' +
+          '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px;">Question Review &amp; Syllabus Explanations</div>' +
+          reviewHtml +
+        '</div>' +
+
+        '<!-- Footer Action Button -->' +
+        '<div style="text-align:center;">' +
+          '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'stats\')" style="padding:9px 24px;">' +
+            'View Streaks &amp; Credits' +
+          '</button>' +
+        '</div>' +
+      '</div>';
+  }
+
   function renderTriviaView() {
     var container = document.getElementById('arcade-subtab-container');
     if (!container) return;
 
-    if (_triviaState.isComplete) {
-      var pct = Math.round((_triviaState.score / 5) * 100);
-      var earned = _triviaState.score * 5;
-      container.innerHTML =
-        '<div class="card trivia-card" style="text-align:center;padding:32px 20px;">' +
-          '<div style="width:64px;height:64px;border-radius:50%;background:rgba(217,163,35,0.15);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">' +
-            '<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
-          '</div>' +
-          '<div style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px;">Quiz Complete!</div>' +
-          '<div style="font-size:14px;color:var(--text-secondary);margin-bottom:18px;">You scored <strong>' + _triviaState.score + ' / 5</strong> (' + pct + '%) &middot; Earned <strong>+' + earned + ' Credits</strong></div>' +
-          '<div style="display:flex;justify-content:center;gap:12px;">' +
-            '<button type="button" class="portal-btn portal-btn-primary" onclick="initTrivia()" style="padding:10px 24px;font-weight:700;">' +
-              'Play Another Round' +
-            '</button>' +
-            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'stats\')" style="padding:10px 24px;">' +
-              'View Streaks &amp; Credits' +
-            '</button>' +
-          '</div>' +
-        '</div>';
+    if (_triviaState.isSubmitted) {
+      renderTriviaCompletedView(container);
       return;
     }
 
-    var currentQ = _triviaState.questions[_triviaState.currentIndex];
+    var currentIdx = _triviaState.currentIndex || 0;
+    var qRealIdx = _triviaState.questionIndices[currentIdx];
+    var currentQ = BB_TRIVIA_QUESTIONS[qRealIdx];
     if (!currentQ) return;
+
+    var chosenAnswer = _triviaState.answers[currentIdx];
+    var progressPct = Math.round(((currentIdx + 1) / 5) * 100);
+    var answeredTotal = Object.keys(_triviaState.answers).length;
 
     var optsHtml = '';
     currentQ.options.forEach(function(opt, idx) {
+      var isSelected = (chosenAnswer === idx);
+      var optClass = 'trivia-opt-btn' + (isSelected ? ' selected' : '');
       optsHtml +=
-        '<button type="button" class="trivia-opt-btn" onclick="answerTrivia(' + idx + ')">' +
+        '<button type="button" class="' + optClass + '" onclick="selectTriviaAnswer(' + idx + ')" aria-pressed="' + isSelected + '">' +
           '<span class="opt-letter">' + String.fromCharCode(65 + idx) + '</span>' +
           '<span class="opt-text">' + opt + '</span>' +
+          (isSelected ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto;color:var(--accent);"><polyline points="20 6 9 17 4 12"/></svg>' : '') +
         '</button>';
     });
 
+    var isLastQuestion = (currentIdx === 4);
+
     container.innerHTML =
       '<div class="card trivia-card">' +
-        '<!-- Header: Question Counter & Countdown Timer -->' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+        '<!-- Header: Question Counter & Progress -->' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
           '<div style="font-family:var(--font-headline);font-weight:700;color:var(--gold);font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">' +
-            'Question ' + (_triviaState.currentIndex + 1) + ' of 5' +
+            'Question ' + (currentIdx + 1) + ' of 5' +
           '</div>' +
-          '<div class="trivia-timer-badge">' +
-            '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-            '<span><span id="trivia-timer-val">' + _triviaState.timer + '</span>s</span>' +
+          '<div class="trivia-answered-badge">' +
+            '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">' + answeredTotal + ' of 5 answered</span>' +
           '</div>' +
         '</div>' +
 
-        '<!-- Countdown Progress Bar -->' +
-        '<div class="trivia-progress-track">' +
-          '<div id="trivia-timer-bar" class="trivia-progress-bar" style="width:100%;"></div>' +
+        '<!-- Progress Bar (Determinate: 20% on Q1, 100% on Q5) -->' +
+        '<div class="trivia-progress-track" role="progressbar" aria-valuenow="' + (currentIdx + 1) + '" aria-valuemin="1" aria-valuemax="5" aria-label="Quiz progress">' +
+          '<div id="trivia-progress-bar" class="trivia-progress-bar" style="width:' + progressPct + '%;"></div>' +
         '</div>' +
 
         '<!-- Question Prompt -->' +
         '<div class="trivia-question-text">' + currentQ.q + '</div>' +
 
-        '<!-- Options Grid -->' +
+        '<!-- Options List -->' +
         '<div class="trivia-options-grid">' + optsHtml + '</div>' +
 
-        '<!-- Feedback Explanation Box -->' +
-        '<div id="trivia-expl-box" class="trivia-expl-box" style="display:none;"></div>' +
-
-        '<!-- Next Question Button -->' +
-        '<div style="text-align:right;margin-top:14px;">' +
-          '<button type="button" id="trivia-next-btn" class="portal-btn portal-btn-primary" onclick="nextTriviaQuestion()" style="display:none;padding:8px 20px;font-weight:700;">' +
-            'Next Question \u2192' +
+        '<!-- Navigation Controls -->' +
+        '<div class="trivia-nav-row">' +
+          '<button type="button" class="portal-btn portal-btn-secondary trivia-nav-btn" onclick="prevTriviaQuestion()"' + (currentIdx === 0 ? ' disabled' : '') + '>' +
+            '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>' +
+            '<span>Previous</span>' +
           '</button>' +
+
+          (isLastQuestion ?
+            '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn trivia-submit-btn" onclick="submitTriviaQuiz()">' +
+              '<span>Submit Quiz</span>' +
+              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+            '</button>' :
+            '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn" onclick="nextTriviaQuestion()">' +
+              '<span>Next</span>' +
+              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' +
+            '</button>'
+          ) +
         '</div>' +
       '</div>';
   }
@@ -1162,10 +1362,14 @@
   // ── Exports ───────────────────────────────────────────────────────────────
   var ArcadeModule = {
     BB_WORDLE_WORDS: BB_WORDLE_WORDS,
+    ALL_WORDLE_WORDS: ALL_WORDLE_WORDS,
     BB_TRIVIA_QUESTIONS: BB_TRIVIA_QUESTIONS,
     getTodayDateKey: getTodayDateKey,
     getYesterdayDateKey: getYesterdayDateKey,
     getDailyWordleWord: getDailyWordleWord,
+    getDailyTriviaQuestionIndices: getDailyTriviaQuestionIndices,
+    getArcadeUserKey: getArcadeUserKey,
+    getTriviaUserKey: getTriviaUserKey,
     getArcadeStats: getArcadeStats,
     saveArcadeStats: saveArcadeStats,
     recordGameParticipation: recordGameParticipation,
@@ -1176,8 +1380,14 @@
     handleWordleKey: handleWordleKey,
     submitWordleGuess: submitWordleGuess,
     initTrivia: initTrivia,
-    answerTrivia: answerTrivia,
+    loadTriviaState: loadTriviaState,
+    saveTriviaState: saveTriviaState,
+    checkAndAutoSubmitPastTrivia: checkAndAutoSubmitPastTrivia,
+    selectTriviaAnswer: selectTriviaAnswer,
+    prevTriviaQuestion: prevTriviaQuestion,
     nextTriviaQuestion: nextTriviaQuestion,
+    submitTriviaQuiz: submitTriviaQuiz,
+    answerTrivia: answerTrivia,
     ensureArcadePageDOM: ensureArcadePageDOM,
     renderArcadePage: renderArcadePage,
     switchArcadeSubtab: switchArcadeSubtab,
@@ -1187,22 +1397,32 @@
   };
 
   if (typeof window !== 'undefined') {
-    window.BB_WORDLE_WORDS         = BB_WORDLE_WORDS;
-    window.BB_TRIVIA_QUESTIONS      = BB_TRIVIA_QUESTIONS;
-    window.getArcadeStats           = getArcadeStats;
-    window.recordGameParticipation  = recordGameParticipation;
-    window.awardCredits             = awardCredits;
-    window.updateArcadeHeaderBadge  = updateArcadeHeaderBadge;
-    window.handleWordleKey          = handleWordleKey;
-    window.submitWordleGuess        = submitWordleGuess;
-    window.answerTrivia             = answerTrivia;
-    window.nextTriviaQuestion       = nextTriviaQuestion;
-    window.ensureArcadePageDOM      = ensureArcadePageDOM;
-    window.renderArcadePage         = renderArcadePage;
-    window.switchArcadeSubtab       = switchArcadeSubtab;
-    window.isValidWordleWord        = isValidWordleWord;
-    window.showWordleToast          = showWordleToast;
-    window.ArcadeModule             = ArcadeModule;
+    window.BB_WORDLE_WORDS               = BB_WORDLE_WORDS;
+    window.ALL_WORDLE_WORDS              = ALL_WORDLE_WORDS;
+    window.BB_TRIVIA_QUESTIONS            = BB_TRIVIA_QUESTIONS;
+    window.getArcadeUserKey               = getArcadeUserKey;
+    window.getTriviaUserKey               = getTriviaUserKey;
+    window.getArcadeStats                 = getArcadeStats;
+    window.recordGameParticipation        = recordGameParticipation;
+    window.awardCredits                   = awardCredits;
+    window.updateArcadeHeaderBadge        = updateArcadeHeaderBadge;
+    window.handleWordleKey                = handleWordleKey;
+    window.submitWordleGuess              = submitWordleGuess;
+    window.initTrivia                     = initTrivia;
+    window.loadTriviaState                = loadTriviaState;
+    window.saveTriviaState                = saveTriviaState;
+    window.checkAndAutoSubmitPastTrivia   = checkAndAutoSubmitPastTrivia;
+    window.selectTriviaAnswer             = selectTriviaAnswer;
+    window.prevTriviaQuestion             = prevTriviaQuestion;
+    window.nextTriviaQuestion             = nextTriviaQuestion;
+    window.submitTriviaQuiz               = submitTriviaQuiz;
+    window.answerTrivia                   = answerTrivia;
+    window.ensureArcadePageDOM            = ensureArcadePageDOM;
+    window.renderArcadePage               = renderArcadePage;
+    window.switchArcadeSubtab             = switchArcadeSubtab;
+    window.isValidWordleWord              = isValidWordleWord;
+    window.showWordleToast                = showWordleToast;
+    window.ArcadeModule                   = ArcadeModule;
   }
 
   if (typeof module !== 'undefined' && module.exports) {
