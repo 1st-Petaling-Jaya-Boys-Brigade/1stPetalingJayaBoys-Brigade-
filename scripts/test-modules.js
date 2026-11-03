@@ -4049,8 +4049,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261103b',
-    'sw.js CACHE_VERSION must be 20261103b'
+    '20261103c',
+    'sw.js CACHE_VERSION must be 20261103c'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -6565,7 +6565,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103b'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103c'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -6684,13 +6684,85 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(global.window.location.hash, '#forum', 'Hash must return to #forum');
     console.log('  ✔ Admin Console history push and Undo dismissal verified');
 
-    // 5. Global Keyboard Shortcuts for Navigation Undo/Redo
-    assert.ok(idxHtml.includes("(e.key === 'z' || e.key === 'Z')"), 'index.html must handle Ctrl+Z / Cmd+Z for undo');
-    assert.ok(idxHtml.includes("(e.key === 'y' || e.key === 'Y')"), 'index.html must handle Ctrl+Y for redo');
-    assert.ok(idxHtml.includes("history.back()"), 'Undo shortcut must invoke history.back()');
-    assert.ok(idxHtml.includes("history.forward()"), 'Redo shortcut must invoke history.forward()');
-    assert.ok(idxHtml.includes("isEditingText"), 'Shortcut must guard against triggering when user is editing text in inputs/textareas');
-    console.log('  ✔ Keyboard shortcuts (Ctrl+Z Undo, Ctrl+Y Redo) and text editing input guards verified');
+    // 5. Browser-Only Navigation Undo/Redo (No Keyboard Interception)
+    assert.ok(!idxHtml.includes("(e.key === 'z' || e.key === 'Z')"), 'index.html must not intercept Ctrl+Z / Cmd+Z for navigation undo');
+    assert.ok(!idxHtml.includes("(e.key === 'y' || e.key === 'Y')"), 'index.html must not intercept Ctrl+Y for navigation redo');
+    console.log('  ✔ Navigation Undo/Redo strictly delegated to browser tab buttons without keyboard interception');
+  }
+
+  // ── Section-Specific Rank Governance & Admin Console Dynamic Filtering ────
+  {
+    console.log('\nTesting Section-Specific Rank Governance & Admin Dynamic Filtering...');
+    const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. Section label simplification (removed (PDPA/COPPA Governance))
+    assert.ok(idxHtml.includes('<label class="form-label" for="em-section">Section</label>'), 'Admin section label must be simply "Section"');
+    assert.ok(!idxHtml.includes('Section (PDPA/COPPA Governance)'), 'Must not contain old "(PDPA/COPPA Governance)" label');
+    console.log('  ✔ Section label cleanly displays "Section" without governance disclaimer in Admin Console');
+
+    // 2. Normalization & rank retrieval for all sections
+    assert.strictEqual(memberModule.normalizeSection('Senior'), 'senior');
+    assert.strictEqual(memberModule.normalizeSection('Senior Section'), 'senior');
+    assert.strictEqual(memberModule.normalizeSection('Junior'), 'junior');
+    assert.strictEqual(memberModule.normalizeSection('Junior Section'), 'junior');
+    assert.strictEqual(memberModule.normalizeSection('Officer'), 'officer');
+    assert.strictEqual(memberModule.normalizeSection('Officer / Staff'), 'officer');
+
+    const seniorRanks = memberModule.getRanksForSection('Senior Section');
+    assert.deepStrictEqual(seniorRanks, ['Recruit', 'Private', 'Lance Corporal', 'Corporal', 'Sergeant'], 'Senior section ranks must include Senior ranks and NCO ranks');
+
+    const juniorRanks = memberModule.getRanksForSection('Junior Section');
+    assert.deepStrictEqual(juniorRanks, ['Pre-Junior', 'Junior', 'Assistance Junior Leader', 'Junior Leader', 'Chief Junior Leader'], 'Junior section ranks must include Junior ranks');
+
+    const officerRanks = memberModule.getRanksForSection('Officer / Staff');
+    assert.deepStrictEqual(officerRanks, ['Captain', 'Honarary Captain', 'Lieutenant', 'Warrant Officer', 'Instructor', 'Staff Sergeant'], 'Officer section ranks must include Officer ranks');
+    console.log('  ✔ getRanksForSection strictly returns designated ranks for Senior, Junior, and Officer sections');
+
+    // 3. Section deduction from rank
+    assert.strictEqual(memberModule.getSectionForRank('Warrant Officer'), 'Officer');
+    assert.strictEqual(memberModule.getSectionForRank('Captain'), 'Officer');
+    assert.strictEqual(memberModule.getSectionForRank('Corporal'), 'Senior');
+    assert.strictEqual(memberModule.getSectionForRank('Private'), 'Senior');
+    assert.strictEqual(memberModule.getSectionForRank('Chief Junior Leader'), 'Junior');
+    console.log('  ✔ getSectionForRank accurately infers member section from rank');
+
+    // 4. Registration rank population with Senior Section
+    const mockRankSelect = {
+      innerHTML: '',
+      children: [],
+      appendChild(node) {
+        this.children.push(node);
+      },
+      querySelectorAll() {
+        return this.children;
+      }
+    };
+    memberModule.populateRankOptions(mockRankSelect, 'Senior Section', '', 'Select rank...', false);
+    const renderedOpts = mockRankSelect.children.map(c => c.textContent || (c.children && c.children.map(k => k.textContent)) || '');
+    assert.ok(!JSON.stringify(renderedOpts).includes('No rank'), 'Rank dropdown must never include "No rank"');
+    assert.ok(JSON.stringify(renderedOpts).includes('Lance Corporal'), 'Senior section must include NCO ranks');
+    assert.ok(JSON.stringify(renderedOpts).includes('Private'), 'Senior section must include Private');
+    assert.ok(!JSON.stringify(renderedOpts).includes('Warrant Officer'), 'Senior section must not include Officer ranks');
+    console.log('  ✔ populateRankOptions for Senior Section populates Senior + NCO ranks and strictly excludes "No rank"');
+
+    // 5. Dynamic Section Switching in Admin Console
+    memberModule.populateRankOptions(mockRankSelect, 'Officer', '', null, false);
+    const officerOpts = mockRankSelect.children.map(c => c.textContent || '');
+    assert.ok(officerOpts.includes('Warrant Officer'), 'Officer section must contain Warrant Officer');
+    assert.ok(officerOpts.includes('Captain'), 'Officer section must contain Captain');
+    assert.ok(!officerOpts.includes('Private'), 'Officer section must not contain Private');
+    assert.ok(!officerOpts.includes('Lance Corporal'), 'Officer section must not contain NCO ranks');
+    console.log('  ✔ Switching section to Officer dynamically restricts dropdown to Officer ranks only');
+
+    // 6. Admin member save rejects "No rank"
+    let toastFired = false;
+    global.showToast = () => { toastFired = true; };
+    document.getElementById('em-ic').value = 'test@1stpjbb.org.my';
+    document.getElementById('em-name').value = 'Test User';
+    document.getElementById('em-rank').value = '';
+    await adminModule.saveEditMember();
+    assert.ok(toastFired, 'saveEditMember must reject member without valid rank');
+    console.log('  ✔ saveEditMember enforces mandatory rank and disallows empty / "No rank" submission');
   }
 
 

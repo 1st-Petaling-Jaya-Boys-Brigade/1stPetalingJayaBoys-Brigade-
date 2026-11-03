@@ -1201,9 +1201,14 @@
       : (sec === 'Pre-Junior' || sec === 'Junior' || (sec !== 'Officer' && age !== null && age <= 11));
 
     var rankEl = document.getElementById('em-rank');
-    if (rankEl && typeof populateRankOptions === 'function') {
+    var popRank = (typeof populateRankOptions === 'function')
+      ? populateRankOptions
+      : (typeof global !== 'undefined' && typeof global.populateRankOptions === 'function'
+          ? global.populateRankOptions
+          : (typeof window !== 'undefined' && typeof window.populateRankOptions === 'function' ? window.populateRankOptions : null));
+    if (rankEl && typeof popRank === 'function') {
       var curRank = rankEl.value;
-      populateRankOptions(rankEl, sec, curRank, 'No rank', !!preserveRank);
+      popRank(rankEl, sec, curRank, sec ? null : 'Select section first...', !!preserveRank);
     }
 
     var box = document.getElementById('em-child-safety-box');
@@ -1237,8 +1242,13 @@
       if (el) el.value = '';
     });
     var emRankAdd = document.getElementById('em-rank');
-    if (emRankAdd && typeof populateRankOptions === 'function') {
-      populateRankOptions(emRankAdd, '', '', 'No rank / Select section first', false);
+    var popRank = (typeof populateRankOptions === 'function')
+      ? populateRankOptions
+      : (typeof global !== 'undefined' && typeof global.populateRankOptions === 'function'
+          ? global.populateRankOptions
+          : (typeof window !== 'undefined' && typeof window.populateRankOptions === 'function' ? window.populateRankOptions : null));
+    if (emRankAdd && typeof popRank === 'function') {
+      popRank(emRankAdd, '', '', 'Select section first...', false);
     }
 
     var pc = document.getElementById('em-parent-consent');
@@ -1277,11 +1287,24 @@
 
     set('em-name',    m.name);
     set('em-ic',      m.ic);
+    var secRankFn = (typeof getSectionForRank === 'function')
+      ? getSectionForRank
+      : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
+          ? global.getSectionForRank
+          : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
     var editSec = m.att_section || m.section || '';
+    if (!editSec && m.rank && typeof secRankFn === 'function') {
+      editSec = secRankFn(m.rank);
+    }
     set('em-section', editSec);
     var emRankEdit = document.getElementById('em-rank');
-    if (emRankEdit && typeof populateRankOptions === 'function') {
-      populateRankOptions(emRankEdit, editSec, m.rank, 'No rank', true);
+    var popRank = (typeof populateRankOptions === 'function')
+      ? populateRankOptions
+      : (typeof global !== 'undefined' && typeof global.populateRankOptions === 'function'
+          ? global.populateRankOptions
+          : (typeof window !== 'undefined' && typeof window.populateRankOptions === 'function' ? window.populateRankOptions : null));
+    if (emRankEdit && typeof popRank === 'function') {
+      popRank(emRankEdit, editSec, m.rank, editSec ? null : 'Select section first...', true);
     } else {
       set('em-rank', m.rank);
     }
@@ -1385,6 +1408,10 @@
     }
     if (!ic) {
       if (typeof showToast === 'function') showToast('Account Email / ID cannot be empty.', 'warning');
+      return;
+    }
+    if (!rank || rank === 'No rank') {
+      if (typeof showToast === 'function') showToast('Please select a valid rank for this member.', 'warning');
       return;
     }
 

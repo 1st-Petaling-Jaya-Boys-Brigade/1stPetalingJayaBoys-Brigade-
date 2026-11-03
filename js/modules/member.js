@@ -28,6 +28,9 @@ function showAuthMode(mode) {
     var btn = document.getElementById('btn-' + btnMode);
     if (btn) btn.classList.toggle('active', btnMode === mode);
   });
+  if (mode === 'register' && typeof handleSectionChange === 'function') {
+    handleSectionChange();
+  }
   if (mode === 'forgot' && typeof showForgotStep === 'function') {
     showForgotStep(1);
   }
@@ -94,9 +97,28 @@ var OFFICER_RANKS = [
   'Staff Sergeant'
 ];
 
-function getRanksForSection(section) {
+function normalizeSection(section) {
   var s = String(section || '').trim().toLowerCase();
-  if (s === 'junior' || s === 'pre-junior') {
+  if (!s) return '';
+  if (s.indexOf('officer') !== -1 || s.indexOf('staff') !== -1) return 'officer';
+  if (s.indexOf('pre-junior') !== -1) return 'junior';
+  if (s.indexOf('junior') !== -1) return 'junior';
+  if (s.indexOf('senior') !== -1) return 'senior';
+  return s;
+}
+
+function getSectionForRank(rank) {
+  var r = String(rank || '').trim();
+  if (!r) return '';
+  if (OFFICER_RANKS.indexOf(r) !== -1 || r === 'Honorary Captain') return 'Officer';
+  if (MEMBERS_SENIOR_RANKS.indexOf(r) !== -1 || NCO_RANKS.indexOf(r) !== -1) return 'Senior';
+  if (MEMBERS_JUNIORS_RANKS.indexOf(r) !== -1 || r === 'Assistant Junior Leader') return 'Junior';
+  return '';
+}
+
+function getRanksForSection(section) {
+  var s = normalizeSection(section);
+  if (s === 'junior') {
     return MEMBERS_JUNIORS_RANKS.slice();
   }
   if (s === 'senior') {
@@ -110,17 +132,18 @@ function getRanksForSection(section) {
 
 function populateRankOptions(selectEl, section, selectedRank, placeholderText, allowExtraRank) {
   if (!selectEl) return;
-  var s = String(section || '').trim().toLowerCase();
-  var placeholder = placeholderText || (s ? 'Select rank...' : 'Select section first...');
+  var s = normalizeSection(section);
+  var placeholder = placeholderText !== undefined ? placeholderText : (s ? 'Select rank...' : 'Select section first...');
 
   selectEl.innerHTML = '';
 
-  var defaultOpt = document.createElement('option');
-  defaultOpt.value = '';
-  defaultOpt.textContent = placeholder;
-  selectEl.appendChild(defaultOpt);
-
   if (!s) {
+    if (placeholder && placeholder !== 'No rank') {
+      var defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = placeholder;
+      selectEl.appendChild(defaultOpt);
+    }
     if (selectedRank) {
       var opt = document.createElement('option');
       opt.value = selectedRank;
@@ -131,9 +154,16 @@ function populateRankOptions(selectEl, section, selectedRank, placeholderText, a
     return;
   }
 
+  if (placeholder && placeholder !== 'No rank') {
+    var pOpt = document.createElement('option');
+    pOpt.value = '';
+    pOpt.textContent = placeholder;
+    selectEl.appendChild(pOpt);
+  }
+
   var found = false;
 
-  if (s === 'junior' || s === 'pre-junior') {
+  if (s === 'junior') {
     MEMBERS_JUNIORS_RANKS.forEach(function(r) {
       var o = document.createElement('option');
       o.value = r;
@@ -183,24 +213,12 @@ function populateRankOptions(selectEl, section, selectedRank, placeholderText, a
       }
       selectEl.appendChild(o);
     });
-  } else {
-    var allRanks = MEMBERS_JUNIORS_RANKS.concat(MEMBERS_SENIOR_RANKS, NCO_RANKS, OFFICER_RANKS);
-    allRanks.forEach(function(r) {
-      var o = document.createElement('option');
-      o.value = r;
-      o.textContent = r;
-      if (selectedRank && selectedRank === r) {
-        o.selected = true;
-        found = true;
-      }
-      selectEl.appendChild(o);
-    });
   }
 
   if (selectedRank && !found && allowExtraRank) {
     var extraOpt = document.createElement('option');
     extraOpt.value = selectedRank;
-    extraOpt.textContent = selectedRank;
+    extraOpt.textContent = selectedRank + ' (Current)';
     extraOpt.selected = true;
     selectEl.appendChild(extraOpt);
   }
@@ -230,7 +248,7 @@ function handleSectionChange() {
 
   if (rankEl) {
     var curRank = rankEl.value;
-    populateRankOptions(rankEl, section, curRank, null, false);
+    populateRankOptions(rankEl, section, curRank, section ? 'Select rank...' : 'Select section first...', false);
   }
 
   if (!box) return;
@@ -2882,7 +2900,10 @@ if (typeof window !== 'undefined') {
   window.dispatchDeviceSecurityAlertEmail = dispatchDeviceSecurityAlertEmail;
   window.MEMBERS_JUNIORS_RANKS        = MEMBERS_JUNIORS_RANKS;
   window.MEMBERS_SENIOR_RANKS         = MEMBERS_SENIOR_RANKS;
+  window.NCO_RANKS                    = NCO_RANKS;
   window.OFFICER_RANKS                = OFFICER_RANKS;
+  window.normalizeSection             = normalizeSection;
+  window.getSectionForRank            = getSectionForRank;
   window.getRanksForSection           = getRanksForSection;
   window.populateRankOptions          = populateRankOptions;
 
@@ -2894,6 +2915,8 @@ if (typeof module !== 'undefined' && module.exports) {
     MEMBERS_SENIOR_RANKS,
     NCO_RANKS,
     OFFICER_RANKS,
+    normalizeSection,
+    getSectionForRank,
     getRanksForSection,
     populateRankOptions,
     isMinorSection,
@@ -2940,15 +2963,28 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 if (typeof document !== 'undefined') {
-  var autoInitLoginTurnstile = function () {
+  var initMemberFormHooks = function () {
     var c = document.querySelector('#auth-login .cf-turnstile-container');
     if (c && typeof renderTurnstileWidget === 'function') {
       renderTurnstileWidget(c, 'login');
     }
+    var regSec = document.getElementById('reg-section');
+    if (regSec) {
+      regSec.addEventListener('change', handleSectionChange);
+      regSec.addEventListener('input', handleSectionChange);
+    }
+    var regAge = document.getElementById('reg-age');
+    if (regAge) {
+      regAge.addEventListener('input', handleSectionChange);
+      regAge.addEventListener('change', handleSectionChange);
+    }
+    if (regSec && regSec.value && typeof handleSectionChange === 'function') {
+      handleSectionChange();
+    }
   };
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', autoInitLoginTurnstile);
+    document.addEventListener('DOMContentLoaded', initMemberFormHooks);
   } else {
-    setTimeout(autoInitLoginTurnstile, 50);
+    setTimeout(initMemberFormHooks, 50);
   }
 }
