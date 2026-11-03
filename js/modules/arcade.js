@@ -871,7 +871,7 @@
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="page-desc">Strengthen your Boys\' Brigade knowledge, awards syllabus, and company history! Play the Daily Wordle and answer Timed BB Trivia to earn Credits and build your daily participation streak.</div>' +
+          '<div class="page-desc">Strengthen your Boys\' Brigade knowledge, awards syllabus, and company history! Play the Daily Wordle and answer Timed BB Trivia to earn Credits and build your daily streak.</div>' +
         '</div>' +
 
         '<!-- Subtabs Bar -->' +
@@ -992,7 +992,7 @@
       '<div class="card wordle-card">' +
         '<div style="text-align:center;margin-bottom:14px;">' +
           '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);">Daily BB Wordle</div>' +
-          '<div style="font-size:12px;color:var(--text-muted);">Guess today\'s 5-letter BB word in 6 tries. Green = correct spot, Gold = wrong spot.</div>' +
+          '<div style="font-size:12px;color:var(--text-muted);">Guess today\'s 5-letter word in 6 tries. Green = correct spot, Gold = wrong spot.</div>' +
         '</div>' +
         statusBanner +
         '<div class="wordle-board-wrapper">' +
