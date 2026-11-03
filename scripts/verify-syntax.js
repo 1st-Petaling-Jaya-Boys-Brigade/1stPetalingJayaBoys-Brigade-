@@ -27,6 +27,7 @@ const jsFiles = [
   'js/modules/tasks.js',
   'js/modules/admin.js',
   'js/modules/forum.js',
+  'js/modules/arcade.js',
   'sw.js'
 ];
 

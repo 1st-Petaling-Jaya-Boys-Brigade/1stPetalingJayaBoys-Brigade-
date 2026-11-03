@@ -450,7 +450,7 @@ async function signOutEverywhere() {
  * Global Route-Protection Middleware & Authenticated Portal Gatekeeper (TSK-045)
  */
 var AuthGuard = {
-  PROTECTED_ROUTES: ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum'],
+  PROTECTED_ROUTES: ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'],
   PUBLIC_ROUTES: ['member', 'admin'],
 
   /**

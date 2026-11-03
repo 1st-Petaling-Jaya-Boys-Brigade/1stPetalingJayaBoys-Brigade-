@@ -41,7 +41,8 @@ const PRECACHE_ASSETS = [
   './js/modules/badges.js',
   './js/modules/tasks.js',
   './js/modules/admin.js',
-  './js/modules/forum.js'
+  './js/modules/forum.js',
+  './js/modules/arcade.js'
 ];
 
 // Supabase PostgREST query keys prioritized for offline data caching

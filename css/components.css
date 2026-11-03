@@ -8002,3 +8002,425 @@ select.form-input,
     height: calc(100vh - 160px);
   }
 }
+
+/* ── TSK-056: 1stPJ Arcade, Daily Wordle, BB Trivia & Gamification ────────── */
+.nav-streak-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  padding-right: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.nav-streak-val {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary, #ffffff);
+}
+
+.streak-fire-icon {
+  color: #f97316;
+  flex-shrink: 0;
+  animation: flame-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes flame-pulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 1px rgba(249, 115, 22, 0.4)); }
+  100% { transform: scale(1.12); filter: drop-shadow(0 0 4px rgba(249, 115, 22, 0.8)); }
+}
+
+.arcade-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+
+.arcade-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card-subtle, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  padding: 6px 14px;
+  border-radius: 20px;
+}
+
+.arcade-nav-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.arcade-nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.arcade-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-card, #131722);
+  border: 1px solid var(--border-card, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  color: var(--text-secondary, #9ca3af);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-headline, sans-serif);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.arcade-tab-btn:hover {
+  background: var(--bg-card-subtle, #1a202c);
+  color: var(--text-primary, #f3f4f6);
+}
+
+.arcade-tab-btn.active {
+  background: var(--accent, #d9a323);
+  color: #0b0f17;
+  border-color: var(--accent, #d9a323);
+  font-weight: 700;
+}
+
+/* Wordle Styles */
+.wordle-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px;
+  position: relative;
+}
+
+.wordle-board-wrapper {
+  margin: 12px 0 20px;
+  position: relative;
+}
+
+/* Floating Warning Toast Pill (e.g. "Not in word list", Image 2) */
+.wordle-toast-container {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wordle-toast {
+  background: #ffffff;
+  color: #111827;
+  font-family: var(--font-headline, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 4px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  white-space: nowrap;
+  animation: wordleToastFade 0.15s ease-out forwards;
+}
+
+.wordle-toast.fade-out {
+  animation: wordleToastFadeOut 0.25s ease-in forwards;
+}
+
+@keyframes wordleToastFade {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wordleToastFadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+.wordle-board {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wordle-row {
+  display: flex;
+  gap: 6px;
+}
+
+.wordle-row.shake {
+  animation: wordle-shake 0.4s ease;
+}
+
+@keyframes wordle-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.wordle-tile {
+  width: 52px;
+  height: 52px;
+  border: 2px solid var(--border-card, #2d3748);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-headline, sans-serif);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary, #ffffff);
+  text-transform: uppercase;
+  user-select: none;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.wordle-tile.filled {
+  border-color: var(--border-primary, #718096);
+  transform: scale(1.05);
+}
+
+.wordle-tile.correct {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+.wordle-tile.present {
+  background: #d97706;
+  border-color: #d97706;
+  color: #ffffff;
+}
+
+.wordle-tile.absent {
+  background: #374151;
+  border-color: #374151;
+  color: #9ca3af;
+}
+
+.wordle-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 500px;
+}
+
+.wordle-kb-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.wordle-key {
+  height: 44px;
+  min-width: 32px;
+  padding: 0 10px;
+  flex: 1;
+  max-width: 44px;
+  background: var(--bg-card-subtle, #252e3e);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
+  color: var(--text-primary, #f3f4f6);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.wordle-key.wide {
+  flex: 1.5;
+  max-width: 64px;
+  font-size: 11px;
+}
+
+.wordle-key:hover {
+  background: #374151;
+}
+
+.wordle-key.correct {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+}
+
+.wordle-key.present {
+  background: #d97706;
+  color: #ffffff;
+  border-color: #d97706;
+}
+
+.wordle-key.absent {
+  background: #1f2937;
+  color: #6b7280;
+  border-color: #1f2937;
+}
+
+.arcade-result-banner {
+  padding: 12px 18px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+}
+
+.arcade-result-banner.success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+.arcade-result-banner.info {
+  background: rgba(217, 163, 35, 0.15);
+  border: 1px solid rgba(217, 163, 35, 0.35);
+  color: var(--accent, #d9a323);
+}
+
+/* BB Trivia Styles */
+.trivia-card {
+  padding: 24px 20px;
+}
+
+.trivia-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--bg-card-subtle, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-card, rgba(255, 255, 255, 0.1));
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.trivia-progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-card-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 3px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.trivia-progress-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1s linear, background-color 0.3s ease;
+}
+
+.trivia-question-text {
+  font-family: var(--font-headline, sans-serif);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  line-height: 1.45;
+  margin-bottom: 18px;
+}
+
+.trivia-options-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.trivia-opt-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-card-subtle, #1a2230);
+  border: 1px solid var(--border-card, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  color: var(--text-primary, #ffffff);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.trivia-opt-btn:hover:not(:disabled) {
+  background: var(--border-card, #263346);
+  border-color: var(--accent, #d9a323);
+  transform: translateY(-1px);
+}
+
+.trivia-opt-btn .opt-letter {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.trivia-opt-btn.correct {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+.trivia-opt-btn.correct .opt-letter {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.trivia-opt-btn.incorrect {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.trivia-opt-btn.incorrect .opt-letter {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.trivia-expl-box {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 14px;
+}
+
+.trivia-expl-box.correct {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.trivia-expl-box.incorrect {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+@media (max-width: 480px) {
+  .wordle-tile {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+  .wordle-key {
+    height: 40px;
+    font-size: 11px;
+    padding: 0 4px;
+  }
+}
