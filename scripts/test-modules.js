@@ -4053,8 +4053,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261103f',
-    'sw.js CACHE_VERSION must be 20261103f'
+    '20261103g',
+    'sw.js CACHE_VERSION must be 20261103g'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4085,7 +4085,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261103f',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261103g',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -4101,6 +4101,46 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(reloadRes, 'Explicit reload must resolve from network');
   assert.strictEqual(reloadRes.body, 'fresh_arcade_script', 'Must return fresh script from network on browser reload');
   assert.strictEqual(reloadFetchCalled, true, 'Network fetch must be called on explicit reload');
+
+  // 4j. Browser Circle Reload Button / F5 on Page (max-age=0 navigation triggers fresh subresources)
+  const reloadNavReq = {
+    method: 'GET',
+    url: 'https://localhost:3000/index.html',
+    mode: 'navigate',
+    headers: new Map([['cache-control', 'max-age=0']])
+  };
+  await swMod.handleFetchRequest(reloadNavReq, mockCaches, async () => ({
+    status: 200,
+    body: 'fresh_nav',
+    clone: () => ({ status: 200, body: 'fresh_nav' })
+  }));
+
+  // Immediate subsequent script request with default browser cache mode
+  let subresourceFreshFetched = false;
+  const normalScriptOnPageReloadReq = {
+    method: 'GET',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=' + swMod.CACHE_VERSION,
+    cache: 'default',
+    headers: new Map()
+  };
+  const subresourceRes = await swMod.handleFetchRequest(
+    normalScriptOnPageReloadReq,
+    mockCaches,
+    async () => {
+      subresourceFreshFetched = true;
+      return {
+        status: 200,
+        body: 'fresh_subresource_on_reload',
+        clone: () => ({ status: 200, body: 'fresh_subresource_on_reload' })
+      };
+    }
+  );
+  assert.strictEqual(subresourceFreshFetched, true, 'Subresource must fetch fresh on page reload without Ctrl+Shift+R');
+  assert.strictEqual(subresourceRes.body, 'fresh_subresource_on_reload', 'Subresource response must be fresh from network');
+
+  // 4k. index.html registers service worker with updateViaCache: 'none'
+  const indexHtmlSW = fs.readFileSync('index.html', 'utf8');
+  assert.ok(indexHtmlSW.includes("updateViaCache: 'none'"), 'index.html must register sw.js with updateViaCache: none');
 
   console.log(
     '  ✔ sw.js Network-First offline fallback and Stale-While-Revalidate static caching verified'
@@ -6589,7 +6629,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103f'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103g'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));

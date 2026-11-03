@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261103f';
+const CACHE_VERSION = '20261103g';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -72,6 +72,8 @@ function fetchWithTimeout(fetchFn, request, timeoutMs) {
  * @param {Function} [fetchFn]
  * @returns {Promise<Response>|null}
  */
+var _lastReloadTimestamp = 0;
+
 async function handleFetchRequest(request, cachesInterface, fetchFn) {
   var cachesApi = cachesInterface || (typeof caches !== 'undefined' ? caches : null);
   var networkFetch = fetchFn || (typeof fetch !== 'undefined' ? fetch : null);
@@ -137,6 +139,20 @@ async function handleFetchRequest(request, cachesInterface, fetchFn) {
     (isLocalAsset && (url.pathname === '/' || url.pathname === ''));
 
   if (isNavigation && isLocalAsset) {
+    // Detect explicit page reload (browser reload button / F5 / max-age=0 / no-cache)
+    var isNavReload =
+      request.cache === 'reload' ||
+      request.cache === 'no-cache' ||
+      (request.headers && typeof request.headers.get === 'function' && (
+        (request.headers.get('cache-control') || '').includes('no-cache') ||
+        (request.headers.get('cache-control') || '').includes('max-age=0') ||
+        (request.headers.get('pragma') || '').includes('no-cache')
+      ));
+
+    if (isNavReload) {
+      _lastReloadTimestamp = Date.now();
+    }
+
     try {
       var netNavRes = await fetchWithTimeout(networkFetch, request, 4000);
       if (netNavRes && netNavRes.status === 200 && cachesApi) {
@@ -170,11 +186,16 @@ async function handleFetchRequest(request, cachesInterface, fetchFn) {
   if (isLocalAsset || isGoogleFont) {
     var cachedAsset = cachesApi ? await cachesApi.match(request, { ignoreSearch: true }) : null;
 
-    // Detect explicit browser reloads (Reload button / Cache-Control: max-age=0 / no-cache)
-    // Ensures normal browser reloads deliver the latest scripts and stylesheets immediately when online
+    // Detect browser reloads and version mismatches:
+    // 1. Direct subresource reload headers (request.cache === 'reload' / 'no-cache')
+    // 2. Recent page navigation reload (browser circle arrow / F5 sent max-age=0 on index.html within past 10s)
+    // 3. Asset version parameter (?v=...) mismatching current cache version
+    var isRecentPageReload = (Date.now() - _lastReloadTimestamp) < 10000;
+
     var isExplicitReload =
       request.cache === 'reload' ||
       request.cache === 'no-cache' ||
+      isRecentPageReload ||
       (request.headers && typeof request.headers.get === 'function' && (
         (request.headers.get('cache-control') || '').includes('no-cache') ||
         (request.headers.get('cache-control') || '').includes('max-age=0') ||
