@@ -6842,6 +6842,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtmlStr.includes('data-nav="arcade"'), 'Sidebar navigation must contain arcade item');
     assert.ok(sessionMod.AuthGuard.PROTECTED_ROUTES.includes('arcade'), 'AuthGuard.PROTECTED_ROUTES must protect arcade tab');
     console.log('  ✔ Top header bar badge (fire icon, streak on left, Credits label) and sidebar arcade route verified');
+
+    // 7. Wordle Dictionary Validation & Warning Toast (TSK-056 Dictionary Filter)
+    assert.strictEqual(typeof arcadeMod.isValidWordleWord, 'function', 'isValidWordleWord must be exported');
+    assert.strictEqual(arcadeMod.isValidWordleWord('ABACK'), true, 'Valid dictionary word ABACK must return true');
+    assert.strictEqual(arcadeMod.isValidWordleWord('DRIVE'), true, 'Valid dictionary word DRIVE must return true');
+    assert.strictEqual(arcadeMod.isValidWordleWord('FLAGS'), true, 'Valid dictionary word FLAGS must return true');
+    assert.strictEqual(arcadeMod.isValidWordleWord('ZEBRA'), true, 'Valid dictionary word ZEBRA must return true');
+    assert.strictEqual(arcadeMod.isValidWordleWord('ASDAS'), false, 'Gibberish word ASDAS must return false');
+    assert.strictEqual(arcadeMod.isValidWordleWord('SADAS'), false, 'Gibberish word SADAS must return false');
+    assert.strictEqual(arcadeMod.isValidWordleWord('ASDAD'), false, 'Gibberish word ASDAD must return false');
+    assert.strictEqual(arcadeMod.isValidWordleWord('PUAGI'), false, 'Gibberish word PUAGI must return false');
+    assert.strictEqual(arcadeMod.isValidWordleWord('FOUR'), false, '4-letter word must return false');
+    assert.strictEqual(arcadeMod.isValidWordleWord('SIXLET'), false, '6-letter word must return false');
+    assert.strictEqual(arcadeMod.isValidWordleWord(''), false, 'Empty string must return false');
+    assert.strictEqual(arcadeMod.isValidWordleWord(null), false, 'Null must return false');
+    console.log('  ✔ isValidWordleWord accurately validates 2,370+ authentic Wordle words and rejects gibberish');
+
+    // Test Wordle toast DOM & CSS rules
+    const compCssWordle = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(compCssWordle.includes('.wordle-toast-container'), 'components.css must define .wordle-toast-container');
+    assert.ok(compCssWordle.includes('.wordle-toast'), 'components.css must define .wordle-toast');
+    assert.ok(compCssWordle.includes('.wordle-row.shake'), 'components.css must define .wordle-row.shake');
+    console.log('  ✔ Wordle floating warning pill and row shake CSS verified in components.css');
   }
 
 

@@ -8093,10 +8093,53 @@ select.form-input,
   flex-direction: column;
   align-items: center;
   padding: 24px 16px;
+  position: relative;
 }
 
 .wordle-board-wrapper {
   margin: 12px 0 20px;
+  position: relative;
+}
+
+/* Floating Warning Toast Pill (e.g. "Not in word list", Image 2) */
+.wordle-toast-container {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wordle-toast {
+  background: #ffffff;
+  color: #111827;
+  font-family: var(--font-headline, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 4px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  white-space: nowrap;
+  animation: wordleToastFade 0.15s ease-out forwards;
+}
+
+.wordle-toast.fade-out {
+  animation: wordleToastFadeOut 0.25s ease-in forwards;
+}
+
+@keyframes wordleToastFade {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes wordleToastFadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
 }
 
 .wordle-board {

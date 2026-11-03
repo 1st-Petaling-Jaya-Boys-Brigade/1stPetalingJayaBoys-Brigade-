@@ -268,6 +268,8 @@ export default [
         ensureArcadePageDOM: 'readonly',
         renderArcadePage: 'readonly',
         switchArcadeSubtab: 'readonly',
+        isValidWordleWord: 'readonly',
+        showWordleToast: 'readonly',
         ArcadeModule: 'readonly',
 
         getTaskComments: 'readonly',
