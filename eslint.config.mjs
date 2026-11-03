@@ -69,6 +69,7 @@ export default [
         getMemberAvatarInitial: 'readonly',
         getMemberAvatarColor: 'readonly',
         getMemberAvatarUrl: 'readonly',
+        resolveMemberDirectoryInfo: 'readonly',
         getDeviceSecurityInfo: 'readonly',
         broadcastAnnouncementEmail: 'readonly',
         checkAndNotifyNewDeviceLogin: 'readonly',

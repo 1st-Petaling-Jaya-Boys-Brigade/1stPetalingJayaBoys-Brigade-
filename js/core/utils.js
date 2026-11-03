@@ -1109,16 +1109,81 @@ function getMemberAvatarColor(name) {
  * @param {string} [ic]
  * @returns {string|null}
  */
+function resolveMemberDirectoryInfo(nameOrId) {
+  if (!nameOrId) return null;
+  var q = String(nameOrId).trim().toLowerCase();
+
+  // 1. Current active member session
+  if (typeof sessionGet === 'function') {
+    var sName = String(sessionGet('name') || '').trim().toLowerCase();
+    var sEmail = String(sessionGet('email') || '').trim().toLowerCase();
+    var sIc = String(sessionGet('ic') || '').trim().toLowerCase();
+    if (q === sName || q === sEmail || q === sIc) {
+      return {
+        name: sessionGet('name'),
+        email: sessionGet('email'),
+        ic: sessionGet('ic'),
+        photo_url: sessionGet('photo_url')
+      };
+    }
+  }
+
+  // 2. In-memory department members cache
+  if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
+    var foundDept = window._cachedDepartmentMembers.find(function(m) {
+      if (!m) return false;
+      var mn = String(m.name || '').trim().toLowerCase();
+      var mic = String(m.ic || '').trim().toLowerCase();
+      var memail = String(m.email || '').trim().toLowerCase();
+      return mn === q || mic === q || memail === q;
+    });
+    if (foundDept) return foundDept;
+  }
+
+  // 3. LocalStorage member caches
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var raw = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          var foundMem = arr.find(function(m) {
+            if (!m) return false;
+            var mn = String(m.name || '').trim().toLowerCase();
+            var mic = String(m.ic || '').trim().toLowerCase();
+            var memail = String(m.email || '').trim().toLowerCase();
+            return mn === q || mic === q || memail === q;
+          });
+          if (foundMem) return foundMem;
+        }
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
+
 function getMemberAvatarUrl(name, ic) {
   if (typeof window === 'undefined') return null;
+  var cleanNm = (name || '').trim();
+  var cleanId = (ic || '').trim();
+
+  // Cross-resolve member directory info when either identifier is missing
+  var resolved = resolveMemberDirectoryInfo(cleanNm || cleanId);
+  if (resolved) {
+    if (!cleanNm && resolved.name) cleanNm = resolved.name;
+    if (!cleanId && (resolved.email || resolved.ic)) cleanId = resolved.email || resolved.ic;
+    if (resolved.photo_url) return resolved.photo_url;
+  }
+
   var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
   var currentEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
   var currentIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
 
   var isCurrent = false;
-  if (name && currentName && name.trim().toLowerCase() === currentName.trim().toLowerCase()) {
+  if (cleanNm && currentName && cleanNm.toLowerCase() === currentName.trim().toLowerCase()) {
     isCurrent = true;
-  } else if (ic && ((currentIc && ic === currentIc) || (currentEmail && ic === currentEmail))) {
+  } else if (cleanId && ((currentIc && cleanId === currentIc) || (currentEmail && cleanId === currentEmail))) {
     isCurrent = true;
   }
 
@@ -1135,8 +1200,13 @@ function getMemberAvatarUrl(name, ic) {
   if (typeof localStorage !== 'undefined') {
     try {
       var keys = [];
-      if (ic) keys.push(ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
-      if (name) keys.push(name.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+      if (cleanId) keys.push(cleanId.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+      if (cleanNm) keys.push(cleanNm.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+      if (resolved) {
+        if (resolved.email) keys.push(resolved.email.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+        if (resolved.ic) keys.push(resolved.ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+        if (resolved.name) keys.push(resolved.name.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+      }
       for (var i = 0; i < keys.length; i++) {
         var cached = localStorage.getItem('bb_pfp_' + keys[i]);
         if (cached) return cached;
@@ -2116,6 +2186,7 @@ if (typeof window !== 'undefined') {
   window.isPortalCreator = isPortalCreator;
   window.getMemberAvatarInitial = getMemberAvatarInitial;
   window.getMemberAvatarColor = getMemberAvatarColor;
+  window.resolveMemberDirectoryInfo = resolveMemberDirectoryInfo;
   window.getMemberAvatarUrl   = getMemberAvatarUrl;
   window.getDeviceSecurityInfo = getDeviceSecurityInfo;
   window.computeIntegrityMetadata = computeIntegrityMetadata;
@@ -2174,6 +2245,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isPortalCreator: isPortalCreator,
     getMemberAvatarInitial: getMemberAvatarInitial,
     getMemberAvatarColor: getMemberAvatarColor,
+    resolveMemberDirectoryInfo: resolveMemberDirectoryInfo,
     getMemberAvatarUrl: getMemberAvatarUrl,
     getDeviceSecurityInfo: getDeviceSecurityInfo,
     computeIntegrityMetadata: computeIntegrityMetadata,

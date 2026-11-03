@@ -1938,7 +1938,15 @@ var AVATAR_OUTLINE_STYLES = {
   }
 };
 
-var _customAvatarOutlinesMap = {};
+var _customAvatarOutlinesMap = (function() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_custom_avatar_outlines');
+      if (cached) return JSON.parse(cached) || {};
+    } catch (_) {}
+  }
+  return {};
+})();
 
 function isCreatorSession() {
   var em = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
@@ -1957,7 +1965,7 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
     isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanKey === 'jeshua@mirtech.io' || cleanName === 'jeshua koh');
   }
 
-  // Creator receives animated RGB rainbow outline by default unless assigned another style
+  // 1. Direct key match (by email, ic, or name)
   var assigned = null;
   if (cleanKey && _customAvatarOutlinesMap[cleanKey]) {
     assigned = _customAvatarOutlinesMap[cleanKey];
@@ -1965,11 +1973,50 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
     assigned = _customAvatarOutlinesMap[cleanName];
   }
 
-  var styleKey = 'none';
+  // 2. Scan map entries if not found directly
+  if (!assigned && (cleanKey || cleanName)) {
+    var mapKeys = Object.keys(_customAvatarOutlinesMap);
+    for (var i = 0; i < mapKeys.length; i++) {
+      var k = mapKeys[i];
+      var entry = _customAvatarOutlinesMap[k];
+      if (entry && typeof entry === 'object') {
+        var entryName = String(entry.name || '').trim().toLowerCase();
+        var entryTarget = String(entry.target || k).trim().toLowerCase();
+        if ((cleanName && entryName === cleanName) ||
+            (cleanName && entryTarget === cleanName) ||
+            (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
+          assigned = entry;
+          break;
+        }
+      }
+    }
+  }
+
+  // 3. Fallback: Lookup in member directory / caches to cross-resolve name <-> email/ic
+  if (!assigned && (cleanName || cleanKey)) {
+    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+      ? resolveMemberDirectoryInfo
+      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    if (resolver) {
+      var resolved = resolver(cleanName || cleanKey);
+      if (resolved) {
+        var rEmail = String(resolved.email || '').toLowerCase().trim();
+        var rIc = String(resolved.ic || '').toLowerCase().trim();
+        var rName = String(resolved.name || '').toLowerCase().trim();
+        if (rEmail && _customAvatarOutlinesMap[rEmail]) {
+          assigned = _customAvatarOutlinesMap[rEmail];
+        } else if (rIc && _customAvatarOutlinesMap[rIc]) {
+          assigned = _customAvatarOutlinesMap[rIc];
+        } else if (rName && _customAvatarOutlinesMap[rName]) {
+          assigned = _customAvatarOutlinesMap[rName];
+        }
+      }
+    }
+  }
+
+  var styleKey = isCreator ? 'rgb' : 'none';
   if (assigned) {
     styleKey = (typeof assigned === 'object' && assigned.style) ? assigned.style : assigned;
-  } else if (isCreator) {
-    styleKey = 'rgb';
   }
 
   var cfg = AVATAR_OUTLINE_STYLES[styleKey] || AVATAR_OUTLINE_STYLES.none;
@@ -2015,7 +2062,7 @@ async function loadCustomAvatarOutlines() {
   return _customAvatarOutlinesMap;
 }
 
-async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail) {
+async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, targetName) {
   var cleanActor = String(actorEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
   var isCreator = (cleanActor === 'jeshuakoh2008@gmail.com');
 
@@ -2032,11 +2079,29 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail) {
   }
 
   var validKey = AVATAR_OUTLINE_STYLES[styleKey] ? styleKey : 'none';
-  _customAvatarOutlinesMap[cleanTarget] = {
+  var cleanName = String(targetName || '').trim().toLowerCase();
+  if (!cleanName) {
+    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+      ? resolveMemberDirectoryInfo
+      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    if (resolver) {
+      var dirInfo = resolver(cleanTarget);
+      if (dirInfo && dirInfo.name) cleanName = String(dirInfo.name).trim().toLowerCase();
+    }
+  }
+
+  var entry = {
     style: validKey,
     assignedBy: cleanActor,
-    assignedAt: new Date().toISOString()
+    assignedAt: new Date().toISOString(),
+    target: cleanTarget,
+    name: cleanName
   };
+
+  _customAvatarOutlinesMap[cleanTarget] = entry;
+  if (cleanName && cleanName !== cleanTarget) {
+    _customAvatarOutlinesMap[cleanName] = entry;
+  }
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(_customAvatarOutlinesMap));
@@ -2057,6 +2122,18 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail) {
   }
 
   refreshActiveAvatarOutlines();
+
+  // Re-render tasks board & project stacks if currently active
+  if (typeof window !== 'undefined' && typeof window.renderKanbanBoard === 'function') {
+    try { window.renderKanbanBoard(); } catch (_) {}
+  }
+  if (typeof window !== 'undefined' && typeof window.renderProjectsList === 'function') {
+    try { window.renderProjectsList(); } catch (_) {}
+  }
+  if (typeof window !== 'undefined') {
+    try { window.dispatchEvent(new CustomEvent('bb_avatar_outlines_changed')); } catch (_) {}
+  }
+
   return { success: true, target: cleanTarget, style: validKey };
 }
 

@@ -8686,8 +8686,18 @@ select.form-input,
 .nav-avatar-circle.has-custom-outline,
 .admin-member-avatar.has-custom-outline,
 .suc-avatar.has-custom-outline,
-.task-card-avatar.has-custom-outline {
+.task-card-avatar.has-custom-outline,
+.tdm-assignee-avatar.has-custom-outline,
+.project-assignees-stack .task-card-avatar.has-custom-outline,
+.account-picker-avatar-wrap.has-custom-outline {
   border-color: transparent !important;
+  overflow: visible !important;
+}
+
+.task-card-avatar .avatar-outline-overlay,
+.project-assignees-stack .avatar-outline-overlay {
+  --avatar-outline-width: 2px;
+  inset: -2px;
 }
 
 /* Swatch buttons for Creator Studio & Member Edit Drawer */

@@ -2718,13 +2718,13 @@
             applyBtn.disabled = true;
             applyBtn.textContent = 'Saving...';
             try {
+              var mem = members.find(function(m) { return (m.email || m.ic) === targetId; }) || { name: targetId };
               var actorEmail = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'jeshuakoh2008@gmail.com';
-              var res = await saveMemberAvatarOutline(targetId, newStyle, actorEmail);
+              var res = await saveMemberAvatarOutline(targetId, newStyle, actorEmail, mem.name);
               if (res.success) {
                 if (typeof showToast === 'function') {
                   showToast('Custom avatar outline applied successfully!', 'success');
                 }
-                var mem = members.find(function(m) { return (m.email || m.ic) === targetId; }) || { name: targetId };
                 avatarWrap.innerHTML = getAdminMemberAvatarHtml(mem.name, targetId, 48);
               } else {
                 if (typeof showToast === 'function') {
