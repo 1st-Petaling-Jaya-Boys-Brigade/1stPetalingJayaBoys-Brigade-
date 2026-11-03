@@ -1939,9 +1939,9 @@ async function renderDashboard() {
     }
     set('m-age-val', ageVal);
 
-    sessionSet('rank', m.rank || '');
-    sessionSet('joined', m.joined_at || '');
-    sessionSet('department', m.department || '');
+    if (sessionGet('rank') !== (m.rank || '')) sessionSet('rank', m.rank || '', { localOnly: true });
+    if (sessionGet('joined') !== (m.joined_at || '')) sessionSet('joined', m.joined_at || '', { localOnly: true });
+    if (sessionGet('department') !== (m.department || '')) sessionSet('department', m.department || '', { localOnly: true });
     set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
     // Child Safety & Parental Consent Status (TSK-032)

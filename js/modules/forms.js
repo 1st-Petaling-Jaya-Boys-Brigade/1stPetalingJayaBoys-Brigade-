@@ -34,6 +34,18 @@ function getSupa() {
  */
 async function loadCustomForms() {
   var client = getSupa();
+  if (client && typeof client.getConfigSnapshot === 'function') {
+    var snapForms = client.getConfigSnapshot('bb_custom_forms');
+    if (Array.isArray(snapForms)) {
+      _customForms = snapForms;
+      if (typeof syncFormNotifications === 'function') {
+        syncFormNotifications(_customForms);
+      } else if (typeof window !== 'undefined' && typeof window.syncFormNotifications === 'function') {
+        window.syncFormNotifications(_customForms);
+      }
+      return _customForms;
+    }
+  }
   if (client && client.get) {
     try {
       var rows = await client.get('bb_config?key=eq.bb_custom_forms&select=value');

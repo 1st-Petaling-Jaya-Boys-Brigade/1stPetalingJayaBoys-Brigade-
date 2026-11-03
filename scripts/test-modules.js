@@ -3984,8 +3984,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261103a',
-    'sw.js CACHE_VERSION must be 20261103a'
+    '20261103b',
+    'sw.js CACHE_VERSION must be 20261103b'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4421,11 +4421,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtmlStr.includes('id="reg-honeypot"'), 'Honeypot trap input must exist in index.html');
     console.log('  ✔ OTP cooldown, Auth lockout timers, and honeypot bot trap verified');
 
-    // 8. Cross-Tab Storage Synchronization
+    // 8. Cross-Tab Storage Synchronization & Multi-Tab Concurrency Guard
     const sessionMod = require('../js/core/session.js');
     assert.strictEqual(typeof sessionMod.handleSyncMessage, 'function', 'handleSyncMessage must be a function');
+    assert.strictEqual(typeof sessionMod.getTabId, 'function', 'getTabId must be a function');
+    assert.ok(sessionMod.getTabId().startsWith('tab_'), 'getTabId must return a unique tab prefix');
+    assert.strictEqual(typeof sessionMod.isLeaderTab, 'function', 'isLeaderTab must be a function');
+    assert.strictEqual(typeof sessionMod.isLeaderTab(), 'boolean', 'isLeaderTab must return a boolean state');
 
-    // Simulate incoming sync from another tab
+    // 8a. Simulate incoming sync from another tab
     sessionMod.handleSyncMessage({
       action: 'set',
       key: 'name',
@@ -4435,9 +4439,50 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(sessionMod.sessionGet('name'), 'Synced Member Name', 'Cross-tab set syncs in-memory session');
     assert.strictEqual(sessionMod.sessionGet('ic'), 'member@test.org', 'Cross-tab set syncs identifier');
 
+    // 8b. Anti-Loop: Self-originating messages must be dropped
+    const myTabId = sessionMod.getTabId();
+    sessionMod.handleSyncMessage({
+      action: 'set',
+      senderId: myTabId,
+      key: 'name',
+      value: 'Should Be Dropped',
+      session: { name: 'Should Be Dropped', ic: 'dropped@test.org' }
+    });
+    assert.strictEqual(sessionMod.sessionGet('name'), 'Synced Member Name', 'Self-originating messages must be dropped to prevent echo loops');
+
+    // 8c. Anti-Loop: Duplicate msgIds across channels must be deduplicated
+    sessionMod.handleSyncMessage({
+      action: 'set',
+      senderId: 'remote_tab_1',
+      msgId: 'msg_dedup_001',
+      key: 'name',
+      value: 'Dedup Original',
+      session: { name: 'Dedup Original', ic: 'member@test.org' }
+    });
+    assert.strictEqual(sessionMod.sessionGet('name'), 'Dedup Original', 'First message with msgId is processed');
+
+    sessionMod.handleSyncMessage({
+      action: 'set',
+      senderId: 'remote_tab_1',
+      msgId: 'msg_dedup_001',
+      key: 'name',
+      value: 'Dedup Duplicate Ignored',
+      session: { name: 'Dedup Duplicate Ignored', ic: 'member@test.org' }
+    });
+    assert.strictEqual(sessionMod.sessionGet('name'), 'Dedup Original', 'Duplicate message with same msgId must be dropped');
+
+    // 8d. Dirty Check: sessionSet with identical primitive value avoids duplicate storage churn
+    sessionMod.sessionSet('rank', 'Sergeant');
+    sessionMod.sessionSet('rank', 'Sergeant');
+    assert.strictEqual(sessionMod.sessionGet('rank'), 'Sergeant', 'sessionSet persists value');
+
+    // 8e. Local-only session updates
+    sessionMod.sessionSet('temp_status', 'local_only_val', { localOnly: true });
+    assert.strictEqual(sessionMod.sessionGet('temp_status'), 'local_only_val', 'localOnly sessionSet updates memory');
+
     sessionMod.handleSyncMessage({ action: 'clear' });
     assert.strictEqual(sessionMod.sessionGet('name'), null, 'Cross-tab clear clears in-memory session');
-    console.log('  ✔ Cross-tab storage synchronization across tabs verified');
+    console.log('  ✔ Cross-tab storage synchronization, tab identity, deduplication & loop prevention verified');
 
     // ── High-UX Standardized Loading Architecture (TSK-LOADING) ────────────────
     console.log('\nTesting Standardized Loading Architecture & Timing (TSK-LOADING)...');
@@ -6455,7 +6500,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103a'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103b'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));

@@ -40,6 +40,23 @@ var STANDARD_OFFICER_RANKS = [
  */
 async function loadResources() {
   try {
+    var client = (typeof supa !== 'undefined') ? supa : (typeof getSupa === 'function' ? getSupa() : null);
+    if (client && typeof client.getConfigSnapshot === 'function') {
+      var snapRes = client.getConfigSnapshot('bb_resources');
+      if (Array.isArray(snapRes)) {
+        var LEGACY_PLACEHOLDER_IDS = ['res_handbook', 'res_drill', 'res_founders', 'res_songs', 'res_leave_form'];
+        var realDocs = snapRes.filter(function(r) {
+          if (!r || !r.url) return false;
+          var isPlaceholder = (r.id && LEGACY_PLACEHOLDER_IDS.indexOf(r.id) !== -1) ||
+                              (r.url && r.url.indexOf('bbpj1.org/docs/') !== -1) ||
+                              (r.url === 'https://docs.google.com/document/d/1BBPJ1LeaveOfAbsenceForm/edit');
+          return !isPlaceholder;
+        });
+        resources.length = 0;
+        realDocs.forEach(function(r) { resources.push(r); });
+        return;
+      }
+    }
     if (typeof supa !== 'undefined' && supa.get) {
       var rows = await supa.get('bb_config?key=eq.bb_resources&select=value');
       if (rows && rows.length && rows[0].value) {

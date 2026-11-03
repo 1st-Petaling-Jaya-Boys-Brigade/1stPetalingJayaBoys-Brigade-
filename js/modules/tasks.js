@@ -519,8 +519,8 @@ async function checkTasksAccess() {
     var rank = (m && m.rank) || (typeof sessionGet === 'function' ? sessionGet('rank') : '');
 
     if (typeof sessionSet === 'function') {
-      sessionSet('department', dept || '');
-      if (rank) sessionSet('rank', rank);
+      if (sessionGet('department') !== (dept || '')) sessionSet('department', dept || '', { localOnly: true });
+      if (rank && sessionGet('rank') !== rank) sessionSet('rank', rank, { localOnly: true });
     }
 
     var isAllowed = hasDepartmentRole(m || { department: dept, rank: rank }, rank);
