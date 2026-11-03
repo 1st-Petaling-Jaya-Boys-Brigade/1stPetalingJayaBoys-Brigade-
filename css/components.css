@@ -6162,7 +6162,7 @@ select.form-input,
   border-radius: 50%;
   background: #6b7280;
   border: 2px solid var(--bg-card);
-  z-index: 2;
+  z-index: 10 !important;
   box-sizing: border-box;
 }
 
@@ -8698,6 +8698,12 @@ select.form-input,
 .project-assignees-stack .avatar-outline-overlay {
   --avatar-outline-width: 2px;
   inset: -2px;
+}
+
+/* Status dot presence indicator is strictly top-most above avatar outlines and photo */
+.nav-avatar-status-dot,
+.admin-avatar-status-dot {
+  z-index: 10 !important;
 }
 
 /* Swatch buttons for Creator Studio & Member Edit Drawer */

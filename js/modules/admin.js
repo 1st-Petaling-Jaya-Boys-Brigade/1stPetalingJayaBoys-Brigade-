@@ -1041,7 +1041,7 @@
     var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
     var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
     var dotTitle = safeName + ' (' + dotLabel + ')';
-    var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:3;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+    var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
     // Creator Avatar Outline Layering (TSK-062)
     var outlineInfo = (typeof getMemberAvatarOutline === 'function')
@@ -1201,7 +1201,10 @@
       _adminMembers = {};
       filtered.forEach(function(m) { _adminMembers[m.ic] = m; });
       if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
-  global._adminPresenceMap = _adminPresenceMap;
+      global._adminPresenceMap = _adminPresenceMap;
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('bb_members_cache', JSON.stringify(filtered)); } catch (_) {}
+      }
 
       // Group headers when sorting by squad
       var lastSquad = null;
@@ -2577,16 +2580,82 @@
 
     var client = getSupabaseClient();
     var members = [];
-    try {
-      members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,department&order=name.asc');
-    } catch (_) {
-      members = Object.values(_adminMembers || {});
+
+    // 1. Check in-memory admin members first
+    if (_adminMembers && Object.keys(_adminMembers).length > 0) {
+      members = Object.values(_adminMembers);
     }
+
+    // 2. Fetch fresh members directly from Supabase
+    if (client && typeof client.get === 'function') {
+      try {
+        var remoteMembers = await client.get('bb_members?order=name.asc');
+        if (Array.isArray(remoteMembers) && remoteMembers.length > 0) {
+          members = remoteMembers;
+        }
+      } catch (fetchErr) {
+        try {
+          var fallbackMembers = await client.get('bb_members?select=id,ic,email,name,rank,squad,section&order=name.asc');
+          if (Array.isArray(fallbackMembers) && fallbackMembers.length > 0) {
+            members = fallbackMembers;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 3. Fallback to localStorage member caches
+    if (!members.length && typeof localStorage !== 'undefined') {
+      try {
+        var rawCache = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+        if (rawCache) {
+          var parsed = JSON.parse(rawCache);
+          if (Array.isArray(parsed) && parsed.length > 0) members = parsed;
+        }
+      } catch (_) {}
+    }
+
+    // 4. Fallback to cached department members
+    if (!members.length && typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers) && window._cachedDepartmentMembers.length > 0) {
+      members = window._cachedDepartmentMembers.slice();
+    }
+
+    // 5. Exclude deleted members from blacklist
+    var deletedSet = new Set();
+    if (client && typeof client.get === 'function') {
+      try {
+        var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value');
+        if (cfgRes && cfgRes.length && cfgRes[0].value) {
+          var arr = JSON.parse(cfgRes[0].value);
+          if (Array.isArray(arr)) {
+            arr.forEach(function(id) { deletedSet.add(id); });
+          }
+        }
+      } catch (_) {}
+    }
+
     if (!Array.isArray(members)) members = [];
 
     members = members.filter(function(m) {
-      return m && m.department !== 'deleted' && m.department !== 'archived_deleted';
+      if (!m) return false;
+      if (m.ic && deletedSet.has(m.ic)) return false;
+      return m.department !== 'deleted' && m.department !== 'archived_deleted';
     });
+
+    // Populate _adminMembers & localStorage cache so all modules immediately share data
+    if (members.length > 0) {
+      _adminMembers = _adminMembers || {};
+      members.forEach(function(m) {
+        if (m && m.ic) {
+          _adminMembers[m.ic] = m;
+        }
+      });
+      if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('bb_members_cache', JSON.stringify(members));
+        } catch (_) {}
+      }
+    }
 
     var stylesCatalog = (typeof AVATAR_OUTLINE_STYLES !== 'undefined') ? AVATAR_OUTLINE_STYLES : {};
     var stylesList = Object.keys(stylesCatalog).map(function(k) { return stylesCatalog[k]; });
