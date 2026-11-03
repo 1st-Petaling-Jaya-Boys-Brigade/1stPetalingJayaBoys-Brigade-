@@ -4053,8 +4053,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261103d',
-    'sw.js CACHE_VERSION must be 20261103d'
+    '20261103e',
+    'sw.js CACHE_VERSION must be 20261103e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4085,7 +4085,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261103d',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261103e',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6589,7 +6589,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103d'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261103e'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -6885,6 +6885,94 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCssWordle.includes('.wordle-toast'), 'components.css must define .wordle-toast');
     assert.ok(compCssWordle.includes('.wordle-row.shake'), 'components.css must define .wordle-row.shake');
     console.log('  ✔ Wordle floating warning pill and row shake CSS verified in components.css');
+
+    // 8. Full Dictionary Wordle & Updated Victory Banner
+    assert.ok(Array.isArray(arcadeMod.ALL_WORDLE_WORDS), 'ALL_WORDLE_WORDS must be an array');
+    assert.ok(arcadeMod.ALL_WORDLE_WORDS.length >= 2000, 'ALL_WORDLE_WORDS must contain full 2,370+ valid words');
+    const arcadeSource = fs.readFileSync('js/modules/arcade.js', 'utf8');
+    assert.ok(arcadeSource.includes('Awarded +15 Credits! Streak updated. Come back tomorrow for a fresh puzzle!'), 'Wordle victory message must invite player for fresh puzzle');
+    assert.strictEqual(arcadeSource.includes('\uD83C\uDF89'), false, 'Party popper emoji must be removed from arcade module');
+
+    // 9. Daily BB Trivia Determinism (5 Fixed Questions Per Day)
+    assert.strictEqual(typeof arcadeMod.getDailyTriviaQuestionIndices, 'function', 'getDailyTriviaQuestionIndices must be exported');
+    const qDay1A = arcadeMod.getDailyTriviaQuestionIndices('2026-11-03');
+    const qDay1B = arcadeMod.getDailyTriviaQuestionIndices('2026-11-03');
+    assert.deepStrictEqual(qDay1A, qDay1B, 'Same day must deterministically return identical 5 questions');
+    assert.strictEqual(qDay1A.length, 5, 'Daily trivia must contain exactly 5 questions');
+    // Ensure all 5 indices are unique and within range
+    const uniqueDay1 = new Set(qDay1A);
+    assert.strictEqual(uniqueDay1.size, 5, 'Daily trivia 5 questions must all be unique');
+    qDay1A.forEach(idx => {
+      assert.ok(idx >= 0 && idx < arcadeMod.BB_TRIVIA_QUESTIONS.length, 'Question index ' + idx + ' must be in valid question bank range');
+    });
+    console.log('  ✔ Daily BB Trivia deterministically generates 5 fixed questions per calendar date');
+
+    // 10. Trivia State Auto-Save, Navigation & Rollover Auto-Submission
+    assert.strictEqual(typeof arcadeMod.loadTriviaState, 'function', 'loadTriviaState must be exported');
+    assert.strictEqual(typeof arcadeMod.saveTriviaState, 'function', 'saveTriviaState must be exported');
+    assert.strictEqual(typeof arcadeMod.selectTriviaAnswer, 'function', 'selectTriviaAnswer must be exported');
+    assert.strictEqual(typeof arcadeMod.prevTriviaQuestion, 'function', 'prevTriviaQuestion must be exported');
+    assert.strictEqual(typeof arcadeMod.nextTriviaQuestion, 'function', 'nextTriviaQuestion must be exported');
+    assert.strictEqual(typeof arcadeMod.submitTriviaQuiz, 'function', 'submitTriviaQuiz must be exported');
+
+    // Initialize fresh day
+    const testDate = '2026-11-03';
+    const state0 = arcadeMod.loadTriviaState(testDate);
+    assert.strictEqual(state0.dateKey, testDate, 'Initial state must match dateKey');
+    assert.strictEqual(state0.currentIndex, 0, 'Trivia starts at question index 0');
+    assert.strictEqual(state0.isSubmitted, false, 'Trivia starts unsubmitted');
+
+    // Answer question 0 and navigate forward
+    arcadeMod.selectTriviaAnswer(1);
+    assert.strictEqual(state0.answers[0], 1, 'Question 0 answer recorded');
+    arcadeMod.nextTriviaQuestion();
+    assert.strictEqual(state0.currentIndex, 1, 'Next question advances to index 1');
+
+    // Answer question 1 and navigate back
+    arcadeMod.selectTriviaAnswer(0);
+    assert.strictEqual(state0.answers[1], 0, 'Question 1 answer recorded');
+    arcadeMod.prevTriviaQuestion();
+    assert.strictEqual(state0.currentIndex, 0, 'Previous question returns to index 0');
+    assert.strictEqual(state0.answers[0], 1, 'Previous question preserves selected answer');
+
+    // Test persistence across re-load
+    const reloadedState = arcadeMod.loadTriviaState(testDate);
+    assert.strictEqual(reloadedState.answers[0], 1, 'Auto-saved answer 0 restored on reload');
+    assert.strictEqual(reloadedState.answers[1], 0, 'Auto-saved answer 1 restored on reload');
+    console.log('  ✔ BB Trivia auto-saves answers and enables fluid Previous/Next navigation');
+
+    // Test Rollover Auto-Submit
+    const pastDate = '2026-11-02';
+    const nextDate = '2026-11-03';
+    // Simulate unsubmitted past session in active storage
+    const pastSession = {
+      dateKey: pastDate,
+      questionIndices: arcadeMod.getDailyTriviaQuestionIndices(pastDate),
+      answers: { 0: arcadeMod.BB_TRIVIA_QUESTIONS[arcadeMod.getDailyTriviaQuestionIndices(pastDate)[0]].correct },
+      currentIndex: 1,
+      isSubmitted: false,
+      score: 0
+    };
+    const uKey = arcadeMod.getTriviaUserKey();
+    global.localStorage.setItem(uKey + '_active', JSON.stringify(pastSession));
+    // Trigger rollover by loading nextDate
+    arcadeMod.checkAndAutoSubmitPastTrivia(nextDate);
+    const pastArchived = JSON.parse(global.localStorage.getItem(uKey + '_' + pastDate));
+    assert.ok(pastArchived, 'Past session must be archived');
+    assert.strictEqual(pastArchived.isSubmitted, true, 'Past session must be auto-submitted on date rollover');
+    assert.strictEqual(pastArchived.autoSubmitted, true, 'autoSubmitted flag recorded');
+    assert.strictEqual(pastArchived.score, 1, 'Correct answer in unsubmitted past session scored and credited');
+    console.log('  ✔ Unsubmitted trivia session from prior date auto-submits on next day rollover');
+
+    // 11. BB Trivia UI Styles & Components
+    const compCssTrivia = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(compCssTrivia.includes('.trivia-progress-bar'), 'components.css defines .trivia-progress-bar');
+    assert.ok(compCssTrivia.includes('.trivia-answered-badge'), 'components.css defines .trivia-answered-badge');
+    assert.ok(compCssTrivia.includes('.trivia-opt-btn.selected'), 'components.css defines .trivia-opt-btn.selected');
+    assert.ok(compCssTrivia.includes('.trivia-nav-row'), 'components.css defines .trivia-nav-row');
+    assert.ok(compCssTrivia.includes('.trivia-nav-btn'), 'components.css defines .trivia-nav-btn');
+    assert.ok(compCssTrivia.includes('.trivia-submit-btn'), 'components.css defines .trivia-submit-btn');
+    console.log('  ✔ BB Trivia progress bar, selection highlights, and navigation buttons verified in components.css');
   }
 
 
