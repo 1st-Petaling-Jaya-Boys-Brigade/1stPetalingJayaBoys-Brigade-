@@ -1064,8 +1064,10 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
     : null;
   var cosmeticHtml = '';
   if (cosmeticInfo && cosmeticInfo.id && cosmeticInfo.id !== 'none' && cosmeticInfo.svg) {
+    var isHeadwear = (cosmeticInfo.category === 'headwear' || (cosmeticInfo.config && cosmeticInfo.config.category === 'headwear'));
+    var headwearCls = isHeadwear ? ' is-headwear' : '';
     var cosCls = sz >= 40 ? 'cosmetic-lg' : (sz >= 28 ? 'cosmetic-md' : (sz >= 22 ? 'cosmetic-sm' : 'cosmetic-xs'));
-    cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.name || '') : (cosmeticInfo.name || '')) + '" aria-hidden="true">' + cosmeticInfo.svg + '</span>';
+    cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + headwearCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.name || '') : (cosmeticInfo.name || '')) + '" aria-hidden="true">' + cosmeticInfo.svg + '</span>';
   }
 
   var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';

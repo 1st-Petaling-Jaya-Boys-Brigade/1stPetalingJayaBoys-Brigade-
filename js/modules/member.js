@@ -1958,7 +1958,7 @@ var PROFILE_COSMETICS = {
     category: 'headwear',
     categoryLabel: 'Headwear',
     price: 40,
-    desc: 'Festive celebratory cone hat with cheerful dots and pom-pom.',
+    desc: 'Festive celebratory cone hat with cheerful dots, wavy streamers, and pom-pom.',
     badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4L7 27h18L16 4z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16" cy="4" r="2.5" fill="#ef4444"/><path d="M9 22c2-1 4-1 6 0s4 1 6 0" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M11 16c1.5-.8 3-.8 4.5 0s3 .8 4.5 0" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="11" r="1.2" fill="#10b981"/></svg>'
   },
   cowboy_hat: {
@@ -1979,14 +1979,14 @@ var PROFILE_COSMETICS = {
     desc: 'Crisp white pleated culinary toque worn by master chefs.',
     badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 20h10v5H11v-5z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.2"/><path d="M11 20c-3 0-4-3-3-5 1-3 4-2 4-4 1-3 5-4 7-2 3-2 6 0 6 3 1 2 3 2 3 5 0 2-2 3-3 3H11z" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round"/><path d="M14 14v6M17 13v7M20 14v6" stroke="#cbd5e1" stroke-width="1" stroke-linecap="round"/></svg>'
   },
-  beret: {
-    id: 'beret',
-    name: 'BB Beret',
+  bb_cap: {
+    id: 'bb_cap',
+    name: 'BB Cap',
     category: 'headwear',
     categoryLabel: 'Headwear',
-    price: 60,
-    desc: 'Official Boys Brigade ceremonial navy blue beret with brass crest.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="16" cy="18" rx="12" ry="5.5" fill="#1e293b" stroke="#0f172a" stroke-width="1.2"/><path d="M7 18c0-5 5-9 11-9 4 0 7 2 8 5-3 1-8 2-13 4-3 1-5 1.5-6 0z" fill="#1e3a8a" stroke="#0f172a" stroke-width="1.2"/><circle cx="12" cy="16" r="2.2" fill="#fbbf24" stroke="#d97706" stroke-width="0.8"/><path d="M12 14.5v3M10.8 16h2.4" stroke="#78350f" stroke-width="0.6"/></svg>'
+    price: 55,
+    desc: 'Official Boys Brigade ceremonial navy side cap with double white piping and silver star badge.',
+    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 24 C5 16, 9 8, 18 8 C25 8, 28 14, 29 24 Z" fill="#172554" stroke="#0f172a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 11 C17 12, 23 11, 26 15" stroke="#1e3a8a" stroke-width="1.2" stroke-linecap="round"/><path d="M4.5 24 C8 19, 17 18, 29 23 L28.5 25 C17 20, 8 21, 4.5 25.5 Z" fill="#1e3a8a"/><path d="M5.5 21.5 C10 17.5, 19 17.5, 28 21.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M6 24 C10.5 20, 19.5 20, 27.5 23.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M13 14 L14 11.5 L15 14 L17.5 15 L15 16 L14 18.5 L13 16 L10.5 15 Z" fill="#f8fafc" stroke="#cbd5e1" stroke-width="0.5"/><circle cx="14" cy="15" r="1.4" fill="#172554"/><circle cx="14" cy="15" r="0.6" fill="#f8fafc"/></svg>'
   },
   santa_hat: {
     id: 'santa_hat',
@@ -1998,118 +1998,416 @@ var PROFILE_COSMETICS = {
     badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 22c4-12 14-14 18-10 1 1 0 3-1 3-3 0-5 2-8 5-2 1.5-6 2-9 2z" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/><rect x="7" y="21" width="18" height="5" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/><circle cx="27" cy="13" r="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/></svg>'
   },
 
-  // ── 2. Pet / Companion Badges ─────────────────────────────────────────────
-  pet_dog: {
-    id: 'pet_dog',
-    name: 'Companion Pup',
-    category: 'companion',
-    categoryLabel: 'Pet & Companions',
-    price: 70,
-    desc: 'Friendly golden pup companion badge cheering you on every parade.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#fef3c7" stroke="#d97706" stroke-width="1.2"/><ellipse cx="11" cy="12" rx="2.5" ry="5" fill="#b45309" transform="rotate(-15 11 12)"/><ellipse cx="21" cy="12" rx="2.5" ry="5" fill="#b45309" transform="rotate(15 21 12)"/><circle cx="16" cy="17" r="7.5" fill="#f59e0b"/><circle cx="13.5" cy="15.5" r="1.5" fill="#1e293b"/><circle cx="18.5" cy="15.5" r="1.5" fill="#1e293b"/><ellipse cx="16" cy="18.5" rx="2.2" ry="1.4" fill="#0f172a"/><path d="M14.5 20.5c.8.8 2.2.8 3 0" stroke="#0f172a" stroke-width="1" stroke-linecap="round"/></svg>'
+  // ── 2. BB Badges (From assets/BB Badges) ──────────────────────────────────
+  badge_target: {
+    id: 'badge_target',
+    name: 'Target Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 30,
+    desc: 'Foundation syllabus badge covering BB history, drill, and company regulations.',
+    badgeHtml: '<img src="assets/BB Badges/0%20Target.png" alt="Target Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/0%20Target.png'
   },
-  pet_cat: {
-    id: 'pet_cat',
-    name: 'Whiskers Cat',
-    category: 'companion',
-    categoryLabel: 'Pet & Companions',
-    price: 70,
-    desc: 'Alert and curious calico feline companion badge.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#ffedd5" stroke="#ea580c" stroke-width="1.2"/><path d="M9 14L10 8l5 4M23 14l-1-6-5 4" fill="#f97316" stroke="#c2410c" stroke-width="1" stroke-linejoin="round"/><circle cx="16" cy="17" r="7.5" fill="#fdba74"/><ellipse cx="13" cy="16" rx="1.5" ry="2" fill="#047857"/><ellipse cx="19" cy="16" rx="1.5" ry="2" fill="#047857"/><path d="M15 19l1 1 1-1" stroke="#c2410c" stroke-width="1" stroke-linecap="round"/><path d="M10 18h3M10 20h3M22 18h-3M22 20h-3" stroke="#9a3412" stroke-width="0.8"/></svg>'
+  badge_arts: {
+    id: 'badge_arts',
+    name: 'Arts Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Proficiency in drawing, painting, photography, and creative visual arts.',
+    badgeHtml: '<img src="assets/BB Badges/Arts.png" alt="Arts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Arts.png'
   },
-  pet_falcon: {
-    id: 'pet_falcon',
-    name: 'Majestic Falcon',
-    category: 'companion',
-    categoryLabel: 'Pet & Companions',
-    price: 85,
-    desc: 'Soaring scout falcon badge representing keen vision and swiftness.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#e0e7ff" stroke="#4338ca" stroke-width="1.2"/><path d="M16 8c-4 0-7 3-7 7 0 5 4 9 9 9 2 0 5-1 6-3l-2-2c-1 0-2 1-4 1-3.5 0-6.5-2.5-6.5-6 0-3 2.5-5.5 5.5-5.5 2 0 3.5 1 4.5 2.5L24 9c-2-1-5.5-1-8-1z" fill="#4338ca"/><path d="M18 15l5 2-4 3c-1-1.5-1-3.5-1-5z" fill="#f59e0b"/><circle cx="15" cy="13" r="1.5" fill="#fbbf24"/><circle cx="15.2" cy="12.8" r="0.7" fill="#0f172a"/></svg>'
+  badge_athletics: {
+    id: 'badge_athletics',
+    name: 'Athletics Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Track and field proficiency in sprinting, distance running, and jumping.',
+    badgeHtml: '<img src="assets/BB Badges/Athletics.png" alt="Athletics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Athletics.png'
   },
-
-  // ── 3. BB Syllabus Crests ─────────────────────────────────────────────────
-  crest_founders: {
-    id: 'crest_founders',
-    name: "Founder's Badge Pin",
-    category: 'crests',
-    categoryLabel: 'BB Syllabus Crests',
-    price: 150,
-    desc: "The pinnacle Senior Section honour commemorating Sir William A. Smith.",
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#78350f" stroke="#fbbf24" stroke-width="1.5"/><circle cx="16" cy="16" r="10.5" fill="#92400e" stroke="#f59e0b" stroke-width="0.8"/><path d="M16 8v16M11 13h10" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="3.5" fill="#fef3c7" stroke="#b45309" stroke-width="1"/><path d="M16 14.5l.8 1.5 1.7.3-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.3.8-1.5z" fill="#d97706"/></svg>'
+  badge_bandsman: {
+    id: 'badge_bandsman',
+    name: 'Bandsman Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Musicianship in the BB brass band, wind ensemble, or bagpipe band.',
+    badgeHtml: '<img src="assets/BB Badges/Bandsman.png" alt="Bandsman Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Bandsman.png'
   },
-  crest_presidents: {
-    id: 'crest_presidents',
-    name: "President's Award Pin",
-    category: 'crests',
-    categoryLabel: 'BB Syllabus Crests',
-    price: 140,
-    desc: "Prestigious national badge recognizing distinguished leadership and Christian service.",
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#1e1b4b" stroke="#e11d48" stroke-width="1.5"/><path d="M16 6l2.5 7.5H26l-6 4.5 2.5 7.5-6.5-5-6.5 5 2.5-7.5-6-4.5h7.5L16 6z" fill="#e11d48" stroke="#f43f5e" stroke-width="0.8"/><circle cx="16" cy="16" r="4.5" fill="#fbbf24" stroke="#d97706" stroke-width="1"/><path d="M16 13.5v5M13.5 16h5" stroke="#78350f" stroke-width="1.2" stroke-linecap="round"/></svg>'
-  },
-  crest_target: {
-    id: 'crest_target',
-    name: 'Target & Recruit Badge',
-    category: 'crests',
-    categoryLabel: 'BB Syllabus Crests',
-    price: 55,
-    desc: 'Foundational BB syllabus compass and bullseye mark.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#065f46" stroke="#10b981" stroke-width="1.2"/><circle cx="16" cy="16" r="9" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="3 2"/><circle cx="16" cy="16" r="5" fill="#ef4444" stroke="#ffffff" stroke-width="1"/><circle cx="16" cy="16" r="2" fill="#ffffff"/></svg>'
-  },
-  crest_crafts: {
-    id: 'crest_crafts',
-    name: 'Arts & Crafts Crest',
-    category: 'crests',
-    categoryLabel: 'BB Syllabus Crests',
-    price: 55,
-    desc: 'Artisan palette celebrating creative handiwork, design, and woodwork.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#0f766e" stroke="#2dd4bf" stroke-width="1.2"/><path d="M11 12c0-3 3-5 7-4s6 4 5 7c-1 3-3 4-5 3-1-.5-2 1-1 2 1 1 0 2-2 2-3 0-4-7-4-10z" fill="#f8fafc" stroke="#0f766e" stroke-width="1"/><circle cx="13" cy="12" r="1.2" fill="#ef4444"/><circle cx="17" cy="11" r="1.2" fill="#3b82f6"/><circle cx="20" cy="14" r="1.2" fill="#fbbf24"/><circle cx="17" cy="17" r="1.2" fill="#10b981"/></svg>'
-  },
-  crest_recruitment: {
-    id: 'crest_recruitment',
-    name: 'Recruitment Star Crest',
-    category: 'crests',
-    categoryLabel: 'BB Syllabus Crests',
+  badge_bronze_scholastic: {
+    id: 'badge_bronze_scholastic',
+    name: 'Bronze Scholastic Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
     price: 60,
-    desc: 'Awarded for bringing new friends and comrades into the BB family.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#1e3a8a" stroke="#60a5fa" stroke-width="1.2"/><path d="M16 7l2.8 5.6 6.2.9-4.5 4.4 1.1 6.1-5.6-3-5.6 3 1.1-6.1-4.5-4.4 6.2-.9L16 7z" fill="#facc15" stroke="#ca8a04" stroke-width="0.8"/><path d="M12 17l2 2 4-4" stroke="#1e3a8a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    desc: 'Academic excellence and scholastic merit in school examinations.',
+    badgeHtml: '<img src="assets/BB Badges/Bronze%20Scholastic.png" alt="Bronze Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Bronze%20Scholastic.png'
   },
-  crest_christian_ed: {
-    id: 'crest_christian_ed',
-    name: 'Christian Education Pin',
-    category: 'crests',
-    categoryLabel: 'BB Syllabus Crests',
-    price: 65,
-    desc: 'Open Bible illuminated by the lamp of truth and Christian faith.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#4a044e" stroke="#e879f9" stroke-width="1.2"/><path d="M16 13v9M16 13c-2-1-4-1-7 0v8c3-1 5-1 7 0M16 13c2-1 4-1 7 0v8c-3-1-5-1-7 0" fill="#fdf4ff" stroke="#a21caf" stroke-width="1.2" stroke-linecap="round"/><path d="M16 7c0 2-1 3-1 4h2c0-1-1-2-1-4z" fill="#fbbf24"/><circle cx="16" cy="7" r="1" fill="#ef4444"/></svg>'
+  badge_buglers: {
+    id: 'badge_buglers',
+    name: 'Bugler\'s Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Proficiency in sounding official ceremonial BB bugle calls and fanfares.',
+    badgeHtml: '<img src="assets/BB Badges/Buglers.png" alt="Bugler\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Buglers.png'
   },
-  crest_cross_anchor: {
-    id: 'crest_cross_anchor',
-    name: 'Sure & Stedfast Anchor',
-    category: 'crests',
-    categoryLabel: 'BB Syllabus Crests',
+  badge_camping: {
+    id: 'badge_camping',
+    name: 'Camping Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Campcraft mastery including tent pitching, campsite layout, and camp cooking.',
+    badgeHtml: '<img src="assets/BB Badges/Camping.png" alt="Camping Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Camping.png'
+  },
+  badge_christian_ed: {
+    id: 'badge_christian_ed',
+    name: 'Christian Education Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Bible knowledge, Christian faith foundations, and moral character.',
+    badgeHtml: '<img src="assets/BB Badges/Christian%20Education.png" alt="Christian Education Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Christian%20Education.png'
+  },
+  badge_citizenship: {
+    id: 'badge_citizenship',
+    name: 'Citizenship Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Knowledge of Malaysian government, constitution, national heritage, and civic duties.',
+    badgeHtml: '<img src="assets/BB Badges/Citizenship.png" alt="Citizenship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Citizenship.png'
+  },
+  badge_communications: {
+    id: 'badge_communications',
+    name: 'Communications Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Mastery in public speaking, radio transmission, signals, and media.',
+    badgeHtml: '<img src="assets/BB Badges/Communications.png" alt="Communications Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Communications.png'
+  },
+  badge_community_service: {
+    id: 'badge_community_service',
+    name: 'Community Service Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Dedicated volunteer service aiding underprivileged communities.',
+    badgeHtml: '<img src="assets/BB Badges/Community%20Service.png" alt="Community Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Community%20Service.png'
+  },
+  badge_computer_knowledge: {
+    id: 'badge_computer_knowledge',
+    name: 'Computer Knowledge Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Competency in software applications, digital safety, and coding.',
+    badgeHtml: '<img src="assets/BB Badges/Computer%20Knowledge.png" alt="Computer Knowledge Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Computer%20Knowledge.png'
+  },
+  badge_crafts: {
+    id: 'badge_crafts',
+    name: 'Crafts Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Handicraft proficiency in woodwork, leatherwork, and model making.',
+    badgeHtml: '<img src="assets/BB Badges/Crafts.png" alt="Crafts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Crafts.png'
+  },
+  badge_drill: {
+    id: 'badge_drill',
+    name: 'Drill Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Precision military drill movements, squad formations, and parade discipline.',
+    badgeHtml: '<img src="assets/BB Badges/Drill.png" alt="Drill Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Drill.png'
+  },
+  badge_drummers: {
+    id: 'badge_drummers',
+    name: 'Drummer\'s Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Percussion proficiency in snare drum rudiments and pipe band drumming.',
+    badgeHtml: '<img src="assets/BB Badges/Drummers.png" alt="Drummer\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Drummers.png'
+  },
+  badge_environmental_conservation: {
+    id: 'badge_environmental_conservation',
+    name: 'Environmental Conservation Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Eco-stewardship, waste recycling, tree planting, and sustainability.',
+    badgeHtml: '<img src="assets/BB Badges/Enviromental%20Conservation.png" alt="Environmental Conservation Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Enviromental%20Conservation.png'
+  },
+  badge_expedition: {
+    id: 'badge_expedition',
+    name: 'Expedition Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 55,
+    desc: 'Multi-day wilderness hiking expedition requiring compass navigation and survival.',
+    badgeHtml: '<img src="assets/BB Badges/Expedition.png" alt="Expedition Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Expedition.png'
+  },
+  badge_financial_stewardship: {
+    id: 'badge_financial_stewardship',
+    name: 'Financial Stewardship Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Personal budgeting, prudent money management, and Biblical stewardship.',
+    badgeHtml: '<img src="assets/BB Badges/Financial%20Stewardship.png" alt="Financial Stewardship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Financial%20Stewardship.png'
+  },
+  badge_fire_and_rescue: {
+    id: 'badge_fire_and_rescue',
+    name: 'Fire and Rescue Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Fire safety precautions, extinguishers, evacuation drills, and rescue methods.',
+    badgeHtml: '<img src="assets/BB Badges/Fire%20and%20Rescue.png" alt="Fire and Rescue Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Fire%20and%20Rescue.png'
+  },
+  badge_first_aid: {
+    id: 'badge_first_aid',
+    name: 'First Aid Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Emergency lifesaving treatment, CPR, wound dressing, and casualty care.',
+    badgeHtml: '<img src="assets/BB Badges/First%20Aid.png" alt="First Aid Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/First%20Aid.png'
+  },
+  badge_founders_award: {
+    id: 'badge_founders_award',
+    name: 'Founder\'s Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 150,
+    desc: 'The pinnacle achievement for Senior Section Boys recognizing sterling leadership and service.',
+    badgeHtml: '<img src="assets/BB Badges/Founder%27s%20Award.png" alt="Founder\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Founder%27s%20Award.png'
+  },
+  badge_gold_award: {
+    id: 'badge_gold_award',
+    name: 'Gold Award Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 120,
+    desc: 'Premier Junior Section award representing outstanding diligence and excellence.',
+    badgeHtml: '<img src="assets/BB Badges/Gold%20Award.png" alt="Gold Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Gold%20Award.png'
+  },
+  badge_gold_scholastic: {
+    id: 'badge_gold_scholastic',
+    name: 'Gold Scholastic Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 85,
+    desc: 'Highest scholastic merit honoring top academic standing in major public examinations.',
+    badgeHtml: '<img src="assets/BB Badges/Gold%20Scholastic.png" alt="Gold Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Gold%20Scholastic.png'
+  },
+  badge_gymnastics: {
+    id: 'badge_gymnastics',
+    name: 'Gymnastics Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Physical agility, tumbling, balance, and gymnastic apparatus execution.',
+    badgeHtml: '<img src="assets/BB Badges/Gymnastics.png" alt="Gymnastics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Gymnastics.png'
+  },
+  badge_hobbies: {
+    id: 'badge_hobbies',
+    name: 'Hobbies Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Sustained personal dedication to a constructive hobby, craft, or collection.',
+    badgeHtml: '<img src="assets/BB Badges/Hobbies.png" alt="Hobbies Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Hobbies.png'
+  },
+  badge_international_relations: {
+    id: 'badge_international_relations',
+    name: 'International Relations Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Appreciation of global cultures, worldwide BB fellowships, and international diplomacy.',
+    badgeHtml: '<img src="assets/BB Badges/International%20Relations.png" alt="International Relations Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/International%20Relations.png'
+  },
+  badge_life_saving: {
+    id: 'badge_life_saving',
+    name: 'Life Saving Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 55,
+    desc: 'Water safety, drowning casualty rescue, resuscitation, and open-water recovery.',
+    badgeHtml: '<img src="assets/BB Badges/Life%20Saving.png" alt="Life Saving Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Life%20Saving.png'
+  },
+  badge_long_year_service: {
+    id: 'badge_long_year_service',
+    name: 'Long Year Service Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
     price: 90,
-    desc: 'The iconic Twin Cross and Anchor emblem from Hebrews 6:19.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.2"/><circle cx="16" cy="10" r="2.5" stroke="#fbbf24" stroke-width="1.5"/><path d="M16 12.5v11M11 15h10" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/><path d="M9 20c2 4 12 4 14 0" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/><path d="M8 19l1 1M24 19l-1 1" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"/></svg>'
+    desc: 'Honoring long-term steadfast loyalty and continuous faithful membership in 1st PJ.',
+    badgeHtml: '<img src="assets/BB Badges/Long%20Year%20Service.png" alt="Long Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Long%20Year%20Service.png'
   },
-
-  // ── 4. Fun Leadership Cosmetic ────────────────────────────────────────────
-  sash_sgt_red: {
-    id: 'sash_sgt_red',
-    name: 'Sergeant Red Sash',
-    category: 'leadership',
-    categoryLabel: 'Leadership Accents',
-    price: 80,
-    desc: 'Ceremonial scarlet red cross-sash pin representing Sergeant duty & discipline.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#450a0a" stroke="#ef4444" stroke-width="1.2"/><path d="M7 25L25 7l3 3L10 28z" fill="#dc2626"/><path d="M8 24L24 8" stroke="#f87171" stroke-width="1"/><path d="M12 20l4-4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/><path d="M10 22l8-8" stroke="#fbbf24" stroke-width="1.2" stroke-linecap="round"/></svg>'
+  badge_nature_awareness: {
+    id: 'badge_nature_awareness',
+    name: 'Nature Awareness Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Observation and study of Malaysian flora, fauna, and natural habitats.',
+    badgeHtml: '<img src="assets/BB Badges/Nature%20Awareness.png" alt="Nature Awareness Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Nature%20Awareness.png'
   },
-  sash_ssgt_blue: {
-    id: 'sash_ssgt_blue',
-    name: 'Staff Sergeant Blue Sash',
-    category: 'leadership',
-    categoryLabel: 'Leadership Accents',
-    price: 95,
-    desc: 'Royal blue ceremonial command sash pin signifying Staff Sergeant seniority.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="13" fill="#172554" stroke="#3b82f6" stroke-width="1.2"/><path d="M7 25L25 7l3 3L10 28z" fill="#1d4ed8"/><path d="M8 24L24 8" stroke="#60a5fa" stroke-width="1"/><path d="M12 20l4-4M10 22l4-4" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round"/><path d="M15 17l4-4" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/></svg>'
+  badge_nco_proficiency: {
+    id: 'badge_nco_proficiency',
+    name: 'NCO Proficiency Star',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 100,
+    desc: 'Recognizing distinguished Non-Commissioned Officer leadership, command, and squad mentoring.',
+    badgeHtml: '<img src="assets/BB Badges/NCO%20Proficiency.png" alt="NCO Proficiency Star" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/NCO%20Proficiency.png'
+  },
+  badge_physical_training: {
+    id: 'badge_physical_training',
+    name: 'Physical Training Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'High standard of physical fitness, calisthenics, and cardiovascular endurance.',
+    badgeHtml: '<img src="assets/BB Badges/Physical%20Training.png" alt="Physical Training Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Physical%20Training.png'
+  },
+  badge_presidents_award: {
+    id: 'badge_presidents_award',
+    name: 'President\'s Award Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 140,
+    desc: 'Prestigious national award recognizing eminent leadership and distinguished Christian service.',
+    badgeHtml: '<img src="assets/BB Badges/President%27s%20Award.png" alt="President\'s Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/President%27s%20Award.png'
+  },
+  badge_recruitment: {
+    id: 'badge_recruitment',
+    name: 'Recruitment Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Awarded for bringing new friends and comrades into the fellowship of the Boys\' Brigade.',
+    badgeHtml: '<img src="assets/BB Badges/Recruitment.png" alt="Recruitment Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Recruitment.png'
+  },
+  badge_safety: {
+    id: 'badge_safety',
+    name: 'Safety Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 40,
+    desc: 'Knowledge and practice of home, road, workshop, and sports safety precautions.',
+    badgeHtml: '<img src="assets/BB Badges/Safety.png" alt="Safety Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Safety.png'
+  },
+  badge_silver_scholastic: {
+    id: 'badge_silver_scholastic',
+    name: 'Silver Scholastic Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 70,
+    desc: 'Commendable scholastic merit awarded for high academic performance in school examinations.',
+    badgeHtml: '<img src="assets/BB Badges/Silver%20Scholastic.png" alt="Silver Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Silver%20Scholastic.png'
+  },
+  badge_social_entrepreneurship: {
+    id: 'badge_social_entrepreneurship',
+    name: 'Social Entrepreneurship Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Developing innovative social business ventures that benefit the community.',
+    badgeHtml: '<img src="assets/BB Badges/Social%20Entreprenuership.png" alt="Social Entrepreneurship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Social%20Entreprenuership.png'
+  },
+  badge_sports: {
+    id: 'badge_sports',
+    name: 'Sports Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Active team sportsmanship, rules knowledge, and fair play in athletic games.',
+    badgeHtml: '<img src="assets/BB Badges/Sports.png" alt="Sports Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Sports.png'
+  },
+  badge_sustainability: {
+    id: 'badge_sustainability',
+    name: 'Sustainability Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Renewable energy, resource conservation, carbon footprint reduction, and green living.',
+    badgeHtml: '<img src="assets/BB Badges/Sustainability.png" alt="Sustainability Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Sustainability.png'
+  },
+  badge_swimming: {
+    id: 'badge_swimming',
+    name: 'Swimming Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 45,
+    desc: 'Proficiency in multiple swimming strokes, breath control, and water endurance.',
+    badgeHtml: '<img src="assets/BB Badges/Swimming.png" alt="Swimming Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Swimming.png'
+  },
+  badge_three_year_service: {
+    id: 'badge_three_year_service',
+    name: 'Three Year Service Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 75,
+    desc: 'Awarded upon completing three consecutive years of steadfast and faithful service in 1st PJ.',
+    badgeHtml: '<img src="assets/BB Badges/Three%20Year%20Service%20Badge.png" alt="Three Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Three%20Year%20Service%20Badge.png'
+  },
+  badge_water_adventure: {
+    id: 'badge_water_adventure',
+    name: 'Water Adventure Badge',
+    category: 'badges',
+    categoryLabel: 'BB Badges',
+    price: 50,
+    desc: 'Proficiency in canoeing, kayaking, rafting, and aquatic expedition techniques.',
+    badgeHtml: '<img src="assets/BB Badges/Water%20Adventure.png" alt="Water Adventure Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    imgSrc: 'assets/BB Badges/Water%20Adventure.png'
   }
 };
 
@@ -2389,18 +2687,27 @@ function applyMemberCosmeticElement(containerEl, cosmeticId, sizeVariant) {
     return;
   }
 
-  var sizeClass = sizeVariant || 'cosmetic-md';
-  if (!existingBadge) {
-    existingBadge = document.createElement('span');
-    existingBadge.className = 'avatar-cosmetic-badge ' + sizeClass;
-    existingBadge.setAttribute('aria-hidden', 'true');
-    containerEl.appendChild(existingBadge);
-  } else {
-    existingBadge.className = 'avatar-cosmetic-badge ' + sizeClass;
+  if (containerEl.style) {
+    containerEl.style.overflow = 'visible';
+    var pos = containerEl.style.position;
+    if (!pos || pos === 'static') {
+      containerEl.style.position = 'relative';
+    }
   }
 
+  var sizeClass = sizeVariant || 'cosmetic-md';
+  var isHeadwear = (validCosmetic.category === 'headwear');
+  var headwearClass = isHeadwear ? ' is-headwear' : '';
+
+  if (!existingBadge) {
+    existingBadge = document.createElement('span');
+    existingBadge.setAttribute('aria-hidden', 'true');
+    containerEl.appendChild(existingBadge);
+  }
+
+  existingBadge.className = 'avatar-cosmetic-badge ' + sizeClass + headwearClass;
   existingBadge.setAttribute('data-cosmetic-id', validCosmetic.id);
-  existingBadge.title = validCosmetic.name + ' (' + validCosmetic.categoryLabel + ')';
+  existingBadge.setAttribute('title', validCosmetic.name || '');
   existingBadge.innerHTML = validCosmetic.badgeHtml;
 }
 
@@ -2428,7 +2735,7 @@ function openCosmeticShopDrawer() {
 
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
   var activeCosmetic = getMemberCosmetic(myEmail);
-  _cosmeticShopPreviewId = activeCosmetic.id !== 'none' ? activeCosmetic.id : 'beret';
+  _cosmeticShopPreviewId = activeCosmetic.id !== 'none' ? activeCosmetic.id : 'bb_cap';
 
   container.innerHTML =
     '<div class="cosmetic-shop-overlay" onclick="if(event.target===this)closeCosmeticShopDrawer()">' +
@@ -2458,11 +2765,9 @@ function openCosmeticShopDrawer() {
         '</div>' +
 
         '<div class="cosmetic-shop-pills">' +
-          '<button type="button" class="cosmetic-shop-pill active" onclick="filterCosmeticShop(\'all\',this)">All Cosmetics</button>' +
-          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'headwear\',this)">🎩 Headwear</button>' +
-          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'companion\',this)">🐾 Companions</button>' +
-          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'crests\',this)">🏅 BB Crests</button>' +
-          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'leadership\',this)">🎖️ Leadership</button>' +
+          '<button type="button" class="cosmetic-shop-pill active" onclick="filterCosmeticShop(\'all\',this)">All Items (46)</button>' +
+          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'headwear\',this)">Headwear (5)</button>' +
+          '<button type="button" class="cosmetic-shop-pill" onclick="filterCosmeticShop(\'badges\',this)">BB Badges (41)</button>' +
         '</div>' +
 
         '<div class="cosmetic-shop-grid" id="cosmetic-shop-grid"></div>' +
@@ -2926,6 +3231,7 @@ function renderMemberAvatar(memberName, memberEmail) {
   }
   if (mRing) {
     applyAvatarOutlineElement(mRing, outline.style);
+    applyMemberCosmeticElement(mRing, cosmetic.id, 'cosmetic-lg');
   }
 
   // 3. Top nav header placeholder (#nav-avatar-placeholder)
@@ -2956,6 +3262,7 @@ function renderMemberAvatar(memberName, memberEmail) {
   }
   if (navCircle) {
     applyAvatarOutlineElement(navCircle, outline.style);
+    applyMemberCosmeticElement(navCircle, cosmetic.id, 'cosmetic-sm');
   }
 }
 
@@ -3239,6 +3546,18 @@ async function renderDashboard() {
     // Render personalized initial, color & creator RGB animation on avatar placeholders
     renderMemberAvatar(m.name, displayEmail);
     setRemovePfpButtonVisible();
+
+    var pfpBar = document.querySelector('.m-pfp-actions-bar');
+    if (pfpBar && !pfpBar.querySelector('.btn-cosmetic-shop')) {
+      var cShopBtn = document.createElement('button');
+      cShopBtn.type = 'button';
+      cShopBtn.className = 'btn-cosmetic-shop';
+      cShopBtn.onclick = function() { openCosmeticShopDrawer(); };
+      cShopBtn.title = 'Open Profile Cosmetic Shop to spend Arcade Credits';
+      cShopBtn.style.cssText = 'background:linear-gradient(135deg, rgba(217,163,35,0.18), rgba(217,163,35,0.28));border:1px solid rgba(217,163,35,0.5);color:var(--accent);font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;';
+      cShopBtn.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span>🛍️ Profile Cosmetics</span>';
+      pfpBar.appendChild(cShopBtn);
+    }
 
     // Load profile avatar from Supabase Storage / local cache
     try {

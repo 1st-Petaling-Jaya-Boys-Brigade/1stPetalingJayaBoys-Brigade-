@@ -8751,10 +8751,10 @@ select.form-input,
 /* 1. Modular Avatar Cosmetic Badges (Top-Left Corner Placement) */
 .avatar-cosmetic-badge {
   position: absolute;
-  top: -4px;
-  left: -4px;
-  width: 20px;
-  height: 20px;
+  top: -2px;
+  left: -2px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   z-index: 5; /* Pinned above photo, initials, and outline overlay */
   pointer-events: none;
@@ -8766,39 +8766,67 @@ select.form-input,
   box-sizing: border-box;
 }
 
-.avatar-cosmetic-badge svg {
+.avatar-cosmetic-badge svg,
+.avatar-cosmetic-badge img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
   display: block;
 }
 
-/* Sizing variants for responsive avatar scales */
+/* Sizing variants: exactly 25% smaller than original (28px->21px, 20px->15px, 14px->11px, 12px->9px) */
 .avatar-cosmetic-badge.cosmetic-lg {
-  top: -6px;
-  left: -6px;
-  width: 28px;
-  height: 28px;
+  top: -3px;
+  left: -3px;
+  width: 21px;
+  height: 21px;
 }
 
 .avatar-cosmetic-badge.cosmetic-md {
-  top: -4px;
-  left: -4px;
-  width: 20px;
-  height: 20px;
+  top: -2px;
+  left: -2px;
+  width: 15px;
+  height: 15px;
 }
 
 .avatar-cosmetic-badge.cosmetic-sm {
-  top: -3px;
-  left: -3px;
-  width: 14px;
-  height: 14px;
+  top: -2px;
+  left: -2px;
+  width: 11px;
+  height: 11px;
 }
 
 .avatar-cosmetic-badge.cosmetic-xs {
+  top: -1px;
+  left: -1px;
+  width: 9px;
+  height: 9px;
+}
+
+/* Headwear: angled, aligned, and placed on top-left corner tilted to the left (matching Image 4) */
+.avatar-cosmetic-badge.is-headwear {
+  transform: rotate(-18deg);
+  transform-origin: 50% 90%;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-lg {
+  top: -7px;
+  left: 0px;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-md {
+  top: -5px;
+  left: 0px;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-sm {
+  top: -3px;
+  left: 0px;
+}
+
+.avatar-cosmetic-badge.is-headwear.cosmetic-xs {
   top: -2px;
-  left: -2px;
-  width: 12px;
-  height: 12px;
+  left: 0px;
 }
 
 /* 2. Interactive Arcade Cosmetic Shop Drawer & Live Preview Modal */

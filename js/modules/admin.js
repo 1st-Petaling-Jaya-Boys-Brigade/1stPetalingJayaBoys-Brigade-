@@ -1063,8 +1063,10 @@
     if (cosmeticInfo && cosmeticInfo.id && cosmeticInfo.id !== 'none' && (cosmeticInfo.svg || (cosmeticInfo.config && cosmeticInfo.config.badgeHtml))) {
       var cosSvg = cosmeticInfo.svg || cosmeticInfo.config.badgeHtml;
       var cosName = cosmeticInfo.name || (cosmeticInfo.config && cosmeticInfo.config.name) || '';
+      var isHeadwear = (cosmeticInfo.category === 'headwear' || (cosmeticInfo.config && cosmeticInfo.config.category === 'headwear'));
+      var headwearCls = isHeadwear ? ' is-headwear' : '';
       var cosCls = sz >= 40 ? 'cosmetic-lg' : (sz >= 28 ? 'cosmetic-md' : (sz >= 22 ? 'cosmetic-sm' : 'cosmetic-xs'));
-      cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosName) : cosName) + '" aria-hidden="true">' + cosSvg + '</span>';
+      cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + headwearCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosName) : cosName) + '" aria-hidden="true">' + cosSvg + '</span>';
     }
 
     var photoUrl = null;
@@ -2756,7 +2758,7 @@
 
         var cosmeticsCatalog = (typeof PROFILE_COSMETICS !== 'undefined') ? PROFILE_COSMETICS : {};
         var cosmeticsOptionsHtml = '<option value="none"' + (curCosmetic.id === 'none' ? ' selected' : '') + '>None (No cosmetic)</option>';
-        var cats = ['headwear', 'companion', 'crests', 'leadership'];
+        var cats = ['headwear', 'badges'];
         cats.forEach(function(cKey) {
           var matching = Object.values(cosmeticsCatalog).filter(function(it) { return it.category === cKey; });
           if (matching.length) {
