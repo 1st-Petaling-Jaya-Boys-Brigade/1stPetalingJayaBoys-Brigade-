@@ -365,7 +365,7 @@ function hasDepartmentRole(memberOrDept, rank) {
 
   // 2. Officer privilege (Officers retain supervisory oversight over all projects & tasks)
   if (rk) {
-    var officerRanks = ['Officer', 'Lieutenant', 'Captain', 'Chaplain', 'Honorary Captain'];
+    var officerRanks = ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor'];
     if (officerRanks.indexOf(rk) !== -1) {
       return true;
     }
@@ -2136,7 +2136,7 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   if (myDept && lower.indexOf('@' + myDept.toLowerCase().trim()) !== -1) return true;
 
   // Rule 5: @Officers mention
-  if (myRank && ['Officer', 'Lieutenant', 'Captain', 'Chaplain'].indexOf(myRank) !== -1 && /\b@officers\b/i.test(lower)) return true;
+  if (myRank && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(myRank) !== -1 && /\b@officers\b/i.test(lower)) return true;
 
   return false;
 }

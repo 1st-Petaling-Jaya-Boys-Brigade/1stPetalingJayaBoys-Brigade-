@@ -140,8 +140,8 @@
     var sessEmail = cleanEmail(getSession('email') || getSession('ic'));
     if (!email || sessEmail === userEmail) {
       var rank = getSession('rank');
-      if (rank === 'Captain') return ROLES.SUPER_ADMIN;
-      if (['Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank)) return ROLES.ADMIN;
+      if (rank === 'Captain' || rank === 'Honarary Captain' || rank === 'Honorary Captain') return ROLES.SUPER_ADMIN;
+      if (['Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].includes(rank)) return ROLES.ADMIN;
     }
 
     // 2. Check Scoped Admin list

@@ -24,12 +24,24 @@
   ];
 
   var RANK_ORDER = [
+    'Pre-Junior',
+    'Junior',
+    'Assistance Junior Leader',
+    'Assistant Junior Leader',
+    'Junior Leader',
+    'Chief Junior Leader',
     'Recruit',
     'Private',
     'Lance Corporal',
     'Corporal',
     'Sergeant',
-    'Staff Sergeant'
+    'Staff Sergeant',
+    'Instructor',
+    'Warrant Officer',
+    'Lieutenant',
+    'Honarary Captain',
+    'Honorary Captain',
+    'Captain'
   ];
 
   var DEFAULT_DEPT_CONFIG = {
@@ -423,7 +435,7 @@
       sessEmail = sessionGet('email') || sessionGet('ic');
       if (sessEmail) {
         rank = sessionGet('rank');
-        isOfficer = rank && ['Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer'].includes(rank);
+        isOfficer = rank && ['Captain', 'Honarary Captain', 'Honorary Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].includes(rank);
         currentRole = (typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function')
           ? RBAC.getUserRole(sessEmail)
           : (sessionGet('role') || 'member');
@@ -1165,14 +1177,20 @@
     }
   }
 
-  function handleAdminSectionChange() {
+  function handleAdminSectionChange(preserveRank) {
     if (typeof document === 'undefined') return;
     var sec = (document.getElementById('em-section') || {}).value || '';
     var dob = (document.getElementById('em-dob') || {}).value || '';
     var age = (typeof calcAge === 'function') ? calcAge(dob) : null;
     var isMinor = (typeof isMinorSection === 'function')
       ? isMinorSection(sec, age)
-      : (sec === 'Pre-Junior' || sec === 'Junior' || (age !== null && age <= 11));
+      : (sec === 'Pre-Junior' || sec === 'Junior' || (sec !== 'Officer' && age !== null && age <= 11));
+
+    var rankEl = document.getElementById('em-rank');
+    if (rankEl && typeof populateRankOptions === 'function') {
+      var curRank = rankEl.value;
+      populateRankOptions(rankEl, sec, curRank, 'No rank', !!preserveRank);
+    }
 
     var box = document.getElementById('em-child-safety-box');
     if (box) {
@@ -1204,6 +1222,10 @@
       var el = document.getElementById(id);
       if (el) el.value = '';
     });
+    var emRankAdd = document.getElementById('em-rank');
+    if (emRankAdd && typeof populateRankOptions === 'function') {
+      populateRankOptions(emRankAdd, '', '', 'No rank / Select section first', false);
+    }
 
     var pc = document.getElementById('em-parent-consent');
     if (pc) pc.checked = false;
@@ -1241,12 +1263,18 @@
 
     set('em-name',    m.name);
     set('em-ic',      m.ic);
-    set('em-rank',    m.rank);
+    var editSec = m.att_section || m.section || '';
+    set('em-section', editSec);
+    var emRankEdit = document.getElementById('em-rank');
+    if (emRankEdit && typeof populateRankOptions === 'function') {
+      populateRankOptions(emRankEdit, editSec, m.rank, 'No rank', true);
+    } else {
+      set('em-rank', m.rank);
+    }
     set('em-squad',   m.squad);
     set('em-dept',    m.department);
-    set('em-section', m.att_section || m.section || '');
 
-    handleAdminSectionChange();
+    handleAdminSectionChange(true);
 
     set('em-joined',       m.joined_at ? m.joined_at.slice(0, 10) : '');
     set('em-dob',          m.date_of_birth ? m.date_of_birth.slice(0, 10) : '');
@@ -2241,6 +2269,11 @@
     global.SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MS;
     global.ADMIN_SECTIONS           = ADMIN_SECTIONS;
     global.RANK_ORDER               = RANK_ORDER;
+    global.MEMBERS_JUNIORS_RANKS    = typeof MEMBERS_JUNIORS_RANKS !== 'undefined' ? MEMBERS_JUNIORS_RANKS : [];
+    global.MEMBERS_SENIOR_RANKS     = typeof MEMBERS_SENIOR_RANKS !== 'undefined' ? MEMBERS_SENIOR_RANKS : [];
+    global.OFFICER_RANKS            = typeof OFFICER_RANKS !== 'undefined' ? OFFICER_RANKS : [];
+    global.populateRankOptions      = typeof populateRankOptions === 'function' ? populateRankOptions : null;
+    global.getRanksForSection       = typeof getRanksForSection === 'function' ? getRanksForSection : null;
     global.openAdmin                = openAdmin;
     global.getAdminMemberAvatarHtml = getAdminMemberAvatarHtml;
     global.closeAdmin               = closeAdmin;
@@ -2290,6 +2323,11 @@
     module.exports = {
       ADMIN_SECTIONS: ADMIN_SECTIONS,
       RANK_ORDER: RANK_ORDER,
+      MEMBERS_JUNIORS_RANKS: typeof MEMBERS_JUNIORS_RANKS !== 'undefined' ? MEMBERS_JUNIORS_RANKS : [],
+      MEMBERS_SENIOR_RANKS: typeof MEMBERS_SENIOR_RANKS !== 'undefined' ? MEMBERS_SENIOR_RANKS : [],
+      OFFICER_RANKS: typeof OFFICER_RANKS !== 'undefined' ? OFFICER_RANKS : [],
+      populateRankOptions: typeof populateRankOptions === 'function' ? populateRankOptions : null,
+      getRanksForSection: typeof getRanksForSection === 'function' ? getRanksForSection : null,
     DEFAULT_DEPT_CONFIG,
       openAdmin: openAdmin,
       getAdminMemberAvatarHtml: getAdminMemberAvatarHtml,

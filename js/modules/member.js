@@ -64,11 +64,154 @@ function goToMemberTab() {
   }
 }
 
+// ── Section & Rank Architecture (Junior, Senior, Officer) ─────────────────────
+
+var MEMBERS_JUNIORS_RANKS = [
+  'Pre-Junior',
+  'Junior',
+  'Assistance Junior Leader',
+  'Junior Leader',
+  'Chief Junior Leader'
+];
+
+var MEMBERS_SENIOR_RANKS = [
+  'Recruit',
+  'Private'
+];
+
+var NCO_RANKS = [
+  'Lance Corporal',
+  'Corporal',
+  'Sergeant'
+];
+
+var OFFICER_RANKS = [
+  'Captain',
+  'Honarary Captain',
+  'Lieutenant',
+  'Warrant Officer',
+  'Instructor',
+  'Staff Sergeant'
+];
+
+function getRanksForSection(section) {
+  var s = String(section || '').trim().toLowerCase();
+  if (s === 'junior' || s === 'pre-junior') {
+    return MEMBERS_JUNIORS_RANKS.slice();
+  }
+  if (s === 'senior') {
+    return MEMBERS_SENIOR_RANKS.concat(NCO_RANKS);
+  }
+  if (s === 'officer') {
+    return OFFICER_RANKS.slice();
+  }
+  return [];
+}
+
+function populateRankOptions(selectEl, section, selectedRank, placeholderText, allowExtraRank) {
+  if (!selectEl) return;
+  var s = String(section || '').trim().toLowerCase();
+  var placeholder = placeholderText || (s ? 'Select rank...' : 'Select section first...');
+
+  selectEl.innerHTML = '';
+
+  var defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = placeholder;
+  selectEl.appendChild(defaultOpt);
+
+  if (!s) {
+    if (selectedRank) {
+      var opt = document.createElement('option');
+      opt.value = selectedRank;
+      opt.textContent = selectedRank;
+      opt.selected = true;
+      selectEl.appendChild(opt);
+    }
+    return;
+  }
+
+  var found = false;
+
+  if (s === 'junior' || s === 'pre-junior') {
+    MEMBERS_JUNIORS_RANKS.forEach(function(r) {
+      var o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      if (selectedRank && (selectedRank === r || (r === 'Assistance Junior Leader' && selectedRank === 'Assistant Junior Leader'))) {
+        o.selected = true;
+        found = true;
+      }
+      selectEl.appendChild(o);
+    });
+  } else if (s === 'senior') {
+    var srGroup = document.createElement('optgroup');
+    srGroup.label = 'Senior Ranks';
+    MEMBERS_SENIOR_RANKS.forEach(function(r) {
+      var o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      if (selectedRank && selectedRank === r) {
+        o.selected = true;
+        found = true;
+      }
+      srGroup.appendChild(o);
+    });
+    selectEl.appendChild(srGroup);
+
+    var ncoGroup = document.createElement('optgroup');
+    ncoGroup.label = 'NCO Ranks';
+    NCO_RANKS.forEach(function(r) {
+      var o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      if (selectedRank && selectedRank === r) {
+        o.selected = true;
+        found = true;
+      }
+      ncoGroup.appendChild(o);
+    });
+    selectEl.appendChild(ncoGroup);
+  } else if (s === 'officer') {
+    OFFICER_RANKS.forEach(function(r) {
+      var o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      if (selectedRank && (selectedRank === r || (r === 'Honarary Captain' && selectedRank === 'Honorary Captain'))) {
+        o.selected = true;
+        found = true;
+      }
+      selectEl.appendChild(o);
+    });
+  } else {
+    var allRanks = MEMBERS_JUNIORS_RANKS.concat(MEMBERS_SENIOR_RANKS, NCO_RANKS, OFFICER_RANKS);
+    allRanks.forEach(function(r) {
+      var o = document.createElement('option');
+      o.value = r;
+      o.textContent = r;
+      if (selectedRank && selectedRank === r) {
+        o.selected = true;
+        found = true;
+      }
+      selectEl.appendChild(o);
+    });
+  }
+
+  if (selectedRank && !found && allowExtraRank) {
+    var extraOpt = document.createElement('option');
+    extraOpt.value = selectedRank;
+    extraOpt.textContent = selectedRank;
+    extraOpt.selected = true;
+    selectEl.appendChild(extraOpt);
+  }
+}
+
 // ── Child Safety (COPPA/PDPA) & Parental Consent Governance (TSK-032) ──────────
 
 function isMinorSection(section, age) {
   if (!section && (age === undefined || age === null || age === '')) return false;
   var s = String(section || '').trim().toLowerCase();
+  if (s === 'officer') return false;
   if (s === 'pre-junior' || s === 'junior') return true;
   var numAge = parseInt(age, 10);
   if (!isNaN(numAge) && numAge > 0 && numAge <= 11) return true;
@@ -79,11 +222,18 @@ function handleSectionChange() {
   if (typeof document === 'undefined') return;
   var secEl = document.getElementById('reg-section');
   var ageEl = document.getElementById('reg-age');
+  var rankEl = document.getElementById('reg-rank');
   var box   = document.getElementById('parent-consent-box');
-  if (!box) return;
 
   var section = secEl ? secEl.value : '';
   var age     = ageEl ? ageEl.value : '';
+
+  if (rankEl) {
+    var curRank = rankEl.value;
+    populateRankOptions(rankEl, section, curRank, null, false);
+  }
+
+  if (!box) return;
 
   if (isMinorSection(section, age)) {
     box.style.display = 'block';
@@ -511,11 +661,11 @@ async function registerMember() {
 
   if (!name) { if (typeof showToast === 'function') showToast('Please enter your full name.', 'warning'); return; }
   if (!email || !EMAIL_REGEX.test(email)) { if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning'); return; }
-  if (!section) { if (typeof showToast === 'function') showToast('Please select your section (Pre-Junior, Junior, or Senior).', 'warning'); return; }
+  if (!section) { if (typeof showToast === 'function') showToast('Please select your section (Junior, Senior, or Officer).', 'warning'); return; }
 
   var parsedAge = parseInt(ageRaw, 10);
-  if (!ageRaw || isNaN(parsedAge) || parsedAge < 5 || parsedAge > 25) {
-    if (typeof showToast === 'function') showToast('Please enter a valid age (between 5 and 25).', 'warning');
+  if (!ageRaw || isNaN(parsedAge) || parsedAge < 5 || parsedAge > 100) {
+    if (typeof showToast === 'function') showToast('Please enter a valid age (between 5 and 100).', 'warning');
     return;
   }
   if (!rank)  { if (typeof showToast === 'function') showToast('Please select your rank.', 'warning'); return; }
@@ -2730,11 +2880,22 @@ if (typeof window !== 'undefined') {
   window.switchFamilyAccount          = switchFamilyAccount;
   window.checkAndNotifyNewDeviceLogin = checkAndNotifyNewDeviceLogin;
   window.dispatchDeviceSecurityAlertEmail = dispatchDeviceSecurityAlertEmail;
+  window.MEMBERS_JUNIORS_RANKS        = MEMBERS_JUNIORS_RANKS;
+  window.MEMBERS_SENIOR_RANKS         = MEMBERS_SENIOR_RANKS;
+  window.OFFICER_RANKS                = OFFICER_RANKS;
+  window.getRanksForSection           = getRanksForSection;
+  window.populateRankOptions          = populateRankOptions;
 
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    MEMBERS_JUNIORS_RANKS,
+    MEMBERS_SENIOR_RANKS,
+    NCO_RANKS,
+    OFFICER_RANKS,
+    getRanksForSection,
+    populateRankOptions,
     isMinorSection,
     handleSectionChange,
     openChildSafetyModal,
