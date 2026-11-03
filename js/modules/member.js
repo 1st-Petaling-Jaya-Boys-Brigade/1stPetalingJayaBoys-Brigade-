@@ -1962,7 +1962,7 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
   if (typeof isPortalCreator === 'function') {
     isCreator = isPortalCreator(cleanName, cleanKey);
   } else {
-    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanKey === 'jeshua@mirtech.io' || cleanName === 'jeshua koh');
+    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh');
   }
 
   // 1. Direct key match (by email, ic, or name)

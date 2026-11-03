@@ -4917,7 +4917,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof utils.isPortalCreator, 'function', 'isPortalCreator must be exported');
     assert.strictEqual(utils.isPortalCreator('Jeshua Koh'), true, 'Jeshua Koh must be identified as creator');
     assert.strictEqual(utils.isPortalCreator('jeshua koh'), true, 'Case-insensitive creator detection');
-    assert.strictEqual(utils.isPortalCreator('Jeshua Koh', 'jeshua@mirtech.io'), true, 'Creator email detected');
+    assert.strictEqual(utils.isPortalCreator('Jeshua Koh', 'jeshuakoh2008@gmail.com'), true, 'Creator email detected');
     assert.strictEqual(utils.isPortalCreator('Jayden Wong'), false, 'Jayden Wong is not creator');
     assert.strictEqual(utils.isPortalCreator('Marcus Tan'), false, 'Marcus Tan is not creator');
 
