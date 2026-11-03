@@ -846,6 +846,13 @@ var _storyHoldAttached = false;
 async function loadStoryHighlights() {
   try {
     var client = getSupa();
+    if (client && typeof client.getConfigSnapshot === 'function') {
+      var snapStories = client.getConfigSnapshot('bb_story_highlights');
+      if (Array.isArray(snapStories) && snapStories.length) {
+        storyHighlights = snapStories;
+        return;
+      }
+    }
     if (client && typeof client.get === 'function') {
       // 1. Check universal bb_config store first (prevents 404 when bb_stories table is not yet migrated)
       try {

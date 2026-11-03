@@ -106,23 +106,63 @@ function getSupaClient() {
 
 /**
  * Request Throttling: Limits maximum concurrent HTTP requests to prevent socket exhaustion (TSK-025)
+ * Enhanced with 12s AbortController timeout boundaries and queue-abort de-registration.
  */
 const MAX_CONCURRENT_REQUESTS = 12;
+const DEFAULT_REQUEST_TIMEOUT_MS = 12000;
 let _activeRequests = 0;
 const _requestQueue = [];
 
-async function throttledFetch(url, fetchOpts) {
-  if (_activeRequests >= MAX_CONCURRENT_REQUESTS) {
-    await new Promise(resolve => _requestQueue.push(resolve));
+async function throttledFetch(url, fetchOpts, timeoutMs) {
+  fetchOpts = fetchOpts ? Object.assign({}, fetchOpts) : {};
+  timeoutMs = timeoutMs || DEFAULT_REQUEST_TIMEOUT_MS;
+
+  const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  let timeoutId = null;
+
+  if (controller) {
+    if (fetchOpts.signal) {
+      if (fetchOpts.signal.aborted) {
+        const err = new Error('The user aborted a request.');
+        err.name = 'AbortError';
+        throw err;
+      }
+      fetchOpts.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+    timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+    fetchOpts.signal = controller.signal;
   }
+
+  if (_activeRequests >= MAX_CONCURRENT_REQUESTS) {
+    await new Promise((resolve, reject) => {
+      const queueItem = { resolve, reject };
+      if (fetchOpts.signal) {
+        const onAbort = () => {
+          const idx = _requestQueue.indexOf(queueItem);
+          if (idx !== -1) _requestQueue.splice(idx, 1);
+          const err = new Error('The user aborted a request.');
+          err.name = 'AbortError';
+          reject(err);
+        };
+        fetchOpts.signal.addEventListener('abort', onAbort, { once: true });
+      }
+      _requestQueue.push(queueItem);
+    });
+  }
+
   _activeRequests++;
   try {
     return await fetch(url, fetchOpts);
   } finally {
+    if (timeoutId) clearTimeout(timeoutId);
     _activeRequests--;
     if (_requestQueue.length > 0) {
       const next = _requestQueue.shift();
-      next();
+      if (next && typeof next.resolve === 'function') {
+        next.resolve();
+      }
     }
   }
 }
@@ -500,11 +540,22 @@ const supa = {
     return result;
   },
 
-  async safeConfigGet(key, fallback) {
+  async safeConfigGet(key, fallback, options) {
+    options = options || {};
+    // Single-flight in-memory cache hit: If snapshot exists and force !== true, return immediately
+    if (options.force !== true && _configSnapshots[key] !== undefined && _configSnapshots[key] !== null) {
+      try {
+        return JSON.parse(JSON.stringify(_configSnapshots[key]));
+      } catch (_) {
+        return _configSnapshots[key];
+      }
+    }
+
     const client = this && typeof this.get === 'function' ? this : supa;
     try {
       const rows = await client.get(
-        'bb_config?key=eq.' + encodeURIComponent(key) + '&select=key,value'
+        'bb_config?key=eq.' + encodeURIComponent(key) + '&select=key,value',
+        options
       );
       if (rows && rows.length > 0 && rows[0].value) {
         try {

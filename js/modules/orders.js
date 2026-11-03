@@ -203,6 +203,15 @@ function filterUniformCategory(cat) {
  */
 async function loadPrices() {
   var client = getSupa();
+  if (client && typeof client.getConfigSnapshot === 'function') {
+    var snapPrices = client.getConfigSnapshot('bb_prices');
+    var snapItems = client.getConfigSnapshot('bb_uniform_items');
+    if (snapPrices || snapItems) {
+      if (snapPrices) prices = snapPrices;
+      if (snapItems && snapItems.length) UNIFORM_ITEMS = snapItems;
+      return;
+    }
+  }
   if (client && client.get) {
     try {
       var rows = await client.get('bb_config?key=in.(bb_prices,bb_uniform_items)&select=key,value');
@@ -791,6 +800,13 @@ async function saveUniformItems() {
  */
 async function loadPaymentInfo() {
   var client = getSupa();
+  if (client && typeof client.getConfigSnapshot === 'function') {
+    var snapPay = client.getConfigSnapshot('bb_payment_info');
+    if (snapPay && typeof snapPay === 'string' && snapPay.trim()) {
+      _paymentInfo = snapPay.trim();
+      return _paymentInfo;
+    }
+  }
   if (client && client.get) {
     try {
       var rows = await client.get('bb_config?key=eq.bb_payment_info&select=value');
@@ -918,7 +934,7 @@ async function populateOrderBar(ic) {
 
       if (nameEl) nameEl.textContent = m.name;
       if (rankEl) rankEl.textContent = m.rank || '';
-      if (typeof sessionSet === 'function') sessionSet('rank', m.rank || '');
+      if (typeof sessionSet === 'function' && sessionGet('rank') !== (m.rank || '')) sessionSet('rank', m.rank || '', { localOnly: true });
       if (squadIl) squadIl.textContent = m.squad ? m.squad + ' Platoon \xb7' : '';
       if (squadEl) squadEl.textContent = m.squad ? m.squad + ' Platoon' : '\u2014';
 

@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261103a';
+const CACHE_VERSION = '20261103b';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -48,6 +48,23 @@ const PRECACHE_ASSETS = [
 const OFFLINE_DATA_KEYS = ['bb_badge_defs', 'bb_presidents_reqs', 'bb_company_calendar'];
 
 /**
+ * Race a network fetch against a timeout to prevent deadlocks when sockets are starved
+ * @param {Function} fetchFn
+ * @param {Request} request
+ * @param {number} timeoutMs
+ * @returns {Promise<Response>}
+ */
+function fetchWithTimeout(fetchFn, request, timeoutMs) {
+  var fetchPromise = fetchFn(request);
+  var timeoutPromise = new Promise(function (_, reject) {
+    setTimeout(function () {
+      reject(new Error('SW network timeout (' + timeoutMs + 'ms)'));
+    }, timeoutMs);
+  });
+  return Promise.race([fetchPromise, timeoutPromise]);
+}
+
+/**
  * Handles incoming HTTP fetch requests with tailored caching strategies
  * @param {Request} request
  * @param {CacheStorage} [cachesInterface]
@@ -76,7 +93,7 @@ async function handleFetchRequest(request, cachesInterface, fetchFn) {
 
   if (isOfflineDataQuery) {
     try {
-      var netRes = await networkFetch(request);
+      var netRes = await fetchWithTimeout(networkFetch, request, 3500);
       if (netRes && netRes.status === 200 && cachesApi) {
         var cloneForCache = netRes.clone();
         cachesApi
@@ -120,7 +137,7 @@ async function handleFetchRequest(request, cachesInterface, fetchFn) {
 
   if (isNavigation && isLocalAsset) {
     try {
-      var netNavRes = await networkFetch(request);
+      var netNavRes = await fetchWithTimeout(networkFetch, request, 4000);
       if (netNavRes && netNavRes.status === 200 && cachesApi) {
         var navClone = netNavRes.clone();
         cachesApi
