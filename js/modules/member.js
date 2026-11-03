@@ -2411,7 +2411,15 @@ var PROFILE_COSMETICS = {
   }
 };
 
-var _memberCosmeticsMap = {};
+var _memberCosmeticsMap = (function() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_member_cosmetics');
+      if (cached) return JSON.parse(cached) || {};
+    } catch (_) {}
+  }
+  return {};
+})();
 
 function getMemberCosmeticsMap() {
   return _memberCosmeticsMap;
@@ -2422,7 +2430,8 @@ async function loadMemberCosmetics() {
     try {
       var cached = localStorage.getItem('bb_member_cosmetics');
       if (cached) {
-        _memberCosmeticsMap = JSON.parse(cached) || {};
+        var parsedLocal = JSON.parse(cached) || {};
+        _memberCosmeticsMap = Object.assign({}, parsedLocal, _memberCosmeticsMap);
       }
     } catch (_) {}
   }
@@ -2437,9 +2446,26 @@ async function loadMemberCosmetics() {
     if (res && res.length && res[0].value) {
       var parsed = JSON.parse(res[0].value);
       if (parsed && typeof parsed === 'object') {
-        _memberCosmeticsMap = parsed;
+        // Non-destructive merge: Never blow away local unlocked cosmetics if remote is stale
+        Object.keys(parsed).forEach(function(k) {
+          if (!_memberCosmeticsMap[k]) {
+            _memberCosmeticsMap[k] = parsed[k];
+          } else {
+            var localInv = Array.isArray(_memberCosmeticsMap[k].inventory) ? _memberCosmeticsMap[k].inventory : [];
+            var remoteInv = Array.isArray(parsed[k].inventory) ? parsed[k].inventory : [];
+            var mergedInv = Array.from(new Set(localInv.concat(remoteInv)));
+            _memberCosmeticsMap[k].inventory = mergedInv;
+
+            if (!_memberCosmeticsMap[k].equipped || _memberCosmeticsMap[k].equipped === 'none') {
+              if (parsed[k].equipped && parsed[k].equipped !== 'none') {
+                _memberCosmeticsMap[k].equipped = parsed[k].equipped;
+              }
+            }
+          }
+        });
+
         if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('bb_member_cosmetics', JSON.stringify(parsed));
+          localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
         }
         if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
       }
@@ -2511,10 +2537,63 @@ function getMemberCosmetic(emailOrIc, memberName) {
 
 function getMemberCosmeticInventory(emailOrIc) {
   var cleanKey = String(emailOrIc || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
-  if (!cleanKey) return [];
-  var record = _memberCosmeticsMap[cleanKey];
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  var cleanName = String(myName).trim().toLowerCase();
+
+  // Ensure _memberCosmeticsMap is loaded from localStorage if empty
+  if (Object.keys(_memberCosmeticsMap).length === 0 && typeof localStorage !== 'undefined') {
+    try {
+      var cachedAll = localStorage.getItem('bb_member_cosmetics');
+      if (cachedAll) _memberCosmeticsMap = JSON.parse(cachedAll) || {};
+    } catch (_) {}
+  }
+
+  // 1. Direct match by cleanKey
+  var record = cleanKey ? _memberCosmeticsMap[cleanKey] : null;
+
+  // 2. Direct match by cleanName
+  if (!record && cleanName && _memberCosmeticsMap[cleanName]) {
+    record = _memberCosmeticsMap[cleanName];
+  }
+
+  // 3. Scan entries matching target or name
+  if (!record && (cleanKey || cleanName)) {
+    var mapKeys = Object.keys(_memberCosmeticsMap);
+    for (var i = 0; i < mapKeys.length; i++) {
+      var k = mapKeys[i];
+      var entry = _memberCosmeticsMap[k];
+      if (entry && typeof entry === 'object') {
+        var entryName = String(entry.name || '').trim().toLowerCase();
+        var entryTarget = String(entry.target || k).trim().toLowerCase();
+        if ((cleanName && entryName === cleanName) ||
+            (cleanName && entryTarget === cleanName) ||
+            (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
+          record = entry;
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. Fallback to user-specific localStorage key
+  if ((!record || !Array.isArray(record.inventory) || record.inventory.length === 0) && typeof localStorage !== 'undefined') {
+    var checkKeys = [cleanKey, cleanName].filter(Boolean);
+    for (var j = 0; j < checkKeys.length; j++) {
+      try {
+        var userCached = localStorage.getItem('bb_member_cosmetic_' + checkKeys[j].replace(/[^a-zA-Z0-9_-]/g, '_'));
+        if (userCached) {
+          var parsedUser = JSON.parse(userCached);
+          if (parsedUser && Array.isArray(parsedUser.inventory) && parsedUser.inventory.length > 0) {
+            record = parsedUser;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
   if (record && Array.isArray(record.inventory)) {
-    return record.inventory.slice();
+    return Array.from(new Set(record.inventory.slice()));
   }
   return [];
 }
@@ -2549,11 +2628,6 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
   }
 
   var existing = _memberCosmeticsMap[cleanTarget] || {};
-  var currentInv = Array.isArray(existing.inventory) ? existing.inventory.slice() : [];
-  if (validCosmeticId !== 'none' && !currentInv.includes(validCosmeticId)) {
-    currentInv.push(validCosmeticId);
-  }
-
   var cleanName = String(targetName || existing.name || '').trim().toLowerCase();
   if (!cleanName) {
     var resolver = (typeof resolveMemberDirectoryInfo === 'function')
@@ -2563,6 +2637,17 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
       var dirInfo = resolver(cleanTarget);
       if (dirInfo && dirInfo.name) cleanName = String(dirInfo.name).trim().toLowerCase();
     }
+  }
+
+  // Always retrieve the existing inventory using getMemberCosmeticInventory to prevent inventory loss on unequip
+  var currentInv = getMemberCosmeticInventory(cleanTarget);
+  if (cleanName && currentInv.length === 0) {
+    var nameInv = getMemberCosmeticInventory(cleanName);
+    if (nameInv.length > 0) currentInv = nameInv;
+  }
+
+  if (validCosmeticId !== 'none' && !currentInv.includes(validCosmeticId)) {
+    currentInv.push(validCosmeticId);
   }
 
   var entry = {
@@ -2581,6 +2666,10 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
+    localStorage.setItem('bb_member_cosmetic_' + cleanTarget.replace(/[^a-zA-Z0-9_-]/g, '_'), JSON.stringify(entry));
+    if (cleanName && cleanName !== cleanTarget) {
+      localStorage.setItem('bb_member_cosmetic_' + cleanName.replace(/[^a-zA-Z0-9_-]/g, '_'), JSON.stringify(entry));
+    }
   }
   if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
 
@@ -2663,7 +2752,7 @@ async function equipCosmetic(cosmeticId) {
   if (res.success) {
     var name = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId].name : 'None';
     if (typeof showToast === 'function') {
-      showToast('Equipped ' + name + ' cosmetic!', 'success');
+      if (cosmeticId === 'none') { showToast('Unequipped cosmetic.', 'info'); } else { showToast('Equipped ' + name + ' cosmetic!', 'success'); }
     }
     renderCosmeticShopCards();
     renderCosmeticLivePreview(cosmeticId);
@@ -2729,6 +2818,10 @@ function renderCosmeticShopView() {
   if (typeof document === 'undefined') return;
   var container = document.getElementById('arcade-subtab-container');
   if (!container) return;
+
+  if (typeof loadMemberCosmetics === 'function') {
+    loadMemberCosmetics();
+  }
 
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
   var activeCosmetic = getMemberCosmetic(myEmail);

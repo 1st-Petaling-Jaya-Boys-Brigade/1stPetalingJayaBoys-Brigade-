@@ -4543,7 +4543,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Supabase pagination (limit/offset) with count=exact resolution verified');
 
     // 7. OTP / Auth Cooldown Timers & Honeypot Bot Traps
-    const memberMod = require('../js/modules/member.js');
+    let memberMod = require('../js/modules/member.js');
     assert.strictEqual(memberMod.AUTH_MAX_ATTEMPTS, 5, 'AUTH_MAX_ATTEMPTS must be 5');
     assert.strictEqual(memberMod.AUTH_LOCKOUT_MS, 30000, 'AUTH_LOCKOUT_MS must be 30000 (30s)');
     assert.strictEqual(memberMod.OTP_COOLDOWN_MS, 60000, 'OTP_COOLDOWN_MS must be 60000 (60s)');
@@ -7423,6 +7423,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const reEquipRes = await memberMod.equipCosmetic('bb_cap');
     assert.strictEqual(reEquipRes.success, true, 'Equipping already unlocked cosmetic succeeds');
     assert.strictEqual(memberMod.getMemberCosmetic(testUser, 'Test User').id, 'bb_cap', 'BB Cap re-equipped');
+
     console.log('  ✔ Arcade credit deduction, inventory unlock, equip/unequip cycle verified');
 
     // 5. Creator Governance Exclusivity
@@ -7455,6 +7456,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Cosmetic badges render cleanly on Admin and Tasks avatars with is-headwear tilt');
 
     // 6B. Tab-based Cosmetic Shop & In-Page Filter Verification
+    // Unequip and verify inventory persistence across page reload (synchronous localStorage restore)
+    await memberMod.unequipCosmetic();
+    assert.strictEqual(memberMod.getMemberCosmetic(testUser, 'Test User').id, 'none', 'Active cosmetic none after unequip');
+    delete require.cache[require.resolve('../js/modules/member.js')];
+    const reloadedMemberMod = require('../js/modules/member.js');
+    assert.deepStrictEqual(reloadedMemberMod.getMemberCosmeticInventory(testUser), ['bb_cap'], 'Inventory loaded synchronously from localStorage on fresh script reload');
+    assert.strictEqual(reloadedMemberMod.getMemberCosmetic(testUser, 'Test User').id, 'none', 'Equipped cosmetic is strictly none after reload');
+    console.log('  ✔ Inventory persistence across unequip & page reload simulation verified');
     assert.strictEqual(typeof memberMod.renderCosmeticShopView, 'function', 'renderCosmeticShopView exported as tab renderer');
     assert.strictEqual(typeof memberMod.applyCosmeticFilters, 'function', 'applyCosmeticFilters exported');
     assert.strictEqual(typeof memberMod.resetCosmeticFilters, 'function', 'resetCosmeticFilters exported');
