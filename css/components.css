@@ -8535,7 +8535,9 @@ select.form-input,
   box-sizing: border-box;
   z-index: 2;
   border: var(--avatar-outline-width, 3px) solid transparent;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  display: block !important;
+  transform-origin: center center !important;
+  transition: opacity 0.25s ease;
 }
 
 /* 1. Animated Rainbow / RGB Rotating Border */
@@ -8552,7 +8554,12 @@ select.form-input,
   -webkit-mask-composite: destination-out;
   mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
-  animation: creatorOutlineRotate 9s linear infinite !important;
+  animation-name: creatorOutlineRotate !important;
+  animation-duration: 9s !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: running !important;
+  transform-origin: center center !important;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.45);
 }
 
@@ -8648,8 +8655,38 @@ select.form-input,
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
 }
 
-/* Override #m-pfp-ring accent border when custom outline is active */
-#m-pfp-ring.has-custom-outline {
+/* Disable legacy pseudo-element outlines when custom outline system is present */
+.has-custom-outline .creator-outline-avatar::before,
+.has-custom-outline .creator-snow-avatar::before,
+.has-custom-outline .creator-rgb-avatar::before,
+.has-custom-outline.creator-outline-avatar::before,
+.has-custom-outline.creator-snow-avatar::before,
+.has-custom-outline.creator-rgb-avatar::before,
+.has-custom-outline .creator-outline-avatar::after,
+.has-custom-outline .creator-snow-avatar::after,
+.has-custom-outline .creator-rgb-avatar::after,
+.has-custom-outline.creator-outline-avatar::after,
+.has-custom-outline.creator-snow-avatar::after,
+.has-custom-outline.creator-rgb-avatar::after {
+  display: none !important;
+  content: none !important;
+  animation: none !important;
+}
+
+/* Background and shadow overrides for creator placeholder inside custom outline container */
+.has-custom-outline .creator-outline-avatar,
+.has-custom-outline .creator-snow-avatar,
+.has-custom-outline .creator-rgb-avatar {
+  background: #083830 !important;
+  box-shadow: none !important;
+}
+
+/* Clear container borders when custom outline overlay is active */
+#m-pfp-ring.has-custom-outline,
+.nav-avatar-circle.has-custom-outline,
+.admin-member-avatar.has-custom-outline,
+.suc-avatar.has-custom-outline,
+.task-card-avatar.has-custom-outline {
   border-color: transparent !important;
 }
 

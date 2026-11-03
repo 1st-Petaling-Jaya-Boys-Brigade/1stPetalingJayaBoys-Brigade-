@@ -520,6 +520,8 @@
     var overlay = document.getElementById('admin-overlay');
     if (overlay) overlay.style.display = 'none';
     if (document.body) document.body.style.overflow = '';
+    var creatorSec = document.getElementById('adm-section-creator-outlines');
+    if (creatorSec) creatorSec.style.display = 'none';
     if (!skipHistory && typeof window !== 'undefined' && window.location.hash === '#admin') {
       if (typeof history !== 'undefined' && typeof history.back === 'function') {
         history.back();
@@ -782,6 +784,8 @@
     });
     var rolesSec = document.getElementById('adm-section-roles');
     if (rolesSec) rolesSec.style.display = 'none';
+    var creatorSec = document.getElementById('adm-section-creator-outlines');
+    if (creatorSec) creatorSec.style.display = 'none';
 
     // Scoped Admin UI Filtering (TSK-049)
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
@@ -888,7 +892,7 @@
     if (section === 'creator_outlines' || section === 'creator-outlines') {
       var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
       if (!isCreatorUser) {
-        if (typeof showToast === 'function') showToast('Access Denied: Only the Portal Creator can manage custom avatar outlines.', 'error');
+        if (typeof showToast === 'function') showToast('Access Denied: Only jeshuakoh2008@gmail.com has access to the Creator Avatar Outlines module.', 'error');
         backToAdminHome();
         return;
       }
@@ -1066,7 +1070,7 @@
 
     if (isCreator) {
       return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
-        '<span class="creator-outline-avatar creator-snow-avatar creator-rgb-avatar" style="width:100%;height:100%;border-radius:50%;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
+        '<span class="creator-outline-avatar creator-rgb-avatar" style="width:100%;height:100%;border-radius:50%;background:#083830;color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
         outlineHtml +
         dotHtml +
       '</span>';
@@ -2537,7 +2541,7 @@
     var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
     if (!isCreatorUser) {
       if (typeof showToast === 'function') {
-        showToast('Access Denied: Only the Portal Creator can manage custom avatar outlines.', 'error');
+        showToast('Access Denied: Only jeshuakoh2008@gmail.com has access to the Creator Avatar Outlines module.', 'error');
       }
       backToAdminHome();
       return;

@@ -7175,7 +7175,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.sessionGet = (key) => key === 'email' ? 'regular@gmail.com' : 'Regular Member';
     const rejectRes = await memberMod.saveMemberAvatarOutline('target@gmail.com', 'cyber');
     assert.strictEqual(rejectRes.success, false, 'saveMemberAvatarOutline rejects non-creator session');
-    assert.ok(rejectRes.error && rejectRes.error.includes('Only the Portal Creator'), 'saveMemberAvatarOutline provides Creator-only security message');
+    assert.ok(rejectRes.error && rejectRes.error.includes('jeshuakoh2008@gmail.com'), 'saveMemberAvatarOutline provides Creator-only security message');
 
     // Creator default outline is RGB, regular default is none
     const creatorOutline = memberMod.getMemberAvatarOutline('jeshuakoh2008@gmail.com', 'Jeshua Koh');
@@ -7215,6 +7215,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(adminJs.includes('sec-btn-creator-outlines'), 'admin.js injects Creator Studio navigation button');
     assert.ok(adminJs.includes('renderCreatorAvatarOutlinesStudio'), 'admin.js defines renderCreatorAvatarOutlinesStudio function');
     assert.ok(adminJs.includes("section === 'creator_outlines'"), 'admin.js routes creator_outlines section');
+    assert.ok(adminJs.includes("creatorSec.style.display = 'none'"), 'admin.js hides creator_outlines section when returning to home');
+    const baseCss = fs.readFileSync('css/base.css', 'utf8');
+    assert.ok(baseCss.includes(':not(.avatar-outline-overlay):not(.avatar-outline-rgb)'), 'base.css exempts custom avatar outlines from reduced motion');
+    assert.ok(compCss.includes('.has-custom-outline .creator-outline-avatar::before'), 'components.css disables old pseudo-element outlines under custom outlines');
     console.log('  ✔ Admin console includes Creator Outlines Studio section restricted to Creator');
 
     // 7. Database Migration Schema 015

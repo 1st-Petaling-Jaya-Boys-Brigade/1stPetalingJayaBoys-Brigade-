@@ -1942,13 +1942,8 @@ var _customAvatarOutlinesMap = {};
 
 function isCreatorSession() {
   var em = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
-  var nm = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
-  if (typeof isPortalCreator === 'function') {
-    return isPortalCreator(nm, em);
-  }
   var cleanEm = String(em).trim().toLowerCase();
-  var cleanNm = String(nm).trim().toLowerCase();
-  return cleanEm === 'jeshuakoh2008@gmail.com' || cleanEm === 'jeshua@mirtech.io' || cleanNm === 'jeshua koh';
+  return cleanEm === 'jeshuakoh2008@gmail.com';
 }
 
 function getMemberAvatarOutline(emailOrIc, memberName) {
@@ -2022,14 +2017,12 @@ async function loadCustomAvatarOutlines() {
 
 async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail) {
   var cleanActor = String(actorEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
-  var isCreator = (typeof isPortalCreator === 'function')
-    ? isPortalCreator(null, cleanActor)
-    : (cleanActor === 'jeshuakoh2008@gmail.com' || cleanActor === 'jeshua@mirtech.io');
+  var isCreator = (cleanActor === 'jeshuakoh2008@gmail.com');
 
   if (!isCreator) {
     return {
       success: false,
-      error: 'Access Denied: Only the Portal Creator (jeshuakoh2008@gmail.com) can assign custom profile avatar outlines.'
+      error: 'Access Denied: Only jeshuakoh2008@gmail.com can assign custom profile avatar outlines.'
     };
   }
 
@@ -2160,7 +2153,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     sPh.style.justifyContent = 'center';
     if (isCreator) {
       sPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      sPh.style.background = '';
+      sPh.style.background = '#083830';
     } else {
       sPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       sPh.style.background = color;
@@ -2188,7 +2181,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     mPh.style.justifyContent = 'center';
     if (isCreator) {
       mPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      mPh.style.background = '';
+      mPh.style.background = '#083830';
     } else {
       mPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       mPh.style.background = color;
@@ -2218,7 +2211,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     nPh.style.justifyContent = 'center';
     if (isCreator) {
       nPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
-      nPh.style.background = '';
+      nPh.style.background = '#083830';
     } else {
       nPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       nPh.style.background = color;
