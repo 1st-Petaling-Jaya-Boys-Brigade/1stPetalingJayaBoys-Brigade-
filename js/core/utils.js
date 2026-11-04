@@ -101,9 +101,9 @@ function sanitizeHtml(dirtyHtml, _options) {
       'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'DEL',
       'P', 'BR', 'HR', 'UL', 'OL', 'LI', 'SPAN', 'FONT',
       'DIV', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE',
-      'CODE', 'PRE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD'
+      'CODE', 'PRE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG'
     ];
-    var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel', 'class', 'align'];
+    var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel', 'class', 'align', 'src', 'alt', 'title', 'width', 'height', 'loading', 'type', 'checked', 'disabled'];
 
     function cleanNode(node) {
       var children = Array.from(node.childNodes);
@@ -112,7 +112,9 @@ function sanitizeHtml(dirtyHtml, _options) {
         if (child.nodeType === 1) { // ELEMENT_NODE
           var tagName = child.tagName.toUpperCase();
 
-          if (ALLOWED_TAGS.indexOf(tagName) === -1) {
+          var isChecklistInput = tagName === 'INPUT' && (child.getAttribute('type') || '').toLowerCase() === 'checkbox';
+
+          if (ALLOWED_TAGS.indexOf(tagName) === -1 && !isChecklistInput) {
             // Dangerous tags: remove completely with all their content
             if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'SVG', 'LINK', 'META', 'BASE', 'FRAME', 'FRAMESET', 'APPLET', 'AUDIO', 'VIDEO', 'SOURCE', 'NOSCRIPT', 'TEMPLATE'].indexOf(tagName) !== -1) {
               node.removeChild(child);
@@ -143,6 +145,14 @@ function sanitizeHtml(dirtyHtml, _options) {
                 child.setAttribute('href', validatedHref);
                 child.setAttribute('target', '_blank');
                 child.setAttribute('rel', 'noopener noreferrer');
+              }
+            } else if (attrName === 'src') {
+              var srcVal = (attr.value || '').trim();
+              var validatedSrc = safeUrl(srcVal, '');
+              if (!validatedSrc || validatedSrc === '#') {
+                child.removeAttribute(attr.name);
+              } else {
+                child.setAttribute('src', validatedSrc);
               }
             } else if (attrName === 'style') {
               var styleVal = attr.value || '';
