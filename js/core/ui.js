@@ -342,27 +342,44 @@
   var _activeRichEditor = null;
   var _activeRichRange = null;
 
-  function saveRichEditorRange(editor) {
+    function saveRichEditorRange(editor) {
     if (typeof window === 'undefined' || !window.getSelection) return;
-    var ed = editor || _activeRichEditor;
-    if (!ed) return;
     var sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      var r = sel.getRangeAt(0);
-      if (ed.contains(r.commonAncestorContainer) || ed === r.commonAncestorContainer) {
-        _activeRichEditor = ed;
-        _activeRichRange = r.cloneRange();
+    if (!sel || sel.rangeCount === 0) return;
+    var r = sel.getRangeAt(0);
+    var ed = editor;
+    if (!ed) {
+      var node = r.commonAncestorContainer;
+      var el = (node && node.nodeType === 1) ? node : (node ? node.parentElement : null);
+      if (el && el.closest) {
+        ed = el.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]');
       }
+    }
+    if (ed && (ed.contains(r.commonAncestorContainer) || ed === r.commonAncestorContainer)) {
+      _activeRichEditor = ed;
+      _activeRichRange = r.cloneRange();
     }
   }
 
   function restoreRichEditorRange(editor) {
     var ed = editor || _activeRichEditor;
     if (!ed) return;
+    if (typeof window === 'undefined' || !window.getSelection) return;
+
+    var sel = window.getSelection();
+    // If the browser already has an active selection inside `ed`, NEVER destroy it!
+    if (sel && sel.rangeCount > 0) {
+      var currentRange = sel.getRangeAt(0);
+      if (ed.contains(currentRange.commonAncestorContainer) || ed === currentRange.commonAncestorContainer) {
+        _activeRichEditor = ed;
+        _activeRichRange = currentRange.cloneRange();
+        return;
+      }
+    }
+
     if (typeof ed.focus === 'function') ed.focus();
-    if (_activeRichRange && typeof window !== 'undefined' && window.getSelection) {
+    if (_activeRichRange) {
       try {
-        var sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(_activeRichRange);
       } catch (_) {}
@@ -391,20 +408,26 @@
     return _activeRichEditor || document.getElementById('tdm-desc') || document.getElementById('ann-body-input');
   }
 
-  function executeRichFormat(cmd, value, btnOrEl) {
+    function executeRichFormat(cmd, value, btnOrEl) {
     if (typeof document === 'undefined') return;
     var editor = resolveTargetRichEditor(btnOrEl);
     if (editor) {
       _activeRichEditor = editor;
-      restoreRichEditorRange(editor);
+      var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      var hasActiveCaret = sel && sel.rangeCount > 0 && (editor.contains(sel.getRangeAt(0).commonAncestorContainer) || editor === sel.getRangeAt(0).commonAncestorContainer);
+      if (!hasActiveCaret) {
+        restoreRichEditorRange(editor);
+      } else {
+        saveRichEditorRange(editor);
+      }
     }
 
     if (cmd === 'formatBlock') {
       var tag = value || 'p';
       document.execCommand('formatBlock', false, '<' + tag + '>');
     } else if (cmd === 'code') {
-      var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
-      var selectedText = sel ? sel.toString() : '';
+      var selCode = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      var selectedText = selCode ? selCode.toString() : '';
       if (selectedText) {
         document.execCommand('insertHTML', false, '<code>' + safeEscapeHtml(selectedText) + '</code>');
       } else {
@@ -427,14 +450,13 @@
         }
       }
     } else if (cmd === 'checklist') {
-      document.execCommand('insertHTML', false, '<div class="tb-checklist-row" style="display:flex;align-items:center;gap:8px;margin:4px 0;"><input type="checkbox" style="cursor:pointer;" /> <span style="outline:none;" contenteditable="true">Checklist item</span></div><div><br></div>');
+      document.execCommand('insertHTML', false, '<div class="tb-checklist-row" style="display:flex;align-items:center;gap:8px;margin:4px 0;"><input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true">Checklist item</span></div><div><br></div>');
     } else if (cmd === 'table') {
-      var tableHtml = '<table class="tb-table" style="width:100%;border-collapse:collapse;margin:10px 0;border:1px solid var(--border-card);">'
-        + '<thead><tr style="background:var(--bg-card-subtle);"><th style="border:1px solid var(--border-card);padding:8px 10px;text-align:left;font-size:12px;color:var(--text-primary);">Header 1</th><th style="border:1px solid var(--border-card);padding:8px 10px;text-align:left;font-size:12px;color:var(--text-primary);">Header 2</th></tr></thead>'
-        + '<tbody><tr><td style="border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);">Item 1</td><td style="border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);">Details 1</td></tr>'
-        + '<tr><td style="border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);">Item 2</td><td style="border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);">Details 2</td></tr></tbody>'
-        + '</table><div><br></div>';
-      document.execCommand('insertHTML', false, tableHtml);
+      if (btnOrEl && btnOrEl.parentElement && btnOrEl.parentElement.querySelector('.tb-table-grid-popover')) {
+        toggleTableGridPicker(btnOrEl);
+      } else {
+        insertTableWithDimensions(2, 2, btnOrEl);
+      }
     } else if (cmd === 'divider') {
       document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid var(--border-card);margin:14px 0;"/><div><br></div>');
     } else {
@@ -443,7 +465,6 @@
 
     if (editor) {
       saveRichEditorRange(editor);
-      if (typeof editor.focus === 'function') editor.focus();
     }
   }
 
@@ -763,6 +784,164 @@
     });
   }
 
+  
+  function insertTableWithDimensions(cols, rows, btnOrEditor) {
+    if (typeof document === 'undefined') return;
+    var c = Math.max(1, Math.min(10, parseInt(cols, 10) || 2));
+    var r = Math.max(1, Math.min(12, parseInt(rows, 10) || 2));
+    var editor = resolveTargetRichEditor(btnOrEditor);
+    if (editor) {
+      _activeRichEditor = editor;
+      var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      var hasActiveCaret = sel && sel.rangeCount > 0 && (editor.contains(sel.getRangeAt(0).commonAncestorContainer) || editor === sel.getRangeAt(0).commonAncestorContainer);
+      if (!hasActiveCaret) {
+        restoreRichEditorRange(editor);
+      }
+    }
+
+    var tableHtml = '<table class="tb-table" style="width:100%;border-collapse:collapse;margin:12px 0;border:1px solid var(--border-card);">';
+    tableHtml += '<thead><tr style="background:rgba(255,255,255,0.04);">';
+    for (var i = 1; i <= c; i++) {
+      tableHtml += '<th style="border:1px solid var(--border-card);padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:var(--text-primary);">Header ' + i + '</th>';
+    }
+    tableHtml += '</tr></thead><tbody>';
+
+    var bodyRows = (r > 1) ? (r - 1) : 1;
+    for (var rowIdx = 1; rowIdx <= bodyRows; rowIdx++) {
+      tableHtml += '<tr>';
+      for (var colIdx = 1; colIdx <= c; colIdx++) {
+        tableHtml += '<td style="border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);">&nbsp;</td>';
+      }
+      tableHtml += '</tr>';
+    }
+    tableHtml += '</tbody></table><div><br></div>';
+
+    document.execCommand('insertHTML', false, tableHtml);
+
+    if (editor) {
+      saveRichEditorRange(editor);
+      if (typeof editor.focus === 'function') editor.focus();
+    }
+  }
+
+  function toggleTableGridPicker(btn) {
+    if (typeof document === 'undefined' || !btn) return;
+    var editor = resolveTargetRichEditor(btn);
+    if (editor) {
+      _activeRichEditor = editor;
+      saveRichEditorRange(editor);
+    }
+
+    var popover = btn.parentElement ? btn.parentElement.querySelector('.tb-table-grid-popover') : null;
+    if (!popover) return;
+
+    var isOpen = popover.style.display === 'flex' || popover.style.display === 'block';
+
+    // Close any other open popovers
+    document.querySelectorAll('.tb-dropdown-menu, .rich-color-popover').forEach(function(m) {
+      m.style.display = 'none';
+    });
+
+    if (isOpen) {
+      popover.style.display = 'none';
+      return;
+    }
+
+    renderTableGridPickerContent(popover, btn, editor);
+    popover.style.display = 'flex';
+
+    setTimeout(function() {
+      function closeGridOnOutside(e) {
+        if (!popover.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+          popover.style.display = 'none';
+          document.removeEventListener('click', closeGridOnOutside);
+        }
+      }
+      document.addEventListener('click', closeGridOnOutside);
+    }, 50);
+  }
+
+  function renderTableGridPickerContent(popover, btn, editor) {
+    var html = ''
+      + '<div class="tb-grid-header">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>'
+      + '<span>Table</span>'
+      + '</div>'
+      + '<div class="tb-grid-matrix">';
+
+    for (var r = 1; r <= 8; r++) {
+      for (var c = 1; c <= 10; c++) {
+        html += '<div class="tb-grid-cell" data-col="' + c + '" data-row="' + r + '"></div>';
+      }
+    }
+
+    html += '</div>'
+      + '<div class="tb-grid-dimension">1 x 1</div>';
+
+    var inTable = false;
+    if (_lastContextCell && editor && editor.contains(_lastContextCell)) inTable = true;
+    if (inTable) {
+      html += '<div class="tb-table-quick-actions" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-card);display:flex;flex-direction:column;gap:2px;">'
+        + '<button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" data-act="insertRowBelow">+ Insert Row Below</button>'
+        + '<button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" data-act="insertColRight">+ Insert Column Right</button>'
+        + '<button type="button" class="tb-dropdown-item" style="color:#ef4444;" onmousedown="event.preventDefault()" data-act="deleteTable">🗑 Delete Table</button>'
+        + '</div>';
+    }
+
+    popover.innerHTML = html;
+
+    var matrix = popover.querySelector('.tb-grid-matrix');
+    var dim = popover.querySelector('.tb-grid-dimension');
+    var cells = popover.querySelectorAll('.tb-grid-cell');
+
+    function updateHover(maxCol, maxRow) {
+      cells.forEach(function(cell) {
+        var col = parseInt(cell.getAttribute('data-col'), 10);
+        var row = parseInt(cell.getAttribute('data-row'), 10);
+        if (col <= maxCol && row <= maxRow) {
+          cell.classList.add('is-selected');
+        } else {
+          cell.classList.remove('is-selected');
+        }
+      });
+      dim.textContent = maxCol + ' x ' + maxRow;
+    }
+
+    updateHover(1, 1);
+
+    cells.forEach(function(cell) {
+      cell.addEventListener('mouseenter', function() {
+        var col = parseInt(cell.getAttribute('data-col'), 10);
+        var row = parseInt(cell.getAttribute('data-row'), 10);
+        updateHover(col, row);
+      });
+
+      cell.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        var col = parseInt(cell.getAttribute('data-col'), 10);
+        var row = parseInt(cell.getAttribute('data-row'), 10);
+        popover.style.display = 'none';
+        insertTableWithDimensions(col, row, editor || btn);
+      });
+    });
+
+    if (matrix) {
+      matrix.addEventListener('mouseleave', function() {
+        updateHover(1, 1);
+      });
+    }
+
+    var actionBtns = popover.querySelectorAll('.tb-table-quick-actions .tb-dropdown-item');
+    actionBtns.forEach(function(actBtn) {
+      actBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var act = actBtn.getAttribute('data-act');
+        popover.style.display = 'none';
+        executeRichTableAction(act, _lastContextCell || editor);
+      });
+    });
+  }
+
   function closeTableContextMenu() {
     if (typeof document === 'undefined') return;
     var menu = document.querySelector('.tb-table-context-menu');
@@ -866,6 +1045,15 @@
 
   if (typeof document !== 'undefined') {
     // Save range on mouseup (never on every keystroke)
+    // Save range on mousedown of toolbar button to preserve active caret
+    document.addEventListener('mousedown', function(e) {
+      var tbBtn = (e.target && e.target.closest) ? e.target.closest('.tb-btn, .rich-tb-btn') : null;
+      if (tbBtn) {
+        var editor = resolveTargetRichEditor(tbBtn);
+        if (editor) saveRichEditorRange(editor);
+      }
+    });
+
     document.addEventListener('mouseup', function(e) {
       var ed = (e.target && e.target.closest) ? e.target.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
       if (ed) saveRichEditorRange(ed);
@@ -911,6 +1099,8 @@
     global.showTableContextMenu = showTableContextMenu;
     global.closeTableContextMenu = closeTableContextMenu;
     global.handleRichEditorKeydown = handleRichEditorKeydown;
+    global.insertTableWithDimensions = insertTableWithDimensions;
+    global.toggleTableGridPicker = toggleTableGridPicker;
   }
 
   // CommonJS export for Node testing
@@ -934,7 +1124,9 @@
       executeRichTableAction: executeRichTableAction,
       showTableContextMenu: showTableContextMenu,
       closeTableContextMenu: closeTableContextMenu,
-      handleRichEditorKeydown: handleRichEditorKeydown
+      handleRichEditorKeydown: handleRichEditorKeydown,
+      insertTableWithDimensions: insertTableWithDimensions,
+      toggleTableGridPicker: toggleTableGridPicker
     };
   }
 })(typeof window !== 'undefined' ? window : this);
