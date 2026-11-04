@@ -71,36 +71,6 @@ var DEFAULT_FORUM_POSTS = [
     triagedByAgent: false
   },
   {
-    id: 'post-002',
-    title: 'Cannot see the Admin Console button after logging in',
-    category: 'account',
-    categoryLabel: 'Account & Access',
-    tag: 'account-issue',
-    status: 'resolved',
-    authorName: 'John Doe',
-    authorRank: 'Lance Corporal',
-    authorEmail: 'johndoe@gmail.com',
-    date: '30 Oct 2026',
-    time: '11:20 AM',
-    content: 'I recently was assigned a squad leader role but the Admin Console button at the bottom of the sidebar is not showing up for me.',
-    upvotes: 4,
-    upvotedBy: [],
-    replies: [
-      {
-        id: 'rep-002-1',
-        authorName: 'Jeshua Koh',
-        authorRank: 'Sergeant',
-        authorRole: 'Super Admin',
-        authorEmail: 'jeshuakoh2008@gmail.com',
-        date: '30 Oct 2026',
-        time: '11:45 AM',
-        isOfficial: true,
-        content: 'Under TSK-049 RBAC, the Admin Console button is strictly gated to verified Officers and HQ Super Admins to protect company administrative data. Squad leaders view standings and attendance directly via the Squad Leaderboard tab!'
-      }
-    ],
-    triagedByAgent: true
-  },
-  {
     id: 'post-003',
     title: 'Uniform Store sizing chart for Boot sizes (UK vs US)',
     category: 'store',
@@ -309,8 +279,13 @@ async function loadForumPosts() {
   try {
     if (typeof supa !== 'undefined' && typeof supa.getConfig === 'function') {
       var remote = await supa.getConfig('bb_forum_posts');
-      if (Array.isArray(remote) && remote.length > 0) {
+      if (Array.isArray(remote)) {
         forumPosts = remote;
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('bb_forum_posts', JSON.stringify(forumPosts));
+          }
+        } catch (_) {}
         renderForumFeed();
         syncForumNotifications(forumPosts);
         return;
@@ -325,7 +300,7 @@ async function loadForumPosts() {
       var local = localStorage.getItem('bb_forum_posts');
       if (local) {
         var parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           forumPosts = parsed;
           renderForumFeed();
           syncForumNotifications(forumPosts);
@@ -349,8 +324,15 @@ async function saveForumPosts(posts) {
   } catch (_) {}
 
   try {
-    if (typeof supa !== 'undefined' && typeof supa.setConfig === 'function') {
-      await supa.setConfig('bb_forum_posts', forumPosts);
+    if (typeof supa !== 'undefined') {
+      if (typeof supa.setConfig === 'function') {
+        await supa.setConfig('bb_forum_posts', forumPosts);
+      } else {
+        var client = supa.getClient ? supa.getClient() : supa;
+        if (client && typeof client.upsert === 'function') {
+          await client.upsert('bb_config', { key: 'bb_forum_posts', value: JSON.stringify(forumPosts) }, 'key');
+        }
+      }
     }
   } catch (err) {
     console.warn('Could not persist forum posts to Supabase:', err);

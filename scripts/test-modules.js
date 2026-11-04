@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105a',
-    'sw.js CACHE_VERSION must be 20261105a'
+    '20261105b',
+    'sw.js CACHE_VERSION must be 20261105b'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105a',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105b',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6592,9 +6592,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       global.sessionSet('role', 'admin');
       global.sessionSet('rank', 'Lieutenant');
     }
-    const preStatus = forumMod.forumPosts[2].status;
+    const targetPost = forumMod.forumPosts.find(p => p.id === 'post-003');
+    const preStatus = targetPost.status;
     forumMod.toggleForumPostStatus('post-003');
-    assert.strictEqual(forumMod.forumPosts[2].status, preStatus, 'Regular admins/officers must not be able to toggle thread status');
+    assert.strictEqual(targetPost.status, preStatus, 'Regular admins/officers must not be able to toggle thread status');
 
     // Toggle Status: Super Admin Session succeeds
     if (typeof global.sessionSet === 'function') {
@@ -6603,7 +6604,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       global.sessionSet('rank', 'Captain');
     }
     forumMod.toggleForumPostStatus('post-003');
-    assert.notStrictEqual(forumMod.forumPosts[2].status, preStatus, 'Super Admin must be allowed to toggle post status between open and resolved');
+    assert.notStrictEqual(targetPost.status, preStatus, 'Super Admin must be allowed to toggle post status between open and resolved');
 
     // Reply Submission
     const replyText = 'This is an automated integration test reply';
@@ -6780,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105a'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105b'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));

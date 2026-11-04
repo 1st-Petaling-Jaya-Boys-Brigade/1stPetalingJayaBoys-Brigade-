@@ -8739,10 +8739,39 @@ select.form-input,
   inset: -2px;
 }
 
-/* Status dot presence indicator is strictly top-most above avatar outlines and photo */
+/* Status dot presence indicator is strictly top-most above avatar outlines, photo, and task cards */
 .nav-avatar-status-dot,
-.admin-avatar-status-dot {
-  z-index: 10 !important;
+.admin-avatar-status-dot,
+.avatar-status-dot {
+  z-index: 99 !important;
+  box-shadow: 0 0 0 1.5px var(--bg-card, #1e293b) !important;
+}
+
+[data-theme='light'] .nav-avatar-status-dot,
+[data-theme='light'] .admin-avatar-status-dot,
+[data-theme='light'] .avatar-status-dot {
+  box-shadow: 0 0 0 1.5px var(--bg-card, #ffffff) !important;
+}
+
+.task-card-avatar,
+.member-avatar-unified,
+.forum-avatar-mini,
+.admin-member-avatar,
+.tdm-assignee-avatar,
+.project-assignee-avatar,
+.project-assignees-stack .task-card-avatar {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+.task-card-avatar img,
+.member-avatar-unified img,
+.forum-avatar-mini img,
+.admin-member-avatar img,
+.tdm-assignee-avatar img,
+.project-assignee-avatar img {
+  border-radius: 50% !important;
+  object-fit: cover !important;
 }
 
 /* Swatch buttons for Creator Studio & Member Edit Drawer */
@@ -9633,9 +9662,14 @@ select.form-input,
   right: -1px !important;
   border-radius: 50% !important;
   border: 1.5px solid var(--bg-card, #1e293b) !important;
-  z-index: 10 !important;
+  z-index: 99 !important;
   box-sizing: border-box !important;
   pointer-events: none !important;
+  box-shadow: 0 0 0 1.5px var(--bg-card, #1e293b) !important;
+}
+
+[data-theme='light'] .avatar-status-dot {
+  box-shadow: 0 0 0 1.5px var(--bg-card, #ffffff) !important;
 }
 .avatar-status-dot.status-online { background: #10b981 !important; }
 .avatar-status-dot.status-idle { background: #f59e0b !important; }
