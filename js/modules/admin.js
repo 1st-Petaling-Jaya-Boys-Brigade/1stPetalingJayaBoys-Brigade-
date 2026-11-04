@@ -2870,7 +2870,7 @@
             var newCosId = cosmeticSelect.value;
             if (typeof _memberCosmeticsMap !== 'undefined' && _memberCosmeticsMap) {
               var existing = _memberCosmeticsMap[targetId.toLowerCase()] || {};
-              _memberCosmeticsMap[targetId.toLowerCase()] = Object.assign({}, existing, { activeId: newCosId });
+              _memberCosmeticsMap[targetId.toLowerCase()] = Object.assign({}, existing, { equipped: newCosId, activeId: newCosId });
             }
             var mem = members.find(function(m) { return (m.email || m.ic) === targetId; }) || { name: targetId };
             avatarWrap.innerHTML = getAdminMemberAvatarHtml(mem.name, targetId, 48);

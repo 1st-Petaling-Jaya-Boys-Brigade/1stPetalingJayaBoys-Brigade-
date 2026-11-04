@@ -279,7 +279,7 @@
     {
       q: 'What is the highest award a Senior Section BB member can achieve in Malaysia?',
       options: ['President\'s Award', 'Founder\'s Badge', 'Gold Badge', 'Chief Leader Cross'],
-      correct: 0,
+      correct: 1,
       expl: 'The Founder\'s Award is the highest national award in the BB Malaysia Senior Section.'
     },
     {
