@@ -93,6 +93,21 @@ function updateAnnouncementInfographicPreview() {
   wrap.style.display = 'flex';
 }
 
+async function syncAnnouncementImageConfig(annId, imgUrl) {
+  if (!annId || !imgUrl) return;
+  try {
+    var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+    if (client && typeof client.get === 'function') {
+      var rows = await client.get('bb_config?key=eq.bb_announcements_images&select=value');
+      var map = (rows && rows.length && rows[0].value) ? (typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value) : {};
+      map[annId] = imgUrl;
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', { key: 'bb_announcements_images', value: JSON.stringify(map) }, 'key');
+      }
+    }
+  } catch (_) {}
+}
+
 function clearAnnouncementInfographic() {
   _stagedAnnouncementImage = null;
   if (typeof document === 'undefined') return;
@@ -221,11 +236,26 @@ async function loadAnnouncements() {
 
   var fetchFn = async function() {
     if (typeof supa !== 'undefined' && supa.get) {
+      var annImageMap = {};
+      try {
+        var cfgRows = await supa.get('bb_config?key=eq.bb_announcements_images&select=value');
+        if (cfgRows && cfgRows.length && cfgRows[0].value) {
+          annImageMap = (typeof cfgRows[0].value === 'string') ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
+        }
+      } catch (_) {}
+
       var rows = await supa.get('bb_announcements?order=created_at.asc&select=*');
       announcements.length = 0;
       if (rows && rows.length) {
         rows.forEach(function(r) {
           if (!r.reactions || typeof r.reactions !== 'object') r.reactions = {};
+          // Resilient 3-tier infographic recovery: column -> bb_config map -> embedded body marker
+          var cfgImg = (annImageMap && r.id && annImageMap[r.id]) ? annImageMap[r.id] : null;
+          var bodyMatch = (r.body || '').match(/data-infographic-url=["']([^"']+)["']/i) || (r.body || '').match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
+          var resolvedImg = r.image_url || cfgImg || (bodyMatch ? (bodyMatch[1] || bodyMatch[2]) : null);
+          if (resolvedImg) {
+            r.image_url = resolvedImg;
+          }
           announcements.push(r);
         });
       }
@@ -478,11 +508,17 @@ function openEditAnnouncement(idx) {
   }
 
   if (ti) ti.scrollIntoView({ behavior: 'smooth' });
-  if (a.image_url) {
+  var existingImg = a.image_url;
+  if (!existingImg && a.body) {
+    var editMatch = a.body.match(/data-infographic-url=["']([^"']+)["']/i) || a.body.match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
+    if (editMatch) existingImg = editMatch[1] || editMatch[2];
+  }
+  if (existingImg) {
+    a.image_url = existingImg;
     _stagedAnnouncementImage = {
       file: null,
       dataUrl: '',
-      url: a.image_url,
+      url: existingImg,
       filename: 'Attached Infographic',
       sizeStr: 'Saved Banner'
     };
@@ -639,6 +675,16 @@ async function addAnnouncement() {
       }
     }
 
+    // Embed resilient hidden marker inside body to survive without migration 017
+    if (infographicUrl) {
+      var markerTag = '<img src="' + infographicUrl + '" class="ann-embedded-infographic" style="display:none;" data-infographic-url="' + infographicUrl + '" alt="Announcement Infographic" />';
+      if (!sanitizedBody.includes('ann-embedded-infographic')) {
+        sanitizedBody += markerTag;
+      }
+    } else if (!_stagedAnnouncementImage) {
+      sanitizedBody = sanitizedBody.replace(/<img[^>]*class=["'][^"']*ann-embedded-infographic[^"']*["'][^>]*>/gi, '');
+    }
+
     if (editIdx >= 0) {
       var a = announcements[editIdx];
       if (a) {
@@ -655,6 +701,9 @@ async function addAnnouncement() {
           } catch (_) {
             await supa.patch('bb_announcements?id=eq.' + a.id, { title: title, body: sanitizedBody });
           }
+        }
+        if (infographicUrl && a.id) {
+          syncAnnouncementImageConfig(a.id, infographicUrl);
         }
       }
       if (btn) {
@@ -680,10 +729,13 @@ async function addAnnouncement() {
         newRecord.image_url = infographicUrl;
       }
       if (typeof supa !== 'undefined' && supa.post) {
+        var createdAnnId = null;
         try {
           var row = await supa.post('bb_announcements', newRecord);
           if (row && row[0]) {
+            if (infographicUrl) row[0].image_url = infographicUrl;
             announcements.push(row[0]);
+            createdAnnId = row[0].id;
           }
         } catch (err) {
           // Schema fallback if image_url column not yet applied on remote backend
@@ -692,7 +744,11 @@ async function addAnnouncement() {
           if (retryRow && retryRow[0]) {
             retryRow[0].image_url = infographicUrl;
             announcements.push(retryRow[0]);
+            createdAnnId = retryRow[0].id;
           }
+        }
+        if (infographicUrl && createdAnnId) {
+          syncAnnouncementImageConfig(createdAnnId, infographicUrl);
         }
       }
       var broadcastCheckNew = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;

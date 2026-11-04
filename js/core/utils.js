@@ -103,7 +103,7 @@ function sanitizeHtml(dirtyHtml, _options) {
       'DIV', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE',
       'CODE', 'PRE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG'
     ];
-    var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel', 'class', 'align', 'src', 'alt', 'title', 'width', 'height', 'loading', 'type', 'checked', 'disabled'];
+    var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel', 'class', 'align', 'src', 'alt', 'title', 'width', 'height', 'loading', 'type', 'checked', 'disabled', 'data-infographic-url'];
 
     function cleanNode(node) {
       var children = Array.from(node.childNodes);
