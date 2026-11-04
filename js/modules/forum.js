@@ -433,16 +433,32 @@ function getForumMemberAvatarHtml(name, emailOrIc, size, customTooltip, extraSty
     cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + headwearCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + safeCosTitle + '" aria-hidden="true">' + cosmeticInfo.svg + '</span>';
   }
 
+  // 4. Live Presence Status Dot
+  var pInfo = null;
+  if (typeof getMemberPresenceStatus === 'function') {
+    pInfo = getMemberPresenceStatus({ name: cleanNm, email: cleanId, ic: cleanId });
+  } else if (typeof window !== 'undefined' && typeof window.getMemberPresenceStatus === 'function') {
+    pInfo = window.getMemberPresenceStatus({ name: cleanNm, email: cleanId, ic: cleanId });
+  } else {
+    pInfo = { status: 'offline', label: 'Offline', color: '#6b7280' };
+  }
+  var dotColor = (pInfo && pInfo.color) ? pInfo.color : '#6b7280';
+  var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
+  var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
+  var dotTitle = safeName + ' (' + dotLabel + ')';
+  var dotSz = Math.max(7, Math.round(sz * 0.28));
+  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:50%;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+
   var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';
 
   if (photoUrl) {
-    return '<span class="forum-avatar-mini' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + '</span>';
+    return '<span class="forum-avatar-mini' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
 
   if (isCreator) {
     var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
-    return '<span class="forum-avatar-mini' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">J' + outlineHtml + cosmeticHtml + '</span>';
+    return '<span class="forum-avatar-mini' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">J' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
 
   var initial = (typeof getMemberAvatarInitial === 'function')
@@ -452,7 +468,7 @@ function getForumMemberAvatarHtml(name, emailOrIc, size, customTooltip, extraSty
     ? getMemberAvatarColor(cleanNm)
     : '#0369a1';
 
-  return '<span class="forum-avatar-mini' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + '</span>';
+  return '<span class="forum-avatar-mini' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml + '</span>';
 }
 
 // ── User Permission Helper for Forum ─────────────────────────────────────────

@@ -75,6 +75,7 @@ export default [
         checkAndNotifyNewDeviceLogin: 'readonly',
         dispatchDeviceSecurityAlertEmail: 'readonly',
         getAssigneeAvatarHtml: 'readonly',
+        getUniversalMemberAvatarHtml: 'readonly',
         renderMemberAvatar: 'readonly',
         resetMemberAvatar: 'readonly',
         hasActiveCustomPhoto: 'readonly',

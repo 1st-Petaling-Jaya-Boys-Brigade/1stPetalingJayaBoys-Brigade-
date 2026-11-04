@@ -857,6 +857,29 @@ async function renderCompanyLeaderboard() {
     viewerName = (sessionGet('name') || '').trim();
   }
 
+  // Build lookup of members who have registered an account
+  var registeredMembersMap = {};
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var rawMems = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+      if (rawMems) {
+        var memArr = JSON.parse(rawMems);
+        if (Array.isArray(memArr)) {
+          memArr.forEach(function(rm) {
+            if (rm && rm.name) registeredMembersMap[rm.name.trim().toLowerCase()] = rm;
+            if (rm && rm.ic) registeredMembersMap[String(rm.ic).trim().toLowerCase()] = rm;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+  if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
+    window._cachedDepartmentMembers.forEach(function(dm) {
+      if (dm && dm.name) registeredMembersMap[dm.name.trim().toLowerCase()] = dm;
+      if (dm && dm.ic) registeredMembersMap[String(dm.ic).trim().toLowerCase()] = dm;
+    });
+  }
+
   // Standard competing squads fallback from master sheet
   var squadList = [];
   if (rawSquads && Object.keys(rawSquads).length > 0) {
@@ -1005,9 +1028,39 @@ async function renderCompanyLeaderboard() {
             escapeAttHtml(mTier.label) +
           '</span>';
 
+        var cleanMName = String(m.name || '').trim().toLowerCase();
+        var dirRec = (typeof resolveMemberDirectoryInfo === 'function') ? resolveMemberDirectoryInfo(m.name || m.ic) : null;
+        var isRegistered = !!(
+          isSelf ||
+          (typeof isPortalCreator === 'function' && isPortalCreator(m.name, m.ic)) ||
+          /jeshua\s+koh/i.test(m.name || '') ||
+          dirRec ||
+          registeredMembersMap[cleanMName] ||
+          (m.ic && registeredMembersMap[String(m.ic).trim().toLowerCase()])
+        );
+
+        var avatarHtml = '';
+        if (isRegistered) {
+          var regRec = dirRec || registeredMembersMap[cleanMName] || (m.ic && registeredMembersMap[String(m.ic).trim().toLowerCase()]) || {};
+          var regId = m.ic || regRec.ic || regRec.email || m.email || '';
+          var univFn = (typeof getUniversalMemberAvatarHtml === 'function')
+            ? getUniversalMemberAvatarHtml
+            : (typeof window !== 'undefined' && typeof window.getUniversalMemberAvatarHtml === 'function' ? window.getUniversalMemberAvatarHtml : null);
+          if (univFn) {
+            avatarHtml = univFn(m.name, regId, 24, { showPresence: true, showCosmetics: true });
+          } else if (typeof getAssigneeAvatarHtml === 'function') {
+            avatarHtml = getAssigneeAvatarHtml(m.name, regId, 24);
+          } else {
+            avatarHtml = '<span class="task-card-avatar" style="width:24px;height:24px;border-radius:9999px;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + (m.name ? m.name[0] : 'M') + '</span>';
+          }
+        } else {
+          avatarHtml = '<span class="empty-profile-avatar" style="width:24px;height:24px;border-radius:9999px;background:var(--surface-tint);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);flex-shrink:0;position:relative;" title="Account not yet created" aria-label="Account not registered"><svg class="ui-icon-xs" style="width:13px;height:13px;opacity:0.55;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>';
+        }
+
         rosterHtml +=
           '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;font-size:12px;">' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
+              avatarHtml +
               '<span style="font-size:10px;font-weight:700;color:var(--text-muted);width:38px;">' + escapeAttHtml(m.rank || 'Member') + '</span>' +
               '<span style="font-weight:600;color:var(--text-primary);">' + escapeAttHtml(m.name || 'Member') + selfBadge + '</span>' +
             '</div>' +

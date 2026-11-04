@@ -1227,6 +1227,138 @@ function getMemberAvatarUrl(name, ic) {
 }
 
 /**
+ * Renders universal member profile avatar HTML with custom photo, outline,
+ * equipped cosmetic (headwear/badge), and live online/idle/offline presence status dot.
+ * @param {string} name - Display name
+ * @param {string} [idOrEmail] - IC, Email, or member identifier
+ * @param {number} [size=24] - Size in pixels
+ * @param {Object} [options] - Configuration options
+ * @returns {string} HTML string
+ */
+function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
+  var opt = options || {};
+  var sz = size || 24;
+  var fs = Math.max(9, Math.round(sz * 0.44));
+  var cleanNm = String(name || '').trim();
+  var cleanId = String(idOrEmail || '').trim();
+  var styleAttr = opt.extraStyle ? (' ' + opt.extraStyle) : '';
+  var extraCls = opt.extraClass ? (' ' + opt.extraClass) : '';
+
+  if (opt.isRegistered === false) {
+    var anonTitle = opt.customTooltip || 'Account not yet created';
+    var safeAnonTitle = (typeof escapeHtml === 'function') ? escapeHtml(anonTitle) : anonTitle;
+    return '<span class="empty-profile-avatar' + extraCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:9999px;background:var(--surface-tint);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);flex-shrink:0;position:relative;' + styleAttr + '" title="' + safeAnonTitle + '" aria-label="' + safeAnonTitle + '"><svg class="ui-icon-xs" style="width:' + Math.round(sz * 0.55) + 'px;height:' + Math.round(sz * 0.55) + 'px;opacity:0.6;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>';
+  }
+
+  if (!cleanNm || cleanNm === 'Unassigned') {
+    return '<span class="task-card-avatar' + extraCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;position:relative;' + styleAttr + '" title="Unassigned" aria-label="Unassigned">U</span>';
+  }
+
+  var isCreator = false;
+  if (typeof isPortalCreator === 'function') {
+    isCreator = isPortalCreator(cleanNm, cleanId);
+  } else {
+    isCreator = /jeshua\s+koh/i.test(cleanNm) || (cleanId && cleanId.toLowerCase() === 'jeshuakoh2008@gmail.com');
+  }
+
+  var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanNm) : cleanNm;
+  var tooltip = opt.customTooltip || (safeName + (isCreator ? ' (Portal Creator)' : ''));
+  var safeTooltip = (typeof escapeHtml === 'function') ? escapeHtml(tooltip) : tooltip;
+
+  // 1. Profile Photo
+  var photoUrl = null;
+  if (typeof getMemberAvatarUrl === 'function') {
+    photoUrl = getMemberAvatarUrl(cleanNm, cleanId);
+  } else if (typeof window !== 'undefined' && typeof window.getMemberAvatarUrl === 'function') {
+    photoUrl = window.getMemberAvatarUrl(cleanNm, cleanId);
+  }
+
+  // 2. Custom Outline
+  var outlineHtml = '';
+  var hasOutlineCls = '';
+  if (opt.showOutline !== false) {
+    var outlineInfo = null;
+    if (typeof getMemberAvatarOutline === 'function') {
+      outlineInfo = getMemberAvatarOutline(cleanId || cleanNm, cleanNm);
+    } else if (typeof window !== 'undefined' && typeof window.getMemberAvatarOutline === 'function') {
+      outlineInfo = window.getMemberAvatarOutline(cleanId || cleanNm, cleanNm);
+    } else if (isCreator) {
+      outlineInfo = { style: 'rgb', config: { className: 'avatar-outline-rgb' } };
+    }
+    if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
+      hasOutlineCls = ' has-custom-outline avatar-outline-container';
+      outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
+    }
+  }
+
+  // 3. Equipped Cosmetics (Headwear / Badges)
+  var cosmeticHtml = '';
+  if (opt.showCosmetics !== false) {
+    var cosmeticInfo = null;
+    if (typeof getMemberCosmetic === 'function') {
+      cosmeticInfo = getMemberCosmetic(cleanId || cleanNm, cleanNm);
+    } else if (typeof window !== 'undefined' && typeof window.getMemberCosmetic === 'function') {
+      cosmeticInfo = window.getMemberCosmetic(cleanId || cleanNm, cleanNm);
+    }
+    if (cosmeticInfo && cosmeticInfo.id && cosmeticInfo.id !== 'none' && (cosmeticInfo.svg || (cosmeticInfo.config && cosmeticInfo.config.badgeHtml))) {
+      var cosSvg = cosmeticInfo.svg || cosmeticInfo.config.badgeHtml;
+      var cosName = cosmeticInfo.name || (cosmeticInfo.config && cosmeticInfo.config.name) || '';
+      var isHeadwear = (cosmeticInfo.category === 'headwear' || (cosmeticInfo.config && cosmeticInfo.config.category === 'headwear'));
+      var headwearCls = isHeadwear ? ' is-headwear' : '';
+      var cosCls = sz >= 40 ? 'cosmetic-lg' : (sz >= 28 ? 'cosmetic-md' : (sz >= 22 ? 'cosmetic-sm' : 'cosmetic-xs'));
+      cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + headwearCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosName) : cosName) + '" aria-hidden="true">' + cosSvg + '</span>';
+    }
+  }
+
+  // 4. Presence Status Dot (Online, Idle, Offline)
+  var dotHtml = '';
+  if (opt.showPresence !== false) {
+    var pInfo = null;
+    if (typeof getMemberPresenceStatus === 'function') {
+      pInfo = getMemberPresenceStatus({ name: cleanNm, email: cleanId, ic: cleanId });
+    } else if (typeof window !== 'undefined' && typeof window.getMemberPresenceStatus === 'function') {
+      pInfo = window.getMemberPresenceStatus({ name: cleanNm, email: cleanId, ic: cleanId });
+    } else {
+      pInfo = { status: 'offline', label: 'Offline', color: '#6b7280' };
+    }
+    var dotColor = (pInfo && pInfo.color) ? pInfo.color : '#6b7280';
+    var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
+    var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
+    var dotTitle = safeName + ' (' + dotLabel + ')';
+    var dotSz = Math.max(7, Math.round(sz * 0.28));
+    dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+  }
+
+  var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';
+
+  if (photoUrl) {
+    return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
+      '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' +
+      outlineHtml + cosmeticHtml + dotHtml +
+    '</span>';
+  }
+
+  if (isCreator) {
+    var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
+    var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
+    return '<span class="member-avatar-unified' + extraCls + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
+      'J' + outlineHtml + cosmeticHtml + dotHtml +
+    '</span>';
+  }
+
+  var initial = (typeof getMemberAvatarInitial === 'function')
+    ? getMemberAvatarInitial(cleanNm)
+    : (cleanNm.charAt(0).toUpperCase() || '?');
+  var color = (typeof getMemberAvatarColor === 'function')
+    ? getMemberAvatarColor(cleanNm)
+    : '#047857';
+
+  return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
+    (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml +
+  '</span>';
+}
+
+/**
  * Detects device hardware, operating system, and browser information for security audit notices.
  * Assigns or retrieves a persistent pseudo-random device ID in localStorage to detect different devices.
  * @returns {{ deviceId: string, label: string, os: string, browser: string, deviceType: string }}
@@ -2257,6 +2389,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarColor: getMemberAvatarColor,
     resolveMemberDirectoryInfo: resolveMemberDirectoryInfo,
     getMemberAvatarUrl: getMemberAvatarUrl,
+    getUniversalMemberAvatarHtml: getUniversalMemberAvatarHtml,
     getDeviceSecurityInfo: getDeviceSecurityInfo,
     computeIntegrityMetadata: computeIntegrityMetadata,
     verifySubresourceIntegrity: verifySubresourceIntegrity,
