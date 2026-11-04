@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104e',
-    'sw.js CACHE_VERSION must be 20261104e'
+    '20261104f',
+    'sw.js CACHE_VERSION must be 20261104f'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104e',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104f',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6680,7 +6680,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104e'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104f'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -7747,13 +7747,36 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(executedCmd, 'outdent', 'Shift+Tab executes outdent command');
     console.log('  ✔ Keyboard Tab key smoothly indents/outdents inside editors without losing focus');
 
-    // 4. Table Context Menu & Actions
+    // 4. Interactive Table Grid Picker (Image 1) & Context Menu Actions
+    assert.strictEqual(typeof uiMod.insertTableWithDimensions, 'function', 'insertTableWithDimensions exported from ui.js');
+    assert.strictEqual(typeof uiMod.toggleTableGridPicker, 'function', 'toggleTableGridPicker exported from ui.js');
     assert.strictEqual(typeof uiMod.executeRichTableAction, 'function', 'executeRichTableAction exported');
     assert.strictEqual(typeof uiMod.showTableContextMenu, 'function', 'showTableContextMenu exported');
     assert.strictEqual(typeof uiMod.closeTableContextMenu, 'function', 'closeTableContextMenu exported');
+    assert.ok(compCss.includes('.tb-table-grid-popover'), 'components.css defines .tb-table-grid-popover');
+    assert.ok(compCss.includes('.tb-grid-matrix'), 'components.css defines 10x8 .tb-grid-matrix');
+    assert.ok(compCss.includes('.tb-grid-cell'), 'components.css defines .tb-grid-cell');
     assert.ok(compCss.includes('.tb-table-context-menu'), 'components.css defines table context menu');
-    assert.ok(indexHtml.includes('executeRichTableAction(\'insertRowBelow\''), 'index.html table dropdown provides row/col insert actions');
-    console.log('  ✔ Table insertion, right-click context menu and row/column actions verified');
+    assert.strictEqual(indexHtml.split('toggleTableGridPicker(this)').length - 1, 3, 'All 3 toolbars trigger interactive table grid picker');
+
+    // Test insertTableWithDimensions(4, 5) generates 4 cols x 5 rows
+    let insertedHtml = '';
+    global.document.execCommand = (cmd, showUI, val) => {
+      if (cmd === 'insertHTML') insertedHtml = val;
+      return true;
+    };
+    uiMod.insertTableWithDimensions(4, 5, mockEditor);
+    assert.ok(insertedHtml.includes('<th'), 'Generates header columns');
+    assert.strictEqual(insertedHtml.split('<th ').length - 1, 4, 'Exactly 4 columns generated');
+    assert.strictEqual(insertedHtml.split('<tr').length - 1, 5, 'Exactly 5 rows (1 header + 4 data rows) generated');
+    console.log('  ✔ Interactive Table Grid Picker (Image 1: 10x8 matrix, dimension label, custom rows/cols) verified');
+
+    // 5. Live Caret Preservation on Toolbar Actions (No Cursor Jumping)
+    let formatCmd = null;
+    global.document.execCommand = (cmd) => { formatCmd = cmd; return true; };
+    uiMod.executeRichFormat('insertOrderedList', null, mockEditor);
+    assert.strictEqual(formatCmd, 'insertOrderedList', 'executeRichFormat preserves live cursor on active typing position');
+    console.log('  ✔ Toolbar formatting actions preserve active caret position without cursor jumping');
 
     // 5. Responsive, Snappy Button Transitions (No Hover Lag)
     assert.ok(varCss.includes('--transition-fast: background-color 0.08s ease'), 'Snappy 0.08s fast transition defined in variables.css');

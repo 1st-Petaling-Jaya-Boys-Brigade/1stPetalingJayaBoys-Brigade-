@@ -9534,3 +9534,66 @@ select.form-input,
   background: var(--border-card);
   margin: 3px 0;
 }
+
+/* 8. Interactive Table Grid Picker (Image 1 Style - 10x8 Matrix) */
+.tb-table-grid-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  padding: 10px 12px;
+  min-width: 216px;
+  flex-direction: column;
+  animation: menuPopIn 0.12s ease-out;
+  user-select: none;
+}
+
+.tb-grid-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.tb-grid-matrix {
+  display: grid;
+  grid-template-columns: repeat(10, 17px);
+  grid-template-rows: repeat(8, 17px);
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.tb-grid-cell {
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid var(--border-card);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: background-color 0.05s ease, border-color 0.05s ease;
+  box-sizing: border-box;
+}
+
+.tb-grid-cell:hover,
+.tb-grid-cell.is-selected {
+  background: rgba(59, 130, 246, 0.3) !important;
+  border-color: #3b82f6 !important;
+}
+
+.tb-grid-dimension {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+  min-height: 18px;
+  line-height: 18px;
+}
