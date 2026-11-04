@@ -68,6 +68,7 @@ function getTabCount(status) {
 
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
 var _tasksViewMode      = 'projects'; // 'projects' | 'board' | 'mytasks'
+var _projectDisplayMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_proj_view_mode') === 'list') ? 'list' : 'board'; // 'board' | 'list'
 var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;
@@ -609,10 +610,14 @@ function setTasksViewMode(mode) {
   var sep = document.querySelector('.task-breadcrumb-sep');
   var cur = document.getElementById('tasks-dept-title');
   var delProjBtn = document.querySelector('.project-delete-header-btn');
+  var projToggle = document.querySelector('.project-board-view-toggle');
+  var listView   = document.querySelector('.tasks-board-list-view');
 
   if (_tasksViewMode === 'projects') {
     if (boardCol) boardCol.style.display = 'none';
     if (colTabs) colTabs.style.display = 'none';
+    if (listView) listView.style.display = 'none';
+    if (projToggle) projToggle.style.display = 'none';
     if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'none';
     if (projContainer) projContainer.style.display = 'block';
@@ -630,8 +635,20 @@ function setTasksViewMode(mode) {
     var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
 
     if (hasActiveProject) {
-      if (boardCol) boardCol.style.display = '';
-      if (colTabs) colTabs.style.display = '';
+      if (projToggle) projToggle.style.display = 'inline-flex';
+      var bBtn = document.querySelector('.project-view-btn[data-proj-vmode="board"]');
+      var lBtn = document.querySelector('.project-view-btn[data-proj-vmode="list"]');
+      if (bBtn) bBtn.classList.toggle('active', _projectDisplayMode === 'board');
+      if (lBtn) lBtn.classList.toggle('active', _projectDisplayMode === 'list');
+      if (_projectDisplayMode === 'list') {
+        if (boardCol) boardCol.style.display = 'none';
+        if (colTabs) colTabs.style.display = 'none';
+        if (listView) listView.style.display = 'block';
+      } else {
+        if (boardCol) boardCol.style.display = '';
+        if (colTabs) colTabs.style.display = '';
+        if (listView) listView.style.display = 'none';
+      }
       if (noProjEl) noProjEl.style.display = 'none';
       if (myTasks) myTasks.style.display = 'none';
       if (projContainer) projContainer.style.display = 'none';
@@ -649,9 +666,11 @@ function setTasksViewMode(mode) {
       }
       renderTasksBoard(_activeProject);
     } else {
-      // No project selected: remove Planning, To Do, In Progress, In Review, Completed boxes
+      // No project selected
       if (boardCol) boardCol.style.display = 'none';
       if (colTabs) colTabs.style.display = 'none';
+      if (listView) listView.style.display = 'none';
+      if (projToggle) projToggle.style.display = 'none';
       if (noProjEl) noProjEl.style.display = 'block';
       if (myTasks) myTasks.style.display = 'none';
       if (projContainer) projContainer.style.display = 'none';
@@ -664,6 +683,8 @@ function setTasksViewMode(mode) {
   } else if (_tasksViewMode === 'mytasks') {
     if (boardCol) boardCol.style.display = 'none';
     if (colTabs) colTabs.style.display = 'none';
+    if (listView) listView.style.display = 'none';
+    if (projToggle) projToggle.style.display = 'none';
     if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'block';
     if (projContainer) projContainer.style.display = 'none';
@@ -1059,7 +1080,7 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var hasOutlineCls = '';
   if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
     hasOutlineCls = ' has-custom-outline avatar-outline-container';
-    outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
+    outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
   }
 
   var cosmeticInfo = (typeof getMemberCosmetic === 'function')
@@ -1073,21 +1094,37 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
     cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + headwearCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.name || '') : (cosmeticInfo.name || '')) + '" aria-hidden="true">' + cosmeticInfo.svg + '</span>';
   }
 
+  // 4. Live Presence Status Dot
+  var pInfo = null;
+  if (typeof getMemberPresenceStatus === 'function') {
+    pInfo = getMemberPresenceStatus({ name: name, email: ic, ic: ic });
+  } else if (typeof window !== 'undefined' && typeof window.getMemberPresenceStatus === 'function') {
+    pInfo = window.getMemberPresenceStatus({ name: name, email: ic, ic: ic });
+  } else {
+    pInfo = { status: 'offline', label: 'Offline', color: '#6b7280' };
+  }
+  var dotColor = (pInfo && pInfo.color) ? pInfo.color : '#6b7280';
+  var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
+  var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
+  var dotTitle = safeName + ' (' + dotLabel + ')';
+  var dotSz = Math.max(7, Math.round(sz * 0.28));
+  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+
   var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';
 
   if (photoUrl) {
-    return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + '</span>';
+    return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
 
   if (isCreator) {
     var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
-    return '<span class="task-card-avatar' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J' + outlineHtml + cosmeticHtml + '</span>';
+    return '<span class="task-card-avatar' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
 
   var initial = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name) : (name.trim().charAt(0).toUpperCase() || '?');
   var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : getAssigneeAvatarBg(name);
-  return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + '</span>';
+  return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml + '</span>';
 }
 
 function getAssigneeAvatarBg(name) {
@@ -1232,6 +1269,181 @@ function renderColumnsFromTasks(tasksList) {
   setupKanbanDragAndDrop();
 }
 
+/**
+ * Switches between Kanban Board View and Project List View (Image 1 & 2)
+ * @param {"board"|"list"} mode
+ */
+function setProjectDisplayMode(mode) {
+  _projectDisplayMode = (mode === 'list') ? 'list' : 'board';
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_proj_view_mode', _projectDisplayMode);
+    }
+  } catch (_) {}
+
+  if (typeof document === 'undefined') return;
+
+  var boardBtn = document.querySelector('.project-view-btn[data-proj-vmode="board"]');
+  var listBtn  = document.querySelector('.project-view-btn[data-proj-vmode="list"]');
+  if (boardBtn) boardBtn.classList.toggle('active', _projectDisplayMode === 'board');
+  if (listBtn) listBtn.classList.toggle('active', _projectDisplayMode === 'list');
+
+  var boardCol = document.getElementById('tasks-columns');
+  var colTabs  = document.getElementById('task-col-tabs');
+  var listView = document.querySelector('.tasks-board-list-view');
+
+  if (_projectDisplayMode === 'list') {
+    if (boardCol) boardCol.style.display = 'none';
+    if (colTabs) colTabs.style.display = 'none';
+    if (listView) listView.style.display = 'block';
+    renderTasksListView(_activeProject);
+  } else {
+    if (boardCol) boardCol.style.display = '';
+    if (colTabs) colTabs.style.display = '';
+    if (listView) listView.style.display = 'none';
+    renderColumnsFromTasks(_allLoadedTasks);
+  }
+}
+
+/**
+ * Renders structured Project List View with status groupings matching Image 2
+ * @param {string} [projectName]
+ */
+function renderTasksListView(projectName) {
+  if (typeof document === 'undefined') return;
+  var listView = document.querySelector('.tasks-board-list-view');
+  if (!listView) return;
+
+  var pName = projectName || _activeProject;
+  if (!pName || pName.toLowerCase() === 'all tasks' || pName.toLowerCase() === 'all') {
+    listView.innerHTML = '<div class="tasks-no-project-placeholder" style="padding:48px 20px;text-align:center;color:var(--text-muted);background:var(--bg-card-subtle);border:1px dashed var(--border-card);border-radius:var(--radius-lg);">Please select a project to view tasks list.</div>';
+    return;
+  }
+
+  var tasks = _allLoadedTasks.filter(function(t) {
+    if (!t || _deletedTaskIds[String(t.id)]) return false;
+    var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim() : getTaskProjectName(t);
+    return taskProj && taskProj.toLowerCase() === pName.toLowerCase();
+  });
+
+  if (_taskSearchQuery) {
+    var q = _taskSearchQuery.toLowerCase();
+    tasks = tasks.filter(function(t) {
+      var titleMatch = t.title && t.title.toLowerCase().indexOf(q) !== -1;
+      var assMatch = t.assignee_name && t.assignee_name.toLowerCase().indexOf(q) !== -1;
+      var deptMatch = t.department && t.department.toLowerCase().indexOf(q) !== -1;
+      var idMatch = t.id && String(t.id).toLowerCase().indexOf(q) !== -1;
+      return titleMatch || assMatch || deptMatch || idMatch;
+    });
+  }
+
+  var sections = [
+    { key: 'planning', label: 'Planning', color: 'var(--purple, #a855f7)', dotBg: '#a855f7' },
+    { key: 'todo', label: 'To Do', color: 'var(--text-secondary, #94a3b8)', dotBg: '#64748b' },
+    { key: 'inprogress', label: 'In Progress', color: 'var(--blue, #3b82f6)', dotBg: '#3b82f6' },
+    { key: 'inreview', label: 'In Review', color: 'var(--accent, #f59e0b)', dotBg: '#f59e0b' },
+    { key: 'completed', label: 'Completed', color: 'var(--green, #10b981)', dotBg: '#10b981' }
+  ];
+
+  var html = '<div class="proj-list-wrapper">';
+
+  sections.forEach(function(sec) {
+    var secTasks = tasks.filter(function(t) {
+      return normalizeTaskStatus(t.status) === sec.key;
+    });
+
+    html += '<div class="proj-list-group" data-group-status="' + sec.key + '">' +
+      '<div class="proj-list-group-header">' +
+        '<div class="proj-list-group-title">' +
+          '<svg class="ui-icon-xs proj-list-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '<span class="proj-list-group-dot" style="background:' + sec.dotBg + ';"></span>' +
+          '<span class="proj-list-group-name">' + escapeHtml(sec.label.toUpperCase()) + '</span>' +
+          '<span class="proj-list-group-count">' + secTasks.length + '</span>' +
+        '</div>' +
+        '<button type="button" class="proj-list-quick-add-btn" onclick="openCreateTaskModal(\'' + sec.key + '\')" title="Add task to ' + sec.label + ' via Quick Add">' +
+          '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
+        '</button>' +
+      '</div>';
+
+    html += '<div class="proj-list-table-container">' +
+      '<table class="proj-list-table" role="table">' +
+        '<thead>' +
+          '<tr>' +
+            '<th class="col-name" style="width:38%;">Task Name</th>' +
+            '<th class="col-status" style="width:14%;">Status</th>' +
+            '<th class="col-priority" style="width:12%;">Priority</th>' +
+            '<th class="col-assignee" style="width:18%;">Assignee</th>' +
+            '<th class="col-due" style="width:10%;">Due Date</th>' +
+            '<th class="col-estimate" style="width:8%;">Estimate</th>' +
+          '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+    if (secTasks.length === 0) {
+      html += '<tr class="proj-list-empty-row"><td colspan="6" style="padding:10px 14px;color:var(--text-muted);font-size:12px;font-style:italic;">No tasks in ' + sec.label + '</td></tr>';
+    } else {
+      secTasks.forEach(function(t, idx) {
+        var tidFormatted = formatTaskId(t, idx);
+        var prioIcon = getPriorityIconSvg(t.priority || 'medium', 13);
+        var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(t.title || '') : (t.title || '');
+        var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name || 'Unassigned') : (t.assignee_name || 'Unassigned');
+        var assigneeAvatar = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 22);
+
+        var dueStr = formatTaskDueDateStr(t.due_date);
+        var isDone = (normalizeTaskStatus(t.status) === 'completed');
+        var dueBadgeCls = getTaskDueBadgeClass(t.due_date, isDone);
+
+        var est = t.estimate || '';
+        if (!est && t.description) {
+          var estMatch = t.description.match(/\[Estimate:\s*([^\]|]+)/i);
+          if (estMatch && estMatch[1]) est = estMatch[1].trim();
+        }
+
+        html += '<tr class="proj-list-row" onclick="openTaskDetail(\'' + t.id + '\')" role="button" tabindex="0">' +
+          '<td class="col-name">' +
+            '<div class="proj-list-cell-name">' +
+              '<span class="proj-task-id-badge">' + tidFormatted + '</span>' +
+              '<span class="proj-task-title-text">' + safeTitle + '</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="col-status">' +
+            '<span class="proj-list-status-pill status-' + sec.key + '">' + sec.label + '</span>' +
+          '</td>' +
+          '<td class="col-priority">' +
+            '<span class="proj-list-priority-badge prio-' + (t.priority || 'medium') + '">' +
+              prioIcon +
+              '<span>' + ((t.priority || 'medium').charAt(0).toUpperCase() + (t.priority || 'medium').slice(1)) + '</span>' +
+            '</span>' +
+          '</td>' +
+          '<td class="col-assignee">' +
+            '<div class="proj-list-assignee-cell">' +
+              assigneeAvatar +
+              '<span class="proj-list-assignee-name">' + safeAssignee + '</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="col-due">' +
+            (t.due_date ? ('<span class="proj-list-due-pill ' + dueBadgeCls + '">' + escapeHtml(dueStr) + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
+          '</td>' +
+          '<td class="col-estimate">' +
+            (est ? ('<span class="proj-list-estimate-pill">' + escapeHtml(est) + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
+          '</td>' +
+        '</tr>';
+      });
+    }
+
+    html += '</tbody></table>' +
+      '<button type="button" class="proj-list-add-bottom-btn" onclick="openCreateTaskModal(\'' + sec.key + '\')">' +
+        '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
+        '<span>Add task</span>' +
+      '</button>' +
+    '</div></div>';
+  });
+
+  html += '</div>';
+
+  listView.innerHTML = html;
+}
+
 async function renderTasksBoard(deptOrProject) {
   if (typeof document === 'undefined') return;
 
@@ -1243,20 +1455,37 @@ async function renderTasksBoard(deptOrProject) {
     }
   }
 
-  var boardCol = document.getElementById('tasks-columns');
-  var colTabs  = document.getElementById('task-col-tabs');
-  var noProjEl = document.querySelector('.tasks-no-project-placeholder');
+  var boardCol   = document.getElementById('tasks-columns');
+  var colTabs    = document.getElementById('task-col-tabs');
+  var noProjEl   = document.querySelector('.tasks-no-project-placeholder');
+  var projToggle = document.querySelector('.project-board-view-toggle');
+  var listView   = document.querySelector('.tasks-board-list-view');
 
   var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
   if (!hasActiveProject) {
     if (boardCol) boardCol.style.display = 'none';
     if (colTabs) colTabs.style.display = 'none';
+    if (listView) listView.style.display = 'none';
+    if (projToggle) projToggle.style.display = 'none';
     if (noProjEl) noProjEl.style.display = 'block';
     return;
   }
 
-  if (boardCol) boardCol.style.display = '';
-  if (colTabs) colTabs.style.display = '';
+  if (projToggle) projToggle.style.display = 'inline-flex';
+  var bBtn = document.querySelector('.project-view-btn[data-proj-vmode="board"]');
+  var lBtn = document.querySelector('.project-view-btn[data-proj-vmode="list"]');
+  if (bBtn) bBtn.classList.toggle('active', _projectDisplayMode === 'board');
+  if (lBtn) lBtn.classList.toggle('active', _projectDisplayMode === 'list');
+
+  if (_projectDisplayMode === 'list') {
+    if (boardCol) boardCol.style.display = 'none';
+    if (colTabs) colTabs.style.display = 'none';
+    if (listView) listView.style.display = 'block';
+  } else {
+    if (boardCol) boardCol.style.display = '';
+    if (colTabs) colTabs.style.display = '';
+    if (listView) listView.style.display = 'none';
+  }
   if (noProjEl) noProjEl.style.display = 'none';
 
   var breadcrumbCur = document.getElementById('tasks-dept-title');
@@ -1265,7 +1494,11 @@ async function renderTasksBoard(deptOrProject) {
   }
 
   // 1. Instant synchronous render from local cache (< 2ms)
-  renderColumnsFromTasks(_allLoadedTasks);
+  if (_projectDisplayMode === 'list') {
+    renderTasksListView(_activeProject);
+  } else {
+    renderColumnsFromTasks(_allLoadedTasks);
+  }
 
   // 2. Background fetch and refresh
   var client = getSupaClient();
@@ -1281,7 +1514,11 @@ async function renderTasksBoard(deptOrProject) {
         if (typeof window !== 'undefined') window._taskMap = _taskMap;
         try { if (typeof localStorage !== 'undefined') localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
 
-        renderColumnsFromTasks(_allLoadedTasks);
+        if (_projectDisplayMode === 'list') {
+          renderTasksListView(_activeProject);
+        } else {
+          renderColumnsFromTasks(_allLoadedTasks);
+        }
 
         if (typeof syncTaskNotifications === 'function') {
           syncTaskNotifications(tasks);
@@ -3343,6 +3580,12 @@ async function handleCreateTaskSubmit(e) {
 
   // 1. INSTANT OPTIMISTIC CREATION (< 10ms)
   var tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+  var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  if (!myName && typeof sessionGet === 'function') {
+    var sEmail = sessionGet('email');
+    if (sEmail && sEmail.toLowerCase() === 'jeshuakoh2008@gmail.com') myName = 'Jeshua Koh';
+  }
   var localTask = {
     id: tempId,
     title: title,
@@ -3352,6 +3595,8 @@ async function handleCreateTaskSubmit(e) {
     due_date: due || null,
     assignee_name: assigneeName || null,
     assignee_ic: assigneeIc || null,
+    creator_name: myName || 'Jeshua Koh',
+    creator_ic: myIc || '',
     estimate: estimate,
     project_name: projectName,
     status: targetStatus,
@@ -3379,7 +3624,11 @@ async function handleCreateTaskSubmit(e) {
 
   // Immediately render active view with zero network latency (< 25ms)
   if (_tasksViewMode === 'board') {
-    renderTasksBoard(_activeProject);
+    if (_projectDisplayMode === 'list') {
+      renderTasksListView(_activeProject);
+    } else {
+      renderTasksBoard(_activeProject);
+    }
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   } else {
@@ -3402,9 +3651,11 @@ async function handleCreateTaskSubmit(e) {
           priority: priority,
           due_date: due || null,
           assignee_name: assigneeName || null,
+          creator_name: localTask.creator_name || 'Jeshua Koh',
           status: targetStatus,
           created_at: localTask.created_at
         };
+        if (localTask.creator_ic) payload.creator_ic = localTask.creator_ic;
         if (projectName) payload.project_name = projectName;
         if (estimate) payload.estimate = estimate;
         if (assigneeIc) payload.assignee_ic = assigneeIc;
@@ -3568,6 +3819,7 @@ async function saveTask() {
   if (!editId) {
     payload.created_at = new Date().toISOString();
     payload.status = 'todo';
+    payload.creator_name = (typeof sessionGet === 'function' && sessionGet('name')) || 'Jeshua Koh';
   }
 
   var client = getSupaClient();
@@ -3827,7 +4079,10 @@ if (typeof window !== 'undefined') {
   window.DEPT_CONFIG                = DEPT_CONFIG;
   window._activeTasksSection        = _activeTasksSection;
   window._tasksViewMode             = _tasksViewMode;
+  window._projectDisplayMode        = _projectDisplayMode;
   window._currentDeptFilter         = _currentDeptFilter;
+  window.setProjectDisplayMode      = setProjectDisplayMode;
+  window.renderTasksListView        = renderTasksListView;
   window._taskSearchQuery           = _taskSearchQuery;
   window._allLoadedTasks            = _allLoadedTasks;
   window._adminTaskFilter           = _adminTaskFilter;
@@ -3928,6 +4183,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DEPT_CONFIG,
     _activeTasksSection,
     _tasksViewMode,
+    _projectDisplayMode,
     _currentDeptFilter,
     _taskSearchQuery,
     _allLoadedTasks,
@@ -3944,6 +4200,8 @@ if (typeof module !== 'undefined' && module.exports) {
     changeTaskDeptFilter,
     filterProjectTasks,
     renderTasksBoard,
+    setProjectDisplayMode,
+    renderTasksListView,
     setupKanbanDragAndDrop,
     renderMyTasksView,
     toggleMyTasksScope,

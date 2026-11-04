@@ -781,12 +781,15 @@ function getMemberPresenceStatus(member, presenceMap) {
   var mObj = (typeof member === 'object' && member !== null) ? member : { ic: String(member), email: String(member) };
   var mIc = (mObj.ic || '').trim();
   var mEmail = (mObj.email || '').trim().toLowerCase();
+  var mName = (mObj.name || '').trim().toLowerCase();
 
   var currentIc = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
   var currentEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : null;
+  var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '').toLowerCase().trim() : null;
 
   var isSelf = (currentIc && (mIc === currentIc || mEmail === currentIc.toLowerCase())) ||
-               (currentEmail && (mEmail === currentEmail || mIc.toLowerCase() === currentEmail));
+               (currentEmail && (mEmail === currentEmail || mIc.toLowerCase() === currentEmail)) ||
+               (currentName && mName && (mName === currentName || mName.replace(/\s+/g, ' ') === currentName.replace(/\s+/g, ' ')));
 
   if (isSelf) {
     var selfStatus = getLocalPresenceStatus();
@@ -811,11 +814,12 @@ function getMemberPresenceStatus(member, presenceMap) {
   if (mEmail && map[mEmail]) rec = map[mEmail];
   else if (mIc && map[mIc]) rec = map[mIc];
   else if (mIc && map[mIc.toLowerCase()]) rec = map[mIc.toLowerCase()];
+  else if (mName && map[mName]) rec = map[mName];
   else {
     var keys = Object.keys(map);
     for (var i = 0; i < keys.length; i++) {
       var it = map[keys[i]];
-      if (it && ((mEmail && it.email && it.email.toLowerCase() === mEmail) || (mIc && it.ic === mIc))) {
+      if (it && ((mEmail && it.email && it.email.toLowerCase() === mEmail) || (mIc && it.ic === mIc) || (mName && it.name && it.name.toLowerCase() === mName))) {
         rec = it;
         break;
       }

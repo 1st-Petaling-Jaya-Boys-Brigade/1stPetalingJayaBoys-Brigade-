@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104i',
-    'sw.js CACHE_VERSION must be 20261104i'
+    '20261104j',
+    'sw.js CACHE_VERSION must be 20261104j'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104i',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104j',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6787,7 +6787,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104i'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104j'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -7973,6 +7973,72 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.execCommand = origExec;
   }
 
+  // ── Project List View, Universal Avatars, Presence Dots & Notification Creator Polish ──
+  {
+    console.log('\nTesting Project List View, Universal Avatars, Presence Dots & Notification Polish...');
+    const indexHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const compCss   = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const utilsMod  = require('../js/core/utils.js');
+    const tasksMod  = require('../js/modules/tasks.js');
+    const forumMod  = require('../js/modules/forum.js');
+    const attMod    = require('../js/modules/attendance.js');
+    assert.strictEqual(typeof attMod.renderCompanyLeaderboard, 'function', 'attendance.js must export renderCompanyLeaderboard');
+    const memberMod = require('../js/modules/member.js');
+    await memberMod.saveMemberAvatarOutline('jeshuakoh2008@gmail.com', 'rgb', 'jeshuakoh2008@gmail.com');
+
+    // 1. Project Board vs List View Toggle (Image 1) & List Container (Image 2)
+    assert.ok(indexHtml.includes('class="project-board-view-toggle"'), 'index.html must include project-board-view-toggle container');
+    assert.ok(indexHtml.includes('data-proj-vmode="board"'), 'index.html must include board view button');
+    assert.ok(indexHtml.includes('data-proj-vmode="list"'), 'index.html must include list view button');
+    assert.ok(indexHtml.includes('class="tasks-board-list-view"'), 'index.html must include tasks-board-list-view container');
+    assert.strictEqual(typeof tasksMod.setProjectDisplayMode, 'function', 'tasks.js must export setProjectDisplayMode');
+    assert.strictEqual(typeof tasksMod.renderTasksListView, 'function', 'tasks.js must export renderTasksListView');
+    assert.ok(compCss.includes('.project-board-view-toggle'), 'components.css must style project-board-view-toggle');
+    assert.ok(compCss.includes('.proj-list-wrapper'), 'components.css must style proj-list-wrapper');
+    assert.ok(compCss.includes('.proj-list-table'), 'components.css must style proj-list-table');
+    console.log('  ✔ Project board vs list view mode toggle (Image 1) & list table (Image 2) verified');
+
+    // 2. Universal Avatar Generator with Presence Dot, Outline, and Equipped Cosmetic
+    assert.strictEqual(typeof utilsMod.getUniversalMemberAvatarHtml, 'function', 'utils.js must export getUniversalMemberAvatarHtml');
+    const creatorAvatar = utilsMod.getUniversalMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 24);
+    assert.ok(creatorAvatar.includes('creator-outline-avatar'), 'Creator avatar must include creator-outline-avatar');
+    assert.ok(creatorAvatar.includes('background:#083830'), 'Creator avatar must have solid #083830 pine background');
+    assert.ok(creatorAvatar.includes('avatar-status-dot'), 'Universal avatar must include live presence status dot');
+
+    // Unregistered member placeholder (empty profile picture)
+    const unregAvatar = utilsMod.getUniversalMemberAvatarHtml('Lucas Wong', '', 24, { isRegistered: false });
+    assert.ok(unregAvatar.includes('empty-profile-avatar'), 'Unregistered member must render empty-profile-avatar silhouette');
+    assert.ok(unregAvatar.includes('Account not yet created'), 'Unregistered avatar must have Account not yet created tooltip');
+    console.log('  ✔ Universal member avatar generator with presence dots, cosmetics, and empty silhouette verified');
+
+    // 3. Presence Status Dots in Tasks and Forum Avatars
+    const taskAssigneeAvatar = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 24);
+    assert.ok(taskAssigneeAvatar.includes('avatar-status-dot'), 'Tasks assignee avatar must include live presence status dot');
+
+    const forumAvatar = forumMod.getForumMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 24);
+    assert.ok(forumAvatar.includes('avatar-status-dot'), 'Forum member avatar must include live presence status dot');
+    console.log('  ✔ Live presence status dots verified across Tasks and Support Forum avatars');
+
+    // 4. Leaderboard Squad Members Dropdown with Profile Avatars
+    const attCode = fs.readFileSync(path.resolve(__dirname, '..', 'js', 'modules', 'attendance.js'), 'utf8');
+    assert.ok(attCode.includes('getUniversalMemberAvatarHtml'), 'attendance.js must call getUniversalMemberAvatarHtml for squad member avatars');
+    assert.ok(attCode.includes('empty-profile-avatar'), 'attendance.js must render empty-profile-avatar for unregistered squad members');
+    assert.ok(attCode.includes('registeredMembersMap'), 'attendance.js must check registered member status');
+    console.log('  ✔ Leaderboard squad members roster profile icons/pictures verified (registered vs empty silhouette)');
+
+    // 5. Task Notification Creator Name ("Jeshua Koh assigned a task") and Real Avatar
+    assert.ok(!indexHtml.includes("deptLabel + ' Lead'"), 'index.html must not contain old Logistics Lead fallback');
+    assert.ok(indexHtml.includes("creatorName + ' assigned a task'"), 'index.html must format task notification with creatorName');
+    assert.ok(indexHtml.includes('item.avatarMemberName'), 'renderNotifications must support avatarMemberName for real profile avatar');
+    console.log('  ✔ Task notifications verified to show real creator name and real profile icon/picture');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
