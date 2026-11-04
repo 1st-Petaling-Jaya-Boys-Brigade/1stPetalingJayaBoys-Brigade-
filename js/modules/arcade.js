@@ -491,15 +491,101 @@
 
       // Async sync to Supabase bb_config if logged in
       var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
-      if (ic && typeof getSupaClient === 'function') {
-        var client = getSupaClient();
-        if (client && typeof client.safeConfigUpdate === 'function') {
-          client.safeConfigUpdate(key, stats).catch(function() {});
+      if (ic) {
+        var client = getArcadeSupaClient();
+        if (client) {
+          if (typeof client.upsert === 'function') {
+            client.upsert('bb_config', { key: key, value: JSON.stringify(stats) }, 'key').catch(function() {});
+          } else if (typeof client.safeConfigUpdate === 'function') {
+            client.safeConfigUpdate(key, stats).catch(function() {});
+          }
         }
       }
     } catch (e) {
       console.warn('saveArcadeStats error:', e);
     }
+  }
+
+  function getArcadeSupaClient() {
+    if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+    if (typeof window !== 'undefined' && window.supa) return window.supa;
+    if (typeof global !== 'undefined' && global.supa) return global.supa;
+    if (typeof supa !== 'undefined' && supa) return supa;
+    return null;
+  }
+
+  /**
+   * Fetches remote arcade stats from Supabase bb_config and non-destructively merges
+   * with local storage to preserve streak and credits across multiple devices.
+   */
+  async function fetchRemoteArcadeStats(optRefDate) {
+    var key = getArcadeUserKey();
+    if (!key || key === 'bb_arcade_guest') return getArcadeStats(optRefDate);
+
+    var client = getArcadeSupaClient();
+    if (!client) return getArcadeStats(optRefDate);
+
+    var local = getArcadeStats(optRefDate);
+
+    try {
+      var rows = null;
+      if (typeof client.get === 'function') {
+        rows = await client.get('bb_config?key=eq.' + encodeURIComponent(key) + '&select=value');
+      } else if (typeof client.getConfig === 'function') {
+        var cfgVal = await client.getConfig(key);
+        if (cfgVal) rows = [{ value: cfgVal }];
+      }
+
+      if (rows && rows.length && rows[0].value) {
+        var remote = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+        if (remote && typeof remote === 'object') {
+          var today = (typeof optRefDate === 'string' && optRefDate) ? getTodayDateKey(optRefDate) : getTodayDateKey();
+          var yesterday = getYesterdayDateKey(today);
+
+          var merged = {
+            credits: Math.max(Number(local.credits) || 0, Number(remote.credits) || 0),
+            bestStreak: Math.max(Number(local.bestStreak) || 0, Number(remote.bestStreak) || 0),
+            wordlePlays: Math.max(Number(local.wordlePlays) || 0, Number(remote.wordlePlays) || 0),
+            wordleWins: Math.max(Number(local.wordleWins) || 0, Number(remote.wordleWins) || 0),
+            triviaPlays: Math.max(Number(local.triviaPlays) || 0, Number(remote.triviaPlays) || 0),
+            triviaScoreTotal: Math.max(Number(local.triviaScoreTotal) || 0, Number(remote.triviaScoreTotal) || 0),
+            lastPlayedDate: remote.lastPlayedDate || local.lastPlayedDate || null,
+            streak: Math.max(Number(local.streak) || 0, Number(remote.streak) || 0)
+          };
+
+          if (merged.lastPlayedDate && merged.lastPlayedDate !== today && merged.lastPlayedDate !== yesterday) {
+            merged.streak = 0;
+          }
+
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, JSON.stringify(merged));
+          }
+          if (typeof sessionSet === 'function') {
+            sessionSet('game_streak', String(merged.streak || 0));
+            sessionSet('game_credits', String(merged.credits || 0));
+          }
+          updateArcadeHeaderBadge(merged);
+
+          if ((Number(local.credits) || 0) > (Number(remote.credits) || 0) || (Number(local.streak) || 0) > (Number(remote.streak) || 0)) {
+            if (typeof client.upsert === 'function') {
+              client.upsert('bb_config', { key: key, value: JSON.stringify(merged) }, 'key').catch(function() {});
+            }
+          }
+
+          return merged;
+        }
+      } else {
+        if (local && (local.credits > 0 || local.streak > 0)) {
+          if (typeof client.upsert === 'function') {
+            client.upsert('bb_config', { key: key, value: JSON.stringify(local) }, 'key').catch(function() {});
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('fetchRemoteArcadeStats error:', e);
+    }
+
+    return local;
   }
 
   /**
@@ -977,6 +1063,7 @@
 
     var stats = getArcadeStats();
     updateArcadeHeaderBadge(stats);
+    fetchRemoteArcadeStats();
 
     page.innerHTML =
       '<div class="arcade-container">' +
@@ -1365,6 +1452,7 @@
     // Auto-update header on DOM load
     document.addEventListener('DOMContentLoaded', function() {
       updateArcadeHeaderBadge();
+      fetchRemoteArcadeStats();
     });
   }
 
@@ -1381,6 +1469,7 @@
     getTriviaUserKey: getTriviaUserKey,
     getArcadeStats: getArcadeStats,
     saveArcadeStats: saveArcadeStats,
+    fetchRemoteArcadeStats: fetchRemoteArcadeStats,
     recordGameParticipation: recordGameParticipation,
     awardCredits: awardCredits,
     updateArcadeHeaderBadge: updateArcadeHeaderBadge,
@@ -1413,6 +1502,7 @@
     window.getTriviaUserKey               = getTriviaUserKey;
     window.getArcadeStats                 = getArcadeStats;
     window.saveArcadeStats                = saveArcadeStats;
+    window.fetchRemoteArcadeStats         = fetchRemoteArcadeStats;
     window.recordGameParticipation        = recordGameParticipation;
     window.awardCredits                   = awardCredits;
     window.updateArcadeHeaderBadge        = updateArcadeHeaderBadge;

@@ -17,6 +17,10 @@ function getSupa() {
   return null;
 }
 
+function getSupabaseClient() {
+  return getSupa();
+}
+
 // ── Auth View Toggles ────────────────────────────────────────────────────────
 
 function showAuthMode(mode) {
@@ -1648,6 +1652,16 @@ function completeLoginWithAccount(m, rememberMe) {
   if (typeof checkTasksAccess === 'function') checkTasksAccess();
   if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
 
+  if (typeof loadMemberCosmetics === 'function') loadMemberCosmetics();
+  if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
+  if (typeof window !== 'undefined' && typeof window.fetchRemoteArcadeStats === 'function') {
+    window.fetchRemoteArcadeStats();
+  } else if (typeof global !== 'undefined' && typeof global.fetchRemoteArcadeStats === 'function') {
+    global.fetchRemoteArcadeStats();
+  }
+  if (typeof updateArcadeHeaderBadge === 'function') updateArcadeHeaderBadge();
+  if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
+
   var passEl = document.getElementById('login-pass');
   if (passEl) passEl.value = '';
 
@@ -2679,14 +2693,21 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
   }
   if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
 
-  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
-  if (client && client.post) {
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : getSupa();
+  if (client) {
     try {
-      await client.post('bb_config', {
-        key: 'bb_member_cosmetics',
-        value: JSON.stringify(_memberCosmeticsMap),
-        updated_at: new Date().toISOString()
-      }, { upsert: true });
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', {
+          key: 'bb_member_cosmetics',
+          value: JSON.stringify(_memberCosmeticsMap)
+        }, 'key');
+      } else if (client.post) {
+        await client.post('bb_config', {
+          key: 'bb_member_cosmetics',
+          value: JSON.stringify(_memberCosmeticsMap),
+          updated_at: new Date().toISOString()
+        }, { upsert: true });
+      }
     } catch (dbErr) {
       console.warn('saveMemberCosmetic db sync warning:', dbErr);
     }
@@ -3270,14 +3291,21 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, ta
   }
   if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
 
-  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
-  if (client && client.post) {
+  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : getSupa();
+  if (client) {
     try {
-      await client.post('bb_config', {
-        key: 'bb_custom_avatar_outlines',
-        value: JSON.stringify(_customAvatarOutlinesMap),
-        updated_at: new Date().toISOString()
-      }, { upsert: true });
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', {
+          key: 'bb_custom_avatar_outlines',
+          value: JSON.stringify(_customAvatarOutlinesMap)
+        }, 'key');
+      } else if (client.post) {
+        await client.post('bb_config', {
+          key: 'bb_custom_avatar_outlines',
+          value: JSON.stringify(_customAvatarOutlinesMap),
+          updated_at: new Date().toISOString()
+        }, { upsert: true });
+      }
     } catch (dbErr) {
       console.warn('saveMemberAvatarOutline db sync warning:', dbErr);
     }

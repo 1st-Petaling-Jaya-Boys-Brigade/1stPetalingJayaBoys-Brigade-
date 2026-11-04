@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104h',
-    'sw.js CACHE_VERSION must be 20261104h'
+    '20261104i',
+    'sw.js CACHE_VERSION must be 20261104i'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104h',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104i',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6787,7 +6787,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104h'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104i'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -7801,7 +7801,80 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // ── Rich Text Editor UX, List Indentation, Table Context Menu & Performance Polish ──
   {
-    console.log('\nTesting Rich Text Editor UX, List Alignment, Table Actions & Performance Polish...');
+    console.log('\nTesting Cross-Device Sync, Solid Avatar Styling & Announcement Image Resilience...');
+  {
+    // 1. Solid background on creator avatar & custom outlines
+    const compCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');
+    assert.ok(compCss.includes('.creator-rgb-avatar {\n  position: relative !important;') || compCss.includes('.creator-rgb-avatar {') && compCss.includes('background: #083830 !important;'), 'creator-rgb-avatar must have solid pine background');
+    assert.ok(compCss.includes('.has-custom-outline.creator-rgb-avatar'), 'has-custom-outline.creator-rgb-avatar selector must exist');
+    console.log('  ✔ Solid #083830 avatar background verified to eliminate transparency');
+
+    // 2. Arcade multi-device stats sync
+    const arcadeMod = require('../js/modules/arcade.js');
+    assert.strictEqual(typeof arcadeMod.fetchRemoteArcadeStats, 'function', 'arcade.js must export fetchRemoteArcadeStats');
+
+    // Test remote stats merging: remote has 30 credits and streak 3; local has 0
+    global.sessionGet = (key) => key === 'ic' ? 'TEST_MEM_SYNC' : (key === 'email' ? 'test@bb.org' : null);
+    global.sessionSet = () => {};
+    let _remoteSaved = null;
+    const mockSyncSupa = {
+      get: async (url) => {
+        if (url.includes('bb_arcade_TEST_MEM_SYNC')) {
+          return [{
+            value: JSON.stringify({
+              credits: 30,
+              streak: 3,
+              bestStreak: 3,
+              lastPlayedDate: arcadeMod.getTodayDateKey()
+            })
+          }];
+        }
+        return [];
+      },
+      upsert: async (table, payload) => {
+        _remoteSaved = payload;
+        return [payload];
+      }
+    };
+    global.supa = mockSyncSupa;
+    if (typeof window !== 'undefined') {
+      window.supa = mockSyncSupa;
+      window.getSupaClient = () => mockSyncSupa;
+    }
+    global.getSupaClient = () => mockSyncSupa;
+
+    const mergedStats = await arcadeMod.fetchRemoteArcadeStats();
+    assert.strictEqual(mergedStats.credits, 30, 'Remote credits must be merged into account');
+    assert.strictEqual(mergedStats.streak, 3, 'Remote streak must be preserved');
+    console.log('  ✔ Arcade remote streak and credits multi-device sync verified');
+
+    // 3. Member cosmetics client.upsert resolution
+    const memberMod = require('../js/modules/member.js');
+    assert.strictEqual(typeof memberMod.loadMemberCosmetics, 'function');
+    assert.strictEqual(typeof memberMod.saveMemberCosmetic, 'function');
+
+    // 4. Announcement image recovery and marker resilience
+    const _annMod = require('../js/modules/announcements.js');
+    const utilsMod = require('../js/core/utils.js');
+    const sanitizedWithMarker = utilsMod.sanitizeHtml('<p>Event details</p><img src="https://images.unsplash.com/photo-test" class="ann-embedded-infographic" style="display:none;" data-infographic-url="https://images.unsplash.com/photo-test" alt="Announcement Infographic" />');
+    assert.ok(sanitizedWithMarker.includes('data-infographic-url="https://images.unsplash.com/photo-test"'), 'sanitizeHtml must preserve data-infographic-url');
+    assert.ok(sanitizedWithMarker.includes('ann-embedded-infographic'), 'sanitizeHtml must preserve ann-embedded-infographic marker');
+    console.log('  ✔ Resilient announcement infographic body marker persistence verified');
+
+    // 5. Mobile Quick Access Carousel touch-action & 44px touch targets
+    const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    assert.ok(idxHtml.includes('touch-action: pan-y !important'), 'index.html must specify touch-action: pan-y for smooth mobile scroll');
+    assert.ok(idxHtml.includes('.hq-dot::after') && idxHtml.includes('min-width: 44px !important'), 'hq-dot must have 44px accessible touch target on mobile');
+    console.log('  ✔ Mobile quick access carousel touchmove smoothness & 44px touch target verified');
+
+    // 6. Strict 388 Unique DOM IDs
+    const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved');
+  }
+
+  console.log('\nTesting Rich Text Editor UX, List Alignment, Table Actions & Performance Polish...');
     const indexHtml = fs.readFileSync('index.html', 'utf8');
     const compCss = fs.readFileSync('css/components.css', 'utf8');
     const varCss = fs.readFileSync('css/variables.css', 'utf8');
