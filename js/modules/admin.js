@@ -1408,7 +1408,10 @@
     if (oi) oi.value = '';
 
     var modal = document.getElementById('edit-member-modal');
-    if (modal) modal.style.display = 'block';
+    if (modal) {
+      modal.setAttribute('data-original-name', '');
+      modal.style.display = 'block';
+    }
   }
 
   function openEditMember(ic) {
@@ -1602,7 +1605,10 @@
     if (db) db.style.display = 'inline-flex';
 
     var modal = document.getElementById('edit-member-modal');
-    if (modal) modal.style.display = 'block';
+    if (modal) {
+      modal.setAttribute('data-original-name', m.name || '');
+      modal.style.display = 'block';
+    }
   }
 
   function closeEditMember() {
@@ -1613,7 +1619,9 @@
 
   async function saveEditMember() {
     if (typeof document === 'undefined') return;
+    var editModal = document.getElementById('edit-member-modal');
     var originalIc = (document.getElementById('em-original-ic') || {}).value || '';
+    var oldName = (editModal && editModal.getAttribute('data-original-name')) || (_adminMembers && _adminMembers[originalIc] && _adminMembers[originalIc].name) || '';
     var rawIc      = ((document.getElementById('em-ic') || {}).value || '').trim().replace(/\s/g, '');
     var rawName    = ((document.getElementById('em-name') || {}).value || '').trim();
     var rawRank    = (document.getElementById('em-rank') || {}).value || '';
@@ -1778,11 +1786,93 @@
         await client.upsert('bb_config', { key: consentKey, value: JSON.stringify(consentRecord) }, 'key');
       } catch (cfgErr) {}
 
-      if (_adminMembers && _adminMembers[ic]) {
-        _adminMembers[ic].parent_name = parent_name;
-        _adminMembers[ic].parent_contact = parent_contact;
-        _adminMembers[ic].parental_consent_signed = parental_consent_signed;
-        _adminMembers[ic].media_consent = media_consent;
+      var memberTargetKey = originalIc || ic;
+      if (_adminMembers && _adminMembers[memberTargetKey]) {
+        _adminMembers[memberTargetKey].name = name;
+        _adminMembers[memberTargetKey].rank = rank;
+        _adminMembers[memberTargetKey].squad = squad;
+        _adminMembers[memberTargetKey].department = department;
+        _adminMembers[memberTargetKey].parent_name = parent_name;
+        _adminMembers[memberTargetKey].parent_contact = parent_contact;
+        _adminMembers[memberTargetKey].parental_consent_signed = parental_consent_signed;
+        _adminMembers[memberTargetKey].media_consent = media_consent;
+      }
+
+      var trimmedOldName = (oldName || '').trim();
+      var trimmedNewName = (name || '').trim();
+      if (trimmedOldName && trimmedNewName && trimmedOldName.toLowerCase() !== trimmedNewName.toLowerCase()) {
+        // 1. Sync tasks assigned to old name across Supabase bb_tasks and in memory
+        try {
+          await client.patch('bb_tasks?assignee_name=eq.' + encodeURIComponent(trimmedOldName), { assignee_name: trimmedNewName });
+        } catch (taskErr) {
+          console.warn('Could not update assignee_name on bb_tasks:', taskErr);
+        }
+        if (typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) {
+          _allLoadedTasks.forEach(function(t) {
+            if (t.assignee_name === trimmedOldName) t.assignee_name = trimmedNewName;
+          });
+        }
+        if (typeof renderBoardOrListTasks === 'function') {
+          try { renderBoardOrListTasks(); } catch (_) {}
+        }
+
+        // 2. Sync forum post and reply authors
+        if (typeof forumPosts !== 'undefined' && Array.isArray(forumPosts)) {
+          var changedForum = false;
+          forumPosts.forEach(function(p) {
+            if (p.authorEmail === originalIc || (p.authorName && p.authorName.toLowerCase() === trimmedOldName.toLowerCase())) {
+              p.authorName = trimmedNewName;
+              changedForum = true;
+            }
+            if (Array.isArray(p.replies)) {
+              p.replies.forEach(function(r) {
+                if (r.authorEmail === originalIc || (r.authorName && r.authorName.toLowerCase() === trimmedOldName.toLowerCase())) {
+                  r.authorName = trimmedNewName;
+                  changedForum = true;
+                }
+              });
+            }
+          });
+          if (changedForum && typeof saveForumPosts === 'function') {
+            saveForumPosts(forumPosts);
+          }
+        }
+
+        // 3. Migrate cosmetics & avatar outlines map
+        if (typeof _memberCosmeticsMap !== 'undefined' && _memberCosmeticsMap[trimmedOldName.toLowerCase()]) {
+          _memberCosmeticsMap[trimmedNewName.toLowerCase()] = _memberCosmeticsMap[trimmedOldName.toLowerCase()];
+        }
+        if (typeof _customAvatarOutlinesMap !== 'undefined' && _customAvatarOutlinesMap[trimmedOldName]) {
+          _customAvatarOutlinesMap[trimmedNewName] = _customAvatarOutlinesMap[trimmedOldName];
+        }
+        if (typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap[trimmedOldName.toLowerCase()]) {
+          _memberPfpsMap[trimmedNewName.toLowerCase()] = _memberPfpsMap[trimmedOldName.toLowerCase()];
+        }
+
+        // 4. Update local members cache
+        try {
+          var memCache = JSON.parse(localStorage.getItem('bb_members_cache') || '[]');
+          if (Array.isArray(memCache)) {
+            memCache.forEach(function(m) {
+              if (m.ic === originalIc || m.name === trimmedOldName) m.name = trimmedNewName;
+            });
+            localStorage.setItem('bb_members_cache', JSON.stringify(memCache));
+          }
+        } catch (_) {}
+
+        // 5. If this is the currently logged-in user session, update immediately
+        var currentSessIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : '';
+        var currentSessNm = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+        if (currentSessIc === originalIc || (currentSessNm && currentSessNm.toLowerCase() === trimmedOldName.toLowerCase())) {
+          if (typeof sessionSet === 'function') {
+            sessionSet('name', trimmedNewName);
+            sessionSet('rank', rank);
+          }
+          var sn = document.getElementById('sidebar-user-name');
+          if (sn) sn.textContent = trimmedNewName;
+          var sb = document.getElementById('sidebar-user-badge');
+          if (sb) sb.textContent = rank || 'Member';
+        }
       }
 
       closeEditMember();

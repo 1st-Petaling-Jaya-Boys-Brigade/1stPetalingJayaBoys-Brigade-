@@ -3647,13 +3647,31 @@ async function removePfp(e) {
     } catch (_) {}
   }
 
-  // 2. Delete from Supabase Storage
+  // 2. Delete from Supabase Storage and database
   try {
     var client = getSupa();
     if (client && typeof client.deleteFile === 'function') {
       for (var i = 0; i < targetFileNames.length; i++) {
         await client.deleteFile('avatars', targetFileNames[i]);
       }
+    }
+    if (typeof _memberPfpsMap !== 'undefined') {
+      if (id) delete _memberPfpsMap[id.toLowerCase()];
+      if (email) delete _memberPfpsMap[email.toLowerCase()];
+      if (ic) delete _memberPfpsMap[ic.toLowerCase()];
+      var removeCurrentName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      if (removeCurrentName) delete _memberPfpsMap[removeCurrentName.trim().toLowerCase()];
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+        }
+      } catch (_) {}
+    }
+    if (client && typeof client.patch === 'function') {
+      await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: null });
+    }
+    if (client && typeof client.upsert === 'function' && typeof _memberPfpsMap !== 'undefined') {
+      await client.upsert('bb_config', { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) }, 'key');
     }
   } catch (err) {
     console.warn('Storage delete encountered non-fatal error:', err);
@@ -3737,6 +3755,8 @@ async function renderDashboard() {
     }
     set('m-age-val', ageVal);
 
+    if (sessionGet('name') !== (m.name || '')) sessionSet('name', m.name || '', { localOnly: true });
+    if (m.photo_url && sessionGet('photo_url') !== m.photo_url) sessionSet('photo_url', m.photo_url, { localOnly: true });
     if (sessionGet('rank') !== (m.rank || '')) sessionSet('rank', m.rank || '', { localOnly: true });
     if (sessionGet('joined') !== (m.joined_at || '')) sessionSet('joined', m.joined_at || '', { localOnly: true });
     if (sessionGet('department') !== (m.department || '')) sessionSet('department', m.department || '', { localOnly: true });
@@ -4093,6 +4113,30 @@ async function uploadPfp(input) {
       if (navAvatarImg) navAvatarImg.src = pfpUrl;
       if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
       if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+
+      // Synchronize across centralized map and Supabase
+      if (typeof _memberPfpsMap !== 'undefined') {
+        if (id) _memberPfpsMap[id.toLowerCase()] = pfpUrl;
+        var curName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+        if (curName) _memberPfpsMap[curName.trim().toLowerCase()] = pfpUrl;
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+          }
+        } catch (_) {}
+      }
+
+      try {
+        if (client && typeof client.patch === 'function') {
+          await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: pfpUrl });
+        }
+        if (client && typeof client.upsert === 'function' && typeof _memberPfpsMap !== 'undefined') {
+          await client.upsert('bb_config', { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) }, 'key');
+        }
+      } catch (pfpSyncErr) {
+        console.warn('Sync pfp to bb_members / bb_config note:', pfpSyncErr);
+      }
+
       if (typeof showToast === 'function') {
         showToast('Profile picture updated successfully (EXIF GPS data stripped).', 'success');
       }
@@ -4104,6 +4148,45 @@ async function uploadPfp(input) {
       rawErr = parsed.message || parsed.error || rawErr;
     } catch (_) {}
     if (typeof showToast === 'function') showToast('Failed to upload photo: ' + rawErr, 'error');
+  }
+}
+
+/**
+ * Refreshes active authenticated member's profile from bb_members table
+ * Ensures member name, rank, photo_url, section, and department are synced across all devices.
+ */
+async function refreshLoggedInUserProfile() {
+  if (typeof sessionGet !== 'function') return;
+  var id = sessionGet('ic') || sessionGet('email');
+  if (!id) return;
+  try {
+    var client = getSupa();
+    if (!client || typeof client.get !== 'function') return;
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=id,ic,email,name,rank,squad,section,department,att_section,photo_url');
+    if (data && data.length > 0) {
+      var m = data[0];
+      if (m.name && sessionGet('name') !== m.name) {
+        sessionSet('name', m.name);
+        var sn = document.getElementById('sidebar-user-name');
+        if (sn) sn.textContent = m.name;
+      }
+      if (m.rank && sessionGet('rank') !== m.rank) {
+        sessionSet('rank', m.rank);
+        var sb = document.getElementById('sidebar-user-badge');
+        if (sb) sb.textContent = m.rank || 'Member';
+      }
+      if (m.photo_url) {
+        if (sessionGet('photo_url') !== m.photo_url) sessionSet('photo_url', m.photo_url);
+        if (typeof _memberPfpsMap !== 'undefined') {
+          _memberPfpsMap[id.toLowerCase()] = m.photo_url;
+          if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = m.photo_url;
+        }
+      }
+      if (m.department && sessionGet('department') !== m.department) sessionSet('department', m.department);
+      if ((m.att_section || m.section) && sessionGet('section') !== (m.att_section || m.section)) sessionSet('section', m.att_section || m.section);
+    }
+  } catch (err) {
+    console.warn('refreshLoggedInUserProfile error:', err);
   }
 }
 
@@ -4535,6 +4618,7 @@ if (typeof window !== 'undefined') {
   window.handlePfpRingClick           = handlePfpRingClick;
   window.setRemovePfpButtonVisible    = setRemovePfpButtonVisible;
   window.removePfp                    = removePfp;
+  window.refreshLoggedInUserProfile   = refreshLoggedInUserProfile;
   window.renderDashboard              = renderDashboard;
   window.loadMemberOrders             = loadMemberOrders;
   window.logoutMember                 = logoutMember;
@@ -4622,6 +4706,7 @@ if (typeof module !== 'undefined' && module.exports) {
     handlePfpRingClick,
     setRemovePfpButtonVisible,
     removePfp,
+    refreshLoggedInUserProfile,
     renderDashboard,
     loadMemberOrders,
     logoutMember,

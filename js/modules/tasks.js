@@ -1107,10 +1107,10 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
   var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
   var dotTitle = safeName + ' (' + dotLabel + ')';
-  var dotSz = Math.max(7, Math.round(sz * 0.28));
-  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+  var dotSz = Math.max(8, Math.round(sz * 0.32));
+  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
-  var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';
+  var overflowRule = 'visible';
 
   if (photoUrl) {
     return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
@@ -1149,10 +1149,9 @@ function renderColumnsFromTasks(tasksList) {
   var cols = { planning: [], todo: [], inprogress: [], inreview: [], completed: [] };
   (tasksList || []).forEach(function(t) {
     if (_activeProject && _activeProject.toLowerCase() !== 'all' && _activeProject.toLowerCase() !== 'all tasks') {
-      var pName = getTaskProjectName(t).toLowerCase();
-      var deptName = (t.department || '').toLowerCase();
+      var pName = (t.project_name && t.project_name.trim()) ? t.project_name.trim().toLowerCase() : getTaskProjectName(t).toLowerCase();
       var activeLower = _activeProject.toLowerCase();
-      if (pName !== activeLower && deptName !== activeLower) return;
+      if (pName !== activeLower) return;
     }
     var k = normalizeTaskStatus(t.status);
     if (cols[k]) cols[k].push(t);
@@ -3431,9 +3430,19 @@ function openCreateTaskModal(defaultStatus) {
   modal.style.display = 'flex';
   modal.setAttribute('data-target-status', defaultStatus || 'todo');
 
+  var targetDept = 'general';
+  if (_activeProject) {
+    var pLower = _activeProject.toLowerCase().trim();
+    if (DEPT_CONFIG[pLower]) {
+      targetDept = pLower;
+    } else {
+      Object.keys(DEPT_CONFIG).forEach(function(k) {
+        if (DEPT_CONFIG[k].label.toLowerCase() === pLower) targetDept = k;
+      });
+    }
+  }
   var deptInput = modal.querySelector('.new-task-dept-input');
-  var currentDept = (deptInput && deptInput.value) || (_currentDeptFilter !== 'all' ? _currentDeptFilter : 'logistics');
-  if (deptInput) deptInput.value = currentDept;
+  if (deptInput) deptInput.value = targetDept;
 
   var projInput = modal.querySelector('.new-task-project-input');
   if (projInput) {
@@ -3557,7 +3566,18 @@ async function handleCreateTaskSubmit(e) {
     return;
   }
 
-  var dept = deptEl ? deptEl.value : 'logistics';
+  var matchedDept = 'general';
+  if (projectName) {
+    var prjLower = projectName.toLowerCase().trim();
+    if (DEPT_CONFIG[prjLower]) {
+      matchedDept = prjLower;
+    } else {
+      Object.keys(DEPT_CONFIG).forEach(function(k) {
+        if (DEPT_CONFIG[k].label.toLowerCase() === prjLower) matchedDept = k;
+      });
+    }
+  }
+  var dept = (deptEl && deptEl.value && deptEl.value !== 'logistics') ? deptEl.value : matchedDept;
   var assigneeIc = assEl ? assEl.value : '';
   var assigneeName = (assEl && assEl.selectedIndex >= 0 && assEl.options[assEl.selectedIndex].text) || '';
   if (assigneeName === 'Unassigned') assigneeName = '';

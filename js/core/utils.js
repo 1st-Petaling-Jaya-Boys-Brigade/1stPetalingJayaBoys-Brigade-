@@ -1173,10 +1173,51 @@ function resolveMemberDirectoryInfo(nameOrId) {
   return null;
 }
 
+var _memberPfpsMap = (function() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var cached = localStorage.getItem('bb_member_pfps');
+      if (cached) return JSON.parse(cached) || {};
+    }
+  } catch (_) {}
+  return {};
+})();
+
+async function loadMemberProfilePictures() {
+  try {
+    var client = (typeof supa !== 'undefined') ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null);
+    if (client && typeof client.get === 'function') {
+      var rows = await client.get('bb_config?key=eq.bb_member_pfps&select=value');
+      if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
+        var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        if (parsed && typeof parsed === 'object') {
+          Object.assign(_memberPfpsMap, parsed);
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+            }
+          } catch (_) {}
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('loadMemberProfilePictures error:', err);
+  }
+  return _memberPfpsMap;
+}
+
 function getMemberAvatarUrl(name, ic) {
   if (typeof window === 'undefined') return null;
   var cleanNm = (name || '').trim();
   var cleanId = (ic || '').trim();
+
+  // Check centralized sync map first
+  if (cleanId && _memberPfpsMap[cleanId.toLowerCase()]) {
+    return _memberPfpsMap[cleanId.toLowerCase()];
+  }
+  if (cleanNm && _memberPfpsMap[cleanNm.toLowerCase()]) {
+    return _memberPfpsMap[cleanNm.toLowerCase()];
+  }
 
   // Cross-resolve member directory info when either identifier is missing
   var resolved = resolveMemberDirectoryInfo(cleanNm || cleanId);
@@ -1184,6 +1225,9 @@ function getMemberAvatarUrl(name, ic) {
     if (!cleanNm && resolved.name) cleanNm = resolved.name;
     if (!cleanId && (resolved.email || resolved.ic)) cleanId = resolved.email || resolved.ic;
     if (resolved.photo_url) return resolved.photo_url;
+    if (resolved.ic && _memberPfpsMap[resolved.ic.toLowerCase()]) return _memberPfpsMap[resolved.ic.toLowerCase()];
+    if (resolved.email && _memberPfpsMap[resolved.email.toLowerCase()]) return _memberPfpsMap[resolved.email.toLowerCase()];
+    if (resolved.name && _memberPfpsMap[resolved.name.trim().toLowerCase()]) return _memberPfpsMap[resolved.name.trim().toLowerCase()];
   }
 
   var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
@@ -1325,11 +1369,11 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
     var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
     var dotTitle = safeName + ' (' + dotLabel + ')';
-    var dotSz = Math.max(7, Math.round(sz * 0.28));
-    dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+    var dotSz = Math.max(8, Math.round(sz * 0.32));
+    dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
   }
 
-  var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';
+  var overflowRule = 'visible';
 
   if (photoUrl) {
     return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
@@ -2329,6 +2373,8 @@ if (typeof window !== 'undefined') {
   window.getMemberAvatarInitial = getMemberAvatarInitial;
   window.getMemberAvatarColor = getMemberAvatarColor;
   window.resolveMemberDirectoryInfo = resolveMemberDirectoryInfo;
+  window._memberPfpsMap       = _memberPfpsMap;
+  window.loadMemberProfilePictures = loadMemberProfilePictures;
   window.getMemberAvatarUrl   = getMemberAvatarUrl;
   window.getDeviceSecurityInfo = getDeviceSecurityInfo;
   window.computeIntegrityMetadata = computeIntegrityMetadata;
@@ -2388,6 +2434,8 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarInitial: getMemberAvatarInitial,
     getMemberAvatarColor: getMemberAvatarColor,
     resolveMemberDirectoryInfo: resolveMemberDirectoryInfo,
+    _memberPfpsMap: _memberPfpsMap,
+    loadMemberProfilePictures: loadMemberProfilePictures,
     getMemberAvatarUrl: getMemberAvatarUrl,
     getUniversalMemberAvatarHtml: getUniversalMemberAvatarHtml,
     getDeviceSecurityInfo: getDeviceSecurityInfo,

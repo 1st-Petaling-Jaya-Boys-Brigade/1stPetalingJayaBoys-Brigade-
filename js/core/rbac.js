@@ -46,10 +46,26 @@
     'calendar'
   ];
 
-  var _rolesConfig = {
-    super_admins: [...SUPER_ADMIN_DEFAULT_EMAILS],
-    admins: {}
-  };
+  var _rolesConfig = (function() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        var cached = localStorage.getItem('bb_admin_roles');
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          if (parsed && typeof parsed === 'object') {
+            return {
+              super_admins: Array.isArray(parsed.super_admins) ? parsed.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
+              admins: (parsed.admins && typeof parsed.admins === 'object') ? parsed.admins : {}
+            };
+          }
+        }
+      }
+    } catch (_) {}
+    return {
+      super_admins: [...SUPER_ADMIN_DEFAULT_EMAILS],
+      admins: {}
+    };
+  })();
 
   function getSupabaseClient() {
     if (typeof window !== 'undefined' && window.supa) return window.supa;
@@ -77,11 +93,7 @@
    * @param {boolean} forceRefresh
    * @returns {Promise<Object>}
    */
-  async function loadRolesConfig(forceRefresh) {
-    if (_rolesConfig && !forceRefresh && Object.keys(_rolesConfig.admins).length > 0) {
-      return _rolesConfig;
-    }
-
+  async function loadRolesConfig(_forceRefresh) {
     try {
       var client = getSupabaseClient();
       if (client) {
@@ -93,6 +105,13 @@
               super_admins: Array.isArray(parsed.super_admins) ? parsed.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
               admins: (parsed.admins && typeof parsed.admins === 'object') ? parsed.admins : {}
             };
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('bb_admin_roles', JSON.stringify(_rolesConfig));
+              }
+            } catch (_) {}
+            renderHeaderRoleBadge();
+            syncAdminButtonVisibility();
             return _rolesConfig;
           }
         }
@@ -100,7 +119,8 @@
     } catch (err) {
       console.warn('RBAC loadRolesConfig note:', err);
     }
-
+    renderHeaderRoleBadge();
+    syncAdminButtonVisibility();
     return _rolesConfig;
   }
 
@@ -169,7 +189,8 @@
         userEmail = cleanEmail(getSession('email') || getSession('ic'));
       }
       if (userEmail && _rolesConfig && _rolesConfig.admins && _rolesConfig.admins[userEmail]) {
-        var perms = _rolesConfig.admins[userEmail].permissions;
+        var adminEntry = _rolesConfig.admins[userEmail];
+        var perms = Array.isArray(adminEntry) ? adminEntry : (adminEntry && adminEntry.permissions);
         if (Array.isArray(perms) && perms.length > 0) {
           return perms;
         }
@@ -300,18 +321,33 @@
       };
     }
 
+    // Persist to local storage immediately
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_admin_roles', JSON.stringify(_rolesConfig));
+      }
+    } catch (_) {}
+
     // Persist to bb_config
     if (client) {
       try {
-        await client.upsert('bb_config', {
-          key: 'bb_admin_roles',
-          value: JSON.stringify(_rolesConfig),
-          updated_at: new Date().toISOString()
-        }, 'key');
+        if (typeof client.upsert === 'function') {
+          await client.upsert('bb_config', {
+            key: 'bb_admin_roles',
+            value: JSON.stringify(_rolesConfig)
+          }, 'key');
+        } else if (typeof client.req === 'function') {
+          await client.req('POST', 'bb_config?on_conflict=key', {
+            key: 'bb_admin_roles',
+            value: JSON.stringify(_rolesConfig)
+          }, { headers: { 'Prefer': 'resolution=merge-duplicates' } });
+        }
       } catch (saveErr) {
         console.warn('Failed to save bb_admin_roles to Supabase:', saveErr);
       }
     }
+    renderHeaderRoleBadge();
+    syncAdminButtonVisibility();
 
     // Log mutation in bb_audit_logs if available
     if (typeof logAuditEvent === 'function') {

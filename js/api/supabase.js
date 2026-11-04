@@ -495,6 +495,56 @@ const supa = {
    * @param {string} key
    * @returns {any}
    */
+  /**
+   * Retrieves a parsed config value from bb_config table
+   * @param {string} key
+   * @returns {Promise<any>}
+   */
+  async getConfig(key) {
+    if (!key) return null;
+    try {
+      const client = (this && typeof this.get === 'function') ? this : supa;
+      const rows = await client.get('bb_config?key=eq.' + encodeURIComponent(key) + '&select=value');
+      if (Array.isArray(rows) && rows.length > 0 && rows[0] && rows[0].value !== undefined) {
+        try {
+          return JSON.parse(rows[0].value);
+        } catch (_) {
+          return rows[0].value;
+        }
+      }
+    } catch (e) {
+      console.warn('getConfig error for ' + key + ':', e.message);
+    }
+    return null;
+  },
+
+  /**
+   * Upserts a config value to bb_config table
+   * @param {string} key
+   * @param {any} value
+   * @returns {Promise<boolean>}
+   */
+  async setConfig(key, value) {
+    if (!key) return false;
+    try {
+      const client = (this && typeof this.upsert === 'function') ? this : supa;
+      const valStr = typeof value === 'string' ? value : JSON.stringify(value);
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', { key: key, value: valStr }, 'key');
+        return true;
+      }
+      if (typeof client.req === 'function') {
+        await client.req('POST', 'bb_config?on_conflict=key', { key: key, value: valStr }, {
+          headers: { 'Prefer': 'resolution=merge-duplicates' }
+        });
+        return true;
+      }
+    } catch (e) {
+      console.warn('setConfig error for ' + key + ':', e.message);
+    }
+    return false;
+  },
+
   getConfigSnapshot(key) {
     return _configSnapshots[key] || null;
   },
@@ -1003,6 +1053,8 @@ if (typeof module !== 'undefined' && module.exports) {
     rpc: supa.rpc,
     mergeConfigCollections,
     recordConfigSnapshot: supa.recordConfigSnapshot,
+    getConfig: supa.getConfig,
+    setConfig: supa.setConfig,
     getConfigSnapshot: supa.getConfigSnapshot,
     clearConfigSnapshots: supa.clearConfigSnapshots,
     clearQueryCache: supa.clearQueryCache,
