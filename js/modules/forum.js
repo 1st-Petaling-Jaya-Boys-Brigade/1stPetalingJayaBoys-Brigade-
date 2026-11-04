@@ -225,6 +225,85 @@ var FAQ_KNOWLEDGE_BASE = [
   }
 ];
 
+// ── Forum Reply Notifications Synchronization ──────────────────────────────
+function syncForumNotifications(posts) {
+  var list = Array.isArray(posts) ? posts : (typeof forumPosts !== 'undefined' ? forumPosts : []);
+  if (!Array.isArray(list) || !list.length) return;
+
+  if (typeof window !== 'undefined' && typeof window.syncForumNotifications === 'function' && window.syncForumNotifications !== syncForumNotifications) {
+    window.syncForumNotifications(list);
+    return;
+  }
+
+  var notifArray = (typeof window !== 'undefined' && Array.isArray(window._allPortalNotifications))
+    ? window._allPortalNotifications
+    : ((typeof global !== 'undefined' && Array.isArray(global._allPortalNotifications)) ? global._allPortalNotifications : null);
+  if (!notifArray) return;
+
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
+  var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '').toLowerCase().trim() : '';
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '').toLowerCase().trim() : '';
+  if (!myEmail && !myIc && !myName) return;
+
+  list.forEach(function(p) {
+    if (!p || !p.id || !Array.isArray(p.replies) || !p.replies.length) return;
+
+    var pEmail = (p.authorEmail || '').toLowerCase().trim();
+    var pIc = (p.authorIc || '').toLowerCase().trim();
+    var pName = (p.authorName || '').toLowerCase().trim();
+
+    var isPostAuthor = (pEmail && myEmail && pEmail === myEmail)
+      || (pIc && myIc && pIc === myIc)
+      || (pName && myName && pName === myName);
+    if (!isPostAuthor) return;
+
+    p.replies.forEach(function(r, idx) {
+      if (!r) return;
+      var rId = r.id || (p.id + '-rep-' + idx);
+      var notifId = 'notif-forum-reply-' + rId;
+
+      var rEmail = (r.authorEmail || '').toLowerCase().trim();
+      var rIc = (r.authorIc || '').toLowerCase().trim();
+      var rName = (r.authorName || '').toLowerCase().trim();
+
+      var isSelfReply = (rEmail && myEmail && rEmail === myEmail)
+        || (rIc && myIc && rIc === myIc)
+        || (rName && myName && rName === myName);
+      if (isSelfReply) return;
+
+      var existing = notifArray.find(function(n) { return n.id === notifId; });
+      if (!existing) {
+        var replierName = r.authorName || 'Someone';
+        var cleanSnippet = (r.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleanSnippet.length > 70) cleanSnippet = cleanSnippet.slice(0, 67) + '...';
+        var initials = replierName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase() || 'BB';
+
+        notifArray.unshift({
+          id: notifId,
+          category: 'announcements',
+          group: 'Today',
+          avatarInitials: initials,
+          icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+          title: replierName + ' replied to your forum discussion',
+          snippet: (p.title ? ('"' + p.title + '": ') : '') + (cleanSnippet || 'Tap to view discussion.'),
+          time: r.date || 'Today',
+          unread: true,
+          action: function() {
+            if (typeof switchTabNav === 'function') switchTabNav('forum');
+            if (typeof openForumPostDetail === 'function') openForumPostDetail(p.id);
+          }
+        });
+      }
+    });
+  });
+
+  if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
+    window.renderNotifications();
+  } else if (typeof global !== 'undefined' && typeof global.renderNotifications === 'function') {
+    global.renderNotifications();
+  }
+}
+
 // ── Persistence Layer ────────────────────────────────────────────────────────
 async function loadForumPosts() {
   try {
@@ -233,6 +312,7 @@ async function loadForumPosts() {
       if (Array.isArray(remote) && remote.length > 0) {
         forumPosts = remote;
         renderForumFeed();
+        syncForumNotifications(forumPosts);
         return;
       }
     }
@@ -248,6 +328,7 @@ async function loadForumPosts() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           forumPosts = parsed;
           renderForumFeed();
+          syncForumNotifications(forumPosts);
           return;
         }
       }
@@ -256,6 +337,7 @@ async function loadForumPosts() {
 
   forumPosts = JSON.parse(JSON.stringify(DEFAULT_FORUM_POSTS));
   renderForumFeed();
+  syncForumNotifications(forumPosts);
 }
 
 async function saveForumPosts(posts) {
@@ -274,6 +356,7 @@ async function saveForumPosts(posts) {
     console.warn('Could not persist forum posts to Supabase:', err);
   }
   renderForumFeed();
+  syncForumNotifications(forumPosts);
 }
 
 // ── DOM Element Safe Removal Helper ──────────────────────────────────────────
@@ -1096,6 +1179,7 @@ function submitNewForumPost(e, customPost) {
 
   forumPosts.unshift(newPost);
   saveForumPosts(forumPosts);
+  syncForumNotifications(forumPosts);
 
   if (typeof document !== 'undefined') {
     var modal = document.getElementById('forum-create-modal');
@@ -1586,6 +1670,7 @@ if (typeof window !== 'undefined') {
   window.saveForumPosts            = saveForumPosts;
   window.ensureForumPageDOM        = ensureForumPageDOM;
   window.getForumMemberAvatarHtml  = getForumMemberAvatarHtml;
+  window.syncForumNotifications    = syncForumNotifications;
   window.renderForumPage           = renderForumPage;
   window.renderForumFeed           = renderForumFeed;
   window.toggleHelperAgent         = toggleHelperAgent;
@@ -1619,6 +1704,7 @@ if (typeof module !== 'undefined' && module.exports) {
     saveForumPosts: saveForumPosts,
     ensureForumPageDOM: ensureForumPageDOM,
     getForumMemberAvatarHtml: getForumMemberAvatarHtml,
+    syncForumNotifications: syncForumNotifications,
     renderForumPage: renderForumPage,
     renderForumFeed: renderForumFeed,
     toggleHelperAgent: toggleHelperAgent,

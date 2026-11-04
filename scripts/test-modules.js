@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104g',
-    'sw.js CACHE_VERSION must be 20261104g'
+    '20261104h',
+    'sw.js CACHE_VERSION must be 20261104h'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104g',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104h',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6697,6 +6697,85 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(memberAvatar.includes('>D<'), 'Member avatar must include initial D');
     console.log('  ✔ Forum member avatar rendering with equipped cosmetics and custom byline hover tooltips verified');
 
+    // 4e. Forum Thread Reply Notifications (John & Jeshua example)
+    const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    assert.strictEqual(typeof forumMod.syncForumNotifications, 'function', 'syncForumNotifications must be exported from forum.js');
+    assert.ok(idxHtml.includes('syncForumNotifications'), 'index.html must implement syncForumNotifications');
+    assert.ok(idxHtml.includes('window.syncForumNotifications'), 'index.html must export window.syncForumNotifications');
+
+    // Simulate scenario: John creates a forum post, Jeshua replies to John's post
+    const samplePost = {
+      id: 'post-test-401',
+      title: 'my attendance is bugged',
+      authorName: 'John Doe',
+      authorEmail: 'johndoe@gmail.com',
+      authorRank: 'Lance Corporal',
+      replies: [
+        {
+          id: 'rep-test-501',
+          authorName: 'Jeshua Koh',
+          authorEmail: 'jeshuakoh2008@gmail.com',
+          authorRank: 'Sergeant',
+          content: 'I escalated this with Captain, the attendance sync will run tonight.',
+          date: '04 Nov 2026'
+        }
+      ]
+    };
+
+    global._allPortalNotifications = global._allPortalNotifications || [];
+    global._allPortalNotifications.length = 0; // reset test queue
+
+    // Case A: When John Doe is logged in, John Doe MUST receive a notification that Jeshua replied
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'johndoe@gmail.com');
+      global.sessionSet('name', 'John Doe');
+      global.sessionSet('ic', '080101-14-1234');
+    }
+    forumMod.syncForumNotifications([samplePost]);
+
+    const johnNotif = global._allPortalNotifications.find(n => n.id === 'notif-forum-reply-rep-test-501');
+    assert.ok(johnNotif, 'John Doe must receive notification when Jeshua replies to John\'s forum post');
+    assert.strictEqual(johnNotif.title, 'Jeshua Koh replied to your forum discussion');
+    assert.ok(johnNotif.snippet.includes('my attendance is bugged'), 'Snippet must mention forum thread title');
+    assert.ok(johnNotif.snippet.includes('escalated this with Captain'), 'Snippet must preview reply content');
+    assert.strictEqual(johnNotif.unread, true, 'New reply notification must be marked unread');
+    assert.strictEqual(typeof johnNotif.action, 'function', 'Notification must have a clickable action handler');
+
+    // Case B: Jeshua Koh (the replier) must NOT receive a notification for their own reply
+    global._allPortalNotifications.length = 0;
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'jeshuakoh2008@gmail.com');
+      global.sessionSet('name', 'Jeshua Koh');
+      global.sessionSet('ic', '080101-14-5678');
+    }
+    forumMod.syncForumNotifications([samplePost]);
+    const jeshuaSelfNotif = global._allPortalNotifications.find(n => n.id === 'notif-forum-reply-rep-test-501');
+    assert.strictEqual(jeshuaSelfNotif, undefined, 'Jeshua Koh (the replier) must not receive notification for their own reply');
+
+    // Case C: Author replying to their own post must not trigger self-notification
+    const postWithSelfReply = {
+      id: 'post-test-402',
+      title: 'Self thread update',
+      authorName: 'John Doe',
+      authorEmail: 'johndoe@gmail.com',
+      replies: [
+        {
+          id: 'rep-test-502',
+          authorName: 'John Doe',
+          authorEmail: 'johndoe@gmail.com',
+          content: 'Nevermind I found the solution myself!'
+        }
+      ]
+    };
+    global._allPortalNotifications.length = 0;
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('email', 'johndoe@gmail.com');
+      global.sessionSet('name', 'John Doe');
+    }
+    forumMod.syncForumNotifications([postWithSelfReply]);
+    assert.strictEqual(global._allPortalNotifications.length, 0, 'Self-reply by the post author must not trigger notification');
+    console.log('  ✔ Forum post reply notifications (John & Jeshua scenario) verified with self-reply prevention');
+
     // 5. CSS Components Integration
     const compCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');
     assert.ok(compCss.includes('.helper-agent-btn'), 'components.css must define .helper-agent-btn');
@@ -6707,9 +6786,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Helper Agent and Support Forum UI styles verified in components.css');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
-    const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104g'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104h'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
