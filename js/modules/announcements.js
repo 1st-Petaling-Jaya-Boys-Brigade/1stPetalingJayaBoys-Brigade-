@@ -6,6 +6,8 @@
  * emoji reactions, and admin post/edit/delete operations.
  */
 
+/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal */
+
 // ── State ──────────────────────────────────────────────────────────────────
 var announcements = [];
 
@@ -21,6 +23,87 @@ var ANN_EMOJIS = [
 ];
 
 var _annSavedRange = null;
+
+// ── Announcement Infographic / Poster State ────────────────────────────────
+var _stagedAnnouncementImage = null;
+
+function handleAnnouncementImageSelect(event) {
+  if (!event || !event.target || !event.target.files || !event.target.files[0]) return;
+  var file = event.target.files[0];
+  if (!file.type.startsWith('image/')) {
+    if (typeof showToast === 'function') showToast('Please select a valid image file (PNG, JPG, WebP, GIF).', 'warning');
+    return;
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    if (typeof showToast === 'function') showToast('Image file size exceeds 15MB limit.', 'warning');
+    return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var dataUrl = e.target.result;
+    var sizeStr = (file.size < 1024 * 1024) ? Math.round(file.size / 1024) + ' KB' : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+    _stagedAnnouncementImage = {
+      file: file,
+      dataUrl: dataUrl,
+      url: dataUrl,
+      filename: file.name,
+      sizeStr: sizeStr
+    };
+    updateAnnouncementInfographicPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleAnnouncementImageUrlInput(val) {
+  var raw = (val || '').trim();
+  if (!raw) {
+    clearAnnouncementInfographic();
+    return;
+  }
+  var valid = (typeof safeUrl === 'function') ? safeUrl(raw, '') : raw;
+  if (!valid) {
+    if (typeof showToast === 'function') showToast('Please enter a valid HTTP/HTTPS image URL.', 'warning');
+    return;
+  }
+  _stagedAnnouncementImage = {
+    file: null,
+    dataUrl: '',
+    url: valid,
+    filename: valid.split('/').pop().split('?')[0] || 'Image URL',
+    sizeStr: 'External URL'
+  };
+  updateAnnouncementInfographicPreview();
+}
+
+function updateAnnouncementInfographicPreview() {
+  if (typeof document === 'undefined') return;
+  var wrap = document.querySelector('.ann-infographic-preview-wrap');
+  if (!wrap) return;
+  if (!_stagedAnnouncementImage || !_stagedAnnouncementImage.url) {
+    wrap.style.display = 'none';
+    return;
+  }
+  var thumb = wrap.querySelector('.ann-infographic-preview-thumb');
+  if (thumb) thumb.src = _stagedAnnouncementImage.url;
+  var nameEl = wrap.querySelector('.ann-infographic-preview-name');
+  if (nameEl) nameEl.textContent = _stagedAnnouncementImage.filename || 'Infographic';
+  var sizeEl = wrap.querySelector('.ann-infographic-preview-size');
+  if (sizeEl) sizeEl.textContent = _stagedAnnouncementImage.sizeStr || '';
+  wrap.style.display = 'flex';
+}
+
+function clearAnnouncementInfographic() {
+  _stagedAnnouncementImage = null;
+  if (typeof document === 'undefined') return;
+  var wrap = document.querySelector('.ann-infographic-preview-wrap');
+  if (wrap) wrap.style.display = 'none';
+  var fileInput = document.querySelector('.ann-infographic-file-input');
+  if (fileInput) fileInput.value = '';
+  var urlInput = document.querySelector('.ann-infographic-url-input');
+  if (urlInput) urlInput.value = '';
+}
+
 
 // ── Security: HTML Sanitizer for Announcements ──────────────────────────────
 /**
@@ -51,9 +134,10 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
   var ALLOWED_TAGS = [
     'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE',
     'P', 'BR', 'HR', 'UL', 'OL', 'LI', 'SPAN', 'FONT',
-    'DIV', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE'
+    'DIV', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE',
+    'CODE', 'PRE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG'
   ];
-  var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel'];
+  var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel', 'class', 'align', 'src', 'alt', 'title', 'width', 'height', 'loading', 'type', 'checked', 'disabled'];
 
   function clean(node) {
     var children = Array.from(node.childNodes);
@@ -61,7 +145,8 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
       var child = children[i];
       if (child.nodeType === 1) { // Element node
         var tagName = child.tagName.toUpperCase();
-        if (ALLOWED_TAGS.indexOf(tagName) === -1) {
+        var isChecklistInput = tagName === 'INPUT' && (child.getAttribute('type') || '').toLowerCase() === 'checkbox';
+        if (ALLOWED_TAGS.indexOf(tagName) === -1 && !isChecklistInput) {
           if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'SVG', 'LINK', 'META', 'BASE'].indexOf(tagName) !== -1) {
             node.removeChild(child);
             continue;
@@ -86,6 +171,20 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
             } else {
               child.setAttribute('target', '_blank');
               child.setAttribute('rel', 'noopener noreferrer');
+            }
+          } else if (attrName === 'src') {
+            var srcVal = (attr.value || '').trim();
+            if (typeof safeUrl === 'function') {
+              var validSrc = safeUrl(srcVal, '');
+              if (!validSrc || validSrc === '#') {
+                child.removeAttribute(attr.name);
+              } else {
+                child.setAttribute('src', validSrc);
+              }
+            } else if (/^(https?:|\/|\.\/|data:image\/)/i.test(srcVal)) {
+              child.setAttribute('src', srcVal);
+            } else {
+              child.removeAttribute(attr.name);
             }
           } else if (attrName === 'style') {
             var styleVal = attr.value || '';
@@ -204,15 +303,51 @@ function renderAnnouncements() {
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || '');
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
 
+    // Prominent large infographic banner (TSK-010 / Infographics)
+    var infographicHtml = '';
+    var imgUrl = a.image_url || '';
+    if (!imgUrl && sanitizedBody) {
+      var imgMatch = sanitizedBody.match(/data-infographic-url=["']([^"']+)["']/i) || sanitizedBody.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (imgMatch && imgMatch[1]) {
+        imgUrl = imgMatch[1];
+      }
+    }
+    if (imgUrl) {
+      var safeImgUrl = (typeof safeUrl === 'function') ? safeUrl(imgUrl, '') : imgUrl;
+      if (safeImgUrl) {
+        infographicHtml = '<div class="ann-infographic-container" data-ann-img-idx="' + realIdx + '" title="Click to enlarge infographic">'
+          + '<img class="ann-infographic-img" src="' + safeImgUrl + '" alt="' + safeTitle + '" loading="lazy" />'
+          + '<div class="ann-infographic-zoom-overlay">'
+          + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>'
+          + '<span>Click to enlarge</span>'
+          + '</div></div>';
+      }
+    }
+
     html += '<div class="announcement-item" id="ann-item-' + realIdx + '">'
       + '<div class="ann-date">' + safeDate + '</div>'
       + '<div class="ann-title">' + safeTitle + '</div>'
+      + infographicHtml
       + '<div class="ann-body">' + sanitizedBody + '</div>'
       + reactHtml
       + '</div>';
   });
 
   list.innerHTML = html;
+
+  // Click listener for full large infographic zoom lightbox
+  list.querySelectorAll('[data-ann-img-idx]').forEach(function(wrap) {
+    wrap.addEventListener('click', function() {
+      var idx = parseInt(wrap.getAttribute('data-ann-img-idx'), 10);
+      var item = announcements[idx];
+      var imgEl = wrap.querySelector('.ann-infographic-img');
+      var url = (item && item.image_url) || (imgEl ? imgEl.src : '');
+      var title = (item && item.title) || '';
+      if (typeof openAnnouncementZoomModal === 'function') {
+        openAnnouncementZoomModal(url, title);
+      }
+    });
+  });
 
   // Attach reaction listeners
   list.querySelectorAll('[data-react]').forEach(function(btn) {
@@ -343,6 +478,18 @@ function openEditAnnouncement(idx) {
   }
 
   if (ti) ti.scrollIntoView({ behavior: 'smooth' });
+  if (a.image_url) {
+    _stagedAnnouncementImage = {
+      file: null,
+      dataUrl: '',
+      url: a.image_url,
+      filename: 'Attached Infographic',
+      sizeStr: 'Saved Banner'
+    };
+    updateAnnouncementInfographicPreview();
+  } else {
+    clearAnnouncementInfographic();
+  }
 }
 
 /**
@@ -360,6 +507,7 @@ function cancelEditAnnouncement() {
     btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
     btn.removeAttribute('data-edit-idx');
   }
+  clearAnnouncementInfographic();
 }
 
 
@@ -472,13 +620,41 @@ async function addAnnouncement() {
   if (btn) btn.disabled = true;
 
   try {
+    // Process optional attached infographic image
+    var infographicUrl = '';
+    if (_stagedAnnouncementImage) {
+      if (_stagedAnnouncementImage.file && typeof uploadSingleMediaFile === 'function') {
+        try {
+          var uploadRes = await uploadSingleMediaFile(_stagedAnnouncementImage.file);
+          if (uploadRes && uploadRes.url) {
+            infographicUrl = uploadRes.url;
+          } else {
+            infographicUrl = _stagedAnnouncementImage.url;
+          }
+        } catch (_) {
+          infographicUrl = _stagedAnnouncementImage.url;
+        }
+      } else {
+        infographicUrl = _stagedAnnouncementImage.url || '';
+      }
+    }
+
     if (editIdx >= 0) {
       var a = announcements[editIdx];
       if (a) {
         a.title = title;
         a.body  = sanitizedBody;
+        if (infographicUrl) a.image_url = infographicUrl;
+        else if (!_stagedAnnouncementImage) a.image_url = null;
+
         if (typeof supa !== 'undefined' && supa.patch && a.id) {
-          await supa.patch('bb_announcements?id=eq.' + a.id, { title: title, body: sanitizedBody });
+          var patchPayload = { title: title, body: sanitizedBody };
+          if (typeof a.image_url !== 'undefined') patchPayload.image_url = a.image_url;
+          try {
+            await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
+          } catch (_) {
+            await supa.patch('bb_announcements?id=eq.' + a.id, { title: title, body: sanitizedBody });
+          }
         }
       }
       if (btn) {
@@ -500,10 +676,23 @@ async function addAnnouncement() {
         reactions: {},
         created_at: new Date().toISOString()
       };
+      if (infographicUrl) {
+        newRecord.image_url = infographicUrl;
+      }
       if (typeof supa !== 'undefined' && supa.post) {
-        var row = await supa.post('bb_announcements', newRecord);
-        if (row && row[0]) {
-          announcements.push(row[0]);
+        try {
+          var row = await supa.post('bb_announcements', newRecord);
+          if (row && row[0]) {
+            announcements.push(row[0]);
+          }
+        } catch (err) {
+          // Schema fallback if image_url column not yet applied on remote backend
+          delete newRecord.image_url;
+          var retryRow = await supa.post('bb_announcements', newRecord);
+          if (retryRow && retryRow[0]) {
+            retryRow[0].image_url = infographicUrl;
+            announcements.push(retryRow[0]);
+          }
         }
       }
       var broadcastCheckNew = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
@@ -515,6 +704,7 @@ async function addAnnouncement() {
       }
     }
 
+    clearAnnouncementInfographic();
     if (titleEl) titleEl.value = '';
     if (bodyEl)  bodyEl.innerHTML = '';
     renderAnnouncements();
@@ -697,6 +887,10 @@ if (typeof window !== 'undefined') {
   window.annColor                 = annColor;
   window.annInsertLine            = annInsertLine;
   window.toggleAnnEmoji           = toggleAnnEmoji;
+  window.handleAnnouncementImageSelect    = handleAnnouncementImageSelect;
+  window.handleAnnouncementImageUrlInput  = handleAnnouncementImageUrlInput;
+  window.updateAnnouncementInfographicPreview = updateAnnouncementInfographicPreview;
+  window.clearAnnouncementInfographic     = clearAnnouncementInfographic;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -722,6 +916,10 @@ if (typeof module !== 'undefined' && module.exports) {
     annFontSize: annFontSize,
     annColor: annColor,
     annInsertLine: annInsertLine,
-    toggleAnnEmoji: toggleAnnEmoji
+    toggleAnnEmoji: toggleAnnEmoji,
+    handleAnnouncementImageSelect: handleAnnouncementImageSelect,
+    handleAnnouncementImageUrlInput: handleAnnouncementImageUrlInput,
+    updateAnnouncementInfographicPreview: updateAnnouncementInfographicPreview,
+    clearAnnouncementInfographic: clearAnnouncementInfographic,
   };
 }

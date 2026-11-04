@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -1841,7 +1841,12 @@ function handleTaskDescBlur(el) {
 /**
  * Rich Text Editing Command Handler for Task Brief (Image 5)
  */
-function formatTaskDesc(cmd, val) {
+function formatTaskDesc(cmd, val, btnEl) {
+  if (typeof document === 'undefined') return;
+  if (typeof executeRichFormat === 'function') {
+    executeRichFormat(cmd, val, btnEl || document.getElementById('tdm-desc'));
+    return;
+  }
   if (typeof document === 'undefined') return;
   document.execCommand(cmd, false, val || null);
   var descEl = document.getElementById('tdm-desc');
@@ -3212,7 +3217,11 @@ function openCreateTaskModal(defaultStatus) {
 function closeCreateTaskModal() {
   if (typeof document === 'undefined') return;
   var modal = document.querySelector('.task-create-modal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.display = 'none';
+    var dEl = modal.querySelector('.new-task-desc-input');
+    if (dEl && dEl.isContentEditable) dEl.innerHTML = '';
+  }
 }
 
 /**
@@ -3327,7 +3336,7 @@ async function handleCreateTaskSubmit(e) {
     setTasksViewMode('projects');
     return;
   }
-  var rawDesc = descEl ? descEl.value.trim() : '';
+  var rawDesc = descEl ? (descEl.isContentEditable ? descEl.innerHTML.trim() : descEl.value.trim()) : '';
   var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
   var targetStatus = modal.getAttribute('data-target-status') || 'todo';
   var fullDesc = buildTaskDescriptionWithMeta({ project_name: projectName, estimate: estimate }, desc);
@@ -3363,7 +3372,7 @@ async function handleCreateTaskSubmit(e) {
   // Close modal and clear inputs immediately (< 15ms)
   closeCreateTaskModal();
   if (titleEl) titleEl.value = '';
-  if (descEl) descEl.value = '';
+  if (descEl) { if (descEl.isContentEditable) descEl.innerHTML = ''; else descEl.value = ''; }
   if (dueEl) dueEl.value = '';
   if (estEl) estEl.value = '';
   if (projEl) projEl.value = '';

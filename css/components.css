@@ -9109,3 +9109,269 @@ select.form-input,
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   TSK-010 / TSK-009: Rich Text Formatting Toolbar & Announcement Infographics
+   ========================================================================== */
+
+/* 1. Sleek Rich Text Formatting Toolbar (Image 1 Layout & Icons) */
+.task-brief-toolbar,
+.new-task-desc-toolbar,
+.ann-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  flex-wrap: wrap;
+  user-select: none;
+  position: relative;
+}
+
+.tb-btn,
+.rich-tb-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s ease;
+  position: relative;
+  outline: none;
+}
+
+.tb-btn:hover,
+.rich-tb-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.tb-btn:active,
+.rich-tb-btn:active,
+.tb-btn.is-active,
+.rich-tb-btn.is-active {
+  background: rgba(232, 184, 48, 0.18);
+  color: var(--gold, #d9a323);
+  border-color: rgba(232, 184, 48, 0.35);
+}
+
+.tb-btn-dropdown-trigger {
+  width: auto;
+  padding: 0 6px;
+  gap: 4px;
+}
+
+.tb-divider-vert {
+  width: 1px;
+  height: 18px;
+  background: var(--border-card);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* 2. Dropdown Menus (Headings, Alignment, Table) */
+.tb-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 1000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: var(--shadow-elevated, 0 10px 25px rgba(0,0,0,0.4));
+  padding: 4px;
+  min-width: 130px;
+  flex-direction: column;
+  gap: 2px;
+  animation: menuPopIn 0.12s ease-out;
+}
+
+.tb-dropdown-item {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  transition: all 0.12s;
+  outline: none;
+}
+
+.tb-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+/* 3. Image 5 Color Picker Popover (80-Swatch Palette & Custom Input) */
+.rich-color-popover {
+  position: absolute;
+  z-index: 9999;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  padding: 12px;
+  width: 250px;
+  animation: menuPopIn 0.15s ease-out;
+}
+
+.rcp-swatch {
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+  outline: none;
+  border-radius: 50%;
+}
+
+.rcp-swatch:hover {
+  transform: scale(1.22);
+  border-color: #fff !important;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+.rcp-custom-btn-wrap:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+
+/* 4. Full Large Announcement Infographic in Home Feed */
+.ann-infographic-container {
+  position: relative;
+  width: 100%;
+  margin: 12px 0 14px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+  background: rgba(0, 0, 0, 0.25);
+  cursor: zoom-in;
+  max-height: 520px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ann-infographic-container:hover {
+  border-color: var(--accent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.ann-infographic-img {
+  width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  display: block;
+  border-radius: 9px;
+  transition: transform 0.2s ease;
+}
+
+.ann-infographic-container:hover .ann-infographic-img {
+  transform: scale(1.008);
+}
+
+.ann-infographic-zoom-overlay {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.ann-infographic-container:hover .ann-infographic-zoom-overlay {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.88);
+}
+
+/* 5. Lightbox Zoom Modal for Announcement Infographics */
+.ann-zoom-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.ann-zoom-card {
+  position: relative;
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ann-zoom-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: scale(1.05);
+}
+
+.ann-zoom-img {
+  max-width: 92vw;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
+}
+
+/* 6. Rich Content Typography within Descriptions */
+.tb-checklist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.tb-checklist-row input[type="checkbox"] {
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--gold, #d9a323);
+}
+
+.tb-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  border: 1px solid var(--border-card);
+}
+
+.tb-table th,
+.tb-table td {
+  border: 1px solid var(--border-card);
+  padding: 8px 10px;
+}

@@ -29,11 +29,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261104b">
-<link rel="stylesheet" href="css/base.css?v=20261104b">
-<link rel="stylesheet" href="css/nav.css?v=20261104b">
-<link rel="stylesheet" href="css/components.css?v=20261104b">
-<link rel="stylesheet" href="css/admin.css?v=20261104b">
+<link rel="stylesheet" href="css/variables.css?v=20261104c">
+<link rel="stylesheet" href="css/base.css?v=20261104c">
+<link rel="stylesheet" href="css/nav.css?v=20261104c">
+<link rel="stylesheet" href="css/components.css?v=20261104c">
+<link rel="stylesheet" href="css/admin.css?v=20261104c">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -343,7 +343,7 @@
   background: var(--surface-tint-hover) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261104b"></script>
+<script src="js/core/theme.js?v=20261104c"></script>
 </head>
 <body>
 
@@ -1491,17 +1491,67 @@
 
         <!-- Rich Text / Markdown Formatting Toolbar (Image 5) -->
         <div class="task-brief-toolbar">
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('formatBlock', 'h2')" title="Heading 2"><b>H2</b></button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('bold')" title="Bold"><b>B</b></button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('italic')" title="Italic"><i>I</i></button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('strikeThrough')" title="Strikethrough"><s>S</s></button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('insertHTML', '<code>code</code>')" title="Inline Code">&lt;&gt;</button>
-          <button type="button" class="tb-btn" onclick="insertTaskDescLink()" title="Insert Link">🔗</button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('insertUnorderedList')" title="Bullet List">≡</button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('insertOrderedList')" title="Numbered List">1.</button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('formatBlock', 'blockquote')" title="Quote">&gt;</button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('undo')" title="Undo">↩</button>
-          <button type="button" class="tb-btn" onclick="formatTaskDesc('redo')" title="Redo">↪</button>
+          <!-- Headings Dropdown -->
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="toggleRichDropdownMenu(this, '.tb-headings-menu')" title="Text Heading format">
+              <span style="font-weight:700;font-size:12px;letter-spacing:-0.5px;">H₁</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="tb-dropdown-menu tb-headings-menu">
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'p', this); this.parentElement.style.display='none';">Normal Text</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h1', this); this.parentElement.style.display='none';"><b>Heading 1</b></button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h2', this); this.parentElement.style.display='none';"><b>Heading 2</b></button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h3', this); this.parentElement.style.display='none';"><b>Heading 3</b></button>
+            </div>
+          </div>
+          <!-- B, I, U, S, Code -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('bold', null, this)" title="Bold (Ctrl+B)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('italic', null, this)" title="Italic (Ctrl+I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('underline', null, this)" title="Underline (Ctrl+U)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('strikeThrough', null, this)" title="Strikethrough"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-3 3v1a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3H8"/><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('code', null, this)" title="Inline Code (&lt;&gt;)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
+          <!-- Highlighter / Color Picker (Image 5 Popover) -->
+          <button type="button" class="tb-btn tb-color-btn" onmousedown="event.preventDefault()" onclick="toggleRichColorPicker(this)" title="Text Color &amp; Palette (Image 5)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 12 3 3m-9-9 9 9-4 4-9-9 4-4Z"/><path d="M18 2l4 4"/><path d="m2 22 5-1-4-4-1 5Z"/></svg></button>
+          <div class="tb-divider-vert"></div>
+          <!-- Link & Image -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('link', null, this)" title="Insert Link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('image', null, this)" title="Insert Inline Image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+          <div class="tb-divider-vert"></div>
+          <!-- Lists, Quote, Checklist -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('insertUnorderedList', null, this)" title="Bullet List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('insertOrderedList', null, this)" title="Numbered List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('blockquote', null, this)" title="Quote"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 0 1-3.5 3.5c-1.073 0-2.099-.49-2.768-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 0 1-3.5 3.5c-1.073 0-2.099-.49-2.768-1.179z"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('checklist', null, this)" title="Interactive Checklist"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>
+          <!-- Indents -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('outdent', null, this)" title="Decrease Indent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="11" y2="18"/><polyline points="7 8 3 12 7 16"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('indent', null, this)" title="Increase Indent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="12" x2="13" y2="12"/><line x1="21" y1="18" x2="11" y2="18"/><polyline points="3 8 7 12 3 16"/></svg></button>
+          <div class="tb-divider-vert"></div>
+          <!-- Table -->
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="executeRichFormat('table', null, this)" title="Insert Table">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <!-- Align Dropdown -->
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="toggleRichDropdownMenu(this, '.tb-align-menu')" title="Text Alignment">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="tb-dropdown-menu tb-align-menu">
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyLeft', null, this); this.parentElement.style.display='none';">Align Left</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyCenter', null, this); this.parentElement.style.display='none';">Align Center</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyRight', null, this); this.parentElement.style.display='none';">Align Right</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyFull', null, this); this.parentElement.style.display='none';">Justify</button>
+            </div>
+          </div>
+          <div class="tb-divider-vert"></div>
+          <!-- Undo & Redo -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('undo', null, this)" title="Undo (Ctrl+Z)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('redo', null, this)" title="Redo (Ctrl+Y)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>
+          <!-- Divider tool (horizontal rule) -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('divider', null, this)" title="Horizontal Divider (—)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
         </div>
         <div class="task-brief-body task-editable-desc" id="tdm-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task description and deliverables" placeholder="Add a description or deliverables brief..." onblur="handleTaskDescBlur(this)"></div>
         <div id="tdm-status-btns" style="display:none !important;"></div>
@@ -1621,7 +1671,70 @@
           </div>
           <div>
             <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Task Brief &amp; Deliverables Description</label>
-            <textarea class="form-input new-task-desc-input" rows="5" placeholder="Detailed brief, checklist, or instructions..." style="width:100%;resize:vertical;"></textarea>
+            <div class="new-task-desc-toolbar task-brief-toolbar">
+          <!-- Headings Dropdown -->
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="toggleRichDropdownMenu(this, '.tb-headings-menu')" title="Text Heading format">
+              <span style="font-weight:700;font-size:12px;letter-spacing:-0.5px;">H₁</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="tb-dropdown-menu tb-headings-menu">
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'p', this); this.parentElement.style.display='none';">Normal Text</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h1', this); this.parentElement.style.display='none';"><b>Heading 1</b></button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h2', this); this.parentElement.style.display='none';"><b>Heading 2</b></button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h3', this); this.parentElement.style.display='none';"><b>Heading 3</b></button>
+            </div>
+          </div>
+          <!-- B, I, U, S, Code -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('bold', null, this)" title="Bold (Ctrl+B)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('italic', null, this)" title="Italic (Ctrl+I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('underline', null, this)" title="Underline (Ctrl+U)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('strikeThrough', null, this)" title="Strikethrough"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-3 3v1a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3H8"/><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('code', null, this)" title="Inline Code (&lt;&gt;)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
+          <!-- Highlighter / Color Picker (Image 5 Popover) -->
+          <button type="button" class="tb-btn tb-color-btn" onmousedown="event.preventDefault()" onclick="toggleRichColorPicker(this)" title="Text Color &amp; Palette (Image 5)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 12 3 3m-9-9 9 9-4 4-9-9 4-4Z"/><path d="M18 2l4 4"/><path d="m2 22 5-1-4-4-1 5Z"/></svg></button>
+          <div class="tb-divider-vert"></div>
+          <!-- Link & Image -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('link', null, this)" title="Insert Link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('image', null, this)" title="Insert Inline Image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+          <div class="tb-divider-vert"></div>
+          <!-- Lists, Quote, Checklist -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('insertUnorderedList', null, this)" title="Bullet List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('insertOrderedList', null, this)" title="Numbered List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('blockquote', null, this)" title="Quote"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 0 1-3.5 3.5c-1.073 0-2.099-.49-2.768-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 0 1-3.5 3.5c-1.073 0-2.099-.49-2.768-1.179z"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('checklist', null, this)" title="Interactive Checklist"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>
+          <!-- Indents -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('outdent', null, this)" title="Decrease Indent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="11" y2="18"/><polyline points="7 8 3 12 7 16"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('indent', null, this)" title="Increase Indent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="12" x2="13" y2="12"/><line x1="21" y1="18" x2="11" y2="18"/><polyline points="3 8 7 12 3 16"/></svg></button>
+          <div class="tb-divider-vert"></div>
+          <!-- Table -->
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="executeRichFormat('table', null, this)" title="Insert Table">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <!-- Align Dropdown -->
+          <div style="position:relative;display:inline-block;">
+            <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="toggleRichDropdownMenu(this, '.tb-align-menu')" title="Text Alignment">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="tb-dropdown-menu tb-align-menu">
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyLeft', null, this); this.parentElement.style.display='none';">Align Left</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyCenter', null, this); this.parentElement.style.display='none';">Align Center</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyRight', null, this); this.parentElement.style.display='none';">Align Right</button>
+              <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyFull', null, this); this.parentElement.style.display='none';">Justify</button>
+            </div>
+          </div>
+          <div class="tb-divider-vert"></div>
+          <!-- Undo & Redo -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('undo', null, this)" title="Undo (Ctrl+Z)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('redo', null, this)" title="Redo (Ctrl+Y)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>
+          <!-- Divider tool (horizontal rule) -->
+          <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('divider', null, this)" title="Horizontal Divider (—)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
+        </div>
+            <div class="form-input new-task-desc-input task-brief-body task-editable-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task brief description" placeholder="Detailed brief, checklist, or instructions..." style="width:100%;min-height:120px;margin-bottom:0;border-radius:0 0 8px 8px;"></div>
           </div>
           <div class="task-create-footer" style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">
             <button type="button" onclick="closeCreateTaskModal()" class="submit-btn" style="background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">Cancel</button>
@@ -2429,28 +2542,73 @@
           <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="ann-title-input" type="text" placeholder="e.g. Uniform Collection — Sat 10 May"/></div>
           <div class="form-group">
             <label class="form-label">Message</label>
-            <!-- Toolbar -->
-            <div style="display:flex;gap:4px;flex-wrap:wrap;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-bottom:none;border-radius:10px 10px 0 0;padding:8px 10px;">
-              <button type="button" onclick="annFmt('bold')"         title="Bold"          style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);width:32px;height:32px;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">B</button>
-              <button type="button" onclick="annFmt('italic')"       title="Italic"        style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);width:32px;height:32px;border-radius:6px;cursor:pointer;font-style:italic;font-size:13px;">I</button>
-              <button type="button" onclick="annFmt('underline')"    title="Underline"     style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);width:32px;height:32px;border-radius:6px;cursor:pointer;text-decoration:underline;font-size:13px;">U</button>
-              <div style="width:1px;background:var(--border-card);margin:0 2px;"></div>
-              <button type="button" onclick="annFmt('insertUnorderedList')" title="Bullet list" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:14px;">≡</button>
-              <button type="button" onclick="annInsertLine()"        title="Divider"       style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:12px;">—</button>
-              <div style="width:1px;background:var(--border-card);margin:0 2px;"></div>
-              <button type="button" onclick="annFontSize('large')"   title="Large text"    style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:15px;font-weight:700;">A</button>
-              <button type="button" onclick="annFontSize('normal')"  title="Normal text"   style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-muted);width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:12px;">A</button>
-              <div style="width:1px;background:var(--border-card);margin:0 2px;"></div>
-              <!-- Colour picks -->
-              <button type="button" onclick="annColor('#e8b830')" title="Gold"     style="background:#e8b830;border:1px solid var(--border-card);width:28px;height:28px;border-radius:6px;cursor:pointer;align-self:center;"></button>
-              <button type="button" onclick="annColor('#66bb6a')" title="Green"    style="background:#66bb6a;border:1px solid var(--border-card);width:28px;height:28px;border-radius:6px;cursor:pointer;align-self:center;"></button>
-              <button type="button" onclick="annColor('#ef5350')" title="Red"      style="background:#ef5350;border:1px solid var(--border-card);width:28px;height:28px;border-radius:6px;cursor:pointer;align-self:center;"></button>
-              <button type="button" onclick="annColor('#42a5f5')" title="Blue"     style="background:#42a5f5;border:1px solid var(--border-card);width:28px;height:28px;border-radius:6px;cursor:pointer;align-self:center;"></button>
-              <button type="button" onclick="annColor('#fff')"    title="White"    style="background:#fff;border:1px solid var(--border-card);width:28px;height:28px;border-radius:6px;cursor:pointer;align-self:center;"></button>
-              <div style="width:1px;background:var(--border-card);margin:0 2px;"></div>
-              <!-- Emoji picker -->
+            <!-- Toolbar (Full Image 1 Tools + Underline + Divider + Image 5 Color Picker) -->
+            <div class="ann-toolbar task-brief-toolbar" style="border-radius:10px 10px 0 0;padding:8px 10px;">
+              <!-- Headings Dropdown -->
+              <div style="position:relative;display:inline-block;">
+                <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="toggleRichDropdownMenu(this, '.tb-headings-menu')" title="Text Heading format">
+                  <span style="font-weight:700;font-size:12px;letter-spacing:-0.5px;">H₁</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="tb-dropdown-menu tb-headings-menu">
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'p', this); this.parentElement.style.display='none';">Normal Text</button>
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h1', this); this.parentElement.style.display='none';"><b>Heading 1</b></button>
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h2', this); this.parentElement.style.display='none';"><b>Heading 2</b></button>
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('formatBlock', 'h3', this); this.parentElement.style.display='none';"><b>Heading 3</b></button>
+                </div>
+              </div>
+              <!-- B, I, U, S, Code -->
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('bold', null, this)" title="Bold (Ctrl+B)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('italic', null, this)" title="Italic (Ctrl+I)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('underline', null, this)" title="Underline (Ctrl+U)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="4" y1="21" x2="20" y2="21"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('strikeThrough', null, this)" title="Strikethrough"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9a3 3 0 0 0-3 3v1a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3H8"/><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('code', null, this)" title="Inline Code (&lt;&gt;)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
+              <!-- Color Picker (Image 5 Popover) -->
+              <button type="button" class="tb-btn tb-color-btn" onmousedown="event.preventDefault()" onclick="toggleRichColorPicker(this)" title="Text Color &amp; Palette (Image 5)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 12 3 3m-9-9 9 9-4 4-9-9 4-4Z"/><path d="M18 2l4 4"/><path d="m2 22 5-1-4-4-1 5Z"/></svg></button>
+              <div class="tb-divider-vert"></div>
+              <!-- Link & Image -->
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('link', null, this)" title="Insert Link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('image', null, this)" title="Insert Inline Image"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+              <div class="tb-divider-vert"></div>
+              <!-- Lists, Quote, Checklist -->
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('insertUnorderedList', null, this)" title="Bullet List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('insertOrderedList', null, this)" title="Numbered List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('blockquote', null, this)" title="Quote"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 0 1-3.5 3.5c-1.073 0-2.099-.49-2.768-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 0 1-3.5 3.5c-1.073 0-2.099-.49-2.768-1.179z"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('checklist', null, this)" title="Interactive Checklist"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>
+              <!-- Indents -->
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('outdent', null, this)" title="Decrease Indent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="11" y2="18"/><polyline points="7 8 3 12 7 16"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('indent', null, this)" title="Increase Indent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="11" y2="6"/><line x1="21" y1="12" x2="13" y2="12"/><line x1="21" y1="18" x2="11" y2="18"/><polyline points="3 8 7 12 3 16"/></svg></button>
+              <div class="tb-divider-vert"></div>
+              <!-- Table -->
+              <div style="position:relative;display:inline-block;">
+                <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="executeRichFormat('table', null, this)" title="Insert Table">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </div>
+              <!-- Align Dropdown -->
+              <div style="position:relative;display:inline-block;">
+                <button type="button" class="tb-btn tb-btn-dropdown-trigger" onmousedown="event.preventDefault()" onclick="toggleRichDropdownMenu(this, '.tb-align-menu')" title="Text Alignment">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="tb-dropdown-menu tb-align-menu">
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyLeft', null, this); this.parentElement.style.display='none';">Align Left</button>
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyCenter', null, this); this.parentElement.style.display='none';">Align Center</button>
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyRight', null, this); this.parentElement.style.display='none';">Align Right</button>
+                  <button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" onclick="executeRichFormat('justifyFull', null, this); this.parentElement.style.display='none';">Justify</button>
+                </div>
+              </div>
+              <div class="tb-divider-vert"></div>
+              <!-- Undo & Redo -->
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('undo', null, this)" title="Undo (Ctrl+Z)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button>
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('redo', null, this)" title="Redo (Ctrl+Y)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg></button>
+              <!-- Divider tool (horizontal rule) -->
+              <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('divider', null, this)" title="Horizontal Divider (—)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
+              <div class="tb-divider-vert"></div>
+              <!-- Emoji picker preserved -->
               <div style="position:relative;">
-                <button type="button" onclick="toggleAnnEmoji()" id="ann-emoji-btn" title="Emoji" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                <button type="button" onclick="toggleAnnEmoji()" id="ann-emoji-btn" title="Emoji" style="background:transparent;border:none;color:var(--text-secondary);width:30px;height:30px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
                   <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                 </button>
                 <div id="ann-emoji-picker" style="display:none;position:absolute;top:36px;left:0;background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:10px;width:220px;z-index:99;box-shadow:var(--shadow-elevated);flex-wrap:wrap;gap:4px;">
@@ -2461,6 +2619,35 @@
             <div id="ann-body-input" contenteditable="true"
               style="min-height:160px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:0 0 10px 10px;padding:14px 16px;font-family:'Roboto',sans-serif;font-size:14px;line-height:1.7;outline:none;word-break:break-word;"
               data-placeholder="Write your announcement here..."></div>
+          </div>
+          <!-- Announcement Infographic Attachment (TSK-010 / Infographics) -->
+          <div class="ann-infographic-upload-box" style="margin-bottom:14px;padding:12px 14px;background:var(--bg-card-subtle);border:1px dashed var(--border-card);border-radius:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+              <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:inline-flex;align-items:center;gap:6px;">
+                <svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>Announcement Poster / Infographic (Optional)</span>
+              </label>
+              <span style="font-size:11px;color:var(--text-muted);">Displays full large banner on home page feed</span>
+            </div>
+            <div class="ann-upload-controls" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <label class="ann-file-pick-btn tb-upload-btn" style="cursor:pointer;">
+                <svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Choose Infographic Image</span>
+                <input type="file" accept="image/*" class="ann-infographic-file-input" style="display:none;" onchange="handleAnnouncementImageSelect(event)" />
+              </label>
+              <span style="font-size:12px;color:var(--text-muted);">or</span>
+              <input type="url" class="form-input ann-infographic-url-input" placeholder="Paste image URL (https://...)" style="flex:1;min-width:200px;height:32px;font-size:12px;" onchange="handleAnnouncementImageUrlInput(this.value)" />
+            </div>
+            <div class="ann-infographic-preview-wrap" style="display:none;margin-top:10px;position:relative;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px;align-items:center;gap:12px;">
+              <img class="ann-infographic-preview-thumb" src="" alt="Infographic preview" style="max-height:80px;max-width:120px;border-radius:6px;object-fit:contain;background:rgba(0,0,0,0.2);" />
+              <div style="flex:1;min-width:0;">
+                <div class="ann-infographic-preview-name" style="font-size:12px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                <div class="ann-infographic-preview-size" style="font-size:11px;color:var(--text-secondary);margin-top:2px;"></div>
+              </div>
+              <button type="button" class="ann-infographic-remove-btn" onclick="clearAnnouncementInfographic()" title="Remove attached image" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+                ✕ Remove
+              </button>
+            </div>
           </div>
           <div style="margin-bottom:14px;">
             <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);cursor:pointer;user-select:none;">
@@ -3014,27 +3201,27 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261104b"></script>
-<script src="js/api/supabase.js?v=20261104b"></script>
-<script src="js/core/session.js?v=20261104b"></script>
-<script src="js/core/rbac.js?v=20261104b"></script>
-<script src="js/core/utils.js?v=20261104b"></script>
-<script src="js/core/ui.js?v=20261104b"></script>
-<script src="js/core/loading.js?v=20261104b"></script>
-<script src="js/modules/member.js?v=20261104b"></script>
-<script src="js/api/sheets.js?v=20261104b"></script>
-<script src="js/modules/attendance.js?v=20261104b"></script>
-<script src="js/modules/announcements.js?v=20261104b"></script>
-<script src="js/modules/gallery.js?v=20261104b"></script>
-<script src="js/modules/resources.js?v=20261104b"></script>
-<script src="js/modules/calendar.js?v=20261104b"></script>
-<script src="js/modules/orders.js?v=20261104b"></script>
-<script src="js/modules/forms.js?v=20261104b"></script>
-<script src="js/modules/badges.js?v=20261104b"></script>
-<script src="js/modules/tasks.js?v=20261104b"></script>
-<script src="js/modules/admin.js?v=20261104b"></script>
-<script src="js/modules/forum.js?v=20261104b"></script>
-<script src="js/modules/arcade.js?v=20261104b"></script>
+<script src="js/config.js?v=20261104c"></script>
+<script src="js/api/supabase.js?v=20261104c"></script>
+<script src="js/core/session.js?v=20261104c"></script>
+<script src="js/core/rbac.js?v=20261104c"></script>
+<script src="js/core/utils.js?v=20261104c"></script>
+<script src="js/core/ui.js?v=20261104c"></script>
+<script src="js/core/loading.js?v=20261104c"></script>
+<script src="js/modules/member.js?v=20261104c"></script>
+<script src="js/api/sheets.js?v=20261104c"></script>
+<script src="js/modules/attendance.js?v=20261104c"></script>
+<script src="js/modules/announcements.js?v=20261104c"></script>
+<script src="js/modules/gallery.js?v=20261104c"></script>
+<script src="js/modules/resources.js?v=20261104c"></script>
+<script src="js/modules/calendar.js?v=20261104c"></script>
+<script src="js/modules/orders.js?v=20261104c"></script>
+<script src="js/modules/forms.js?v=20261104c"></script>
+<script src="js/modules/badges.js?v=20261104c"></script>
+<script src="js/modules/tasks.js?v=20261104c"></script>
+<script src="js/modules/admin.js?v=20261104c"></script>
+<script src="js/modules/forum.js?v=20261104c"></script>
+<script src="js/modules/arcade.js?v=20261104c"></script>
 
 <script>
 
