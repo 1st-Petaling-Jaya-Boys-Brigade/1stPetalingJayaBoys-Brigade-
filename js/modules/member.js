@@ -2813,6 +2813,12 @@ function refreshActiveAvatarCosmetics() {
   if (typeof renderMemberAvatar === 'function') {
     renderMemberAvatar(myName, myEmail);
   }
+  if (typeof renderForumFeed === 'function') {
+    var forumContainer = document.getElementById('forum-feed-container');
+    if (forumContainer) {
+      renderForumFeed();
+    }
+  }
 }
 
 // ── Interactive Arcade Cosmetic Shop Tab View ────────────────────────────────
