@@ -2468,6 +2468,9 @@ async function loadMemberCosmetics() {
           localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
         }
         if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+        if (typeof refreshActiveAvatarCosmetics === 'function') {
+          refreshActiveAvatarCosmetics();
+        }
       }
     }
   } catch (e) {
@@ -2481,6 +2484,8 @@ function getMemberCosmetic(emailOrIc, memberName) {
   var cleanKey = String(emailOrIc || '').trim().toLowerCase();
   var cleanName = String(memberName || '').trim().toLowerCase();
 
+  var cosMap = (typeof global !== 'undefined' && global._memberCosmeticsMap) ? global._memberCosmeticsMap : _memberCosmeticsMap;
+
   var isCreator = false;
   if (typeof isPortalCreator === 'function') {
     isCreator = isPortalCreator(cleanName, cleanKey);
@@ -2489,18 +2494,18 @@ function getMemberCosmetic(emailOrIc, memberName) {
   }
 
   var record = null;
-  if (cleanKey && _memberCosmeticsMap[cleanKey]) {
-    record = _memberCosmeticsMap[cleanKey];
-  } else if (cleanName && _memberCosmeticsMap[cleanName]) {
-    record = _memberCosmeticsMap[cleanName];
+  if (cleanKey && cosMap[cleanKey]) {
+    record = cosMap[cleanKey];
+  } else if (cleanName && cosMap[cleanName]) {
+    record = cosMap[cleanName];
   }
 
   // Scan entries if not matched directly
   if (!record && (cleanKey || cleanName)) {
-    var mapKeys = Object.keys(_memberCosmeticsMap);
+    var mapKeys = Object.keys(cosMap);
     for (var i = 0; i < mapKeys.length; i++) {
       var k = mapKeys[i];
-      var entry = _memberCosmeticsMap[k];
+      var entry = cosMap[k];
       if (entry && typeof entry === 'object') {
         var entryName = String(entry.name || '').trim().toLowerCase();
         var entryTarget = String(entry.target || k).trim().toLowerCase();
@@ -2519,6 +2524,7 @@ function getMemberCosmetic(emailOrIc, memberName) {
     if (typeof record === 'string') cosmeticId = record;
     else if (record.equipped) cosmeticId = record.equipped;
     else if (record.id) cosmeticId = record.id;
+    else if (record.activeId) cosmeticId = record.activeId;
   }
 
   var cfg = PROFILE_COSMETICS[cosmeticId] || null;
@@ -3200,6 +3206,9 @@ async function loadCustomAvatarOutlines() {
           localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(parsed));
         }
         if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+        if (typeof refreshActiveAvatarCosmetics === 'function') {
+          refreshActiveAvatarCosmetics();
+        }
       }
     }
   } catch (e) {
@@ -3490,6 +3499,22 @@ function resetMemberAvatar() {
     nPh.style.color = '';
     nPh.title = 'Guest Member';
     nPh.removeAttribute('aria-label');
+  }
+
+  // Purge any active cosmetic badges and outline overlays from avatar wrappers on logout
+  var navCircle = document.querySelector('.nav-avatar-circle');
+  var mRing = document.getElementById('m-pfp-ring');
+  if (sPh && sPh.parentElement) {
+    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(sPh.parentElement, 'none');
+    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(sPh.parentElement, 'none');
+  }
+  if (mRing) {
+    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(mRing, 'none');
+    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(mRing, 'none');
+  }
+  if (navCircle) {
+    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(navCircle, 'none');
+    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(navCircle, 'none');
   }
 }
 

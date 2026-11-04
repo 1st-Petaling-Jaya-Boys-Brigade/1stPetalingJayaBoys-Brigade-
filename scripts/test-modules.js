@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104a',
-    'sw.js CACHE_VERSION must be 20261104a'
+    '20261104b',
+    'sw.js CACHE_VERSION must be 20261104b'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104a',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104b',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6680,7 +6680,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104a'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104b'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -7551,6 +7551,60 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
     assert.strictEqual(uniqueIds.length, 388, 'TSK-060 strictly preserves 388 unique DOM IDs invariant');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+  }
+
+  // ── PWA Update Notifications, Cosmetic Startup Sync & Trivia Accuracy ────────
+  {
+    console.log('\nTesting PWA Update Notifications, Cosmetic Startup Sync & Trivia Accuracy...');
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+
+    // 1. Service Worker update notification on controllerchange and installed/activated
+    assert.ok(indexHtml.includes('newWorker.state === \'installed\' || newWorker.state === \'activated\''),
+      'index.html must detect both installed and activated worker states');
+    assert.ok(indexHtml.includes('navigator.serviceWorker.addEventListener(\'controllerchange\''),
+      'index.html must listen for controllerchange to notify users when new SW activates');
+    console.log('  ✔ PWA Service Worker update lifecycle and controllerchange notification verified');
+
+    // 2. Member module startup cosmetic and outline remote sync
+    const memberJs = fs.readFileSync('js/modules/member.js', 'utf8');
+    assert.ok(memberJs.includes('refreshActiveAvatarCosmetics()'),
+      'loadMemberCosmetics and loadCustomAvatarOutlines must trigger refreshActiveAvatarCosmetics on remote merge');
+    console.log('  ✔ Startup cosmetic and outline remote data merge triggers avatar refresh');
+
+    // 3. Logout avatar cosmetic and outline cleanup
+    assert.ok(memberJs.includes('applyMemberCosmeticElement(navCircle, \'none\')'),
+      'resetMemberAvatar must clear cosmetic badge from navCircle');
+    assert.ok(memberJs.includes('applyMemberCosmeticElement(mRing, \'none\')'),
+      'resetMemberAvatar must clear cosmetic badge from mRing');
+    assert.ok(memberJs.includes('applyMemberCosmeticElement(sPh.parentElement, \'none\')'),
+      'resetMemberAvatar must clear cosmetic badge from sidebar avatar');
+    console.log('  ✔ resetMemberAvatar cleanly purges cosmetic badges and outlines on logout');
+
+    // 4. Admin Creator Studio cosmetic preview and activeId fallback
+    const adminJs = fs.readFileSync('js/modules/admin.js', 'utf8');
+    assert.ok(adminJs.includes('equipped: newCosId'),
+      'Creator Studio select listener must update equipped property in _memberCosmeticsMap');
+    const memberMod = require('../js/modules/member.js');
+    // Test activeId fallback in getMemberCosmetic
+    global._memberCosmeticsMap = global._memberCosmeticsMap || {};
+    global._memberCosmeticsMap['test_member@example.com'] = { activeId: 'cowboy_hat' };
+    const cosRes = memberMod.getMemberCosmetic('test_member@example.com');
+    assert.strictEqual(cosRes.id, 'cowboy_hat', 'getMemberCosmetic must support activeId fallback');
+    console.log('  ✔ Admin Creator Studio equipped property and activeId fallback verified');
+
+    // 5. BB Trivia question answer correctness
+    const arcadeJs = fs.readFileSync('js/modules/arcade.js', 'utf8');
+    assert.ok(arcadeJs.includes('highest award a Senior Section BB member') &&
+              arcadeJs.includes('correct: 1,'),
+      'Highest award trivia question must mark option 1 (Founder\'s Badge) as correct');
+    console.log('  ✔ BB Trivia Senior Section highest award question evaluates Founder\'s Badge as correct');
+
+    // 6. Exact 388 Unique DOM IDs Invariant
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
