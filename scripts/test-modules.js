@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104f',
-    'sw.js CACHE_VERSION must be 20261104f'
+    '20261104g',
+    'sw.js CACHE_VERSION must be 20261104g'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104f',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104g',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6668,6 +6668,35 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(memberPerms.canChangeStatus, false, 'Member must not be allowed to change status');
     console.log('  ✔ Role-based forum management permissions (super admin exclusive status/edit/delete, universal reply) verified');
 
+    // 4d. Forum Member Avatar, Equipped Cosmetics & Custom Hover Tooltip (Image 1 & 2)
+    assert.strictEqual(typeof forumMod.getForumMemberAvatarHtml, 'function', 'getForumMemberAvatarHtml must be exported');
+    
+    // Creator Avatar with Custom Byline Tooltip (Image 2)
+    const creatorTooltip = 'Posted by Jeshua Koh (Sergeant)';
+    const creatorAvatar = forumMod.getForumMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 24, creatorTooltip);
+    assert.ok(creatorAvatar.includes('class="forum-avatar-mini'), 'Creator avatar must contain .forum-avatar-mini class');
+    assert.ok(creatorAvatar.includes('title="' + creatorTooltip + '"'), 'Avatar must contain custom tooltip attribute matching Image 2');
+    assert.ok(creatorAvatar.includes('aria-label="' + creatorTooltip + '"'), 'Avatar must contain custom aria-label attribute matching Image 2');
+
+    // Cosmetic Badges Rendering Support
+    if (typeof global.getMemberCosmetic === 'function' || (typeof global.window !== 'undefined' && typeof global.window.getMemberCosmetic === 'function')) {
+      global._memberCosmeticsMap = global._memberCosmeticsMap || {};
+      if (global._memberCosmeticsMap) {
+        global._memberCosmeticsMap['jeshuakoh2008@gmail.com'] = { equipped: 'bb_cap' };
+      }
+      const cosmeticAvatar = forumMod.getForumMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 24, creatorTooltip);
+      assert.ok(cosmeticAvatar.includes('avatar-cosmetic-badge'), 'Avatar must render equipped cosmetic badge');
+      assert.ok(cosmeticAvatar.includes('is-headwear'), 'BB Cap cosmetic badge must render with is-headwear class');
+    }
+
+    // Regular Member Avatar
+    const memberTooltip = 'Daniel Yap • Lance Corporal';
+    const memberAvatar = forumMod.getForumMemberAvatarHtml('Daniel Yap', 'danielyap@gmail.com', 24, memberTooltip);
+    assert.ok(memberAvatar.includes('class="forum-avatar-mini'), 'Member avatar must contain .forum-avatar-mini class');
+    assert.ok(memberAvatar.includes('title="' + memberTooltip + '"'), 'Member avatar must include tooltip');
+    assert.ok(memberAvatar.includes('>D<'), 'Member avatar must include initial D');
+    console.log('  ✔ Forum member avatar rendering with equipped cosmetics and custom byline hover tooltips verified');
+
     // 5. CSS Components Integration
     const compCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');
     assert.ok(compCss.includes('.helper-agent-btn'), 'components.css must define .helper-agent-btn');
@@ -6680,7 +6709,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104f'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104g'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));

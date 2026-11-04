@@ -286,6 +286,92 @@ function removeDomElement(el) {
   }
 }
 
+// ── Forum Member Avatar & Cosmetic Helper ────────────────────────────────────
+/**
+ * Renders an avatar element for a forum author or replier,
+ * reflecting custom outlines, profile photos, and equipped cosmetics (headwear, badges).
+ * Supports custom tooltips (e.g. "Posted by Jeshua Koh (Sergeant)").
+ */
+function getForumMemberAvatarHtml(name, emailOrIc, size, customTooltip, extraStyle) {
+  var sz = size || 24;
+  var fs = Math.max(9, Math.round(sz * 0.45));
+  var styleAttr = extraStyle ? (' ' + extraStyle) : '';
+
+  if (!name || name === 'Anonymous' || name === 'Anonymous Member') {
+    var anonTooltip = customTooltip || 'Anonymous Member';
+    var safeAnonTooltip = (typeof escapeHtml === 'function') ? escapeHtml(anonTooltip) : anonTooltip;
+    return '<span class="forum-avatar-mini" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:var(--surface-tint);color:var(--text-muted);cursor:default;line-height:1;position:relative;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeAnonTooltip + '" aria-label="' + safeAnonTooltip + '">?</span>';
+  }
+
+  var cleanNm = String(name || '').trim();
+  var cleanId = String(emailOrIc || '').trim();
+
+  var isCreatorFn = (typeof isPortalCreator === 'function')
+    ? isPortalCreator
+    : (typeof window !== 'undefined' && typeof window.isPortalCreator === 'function' ? window.isPortalCreator : null);
+  var isCreator = isCreatorFn
+    ? isCreatorFn(cleanNm, cleanId)
+    : (/jeshua\s+koh/i.test(cleanNm) || cleanId.toLowerCase() === 'jeshuakoh2008@gmail.com');
+
+  var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanNm) : cleanNm;
+  var tooltip = customTooltip || (safeName + (isCreator ? ' (Portal Creator)' : ''));
+  var safeTooltip = (typeof escapeHtml === 'function') ? escapeHtml(tooltip) : tooltip;
+
+  var getPhotoFn = (typeof getMemberAvatarUrl === 'function')
+    ? getMemberAvatarUrl
+    : (typeof window !== 'undefined' && typeof window.getMemberAvatarUrl === 'function' ? window.getMemberAvatarUrl : null);
+  var photoUrl = getPhotoFn ? getPhotoFn(cleanNm, cleanId) : null;
+
+  var getOutlineFn = (typeof getMemberAvatarOutline === 'function')
+    ? getMemberAvatarOutline
+    : (typeof window !== 'undefined' && typeof window.getMemberAvatarOutline === 'function' ? window.getMemberAvatarOutline : null);
+  var outlineInfo = getOutlineFn
+    ? getOutlineFn(cleanId || cleanNm, cleanNm)
+    : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
+
+  var outlineHtml = '';
+  var hasOutlineCls = '';
+  if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
+    hasOutlineCls = ' has-custom-outline avatar-outline-container';
+    outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
+  }
+
+  var getCosmeticFn = (typeof getMemberCosmetic === 'function')
+    ? getMemberCosmetic
+    : (typeof window !== 'undefined' && typeof window.getMemberCosmetic === 'function' ? window.getMemberCosmetic : null);
+  var cosmeticInfo = getCosmeticFn ? getCosmeticFn(cleanId || cleanNm, cleanNm) : null;
+
+  var cosmeticHtml = '';
+  if (cosmeticInfo && cosmeticInfo.id && cosmeticInfo.id !== 'none' && cosmeticInfo.svg) {
+    var isHeadwear = (cosmeticInfo.category === 'headwear' || (cosmeticInfo.config && cosmeticInfo.config.category === 'headwear'));
+    var headwearCls = isHeadwear ? ' is-headwear' : '';
+    var cosCls = sz >= 40 ? 'cosmetic-lg' : (sz >= 28 ? 'cosmetic-md' : (sz >= 22 ? 'cosmetic-sm' : 'cosmetic-xs'));
+    var safeCosTitle = (typeof escapeHtml === 'function') ? escapeHtml(cosmeticInfo.name || '') : (cosmeticInfo.name || '');
+    cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + headwearCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + safeCosTitle + '" aria-hidden="true">' + cosmeticInfo.svg + '</span>';
+  }
+
+  var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';
+
+  if (photoUrl) {
+    return '<span class="forum-avatar-mini' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + '</span>';
+  }
+
+  if (isCreator) {
+    var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
+    var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
+    return '<span class="forum-avatar-mini' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">J' + outlineHtml + cosmeticHtml + '</span>';
+  }
+
+  var initial = (typeof getMemberAvatarInitial === 'function')
+    ? getMemberAvatarInitial(cleanNm)
+    : (cleanNm.charAt(0).toUpperCase() || '?');
+  var color = (typeof getMemberAvatarColor === 'function')
+    ? getMemberAvatarColor(cleanNm)
+    : '#0369a1';
+
+  return '<span class="forum-avatar-mini' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + '</span>';
+}
+
 // ── User Permission Helper for Forum ─────────────────────────────────────────
 function getForumUserPermissions(post) {
   var isSuper = false;
@@ -666,6 +752,10 @@ function ensureForumPageDOM() {
 function renderForumPage() {
   if (typeof document === 'undefined') return;
 
+  if (typeof window !== 'undefined' && typeof window.loadMemberCosmetics === 'function') {
+    window.loadMemberCosmetics();
+  }
+
   var page = ensureForumPageDOM();
   if (!page) return;
   page.classList.add('active');
@@ -794,6 +884,8 @@ function renderForumFeed() {
     var safeContent = (typeof escapeHtml === 'function') ? escapeHtml(p.content) : p.content;
     var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(p.authorName) : p.authorName;
     var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(p.authorRank || 'Member') : p.authorRank;
+    var authorTooltip = safeAuthor + (safeRank ? ' • ' + safeRank : '');
+    var authorAvatarHtml = getForumMemberAvatarHtml(p.authorName, p.authorEmail || p.authorIc, 24, authorTooltip);
     var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
     var excerpt = safeContent.length > 150 ? (safeContent.slice(0, 147) + '...') : safeContent;
     var perms = getForumUserPermissions(p);
@@ -840,7 +932,7 @@ function renderForumFeed() {
         '<div class="forum-post-excerpt">' + excerpt + '</div>' +
         '<div class="forum-post-footer">' +
           '<div class="forum-author-meta">' +
-            '<div class="forum-avatar-mini">' + safeAuthor.charAt(0).toUpperCase() + '</div>' +
+            authorAvatarHtml +
             '<span style="font-size:12px;font-weight:600;color:var(--text-primary);">' + safeAuthor + '</span>' +
             '<span style="font-size:11px;color:var(--text-muted);">&bull; ' + safeRank + '</span>' +
           '</div>' +
@@ -965,10 +1057,12 @@ function submitNewForumPost(e, customPost) {
   var rank = 'Member';
   var email = 'guest@bb1pj.my';
 
+  var ic = '';
   if (typeof sessionGet === 'function') {
     author = sessionGet('name') || author;
     rank = sessionGet('rank') || rank;
     email = sessionGet('email') || email;
+    ic = sessionGet('ic') || ic;
   }
 
   var catLabels = {
@@ -990,6 +1084,7 @@ function submitNewForumPost(e, customPost) {
     authorName: author,
     authorRank: rank,
     authorEmail: email,
+    authorIc: ic,
     date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
     time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
     content: content,
@@ -1231,6 +1326,16 @@ function openForumPostDetail(postId) {
   var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
   var perms = getForumUserPermissions(p);
   var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
+  var postTooltip = 'Posted by ' + safeAuthor + (safeRank ? ' (' + safeRank + ')' : '');
+  var postAvatarHtml = getForumMemberAvatarHtml(p.authorName, p.authorEmail || p.authorIc, 24, postTooltip);
+  var timeStr = '';
+  if (p.date && p.time) {
+    timeStr = p.date + ' at ' + p.time;
+  } else if (p.date) {
+    timeStr = p.date;
+  } else if (p.time) {
+    timeStr = p.time;
+  }
 
   var repliesHtml = '';
   if (p.replies && p.replies.length) {
@@ -1242,10 +1347,14 @@ function openForumPostDetail(postId) {
       var isOff = r.isOfficial;
       var canDeleteThisReply = perms.isSuperAdmin || (r.authorEmail && curEmail && r.authorEmail.toLowerCase().trim() === curEmail);
 
+      var replyTooltip = rAuthor + (rRank ? ' (' + rRank + ')' : '');
+      var replyAvatarHtml = getForumMemberAvatarHtml(r.authorName, r.authorEmail || r.authorIc, 22, replyTooltip);
+
       repliesHtml += 
         '<div class="forum-reply-item ' + (isOff ? 'reply-official' : '') + '">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
             '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">' +
+              replyAvatarHtml +
               '<span style="font-weight:700;font-size:12.5px;color:var(--text-primary);">' + rAuthor + '</span>' +
               '<span style="font-size:11px;color:var(--text-muted);">&bull; ' + rRank + '</span>' +
               (rRole ? '<span style="font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,0.06);color:var(--accent);">' + rRole + '</span>' : '') +
@@ -1307,9 +1416,9 @@ function openForumPostDetail(postId) {
       '<!-- Title & Author Byline -->' +
       '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:8px;line-height:1.35;">' + safeTitle + '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-muted);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border-subtle);">' +
-        '<span>Posted by <strong>' + safeAuthor + '</strong> (' + safeRank + ')</span>' +
+        postAvatarHtml +
         '<span>&bull;</span>' +
-        '<span>' + (p.date || '') + ' at ' + (p.time || '') + '</span>' +
+        '<span>' + (timeStr || '') + '</span>' +
       '</div>' +
 
       '<!-- Post Body -->' +
@@ -1406,12 +1515,14 @@ function submitForumReply(e, postId, customText) {
   var rank = 'Member';
   var role = '';
   var email = 'guest@bb1pj.my';
+  var ic = '';
   var isOff = false;
 
   if (typeof sessionGet === 'function') {
     author = sessionGet('name') || author;
     rank = sessionGet('rank') || rank;
     email = sessionGet('email') || email;
+    ic = sessionGet('ic') || ic;
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
     var isOfficerRank = rank && ['Captain', 'Honarary Captain', 'Honorary Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].includes(rank);
     if (isSuper) {
@@ -1433,6 +1544,7 @@ function submitForumReply(e, postId, customText) {
     authorRank: rank,
     authorRole: role,
     authorEmail: email,
+    authorIc: ic,
     date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
     time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
     isOfficial: isOff,
@@ -1473,6 +1585,7 @@ if (typeof window !== 'undefined') {
   window.loadForumPosts            = loadForumPosts;
   window.saveForumPosts            = saveForumPosts;
   window.ensureForumPageDOM        = ensureForumPageDOM;
+  window.getForumMemberAvatarHtml  = getForumMemberAvatarHtml;
   window.renderForumPage           = renderForumPage;
   window.renderForumFeed           = renderForumFeed;
   window.toggleHelperAgent         = toggleHelperAgent;
@@ -1505,6 +1618,7 @@ if (typeof module !== 'undefined' && module.exports) {
     loadForumPosts: loadForumPosts,
     saveForumPosts: saveForumPosts,
     ensureForumPageDOM: ensureForumPageDOM,
+    getForumMemberAvatarHtml: getForumMemberAvatarHtml,
     renderForumPage: renderForumPage,
     renderForumFeed: renderForumFeed,
     toggleHelperAgent: toggleHelperAgent,

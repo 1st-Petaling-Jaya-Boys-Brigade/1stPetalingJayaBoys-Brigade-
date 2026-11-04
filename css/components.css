@@ -214,12 +214,12 @@ select.form-input,
   border-color: var(--border-card) !important;
 }
 
-[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
 [data-theme='light'] [style*='color:#f0f4ff'],
 [data-theme='light'] [style*='color:#e0e8ff'],
 [data-theme='light'] [style*='color:#dce8ff'] {
@@ -7992,9 +7992,31 @@ select.form-input,
   color: var(--accent);
   font-size: 11px;
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.forum-avatar-mini img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.forum-avatar-mini.has-custom-outline {
+  border-color: transparent !important;
+  overflow: visible !important;
+}
+
+.forum-avatar-mini .avatar-outline-overlay {
+  --avatar-outline-width: 2px;
+  inset: -2px;
 }
 
 .forum-stat-pill {
@@ -8698,6 +8720,7 @@ select.form-input,
 .admin-member-avatar.has-custom-outline,
 .suc-avatar.has-custom-outline,
 .task-card-avatar.has-custom-outline,
+.forum-avatar-mini.has-custom-outline,
 .tdm-assignee-avatar.has-custom-outline,
 .project-assignees-stack .task-card-avatar.has-custom-outline,
 .account-picker-avatar-wrap.has-custom-outline {
@@ -8706,6 +8729,7 @@ select.form-input,
 }
 
 .task-card-avatar .avatar-outline-overlay,
+.forum-avatar-mini .avatar-outline-overlay,
 .project-assignees-stack .avatar-outline-overlay {
   --avatar-outline-width: 2px;
   inset: -2px;
