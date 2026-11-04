@@ -2458,15 +2458,15 @@ async function getJson(url) {
         const memberBadgeRole = badge ? badge.getAttribute('role') : '';
 
         // Test Scoped Admin Badge
-        await RBAC.assignUserRole('store_officer@1stpjbb.org.my', 'admin', ['orders', 'uniform'], '1stpjbb@gmail.com');
-        sessionSet('email', 'store_officer@1stpjbb.org.my');
+        await RBAC.assignUserRole('store_officer@example.com', 'admin', ['orders', 'uniform'], 'jeshuakoh2008@gmail.com');
+        sessionSet('email', 'store_officer@example.com');
         sessionSet('rank', 'Lieutenant');
         RBAC.renderHeaderRoleBadge();
         const adminBadgeClass = badge ? badge.className : '';
         const adminBadgeText = textSpan ? textSpan.textContent : '';
 
-        // Test Super Admin Badge (Official Account)
-        sessionSet('email', '1stpjbb@gmail.com');
+        // Test Super Admin Badge (Jeshua Koh)
+        sessionSet('email', 'jeshuakoh2008@gmail.com');
         sessionSet('rank', 'Captain');
         RBAC.renderHeaderRoleBadge();
         const superBadgeClass = badge ? badge.className : '';
@@ -2490,7 +2490,7 @@ async function getJson(url) {
 
                 // 2. Scoped Admin Console UI Filtering
         // Open Admin Console as Scoped Admin
-        sessionSet('email', 'store_officer@1stpjbb.org.my');
+        sessionSet('email', 'store_officer@example.com');
         sessionSet('rank', 'Lieutenant');
         window.openAdmin();
         // Passwordless openAdmin automatically unlocks for Scoped Admin
@@ -2510,7 +2510,7 @@ async function getJson(url) {
         };
 
         // Switch to Super Admin
-        sessionSet('email', '1stpjbb@gmail.com');
+        sessionSet('email', 'jeshuakoh2008@gmail.com');
         sessionSet('rank', 'Captain');
         window.backToAdminHome();
 

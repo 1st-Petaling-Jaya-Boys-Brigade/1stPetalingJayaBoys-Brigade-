@@ -30,10 +30,7 @@
   ];
 
   var SUPER_ADMIN_DEFAULT_EMAILS = [
-    '1stpjbb@gmail.com',
-    'jeshuakoh2008@gmail.com',
-    'admin@1stpjbb.org.my',
-    'officer@1stpjbb.org.my'
+    'jeshuakoh2008@gmail.com'
   ];
 
   var DEFAULT_ADMIN_MODULES = [
@@ -125,12 +122,9 @@
       return ROLES.MEMBER;
     }
 
-    // 1. Check Super Admin pre-assigned list & official Google account
+    // 1. Check Super Admin pre-assigned list & Jeshua Koh
     if (
-      userEmail === '1stpjbb@gmail.com' ||
       userEmail === 'jeshuakoh2008@gmail.com' ||
-      userEmail === 'admin@1stpjbb.org.my' ||
-      userEmail === 'officer@1stpjbb.org.my' ||
       (_rolesConfig && _rolesConfig.super_admins && _rolesConfig.super_admins.map(cleanEmail).includes(userEmail))
     ) {
       return ROLES.SUPER_ADMIN;
@@ -260,9 +254,9 @@
       throw new Error('Access Denied: Only Super Admins can manage roles and permissions.');
     }
 
-    // Protection rule: Official Google account and Super Admins cannot be demoted
-    if ((target === '1stpjbb@gmail.com' || target === 'jeshuakoh2008@gmail.com') && role !== ROLES.SUPER_ADMIN) {
-      throw new Error('Official 1stPJ account cannot be demoted from Super Admin');
+    // Protection rule: Jeshua Koh account cannot be demoted
+    if (target === 'jeshuakoh2008@gmail.com' && role !== ROLES.SUPER_ADMIN) {
+      throw new Error('Jeshua Koh account cannot be demoted from Super Admin');
     }
 
     var validPerms = Array.isArray(permissions)

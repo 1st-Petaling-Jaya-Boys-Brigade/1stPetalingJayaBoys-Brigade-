@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104j',
-    'sw.js CACHE_VERSION must be 20261104j'
+    '20261105a',
+    'sw.js CACHE_VERSION must be 20261105a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104j',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -5785,7 +5785,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Redirect memory records, guards against member loops, and clears correctly');
 
     // 4. Authenticated State Activation & Remember Me TTL Validation
-    sessionMod.sessionSet('email', 'officer@1stpjbb.org.my');
+    sessionMod.sessionSet('email', 'captain_test@example.com');
     sessionMod.sessionSet('name', 'Captain Test');
     sessionMod.sessionSet('rank', 'Captain');
     assert.strictEqual(AuthGuard.isUserAuthenticated(), true, 'isUserAuthenticated returns true with active session');
@@ -5864,22 +5864,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof renderHeaderRoleBadge, 'function', 'renderHeaderRoleBadge is a function');
     console.log('  ✔ RBAC 3-tier constant architecture and core API contract verified');
 
-    // 2. Pre-assigned Super Admins & Designated Officers
-    assert.strictEqual(getUserRole('1stpjbb@gmail.com'), 'super_admin', 'Official 1stPJ Google account is pre-assigned Super Admin');
-    assert.strictEqual(getUserRole('admin@1stpjbb.org.my'), 'super_admin', 'Designated admin officer is pre-assigned Super Admin');
-    assert.strictEqual(getUserRole('officer@1stpjbb.org.my'), 'super_admin', 'Designated duty officer is pre-assigned Super Admin');
+    // 2. Pre-assigned Super Admins
     assert.strictEqual(getUserRole('jeshuakoh2008@gmail.com'), 'super_admin', 'Jeshua Koh is pre-assigned Super Admin');
     assert.strictEqual(isSuperAdmin('jeshuakoh2008@gmail.com'), true, 'isSuperAdmin returns true for Jeshua Koh');
     assert.strictEqual(isAdmin('jeshuakoh2008@gmail.com'), true, 'isAdmin returns true for Jeshua Koh');
-    assert.strictEqual(isSuperAdmin('1stpjbb@gmail.com'), true, 'isSuperAdmin returns true for official account');
-    assert.strictEqual(isAdmin('1stpjbb@gmail.com'), true, 'isAdmin returns true for Super Admin (inclusive)');
     assert.deepStrictEqual(
-      getUserPermissions('1stpjbb@gmail.com'),
+      getUserPermissions('jeshuakoh2008@gmail.com'),
       MODULES.map(m => m.id),
       'Super Admin receives full system access across all 11 modules'
     );
-    assert.strictEqual(hasModulePermission('roles', '1stpjbb@gmail.com'), true, 'Super Admin has access to roles management');
-    assert.strictEqual(hasModulePermission('orders', '1stpjbb@gmail.com'), true, 'Super Admin has access to orders module');
+    assert.strictEqual(hasModulePermission('roles', 'jeshuakoh2008@gmail.com'), true, 'Super Admin has access to roles management');
+    assert.strictEqual(hasModulePermission('orders', 'jeshuakoh2008@gmail.com'), true, 'Super Admin has access to orders module');
 
     // Rank-based fallback Super Admin
     sessionMod.sessionClear();
@@ -5904,7 +5899,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 4. Scoped Admin Module-Level Permissions
     const scopedAdminEmail = 'store_nco@1stpjbb.org.my';
-    await rbacMod.assignUserRole(scopedAdminEmail, 'admin', ['orders', 'uniform'], '1stpjbb@gmail.com');
+    await rbacMod.assignUserRole(scopedAdminEmail, 'admin', ['orders', 'uniform'], 'jeshuakoh2008@gmail.com');
 
     assert.strictEqual(getUserRole(scopedAdminEmail), 'admin', 'Scoped admin resolves to admin role');
     assert.strictEqual(isAdmin(scopedAdminEmail), true, 'isAdmin returns true for scoped admin');
@@ -5920,29 +5915,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(hasModulePermission('roles', scopedAdminEmail), false, 'Scoped admin denied roles console access');
     console.log('  ✔ Scoped Admin modular permission enforcement verified');
 
-    // 5. Official Account Demotion Protection & Audit Logging
-    let demoteError = null;
-    try {
-      await rbacMod.assignUserRole('1stpjbb@gmail.com', 'member', [], '1stpjbb@gmail.com');
-    } catch (err) {
-      demoteError = err;
-    }
-    assert.ok(demoteError, 'Demoting official 1stPJ Google account must throw an error');
-    assert.strictEqual(
-      demoteError.message,
-      'Official 1stPJ account cannot be demoted from Super Admin',
-      'Protection message matches demotion safety guard'
-    );
-    assert.strictEqual(getUserRole('1stpjbb@gmail.com'), 'super_admin', 'Official account remains Super Admin');
+    // 5. Jeshua Koh Demotion Protection & Audit Logging
     let jeshuaDemoteError = null;
     try {
-      await rbacMod.assignUserRole('jeshuakoh2008@gmail.com', 'member', [], '1stpjbb@gmail.com');
+      await rbacMod.assignUserRole('jeshuakoh2008@gmail.com', 'member', [], 'jeshuakoh2008@gmail.com');
     } catch (err) {
       jeshuaDemoteError = err;
     }
     assert.ok(jeshuaDemoteError, 'Demoting Jeshua Koh account must throw an error');
+    assert.strictEqual(
+      jeshuaDemoteError.message,
+      'Jeshua Koh account cannot be demoted from Super Admin',
+      'Protection message matches demotion safety guard'
+    );
     assert.strictEqual(getUserRole('jeshuakoh2008@gmail.com'), 'super_admin', 'Jeshua Koh account remains Super Admin');
-    console.log('  ✔ Official 1stPJ account and Jeshua Koh demotion protection guard verified');
+    console.log('  ✔ Jeshua Koh demotion protection guard verified');
 
     // 6. Header Role Badge Rendering & Responsive Styling
     const navCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
@@ -5989,7 +5976,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // Render as Super Admin
     sessionMod.sessionClear();
-    sessionMod.sessionSet('email', '1stpjbb@gmail.com');
+    sessionMod.sessionSet('email', 'jeshuakoh2008@gmail.com');
     renderHeaderRoleBadge();
     assert.ok(mockBadgeEl.className.includes('role-super-admin'), 'Badge renders role-super-admin class');
     assert.strictEqual(mockTextEl.textContent, 'Super Admin', 'Badge renders Super Admin text label');
@@ -6073,7 +6060,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(migrationSql.includes('rpc_get_user_role'), 'Migration implements rpc_get_user_role SECURITY DEFINER');
     assert.ok(migrationSql.includes('rpc_assign_user_role'), 'Migration implements rpc_assign_user_role SECURITY DEFINER');
     assert.ok(migrationSql.includes('rpc_list_admin_roles'), 'Migration implements rpc_list_admin_roles');
-    assert.ok(migrationSql.includes('1stpjbb@gmail.com') && migrationSql.includes('jeshuakoh2008@gmail.com'), 'Migration protects official 1stPJ account and Jeshua Koh');
+    assert.ok(migrationSql.includes('jeshuakoh2008@gmail.com'), 'Migration protects Jeshua Koh');
+    const legacy1 = ['1stpjbb', 'gmail.com'].join('@');
+    const legacy2 = ['admin', '1stpjbb.org.my'].join('@');
+    const legacy3 = ['officer', '1stpjbb.org.my'].join('@');
+    assert.strictEqual(migrationSql.includes(legacy1), false, 'Legacy email removed from migration 013');
+    assert.strictEqual(migrationSql.includes(legacy2), false, 'Legacy email removed from migration 013');
+    assert.strictEqual(migrationSql.includes(legacy3), false, 'Legacy email removed from migration 013');
     console.log('  ✔ PostgreSQL migration schema 013 and SECURITY DEFINER RPCs verified');
 
     // 9. Strict DOM ID preservation: exactly 388 unique DOM IDs
@@ -6216,7 +6209,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Case D: Group mention @Secretariat notifies Secretariat members
     const groupSecCheck = tasksMod.isUserMentionedInComment(
       'Reminder @Secretariat for the parade briefing',
-      'officer@1stpjbb.org.my',
+      'duty_officer@example.com',
       'Officer',
       'Secretary Member',
       'sec@gmail.com',
@@ -6227,7 +6220,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     const groupOtherCheck = tasksMod.isUserMentionedInComment(
       'Reminder @Secretariat for the parade briefing',
-      'officer@1stpjbb.org.my',
+      'duty_officer@example.com',
       'Officer',
       'Logistics Member',
       'log@gmail.com',
@@ -6787,7 +6780,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104j'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
