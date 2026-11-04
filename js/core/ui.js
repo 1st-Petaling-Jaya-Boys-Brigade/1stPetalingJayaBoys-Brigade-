@@ -612,14 +612,283 @@
     if (modal) modal.style.display = 'none';
   }
 
-  if (typeof document !== 'undefined') {
-    document.addEventListener('selectionchange', function() {
-      var act = document.activeElement;
-      if (act && (act.isContentEditable || act.classList.contains('task-editable-desc') || act.id === 'ann-body-input')) {
-        saveRichEditorRange(act);
+  
+  var _lastContextCell = null;
+
+  function executeRichTableAction(action, btnOrEl) {
+    if (typeof document === 'undefined') return;
+    var cell = _lastContextCell;
+    if (!cell && typeof window !== 'undefined' && window.getSelection) {
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        var node = sel.anchorNode;
+        var el = (node && node.nodeType === 1) ? node : (node ? node.parentElement : null);
+        if (el && el.closest) cell = el.closest('td, th');
       }
+    }
+    if (!cell && btnOrEl) {
+      var editor = resolveTargetRichEditor(btnOrEl);
+      if (editor) cell = editor.querySelector('td, th');
+    }
+
+    if (action === 'insertTable') {
+      executeRichFormat('table', null, btnOrEl);
+      return;
+    }
+
+    if (!cell) {
+      if (typeof showToast === 'function') {
+        showToast('Click or right-click inside a table to manage rows and columns.', 'info', 2500);
+      }
+      return;
+    }
+
+    var tr = cell.closest ? cell.closest('tr') : null;
+    var table = tr && tr.closest ? tr.closest('table') : null;
+    if (!tr || !table) return;
+
+    if (action === 'insertRowAbove' || action === 'insertRowBelow') {
+      var cols = tr.cells.length;
+      var newTr = document.createElement('tr');
+      var isHeader = tr.parentElement && tr.parentElement.tagName.toLowerCase() === 'thead';
+      for (var i = 0; i < cols; i++) {
+        var newCell = document.createElement(isHeader ? 'th' : 'td');
+        newCell.style.cssText = 'border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);';
+        if (isHeader) newCell.style.background = 'rgba(255,255,255,0.04)';
+        newCell.innerHTML = '&nbsp;';
+        newTr.appendChild(newCell);
+      }
+      if (action === 'insertRowAbove') {
+        tr.insertAdjacentElement('beforebegin', newTr);
+      } else {
+        tr.insertAdjacentElement('afterend', newTr);
+      }
+      var firstC = newTr.cells[0];
+      if (firstC && typeof window !== 'undefined' && window.getSelection) {
+        firstC.focus();
+        var r = document.createRange();
+        r.setStart(firstC, 0);
+        r.collapse(true);
+        var s = window.getSelection();
+        if (s) { s.removeAllRanges(); s.addRange(r); }
+      }
+    } else if (action === 'insertColLeft' || action === 'insertColRight') {
+      var colIdx = cell.cellIndex;
+      var allRows = table.querySelectorAll('tr');
+      allRows.forEach(function(row) {
+        var isH = (row.parentElement && row.parentElement.tagName.toLowerCase() === 'thead') || row.querySelector('th');
+        var c = document.createElement(isH ? 'th' : 'td');
+        c.style.cssText = 'border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);';
+        if (isH) c.style.background = 'rgba(255,255,255,0.04)';
+        c.innerHTML = '&nbsp;';
+        var refCell = row.cells[colIdx];
+        if (refCell) {
+          if (action === 'insertColLeft') {
+            row.insertBefore(c, refCell);
+          } else {
+            row.insertBefore(c, refCell.nextSibling);
+          }
+        } else {
+          row.appendChild(c);
+        }
+      });
+    } else if (action === 'deleteRow') {
+      tr.remove();
+      if (!table.querySelector('tr')) table.remove();
+    } else if (action === 'deleteCol') {
+      var delColIdx = cell.cellIndex;
+      var rows = table.querySelectorAll('tr');
+      rows.forEach(function(row) {
+        if (row.cells[delColIdx]) row.cells[delColIdx].remove();
+      });
+      if (table.querySelector('tr') && table.querySelector('tr').cells.length === 0) {
+        table.remove();
+      }
+    } else if (action === 'deleteTable') {
+      table.remove();
+    }
+  }
+
+  function ensureTableContextMenu() {
+    if (typeof document === 'undefined') return null;
+    var menu = document.querySelector('.tb-table-context-menu');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.className = 'tb-table-context-menu';
+      menu.style.display = 'none';
+      document.body.appendChild(menu);
+      document.addEventListener('click', function(ev) {
+        if (!menu.contains(ev.target)) closeTableContextMenu();
+      });
+      document.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Escape') closeTableContextMenu();
+      });
+    }
+    return menu;
+  }
+
+  function showTableContextMenu(cell, x, y) {
+    if (typeof document === 'undefined' || !cell) return;
+    _lastContextCell = cell;
+    var menu = ensureTableContextMenu();
+    if (!menu) return;
+    menu.innerHTML = ''
+      + '<button type="button" class="tb-table-ctx-item" data-action="insertRowAbove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Row Above</button>'
+      + '<button type="button" class="tb-table-ctx-item" data-action="insertRowBelow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Row Below</button>'
+      + '<button type="button" class="tb-table-ctx-item" data-action="insertColLeft"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Column Left</button>'
+      + '<button type="button" class="tb-table-ctx-item" data-action="insertColRight"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Column Right</button>'
+      + '<div class="tb-table-ctx-divider"></div>'
+      + '<button type="button" class="tb-table-ctx-item danger" data-action="deleteRow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg> Delete Row</button>'
+      + '<button type="button" class="tb-table-ctx-item danger" data-action="deleteCol"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg> Delete Column</button>'
+      + '<button type="button" class="tb-table-ctx-item danger" data-action="deleteTable"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete Table</button>';
+
+    var winW = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1000;
+    var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 800;
+    var menuW = 180;
+    var menuH = 220;
+    var posX = (x + menuW > winW) ? (winW - menuW - 10) : x;
+    var posY = (y + menuH > winH) ? (winH - menuH - 10) : y;
+    menu.style.left = Math.max(10, posX) + 'px';
+    menu.style.top = Math.max(10, posY) + 'px';
+    menu.style.display = 'flex';
+
+    var items = menu.querySelectorAll('.tb-table-ctx-item');
+    items.forEach(function(item) {
+      item.addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        var act = item.getAttribute('data-action');
+        closeTableContextMenu();
+        executeRichTableAction(act, cell);
+      });
     });
   }
+
+  function closeTableContextMenu() {
+    if (typeof document === 'undefined') return;
+    var menu = document.querySelector('.tb-table-context-menu');
+    if (menu) menu.style.display = 'none';
+  }
+
+  function handleRichEditorKeydown(e) {
+    if (typeof document === 'undefined') return;
+    var target = e.target;
+    var editor = (target && target.closest) ? target.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
+    if (!editor) return;
+
+    // 1. Tab Key -> Indent (or Outdent if Shift is held)
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        document.execCommand('outdent', false, null);
+      } else {
+        document.execCommand('indent', false, null);
+      }
+      return;
+    }
+
+    // 2. Checklist Enter Key Handling -> Insert new row, or exit if empty
+    if (e.key === 'Enter') {
+      var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      if (sel && sel.rangeCount > 0) {
+        var anchor = sel.anchorNode;
+        var el = (anchor && anchor.nodeType === 1) ? anchor : (anchor ? anchor.parentElement : null);
+        var checkRow = (el && el.closest) ? el.closest('.tb-checklist-row') : null;
+        if (checkRow && editor.contains(checkRow)) {
+          e.preventDefault();
+          var textSpan = checkRow.querySelector('span') || checkRow;
+          var text = (textSpan.textContent || '').replace(/\u00a0/g, ' ').trim();
+
+          // If row is empty, exit checklist
+          if (!text || text === 'Checklist item') {
+            var p = document.createElement('div');
+            p.innerHTML = '<br>';
+            checkRow.parentNode.replaceChild(p, checkRow);
+            var range = document.createRange();
+            range.setStart(p, 0);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return;
+          }
+
+          // Append next checklist row
+          var nextRow = document.createElement('div');
+          nextRow.className = 'tb-checklist-row';
+          nextRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;';
+          nextRow.innerHTML = '<input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true"><br></span>';
+          checkRow.insertAdjacentElement('afterend', nextRow);
+
+          var nextSpan = nextRow.querySelector('span');
+          if (nextSpan) {
+            nextSpan.focus();
+            var r = document.createRange();
+            r.setStart(nextSpan, 0);
+            r.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(r);
+          }
+          return;
+        }
+      }
+    }
+
+    // 3. Checklist Backspace on Empty Item -> convert to blank paragraph
+    if (e.key === 'Backspace') {
+      var selBk = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      if (selBk && selBk.rangeCount > 0) {
+        var anc = selBk.anchorNode;
+        var elem = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
+        var chk = (elem && elem.closest) ? elem.closest('.tb-checklist-row') : null;
+        if (chk && editor.contains(chk)) {
+          var sp = chk.querySelector('span') || chk;
+          var t = (sp.textContent || '').replace(/\u00a0/g, ' ').trim();
+          if (!t) {
+            e.preventDefault();
+            var prevEl = chk.previousElementSibling;
+            var divP = document.createElement('div');
+            divP.innerHTML = '<br>';
+            chk.parentNode.replaceChild(divP, chk);
+            var rBk = document.createRange();
+            if (prevEl) {
+              rBk.selectNodeContents(prevEl);
+              rBk.collapse(false);
+            } else {
+              rBk.setStart(divP, 0);
+              rBk.collapse(true);
+            }
+            selBk.removeAllRanges();
+            selBk.addRange(rBk);
+          }
+        }
+      }
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    // Save range on mouseup (never on every keystroke)
+    document.addEventListener('mouseup', function(e) {
+      var ed = (e.target && e.target.closest) ? e.target.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
+      if (ed) saveRichEditorRange(ed);
+    });
+
+    // Keydown handler for Tab indentation and checklist Enter
+    document.addEventListener('keydown', handleRichEditorKeydown, false);
+
+    // Table right-click context menu
+    document.addEventListener('contextmenu', function(e) {
+      var cell = (e.target && e.target.closest) ? e.target.closest('table.tb-table td, table.tb-table th') : null;
+      if (cell) {
+        var editor = cell.closest ? cell.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
+        if (editor) {
+          e.preventDefault();
+          showTableContextMenu(cell, e.clientX, e.clientY);
+          return;
+        }
+      }
+      closeTableContextMenu();
+    });
+  }
+
 
   // Expose to window / global
   if (typeof global !== 'undefined') {
@@ -638,6 +907,10 @@
     global.toggleRichDropdownMenu = toggleRichDropdownMenu;
     global.openAnnouncementZoomModal = openAnnouncementZoomModal;
     global.closeAnnouncementZoomModal = closeAnnouncementZoomModal;
+    global.executeRichTableAction = executeRichTableAction;
+    global.showTableContextMenu = showTableContextMenu;
+    global.closeTableContextMenu = closeTableContextMenu;
+    global.handleRichEditorKeydown = handleRichEditorKeydown;
   }
 
   // CommonJS export for Node testing
@@ -657,7 +930,11 @@
       toggleRichColorPicker: toggleRichColorPicker,
       toggleRichDropdownMenu: toggleRichDropdownMenu,
       openAnnouncementZoomModal: openAnnouncementZoomModal,
-      closeAnnouncementZoomModal: closeAnnouncementZoomModal
+      closeAnnouncementZoomModal: closeAnnouncementZoomModal,
+      executeRichTableAction: executeRichTableAction,
+      showTableContextMenu: showTableContextMenu,
+      closeTableContextMenu: closeTableContextMenu,
+      handleRichEditorKeydown: handleRichEditorKeydown
     };
   }
 })(typeof window !== 'undefined' ? window : this);
