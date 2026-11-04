@@ -858,10 +858,6 @@ if (typeof document !== 'undefined') {
     var editor = document.getElementById('ann-body-input');
     if (editor && editor.contains(e.target)) annSaveRange();
   });
-  document.addEventListener('keyup', function(e) {
-    var editor = document.getElementById('ann-body-input');
-    if (editor && editor.contains(e.target)) annSaveRange();
-  });
 }
 
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────

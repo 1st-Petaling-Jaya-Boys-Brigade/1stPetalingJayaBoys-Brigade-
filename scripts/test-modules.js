@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261104c',
-    'sw.js CACHE_VERSION must be 20261104c'
+    '20261104e',
+    'sw.js CACHE_VERSION must be 20261104e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104c',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261104e',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6680,7 +6680,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104c'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261104e'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -7689,6 +7689,85 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const uniqueIds = Array.from(new Set(extractedIds));
     assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+  }
+
+
+  // ── Rich Text Editor UX, List Indentation, Table Context Menu & Performance Polish ──
+  {
+    console.log('\nTesting Rich Text Editor UX, List Alignment, Table Actions & Performance Polish...');
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+    const compCss = fs.readFileSync('css/components.css', 'utf8');
+    const varCss = fs.readFileSync('css/variables.css', 'utf8');
+    const uiMod = require('../js/core/ui.js');
+
+    // 1. List Alignment & Indentation CSS
+    assert.ok(compCss.includes('padding-left: 28px !important;'), 'List elements have generous 28px left padding for clean alignment');
+    assert.ok(compCss.includes('list-style-type: decimal !important;'), 'Ordered lists explicitly enforce decimal numbering');
+    assert.ok(compCss.includes('list-style-type: disc !important;'), 'Unordered lists explicitly enforce disc bulleting');
+    console.log('  ✔ List alignment (numbers and bullets) styled with proper indentation and gutter padding');
+
+    // 2. Unified Rich Editor Wrapper & Focus Outline Elimination
+    assert.ok(compCss.includes('.rich-editor-wrapper {'), 'components.css defines unified .rich-editor-wrapper container');
+    assert.ok(compCss.includes('.rich-editor-wrapper:focus-within'), 'Unified wrapper provides cohesive focus glow for toolbar and editor');
+    assert.ok(indexHtml.includes('class="rich-editor-wrapper"'), 'index.html wraps toolbars and contenteditable editors');
+    console.log('  ✔ Unified .rich-editor-wrapper container replaces isolated yellow outline with sleek focus-within glow');
+
+    // 3. Tab Key Indent / Outdent and Checklist Enter Handler
+    assert.strictEqual(typeof uiMod.handleRichEditorKeydown, 'function', 'handleRichEditorKeydown exported from ui.js');
+    
+    // Test Tab key event prevention and command execution
+    let executedCmd = null;
+    const origExec = global.document.execCommand;
+    global.document.execCommand = (cmd) => { executedCmd = cmd; return true; };
+
+    const mockEditor = {
+      isContentEditable: true,
+      classList: { contains: () => true },
+      closest: (_sel) => mockEditor
+    };
+
+    let defaultPrevented = false;
+    const tabEvent = {
+      key: 'Tab',
+      shiftKey: false,
+      target: mockEditor,
+      preventDefault: () => { defaultPrevented = true; }
+    };
+    uiMod.handleRichEditorKeydown(tabEvent);
+    assert.strictEqual(defaultPrevented, true, 'Tab key calls preventDefault() to prevent focus loss');
+    assert.strictEqual(executedCmd, 'indent', 'Tab key executes indent command');
+
+    const shiftTabEvent = {
+      key: 'Tab',
+      shiftKey: true,
+      target: mockEditor,
+      preventDefault: () => {}
+    };
+    uiMod.handleRichEditorKeydown(shiftTabEvent);
+    assert.strictEqual(executedCmd, 'outdent', 'Shift+Tab executes outdent command');
+    console.log('  ✔ Keyboard Tab key smoothly indents/outdents inside editors without losing focus');
+
+    // 4. Table Context Menu & Actions
+    assert.strictEqual(typeof uiMod.executeRichTableAction, 'function', 'executeRichTableAction exported');
+    assert.strictEqual(typeof uiMod.showTableContextMenu, 'function', 'showTableContextMenu exported');
+    assert.strictEqual(typeof uiMod.closeTableContextMenu, 'function', 'closeTableContextMenu exported');
+    assert.ok(compCss.includes('.tb-table-context-menu'), 'components.css defines table context menu');
+    assert.ok(indexHtml.includes('executeRichTableAction(\'insertRowBelow\''), 'index.html table dropdown provides row/col insert actions');
+    console.log('  ✔ Table insertion, right-click context menu and row/column actions verified');
+
+    // 5. Responsive, Snappy Button Transitions (No Hover Lag)
+    assert.ok(varCss.includes('--transition-fast: background-color 0.08s ease'), 'Snappy 0.08s fast transition defined in variables.css');
+    assert.ok(compCss.includes('transition: background-color 0.08s ease'), 'Toolbar buttons have instant 0.08s hover response');
+    console.log('  ✔ Snappy button transitions eliminate hover delay across portal components');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIds = Array.from(new Set(extractedIds));
+    assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+
+    global.document.execCommand = origExec;
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

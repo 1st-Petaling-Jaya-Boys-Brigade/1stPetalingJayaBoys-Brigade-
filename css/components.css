@@ -9114,6 +9114,61 @@ select.form-input,
    TSK-010 / TSK-009: Rich Text Formatting Toolbar & Announcement Infographics
    ========================================================================== */
 
+
+/* 0. Unified Compound Rich Editor Container */
+.rich-editor-wrapper {
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-card-subtle);
+  overflow: visible;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  margin-bottom: 20px;
+}
+
+.rich-editor-wrapper:focus-within {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-soft, rgba(245, 197, 66, 0.18)) !important;
+}
+
+.rich-editor-wrapper .task-brief-toolbar,
+.rich-editor-wrapper .new-task-desc-toolbar,
+.rich-editor-wrapper .ann-toolbar {
+  border: none !important;
+  border-bottom: 1px solid var(--border-card) !important;
+  border-radius: 9px 9px 0 0 !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.rich-editor-wrapper .task-brief-body,
+.rich-editor-wrapper .task-editable-desc,
+.rich-editor-wrapper #tdm-desc,
+.rich-editor-wrapper #ann-body-input,
+.rich-editor-wrapper .new-task-desc-input {
+  border: none !important;
+  border-radius: 0 0 9px 9px !important;
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  background: var(--bg-input) !important;
+  margin-bottom: 0 !important;
+}
+
+/* Eliminate isolated yellow outline when editor has focus */
+.task-brief-body:focus,
+.task-brief-body:focus-visible,
+.task-editable-desc:focus,
+.task-editable-desc:focus-visible,
+#tdm-desc:focus,
+#tdm-desc:focus-visible,
+#ann-body-input:focus,
+#ann-body-input:focus-visible,
+.new-task-desc-input:focus,
+.new-task-desc-input:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+}
+
 /* 1. Sleek Rich Text Formatting Toolbar (Image 1 Layout & Icons) */
 .task-brief-toolbar,
 .new-task-desc-toolbar,
@@ -9144,7 +9199,7 @@ select.form-input,
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: all 0.15s ease;
+  transition: background-color 0.08s ease, border-color 0.08s ease, color 0.08s ease, box-shadow 0.08s ease;
   position: relative;
   outline: none;
 }
@@ -9349,6 +9404,59 @@ select.form-input,
 }
 
 /* 6. Rich Content Typography within Descriptions */
+.task-brief-body ul,
+.task-editable-desc ul,
+#ann-body-input ul,
+.ann-body ul,
+.rich-text-content ul {
+  padding-left: 28px !important;
+  margin: 8px 0 !important;
+  list-style-type: disc !important;
+}
+
+.task-brief-body ol,
+.task-editable-desc ol,
+#ann-body-input ol,
+.ann-body ol,
+.rich-text-content ol {
+  padding-left: 28px !important;
+  margin: 8px 0 !important;
+  list-style-type: decimal !important;
+}
+
+.task-brief-body li,
+.task-editable-desc li,
+#ann-body-input li,
+.ann-body li,
+.rich-text-content li {
+  margin-bottom: 4px !important;
+  padding-left: 4px !important;
+  line-height: 1.6 !important;
+  display: list-item !important;
+}
+
+.task-brief-body ul ul,
+.task-brief-body ol ul,
+.task-editable-desc ul ul,
+.task-editable-desc ol ul,
+#ann-body-input ul ul,
+#ann-body-input ol ul {
+  list-style-type: circle !important;
+  padding-left: 20px !important;
+  margin: 4px 0 !important;
+}
+
+.task-brief-body ol ol,
+.task-brief-body ul ol,
+.task-editable-desc ol ol,
+.task-editable-desc ul ol,
+#ann-body-input ol ol,
+#ann-body-input ol ol {
+  list-style-type: lower-alpha !important;
+  padding-left: 20px !important;
+  margin: 4px 0 !important;
+}
+
 .tb-checklist-row {
   display: flex;
   align-items: center;
@@ -9361,6 +9469,7 @@ select.form-input,
   width: 15px;
   height: 15px;
   accent-color: var(--gold, #d9a323);
+  flex-shrink: 0;
 }
 
 .tb-table {
@@ -9374,4 +9483,54 @@ select.form-input,
 .tb-table td {
   border: 1px solid var(--border-card);
   padding: 8px 10px;
+}
+
+/* 7. Table Right-Click Context Menu & Actions */
+.tb-table-context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+  padding: 4px;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: menuPopIn 0.1s ease-out;
+  user-select: none;
+}
+
+.tb-table-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.08s ease, color 0.08s ease;
+}
+
+.tb-table-ctx-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--gold, #d9a323);
+}
+
+.tb-table-ctx-item.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.tb-table-ctx-divider {
+  height: 1px;
+  background: var(--border-card);
+  margin: 3px 0;
 }
