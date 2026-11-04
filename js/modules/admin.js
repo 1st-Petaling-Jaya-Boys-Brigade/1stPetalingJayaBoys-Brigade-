@@ -2312,9 +2312,6 @@
 
     // Exclude dummy test accounts
     var excludedEmails = new Set([
-      '1stpjbb@gmail.com',
-      'admin@1stpjbb.org.my',
-      'officer@1stpjbb.org.my',
       'member@1stpjbb.org.my'
     ]);
     rawList = rawList.filter(function(m) {

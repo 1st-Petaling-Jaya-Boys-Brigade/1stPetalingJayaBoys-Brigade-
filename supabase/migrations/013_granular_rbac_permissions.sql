@@ -10,8 +10,7 @@
 --      - Admin: Scoped administrative privileges restricted to assigned modules.
 --      - Member: Standard portal user strictly blocked from Admin routes and APIs.
 --   2. Official & Designated Super Admin Accounts:
---      - Pre-assigns the official 1stPJ Google account (1stpjbb@gmail.com) and
---        designated officers (admin@1stpjbb.org.my, officer@1stpjbb.org.my).
+--      - Pre-assigns Jeshua Koh (jeshuakoh2008@gmail.com).
 --   3. Granular Module Permissions:
 --      - Modules: members, orders, uniform, tasks, announcements, badges,
 --        gallery, attendance, resources, calendar, roles.
@@ -29,10 +28,7 @@ VALUES (
   'bb_admin_roles',
   '{
     "super_admins": [
-      "1stpjbb@gmail.com",
-      "jeshuakoh2008@gmail.com",
-      "admin@1stpjbb.org.my",
-      "officer@1stpjbb.org.my"
+      "jeshuakoh2008@gmail.com"
     ],
     "admins": {}
   }'::text,
@@ -88,10 +84,8 @@ BEGIN
   v_admins := COALESCE(v_roles_json->'admins', '{}'::jsonb);
 
   -- 1. Check Super Admin pre-assigned list & official Google account
-  IF v_clean_email = '1stpjbb@gmail.com' OR
-     v_clean_email = 'jeshuakoh2008@gmail.com' OR
-     v_clean_email = 'admin@1stpjbb.org.my' OR
-     v_clean_email = 'officer@1stpjbb.org.my' OR
+  -- 1. Check Super Admin pre-assigned list & Jeshua Koh
+  IF v_clean_email = 'jeshuakoh2008@gmail.com' OR
      v_super_admins @> to_jsonb(v_clean_email) THEN
     v_is_super := true;
     RETURN jsonb_build_object(
@@ -173,8 +167,9 @@ BEGIN
   END IF;
 
   -- Prevent demoting official 1stPJ Google account and founder/super admin
-  IF (v_target_clean = '1stpjbb@gmail.com' OR v_target_clean = 'jeshuakoh2008@gmail.com') AND v_role_clean != 'super_admin' THEN
-    RAISE EXCEPTION 'Protection Error: The official 1stPJ Google account cannot be demoted.';
+  -- Prevent demoting founder/super admin
+  IF v_target_clean = 'jeshuakoh2008@gmail.com' AND v_role_clean != 'super_admin' THEN
+    RAISE EXCEPTION 'Protection Error: Jeshua Koh account cannot be demoted.';
   END IF;
 
   -- Get old role info for audit trail
@@ -291,7 +286,7 @@ BEGIN
   END IF;
 
   RETURN jsonb_build_object(
-    'super_admins', '["1stpjbb@gmail.com","admin@1stpjbb.org.my","officer@1stpjbb.org.my"]'::jsonb,
+    'super_admins', '["jeshuakoh2008@gmail.com"]'::jsonb,
     'admins', '{}'::jsonb
   );
 END;
