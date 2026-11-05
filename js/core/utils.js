@@ -35,7 +35,7 @@ function safeUrl(url, fallback) {
   if (!cleaned) return defaultFallback;
 
   // Safe relative paths and anchor hashes
-  if (/^(\/|\.\/|#)/.test(cleaned)) {
+  if (/^(\/|\.\/|\.\.\/|#|[a-zA-Z0-9_\-.~%]+\/)/.test(cleaned) && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(cleaned)) {
     return cleaned;
   }
 

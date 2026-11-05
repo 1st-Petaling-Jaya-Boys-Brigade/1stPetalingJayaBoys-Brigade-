@@ -765,6 +765,16 @@ async function addAnnouncement() {
     if (bodyEl)  bodyEl.innerHTML = '';
     renderAnnouncements();
     renderAdminAnnList();
+    if (typeof syncAnnouncementNotifications === 'function') {
+      syncAnnouncementNotifications(announcements);
+    } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
+      window.syncAnnouncementNotifications(announcements);
+    }
+    if (typeof syncAllPortalNotifications === 'function') {
+      syncAllPortalNotifications();
+    } else if (typeof window !== 'undefined' && typeof window.syncAllPortalNotifications === 'function') {
+      window.syncAllPortalNotifications();
+    }
   } catch (e) {
     console.error('addAnnouncement error:', e);
     if (typeof showToast === 'function') {
