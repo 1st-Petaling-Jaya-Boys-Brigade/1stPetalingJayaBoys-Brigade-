@@ -1262,15 +1262,6 @@
           '</div>' +
         '</div>' +
 
-        '<div class="arcade-side-card">' +
-          '<div class="arcade-side-title">' +
-            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' +
-            '<span>BB Syllabus Word Bank</span>' +
-          '</div>' +
-          '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
-            'Daily puzzles feature authentic 5-letter terms from drill commands (<em>DRILL, MARCH</em>), company awards (<em>BADGE, AWARD</em>), ranks, camping gear, and BB heritage.' +
-          '</div>' +
-        '</div>' +
 
         '<div class="arcade-side-card">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
@@ -1417,19 +1408,6 @@
           '</div>' +
         '</div>' +
 
-        '<div class="arcade-side-card">' +
-          '<div class="arcade-side-title">' +
-            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>' +
-            '<span>Syllabus Topics Covered</span>' +
-          '</div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
-            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Company History</span>' +
-            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Drill &amp; Marching</span>' +
-            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Badges &amp; Awards</span>' +
-            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Founder &amp; President</span>' +
-            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">First Aid &amp; Safety</span>' +
-          '</div>' +
-        '</div>' +
 
         '<div class="arcade-side-card">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
