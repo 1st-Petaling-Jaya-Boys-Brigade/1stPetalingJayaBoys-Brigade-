@@ -1119,6 +1119,37 @@ function getMemberAvatarColor(name) {
  * @param {string} [ic]
  * @returns {string|null}
  */
+
+/**
+ * Intelligently matches names between Master Attendance sheet and user accounts
+ * e.g., 'Oliver Ling' matches 'OLIVER LING CHEE SHENG'
+ * e.g., 'Joash Lee' matches 'JOASH LEE JIAN AN'
+ * e.g., 'Moses Lai' matches 'Lai Moses'
+ */
+function isNameMatch(nameA, nameB) {
+  if (!nameA || !nameB) return false;
+  var a = String(nameA).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  var b = String(nameB).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.indexOf(b) !== -1 || b.indexOf(a) !== -1) return true;
+
+  var tokensA = a.split(' ').filter(function(t) { return t.length >= 2; });
+  var tokensB = b.split(' ').filter(function(t) { return t.length >= 2; });
+  if (tokensA.length === 0 || tokensB.length === 0) return false;
+
+  var shortTokens = tokensA.length <= tokensB.length ? tokensA : tokensB;
+  var longTokens = tokensA.length <= tokensB.length ? tokensB : tokensA;
+
+  var allMatch = shortTokens.every(function(st) {
+    return longTokens.some(function(lt) {
+      return lt === st || (st.length >= 3 && (lt.indexOf(st) !== -1 || st.indexOf(lt) !== -1));
+    });
+  });
+
+  return allMatch;
+}
+
 function resolveMemberDirectoryInfo(nameOrId) {
   if (!nameOrId) return null;
   var q = String(nameOrId).trim().toLowerCase();
@@ -1128,7 +1159,7 @@ function resolveMemberDirectoryInfo(nameOrId) {
     var sName = String(sessionGet('name') || '').trim().toLowerCase();
     var sEmail = String(sessionGet('email') || '').trim().toLowerCase();
     var sIc = String(sessionGet('ic') || '').trim().toLowerCase();
-    if (q === sName || q === sEmail || q === sIc) {
+    if (q === sName || q === sEmail || q === sIc || (sName && isNameMatch(sName, q))) {
       return {
         name: sessionGet('name'),
         email: sessionGet('email'),
@@ -1145,7 +1176,7 @@ function resolveMemberDirectoryInfo(nameOrId) {
       var mn = String(m.name || '').trim().toLowerCase();
       var mic = String(m.ic || '').trim().toLowerCase();
       var memail = String(m.email || '').trim().toLowerCase();
-      return mn === q || mic === q || memail === q;
+      return mn === q || mic === q || memail === q || isNameMatch(mn, q);
     });
     if (foundDept) return foundDept;
   }
@@ -1157,6 +1188,7 @@ function resolveMemberDirectoryInfo(nameOrId) {
       if (raw) {
         var arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
+          // Pass 1: Exact match
           var foundMem = arr.find(function(m) {
             if (!m) return false;
             var mn = String(m.name || '').trim().toLowerCase();
@@ -1165,6 +1197,13 @@ function resolveMemberDirectoryInfo(nameOrId) {
             return mn === q || mic === q || memail === q;
           });
           if (foundMem) return foundMem;
+
+          // Pass 2: Smart fuzzy name match (e.g. Oliver Ling -> OLIVER LING CHEE SHENG)
+          var fuzzyMem = arr.find(function(m) {
+            if (!m || !m.name) return false;
+            return isNameMatch(m.name, q);
+          });
+          if (fuzzyMem) return fuzzyMem;
         }
       }
     } catch (_) {}
@@ -2373,6 +2412,8 @@ if (typeof window !== 'undefined') {
   window.getMemberAvatarInitial = getMemberAvatarInitial;
   window.getMemberAvatarColor = getMemberAvatarColor;
   window.resolveMemberDirectoryInfo = resolveMemberDirectoryInfo;
+  window.isNameMatch = isNameMatch;
+  if (typeof global !== 'undefined') global.isNameMatch = isNameMatch;
   window._memberPfpsMap       = _memberPfpsMap;
   window.loadMemberProfilePictures = loadMemberProfilePictures;
   window.getMemberAvatarUrl   = getMemberAvatarUrl;
@@ -2434,6 +2475,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarInitial: getMemberAvatarInitial,
     getMemberAvatarColor: getMemberAvatarColor,
     resolveMemberDirectoryInfo: resolveMemberDirectoryInfo,
+    isNameMatch: isNameMatch,
     _memberPfpsMap: _memberPfpsMap,
     loadMemberProfilePictures: loadMemberProfilePictures,
     getMemberAvatarUrl: getMemberAvatarUrl,

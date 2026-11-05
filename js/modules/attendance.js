@@ -857,27 +857,73 @@ async function renderCompanyLeaderboard() {
     viewerName = (sessionGet('name') || '').trim();
   }
 
-  // Build lookup of members who have registered an account
-  var registeredMembersMap = {};
-  if (typeof localStorage !== 'undefined') {
+  // Build lookup of members who have registered an account (live Supabase fetch + local cache fallback)
+  var registeredMembersList = [];
+  try {
+    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+    if (client && typeof client.get === 'function') {
+      var dbMems = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,photo_url&order=name.asc');
+      if (Array.isArray(dbMems) && dbMems.length > 0) {
+        registeredMembersList = dbMems;
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('bb_members_cache', JSON.stringify(dbMems)); } catch (_) {}
+        }
+      }
+    }
+  } catch (memFetchErr) {
+    console.warn('Leaderboard registered members fetch note:', memFetchErr);
+  }
+
+  if (registeredMembersList.length === 0 && typeof localStorage !== 'undefined') {
     try {
       var rawMems = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
       if (rawMems) {
-        var memArr = JSON.parse(rawMems);
-        if (Array.isArray(memArr)) {
-          memArr.forEach(function(rm) {
-            if (rm && rm.name) registeredMembersMap[rm.name.trim().toLowerCase()] = rm;
-            if (rm && rm.ic) registeredMembersMap[String(rm.ic).trim().toLowerCase()] = rm;
-          });
-        }
+        var parsedCache = JSON.parse(rawMems);
+        if (Array.isArray(parsedCache)) registeredMembersList = parsedCache;
       }
     } catch (_) {}
   }
+
   if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
     window._cachedDepartmentMembers.forEach(function(dm) {
-      if (dm && dm.name) registeredMembersMap[dm.name.trim().toLowerCase()] = dm;
-      if (dm && dm.ic) registeredMembersMap[String(dm.ic).trim().toLowerCase()] = dm;
+      if (dm && !registeredMembersList.some(function(rm) { return (rm.ic && rm.ic === dm.ic) || (rm.email && rm.email === dm.email); })) {
+        registeredMembersList.push(dm);
+      }
     });
+  }
+
+  var registeredMembersMap = {};
+  registeredMembersList.forEach(function(rm) {
+    if (rm && rm.name) registeredMembersMap[rm.name.trim().toLowerCase()] = rm;
+    if (rm && rm.ic) registeredMembersMap[String(rm.ic).trim().toLowerCase()] = rm;
+    if (rm && rm.email) registeredMembersMap[String(rm.email).trim().toLowerCase()] = rm;
+  });
+
+  function findRegisteredMemberMatch(searchName, searchIc) {
+    if (!searchName && !searchIc) return null;
+    var sName = String(searchName || '').trim().toLowerCase();
+    var sIc = String(searchIc || '').trim().toLowerCase();
+
+    // 1. Exact lookup
+    if (sIc && registeredMembersMap[sIc]) return registeredMembersMap[sIc];
+    if (sName && registeredMembersMap[sName]) return registeredMembersMap[sName];
+
+    // 2. Intelligent name match (e.g. Oliver Ling -> OLIVER LING CHEE SHENG)
+    var matchFn = (typeof isNameMatch === 'function')
+      ? isNameMatch
+      : (typeof window !== 'undefined' && typeof window.isNameMatch === 'function'
+          ? window.isNameMatch
+          : (typeof global !== 'undefined' && typeof global.isNameMatch === 'function' ? global.isNameMatch : null));
+
+    if (sName && matchFn) {
+      for (var k = 0; k < registeredMembersList.length; k++) {
+        var cand = registeredMembersList[k];
+        if (cand && cand.name && matchFn(cand.name, sName)) {
+          return cand;
+        }
+      }
+    }
+    return null;
   }
 
   // Standard competing squads fallback from master sheet
@@ -1027,29 +1073,26 @@ async function renderCompanyLeaderboard() {
           '<span class="att-tier-pill tier-' + mTier.tier.replace('_', '-') + '" title="' + escapeAttHtml(mTier.tooltipText) + '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + mTier.bg + ';color:' + mTier.color + ';border:1px solid ' + mTier.border + ';cursor:help;" aria-label="Attendance tier: ' + escapeAttHtml(mTier.label) + '">' +
             escapeAttHtml(mTier.label) +
           '</span>';
-
-        var cleanMName = String(m.name || '').trim().toLowerCase();
         var dirRec = (typeof resolveMemberDirectoryInfo === 'function') ? resolveMemberDirectoryInfo(m.name || m.ic) : null;
+        var regRec = dirRec || findRegisteredMemberMatch(m.name, m.ic);
         var isRegistered = !!(
           isSelf ||
           (typeof isPortalCreator === 'function' && isPortalCreator(m.name, m.ic)) ||
           /jeshua\s+koh/i.test(m.name || '') ||
-          dirRec ||
-          registeredMembersMap[cleanMName] ||
-          (m.ic && registeredMembersMap[String(m.ic).trim().toLowerCase()])
+          regRec
         );
 
         var avatarHtml = '';
         if (isRegistered) {
-          var regRec = dirRec || registeredMembersMap[cleanMName] || (m.ic && registeredMembersMap[String(m.ic).trim().toLowerCase()]) || {};
-          var regId = m.ic || regRec.ic || regRec.email || m.email || '';
+          var regId = (regRec && (regRec.ic || regRec.email)) || m.ic || m.email || '';
+          var regName = (regRec && regRec.name) || m.name;
           var univFn = (typeof getUniversalMemberAvatarHtml === 'function')
             ? getUniversalMemberAvatarHtml
             : (typeof window !== 'undefined' && typeof window.getUniversalMemberAvatarHtml === 'function' ? window.getUniversalMemberAvatarHtml : null);
           if (univFn) {
-            avatarHtml = univFn(m.name, regId, 24, { showPresence: true, showCosmetics: true });
+            avatarHtml = univFn(regName, regId, 24, { showPresence: true, showCosmetics: true });
           } else if (typeof getAssigneeAvatarHtml === 'function') {
-            avatarHtml = getAssigneeAvatarHtml(m.name, regId, 24);
+            avatarHtml = getAssigneeAvatarHtml(regName, regId, 24);
           } else {
             avatarHtml = '<span class="task-card-avatar" style="width:24px;height:24px;border-radius:9999px;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + (m.name ? m.name[0] : 'M') + '</span>';
           }

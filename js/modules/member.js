@@ -335,6 +335,28 @@ function isMinorSection(section, age) {
   return false;
 }
 
+
+function handleRegRankChange() {
+  if (typeof document === 'undefined') return;
+  var rankEl = document.getElementById('reg-rank');
+  var secEl = document.getElementById('reg-section');
+  if (!rankEl || !secEl) return;
+  var r = rankEl.value;
+  if (!r) return;
+  var secRankFn = (typeof getSectionForRank === 'function')
+    ? getSectionForRank
+    : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
+        ? global.getSectionForRank
+        : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
+  if (typeof secRankFn === 'function') {
+    var inferred = secRankFn(r);
+    if (inferred && secEl.value !== inferred) {
+      secEl.value = inferred;
+      handleSectionChange();
+    }
+  }
+}
+
 function handleSectionChange() {
   if (typeof document === 'undefined') return;
   var secEl = document.getElementById('reg-section');
@@ -352,10 +374,16 @@ function handleSectionChange() {
   }
 
   if (squadEl) {
-    var curSquad = squadEl.value;
-    populateSquadOptions(squadEl, section, curSquad, undefined, false);
     var isOff = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'officer';
-    squadEl.disabled = isOff;
+    if (isOff) {
+      squadEl.innerHTML = '<option value="" selected>No platoon/squad (Officer)</option>';
+      squadEl.value = '';
+      squadEl.disabled = true;
+    } else {
+      var curSquad = squadEl.value;
+      populateSquadOptions(squadEl, section, curSquad, undefined, false);
+      squadEl.disabled = false;
+    }
   }
 
   if (!box) return;
@@ -4707,6 +4735,8 @@ function loadSecurityQuestion() {
 if (typeof window !== 'undefined') {
   window.isMinorSection               = isMinorSection;
   window.handleSectionChange          = handleSectionChange;
+  window.handleRegRankChange          = handleRegRankChange;
+  if (typeof global !== 'undefined') global.handleRegRankChange = handleRegRankChange;
   window.openChildSafetyModal         = openChildSafetyModal;
   window.closeChildSafetyModal        = closeChildSafetyModal;
   window.fetchMemberConsent           = fetchMemberConsent;
@@ -4810,6 +4840,7 @@ if (typeof module !== 'undefined' && module.exports) {
     JUNIOR_SQUADS,
     isMinorSection,
     handleSectionChange,
+    handleRegRankChange,
     openChildSafetyModal,
     closeChildSafetyModal,
     fetchMemberConsent,
