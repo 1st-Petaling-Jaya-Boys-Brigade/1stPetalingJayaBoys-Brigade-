@@ -4336,6 +4336,11 @@ async function loadMemberOrders() {
 }
 
 function logoutMember() {
+  if (typeof sendPresenceHeartbeat === 'function') {
+    try { sendPresenceHeartbeat('offline').catch(function() {}); } catch (_) {}
+  } else if (typeof window !== 'undefined' && typeof window.sendPresenceHeartbeat === 'function') {
+    try { window.sendPresenceHeartbeat('offline').catch(function() {}); } catch (_) {}
+  }
   resetMemberAvatar();
   setRemovePfpButtonVisible(false);
   // Completely purge session state eliminating residual keys (BUG-011)

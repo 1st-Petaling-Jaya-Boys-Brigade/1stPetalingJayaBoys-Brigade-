@@ -282,6 +282,8 @@ export default [
         sendPresenceHeartbeat: 'readonly',
         initPresenceTracking: 'readonly',
         onPresenceChange: 'readonly',
+        fetchRemoteMemberPresence: 'readonly',
+        refreshLivePresenceDots: 'readonly',
         getSupabaseClient: 'readonly',
         // AI Support Helper Agent & Bug Forum Globals (TSK-046)
         DEFAULT_FORUM_POSTS: 'readonly',

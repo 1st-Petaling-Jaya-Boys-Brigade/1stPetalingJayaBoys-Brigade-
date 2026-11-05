@@ -276,6 +276,11 @@ function syncForumNotifications(posts) {
 
 // ── Persistence Layer ────────────────────────────────────────────────────────
 async function loadForumPosts() {
+  if (typeof fetchRemoteMemberPresence === 'function') {
+    try { await fetchRemoteMemberPresence(); } catch (_) {}
+  } else if (typeof window !== 'undefined' && typeof window.fetchRemoteMemberPresence === 'function') {
+    try { await window.fetchRemoteMemberPresence(); } catch (_) {}
+  }
   try {
     if (typeof supa !== 'undefined' && typeof supa.getConfig === 'function') {
       var remote = await supa.getConfig('bb_forum_posts');
@@ -429,7 +434,8 @@ function getForumMemberAvatarHtml(name, emailOrIc, size, customTooltip, extraSty
   var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
   var dotTitle = safeName + ' (' + dotLabel + ')';
   var dotSz = Math.max(7, Math.round(sz * 0.28));
-  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:50%;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+  var presId = (cleanId && cleanId.indexOf('@') !== -1) ? cleanId : (cleanId || cleanNm);
+  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanNm) : cleanNm) + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:50%;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
   var overflowRule = (hasOutlineCls || cosmeticHtml) ? 'visible' : 'hidden';
 

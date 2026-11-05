@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105j',
-    'sw.js CACHE_VERSION must be 20261105j'
+    '20261105k',
+    'sw.js CACHE_VERSION must be 20261105k'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105j',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105k',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105j'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105k'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8598,12 +8598,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261105j', 'Service Worker cache version must be 20261105j');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261105k', 'Service Worker cache version must be 20261105k');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261105j and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261105k and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -8616,6 +8616,129 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const uniqueIdsFinal = Array.from(new Set(extractedIdsFinal));
     assert.strictEqual(uniqueIdsFinal.length, 388, 'Strict 388 unique DOM IDs invariant preserved in index.html');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+  }
+
+  // ── [TEST] Real-Time Member Presence Synchronization Across All Tabs & Profiles ──
+  {
+    console.log('\n[TEST] Live Member Presence Sync Across All Tabs & Profiles...');
+    const sessionMod = require('../js/core/session.js');
+    const forumMod   = require('../js/modules/forum.js');
+    const tasksMod   = require('../js/modules/tasks.js');
+    const adminMod   = require('../js/modules/admin.js');
+    const utilsMod   = require('../js/core/utils.js');
+
+    assert.strictEqual(typeof sessionMod.fetchRemoteMemberPresence, 'function', 'session.js must export fetchRemoteMemberPresence');
+    assert.strictEqual(typeof sessionMod.refreshLivePresenceDots, 'function', 'session.js must export refreshLivePresenceDots');
+
+    // 1. Remote presence fetching and caching from bb_config
+    const mockRemotePresence = {
+      'jeshuakoh2008@gmail.com': {
+        status: 'online',
+        last_seen: Date.now() - 10000,
+        name: 'Jeshua Koh',
+        email: 'jeshuakoh2008@gmail.com',
+        ic: 'jeshuakoh2008@gmail.com',
+        rank: 'Sergeant'
+      },
+      'jeshuakoh1601@gmail.com': {
+        status: 'online',
+        last_seen: Date.now() - 5000,
+        name: 'Tester Account',
+        email: 'jeshuakoh1601@gmail.com',
+        ic: 'jeshuakoh1601@gmail.com',
+        rank: 'Lieutenant'
+      },
+      'idle_member@bb.org': {
+        status: 'idle',
+        last_seen: Date.now() - 6 * 60 * 1000,
+        name: 'Idle Member',
+        email: 'idle_member@bb.org',
+        ic: 'idle_member@bb.org',
+        rank: 'Corporal'
+      }
+    };
+
+    const prevSupa = global.supa;
+    global.supa = {
+      get: async (url) => {
+        if (url.includes('bb_member_presence')) {
+          return [{ value: JSON.stringify(mockRemotePresence) }];
+        }
+        return [];
+      }
+    };
+    if (typeof window !== 'undefined') window.supa = global.supa;
+
+    const fetchedMap = await sessionMod.fetchRemoteMemberPresence(true);
+    assert.ok(fetchedMap && fetchedMap['jeshuakoh1601@gmail.com'], 'fetchRemoteMemberPresence must load Tester Account');
+    assert.strictEqual(fetchedMap['jeshuakoh1601@gmail.com'].status, 'online', 'Tester Account status must be online');
+    console.log('  ✔ fetchRemoteMemberPresence synchronizes live member presence map from database');
+
+    // 2. getMemberPresenceStatus resolves Tester Account as online without requiring explicit map argument
+    const testerStatus = sessionMod.getMemberPresenceStatus({
+      name: 'Tester Account',
+      email: 'jeshuakoh1601@gmail.com',
+      ic: 'jeshuakoh1601@gmail.com'
+    });
+    assert.strictEqual(testerStatus.status, 'online', 'Tester Account must resolve as online');
+    assert.strictEqual(testerStatus.color, '#10b981', 'Online status dot color must be vibrant green (#10b981)');
+
+    // Fuzzy matching by name only
+    const testerByName = sessionMod.getMemberPresenceStatus({ name: 'Tester Account' });
+    assert.strictEqual(testerByName.status, 'online', 'Lookup by name only must match online status');
+    console.log('  ✔ getMemberPresenceStatus seamlessly resolves remote online/idle states across all lookup paths');
+
+    // 3. Avatar Status Dot Generation Across Forum, Tasks, Admin, and Universal Avatars
+    const forumAvatar = forumMod.getForumMemberAvatarHtml('Tester Account', 'jeshuakoh1601@gmail.com', 24);
+    assert.ok(forumAvatar.includes('avatar-status-dot'), 'Forum avatar includes .avatar-status-dot');
+    assert.ok(forumAvatar.includes('status-online'), 'Forum avatar displays status-online class for active Tester Account');
+    assert.ok(forumAvatar.includes('#10b981'), 'Forum avatar displays green #10b981 dot for Tester Account');
+    assert.ok(forumAvatar.includes('data-presence-id="jeshuakoh1601@gmail.com"'), 'Forum avatar includes data-presence-id attribute');
+
+    const taskAvatar = tasksMod.getAssigneeAvatarHtml('Tester Account', 'jeshuakoh1601@gmail.com', 24);
+    assert.ok(taskAvatar.includes('avatar-status-dot'), 'Tasks avatar includes .avatar-status-dot');
+    assert.ok(taskAvatar.includes('status-online'), 'Tasks avatar displays status-online class');
+    assert.ok(taskAvatar.includes('#10b981'), 'Tasks avatar displays green #10b981 dot');
+    assert.ok(taskAvatar.includes('data-presence-id="jeshuakoh1601@gmail.com"'), 'Tasks avatar includes data-presence-id attribute');
+
+    const adminAvatar = adminMod.getAdminMemberAvatarHtml('Tester Account', 'jeshuakoh1601@gmail.com', 36);
+    assert.ok(adminAvatar.includes('avatar-status-dot'), 'Admin avatar includes .avatar-status-dot');
+    assert.ok(adminAvatar.includes('status-online'), 'Admin avatar displays status-online class');
+    assert.ok(adminAvatar.includes('#10b981'), 'Admin avatar displays green #10b981 dot');
+    assert.ok(adminAvatar.includes('data-presence-id="jeshuakoh1601@gmail.com"'), 'Admin avatar includes data-presence-id attribute');
+
+    const univAvatar = utilsMod.getUniversalMemberAvatarHtml('Tester Account', 'jeshuakoh1601@gmail.com', 24);
+    assert.ok(univAvatar.includes('avatar-status-dot'), 'Universal avatar includes .avatar-status-dot');
+    assert.ok(univAvatar.includes('status-online'), 'Universal avatar displays status-online class');
+    assert.ok(univAvatar.includes('#10b981'), 'Universal avatar displays green #10b981 dot');
+    assert.ok(univAvatar.includes('data-presence-id="jeshuakoh1601@gmail.com"'), 'Universal avatar includes data-presence-id attribute');
+    console.log('  ✔ All member profiles (Support Forum, Tasks, Admin Console, and Leaderboard) render synchronized online/idle dots');
+
+    // 4. In-Place DOM Dynamic Status Dot Update (refreshLivePresenceDots)
+    const mockDot = document.createElement('span');
+    mockDot.className = 'nav-avatar-status-dot avatar-status-dot status-offline';
+    mockDot.style.background = '#6b7280';
+    mockDot.setAttribute('data-presence-id', 'jeshuakoh1601@gmail.com');
+    mockDot.setAttribute('data-presence-name', 'Tester Account');
+    document.body.appendChild(mockDot);
+
+    sessionMod.refreshLivePresenceDots();
+    assert.strictEqual(mockDot.style.background, '#10b981', 'refreshLivePresenceDots must dynamically update dot background to #10b981');
+    assert.ok(mockDot.className.includes('status-online'), 'refreshLivePresenceDots must update class to status-online');
+    mockDot.parentNode.removeChild(mockDot);
+    console.log('  ✔ refreshLivePresenceDots live-updates active DOM status dots in-place without page refresh');
+
+    // Clean up
+    global.supa = prevSupa;
+    if (typeof window !== 'undefined') window.supa = prevSupa;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const finalHtml3 = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const finalMatches3 = finalHtml3.match(/\bid=["']([^"']+)["']/g) || [];
+    const finalIds3 = finalMatches3.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const finalUniqueIds3 = Array.from(new Set(finalIds3));
+    assert.strictEqual(finalUniqueIds3.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 

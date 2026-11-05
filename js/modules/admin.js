@@ -1030,7 +1030,8 @@
     var pInfo = presence;
     if (!pInfo) {
       if (typeof getMemberPresenceStatus === 'function') {
-        pInfo = getMemberPresenceStatus({ name: cleanNm, email: emailOrIc, ic: emailOrIc }, _adminPresenceMap);
+        var presMap = (_adminPresenceMap && Object.keys(_adminPresenceMap).length > 0) ? _adminPresenceMap : undefined;
+        pInfo = getMemberPresenceStatus({ name: cleanNm, email: emailOrIc, ic: emailOrIc }, presMap);
       } else {
         pInfo = { status: 'offline', label: 'Offline', color: '#6b7280' };
       }
@@ -1039,7 +1040,8 @@
     var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
     var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
     var dotTitle = safeName + ' (' + dotLabel + ')';
-    var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+    var presId = (emailOrIc && emailOrIc.indexOf('@') !== -1) ? emailOrIc : (emailOrIc || cleanNm);
+    var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanNm) : cleanNm) + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
     // Creator Avatar Outline Layering (TSK-062)
     var outlineInfo = (typeof getMemberAvatarOutline === 'function')
@@ -1123,20 +1125,31 @@
     }
 
     try {
-      // 1. Fetch live member presence map and deleted members blacklist from bb_config
+      // 1. Fetch live member presence map and synchronize across all modules
       _adminPresenceMap = {};
-      try {
-        var pRes = await client.get('bb_config?key=eq.bb_member_presence&select=value');
-        if (pRes && pRes.length && pRes[0].value) {
-          _adminPresenceMap = JSON.parse(pRes[0].value) || {};
-        }
-      } catch (_) {}
+      if (typeof fetchRemoteMemberPresence === 'function') {
+        try {
+          _adminPresenceMap = await fetchRemoteMemberPresence(true) || {};
+        } catch (_) {}
+      } else {
+        try {
+          var pRes = await client.get('bb_config?key=eq.bb_member_presence&select=value');
+          if (pRes && pRes.length && pRes[0].value) {
+            _adminPresenceMap = (typeof pRes[0].value === 'string') ? JSON.parse(pRes[0].value) : pRes[0].value;
+          }
+        } catch (_) {}
+      }
       if (!_adminPresenceMap && typeof localStorage !== 'undefined') {
         try {
           var localPresenceRaw = localStorage.getItem('bb_member_presence');
           if (localPresenceRaw) _adminPresenceMap = JSON.parse(localPresenceRaw);
         } catch (_) {}
       }
+      _adminPresenceMap = _adminPresenceMap || {};
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('bb_member_presence', JSON.stringify(_adminPresenceMap)); } catch (_) {}
+      }
+      if (typeof window !== 'undefined') window._globalPresenceMap = _adminPresenceMap;
       if (typeof global !== 'undefined') global._adminPresenceMap = _adminPresenceMap;
 
       // 1b. Fetch deleted members blacklist from bb_config

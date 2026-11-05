@@ -459,6 +459,11 @@ function switchTaskSectionView(section) {
  */
 async function checkTasksAccess() {
   if (typeof document === 'undefined') return;
+  if (typeof fetchRemoteMemberPresence === 'function') {
+    fetchRemoteMemberPresence().catch(function() {});
+  } else if (typeof window !== 'undefined' && typeof window.fetchRemoteMemberPresence === 'function') {
+    window.fetchRemoteMemberPresence().catch(function() {});
+  }
   var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
   var nd = document.getElementById('tasks-no-dept');
   var gate = document.getElementById('tasks-gate');
@@ -1104,7 +1109,8 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
   var dotTitle = safeName + ' (' + dotLabel + ')';
   var dotSz = Math.max(8, Math.round(sz * 0.32));
-  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+  var presId = (ic && ic.indexOf('@') !== -1) ? ic : (ic || name);
+  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
   var overflowRule = 'visible';
 
