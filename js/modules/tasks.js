@@ -350,7 +350,7 @@ function hasDepartmentRole(memberOrDept, rank) {
     }
   }
 
-  // 1. Department NCO assignment (and legacy backward-compatibility)
+  // 1. Department Assignment Check (Media, Logistics, Secretariat, HQ)
   if (dept) {
     var dKey = String(dept).toLowerCase().trim();
     if (
@@ -360,18 +360,8 @@ function hasDepartmentRole(memberOrDept, rank) {
       dKey === 'secretariat' ||
       dKey === 'logistics' ||
       dKey === 'media' ||
-      dKey === 'hq' ||
-      dKey === 'officers' ||
-      dKey === 'officer'
+      dKey === 'hq'
     ) {
-      return true;
-    }
-  }
-
-  // 2. Officer privilege (Officers retain supervisory oversight over all projects & tasks)
-  if (rk) {
-    var officerRanks = ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor'];
-    if (officerRanks.indexOf(rk) !== -1) {
       return true;
     }
   }
@@ -548,20 +538,26 @@ async function checkTasksAccess() {
     if (boardPill) boardPill.style.display = 'inline-flex';
     if (snavTasks) snavTasks.style.display = 'flex';
 
-    if (dept && DEPT_CONFIG[dept.toLowerCase()]) {
-      var cfg = DEPT_CONFIG[dept.toLowerCase()];
-      var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
-      var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Projects & Tasks';
-      var db  = document.getElementById('tasks-dept-badge');
-      if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
-      _currentDeptFilter = dept.toLowerCase();
-    } else {
-      var dtOff = document.getElementById('tasks-dept-title'); if (dtOff) dtOff.textContent = 'All Departments';
-      var dsOff = document.getElementById('tasks-dept-sub');   if (dsOff) dsOff.textContent = 'Officer Oversight Board';
-      var dbOff = document.getElementById('tasks-dept-badge');
-      if (dbOff) dbOff.innerHTML = '<span class="dept-badge dept-hq">Officer Access</span>';
-      _currentDeptFilter = 'all';
+    if (!dept || !DEPT_CONFIG[dept.toLowerCase()]) {
+      if (boardPill) boardPill.style.display = 'none';
+      if (snavTasks) snavTasks.style.display = 'none';
+      if (gate) {
+        gate.style.display = 'block';
+        var gateBtn2 = gate.querySelector('.submit-btn');
+        if (gateBtn2) {
+          gateBtn2.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ' + (ic ? 'View Member Profile' : 'Login / Register');
+        }
+      }
+      if (board) board.style.display = 'none';
+      return;
     }
+
+    var cfg = DEPT_CONFIG[dept.toLowerCase()];
+    var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
+    var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Projects & Tasks';
+    var db  = document.getElementById('tasks-dept-badge');
+    if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
+    _currentDeptFilter = dept.toLowerCase();
 
     if (gate) gate.style.display = 'none';
     if (board) board.style.display = 'block';

@@ -2340,8 +2340,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'logistics', rank: 'Private' }), true, 'Logistics member must have access');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'media', rank: 'Corporal' }), true, 'Media member must have access');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'hq', rank: 'Sergeant' }), true, 'HQ member must have access');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'officers', rank: 'Private' }), true, 'Officers department member must have access');
-
   // General, Band, Awards, or unassigned members CANNOT access
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'general', rank: 'Recruit' }), false, 'General member must not have access');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'general', rank: 'Sergeant' }), false, 'General Sergeant must not have access');
@@ -2356,11 +2354,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Sergeant' }), false, 'Sergeant NCO without dept must not have access');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Staff Sergeant' }), false, 'Staff Sergeant NCO without dept must not have access');
 
-  // Officers retain oversight access
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Officer' }), true, 'Officer rank must have oversight access');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Captain' }), true, 'Captain rank must have oversight access');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), true, 'Lieutenant rank must have oversight access');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Chaplain' }), true, 'Chaplain rank must have oversight access');
+  // Officers without explicit department assignment MUST NOT have access (revoked officer oversight)
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Officer' }), false, 'Officer rank without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Captain' }), false, 'Captain rank without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), false, 'Lieutenant rank without dept must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Chaplain' }), false, 'Chaplain rank without dept must not have access');
 
   // Gating visibility verification
   let boardPillEl = document.querySelector('.tasks-nav-pill[data-task-view="board"]');
@@ -4058,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105g',
-    'sw.js CACHE_VERSION must be 20261105g'
+    '20261105h',
+    'sw.js CACHE_VERSION must be 20261105h'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4090,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105g',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105h',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6783,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105g'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105h'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -7675,9 +7673,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       querySelectorAll: () => []
     };
     global.document = global.document || {};
+    const prevGetElementById = global.document.getElementById;
     global.document.getElementById = (id) => {
       if (id === 'arcade-subtab-container') return mockContainer;
-      return null;
+      return prevGetElementById ? prevGetElementById(id) : null;
     };
     memberMod.renderCosmeticShopView();
     assert.ok(mockContainer.innerHTML.includes('cosmetic-shop-tab-view'), 'Cosmetic shop renders as in-page tab');
@@ -7686,6 +7685,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(mockContainer.innerHTML.includes('shop-filter-cost'), 'Filter by cost select exists');
     assert.ok(!mockContainer.innerHTML.includes('cosmetic-card-desc'), 'Descriptions removed under cosmetic items');
     assert.ok(!mockContainer.innerHTML.includes('Need 35 more credits'), 'Need more credits text removed from preview');
+    global.document.getElementById = prevGetElementById;
     console.log('  ✔ Tab-based cosmetic shop view, filters (type & cost), clean cards, and preview defaults verified');
 
     // 7. Database Migration Schema 016
@@ -8297,6 +8297,149 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const finalUniqueIds = Array.from(new Set(finalIds));
     assert.strictEqual(finalUniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
+  }
+
+  // ── [TEST] RBAC Hardening, Avatar Creator Bleed Fix, Officer Task Revocation & Blocklist ─
+  {
+    console.log('\n[TEST] Avatar Bleed Fix, Officer Task Revocation, Privacy & Email Blocklist...');
+    const utilsMod   = require('../js/core/utils.js');
+    const tasksMod   = require('../js/modules/tasks.js');
+    const attMod     = require('../js/modules/attendance.js');
+    const memberMod  = require('../js/modules/member.js');
+    const adminMod   = require('../js/modules/admin.js');
+    const sessionMod = require('../js/core/session.js');
+
+    // 1. Avatar Creator Bleed Fix
+    // Simulate viewer is Jeshua Koh logged in
+    sessionMod.sessionSet('email', 'jeshuakoh2008@gmail.com');
+    sessionMod.sessionSet('name', 'Jeshua Koh');
+
+    // Passing another member's name must NOT return isPortalCreator === true
+    assert.strictEqual(utilsMod.isPortalCreator('Moses Lai'), false, 'Moses Lai must NOT be portal creator');
+    assert.strictEqual(utilsMod.isPortalCreator('Oliver Ling', 'chickensans0@gmail.com'), false, 'Oliver Ling must NOT be portal creator');
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh - tester', 'jeshuakoh1601@gmail.com'), false, 'Jeshua Koh - tester must NOT be portal creator');
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh', 'jeshuakoh2008@gmail.com'), true, 'Jeshua Koh with verified email is portal creator');
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh'), true, 'Jeshua Koh without email is portal creator');
+
+    // Member avatar initials must match first letter of each member's real name (NOT 'J')
+    assert.strictEqual(utilsMod.getMemberAvatarInitial('Moses Lai'), 'M', 'Moses Lai avatar initial must be M');
+    assert.strictEqual(utilsMod.getMemberAvatarInitial('Oliver Ling'), 'O', 'Oliver Ling avatar initial must be O');
+    assert.strictEqual(utilsMod.getMemberAvatarInitial('Daniel Chang'), 'D', 'Daniel Chang avatar initial must be D');
+    assert.strictEqual(utilsMod.getMemberAvatarInitial('Justenraj Emmanuel'), 'J', 'Justenraj Emmanuel initial is J');
+    assert.strictEqual(utilsMod.getMemberAvatarInitial('Matthew Wee'), 'M', 'Matthew Wee avatar initial must be M');
+    assert.strictEqual(utilsMod.getMemberAvatarInitial('Isaiah Nischal'), 'I', 'Isaiah Nischal avatar initial must be I');
+    console.log('  ✔ Avatar creator bleed resolved: each member correctly renders their own initial and palette color');
+
+    // 2. Officer Tasks Access Revocation & Officer Oversight Board Removal
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Officer' }), false, 'Officers without department cannot access Tasks');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Captain' }), false, 'Captains without department cannot access Tasks');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Instructor' }), false, 'Instructors without department cannot access Tasks');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'Media', rank: 'Officer' }), true, 'Officer assigned to Media department can access Tasks');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'Logistics', rank: 'Corporal' }), true, 'Corporal assigned to Logistics can access Tasks');
+    console.log('  ✔ Officer automatic task oversight revoked; task access strictly requires explicit department assignment');
+
+    // 3. Sensitive Attendance Protection & Officer Record
+    const prevClient = global.getSupaClient;
+    let blockedStorage = [];
+    const mockAttSupa = {
+      get: async (path) => {
+        if (path.includes('bb_master_attendance')) {
+          return [{ value: JSON.stringify({ members: { jeshuakoh: { name: 'Jeshua Koh', points: { total: 218 } } } }) }];
+        }
+        if (path.includes('bb_blocked_emails')) {
+          return [{ value: JSON.stringify(blockedStorage) }];
+        }
+        if (path.includes('bb_members?')) {
+          return [];
+        }
+        return [];
+      },
+      post: async (path, body) => {
+        if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
+          blockedStorage = JSON.parse(body.value);
+        }
+        return [body];
+      },
+      patch: async (path, body) => {
+        if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
+          blockedStorage = JSON.parse(body.value);
+        }
+        return [body];
+      },
+      req: async (method, path, body) => {
+        if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
+          blockedStorage = JSON.parse(body.value);
+        }
+        return [body];
+      }
+    };
+    global.getSupaClient = () => mockAttSupa;
+    global.supa = mockAttSupa;
+    if (typeof window !== 'undefined') {
+      window.getSupaClient = () => mockAttSupa;
+      window.supa = mockAttSupa;
+    }
+
+    let testActiveEmail = 'jeshuakoh1601@gmail.com';
+    global.sessionGet = (k) => {
+      if (k === 'email' || k === 'ic') return testActiveEmail;
+      if (k === 'name') return 'Jeshua Koh';
+      return sessionMod.sessionGet(k);
+    };
+    const leakedRecord = await attMod.getMemberAttendanceRecord('Jeshua Koh');
+    assert.strictEqual(leakedRecord, null, 'Unverified email account cannot access Jeshua Koh attendance records');
+
+    testActiveEmail = 'jeshuakoh2008@gmail.com';
+    if (typeof attMod.getMasterAttendanceData === 'function') {
+      await attMod.getMasterAttendanceData(true);
+    }
+    const validRecord = await attMod.getMemberAttendanceRecord('Jeshua Koh');
+    assert.ok(validRecord && validRecord.points.total === 218, 'Verified creator account can access attendance records');
+    console.log('  ✔ Attendance record privacy protected against duplicate name spoofing');
+
+    // 4. Admin Console Email Blocklist (bb_blocked_emails)
+    const testBlockedEmail = 'malicious_user@spam.com';
+    await adminMod.addBlockedEmail(testBlockedEmail);
+    const blockedList = await adminMod.loadBlockedEmails();
+    assert.ok(blockedList.includes(testBlockedEmail), 'Blocked email must be added to list');
+
+    // Test registration rejection for blocked email
+    let toastMsg = '';
+    global.showToast = (msg) => { toastMsg = msg; };
+    const regEmailEl = document.getElementById('reg-email');
+    const regNameEl = document.getElementById('reg-fullname');
+    if (regEmailEl) regEmailEl.value = testBlockedEmail;
+    if (regNameEl) regNameEl.value = 'Test Blocked User';
+    
+    const regPassEl = document.getElementById('reg-pass');
+    if (regPassEl) regPassEl.value = 'ValidPass123!';
+    const regPass2El = document.getElementById('reg-pass2');
+    if (regPass2El) regPass2El.value = 'ValidPass123!';
+    const regSecEl = document.getElementById('reg-section');
+    if (regSecEl) regSecEl.value = 'Senior';
+    const regRankEl = document.getElementById('reg-rank');
+    if (regRankEl) regRankEl.value = 'Private';
+    const regAgeEl = document.getElementById('reg-age');
+    if (regAgeEl) regAgeEl.value = '16';
+    const regSquadEl = document.getElementById('reg-squad');
+    if (regSquadEl) regSquadEl.value = 'Alpha';
+    await memberMod.registerMember();
+    assert.ok(toastMsg.includes('blocked by an administrator'), 'Registration of blocked email must be rejected');
+
+    // Clean up blocked email
+    await adminMod.removeBlockedEmail(testBlockedEmail);
+    const unblockedList = await adminMod.loadBlockedEmails();
+    assert.strictEqual(unblockedList.includes(testBlockedEmail), false, 'Blocked email must be removed after unblocking');
+    global.getSupaClient = prevClient;
+    console.log('  ✔ Admin email blocklist successfully gates registration and supports unblocking');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const finalHtml2 = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const finalMatches2 = finalHtml2.match(/\bid=["']([^"']+)["']/g) || [];
+    const finalIds2 = finalMatches2.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const finalUniqueIds2 = Array.from(new Set(finalIds2));
+    assert.strictEqual(finalUniqueIds2.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

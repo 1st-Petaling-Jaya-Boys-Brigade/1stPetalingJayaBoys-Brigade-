@@ -625,6 +625,22 @@ async function verifyActiveMemberSession() {
             forceKickDeletedAccount();
             return false;
           }
+
+          // Also check bb_blocked_emails
+          var blkCfg = await client.get('bb_config?key=eq.bb_blocked_emails&select=value');
+          if (blkCfg && blkCfg.length && blkCfg[0].value) {
+            var blkList = JSON.parse(blkCfg[0].value);
+            if (Array.isArray(blkList)) {
+              var isBlockedSess = blkList.some(function(item) {
+                var itm = String(item || '').toLowerCase().trim();
+                return itm && (itm === cleanIc || itm === cleanEmail);
+              });
+              if (isBlockedSess) {
+                forceKickDeletedAccount();
+                return false;
+              }
+            }
+          }
         }
       }
     } catch (cfgErr) {

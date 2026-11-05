@@ -1068,16 +1068,30 @@ var AVATAR_PALETTE = [
  * @returns {boolean}
  */
 function isPortalCreator(name, email) {
-  var n = String(name || '').trim().toLowerCase();
-  var em = String(email || '').trim().toLowerCase();
-  if (em) {
-    return em === 'jeshuakoh2008@gmail.com';
+  var cleanEmail = String(email || '').trim().toLowerCase();
+  var cleanName = String(name || '').trim().toLowerCase();
+
+  // 1. If explicit email is provided, check directly
+  if (cleanEmail && cleanEmail.indexOf('@') !== -1) {
+    return cleanEmail === 'jeshuakoh2008@gmail.com';
   }
+
+  // 2. If explicit name is provided, verify it is 'jeshua koh'
+  if (cleanName) {
+    if (cleanName === 'jeshua koh') {
+      // If a non-creator email was also passed along with the name, it's not the creator
+      if (cleanEmail && cleanEmail !== 'jeshuakoh2008@gmail.com') return false;
+      return true;
+    }
+    return false;
+  }
+
+  // 3. ONLY if NEITHER name NOR email was provided, check the current session
   if (typeof sessionGet === 'function') {
     var sessEmail = String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
     if (sessEmail) return sessEmail === 'jeshuakoh2008@gmail.com';
   }
-  return n === 'jeshua koh';
+  return false;
 }
 
 /**
@@ -1411,7 +1425,9 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
   if (typeof isPortalCreator === 'function') {
     isCreator = isPortalCreator(cleanNm, cleanId);
   } else {
-    isCreator = /jeshua\s+koh/i.test(cleanNm) || (cleanId && cleanId.toLowerCase() === 'jeshuakoh2008@gmail.com');
+    var isJeshuaName = cleanNm.toLowerCase() === 'jeshua koh';
+    var isJeshuaEmail = cleanId.toLowerCase() === 'jeshuakoh2008@gmail.com';
+    isCreator = isJeshuaEmail || (isJeshuaName && (!cleanId || isJeshuaEmail));
   }
 
   var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanNm) : cleanNm;
