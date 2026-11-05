@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105b',
-    'sw.js CACHE_VERSION must be 20261105b'
+    '20261105c',
+    'sw.js CACHE_VERSION must be 20261105c'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105b',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105c',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105b'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105c'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -6914,6 +6914,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 1. Section label simplification (removed (PDPA/COPPA Governance))
     assert.ok(idxHtml.includes('<label class="form-label" for="em-section">Section</label>'), 'Admin section label must be simply "Section"');
     assert.ok(!idxHtml.includes('Section (PDPA/COPPA Governance)'), 'Must not contain old "(PDPA/COPPA Governance)" label');
+    assert.ok(idxHtml.includes('<option value="Officer">Officer</option>'), 'Section dropdown must display "Officer"');
+    assert.ok(!idxHtml.includes('Officer / Staff'), 'Must completely eliminate "Officer / Staff" label');
+    assert.ok(!idxHtml.includes('Staff / Officer'), 'Must completely eliminate "Staff / Officer" label');
+    assert.ok(idxHtml.includes('onchange="handleAdminRankChange()"'), 'em-rank must trigger handleAdminRankChange');
     console.log('  ✔ Section label cleanly displays "Section" without governance disclaimer in Admin Console');
 
     // 2. Normalization & rank retrieval for all sections
@@ -6930,7 +6934,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const juniorRanks = memberModule.getRanksForSection('Junior Section');
     assert.deepStrictEqual(juniorRanks, ['Pre-Junior', 'Junior', 'Assistance Junior Leader', 'Junior Leader', 'Chief Junior Leader'], 'Junior section ranks must include Junior ranks');
 
-    const officerRanks = memberModule.getRanksForSection('Officer / Staff');
+    const officerRanks = memberModule.getRanksForSection('Officer');
     assert.deepStrictEqual(officerRanks, ['Captain', 'Honarary Captain', 'Lieutenant', 'Warrant Officer', 'Instructor', 'Staff Sergeant'], 'Officer section ranks must include Officer ranks');
     console.log('  ✔ getRanksForSection strictly returns designated ranks for Senior, Junior, and Officer sections');
 

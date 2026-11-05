@@ -1160,7 +1160,7 @@
       } catch (selectErr) {
         console.warn('Detailed bb_members query failed, retrying with core columns:', selectErr);
         try {
-          members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,department,date_of_birth,joined_at&order=name.asc');
+          members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
         } catch (_f2) {
           members = await client.get('bb_members?order=name.asc');
         }
@@ -1321,6 +1321,27 @@
     } catch (e) {
       console.error('renderAdminList error:', e);
       list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>';
+    }
+  }
+
+  function handleAdminRankChange() {
+    if (typeof document === 'undefined') return;
+    var rankEl = document.getElementById('em-rank');
+    var secEl = document.getElementById('em-section');
+    if (!rankEl || !secEl) return;
+    var r = rankEl.value;
+    if (!r) return;
+    var secRankFn = (typeof getSectionForRank === 'function')
+      ? getSectionForRank
+      : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
+          ? global.getSectionForRank
+          : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
+    if (typeof secRankFn === 'function') {
+      var inferred = secRankFn(r);
+      if (inferred && secEl.value !== inferred) {
+        secEl.value = inferred;
+        handleAdminSectionChange(true);
+      }
     }
   }
 
@@ -1538,8 +1559,9 @@
           ? global.getSectionForRank
           : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
     var editSec = m.att_section || m.section || '';
-    if (!editSec && m.rank && typeof secRankFn === 'function') {
-      editSec = secRankFn(m.rank);
+    var rankInferredSec = (m.rank && typeof secRankFn === 'function') ? secRankFn(m.rank) : '';
+    if (!editSec || (rankInferredSec && editSec !== rankInferredSec)) {
+      if (rankInferredSec) editSec = rankInferredSec;
     }
     set('em-section', editSec);
     var emRankEdit = document.getElementById('em-rank');
@@ -1640,6 +1662,14 @@
     var date_of_birth = dobRaw || null;
     var rawSec        = ((document.getElementById('em-section') || {}).value || '').trim();
     var att_section   = (typeof sanitizeText === 'function') ? sanitizeText(rawSec, 50) : rawSec;
+    var secRankFn = (typeof getSectionForRank === 'function')
+      ? getSectionForRank
+      : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
+          ? global.getSectionForRank
+          : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
+    if (!att_section && rank && typeof secRankFn === 'function') {
+      att_section = secRankFn(rank);
+    }
 
     var rawPName      = ((document.getElementById('em-parent-name') || {}).value || '').trim();
     var rawPContact   = ((document.getElementById('em-parent-contact') || {}).value || '').trim();
@@ -1748,6 +1778,7 @@
           rank: rank,
           squad: squad,
           department: department,
+          section: att_section || null,
           att_section: att_section || null
         };
         if (joined_at)     updates.joined_at     = joined_at;
@@ -1761,7 +1792,14 @@
         try {
           await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), updates);
         } catch (patchErr) {
-          var baseUpdates = { name: name, rank: rank, squad: squad, department: department };
+          var baseUpdates = {
+            name: name,
+            rank: rank,
+            squad: squad,
+            department: department,
+            section: att_section || null,
+            att_section: att_section || null
+          };
           if (joined_at)     baseUpdates.joined_at     = joined_at;
           if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
           await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
@@ -1792,6 +1830,8 @@
         _adminMembers[memberTargetKey].rank = rank;
         _adminMembers[memberTargetKey].squad = squad;
         _adminMembers[memberTargetKey].department = department;
+        _adminMembers[memberTargetKey].section = att_section;
+        _adminMembers[memberTargetKey].att_section = att_section;
         _adminMembers[memberTargetKey].parent_name = parent_name;
         _adminMembers[memberTargetKey].parent_contact = parent_contact;
         _adminMembers[memberTargetKey].parental_consent_signed = parental_consent_signed;
@@ -1854,7 +1894,14 @@
           var memCache = JSON.parse(localStorage.getItem('bb_members_cache') || '[]');
           if (Array.isArray(memCache)) {
             memCache.forEach(function(m) {
-              if (m.ic === originalIc || m.name === trimmedOldName) m.name = trimmedNewName;
+              if (m.ic === originalIc || m.name === trimmedOldName) {
+                m.name = trimmedNewName;
+                m.rank = rank;
+                m.squad = squad;
+                m.department = department;
+                m.section = att_section;
+                m.att_section = att_section;
+              }
             });
             localStorage.setItem('bb_members_cache', JSON.stringify(memCache));
           }
@@ -1867,6 +1914,8 @@
           if (typeof sessionSet === 'function') {
             sessionSet('name', trimmedNewName);
             sessionSet('rank', rank);
+            sessionSet('section', att_section);
+            sessionSet('department', department);
           }
           var sn = document.getElementById('sidebar-user-name');
           if (sn) sn.textContent = trimmedNewName;
@@ -3036,6 +3085,7 @@
     global.setAdminSort             = setAdminSort;
     global.renderAdminList          = renderAdminList;
     global.handleAdminSectionChange = handleAdminSectionChange;
+    global.handleAdminRankChange    = handleAdminRankChange;
     global.openAddMember            = openAddMember;
     global.openEditMember           = openEditMember;
     global.closeEditMember          = closeEditMember;
@@ -3096,6 +3146,7 @@
       renderAdminList: renderAdminList,
     _adminPresenceMap: _adminPresenceMap,
       handleAdminSectionChange: handleAdminSectionChange,
+      handleAdminRankChange: handleAdminRankChange,
       openAddMember: openAddMember,
       openEditMember: openEditMember,
       closeEditMember: closeEditMember,
