@@ -1096,17 +1096,14 @@ async function getJson(url) {
       'Badges logged-in panel must be displayed'
     );
     assert.strictEqual(badgesInit.hasTracker, true, 'President tracker container must exist');
-    assert.ok(
-      badgesInit.trackerHtml.includes("President's Award"),
-      "Tracker must render President's Award header"
-    );
-    assert.ok(
-      badgesInit.trackerHtml.includes('Service Years'),
-      'Tracker must render Service Years section'
+    assert.strictEqual(
+      badgesInit.trackerHtml,
+      '',
+      "President's Award tracker must be removed and deleted"
     );
     assert.strictEqual(badgesInit.hasSearch, true, 'Badge search input must exist');
     console.log(
-      "  ✔ Badges tab, search input, and President's Award tracker render cleanly in browser"
+      "  ✔ Badges tab and search input render cleanly with President's Award tracker removed"
     );
 
     // 17. Test Weekly Parade Schedule & NCO Tasks Kanban Board in Browser (TSK-009)
@@ -1607,6 +1604,22 @@ async function getJson(url) {
         window.toggleTaskForm();
         const finalFormDisplay = taskFormBody ? taskFormBody.style.display : '';
 
+        // 3b. Test Admin Badges Section rendering
+        window.switchAdminSection('badges');
+        if (typeof renderAdminBadges === 'function') {
+          await renderAdminBadges();
+        }
+        const badgesSection = document.getElementById('adm-section-badges');
+        const badgesContent = document.getElementById('admin-badges-content');
+        const subpanelDefs = document.getElementById('subpanel-badgedefs');
+        const subpanelReqs = document.getElementById('subpanel-presidentsreqs');
+        const badgesState = {
+          sectionVisible: badgesSection && badgesSection.style.display !== 'none',
+          subpanelDefsVisible: subpanelDefs && subpanelDefs.style.display !== 'none',
+          subpanelReqsHidden: !subpanelReqs || subpanelReqs.style.display === 'none',
+          hasBadgesContent: !!badgesContent && badgesContent.innerHTML.length > 0
+        };
+
         // 4. Test Add Member modal
         window.openAddMember();
         const editMemberModal = document.getElementById('edit-member-modal');
@@ -1680,6 +1693,7 @@ async function getJson(url) {
           authedState,
           membersState,
           tasksState,
+          badgesState,
           initialFormDisplay,
           toggledFormDisplay,
           finalFormDisplay,
@@ -1753,6 +1767,11 @@ async function getJson(url) {
       true,
       'switchAdminSection must reveal members section'
     );
+    if (adminResult.badgesState) {
+      assert.strictEqual(adminResult.badgesState.sectionVisible, true, 'Admin Badges section must be visible');
+      assert.strictEqual(adminResult.badgesState.subpanelDefsVisible, true, 'Badge defs subpanel must be visible');
+      assert.strictEqual(adminResult.badgesState.hasBadgesContent, true, 'Admin Badges content must render badge definitions');
+    }
     assert.strictEqual(
       adminResult.tasksState.tasksVisible,
       true,

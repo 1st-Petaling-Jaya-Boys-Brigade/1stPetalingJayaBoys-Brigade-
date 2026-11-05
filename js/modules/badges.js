@@ -895,150 +895,11 @@ function filterBadges(query) {
  * @param {string} ic
  * @param {Object} [preloadedSaved]
  */
-async function renderPresidentsTracker(ic, preloadedSaved) {
+async function renderPresidentsTracker(_ic, _preloadedSaved) {
   var container = (typeof document !== 'undefined') ? document.getElementById('presidents-tracker') : null;
   if (!container) return;
-
-  var saved = preloadedSaved || (_memberBadgesCache && _memberBadgesCache[ic]) || null;
-  var client = getSupaClient();
-  if (!saved && client) {
-    try {
-      var brows = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
-      if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
-      else saved = {};
-      if (!_memberBadgesCache) _memberBadgesCache = {};
-      _memberBadgesCache[ic] = saved;
-    } catch (e) {
-      saved = {};
-    }
-  }
-  saved = saved || {};
-  var defs = await getBadgeDefs();
-
-  // Evaluate award criteria
-  var evalResult = evaluateFoundersCriteria(saved, defs);
-  var reqs = evalResult.reqs;
-  var groupResults = evalResult.groupResults;
-  var serviceYears = evalResult.serviceYears;
-  var metCount = evalResult.metCount;
-  var allDone = evalResult.allDone;
-  var overallPct = evalResult.overallPct;
-
-  // ── Build HTML ────────────────────────────────────────────────────────
-  var html = '<div style="background:var(--bg-card);border:1.5px solid '
-    + (allDone ? 'var(--gold)' : 'var(--border-card)') + ';border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow-card);">';
-
-  // Header
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
-    + '<div style="display:flex;align-items:center;gap:10px;">'
-    + '<div style="width:36px;height:36px;border-radius:10px;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;color:var(--gold);"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>'
-    + '<div>'
-    + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--gold);">President\'s Award</div>'
-    + '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;">' + metCount + ' of ' + reqs.length + ' requirements met</div>'
-    + '</div></div>'
-    + '<div style="font-family:var(--font-headline);font-size:24px;font-weight:700;color:' + (allDone ? 'var(--gold)' : 'var(--text-primary)') + ';">' + overallPct + '%</div>'
-    + '</div>';
-
-  // Overall progress bar
-  html += '<div style="background:var(--bg-card-subtle);border-radius:20px;height:8px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border-subtle);">'
-    + '<div style="height:100%;width:' + overallPct + '%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width 0.4s;"></div>'
-    + '</div>';
-
-  // Requirements list
-  html += '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">';
-  reqs.forEach(function(r) {
-    var tickBg  = r.done ? 'var(--gold)' : 'var(--bg-card-subtle)';
-    var tickCol = r.done ? 'var(--btn-on-accent)' : 'var(--text-muted)';
-    var border  = r.done ? '' : 'border:1.5px solid var(--border-card);';
-    html += '<div style="background:var(--bg-card-subtle);border-radius:10px;padding:10px 12px;border:1px solid var(--border-subtle);">'
-      + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:' + ((r.pct < 100 || r.sub) ? '8px' : '0') + ';">'
-      + '<div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:' + tickBg + ';color:' + tickCol + ';' + border + '">' + (r.done ? '&#10003;' : '') + '</div>'
-      + '<div style="flex:1;">'
-      + '<div style="font-size:12px;font-weight:600;color:' + (r.done ? 'var(--text-primary)' : 'var(--text-secondary)') + ';">' + r.label + '</div>'
-      + '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + r.detail + '</div>'
-      + '</div>'
-      + (r.done ? '<span style="font-size:10px;color:var(--gold);font-weight:700;white-space:nowrap;">&#10003; Done</span>' : '')
-      + '</div>';
-
-    // Compulsory sub-list
-    if (r.sub) {
-      html += '<div style="display:flex;flex-direction:column;gap:4px;padding-left:32px;">';
-      r.sub.forEach(function(c) {
-        html += '<div style="display:flex;align-items:center;gap:8px;">'
-          + '<div style="width:16px;height:16px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;'
-          + (c.done ? 'background:var(--gold);color:var(--btn-on-accent);' : c.missing ? 'background:var(--border-card);color:var(--text-muted);' : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);') + '">'
-          + (c.done ? '&#10003;' : (c.missing ? '?' : '')) + '</div>'
-          + '<span style="font-size:11px;color:' + (c.done ? 'var(--text-primary)' : c.missing ? 'var(--text-muted)' : 'var(--text-secondary)') + ';">' + c.label + (c.missing ? ' <em style="color:var(--text-muted);font-size:10px;">(badge not found)</em>' : '') + '</span>'
-          + '</div>';
-      });
-      html += '</div>';
-    } else if (r.pct < 100) {
-      html += '<div style="background:var(--bg-card-subtle);border-radius:20px;height:4px;overflow:hidden;border:1px solid var(--border-subtle);">'
-        + '<div style="height:100%;width:' + r.pct + '%;border-radius:20px;background:' + (r.pct > 0 ? 'var(--brand-blue)' : 'var(--border-card)') + ';transition:width 0.4s;"></div>'
-        + '</div>';
-    }
-    html += '</div>';
-  });
-  html += '</div>';
-
-  // Group breakdown
-  if (groupResults.length > 0) {
-    html += '<div style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:8px;">Award Groups</div>';
-    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">';
-    groupResults.forEach(function(g) {
-      var badgeLines = g.items.map(function(i) {
-        var e = i.entry;
-        var earned  = e.basic || e.advanced;
-        var basicDot = earned ? '<span aria-hidden="true" style="color:var(--accent);font-size:11px;">&#9679;</span>' : '<span aria-hidden="true" style="color:var(--text-muted);opacity:0.55;font-size:11px;">&#9675;</span>';
-        var advDot   = i.badge.hasAdvanced ? (e.advanced ? '<span aria-hidden="true" style="color:var(--red);font-size:11px;">&#9679;</span>' : '<span aria-hidden="true" style="color:var(--text-muted);opacity:0.55;font-size:11px;">&#9675;</span>') : '';
-        return '<div style="display:flex;align-items:center;gap:4px;margin-top:3px;">'
-          + '<span style="font-size:11px;color:' + (earned ? 'var(--text-primary)' : 'var(--text-secondary)') + ';flex:1;">' + (typeof escapeHtml === 'function' ? escapeHtml(i.badge.name) : i.badge.name) + '</span>'
-          + basicDot + advDot + '</div>';
-      }).join('');
-      html += '<div style="background:var(--bg-card-subtle);border-radius:8px;padding:8px 10px;border-left:3px solid ' + g.color + ';border:1px solid var(--border-subtle);border-left-width:3px;">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">'
-        + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:' + g.color + ';">' + g.label + '</div>'
-        + '<div style="font-size:10px;color:var(--text-secondary);">' + g.awarded + ' earned</div>'
-        + '</div>'
-        + '<div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;">' + (typeof escapeHtml === 'function' ? escapeHtml(g.catName) : g.catName) + '</div>'
-        + badgeLines + '</div>';
-    });
-    html += '</div>';
-  }
-
-  // Service years
-  var svcDots = '';
-  var maxDots = Math.max(serviceYears, 3);
-  for (var yi = 1; yi <= maxDots; yi++) {
-    var filled = yi <= serviceYears;
-    svcDots += '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;">'
-      + '<div style="width:28px;height:28px;border-radius:50%;'
-      + (filled ? 'background:var(--gold);' : 'background:var(--bg-card-subtle);border:1.5px solid var(--border-card);')
-      + 'display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:'
-      + (filled ? 'var(--btn-on-accent)' : 'var(--text-muted)') + ';">' + (filled ? yi : '') + '</div>'
-      + '<div style="font-size:9px;color:' + (filled ? 'var(--brand-gold)' : 'var(--text-muted)') + ';">Year ' + yi + '</div>'
-      + '</div>';
-  }
-
-  html += '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 12px;margin-bottom:' + (allDone ? '12px' : '0') + ';">'
-    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
-    + '<div style="font-size:12px;font-weight:600;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-secondary)') + ';" title="Official BB Rule: Minimum 80% attendance required per year for One Year Service award and badge advancement.">One Year Service Milestones <span style="font-size:10px;color:var(--text-muted);">(need 3 Service Years &middot; &ge;80% attendance required)</span></div>'
-    + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:' + (serviceYears >= 3 ? 'var(--gold)' : 'var(--text-primary)') + ';">' + serviceYears + ' year' + (serviceYears !== 1 ? 's' : '') + '</div>'
-    + '</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + svcDots + '</div>'
-    + '</div>';
-
-  // Completion banner
-  if (allDone) {
-    html += '<div style="background:linear-gradient(135deg,rgba(245,197,66,0.2),rgba(234,179,8,0.1));border:1px solid var(--gold);border-radius:10px;padding:14px;text-align:center;margin-top:12px;">'
-      + '<div style="margin-bottom:6px;display:flex;justify-content:center;"><svg class="ui-icon-xl" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>'
-      + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--gold);">All Requirements Met!</div>'
-      + '<div style="font-size:12px;color:var(--text-secondary);margin-top:6px;line-height:1.6;">Congratulations! You are eligible for the President\'s Award.<br>See your officer to confirm and collect.</div>'
-      + '</div>';
-  }
-
-  html += '</div>';
-  container.innerHTML = html;
+  container.innerHTML = '';
+  container.style.display = 'none';
 }
 
 // ── Admin Badge & Requirements Controllers ─────────────────────────────────
@@ -1047,59 +908,98 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
  * Switches between Badge definitions and President's requirements admin subtabs
  * @param {string} sub ('badgedefs' | 'presidentsreqs')
  */
-function switchBadgeSubtab(subtab) {
-  if (typeof window !== 'undefined') {
-    window._badgeActiveSubtab = subtab;
+async function switchBadgeSubtab(sub) {
+  ['badgedefs', 'presidentsreqs'].forEach(function(s) {
+    var p = (typeof document !== 'undefined') ? document.getElementById('subpanel-' + s) : null;
+    var b = (typeof document !== 'undefined') ? document.getElementById('subtab-' + s) : null;
+    if (p) p.style.display = (s === sub) ? 'block' : 'none';
+    if (b) b.classList.toggle('active-subtab', s === sub);
+  });
+  if (sub === 'badgedefs') {
+    return await renderAdminBadges();
+  } else if (sub === 'presidentsreqs') {
+    return await renderAdminPresidentsReqs();
   }
-  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
-  if (ic) renderPresidentsTracker(ic);
 }
 
 /**
- * Sets tier requirement on custom President's checklist
- * @param {number} idx
- * @param {string} tier
+ * Sets the active requirement tier in the Admin President's Award panel
+ * @param {string} tier ('any' | 'basic' | 'advanced')
  */
-function setReqTier(tier, tierVal) {
+function setReqTier(tier) {
   if (typeof document === 'undefined') return;
-  var targetTier = tierVal || tier;
   var el = document.getElementById('req-tier-val');
-  if (el) el.value = targetTier;
+  if (el) el.value = tier;
   ['any', 'basic', 'advanced'].forEach(function(t) {
     var btn = document.getElementById('req-tier-' + t);
-    if (btn) btn.classList.toggle('active', t === targetTier);
+    if (btn) btn.classList.toggle('ftype-active', t === tier);
   });
-  if (typeof tier === 'number' || (!isNaN(tier) && tier !== '')) {
-    var rowSelect = document.getElementById('req-tier-' + tier);
-    if (rowSelect) rowSelect.value = targetTier;
-  }
 }
 
 /**
- * Renders the Admin Console President's Award requirements manager
+ * Renders the Admin President's Award Requirements configuration list
  */
 async function renderAdminPresidentsReqs() {
-  var container = (typeof document !== 'undefined') ? document.getElementById('admin-presidents-reqs-list') : null;
-  if (!container) return;
+  if (typeof document === 'undefined') return;
   var reqs = await getPresidentsReqs();
+  var defs = await getBadgeDefs();
+  var container = document.getElementById('admin-presidents-reqs-list');
+  if (!container) return;
+
+  var sel = document.getElementById('req-badge-select');
+  if (sel) {
+    var opts = '<option value="">-- Select a badge --</option>';
+    var allBadges = defs.filter(function(b) { return b.name !== '(Add badges below)'; });
+    allBadges.forEach(function(b) {
+      opts += '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) + '">'
+        + (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) + ' ('
+        + (typeof escapeHtml === 'function' ? escapeHtml(b.cat) : b.cat) + ')</option>';
+    });
+    sel.innerHTML = opts;
+  }
+
+  if (!reqs.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No requirements set. Add one below.</div>';
+    return;
+  }
+
+  var tierColour = { any: '#66bb6a', basic: '#e8b830', advanced: '#ef5350' };
+  var tierLabel  = { any: 'Any Level', basic: 'Basic', advanced: 'Advanced' };
+
   var html = '';
-  reqs.forEach(function(r, idx) {
-    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;background:var(--bg-card);padding:10px;border-radius:8px;border:1px solid var(--border-card);">'
-      + '<input type="text" id="req-label-' + idx + '" value="' + escapeHtml(r.label) + '" style="flex:2;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 8px;font-size:12px;"/>'
-      + '<input type="text" id="req-match-' + idx + '" value="' + escapeHtml(r.badgeMatch) + '" placeholder="Badge match name" style="flex:1.5;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 8px;font-size:12px;"/>'
-      + '<select id="req-tier-' + idx + '" style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 8px;font-size:12px;">'
-      +   '<option value="any"' + (r.tier === 'any' ? ' selected' : '') + '>Any Level</option>'
-      +   '<option value="advanced"' + (r.tier === 'advanced' ? ' selected' : '') + '>Advanced Only</option>'
-      +   '<option value="basic"' + (r.tier === 'basic' ? ' selected' : '') + '>Basic Only</option>'
-      + '</select>'
-      + '<button type="button" onclick="deletePresidentsReq(' + idx + ')" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:6px 10px;cursor:pointer;">&times;</button>'
+  reqs.forEach(function(req, i) {
+    var tc = tierColour[req.tier] || '#888';
+    var tl = tierLabel[req.tier]  || req.tier;
+    html += '<div style="background:var(--bg-card);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);display:flex;align-items:center;gap:12px;">'
+      + '<div style="width:28px;height:28px;border-radius:50%;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--brand-gold);flex-shrink:0;">' + (i + 1) + '</div>'
+      + '<div style="flex:1;">'
+        + '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' + (typeof escapeHtml === 'function' ? escapeHtml(req.badgeMatch) : req.badgeMatch) + '</div>'
+        + '<span style="font-size:10px;font-weight:700;background:' + tc + '22;color:' + tc + ';border:1px solid ' + tc + '44;padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;">' + tl + '</span>'
+      + '</div>'
+      + '<button data-del-req="' + i + '" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Remove</button>'
       + '</div>';
   });
   container.innerHTML = html;
+
+  container.querySelectorAll('[data-del-req]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var idx = parseInt(btn.getAttribute('data-del-req'), 10);
+      var currentReqs = await getPresidentsReqs();
+      var name = currentReqs[idx] ? currentReqs[idx].badgeMatch : '';
+      var ok = (typeof showConfirmModal === 'function')
+        ? await showConfirmModal('Remove "' + name + '" from requirements?')
+        : true;
+      if (!ok) return;
+      currentReqs.splice(idx, 1);
+      await savePresidentsReqs(currentReqs);
+      renderAdminPresidentsReqs();
+    });
+  });
 }
 
 /**
- * Adds a new custom requirement to President's Award criteria
+ * Deletes a requirement from President's Award criteria
+ * @param {number} idx
  */
 async function deletePresidentsReq(idx) {
   var reqs = await getPresidentsReqs();
@@ -1110,39 +1010,242 @@ async function deletePresidentsReq(idx) {
   }
 }
 
+/**
+ * Adds a new badge requirement to the President's Award criteria
+ */
 async function addPresidentsReq() {
-  var reqs = await getPresidentsReqs();
-  reqs.push({ label: 'New Requirement', badgeMatch: '', tier: 'any' });
+  if (typeof document === 'undefined') return;
+  var sel  = document.getElementById('req-badge-select');
+  var tier = (document.getElementById('req-tier-val') || {}).value || 'any';
+  var name = sel ? sel.value.trim() : '';
+  if (!name) {
+    if (typeof showToast === 'function') showToast('Please select a badge.', 'warning');
+    return;
+  }
+  var tierLabel = { any: '(any level)', basic: '(Basic)', advanced: '(Advanced)' };
+  var label = name + ' ' + (tierLabel[tier] || '');
+  var reqs  = await getPresidentsReqs();
+  if (reqs.some(function(r) { return r.badgeMatch === name && r.tier === tier; })) {
+    if (typeof showToast === 'function') showToast('This badge and level combination is already a requirement.', 'warning');
+    return;
+  }
+  reqs.push({ label: label, badgeMatch: name, tier: tier });
   await savePresidentsReqs(reqs);
   renderAdminPresidentsReqs();
+  if (sel) sel.value = '';
+  setReqTier('any');
 }
 
 /**
- * Renders the Admin Console Badge Definition Manager
+ * Renders the Admin Badges Catalog Editor
  */
 async function renderAdminBadges() {
-  var container = (typeof document !== 'undefined') ? document.getElementById('admin-badge-defs-list') : null;
-  if (!container) return;
-  var defs = await getBadgeDefs(true);
-  var html = '';
-  defs.forEach(function(b, idx) {
-    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;background:var(--bg-card);padding:10px;border-radius:8px;border:1px solid var(--border-card);flex-wrap:wrap;">'
-      + '<div style="width:36px;height:36px;border-radius:6px;background:var(--bg-card-subtle);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">'
-      +   (b.image ? '<img src="' + escapeHtml(b.image) + '" style="width:100%;height:100%;object-fit:contain;"/>' : '<span style="font-size:12px;color:var(--text-muted);">&#9875;</span>')
-      + '</div>'
-      + '<input type="text" id="adm-badge-name-' + idx + '" value="' + escapeHtml(b.name) + '" style="flex:2;min-width:140px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 8px;font-size:12px;"/>'
-      + '<select id="adm-badge-cat-' + idx + '" style="flex:1.5;min-width:120px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:6px;padding:6px 8px;font-size:12px;">'
-      +   '<option value="Compulsory Awards"' + (b.cat === 'Compulsory Awards' ? ' selected' : '') + '>Compulsory Awards</option>'
-      +   '<option value="Proficiency Awards"' + (b.cat === 'Proficiency Awards' ? ' selected' : '') + '>Proficiency Awards</option>'
-      +   '<option value="Service Awards"' + (b.cat === 'Service Awards' ? ' selected' : '') + '>Service Awards</option>'
-      +   '<option value="Special Awards"' + (b.cat === 'Special Awards' ? ' selected' : '') + '>Special Awards</option>'
-      + '</select>'
-      + '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-secondary);cursor:pointer;">'
-      +   '<input type="checkbox" id="adm-badge-adv-' + idx + '" ' + (b.hasAdvanced ? 'checked' : '') + '/> Has Advanced'
-      + '</label>'
-      + '</div>';
+  if (typeof document === 'undefined') return;
+  var defs = await getBadgeDefs();
+  var cats = [];
+  defs.forEach(function(b) {
+    if (cats.indexOf(b.cat) === -1) cats.push(b.cat);
   });
+  var container = document.getElementById('admin-badges-content') || document.getElementById('admin-badge-defs-list');
+  if (!container) return;
+
+  var html = '';
+  cats.forEach(function(cat) {
+    var catBadges = defs.filter(function(b) { return b.cat === cat && b.name !== '(Add badges below)'; });
+    var inputKey  = 'nb_' + cat.replace(/[^a-zA-Z0-9]/g, '_');
+    var rows = catBadges.length
+      ? catBadges.map(function(b) {
+          var tierMode = b.tier || (b.hasAdvanced ? 'both' : 'basic');
+          var advLabel = tierMode === 'both'
+            ? '<span style="font-size:9px;font-weight:700;background:rgba(239,83,80,0.15);color:#ef5350;border:1px solid rgba(239,83,80,0.3);padding:2px 7px;border-radius:20px;margin-left:6px;">Basic + Advanced</span>'
+            : tierMode === 'none'
+            ? '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">No levels</span>'
+            : '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">Basic only</span>';
+          var repLabel = b.repeatable
+            ? '<span style="font-size:9px;font-weight:700;background:rgba(102,187,106,0.15);color:#66bb6a;border:1px solid rgba(102,187,106,0.3);padding:2px 7px;border-radius:20px;margin-left:4px;">Repeatable</span>'
+            : '';
+          var safeBadgeImg = b.image ? ((typeof safeUrl === 'function') ? safeUrl(b.image, '') : b.image) : '';
+          var imgThumb = safeBadgeImg
+            ? '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(safeBadgeImg) : safeBadgeImg) + '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border-card);flex-shrink:0;"/>'
+            : '<div style="width:32px;height:32px;border-radius:6px;background:var(--bg-card-subtle);border:1px dashed var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>';
+
+          return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border-subtle);flex-wrap:wrap;">'
+            + imgThumb
+            + '<div style="flex:1;min-width:140px;"><span style="font-size:13px;color:var(--text-primary);font-weight:600;">' + (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) + '</span>' + advLabel + repLabel + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+            + '<label style="background:var(--bg-input);border:1px solid var(--border-card);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--text-secondary);cursor:pointer;">'
+              + '<input type="file" accept="image/*" data-img-badge="' + b.id + '" style="display:none;"/>Upload img'
+            + '</label>'
+            + (safeBadgeImg ? '<button data-clear-img="' + b.id + '" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;padding:2px 4px;">Clear img</button>' : '')
+            + '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;">'
+              + '<input type="checkbox" data-toggle-rep="' + b.id + '" ' + (b.repeatable ? 'checked' : '') + ' style="accent-color:var(--accent);"/>Repeatable'
+            + '</label>'
+            + '<select data-tier-sel="' + b.id + '" style="background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:7px;padding:4px 6px;font-size:11px;cursor:pointer;">'
+              + '<option value="none" '  + (tierMode === 'none'  ? 'selected' : '') + '>No levels</option>'
+              + '<option value="basic" ' + (tierMode === 'basic' ? 'selected' : '') + '>Basic only</option>'
+              + '<option value="both" '  + (tierMode === 'both'  ? 'selected' : '') + '>Basic + Adv</option>'
+            + '</select>'
+            + '<button data-del-badge="' + b.id + '" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:2px 6px;">×</button>'
+            + '</div>'
+            + '</div>';
+        }).join('')
+      : '<div style="font-size:12px;color:var(--text-muted);padding:6px 0;">No badges yet — add one below.</div>';
+
+    html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+        + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--brand-gold);">' + (typeof escapeHtml === 'function' ? escapeHtml(cat) : cat) + '</div>'
+        + '<button data-del-cat="' + cat + '" style="background:#3a1a1a;border:1px solid #6a2a2a;color:#f66;padding:4px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">Delete section</button>'
+      + '</div>' + rows
+      + '<div style="display:flex;gap:8px;margin-top:10px;">'
+        + '<input type="text" id="' + inputKey + '" placeholder="New badge name..." style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>'
+        + '<button data-add-badge="' + cat + '" style="background:rgba(200,150,30,0.15);border:1px solid rgba(200,150,30,0.35);color:var(--brand-gold);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;">+ Add</button>'
+      + '</div></div>';
+  });
+
+  html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;border:1px dashed var(--border-card);">'
+    + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add New Section</div>'
+    + '<div style="display:flex;gap:8px;">'
+      + '<input type="text" id="new-cat-name" placeholder="Section name e.g. Leadership" style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>'
+      + '<button id="btn-add-cat" style="background:var(--accent);border:none;color:var(--navy);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">+ Add</button>'
+    + '</div></div>';
+
   container.innerHTML = html;
+
+  container.querySelectorAll('[data-img-badge]').forEach(function(input) {
+    input.addEventListener('change', function() {
+      var id = input.getAttribute('data-img-badge');
+      var file = input.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = async function(e) {
+        var currentDefs = await getBadgeDefs();
+        var badge = currentDefs.find(function(b) { return b.id === id; });
+        if (badge) {
+          badge.image = e.target.result;
+          await saveBadgeDefs(currentDefs);
+          renderAdminBadges();
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  container.querySelectorAll('[data-clear-img]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-clear-img');
+      var currentDefs = await getBadgeDefs();
+      var badge = currentDefs.find(function(b) { return b.id === id; });
+      if (badge) {
+        delete badge.image;
+        await saveBadgeDefs(currentDefs);
+        renderAdminBadges();
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-toggle-rep]').forEach(function(chk) {
+    chk.addEventListener('change', async function() {
+      var id = chk.getAttribute('data-toggle-rep');
+      var currentDefs = await getBadgeDefs();
+      var badge = currentDefs.find(function(b) { return b.id === id; });
+      if (badge) {
+        badge.repeatable = chk.checked;
+        await saveBadgeDefs(currentDefs);
+        renderAdminBadges();
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-tier-sel]').forEach(function(sel) {
+    sel.addEventListener('change', async function() {
+      var id = sel.getAttribute('data-tier-sel');
+      var currentDefs = await getBadgeDefs();
+      var badge = currentDefs.find(function(b) { return b.id === id; });
+      if (badge) {
+        var val = sel.value;
+        badge.tier = val;
+        badge.hasAdvanced = (val === 'both');
+        await saveBadgeDefs(currentDefs);
+        renderAdminBadges();
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-del-cat]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var cat = btn.getAttribute('data-del-cat');
+      var ok = (typeof showConfirmModal === 'function')
+        ? await showConfirmModal('Delete the "' + cat + '" section and all its badges?')
+        : true;
+      if (!ok) return;
+      await saveBadgeDefs((await getBadgeDefs()).filter(function(b) { return b.cat !== cat; }));
+      renderAdminBadges();
+    });
+  });
+
+  container.querySelectorAll('[data-del-badge]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var id = btn.getAttribute('data-del-badge');
+      var currentDefs = await getBadgeDefs();
+      var badge = currentDefs.find(function(b) { return b.id === id; });
+      if (!badge) return;
+      var ok = (typeof showConfirmModal === 'function')
+        ? await showConfirmModal('Delete badge "' + badge.name + '"?')
+        : true;
+      if (!ok) return;
+      await saveBadgeDefs(currentDefs.filter(function(b) { return b.id !== id; }));
+      renderAdminBadges();
+    });
+  });
+
+  container.querySelectorAll('[data-add-badge]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var cat = btn.getAttribute('data-add-badge');
+      var key = 'nb_' + cat.replace(/[^a-zA-Z0-9]/g, '_');
+      var input = document.getElementById(key);
+      var name = input ? input.value.trim() : '';
+      if (!name) {
+        if (typeof showToast === 'function') showToast('Please enter a badge name.', 'warning');
+        return;
+      }
+      var currentDefs = (await getBadgeDefs()).filter(function(b) {
+        return !(b.cat === cat && b.name === '(Add badges below)');
+      });
+      currentDefs.push({
+        id: 'b_' + Date.now(),
+        name: name,
+        cat: cat,
+        hasAdvanced: false,
+        tier: 'basic',
+        repeatable: false
+      });
+      await saveBadgeDefs(currentDefs);
+      if (typeof showToast === 'function') showToast('Badge added! Members will see it when they next open their badges.', 'success');
+      if (input) input.value = '';
+      renderAdminBadges();
+    });
+  });
+
+  var addCatBtn = document.getElementById('btn-add-cat');
+  if (addCatBtn) {
+    addCatBtn.addEventListener('click', async function() {
+      var input = document.getElementById('new-cat-name');
+      var name = input ? input.value.trim() : '';
+      if (!name) {
+        if (typeof showToast === 'function') showToast('Please enter a section name.', 'warning');
+        return;
+      }
+      var currentDefs = await getBadgeDefs();
+      if (currentDefs.some(function(b) { return b.cat === name; })) {
+        if (typeof showToast === 'function') showToast('Section already exists.', 'warning');
+        return;
+      }
+      currentDefs.push({ id: 'b_' + Date.now(), name: '(Add badges below)', cat: name, hasAdvanced: false });
+      await saveBadgeDefs(currentDefs);
+      if (input) input.value = '';
+      renderAdminBadges();
+    });
+  }
 }
 
 // ── Browser & Node Environment Exports ─────────────────────────────────────
