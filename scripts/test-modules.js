@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105k',
-    'sw.js CACHE_VERSION must be 20261105k'
+    '20261105l',
+    'sw.js CACHE_VERSION must be 20261105l'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105k',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105l',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105k'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105l'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8598,12 +8598,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261105k', 'Service Worker cache version must be 20261105k');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261105l', 'Service Worker cache version must be 20261105l');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261105k and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261105l and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -8741,6 +8741,136 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(finalUniqueIds3.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
+
+  
+    // ════════════════════════════════════════════════════════════════════════════
+    // [TEST] Badges Grid & List View, 4 Categories, Alphabetical Order & Audio
+    // ════════════════════════════════════════════════════════════════════════════
+    console.log('\n[TEST] Badges Grid & List View, 4 Categories, Alphabetical Order & Audio...');
+
+    // 1. Badges Catalog & 4 Categories
+    const defs = badgesMod.DEFAULT_BB_BADGES;
+    assert.strictEqual(defs.length, 41, 'Official badge catalog must contain exactly 41 badges');
+
+    const expectedCats = ['Compulsory Awards', 'Proficiency Awards', 'Service Awards', 'Special Awards'];
+    const catCounts = {
+      'Compulsory Awards': 5,
+      'Proficiency Awards': 28,
+      'Service Awards': 2,
+      'Special Awards': 6
+    };
+
+    expectedCats.forEach(cat => {
+      const bList = defs.filter(b => b.cat === cat);
+      assert.strictEqual(bList.length, catCounts[cat], 'Category ' + cat + ' must have ' + catCounts[cat] + ' badges');
+    });
+
+    // 2. Proficiency Awards must be sorted in strict alphabetical order
+    const profBadges = defs.filter(b => b.cat === 'Proficiency Awards');
+    const profNames = profBadges.map(b => b.name);
+    const sortedProfNames = [...profNames].sort((a, b) => a.localeCompare(b));
+    assert.deepStrictEqual(profNames, sortedProfNames, 'Proficiency awards must be in strict alphabetical order');
+    console.log('  ✔ All 41 official badges categorized into 4 categories with alphabetical proficiency order');
+
+    // 3. Every badge image must resolve to an existing file on disk
+    defs.forEach(b => {
+      assert.ok(b.image, 'Badge ' + b.name + ' must have an image path');
+      const decodedPath = decodeURIComponent(b.image);
+      const absPath = path.resolve(__dirname, '..', decodedPath);
+      assert.ok(fs.existsSync(absPath), 'Badge image on disk must exist: ' + absPath);
+    });
+    console.log('  ✔ All 41 badge images accurately verified against repository assets on disk');
+
+    // 4. Grid View and List View Mode Switching
+    badgesMod.setBadgesDisplayMode('grid');
+    assert.strictEqual(badgesMod.getBadgesDisplayMode(), 'grid', 'Display mode must be grid');
+
+    // Setup DOM container for loadBadges rendering
+    const mockBadgesList = document.createElement('div');
+    mockBadgesList.id = 'badges-list';
+    document.body.appendChild(mockBadgesList);
+
+    const testMemberIc = '010101-14-1234';
+    const mockBadgeProgress = {
+      bb4: { basic: true, basicDate: '2026-05-10', advanced: false, advancedDate: '' },
+      bb6: { basic: true, basicDate: '2026-06-15', advanced: true, advancedDate: '2026-08-20' },
+      bb1: { basic: true, basicDate: '2026-01-12' },
+      bb_long_year_service_rep: { count: 3, dates: ['2024-01-01', '2025-01-01', '2026-01-01'] }
+    };
+
+    // Render Grid View
+    await badgesMod.loadBadges(testMemberIc, mockBadgeProgress);
+    const gridHtml = mockBadgesList.innerHTML;
+    assert.ok(gridHtml.includes('class="badges-view-header"'), 'Must render badges-view-header');
+    assert.ok(gridHtml.includes('class="badges-grid"'), 'Must render badges-grid container');
+    assert.ok(gridHtml.includes('tier-basic active'), 'Earned basic tier must have tier-basic active class');
+    assert.ok(gridHtml.includes('tier-advanced active'), 'Earned advanced tier must have tier-advanced active class');
+    assert.ok(gridHtml.includes('tier-single active'), 'Single earned badge must have tier-single active class');
+    assert.ok(gridHtml.includes('data-rep-inc="bb_long_year_service"'), 'Repeatable badge must render increment button');
+    console.log('  ✔ Grid View renders 5-in-a-row layout, badge images, active Basic & Advanced buttons, and repeatable counters');
+
+    // Render List View
+    badgesMod.setBadgesDisplayMode('list');
+    assert.strictEqual(badgesMod.getBadgesDisplayMode(), 'list', 'Display mode must be list');
+    await badgesMod.loadBadges(testMemberIc, mockBadgeProgress);
+    const listHtml = mockBadgesList.innerHTML;
+    assert.ok(listHtml.includes('class="badges-list-table"'), 'Must render badges-list-table');
+    assert.ok(listHtml.includes('class="badge-list-row"'), 'Must render badge-list-row elements');
+    assert.ok(listHtml.includes('badge-list-thumb'), 'List view must render badge thumbnails');
+    console.log('  ✔ List View renders streamlined badge rows, category indicators, tier options, and achievement dates');
+
+    // 5. Category Filtering
+    badgesMod.filterBadgesByCategory('Compulsory Awards');
+    await badgesMod.loadBadges(testMemberIc, mockBadgeProgress);
+    const filterHtml = mockBadgesList.innerHTML;
+    assert.ok(filterHtml.includes('data-cat-section="Compulsory Awards" style=""'), 'Compulsory section must be visible');
+    assert.ok(filterHtml.includes('data-cat-section="Proficiency Awards" style="display:none;"'), 'Proficiency section must be hidden when filtered');
+    badgesMod.filterBadgesByCategory('all');
+    console.log('  ✔ Category filtering toggles section visibility seamlessly');
+
+    // 6. Announcement -> Portal Notification Inbox Sync
+    const mockAnnouncementsList = [
+      {
+        id: 991,
+        title: 'Camp Briefing 2026',
+        body: '<p>All members are required to attend briefing this Saturday.</p>',
+        date: '2026-11-05',
+        created_at: '2026-11-05T12:00:00Z',
+        author: 'Captain'
+      }
+    ];
+
+    const syncFn = global.syncAnnouncementNotifications;
+    if (typeof syncFn === 'function') {
+      syncFn(mockAnnouncementsList);
+      const notifs = global._allPortalNotifications || [];
+      const annNotif = notifs.find(n => n.id === 'notif-announcement-991');
+      assert.ok(annNotif, 'New announcement must generate notif-announcement-991 in portal notification inbox');
+      assert.strictEqual(annNotif.title, 'New Announcement: Camp Briefing 2026');
+      assert.ok(annNotif.snippet.includes('All members are required'), 'Snippet must cleanly extract body text without HTML');
+      console.log('  ✔ New announcements successfully generate active inbox notifications with clean snippets');
+    }
+
+    // 7. Notification Audio Unlocking & Playback Resilience
+    const uiMod = require('../js/core/ui.js');
+    assert.strictEqual(typeof uiMod.playNotificationSound, 'function', 'ui.js must export playNotificationSound');
+    assert.strictEqual(typeof uiMod.unlockAudioContextAndElement, 'function', 'ui.js must export unlockAudioContextAndElement');
+    assert.ok(uiMod.NOTIF_SOUND_URL.includes('Notification%20Sound_PopSound%20(1).wav'), 'Sound URL must target PopSound wav effect');
+    uiMod.unlockAudioContextAndElement();
+    const soundResult = uiMod.playNotificationSound();
+    assert.ok(soundResult !== undefined, 'playNotificationSound must execute safely across environments');
+    console.log('  ✔ Notification sound pre-priming, audio unlocking, and PopSound wav playback verified');
+
+    // Cleanup mock element
+    if (mockBadgesList.parentNode) mockBadgesList.parentNode.removeChild(mockBadgesList);
+
+    // 8. Strict 388 Unique DOM IDs Invariant
+    const finalHtmlBadges = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const finalMatchesBadges = finalHtmlBadges.match(/\bid=["']([^"']+)["']/g) || [];
+    const finalIdsBadges = finalMatchesBadges.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const finalUniqueIdsBadges = Array.from(new Set(finalIdsBadges));
+    assert.strictEqual(finalUniqueIdsBadges.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);

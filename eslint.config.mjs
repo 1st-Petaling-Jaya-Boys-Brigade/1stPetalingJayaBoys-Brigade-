@@ -136,6 +136,12 @@ export default [
         renderAdminBadges: 'readonly',
         renderAdminPresidentsReqs: 'readonly',
         addPresidentsReq: 'readonly',
+        deletePresidentsReq: 'readonly',
+        setBadgesDisplayMode: 'readonly',
+        getBadgesDisplayMode: 'readonly',
+        filterBadgesByCategory: 'readonly',
+        syncAllPortalNotifications: 'readonly',
+        unlockAudioContextAndElement: 'readonly',
         // NCO Tasks & Kanban Board Globals (TSK-009)
         DEPT_CONFIG: 'readonly',
         checkIsNCO: 'readonly',
