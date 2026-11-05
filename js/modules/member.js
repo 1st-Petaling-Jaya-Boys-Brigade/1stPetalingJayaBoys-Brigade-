@@ -813,6 +813,11 @@ async function registerMember() {
   var pass2   = (document.getElementById('reg-pass2') || {}).value || '';
 
   if (!name) { if (typeof showToast === 'function') showToast('Please enter your full name.', 'warning'); return; }
+  var nameTokens = name.split(/\s+/).filter(function(w) { return w.length >= 2; });
+  if (nameTokens.length < 2) {
+    if (typeof showToast === 'function') showToast('Please enter your full name (at least first name and surname).', 'warning');
+    return;
+  }
   if (!email || !EMAIL_REGEX.test(email)) { if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning'); return; }
   if (!section) { if (typeof showToast === 'function') showToast('Please select your section (Junior, Senior, or Officer).', 'warning'); return; }
 
@@ -873,6 +878,53 @@ async function registerMember() {
   }
 
   try {
+    // 0. Name collision & identity spoofing prevention (cross-member duplicate/similar name check)
+    var allExistingMembers = [];
+    var supaCli = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+    if (supaCli && typeof supaCli.get === 'function') {
+      try {
+        var dbMemsList = await supaCli.get('bb_members?select=id,name,email,ic');
+        if (Array.isArray(dbMemsList)) allExistingMembers = dbMemsList;
+      } catch (memErr) {
+        console.warn('Registration member uniqueness check note:', memErr);
+      }
+    }
+    if (allExistingMembers.length === 0 && typeof localStorage !== 'undefined') {
+      try {
+        var rawCached = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+        if (rawCached) {
+          var parsedMems = JSON.parse(rawCached);
+          if (Array.isArray(parsedMems)) allExistingMembers = parsedMems;
+        }
+      } catch (_) {}
+    }
+
+    var conflictFn = (typeof isNameConflict === 'function')
+      ? isNameConflict
+      : (typeof window !== 'undefined' && typeof window.isNameConflict === 'function'
+          ? window.isNameConflict
+          : (typeof global !== 'undefined' && typeof global.isNameConflict === 'function' ? global.isNameConflict : null));
+
+    if (conflictFn && allExistingMembers.length > 0) {
+      var conflicting = allExistingMembers.find(function(m) {
+        if (!m || !m.name) return false;
+        var mEmail = String(m.email || m.ic || '').trim().toLowerCase();
+        // Skip check if it is the exact same email (family account sharing)
+        if (mEmail && mEmail === email) return false;
+        return conflictFn(m.name, name);
+      });
+
+      if (conflicting) {
+        if (typeof showToast === 'function') {
+          showToast('The name "' + name + '" conflicts with an already registered member (' + conflicting.name + '). To protect member privacy and attendance records, duplicate or similar names are not permitted.', 'error', 6500);
+        }
+        if (typeof setButtonLoading === 'function' && regBtn) {
+          setButtonLoading(regBtn, false, 'Register Account');
+        }
+        return;
+      }
+    }
+
     // 1. Check for existing family accounts under this email
     var existingAccounts = (_isFamilyRegistration && _familyAccounts.length) ? _familyAccounts : await findMembersByEmail(email);
 
@@ -3548,13 +3600,15 @@ function renderMemberAvatar(memberName, memberEmail) {
   var outline = getMemberAvatarOutline(email, name);
   var cosmetic = getMemberCosmetic(email, name);
 
+  var textLColor = (typeof isBrightColor === 'function' && isBrightColor(color)) ? '#1e293b' : '#ffffff';
+
   // 1. Sidebar user avatar placeholder
   var sPh = document.getElementById('sidebar-user-avatar-ph');
   if (sPh) {
     sPh.textContent = initial;
     sPh.title = tooltip;
     sPh.setAttribute('aria-label', tooltip);
-    sPh.style.color = '#ffffff';
+    sPh.style.color = textLColor;
     sPh.style.fontSize = isCreator ? '15px' : '15px';
     sPh.style.fontWeight = '800';
     sPh.style.cursor = 'pointer';
@@ -3584,7 +3638,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     mPh.textContent = initial;
     mPh.title = tooltip;
     mPh.setAttribute('aria-label', tooltip);
-    mPh.style.color = '#ffffff';
+    mPh.style.color = textLColor;
     mPh.style.fontSize = isCreator ? '26px' : '26px';
     mPh.style.fontWeight = '800';
     mPh.style.cursor = 'pointer';
@@ -3615,7 +3669,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     nPh.textContent = initial;
     nPh.title = tooltip;
     nPh.setAttribute('aria-label', tooltip);
-    nPh.style.color = '#ffffff';
+    nPh.style.color = textLColor;
     nPh.style.fontSize = isCreator ? '13px' : '13px';
     nPh.style.fontWeight = '800';
     nPh.style.cursor = 'pointer';

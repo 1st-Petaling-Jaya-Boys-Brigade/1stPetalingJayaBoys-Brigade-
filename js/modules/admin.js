@@ -438,19 +438,16 @@
     // RBAC Gatekeeper: Block standard members from accessing admin routes/console (TSK-049)
     var isMemberSession = false;
     var sessEmail = null;
-    var rank = null;
-    var isOfficer = false;
     var currentRole = 'member';
 
     if (typeof sessionGet === 'function') {
       sessEmail = sessionGet('email') || sessionGet('ic');
       if (sessEmail) {
-        rank = sessionGet('rank');
-        isOfficer = rank && ['Captain', 'Honarary Captain', 'Honorary Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].includes(rank);
         currentRole = (typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function')
           ? RBAC.getUserRole(sessEmail)
           : (sessionGet('role') || 'member');
-        if (currentRole === 'member' && !isOfficer && !verifyAdminSessionSync()) {
+        // STRICT SECURITY GATE: Officers and Captains without explicit Admin/Super Admin role are strictly blocked
+        if (currentRole === 'member' && !verifyAdminSessionSync()) {
           isMemberSession = true;
         }
       }
@@ -458,7 +455,7 @@
 
     if (isMemberSession) {
       if (typeof showToast === 'function') {
-        showToast('Access Denied: Administrative privileges required.', 'error');
+        showToast('Access Denied: Administrative privileges required. Only designated Admins and Super Admins may access the Admin Console.', 'error');
       }
       return;
     }
@@ -468,9 +465,9 @@
     if (document.body) document.body.style.overflow = 'hidden';
 
     // Passwordless Access for Authenticated Admins & Super Admins (TSK-049)
-    if (sessEmail && (currentRole === 'admin' || currentRole === 'super_admin' || isOfficer)) {
+    if (sessEmail && (currentRole === 'admin' || currentRole === 'super_admin')) {
       if (!verifyAdminSessionSync()) {
-        await createAdminSessionToken(sessEmail, rank || (currentRole === 'super_admin' ? 'Super Admin' : 'Admin'));
+        await createAdminSessionToken(sessEmail, currentRole === 'super_admin' ? 'Super Admin' : 'Admin');
       }
       if (typeof sessionSet === 'function') {
         sessionSet('adminAuthed', true);
@@ -1022,9 +1019,9 @@
     var cleanNm = name || 'Member';
     var isCreator = false;
     if (typeof isPortalCreator === 'function') {
-      isCreator = isPortalCreator(cleanNm);
+      isCreator = isPortalCreator(cleanNm, emailOrIc);
     } else {
-      isCreator = /jeshua\s+koh/i.test(cleanNm) || (emailOrIc && emailOrIc.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1);
+      isCreator = (emailOrIc && emailOrIc.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1);
     }
     var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanNm) : cleanNm;
     var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');

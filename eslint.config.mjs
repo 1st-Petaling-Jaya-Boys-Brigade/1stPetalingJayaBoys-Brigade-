@@ -158,6 +158,8 @@ export default [
         getRanksForSection: 'readonly',
         populateRankOptions: 'readonly',
         isNameMatch: 'readonly',
+        isBrightColor: 'readonly',
+        isNameConflict: 'readonly',
         handleRegRankChange: 'readonly',
         populateSquadOptions: 'readonly',
         formatPlatoonOrSquad: 'readonly',
