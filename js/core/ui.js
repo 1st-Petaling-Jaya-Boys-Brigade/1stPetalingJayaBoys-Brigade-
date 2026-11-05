@@ -1078,6 +1078,57 @@
   }
 
 
+  // ── Portal Notification Sound Effect ──────────────────────────────────────
+  var NOTIF_SOUND_URL = 'assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav';
+  var _notifAudioInstance = null;
+  var _lastNotifSoundPlayTs = 0;
+
+  function playNotificationSound(soundUrl) {
+    try {
+      var now = Date.now();
+      if (now - _lastNotifSoundPlayTs < 250) return null;
+      _lastNotifSoundPlayTs = now;
+
+      if (typeof Audio === 'undefined') return null;
+      var url = soundUrl || NOTIF_SOUND_URL;
+      if (!_notifAudioInstance || _notifAudioInstance.src !== url) {
+        _notifAudioInstance = new Audio(url);
+        _notifAudioInstance.preload = 'auto';
+      }
+      _notifAudioInstance.currentTime = 0;
+      var p = _notifAudioInstance.play();
+      if (p && typeof p.catch === 'function') {
+        p.catch(function(e) {
+          if (typeof console !== 'undefined' && console.log) {
+            console.log('Notification sound autoplay note:', e && e.message ? e.message : e);
+          }
+        });
+      }
+      return _notifAudioInstance;
+    } catch (err) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('playNotificationSound error:', err);
+      }
+      return null;
+    }
+  }
+
+  // Pre-prime audio context on first user interaction to satisfy browser autoplay policies
+  if (typeof document !== 'undefined') {
+    var _primeAudio = function() {
+      try {
+        if (!_notifAudioInstance && typeof Audio !== 'undefined') {
+          _notifAudioInstance = new Audio(NOTIF_SOUND_URL);
+          _notifAudioInstance.preload = 'auto';
+        }
+      } catch (_) {}
+      document.removeEventListener('click', _primeAudio);
+      document.removeEventListener('keydown', _primeAudio);
+    };
+    document.addEventListener('click', _primeAudio, { once: true, passive: true });
+    document.addEventListener('keydown', _primeAudio, { once: true, passive: true });
+  }
+
   // Expose to window / global
   if (typeof global !== 'undefined') {
     global.showToast = showToast;
@@ -1101,6 +1152,8 @@
     global.handleRichEditorKeydown = handleRichEditorKeydown;
     global.insertTableWithDimensions = insertTableWithDimensions;
     global.toggleTableGridPicker = toggleTableGridPicker;
+    global.playNotificationSound = playNotificationSound;
+    global.NOTIF_SOUND_URL = NOTIF_SOUND_URL;
   }
 
   // CommonJS export for Node testing
@@ -1126,7 +1179,9 @@
       closeTableContextMenu: closeTableContextMenu,
       handleRichEditorKeydown: handleRichEditorKeydown,
       insertTableWithDimensions: insertTableWithDimensions,
-      toggleTableGridPicker: toggleTableGridPicker
+      toggleTableGridPicker: toggleTableGridPicker,
+      playNotificationSound: playNotificationSound,
+      NOTIF_SOUND_URL: NOTIF_SOUND_URL
     };
   }
 })(typeof window !== 'undefined' ? window : this);

@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105i',
-    'sw.js CACHE_VERSION must be 20261105i'
+    '20261105j',
+    'sw.js CACHE_VERSION must be 20261105j'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105i',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105j',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105i'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105j'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8507,6 +8507,115 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const finalIds2 = finalMatches2.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const finalUniqueIds2 = Array.from(new Set(finalIds2));
     assert.strictEqual(finalUniqueIds2.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+  }
+
+  // ── Registration Immediate Auto-Login & Notification Sound Verification ──
+  {
+    console.log('\n[TEST] Registration Immediate Auto-Login & Notification Pop Sound...');
+
+    // 1. Notification Sound Asset & UI Module
+    const soundPath = path.resolve(__dirname, '..', 'assets', 'Sound Effects', 'Notification Sound_PopSound (1).wav');
+    assert.ok(fs.existsSync(soundPath), 'Notification Sound_PopSound (1).wav must exist on disk');
+    const soundStat = fs.statSync(soundPath);
+    assert.ok(soundStat.size > 100000, 'Sound file must be valid non-empty audio (size > 100KB)');
+
+    const uiMod = require('../js/core/ui.js');
+    assert.strictEqual(typeof uiMod.playNotificationSound, 'function', 'ui.js must export playNotificationSound');
+    assert.strictEqual(typeof uiMod.NOTIF_SOUND_URL, 'string', 'ui.js must export NOTIF_SOUND_URL');
+    assert.ok(uiMod.NOTIF_SOUND_URL.includes('Notification%20Sound_PopSound'), 'NOTIF_SOUND_URL must target Notification Sound_PopSound');
+
+    // Test playNotificationSound returns audio instance when Audio is available
+    let audioPlayed = false;
+    let createdSrc = '';
+    global.Audio = class MockAudio {
+      constructor(src) {
+        createdSrc = src;
+        this.src = src;
+        this.currentTime = 0;
+      }
+      play() {
+        audioPlayed = true;
+        return Promise.resolve();
+      }
+    };
+
+    const _playedAudio = uiMod.playNotificationSound();
+    assert.ok(audioPlayed, 'playNotificationSound must trigger audio.play()');
+    assert.ok(createdSrc.includes('Notification%20Sound_PopSound'), 'Audio instance must load configured sound file');
+    console.log('  ✔ Notification pop sound effect playback and audio priming verified');
+
+    // 2. Registration Immediate Auto-Login in member.js
+    const memberMod = require('../js/modules/member.js');
+    const sessionMod = require('../js/core/session.js');
+
+    // Restore real sessionGet and sessionSet to sessionMod
+    global.sessionGet = sessionMod.sessionGet;
+    global.sessionSet = sessionMod.sessionSet;
+    if (typeof window !== 'undefined') {
+      window.sessionGet = sessionMod.sessionGet;
+      window.sessionSet = sessionMod.sessionSet;
+    }
+
+    // Staged member registration data
+    const newRegUser = {
+      ic: 'newuser2026@gmail.com',
+      email: 'newuser2026@gmail.com',
+      name: 'Oliver Tan',
+      rank: 'Recruit',
+      squad: 'Alpha Platoon',
+      section: 'Senior',
+      age: 15,
+      passwordHash: 'hashed_pw_999',
+      isMinor: false
+    };
+
+    let postCalled = false;
+    const mockRegSupa = {
+      get: async () => [],
+      delete: async () => [],
+      upsert: async () => [],
+      post: async (tbl, payload) => {
+        postCalled = true;
+        return [payload];
+      },
+      patch: async () => []
+    };
+    global.supa = mockRegSupa;
+    global.getSupaClient = () => mockRegSupa;
+    if (typeof window !== 'undefined') {
+      window.supa = mockRegSupa;
+      window.getSupaClient = () => mockRegSupa;
+    }
+
+    await memberMod.finalizeMemberRegistration(newRegUser);
+
+    assert.ok(postCalled, 'Member record must be inserted in database');
+    assert.strictEqual(sessionMod.sessionGet('ic'), 'newuser2026@gmail.com', 'Registered member IC must be active in session immediately');
+    assert.strictEqual(sessionMod.sessionGet('name'), 'Oliver Tan', 'Registered member name must be active in session immediately');
+    assert.strictEqual(sessionMod.sessionGet('rank'), 'Recruit', 'Registered member rank must be active in session immediately');
+    assert.strictEqual(sessionMod.sessionGet('section'), 'Senior', 'Registered member section must be active in session immediately');
+    console.log('  ✔ Registration immediately establishes active authenticated session without requiring manual re-login');
+
+    // 3. Service Worker Precaching of Sound Asset
+    const swMod = require('../sw.js');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261105j', 'Service Worker cache version must be 20261105j');
+    assert.ok(
+      swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
+      'PRECACHE_ASSETS in sw.js must precache notification sound effect'
+    );
+    console.log('  ✔ Service Worker cache version 20261105j and sound effect precaching verified');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    assert.ok(idxHtmlCheck.includes('pushPortalNotification'), 'index.html must include pushPortalNotification helper');
+    assert.ok(idxHtmlCheck.includes('playNotificationSound'), 'index.html must invoke playNotificationSound');
+    const swRaw = fs.readFileSync(path.resolve(__dirname, '..', 'sw.js'), 'utf8');
+    assert.ok(swRaw.includes('Notification%20Sound_PopSound'), 'sw.js must precache notification sound effect');
+    const idMatchesFinal = idxHtmlCheck.match(/\bid=["']([^"']+)["']/g) || [];
+    const extractedIdsFinal = idMatchesFinal.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const uniqueIdsFinal = Array.from(new Set(extractedIdsFinal));
+    assert.strictEqual(uniqueIdsFinal.length, 388, 'Strict 388 unique DOM IDs invariant preserved in index.html');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 

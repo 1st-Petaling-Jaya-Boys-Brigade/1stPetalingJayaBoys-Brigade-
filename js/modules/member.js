@@ -1502,22 +1502,6 @@ async function finalizeMemberRegistration(data) {
   // Save session state with Remember Me preference
   var remEl = (typeof document !== 'undefined') ? document.getElementById('reg-remember') : null;
   var rememberMe = remEl ? remEl.checked : true;
-  sessionSet('remember', rememberMe);
-
-  sessionSet('ic', data.ic);
-  sessionSet('email', data.email);
-  sessionSet('name', data.name);
-  sessionSet('rank', data.rank);
-  sessionSet('squad', data.squad);
-  sessionSet('section', data.section);
-  sessionSet('age', data.age);
-  sessionSet('joined', memberPayload.joined_at);
-  sessionSet('created_at', memberPayload.joined_at);
-  if (typeof localStorage !== 'undefined') {
-    try {
-      localStorage.setItem('bb_account_created_at_' + (data.ic || data.email).toLowerCase(), memberPayload.joined_at);
-    } catch (_) {}
-  }
 
   if (data.isMinor) {
     sessionSet('parent_name', data.parentName);
@@ -1527,26 +1511,88 @@ async function finalizeMemberRegistration(data) {
     sessionSet('media_consent', data.mediaConsent);
   }
 
-  
-  if (typeof renderDashboard === 'function') renderDashboard();
-  if (typeof checkTasksAccess === 'function') checkTasksAccess();
-  if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(data.ic);
-
-  if (typeof showToast === 'function') {
-    showToast('Account registered successfully! Welcome ' + data.name + '.', 'success');
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('bb_account_created_at_' + (data.ic || data.email).toLowerCase(), memberPayload.joined_at);
+    } catch (_) {}
   }
 
-  if (typeof window !== 'undefined' && window.location) {
-    var regTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
-      ? AuthGuard.getRedirectTarget()
-      : null;
-    if (regTarget && regTarget !== 'member') {
-      AuthGuard.clearRedirectTarget();
-      window.location.hash = '#' + regTarget;
-    } else {
-      if (window.location.hash !== '#member') window.location.hash = '#member';
+  var accountData = {
+    ic: data.ic,
+    email: data.email,
+    name: data.name,
+    rank: data.rank,
+    squad: data.squad,
+    section: data.section,
+    att_section: data.section,
+    joined_at: memberPayload.joined_at,
+    created_at: memberPayload.joined_at,
+    department: '',
+    photo_url: ''
+  };
+
+  // Immediate Auto-Login on completed registration (eliminates extra login step)
+  if (typeof completeLoginWithAccount === 'function') {
+    completeLoginWithAccount(accountData, rememberMe);
+  } else {
+    sessionSet('remember', rememberMe !== false);
+    sessionSet('ic', data.ic);
+    sessionSet('email', data.email);
+    sessionSet('name', data.name);
+    sessionSet('rank', data.rank);
+    sessionSet('squad', data.squad);
+    sessionSet('section', data.section);
+    sessionSet('joined', memberPayload.joined_at);
+    sessionSet('created_at', memberPayload.joined_at);
+    sessionSet('department', '');
+    sessionSet('photo_url', '');
+    if (typeof renderDashboard === 'function') renderDashboard();
+  }
+
+  // Clean up registration verification view & reset registration form
+  if (typeof document !== 'undefined') {
+    var verifyView = document.getElementById('reg-verify-step-view');
+    if (verifyView) {
+      verifyView.style.display = 'none';
+      if (verifyView.parentNode) verifyView.parentNode.removeChild(verifyView);
     }
-    window.location.reload();
+    var regForm = document.getElementById('auth-register');
+    if (regForm) {
+      if (typeof regForm.reset === 'function') regForm.reset();
+      regForm.style.display = 'block';
+    }
+    var authBox = document.getElementById('m-auth');
+    if (authBox) authBox.style.display = 'none';
+    var dashBox = document.getElementById('m-dashboard');
+    if (dashBox) dashBox.style.display = 'block';
+    var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
+    var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
+  }
+
+  if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+  else if (typeof global !== 'undefined' && typeof global.updateNavUserHeader === 'function') global.updateNavUserHeader();
+  if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') RBAC.loadRolesConfig();
+  if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') RBAC.renderHeaderRoleBadge();
+  if (typeof initPresenceTracking === 'function') initPresenceTracking();
+
+  if (typeof showToast === 'function') {
+    showToast('Account registered successfully! Welcome ' + data.name + '.', 'success', 4000);
+  }
+
+  // Smooth post-registration tab transition without full-page reload
+  var regTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
+    ? AuthGuard.getRedirectTarget()
+    : null;
+  if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
+    AuthGuard.clearRedirectTarget();
+  }
+
+  var targetTab = (regTarget && regTarget !== 'member') ? regTarget : 'member';
+  if (typeof switchTabNav === 'function') {
+    switchTabNav(targetTab);
+  }
+  if (typeof window !== 'undefined' && window.location && window.history && window.history.replaceState) {
+    window.history.replaceState(null, '', '#' + targetTab);
   }
 }
 
@@ -1983,8 +2029,22 @@ function completeLoginWithAccount(m, rememberMe) {
   if (typeof updateArcadeHeaderBadge === 'function') updateArcadeHeaderBadge();
   if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
 
-  var passEl = document.getElementById('login-pass');
-  if (passEl) passEl.value = '';
+  if (typeof document !== 'undefined') {
+    var passEl = document.getElementById('login-pass');
+    if (passEl) passEl.value = '';
+    var sn = document.getElementById('sidebar-user-name');
+    if (sn) sn.textContent = m.name || '';
+    var sb = document.getElementById('sidebar-user-badge');
+    if (sb) sb.textContent = m.rank || 'Member';
+    var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
+    var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
+  }
+
+  if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+  else if (typeof global !== 'undefined' && typeof global.updateNavUserHeader === 'function') global.updateNavUserHeader();
+  if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {
+    RBAC.renderHeaderRoleBadge();
+  }
 
   if (typeof showToast === 'function') {
     showToast('Signed in as ' + m.name + ' (' + (m.att_section || m.section || 'Member') + ')', 'success', 3000);

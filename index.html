@@ -29,11 +29,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261105i">
-<link rel="stylesheet" href="css/base.css?v=20261105i">
-<link rel="stylesheet" href="css/nav.css?v=20261105i">
-<link rel="stylesheet" href="css/components.css?v=20261105i">
-<link rel="stylesheet" href="css/admin.css?v=20261105i">
+<link rel="stylesheet" href="css/variables.css?v=20261105j">
+<link rel="stylesheet" href="css/base.css?v=20261105j">
+<link rel="stylesheet" href="css/nav.css?v=20261105j">
+<link rel="stylesheet" href="css/components.css?v=20261105j">
+<link rel="stylesheet" href="css/admin.css?v=20261105j">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -355,7 +355,7 @@
   background: var(--surface-tint-hover) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261105i"></script>
+<script src="js/core/theme.js?v=20261105j"></script>
 </head>
 <body>
 
@@ -3242,27 +3242,27 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261105i"></script>
-<script src="js/api/supabase.js?v=20261105i"></script>
-<script src="js/core/session.js?v=20261105i"></script>
-<script src="js/core/rbac.js?v=20261105i"></script>
-<script src="js/core/utils.js?v=20261105i"></script>
-<script src="js/core/ui.js?v=20261105i"></script>
-<script src="js/core/loading.js?v=20261105i"></script>
-<script src="js/modules/member.js?v=20261105i"></script>
-<script src="js/api/sheets.js?v=20261105i"></script>
-<script src="js/modules/attendance.js?v=20261105i"></script>
-<script src="js/modules/announcements.js?v=20261105i"></script>
-<script src="js/modules/gallery.js?v=20261105i"></script>
-<script src="js/modules/resources.js?v=20261105i"></script>
-<script src="js/modules/calendar.js?v=20261105i"></script>
-<script src="js/modules/orders.js?v=20261105i"></script>
-<script src="js/modules/forms.js?v=20261105i"></script>
-<script src="js/modules/badges.js?v=20261105i"></script>
-<script src="js/modules/tasks.js?v=20261105i"></script>
-<script src="js/modules/admin.js?v=20261105i"></script>
-<script src="js/modules/forum.js?v=20261105i"></script>
-<script src="js/modules/arcade.js?v=20261105i"></script>
+<script src="js/config.js?v=20261105j"></script>
+<script src="js/api/supabase.js?v=20261105j"></script>
+<script src="js/core/session.js?v=20261105j"></script>
+<script src="js/core/rbac.js?v=20261105j"></script>
+<script src="js/core/utils.js?v=20261105j"></script>
+<script src="js/core/ui.js?v=20261105j"></script>
+<script src="js/core/loading.js?v=20261105j"></script>
+<script src="js/modules/member.js?v=20261105j"></script>
+<script src="js/api/sheets.js?v=20261105j"></script>
+<script src="js/modules/attendance.js?v=20261105j"></script>
+<script src="js/modules/announcements.js?v=20261105j"></script>
+<script src="js/modules/gallery.js?v=20261105j"></script>
+<script src="js/modules/resources.js?v=20261105j"></script>
+<script src="js/modules/calendar.js?v=20261105j"></script>
+<script src="js/modules/orders.js?v=20261105j"></script>
+<script src="js/modules/forms.js?v=20261105j"></script>
+<script src="js/modules/badges.js?v=20261105j"></script>
+<script src="js/modules/tasks.js?v=20261105j"></script>
+<script src="js/modules/admin.js?v=20261105j"></script>
+<script src="js/modules/forum.js?v=20261105j"></script>
+<script src="js/modules/arcade.js?v=20261105j"></script>
 
 <script>
 
@@ -3857,6 +3857,20 @@ window.addEventListener('load', function() {
   updateNavUserHeader();
   renderNotifications();
 
+  // Complete initial notification hydration; enable audio chime for live incoming notifications
+  setTimeout(function() {
+    _initialNotifSyncDone = true;
+  }, 1200);
+
+  // Periodic background notification polling (every 30 seconds)
+  setInterval(function() {
+    if (typeof sessionGet === 'function' && sessionGet('ic')) {
+      if (typeof syncAllPortalNotifications === 'function') {
+        syncAllPortalNotifications();
+      }
+    }
+  }, 30000);
+
   // Initialize initial history state for browser Undo/Redo stack (TSK-059)
   var initialHash = (typeof window !== 'undefined' && window.location.hash ? window.location.hash.replace('#', '').trim() : '') || 'home';
   var validInitialTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'];
@@ -3980,6 +3994,32 @@ if ('serviceWorker' in navigator) {
 
 // ── Header Utilities & App Shell Controllers ────────────────────────────────
 var _allPortalNotifications = [];
+var _initialNotifSyncDone = false;
+
+function pushPortalNotification(notif, isSilent) {
+  if (!notif || !notif.id) return false;
+  // Guard against self-mentions: never notify the author about their own comment
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (notif.id.indexOf('notif-mention-') === 0 && myName && notif.title && notif.title.indexOf(myName + ' mentioned you') === 0) {
+    return false;
+  }
+  var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
+  if (accTs > 0 && notif.timestamp && notif.timestamp < (accTs - 60000)) {
+    return false;
+  }
+  var dismissed = getDismissedNotifIds();
+  if (dismissed.indexOf(notif.id) !== -1) return false;
+  var existing = _allPortalNotifications.find(function(n) { return n.id === notif.id; });
+  if (existing) return false;
+
+  _allPortalNotifications.unshift(notif);
+  if (_initialNotifSyncDone && !isSilent) {
+    if (typeof playNotificationSound === 'function') {
+      playNotificationSound();
+    }
+  }
+  return true;
+}
 
 function getAccountCreationTimestamp() {
   if (typeof sessionGet !== 'function') return 0;
@@ -4020,21 +4060,7 @@ function setDismissedNotifId(id) {
 }
 
 function addPortalNotification(notif) {
-  if (!notif || !notif.id) return;
-  // Guard against self-mentions: never notify the author about their own comment
-  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
-  if (notif.id.indexOf('notif-mention-') === 0 && myName && notif.title && notif.title.indexOf(myName + ' mentioned you') === 0) {
-    return;
-  }
-  var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
-  if (accTs > 0 && notif.timestamp && notif.timestamp < (accTs - 60000)) {
-    return;
-  }
-  var dismissed = getDismissedNotifIds();
-  if (dismissed.indexOf(notif.id) !== -1) return;
-  var existing = _allPortalNotifications.find(function(n) { return n.id === notif.id; });
-  if (!existing) {
-    _allPortalNotifications.unshift(notif);
+  if (pushPortalNotification(notif)) {
     renderNotifications();
   }
 }
@@ -4089,7 +4115,7 @@ function syncTaskNotifications(tasks) {
         var initials = creatorName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
         var timeStr = 'Today';
 
-        _allPortalNotifications.unshift({
+        pushPortalNotification({
           id: notifId,
           category: 'tasks',
           group: 'Today',
@@ -4121,7 +4147,7 @@ function syncTaskNotifications(tasks) {
           if (dismissed.indexOf(dueId) === -1) {
             var existingDue = _allPortalNotifications.find(function(n) { return n.id === dueId; });
             if (!existingDue) {
-              _allPortalNotifications.unshift({
+              pushPortalNotification({
                 id: dueId,
                 category: 'tasks',
                 group: 'Today',
@@ -4164,7 +4190,7 @@ function syncTaskNotifications(tasks) {
       if (!existing) {
         var cleanSnippet = (t.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         if (cleanSnippet.length > 70) cleanSnippet = cleanSnippet.slice(0, 67) + '...';
-        _allPortalNotifications.unshift({
+        pushPortalNotification({
           id: notifId,
           category: 'tasks',
           group: 'Today',
@@ -4200,7 +4226,7 @@ function syncTaskNotifications(tasks) {
           if (!existing) {
             var cSnippet = (c.text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
             if (cSnippet.length > 70) cSnippet = cSnippet.slice(0, 67) + '...';
-            _allPortalNotifications.unshift({
+            pushPortalNotification({
               id: notifId,
               category: 'tasks',
               group: 'Today',
@@ -4242,7 +4268,7 @@ function syncAnnouncementNotifications(annList) {
     if (!existing) {
       var snippet = (a.content || a.message || '').replace(/<[^>]+>/g, '').trim();
       if (snippet.length > 70) snippet = snippet.slice(0, 67) + '...';
-      _allPortalNotifications.unshift({
+      pushPortalNotification({
         id: notifId,
         category: 'announcements',
         group: 'Today',
@@ -4271,7 +4297,7 @@ function syncFormNotifications(formsList) {
     if (dismissed.indexOf(notifId) !== -1) return;
     var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
     if (!existing) {
-      _allPortalNotifications.unshift({
+      pushPortalNotification({
         id: notifId,
         category: 'announcements',
         group: 'Today',
@@ -4300,7 +4326,7 @@ function syncHighlightNotifications(highlightsList) {
     if (dismissed.indexOf(notifId) !== -1) return;
     var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
     if (!existing) {
-      _allPortalNotifications.unshift({
+      pushPortalNotification({
         id: notifId,
         category: 'announcements',
         group: 'Today',
@@ -4365,7 +4391,7 @@ function syncForumNotifications(postsList) {
 
         var initials = replierName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase() || 'BB';
 
-        _allPortalNotifications.unshift({
+        pushPortalNotification({
           id: notifId,
           category: 'announcements',
           group: 'Today',
@@ -4777,6 +4803,7 @@ window.filterNotifications        = filterNotifications;
 window.markAllNotificationsRead   = markAllNotificationsRead;
 window.renderNotifications        = renderNotifications;
 window.addPortalNotification      = addPortalNotification;
+window.pushPortalNotification     = pushPortalNotification;
 window.syncAnnouncementNotifications = syncAnnouncementNotifications;
 window.syncFormNotifications      = syncFormNotifications;
 window.syncHighlightNotifications = syncHighlightNotifications;
