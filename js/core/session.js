@@ -469,6 +469,33 @@ var AuthGuard = {
         sessionClear();
         return false;
       }
+
+      // Check if user has been revoked/deleted via local cache
+      if (typeof localStorage !== 'undefined') {
+        var delRaw = localStorage.getItem('bb_deleted_members');
+        if (delRaw) {
+          try {
+            var delList = JSON.parse(delRaw);
+            if (Array.isArray(delList)) {
+              var cleanIc = String(ic || '').toLowerCase().trim();
+              var cleanEmail = String(email || '').toLowerCase().trim();
+              var isDel = delList.some(function(item) {
+                var itm = String(item || '').toLowerCase().trim();
+                return itm && (itm === cleanIc || itm === cleanEmail);
+              });
+              if (isDel) {
+                if (typeof forceKickDeletedAccount === 'function') {
+                  forceKickDeletedAccount();
+                } else {
+                  sessionClear();
+                }
+                return false;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
       return true;
     } catch (_) {
       return false;
@@ -557,6 +584,108 @@ var AuthGuard = {
   }
 };
 
+
+/**
+ * Asynchronously verifies that the active authenticated session still exists in the database
+ * and has not been deleted or revoked by an administrator.
+ * If revoked or missing, immediately kicks the user out to the login/registration page (#member).
+ * @returns {Promise<boolean>} true if session is valid, false if revoked
+ */
+async function verifyActiveMemberSession() {
+  if (typeof sessionGet !== 'function') return false;
+  var ic = sessionGet('ic');
+  var email = sessionGet('email');
+  if (!ic && !email) return false;
+
+  var lookupId = ic || email;
+
+  try {
+    var client = (typeof getSupabaseClient === 'function')
+      ? getSupabaseClient()
+      : (typeof window !== 'undefined' && window.supa ? window.supa : (typeof supa !== 'undefined' ? supa : null));
+
+    if (!client || typeof client.get !== 'function') return true;
+
+    // 1. Fetch remote bb_deleted_members list to keep local cache synchronized
+    try {
+      var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value');
+      if (cfgRes && cfgRes.length && cfgRes[0].value) {
+        var delList = typeof cfgRes[0].value === 'string' ? JSON.parse(cfgRes[0].value) : cfgRes[0].value;
+        if (Array.isArray(delList)) {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('bb_deleted_members', JSON.stringify(delList));
+          }
+          var cleanIc = String(ic || '').toLowerCase().trim();
+          var cleanEmail = String(email || '').toLowerCase().trim();
+          var isDeleted = delList.some(function(item) {
+            var itm = String(item || '').toLowerCase().trim();
+            return itm && (itm === cleanIc || itm === cleanEmail);
+          });
+          if (isDeleted) {
+            forceKickDeletedAccount();
+            return false;
+          }
+        }
+      }
+    } catch (cfgErr) {
+      // Continue to member query
+    }
+
+    // 2. Query bb_members table directly for active member row
+    var query = 'bb_members?select=id,ic,email,department&or=(ic.eq.' + encodeURIComponent(lookupId) +
+      (email ? (',email.eq.' + encodeURIComponent(email)) : '') + ')';
+    var rows = await client.get(query);
+
+    // If no record exists or marked as deleted, immediately revoke access
+    if (!rows || rows.length === 0 || rows[0].department === 'deleted' || (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)) {
+      forceKickDeletedAccount();
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('verifyActiveMemberSession check failed (network/offline):', err);
+    return true;
+  }
+}
+
+/**
+ * Immediately revokes active session, purges session credentials, redirects to #member,
+ * and notifies the user that their account was deleted.
+ */
+function forceKickDeletedAccount() {
+  try {
+    if (typeof sessionClear === 'function') sessionClear();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('bb_session');
+      localStorage.removeItem('bb_user_profile');
+      localStorage.removeItem('bb_auth_token');
+    }
+    if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.setRedirectTarget === 'function') {
+      AuthGuard.setRedirectTarget('');
+    }
+    if (typeof switchTab === 'function') {
+      switchTab('member');
+    }
+    if (typeof window !== 'undefined') {
+      window.location.hash = '#member';
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', '#member');
+      }
+    }
+    if (typeof document !== 'undefined') {
+      var dashEl = document.getElementById('m-dashboard');
+      var authEl = document.getElementById('m-auth');
+      if (dashEl) dashEl.style.display = 'none';
+      if (authEl) authEl.style.display = 'block';
+    }
+    if (typeof showToast === 'function') {
+      showToast('Your account has been deleted. Access to the portal has been revoked.', 'error', 6000);
+    }
+  } catch (e) {
+    console.error('Error during forceKickDeletedAccount:', e);
+  }
+}
 
 // ── Member Online, Idle & Offline Presence Tracking (TSK-062) ────────────────
 var PRESENCE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;      // 5 minutes of inactivity = Idle
@@ -652,6 +781,9 @@ async function sendPresenceHeartbeat(forcedStatus) {
   try {
     if (typeof isUserAuthenticated === 'function' && !isUserAuthenticated()) {
       return;
+    }
+    if (typeof verifyActiveMemberSession === 'function') {
+      verifyActiveMemberSession().catch(function() {});
     }
     var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
     var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
@@ -905,6 +1037,8 @@ if (typeof window !== 'undefined') {
   window.getMemberPresenceStatus = getMemberPresenceStatus;
   window.PRESENCE_IDLE_TIMEOUT_MS = PRESENCE_IDLE_TIMEOUT_MS;
   window.PRESENCE_HEARTBEAT_INTERVAL_MS = PRESENCE_HEARTBEAT_INTERVAL_MS;
+  window.verifyActiveMemberSession = verifyActiveMemberSession;
+  window.forceKickDeletedAccount = forceKickDeletedAccount;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -931,6 +1065,8 @@ if (typeof module !== 'undefined' && module.exports) {
     initPresenceTracking,
     getMemberPresenceStatus,
     PRESENCE_IDLE_TIMEOUT_MS,
-    PRESENCE_HEARTBEAT_INTERVAL_MS
+    PRESENCE_HEARTBEAT_INTERVAL_MS,
+    verifyActiveMemberSession,
+    forceKickDeletedAccount
   };
 }

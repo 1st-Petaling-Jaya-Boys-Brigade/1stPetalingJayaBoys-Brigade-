@@ -81,6 +81,8 @@ export default [
         _memberPfpsMap: 'readonly',
         loadMemberProfilePictures: 'readonly',
         refreshLoggedInUserProfile: 'readonly',
+        verifyActiveMemberSession: 'readonly',
+        forceKickDeletedAccount: 'readonly',
         _allLoadedTasks: 'readonly',
         renderBoardOrListTasks: 'readonly',
         forumPosts: 'readonly',

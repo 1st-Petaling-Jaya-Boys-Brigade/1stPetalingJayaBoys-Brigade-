@@ -2021,6 +2021,9 @@
         }
         if (!Array.isArray(delList)) delList = [];
         if (!delList.includes(ic)) delList.push(ic);
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('bb_deleted_members', JSON.stringify(delList)); } catch (_) {}
+        }
 
         try {
           var consentKey = 'bb_consent_' + ic.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -2068,6 +2071,18 @@
       try {
         await client.delete('bb_member_badges?ic=eq.' + encodeURIComponent(ic));
       } catch (delBadgeErr) {}
+
+      // If the deleted account is currently logged in on this browser, revoke access immediately
+      var curIc = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+      var curEmail = (typeof sessionGet === 'function') ? sessionGet('email') : null;
+      var matchIc = (curIc && String(curIc).toLowerCase().trim() === String(ic).toLowerCase().trim());
+      var matchEmail = (curEmail && String(curEmail).toLowerCase().trim() === String(ic).toLowerCase().trim());
+      if (matchIc || matchEmail) {
+        if (typeof forceKickDeletedAccount === 'function') {
+          forceKickDeletedAccount();
+          return;
+        }
+      }
 
       closeEditMember();
       await renderAdminList();
