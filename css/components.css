@@ -8105,9 +8105,20 @@ select.form-input,
 }
 
 .arcade-container {
-  max-width: 900px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding-bottom: 40px;
+  box-sizing: border-box;
+}
+
+.arcade-hero-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.arcade-hero-card .page-desc {
+  max-width: 100%;
 }
 
 .arcade-stat-pill {
@@ -8126,6 +8137,8 @@ select.form-input,
   overflow-x: auto;
   padding-bottom: 4px;
   scrollbar-width: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .arcade-nav-tabs::-webkit-scrollbar {
@@ -8166,13 +8179,114 @@ select.form-input,
   font-weight: 700;
 }
 
-/* Wordle Styles */
+/* Wordle Desktop Grid & Fluid Scaling */
+.wordle-desktop-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 960px) {
+  .wordle-desktop-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 .wordle-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px;
+  padding: 24px 20px;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wordle-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.arcade-side-card {
+  background: var(--bg-card, #131722);
+  border: 1px solid var(--border-card, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card, 0 4px 12px rgba(0, 0, 0, 0.2));
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.arcade-side-title {
+  font-family: var(--font-headline, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wordle-guide-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.wordle-guide-tile {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-family: var(--font-headline, sans-serif);
+  font-weight: 800;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.wordle-guide-tile.correct {
+  background: #10b981;
+}
+
+.wordle-guide-tile.present {
+  background: #d97706;
+}
+
+.wordle-guide-tile.absent {
+  background: #374151;
+  color: #9ca3af;
+}
+
+.wordle-guide-text {
+  font-size: 12px;
+  color: var(--text-secondary, #9ca3af);
+  line-height: 1.4;
+}
+
+.wordle-banner-mobile {
+  display: none;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .wordle-banner-mobile {
+    display: block;
+  }
+  .wordle-side-panel .wordle-banner-desktop {
+    display: none;
+  }
 }
 
 .wordle-board-wrapper {
@@ -8349,7 +8463,7 @@ select.form-input,
   border-radius: 10px;
   margin-bottom: 14px;
   width: 100%;
-  max-width: 500px;
+  box-sizing: border-box;
   text-align: center;
 }
 
@@ -8365,9 +8479,35 @@ select.form-input,
   color: var(--accent, #d9a323);
 }
 
-/* BB Trivia Styles */
+/* BB Trivia Styles & Desktop Scaling */
+.trivia-desktop-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+  gap: 20px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 960px) {
+  .trivia-desktop-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 .trivia-card {
-  padding: 24px 20px;
+  padding: 24px 22px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.trivia-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .trivia-answered-badge {
@@ -8409,9 +8549,31 @@ select.form-input,
 
 .trivia-options-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  margin-bottom: 14px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .trivia-options-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.trivia-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .trivia-review-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .trivia-opt-btn {

@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105l',
-    'sw.js CACHE_VERSION must be 20261105l'
+    '20261105m',
+    'sw.js CACHE_VERSION must be 20261105m'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105l',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105m',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105l'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105m'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -7119,12 +7119,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(arcadeMod.isValidWordleWord(null), false, 'Null must return false');
     console.log('  ✔ isValidWordleWord accurately validates 2,370+ authentic Wordle words and rejects gibberish');
 
-    // Test Wordle toast DOM & CSS rules
+    // Test Wordle toast DOM & CSS rules & Fluid Widescreen Arcade Layout
     const compCssWordle = fs.readFileSync('css/components.css', 'utf8');
     assert.ok(compCssWordle.includes('.wordle-toast-container'), 'components.css must define .wordle-toast-container');
     assert.ok(compCssWordle.includes('.wordle-toast'), 'components.css must define .wordle-toast');
     assert.ok(compCssWordle.includes('.wordle-row.shake'), 'components.css must define .wordle-row.shake');
-    console.log('  ✔ Wordle floating warning pill and row shake CSS verified in components.css');
+    assert.ok(compCssWordle.includes('.arcade-container'), 'components.css must define .arcade-container');
+    assert.ok(compCssWordle.includes('.wordle-desktop-grid'), 'components.css must define .wordle-desktop-grid');
+    assert.ok(compCssWordle.includes('.wordle-side-panel'), 'components.css must define .wordle-side-panel');
+    assert.ok(compCssWordle.includes('.trivia-desktop-grid'), 'components.css must define .trivia-desktop-grid');
+    assert.ok(compCssWordle.includes('.trivia-review-grid'), 'components.css must define .trivia-review-grid');
+    // Ensure .arcade-container no longer restricts widescreen to 900px
+    assert.strictEqual(compCssWordle.includes('.arcade-container {\n  max-width: 900px;'), false, 'Arcade container must not be restricted to 900px');
+    console.log('  ✔ Fluid widescreen 1stPJ Arcade layout, desktop side panels, and responsive grids verified');
 
     // 8. Full Dictionary Wordle & Updated Victory Banner
     assert.ok(Array.isArray(arcadeMod.ALL_WORDLE_WORDS), 'ALL_WORDLE_WORDS must be an array');
@@ -8598,12 +8605,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261105l', 'Service Worker cache version must be 20261105l');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261105m', 'Service Worker cache version must be 20261105m');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261105l and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261105m and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
