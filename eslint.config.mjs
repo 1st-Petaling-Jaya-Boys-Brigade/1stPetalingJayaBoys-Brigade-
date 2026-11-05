@@ -157,6 +157,8 @@ export default [
         getSectionForRank: 'readonly',
         getRanksForSection: 'readonly',
         populateRankOptions: 'readonly',
+        isNameMatch: 'readonly',
+        handleRegRankChange: 'readonly',
         populateSquadOptions: 'readonly',
         formatPlatoonOrSquad: 'readonly',
         SENIOR_PLATOONS: 'readonly',

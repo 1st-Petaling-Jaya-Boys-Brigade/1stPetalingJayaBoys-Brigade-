@@ -4058,8 +4058,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105d',
-    'sw.js CACHE_VERSION must be 20261105d'
+    '20261105e',
+    'sw.js CACHE_VERSION must be 20261105e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4090,7 +4090,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105d',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105e',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6783,7 +6783,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105d'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105e'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8081,6 +8081,90 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
+  
+  // ── Verification: Officer Platoon Auto-Selection & Leaderboard Fuzzy Name Matching ──
+  {
+    console.log('\n[TEST] Officer Platoon Auto-Selection & Leaderboard Fuzzy Name Matching...');
+    const utilsMod = require('../js/core/utils.js');
+    const memberMod = require('../js/modules/member.js');
+
+    // 1. isNameMatch unit tests
+    assert.strictEqual(typeof utilsMod.isNameMatch, 'function', 'utils.js must export isNameMatch');
+    assert.ok(utilsMod.isNameMatch('OLIVER LING CHEE SHENG', 'Oliver Ling'), 'Oliver Ling must match full legal name OLIVER LING CHEE SHENG');
+    assert.ok(utilsMod.isNameMatch('Oliver Ling', 'OLIVER LING CHEE SHENG'), 'Case-insensitive bidirectional match for Oliver Ling');
+    assert.ok(utilsMod.isNameMatch('JOASH LEE JIAN AN', 'Joash Lee'), 'Joash Lee must match full legal name JOASH LEE JIAN AN');
+    assert.ok(utilsMod.isNameMatch('Joash Lee', 'JOASH LEE JIAN AN'), 'Bidirectional match for Joash Lee');
+    assert.ok(utilsMod.isNameMatch('Moses Lai', 'Lai Moses'), 'Reordered tokens must match (Moses Lai / Lai Moses)');
+    assert.ok(!utilsMod.isNameMatch('Jeshua Koh', 'Jason Koh'), 'Different first names with same surname must NOT match');
+    assert.ok(!utilsMod.isNameMatch('Daniel Chang', 'Daniel Yap'), 'Different surnames must NOT match');
+    assert.ok(!utilsMod.isNameMatch('', 'Oliver Ling'), 'Empty name must return false');
+    console.log('  ✔ isNameMatch intelligent token-subset matching verified');
+
+    // 2. resolveMemberDirectoryInfo fuzzy matching
+    const mockCache = [
+      { name: 'OLIVER LING CHEE SHENG', email: 'oliverling@gmail.com', ic: '090101-14-1234' },
+      { name: 'JOASH LEE JIAN AN', email: 'joashlee@gmail.com', ic: '090202-14-5678' }
+    ];
+    global.localStorage.setItem('bb_members_cache', JSON.stringify(mockCache));
+    const foundOliver = utilsMod.resolveMemberDirectoryInfo('Oliver Ling');
+    assert.ok(foundOliver, 'resolveMemberDirectoryInfo must match Oliver Ling to OLIVER LING CHEE SHENG in cache');
+    assert.strictEqual(foundOliver.email, 'oliverling@gmail.com', 'Matched Oliver record has correct email');
+
+    const foundJoash = utilsMod.resolveMemberDirectoryInfo('Joash Lee');
+    assert.ok(foundJoash, 'resolveMemberDirectoryInfo must match Joash Lee to JOASH LEE JIAN AN in cache');
+    assert.strictEqual(foundJoash.email, 'joashlee@gmail.com', 'Matched Joash record has correct email');
+    console.log('  ✔ resolveMemberDirectoryInfo fuzzy directory resolution verified');
+
+    // 3. Officer platoon/squad auto-selection in registration
+    assert.strictEqual(typeof memberMod.handleRegRankChange, 'function', 'member.js must export handleRegRankChange');
+    assert.strictEqual(typeof memberMod.handleSectionChange, 'function', 'member.js must export handleSectionChange');
+
+    function createMockSelect(val) {
+      return {
+        value: val || '',
+        innerHTML: '',
+        children: [],
+        disabled: false,
+        appendChild(node) { this.children.push(node); },
+        querySelectorAll() { return this.children; }
+      };
+    }
+
+    // Simulate DOM elements for registration form
+    const mockSecEl = createMockSelect('Officer');
+    const mockSquadEl = createMockSelect('Alpha');
+    const mockRankEl = createMockSelect('Instructor');
+    const originalGetElementById = global.document.getElementById;
+
+    global.document.getElementById = function(id) {
+      if (id === 'reg-section') return mockSecEl;
+      if (id === 'reg-squad') return mockSquadEl;
+      if (id === 'reg-rank') return mockRankEl;
+      if (id === 'parent-consent-box') return null;
+      return null;
+    };
+
+    // Calling handleSectionChange with Officer section
+    memberMod.handleSectionChange();
+    assert.ok(mockSquadEl.innerHTML.includes('No platoon/squad (Officer)'), 'squadEl must display No platoon/squad (Officer)');
+    assert.strictEqual(mockSquadEl.value, '', 'squadEl value must be empty string for Officer');
+    assert.strictEqual(mockSquadEl.disabled, true, 'squadEl must be disabled for Officer section');
+
+    // Changing rank to Instructor should auto-set Section to Officer and squad to No platoon/squad
+    mockSecEl.value = 'Senior';
+    mockSquadEl.disabled = false;
+    mockSquadEl.value = 'Zulu';
+    mockRankEl.value = 'Instructor';
+    memberMod.handleRegRankChange();
+    assert.strictEqual(mockSecEl.value, 'Officer', 'Selecting Instructor rank must auto-set Section to Officer');
+    assert.strictEqual(mockSquadEl.disabled, true, 'Selecting Instructor rank must auto-disable squad dropdown');
+    assert.ok(mockSquadEl.innerHTML.includes('No platoon/squad (Officer)'), 'Squad dropdown must show No platoon/squad (Officer)');
+
+    // Restore original getElementById
+    global.document.getElementById = originalGetElementById;
+    console.log('  ✔ Officer platoon/squad auto-selection and rank-to-section auto-switch verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
