@@ -1423,6 +1423,12 @@ async function finalizeMemberRegistration(data) {
   sessionSet('section', data.section);
   sessionSet('age', data.age);
   sessionSet('joined', memberPayload.joined_at);
+  sessionSet('created_at', memberPayload.joined_at);
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('bb_account_created_at_' + (data.ic || data.email).toLowerCase(), memberPayload.joined_at);
+    } catch (_) {}
+  }
 
   if (data.isMinor) {
     sessionSet('parent_name', data.parentName);
@@ -1836,6 +1842,7 @@ function completeLoginWithAccount(m, rememberMe) {
   sessionSet('name', m.name || '');
   sessionSet('section', m.att_section || m.section || 'Senior');
   sessionSet('joined', m.joined_at || '');
+  sessionSet('created_at', m.created_at || m.joined_at || '');
   sessionSet('department', m.department || '');
   sessionSet('photo_url', m.photo_url || '');
 
@@ -4357,8 +4364,17 @@ async function refreshLoggedInUserProfile() {
   try {
     var client = getSupa();
     if (!client || typeof client.get !== 'function') return;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=id,ic,email,name,rank,squad,section,department,att_section,photo_url');
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=id,ic,email,name,rank,squad,section,department,att_section,photo_url,joined_at,created_at');
+    if (!data || data.length === 0 || (data[0] && (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))) {
+      if (typeof forceKickDeletedAccount === 'function') {
+        forceKickDeletedAccount();
+      }
+      return;
+    }
     if (data && data.length > 0) {
+      if ((data[0].created_at || data[0].joined_at) && typeof sessionSet === 'function' && !sessionGet('created_at')) {
+        sessionSet('created_at', data[0].created_at || data[0].joined_at);
+      }
       var m = data[0];
       if (m.name && sessionGet('name') !== m.name) {
         sessionSet('name', m.name);

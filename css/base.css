@@ -115,19 +115,23 @@ textarea,
     width: 100%;
   }
   .page {
-    max-width: 1600px !important;
+    max-width: 100% !important;
     width: 100% !important;
-    margin: 0 auto !important;
-    padding: 28px 36px 90px !important;
+    margin: 0 !important;
+    padding: 24px clamp(20px, 2.5vw, 44px) 90px !important;
     align-items: stretch !important;
-  }
-  #page-home.page {
-    max-width: 1240px !important;
-    margin: 0 auto !important;
+    box-sizing: border-box !important;
   }
   #page-tasks.page,
   #page-order.page,
-  #page-resources.page {
+  #page-resources.page,
+  #page-home.page,
+  #page-member.page,
+  #page-badges.page,
+  #page-attendance.page,
+  #page-gallery.page,
+  #page-forum.page,
+  #page-arcade.page {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;

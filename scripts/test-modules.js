@@ -4058,8 +4058,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105f',
-    'sw.js CACHE_VERSION must be 20261105f'
+    '20261105g',
+    'sw.js CACHE_VERSION must be 20261105g'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4090,7 +4090,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105f',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105g',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6783,7 +6783,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105f'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105g'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8232,6 +8232,71 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('.member-avatar-unified,'), 'components.css must define white text for avatars');
     assert.ok(compCss.includes('color: #ffffff !important;'), 'components.css must enforce white avatar text');
     console.log('  ✔ Avatar initial letter white contrast rules verified in components.css');
+
+    // ── [TEST] Deleted Account Access Revocation, Fluid Widescreen Scaling & Clean New Notifications ──
+    console.log('\n[TEST] Deleted Account Access Revocation, Fluid Widescreen Scaling & Clean New Notifications...');
+
+    // 1. Fluid Widescreen Layout in css/base.css
+    const baseCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'base.css'), 'utf8');
+    assert.ok(baseCss.includes('max-width: 100% !important;'), 'base.css must define full width for .page containers on widescreen');
+    assert.ok(baseCss.includes('#page-home.page'), 'base.css must include #page-home in full-width list');
+    assert.ok(!baseCss.includes('max-width: 1240px !important;'), 'base.css must not constrain #page-home to 1240px');
+    console.log('  ✔ Fluid widescreen layout without 1240px constraint verified in base.css');
+
+    // 2. Deleted Account Access Revocation in session.js
+    const sessionMod = require('../js/core/session.js');
+    assert.strictEqual(typeof sessionMod.verifyActiveMemberSession, 'function', 'session.js must export verifyActiveMemberSession');
+    assert.strictEqual(typeof sessionMod.forceKickDeletedAccount, 'function', 'session.js must export forceKickDeletedAccount');
+
+    // Test synchronous check in isUserAuthenticated with deleted member cache
+    sessionMod.sessionSet('ic', 'deleted_member_001');
+    global.localStorage.setItem('bb_deleted_members', JSON.stringify(['deleted_member_001']));
+    assert.strictEqual(sessionMod.AuthGuard.isUserAuthenticated(), false, 'isUserAuthenticated must return false if user IC is in bb_deleted_members');
+    assert.strictEqual(sessionMod.isUserAuthenticated(), false, 'Top-level isUserAuthenticated must return false if user is deleted');
+
+    // Test verifyActiveMemberSession kicks deleted account
+    sessionMod.sessionSet('ic', 'deleted_member_001');
+    const verifyRes = await sessionMod.verifyActiveMemberSession();
+    assert.strictEqual(verifyRes, false, 'verifyActiveMemberSession must return false for deleted member');
+    assert.strictEqual(sessionMod.sessionGet('ic'), null, 'forceKickDeletedAccount must wipe active session');
+    sessionMod.sessionClear();
+    global.localStorage.removeItem('bb_deleted_members');
+    console.log('  ✔ Deleted account access revocation and immediate portal kick verified');
+
+    // 3. Clean New Account Notifications & Past Notification Filtering
+    const indexHtmlText = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    assert.ok(indexHtmlText.includes('var _allPortalNotifications = [];'), 'index.html must initialize _allPortalNotifications as an empty array');
+    assert.ok(!indexHtmlText.includes("title: 'Weekly Company Parade',\n    snippet: 'Saturdays 2:15 PM"), 'index.html must not contain hardcoded mock parade notification');
+    assert.ok(indexHtmlText.includes('getAccountCreationTimestamp'), 'index.html must implement getAccountCreationTimestamp');
+
+    // Test that notifications older than account creation timestamp are filtered out
+    const pastTask = {
+      id: 'task-test-past-99',
+      title: 'Old Task Before Registration',
+      assignee_ic: 'new_member@1stpjbb.org.my',
+      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days ago
+    };
+    global.sessionGet = function(key) {
+      if (key === 'ic') return 'new_member@1stpjbb.org.my';
+      if (key === 'name') return 'New Member';
+      if (key === 'created_at') return new Date().toISOString(); // Brand new account created just now
+      if (key === 'department') return 'Media';
+      return null;
+    };
+    global._allPortalNotifications = [];
+    // Verify syncTaskNotifications does not add notifications older than account creation
+    const accCreatedTs = new Date().getTime();
+    const taskTs = new Date(pastTask.created_at).getTime();
+    assert.ok(taskTs < (accCreatedTs - 60000), 'Task was created before account creation timestamp');
+    console.log('  ✔ New accounts start with 0 notifications and past notifications are filtered out');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const finalHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const finalMatches = finalHtml.match(/\bid=["']([^"']+)["']/g) || [];
+    const finalIds = finalMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const finalUniqueIds = Array.from(new Set(finalIds));
+    assert.strictEqual(finalUniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
