@@ -918,10 +918,10 @@ async function registerMember() {
 
     // 0. Name collision & identity spoofing prevention (cross-member duplicate/similar name check)
     var allExistingMembers = [];
-    var supaCli = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+    var supaCli = (typeof getSupa === 'function' ? getSupa() : (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null)));
     if (supaCli && typeof supaCli.get === 'function') {
       try {
-        var dbMemsList = await supaCli.get('bb_members?select=id,name,email,ic');
+        var dbMemsList = await supaCli.get('bb_members?select=name,email,ic,department');
         if (Array.isArray(dbMemsList)) allExistingMembers = dbMemsList;
       } catch (memErr) {
         console.warn('Registration member uniqueness check note:', memErr);
@@ -936,6 +936,16 @@ async function registerMember() {
         }
       } catch (_) {}
     }
+
+    // Filter out deleted/archived accounts
+    allExistingMembers = allExistingMembers.filter(function(m) {
+      if (!m || !m.name) return false;
+      var dept = String(m.department || '').toLowerCase();
+      if (dept === 'deleted' || dept === 'archived_deleted') return false;
+      var mIc = String(m.ic || '').toLowerCase();
+      if (mIc.startsWith('archived_')) return false;
+      return true;
+    });
 
     var conflictFn = (typeof isNameConflict === 'function')
       ? isNameConflict
@@ -954,7 +964,12 @@ async function registerMember() {
 
       if (conflicting) {
         if (typeof showToast === 'function') {
-          showToast('The name "' + name + '" conflicts with an already registered member (' + conflicting.name + '). To protect member privacy and attendance records, duplicate or similar names are not permitted.', 'error', 6500);
+          showToast('An account with the name "' + name + '" already exists. If this is your account, please log in.', 'warning', 6500);
+        }
+        var nameInput = document.getElementById('reg-fullname');
+        if (nameInput) {
+          if (typeof nameInput.focus === 'function') nameInput.focus();
+          if (typeof nameInput.select === 'function') nameInput.select();
         }
         if (typeof setButtonLoading === 'function' && regBtn) {
           setButtonLoading(regBtn, false, 'Register Account');
@@ -1364,6 +1379,42 @@ async function finalizeMemberRegistration(data) {
     memberPayload.parental_consent_signed = true;
     memberPayload.parental_consent_date = data.consentTimestamp;
     memberPayload.media_consent = data.mediaConsent;
+  }
+
+  // Final safeguard: Name uniqueness verification before database write
+  if (client && typeof client.get === 'function') {
+    try {
+      var checkMems = await client.get('bb_members?select=name,email,ic,department');
+      if (Array.isArray(checkMems)) {
+        var activeMems = checkMems.filter(function(m) {
+          if (!m || !m.name) return false;
+          var dept = String(m.department || '').toLowerCase();
+          if (dept === 'deleted' || dept === 'archived_deleted') return false;
+          var mIc = String(m.ic || '').toLowerCase();
+          if (mIc.startsWith('archived_')) return false;
+          return true;
+        });
+        var conflictFn2 = (typeof isNameConflict === 'function')
+          ? isNameConflict
+          : (typeof window !== 'undefined' && typeof window.isNameConflict === 'function'
+              ? window.isNameConflict
+              : (typeof global !== 'undefined' && typeof global.isNameConflict === 'function' ? global.isNameConflict : null));
+        if (conflictFn2) {
+          var conflict2 = activeMems.find(function(m) {
+            var mEmail = String(m.email || m.ic || '').trim().toLowerCase();
+            if (mEmail && (mEmail === data.email || mEmail === data.ic)) return false;
+            return conflictFn2(m.name, data.name);
+          });
+          if (conflict2) {
+            throw new Error('An account with the name "' + data.name + '" already exists. If this is your account, please log in.');
+          }
+        }
+      }
+    } catch (uniqueErr) {
+      if (uniqueErr && uniqueErr.message && uniqueErr.message.includes('already exists')) {
+        throw uniqueErr;
+      }
+    }
   }
 
   // Attempt insert or update if previously deleted row exists with same ic
@@ -4435,7 +4486,7 @@ async function refreshLoggedInUserProfile() {
   try {
     var client = getSupa();
     if (!client || typeof client.get !== 'function') return;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=id,ic,email,name,rank,squad,section,department,att_section,photo_url,joined_at,created_at');
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=ic,email,name,rank,squad,section,department,att_section,joined_at');
     if (!data || data.length === 0 || (data[0] && (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))) {
       if (typeof forceKickDeletedAccount === 'function') {
         forceKickDeletedAccount();
@@ -5022,6 +5073,7 @@ if (typeof module !== 'undefined' && module.exports) {
     findMembersByEmail,
     handleRegEmailInput,
     verifyAndCompleteRegistration,
+    finalizeMemberRegistration,
     cancelRegistrationVerification,
     resendRegistrationCode,
     showAccountPickerModal,

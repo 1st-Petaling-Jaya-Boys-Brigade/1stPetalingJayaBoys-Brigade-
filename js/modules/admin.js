@@ -1153,14 +1153,10 @@
 
       var members;
       try {
-        members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,parental_consent_signed,parent_name,parent_contact,media_consent&order=name.asc');
+        members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
       } catch (selectErr) {
-        console.warn('Detailed bb_members query failed, retrying with core columns:', selectErr);
-        try {
-          members = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
-        } catch (_f2) {
-          members = await client.get('bb_members?order=name.asc');
-        }
+        console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
+        members = await client.get('bb_members?order=name.asc');
       }
       if (!Array.isArray(members)) members = [];
       var filtered = members.filter(function(m) {
@@ -1762,8 +1758,17 @@
       if (conflictFn) {
         var existingMembersList = [];
         try {
-          var allMems = await client.get('bb_members?select=id,name,email,ic');
-          if (Array.isArray(allMems)) existingMembersList = allMems;
+          var allMems = await client.get('bb_members?select=name,email,ic,department');
+          if (Array.isArray(allMems)) {
+            existingMembersList = allMems.filter(function(m) {
+              if (!m || !m.name) return false;
+              var dept = String(m.department || '').toLowerCase();
+              if (dept === 'deleted' || dept === 'archived_deleted') return false;
+              var mIc = String(m.ic || '').toLowerCase();
+              if (mIc.startsWith('archived_')) return false;
+              return true;
+            });
+          }
         } catch (_) {}
         if (existingMembersList.length === 0 && typeof _adminMembers === 'object') {
           existingMembersList = Object.values(_adminMembers);
@@ -2504,7 +2509,7 @@
     var client = getSupabaseClient();
     if (client && typeof client.get === 'function') {
       try {
-        var res = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,department&order=name.asc');
+        var res = await client.get('bb_members?select=ic,email,name,rank,squad,section,department&order=name.asc');
         if (Array.isArray(res) && res.length > 0) {
           rawList = res.filter(function(m) {
             return m.department !== 'deleted' && m.department !== 'archived_deleted';
@@ -2836,7 +2841,7 @@
         }
       } catch (fetchErr) {
         try {
-          var fallbackMembers = await client.get('bb_members?select=id,ic,email,name,rank,squad,section&order=name.asc');
+          var fallbackMembers = await client.get('bb_members?select=ic,email,name,rank,squad,section&order=name.asc');
           if (Array.isArray(fallbackMembers) && fallbackMembers.length > 0) {
             members = fallbackMembers;
           }
