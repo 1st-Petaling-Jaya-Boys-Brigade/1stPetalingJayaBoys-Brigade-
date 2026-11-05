@@ -170,6 +170,7 @@ export default [
         setAdminSort: 'readonly',
         renderAdminList: 'readonly',
         handleAdminSectionChange: 'readonly',
+        handleAdminRankChange: 'readonly',
         openAddMember: 'readonly',
         openEditMember: 'readonly',
         closeEditMember: 'readonly',
