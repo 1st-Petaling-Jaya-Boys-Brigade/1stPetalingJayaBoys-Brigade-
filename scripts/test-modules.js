@@ -1221,13 +1221,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'Selecting Officer section must populate exactly the officer ranks'
   );
   mockRankInp.value = 'Lieutenant';
+  mockSquadInp.value = ''; // Officer does not need to enter platoon
   mockPName.value = '';
   mockPContact.value = '';
   mockPConsent.checked = false;
   lastPosted = null;
 
   await memberModule.registerMember();
-  assert.ok(lastPosted && lastPosted.body, 'Officer should register successfully with adult age');
+  assert.ok(lastPosted && lastPosted.body, 'Officer should register successfully with adult age and no platoon required');
+  assert.strictEqual(lastPosted.body.squad, null, 'Officer squad should be null/empty in database');
   assert.strictEqual(lastPosted.body.rank, 'Lieutenant');
   assert.strictEqual(lastPosted.body.att_section, 'Officer');
   assert.strictEqual(lastPosted.body.parent_name, undefined, 'Officer must never require parental consent');
@@ -4056,8 +4058,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105c',
-    'sw.js CACHE_VERSION must be 20261105c'
+    '20261105d',
+    'sw.js CACHE_VERSION must be 20261105d'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4090,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105c',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105d',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6783,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105c'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105d'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -6945,6 +6947,48 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(memberModule.getSectionForRank('Private'), 'Senior');
     assert.strictEqual(memberModule.getSectionForRank('Chief Junior Leader'), 'Junior');
     console.log('  ✔ getSectionForRank accurately infers member section from rank');
+
+    // 3B. Platoon/Squad Labels in registration, admin console & member hub
+    assert.ok(idxHtml.includes('<label class="form-label" for="reg-squad">Platoon/Squad</label>'), 'Registration form must display Platoon/Squad label');
+    assert.ok(idxHtml.includes('<label class="form-label" for="em-squad">Platoon/Squad</label>'), 'Admin Edit Member modal must display Platoon/Squad label');
+    assert.ok(idxHtml.includes('id="sort-squad"   onclick="setAdminSort(\'squad\')">Platoon/Squad</button>'), 'Admin sort button must display Platoon/Squad');
+    assert.ok(idxHtml.includes('<div class="chip-label">Platoon/Squad</div>'), 'Member card chip must display Platoon/Squad');
+    console.log('  ✔ Registration and Admin Console member management cleanly display Platoon/Squad');
+
+    // 3C. Junior Section Squads 1-5 & Senior Platoons in populateSquadOptions
+    assert.deepStrictEqual(memberModule.JUNIOR_SQUADS, ['1', '2', '3', '4', '5'], 'JUNIOR_SQUADS must be 1 to 5');
+    assert.deepStrictEqual(memberModule.SENIOR_PLATOONS, ['Alpha', 'Zulu', 'Papa', 'Hotel'], 'SENIOR_PLATOONS must be Alpha, Zulu, Papa, Hotel');
+
+    const makeMockSelect = () => ({
+      innerHTML: '',
+      children: [],
+      value: '',
+      disabled: false,
+      appendChild(node) { this.children.push(node); }
+    });
+    const jrSquadSelect = makeMockSelect();
+    memberModule.populateSquadOptions(jrSquadSelect, 'Junior', '', 'Select squad...', false);
+    const jrVals = jrSquadSelect.children.map(c => c.value).filter(Boolean);
+    assert.deepStrictEqual(jrVals, ['1', '2', '3', '4', '5'], 'Junior section must show options 1 - 5 representing squads 1 to 5');
+
+    const srSquadSelect = makeMockSelect();
+    memberModule.populateSquadOptions(srSquadSelect, 'Senior', '', 'Select platoon...', false);
+    const srVals = srSquadSelect.children.map(c => c.value).filter(Boolean);
+    assert.deepStrictEqual(srVals, ['Alpha', 'Zulu', 'Papa', 'Hotel'], 'Senior section must show platoons Alpha, Zulu, Papa, Hotel');
+
+    const offSquadSelect = makeMockSelect();
+    memberModule.populateSquadOptions(offSquadSelect, 'Officer', '', 'No platoon/squad (Officer)', false);
+    assert.strictEqual(offSquadSelect.value, '', 'Officer squad value must be empty');
+    console.log('  ✔ populateSquadOptions dynamically produces options 1 - 5 for Juniors, Platoons for Seniors, and empty for Officers');
+
+    // 3D. formatPlatoonOrSquad formatting
+    assert.strictEqual(memberModule.formatPlatoonOrSquad('1', 'Junior'), 'Squad 1');
+    assert.strictEqual(memberModule.formatPlatoonOrSquad('Squad 3', 'Junior'), 'Squad 3');
+    assert.strictEqual(memberModule.formatPlatoonOrSquad('Alpha', 'Senior'), 'Alpha Platoon');
+    assert.strictEqual(memberModule.formatPlatoonOrSquad('Alpha Platoon', 'Senior'), 'Alpha Platoon');
+    assert.strictEqual(memberModule.formatPlatoonOrSquad('Alpha', 'Officer'), '');
+    assert.strictEqual(memberModule.formatPlatoonOrSquad('', 'Senior'), '');
+    console.log('  ✔ formatPlatoonOrSquad cleanly formats Squad for Juniors and Platoon for Seniors');
 
     // 4. Registration rank population with Senior Section
     const mockRankSelect = {

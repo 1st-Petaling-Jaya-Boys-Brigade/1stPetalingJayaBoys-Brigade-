@@ -227,6 +227,101 @@ function populateRankOptions(selectEl, section, selectedRank, placeholderText, a
     selectEl.appendChild(extraOpt);
   }
 }
+var SENIOR_PLATOONS = ['Alpha', 'Zulu', 'Papa', 'Hotel'];
+var JUNIOR_SQUADS = ['1', '2', '3', '4', '5'];
+
+function formatPlatoonOrSquad(squad, section) {
+  if (!squad) return '';
+  var s = String(squad).trim();
+  if (!s || s === 'No platoon' || s === 'No Platoon' || s === 'None' || s === '—' || s === 'No platoon/squad' || s === 'No Platoon/Squad' || s === 'No squad' || s === 'No Squad') return '';
+  var sec = (typeof normalizeSection === 'function') ? normalizeSection(section) : String(section || '').trim().toLowerCase();
+  var isJunior = sec === 'junior' || sec === 'pre-junior' || /^[1-5]$/.test(s) || /^squad\s*[1-5]$/i.test(s);
+  if (isJunior) {
+    return /^squad/i.test(s) ? s : ('Squad ' + s);
+  }
+  if (sec === 'officer') return '';
+  return /platoon$/i.test(s) ? s : (s + ' Platoon');
+}
+
+function populateSquadOptions(selectEl, section, selectedSquad, placeholderText, allowExtra) {
+  if (!selectEl) return;
+  var s = (typeof normalizeSection === 'function') ? normalizeSection(section) : String(section || '').trim().toLowerCase();
+  var defaultPlaceholder = s === 'officer'
+    ? 'No platoon/squad (Officer)'
+    : (s === 'junior' ? 'Select squad...' : (s === 'senior' ? 'Select platoon...' : 'Select section first...'));
+  var placeholder = placeholderText !== undefined ? placeholderText : defaultPlaceholder;
+
+  selectEl.innerHTML = '';
+
+  if (s === 'officer') {
+    var offOpt = document.createElement('option');
+    offOpt.value = '';
+    offOpt.textContent = placeholder || 'No platoon/squad (Officer)';
+    selectEl.appendChild(offOpt);
+    selectEl.value = '';
+    return;
+  }
+
+  if (!s) {
+    if (placeholder) {
+      var defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = placeholder;
+      selectEl.appendChild(defaultOpt);
+    }
+    if (selectedSquad) {
+      var opt = document.createElement('option');
+      opt.value = selectedSquad;
+      opt.textContent = selectedSquad;
+      opt.selected = true;
+      selectEl.appendChild(opt);
+    }
+    return;
+  }
+
+  if (placeholder) {
+    var pOpt = document.createElement('option');
+    pOpt.value = '';
+    pOpt.textContent = placeholder;
+    selectEl.appendChild(pOpt);
+  }
+
+  var found = false;
+  var normSelected = String(selectedSquad || '').trim();
+  var selectedNum = normSelected.replace(/^squad\s*/i, '');
+
+  if (s === 'junior') {
+    JUNIOR_SQUADS.forEach(function(sq) {
+      var o = document.createElement('option');
+      o.value = sq;
+      o.textContent = sq;
+      if (normSelected && (normSelected === sq || selectedNum === sq || normSelected.toLowerCase() === ('squad ' + sq))) {
+        o.selected = true;
+        found = true;
+      }
+      selectEl.appendChild(o);
+    });
+  } else if (s === 'senior') {
+    SENIOR_PLATOONS.forEach(function(plt) {
+      var o = document.createElement('option');
+      o.value = plt;
+      o.textContent = plt;
+      if (normSelected && (normSelected.toLowerCase() === plt.toLowerCase() || normSelected.toLowerCase() === (plt.toLowerCase() + ' platoon'))) {
+        o.selected = true;
+        found = true;
+      }
+      selectEl.appendChild(o);
+    });
+  }
+
+  if (selectedSquad && !found && allowExtra) {
+    var extraOpt = document.createElement('option');
+    extraOpt.value = selectedSquad;
+    extraOpt.textContent = selectedSquad + ' (Current)';
+    extraOpt.selected = true;
+    selectEl.appendChild(extraOpt);
+  }
+}
 
 // ── Child Safety (COPPA/PDPA) & Parental Consent Governance (TSK-032) ──────────
 
@@ -245,6 +340,7 @@ function handleSectionChange() {
   var secEl = document.getElementById('reg-section');
   var ageEl = document.getElementById('reg-age');
   var rankEl = document.getElementById('reg-rank');
+  var squadEl = document.getElementById('reg-squad');
   var box   = document.getElementById('parent-consent-box');
 
   var section = secEl ? secEl.value : '';
@@ -253,6 +349,13 @@ function handleSectionChange() {
   if (rankEl) {
     var curRank = rankEl.value;
     populateRankOptions(rankEl, section, curRank, section ? 'Select rank...' : 'Select section first...', false);
+  }
+
+  if (squadEl) {
+    var curSquad = squadEl.value;
+    populateSquadOptions(squadEl, section, curSquad, undefined, false);
+    var isOff = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'officer';
+    squadEl.disabled = isOff;
   }
 
   if (!box) return;
@@ -691,7 +794,15 @@ async function registerMember() {
     return;
   }
   if (!rank)  { if (typeof showToast === 'function') showToast('Please select your rank.', 'warning'); return; }
-  if (!squad) { if (typeof showToast === 'function') showToast('Please select your platoon.', 'warning'); return; }
+  var isOfficerSec = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'officer';
+  if (!isOfficerSec && !squad) {
+    var isJr = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'junior';
+    if (typeof showToast === 'function') showToast(isJr ? 'Please select your squad.' : 'Please select your platoon/squad.', 'warning');
+    return;
+  }
+  if (isOfficerSec) {
+    squad = '';
+  }
   if (pass.length < 6) { if (typeof showToast === 'function') showToast('Password must be at least 6 characters.', 'warning'); return; }
 
   // Child Safety Governance & Verifiable Parental Consent (TSK-032 / COPPA & PDPA 2010)
@@ -1114,12 +1225,13 @@ async function finalizeMemberRegistration(data) {
   var client = getSupa();
   var birthYear = new Date().getFullYear() - data.age;
   var approxDob = birthYear + '-01-01';
+  var isOffSec = (typeof normalizeSection === 'function' ? normalizeSection(data.section) : String(data.section || '').toLowerCase()) === 'officer';
 
   var memberPayload = {
     ic: data.ic,
     name: data.name,
     rank: data.rank,
-    squad: data.squad,
+    squad: isOffSec ? null : (data.squad || null),
     att_section: data.section,
     date_of_birth: approxDob,
     password: data.passwordHash,
@@ -1727,7 +1839,7 @@ function showAccountPickerModal(accounts, rememberMe) {
       }
 
       var sectionRank = (acc.att_section || acc.section || 'Senior') + (acc.rank ? ' &bull; ' + escapeHtml(acc.rank) : '');
-      var platoon = acc.squad ? acc.squad + ' Platoon' : '';
+      var platoon = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad(acc.squad, acc.att_section || acc.section) : (acc.squad ? acc.squad + ' Platoon' : '');
 
       item.innerHTML =
         '<div class="account-picker-avatar-wrap">' + avatarHtml + '</div>' +
@@ -3740,7 +3852,7 @@ async function renderDashboard() {
     set('m-display-email', displayEmail);
     set('m-display-ic',   displayEmail); // Compatibility for legacy selectors
     set('m-rank-val',     m.rank || '—');
-    set('m-squad-val',    m.squad ? m.squad + ' Platoon' : '—');
+    set('m-squad-val',    (typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : m.squad) || '—');
     set('m-section-val',  m.att_section || m.section || sessionGet('section') || 'Senior');
 
     // Display age if calculated or from birth year
@@ -3811,7 +3923,8 @@ async function renderDashboard() {
     }
 
     set('sidebar-user-name', m.name || 'Member');
-    set('sidebar-user-badge', (m.rank ? m.rank : '') + (m.squad ? ' · ' + m.squad + ' Sq' : (m.att_section || 'Member')));
+    var sqBadgeFmt = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : (m.squad ? m.squad + ' Sq' : '');
+    set('sidebar-user-badge', (m.rank ? m.rank : '') + (sqBadgeFmt ? ' · ' + sqBadgeFmt : (m.att_section || 'Member')));
 
     // Render personalized initial, color & creator RGB animation on avatar placeholders
     renderMemberAvatar(m.name, displayEmail);
@@ -4649,6 +4762,16 @@ if (typeof window !== 'undefined') {
   window.getSectionForRank            = getSectionForRank;
   window.getRanksForSection           = getRanksForSection;
   window.populateRankOptions          = populateRankOptions;
+  window.populateSquadOptions         = populateSquadOptions;
+  window.formatPlatoonOrSquad         = formatPlatoonOrSquad;
+  window.SENIOR_PLATOONS              = SENIOR_PLATOONS;
+  window.JUNIOR_SQUADS                = JUNIOR_SQUADS;
+  if (typeof global !== 'undefined') {
+    global.populateSquadOptions = populateSquadOptions;
+    global.formatPlatoonOrSquad = formatPlatoonOrSquad;
+    global.SENIOR_PLATOONS = SENIOR_PLATOONS;
+    global.JUNIOR_SQUADS = JUNIOR_SQUADS;
+  }
   window.PROFILE_COSMETICS            = PROFILE_COSMETICS;
   window.getMemberCosmeticsMap        = getMemberCosmeticsMap;
   window.loadMemberCosmetics          = loadMemberCosmetics;
@@ -4681,6 +4804,10 @@ if (typeof module !== 'undefined' && module.exports) {
     getSectionForRank,
     getRanksForSection,
     populateRankOptions,
+    populateSquadOptions,
+    formatPlatoonOrSquad,
+    SENIOR_PLATOONS,
+    JUNIOR_SQUADS,
     isMinorSection,
     handleSectionChange,
     openChildSafetyModal,
