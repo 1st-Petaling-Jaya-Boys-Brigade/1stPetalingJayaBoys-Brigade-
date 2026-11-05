@@ -142,7 +142,7 @@
       return ROLES.MEMBER;
     }
 
-    // 1. Check Super Admin pre-assigned list & Jeshua Koh
+    // 1. Check Super Admin pre-assigned list & Portal Creator (jeshuakoh2008@gmail.com)
     if (
       userEmail === 'jeshuakoh2008@gmail.com' ||
       (_rolesConfig && _rolesConfig.super_admins && _rolesConfig.super_admins.map(cleanEmail).includes(userEmail))
@@ -150,20 +150,33 @@
       return ROLES.SUPER_ADMIN;
     }
 
-    // Check session rank: Captain is designated Super Admin, Officers are Admin
-    var sessEmail = cleanEmail(getSession('email') || getSession('ic'));
-    if (!email || sessEmail === userEmail) {
-      var rank = getSession('rank');
-      if (rank === 'Captain' || rank === 'Honarary Captain' || rank === 'Honorary Captain') return ROLES.SUPER_ADMIN;
-      if (['Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].includes(rank)) return ROLES.ADMIN;
-    }
-
-    // 2. Check Scoped Admin list
+    // 2. Check Scoped Admin list (Explicitly assigned in database bb_config)
     if (_rolesConfig && _rolesConfig.admins && _rolesConfig.admins[userEmail]) {
       return ROLES.ADMIN;
     }
 
-    // 3. Fallback for authenticated Admin Console session (guest without signed-in member session)
+    // Fallback: Check local storage cached roles config in case of offline/network transition
+    if (typeof localStorage !== 'undefined') {
+      try {
+        var rawRoles = localStorage.getItem('bb_roles_config');
+        if (rawRoles) {
+          var parsed = JSON.parse(rawRoles);
+          if (parsed && Array.isArray(parsed.super_admins) && parsed.super_admins.map(cleanEmail).includes(userEmail)) {
+            return ROLES.SUPER_ADMIN;
+          }
+          if (parsed && parsed.admins && parsed.admins[userEmail]) {
+            return ROLES.ADMIN;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // CRITICAL SECURITY ENFORCEMENT:
+    // ALL other accounts—regardless of rank (Captain, Lieutenant, Chaplain, etc.) or name—
+    // default strictly to MEMBER! Ranks NEVER grant Admin/Super Admin access automatically.
+
+    // Authenticated admin session fallback ONLY when no signed-in member session exists
+    var sessEmail = cleanEmail(getSession('email') || getSession('ic'));
     if (!sessEmail && getSession('adminAuthed') === true) {
       return ROLES.ADMIN;
     }

@@ -1070,11 +1070,14 @@ var AVATAR_PALETTE = [
 function isPortalCreator(name, email) {
   var n = String(name || '').trim().toLowerCase();
   var em = String(email || '').trim().toLowerCase();
-  if (n === 'jeshua koh') return true;
-  if (em === 'jeshuakoh2008@gmail.com') {
-    return !n || n.indexOf('jeshua') !== -1;
+  if (em) {
+    return em === 'jeshuakoh2008@gmail.com';
   }
-  return false;
+  if (typeof sessionGet === 'function') {
+    var sessEmail = String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
+    if (sessEmail) return sessEmail === 'jeshuakoh2008@gmail.com';
+  }
+  return n === 'jeshua koh';
 }
 
 /**
@@ -1148,6 +1151,73 @@ function isNameMatch(nameA, nameB) {
   });
 
   return allMatch;
+}
+
+
+/**
+ * Evaluates whether a color hex is bright/light (e.g. #fff, #f8fafc) requiring dark text for contrast.
+ * Uses ITU-R BT.601 perceived luminance formula.
+ * @param {string} [colorStr]
+ * @returns {boolean}
+ */
+function isBrightColor(colorStr) {
+  if (!colorStr) return false;
+  var c = String(colorStr).trim().toLowerCase();
+  if (c === '#fff' || c === '#ffffff' || c === 'white') return true;
+  if (/^#([0-9a-f]{6})$/i.test(c)) {
+    var r = parseInt(c.slice(1, 3), 16);
+    var g = parseInt(c.slice(3, 5), 16);
+    var b = parseInt(c.slice(5, 7), 16);
+    var lum = (0.299 * r + 0.587 * g + 0.114 * b);
+    return lum > 190;
+  }
+  return false;
+}
+
+/**
+ * Determines whether two member names are conflicting, duplicate, or subsets of each other.
+ * Used during registration and member management to prevent identity spoofing, duplicate accounts,
+ * or unauthorized access to attendance records.
+ *
+ * @param {string} nameA Existing registered member name
+ * @param {string} nameB Candidate registration name
+ * @returns {boolean}
+ */
+function isNameConflict(nameA, nameB) {
+  if (!nameA || !nameB) return false;
+  var a = String(nameA).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  var b = String(nameB).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  var noiseWords = ['tester', 'test', 'demo', 'admin', 'user', 'temp', 'fake'];
+  var cleanTokensA = a.split(' ').filter(function(t) { return t.length >= 2 && !noiseWords.includes(t); });
+  var cleanTokensB = b.split(' ').filter(function(t) { return t.length >= 2 && !noiseWords.includes(t); });
+  if (cleanTokensA.length === 0 || cleanTokensB.length === 0) {
+    cleanTokensA = a.split(' ').filter(function(t) { return t.length >= 2; });
+    cleanTokensB = b.split(' ').filter(function(t) { return t.length >= 2; });
+  }
+
+  var strA = cleanTokensA.join(' ');
+  var strB = cleanTokensB.join(' ');
+  if (strA === strB) return true;
+
+  // Single token overlap (e.g. candidate 'Joash' vs existing 'Joash Lee')
+  if (cleanTokensA.length === 1 && cleanTokensB.includes(cleanTokensA[0])) return true;
+  if (cleanTokensB.length === 1 && cleanTokensA.includes(cleanTokensB[0])) return true;
+
+  if (typeof isNameMatch === 'function' && isNameMatch(strA, strB)) return true;
+
+  var shortTokens = cleanTokensA.length <= cleanTokensB.length ? cleanTokensA : cleanTokensB;
+  var longTokens = cleanTokensA.length <= cleanTokensB.length ? cleanTokensB : cleanTokensA;
+
+  var allShortInLong = shortTokens.every(function(st) {
+    return longTokens.some(function(lt) {
+      return lt === st || (st.length >= 3 && (lt.indexOf(st) !== -1 || st.indexOf(lt) !== -1));
+    });
+  });
+
+  return allShortInLong;
 }
 
 function resolveMemberDirectoryInfo(nameOrId) {
@@ -1436,7 +1506,8 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     ? getMemberAvatarColor(cleanNm)
     : '#047857';
 
-  return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
+  var initialTextColor = (typeof isBrightColor === 'function' && isBrightColor(color)) ? '#1e293b' : '#ffffff';
+  return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:' + initialTextColor + ';overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
     (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml +
   '</span>';
 }
@@ -2413,6 +2484,12 @@ if (typeof window !== 'undefined') {
   window.getMemberAvatarColor = getMemberAvatarColor;
   window.resolveMemberDirectoryInfo = resolveMemberDirectoryInfo;
   window.isNameMatch = isNameMatch;
+  window.isBrightColor = isBrightColor;
+  window.isNameConflict = isNameConflict;
+  if (typeof global !== 'undefined') {
+    global.isBrightColor = isBrightColor;
+    global.isNameConflict = isNameConflict;
+  }
   if (typeof global !== 'undefined') global.isNameMatch = isNameMatch;
   window._memberPfpsMap       = _memberPfpsMap;
   window.loadMemberProfilePictures = loadMemberProfilePictures;
@@ -2476,6 +2553,8 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarColor: getMemberAvatarColor,
     resolveMemberDirectoryInfo: resolveMemberDirectoryInfo,
     isNameMatch: isNameMatch,
+    isBrightColor: isBrightColor,
+    isNameConflict: isNameConflict,
     _memberPfpsMap: _memberPfpsMap,
     loadMemberProfilePictures: loadMemberProfilePictures,
     getMemberAvatarUrl: getMemberAvatarUrl,

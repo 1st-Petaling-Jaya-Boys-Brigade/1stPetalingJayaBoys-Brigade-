@@ -167,11 +167,23 @@ async function getMemberAttendanceRecord(memberName) {
     return data.members[norm];
   }
 
-  // Secondary fuzzy match: check if first name / last name matches
+  // Filter out noise/test words so dummy or spoof accounts never bind to real member records
+  var noiseWords = ['tester', 'test', 'demo', 'admin', 'fake', 'dummy'];
+  var normTokens = norm.split(' ').filter(function(t) { return t.length >= 2; });
+  var hasNoise = normTokens.some(function(t) { return noiseWords.includes(t); });
+  if (hasNoise) {
+    return null;
+  }
+
+  // Secondary intelligent match using token-subset matching
   var keys = Object.keys(data.members);
+  var matchFn = (typeof isNameMatch === 'function')
+    ? isNameMatch
+    : (typeof window !== 'undefined' && typeof window.isNameMatch === 'function' ? window.isNameMatch : null);
+
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
-    if (k.indexOf(norm) !== -1 || norm.indexOf(k) !== -1) {
+    if (matchFn && matchFn(memberName, k)) {
       return data.members[k];
     }
   }

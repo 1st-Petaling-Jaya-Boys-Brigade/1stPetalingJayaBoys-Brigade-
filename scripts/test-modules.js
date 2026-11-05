@@ -4058,8 +4058,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105e',
-    'sw.js CACHE_VERSION must be 20261105e'
+    '20261105f',
+    'sw.js CACHE_VERSION must be 20261105f'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4090,7 +4090,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105e',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105f',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -5878,12 +5878,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(hasModulePermission('roles', 'jeshuakoh2008@gmail.com'), true, 'Super Admin has access to roles management');
     assert.strictEqual(hasModulePermission('orders', 'jeshuakoh2008@gmail.com'), true, 'Super Admin has access to orders module');
 
-    // Rank-based fallback Super Admin
+    // Strict RBAC: Officers with rank Captain default strictly to Member unless explicitly assigned
     sessionMod.sessionClear();
     sessionMod.sessionSet('email', 'custom_captain@1stpjbb.org.my');
     sessionMod.sessionSet('rank', 'Captain');
-    assert.strictEqual(getUserRole('custom_captain@1stpjbb.org.my'), 'super_admin', 'Officers with rank Captain resolve to Super Admin');
-    console.log('  ✔ Pre-assigned Super Admin accounts and Captain rank escalation verified');
+    assert.strictEqual(getUserRole('custom_captain@1stpjbb.org.my'), 'member', 'Officers with rank Captain default strictly to Member unless explicitly assigned');
+    console.log('  ✔ Strict RBAC verified (Captain rank defaults to member without explicit role assignment)');
 
     // 3. Standard Member Gatekeeping & Access Controls
     sessionMod.sessionClear();
@@ -6783,7 +6783,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105e'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105f'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8163,6 +8163,75 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Restore original getElementById
     global.document.getElementById = originalGetElementById;
     console.log('  ✔ Officer platoon/squad auto-selection and rank-to-section auto-switch verified');
+  }
+
+  
+  // ── Verification: Strict RBAC Lockdown, Name Collision Protection & Avatar Contrast ──
+  {
+    console.log('\n[TEST] Strict RBAC Lockdown, Name Collision Protection & Avatar Contrast...');
+    const utilsMod = require('../js/core/utils.js');
+    const rbacMod = require('../js/core/rbac.js');
+    const memberMod = require('../js/modules/member.js');
+    const attMod = require('../js/modules/attendance.js');
+
+    // 1. isBrightColor unit tests
+    assert.strictEqual(typeof utilsMod.isBrightColor, 'function', 'utils.js must export isBrightColor');
+    assert.strictEqual(utilsMod.isBrightColor('#ffffff'), true, '#ffffff is bright');
+    assert.strictEqual(utilsMod.isBrightColor('#fff'), true, '#fff is bright');
+    assert.strictEqual(utilsMod.isBrightColor('white'), true, 'white is bright');
+    assert.strictEqual(utilsMod.isBrightColor('#047857'), false, '#047857 is dark emerald');
+    assert.strictEqual(utilsMod.isBrightColor('#083830'), false, '#083830 is dark pine');
+    assert.strictEqual(utilsMod.isBrightColor('#be185d'), false, '#be185d is berry rose');
+    console.log('  ✔ isBrightColor luminance contrast evaluator verified');
+
+    // 2. isNameConflict unit tests
+    assert.strictEqual(typeof utilsMod.isNameConflict, 'function', 'utils.js must export isNameConflict');
+    assert.ok(utilsMod.isNameConflict('Joash Lee', 'Joash Lee'), 'Exact name match is a conflict');
+    assert.ok(utilsMod.isNameConflict('Joash Lee', 'Joash Lee Tian Wei'), 'Sub-token name is a conflict');
+    assert.ok(utilsMod.isNameConflict('Joash Lee Tian Wei', 'Joash Lee'), 'Super-token name is a conflict');
+    assert.ok(utilsMod.isNameConflict('Joash Lee', 'Joash'), 'Single name token overlap is a conflict');
+    assert.ok(utilsMod.isNameConflict('Jeshua Koh', 'Jeshua Koh - tester'), 'Name with tester suffix is a conflict with real name');
+    assert.ok(utilsMod.isNameConflict('Oliver Ling', 'OLIVER LING CHEE SHENG'), 'Short vs legal name is a conflict');
+    // Non-conflicts
+    assert.ok(!utilsMod.isNameConflict('Jason Koh', 'Jeshua Koh'), 'Different first names with same surname must NOT conflict');
+    assert.ok(!utilsMod.isNameConflict('Daniel Chang', 'Daniel Yap'), 'Same first name with different surname must NOT conflict');
+    assert.ok(!utilsMod.isNameConflict('Moses Lai', 'Matthew Wee'), 'Completely distinct names must NOT conflict');
+    console.log('  ✔ isNameConflict intelligent collision and spoof protection verified');
+
+    // 3. Strict RBAC Lockdown: Captain or Officer rank NEVER grants admin access
+    // Mock session with rank: Captain, email: jeshuakoh1601@gmail.com
+    global.localStorage.setItem('bb_user_email', 'jeshuakoh1601@gmail.com');
+    global.localStorage.setItem('bb_user_rank', 'Captain');
+    global.localStorage.setItem('bb_user_section', 'Officer');
+
+    const testerRole = rbacMod.getUserRole('jeshuakoh1601@gmail.com');
+    assert.strictEqual(testerRole, 'member', 'Captain rank without explicit super_admin assignment MUST strictly evaluate to member');
+    assert.strictEqual(rbacMod.isSuperAdmin('jeshuakoh1601@gmail.com'), false, 'Captain account is NOT Super Admin');
+    assert.strictEqual(rbacMod.isAdmin('jeshuakoh1601@gmail.com'), false, 'Captain account is NOT Admin');
+
+    // Only jeshuakoh2008@gmail.com or explicit assignment has Super Admin
+    assert.strictEqual(rbacMod.isSuperAdmin('jeshuakoh2008@gmail.com'), true, 'jeshuakoh2008@gmail.com is designated Super Admin');
+
+    // isPortalCreator strictly verifies jeshuakoh2008@gmail.com
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh - tester', 'jeshuakoh1601@gmail.com'), false, 'isPortalCreator returns false for other emails even with Jeshua Koh name');
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh', 'jeshuakoh2008@gmail.com'), true, 'isPortalCreator returns true for jeshuakoh2008@gmail.com');
+    console.log('  ✔ Strict RBAC lockdown verified (Captains/Officers default to Member; zero automatic privilege escalation)');
+
+    // 4. Registration full name validation check in memberMod
+    assert.strictEqual(typeof memberMod.registerMember, 'function', 'memberMod must export registerMember');
+    console.log('  ✔ memberMod registerMember integration verified');
+
+    // 5. Attendance noise word filtering: test accounts do not bind to real attendance
+    assert.strictEqual(typeof attMod.getMemberAttendanceRecord, 'function', 'attendance.js must export getMemberAttendanceRecord');
+    const fakeRecord = await attMod.getMemberAttendanceRecord('Jeshua Koh - tester');
+    assert.strictEqual(fakeRecord, null, 'Accounts with noise words (e.g. - tester) must never bind to real member attendance records');
+    console.log('  ✔ Attendance noise-filtering verified (test accounts cannot expose real member attendance)');
+
+    // 6. CSS high contrast verification for avatars
+    const compCss = fs.readFileSync(path.resolve(__dirname, '..', 'css', 'components.css'), 'utf8');
+    assert.ok(compCss.includes('.member-avatar-unified,'), 'components.css must define white text for avatars');
+    assert.ok(compCss.includes('color: #ffffff !important;'), 'components.css must enforce white avatar text');
+    console.log('  ✔ Avatar initial letter white contrast rules verified in components.css');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

@@ -214,12 +214,12 @@ select.form-input,
   border-color: var(--border-card) !important;
 }
 
-[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
 [data-theme='light'] [style*='color:#f0f4ff'],
 [data-theme='light'] [style*='color:#e0e8ff'],
 [data-theme='light'] [style*='color:#dce8ff'] {
@@ -9922,4 +9922,33 @@ select.form-input,
 .proj-list-add-bottom-btn:hover {
   background: var(--surface-tint-hover, rgba(255, 255, 255, 0.04));
   color: var(--accent, #f59e0b);
+}
+/* ── Avatar Initial Letter Contrast Protection (Dual-Theme Parity) ────────── */
+.member-avatar-unified,
+.admin-member-avatar,
+.nav-avatar-placeholder,
+#sidebar-user-avatar-ph,
+#m-pfp-ph,
+.task-card-avatar,
+.task-assignee-avatar,
+.project-assignee-avatar,
+.tdm-assignee-avatar {
+  color: #ffffff !important;
+}
+
+.member-avatar-unified[style*="background:#fff"],
+.member-avatar-unified[style*="background: #fff"],
+.member-avatar-unified[style*="background:#ffffff"],
+.member-avatar-unified[style*="background: #ffffff"],
+.member-avatar-unified[style*="background:white"],
+.member-avatar-unified[style*="background: white"],
+.admin-member-avatar[style*="background:#fff"],
+.admin-member-avatar[style*="background: #fff"],
+.admin-member-avatar[style*="background:#ffffff"],
+.admin-member-avatar[style*="background: #ffffff"],
+.nav-avatar-placeholder[style*="background:#fff"],
+.nav-avatar-placeholder[style*="background: #fff"],
+.nav-avatar-placeholder[style*="background:#ffffff"],
+.nav-avatar-placeholder[style*="background: #ffffff"] {
+  color: #1e293b !important;
 }
