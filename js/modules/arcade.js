@@ -1220,17 +1220,90 @@
       }
     }
 
+    var stats = getArcadeStats();
+
+    var sidePanelHtml =
+      '<div class="wordle-side-panel">' +
+        '<div class="arcade-side-card wordle-banner-desktop">' +
+          (statusBanner ? statusBanner :
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+              '<div style="font-weight:700;font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+                '<span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>' +
+                'Today\'s Challenge' +
+              '</div>' +
+              '<span class="badge badge-active" style="font-size:11px;">+15 Credits</span>' +
+            '</div>' +
+            '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
+              'Guess the 5-letter BB syllabus term in 6 tries. Letter tiles flip to reveal clues after each guess!' +
+            '</div>' +
+            '<div style="margin-top:10px;font-size:12px;color:var(--text-muted);display:flex;justify-content:space-between;">' +
+              '<span>Attempts used: <strong>' + _wordleState.guesses.length + ' / 6</strong></span>' +
+              '<span>Remaining: <strong>' + (_wordleState.maxTries - _wordleState.guesses.length) + '</strong></span>' +
+            '</div>'
+          ) +
+        '</div>' +
+
+        '<div class="arcade-side-card">' +
+          '<div class="arcade-side-title">' +
+            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+            '<span>How to Play &amp; Tile Colors</span>' +
+          '</div>' +
+          '<div class="wordle-guide-row">' +
+            '<div class="wordle-guide-tile correct">B</div>' +
+            '<div class="wordle-guide-text"><strong>Green:</strong> Letter is in the word and in the <strong>correct spot</strong>.</div>' +
+          '</div>' +
+          '<div class="wordle-guide-row">' +
+            '<div class="wordle-guide-tile present">R</div>' +
+            '<div class="wordle-guide-text"><strong>Gold:</strong> Letter is in the word, but in the <strong>wrong spot</strong>.</div>' +
+          '</div>' +
+          '<div class="wordle-guide-row">' +
+            '<div class="wordle-guide-tile absent">X</div>' +
+            '<div class="wordle-guide-text"><strong>Dark:</strong> Letter is <strong>not in the word</strong> in any spot.</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="arcade-side-card">' +
+          '<div class="arcade-side-title">' +
+            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' +
+            '<span>BB Syllabus Word Bank</span>' +
+          '</div>' +
+          '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
+            'Daily puzzles feature authentic 5-letter terms from drill commands (<em>DRILL, MARCH</em>), company awards (<em>BADGE, AWARD</em>), ranks, camping gear, and BB heritage.' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="arcade-side-card">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="font-size:16px;">🔥</span>' +
+              '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' + (stats.streak || 0) + ' Day Streak</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="font-size:16px;">🪙</span>' +
+              '<span style="font-size:13px;font-weight:700;color:var(--gold);">' + (stats.credits || 0) + ' Credits</span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'trivia\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Play BB Trivia</button>' +
+            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'shop\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Cosmetic Shop</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
     container.innerHTML =
-      '<div class="card wordle-card">' +
-        '<div style="text-align:center;margin-bottom:14px;">' +
-          '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);">Daily Wordle</div>' +
-          '<div style="font-size:12px;color:var(--text-muted);">Guess today\'s 5-letter word in 6 tries. Green = correct spot, Gold = wrong spot.</div>' +
+      '<div class="wordle-desktop-grid">' +
+        '<div class="card wordle-card wordle-game-card">' +
+          '<div style="text-align:center;margin-bottom:14px;width:100%;">' +
+            '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);">Daily Wordle</div>' +
+            '<div style="font-size:12px;color:var(--text-muted);">Guess today\'s 5-letter word in 6 tries. Green = correct spot, Gold = wrong spot.</div>' +
+          '</div>' +
+          '<div class="wordle-banner-mobile">' + statusBanner + '</div>' +
+          '<div class="wordle-board-wrapper">' +
+            '<div class="wordle-board">' + rowsHtml + '</div>' +
+          '</div>' +
+          kbHtml +
         '</div>' +
-        statusBanner +
-        '<div class="wordle-board-wrapper">' +
-          '<div class="wordle-board">' + rowsHtml + '</div>' +
-        '</div>' +
-        kbHtml +
+        sidePanelHtml +
       '</div>';
   }
 
@@ -1282,10 +1355,10 @@
           '</div>' +
         '</div>' +
 
-        '<!-- Detailed Question Review -->' +
+        '<!-- Detailed Question Review Grid -->' +
         '<div style="margin-bottom:18px;">' +
-          '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px;">Question Review &amp; Syllabus Explanations</div>' +
-          reviewHtml +
+          '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">Question Review &amp; Syllabus Explanations</div>' +
+          '<div class="trivia-review-grid">' + reviewHtml + '</div>' +
         '</div>' +
 
         '<!-- Footer Action Button -->' +
@@ -1328,48 +1401,98 @@
     });
 
     var isLastQuestion = (currentIdx === 4);
+    var stats = getArcadeStats();
+
+    var triviaSidePanelHtml =
+      '<div class="trivia-side-panel">' +
+        '<div class="arcade-side-card">' +
+          '<div class="arcade-side-title">' +
+            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>' +
+            '<span>Daily Quiz Rules</span>' +
+          '</div>' +
+          '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
+            '<div style="margin-bottom:6px;">&bull; <strong>5 Questions Daily:</strong> Selected each morning from the BB handbook.</div>' +
+            '<div style="margin-bottom:6px;">&bull; <strong>+5 Credits:</strong> Awarded for every correct answer (up to +25 Credits per day).</div>' +
+            '<div>&bull; <strong>1 Attempt Per Day:</strong> Take your time to review syllabus notes before submitting!</div>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="arcade-side-card">' +
+          '<div class="arcade-side-title">' +
+            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>' +
+            '<span>Syllabus Topics Covered</span>' +
+          '</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Company History</span>' +
+            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Drill &amp; Marching</span>' +
+            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Badges &amp; Awards</span>' +
+            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">Founder &amp; President</span>' +
+            '<span class="badge" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);font-size:11px;">First Aid &amp; Safety</span>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="arcade-side-card">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="font-size:16px;">🔥</span>' +
+              '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' + (stats.streak || 0) + ' Day Streak</span>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;">' +
+              '<span style="font-size:16px;">🪙</span>' +
+              '<span style="font-size:13px;font-weight:700;color:var(--gold);">' + (stats.credits || 0) + ' Credits</span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'wordle\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Play Wordle</button>' +
+            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'shop\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Cosmetic Shop</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
 
     container.innerHTML =
-      '<div class="card trivia-card">' +
-        '<!-- Header: Question Counter & Progress -->' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
-          '<div style="font-family:var(--font-headline);font-weight:700;color:var(--gold);font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">' +
-            'Question ' + (currentIdx + 1) + ' of 5' +
+      '<div class="trivia-desktop-grid">' +
+        '<div class="card trivia-card">' +
+          '<!-- Header: Question Counter & Progress -->' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+            '<div style="font-family:var(--font-headline);font-weight:700;color:var(--gold);font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">' +
+              'Question ' + (currentIdx + 1) + ' of 5' +
+            '</div>' +
+            '<div class="trivia-answered-badge">' +
+              '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">' + answeredTotal + ' of 5 answered</span>' +
+            '</div>' +
           '</div>' +
-          '<div class="trivia-answered-badge">' +
-            '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">' + answeredTotal + ' of 5 answered</span>' +
+
+          '<!-- Progress Bar (Determinate: 20% on Q1, 100% on Q5) -->' +
+          '<div class="trivia-progress-track" role="progressbar" aria-valuenow="' + (currentIdx + 1) + '" aria-valuemin="1" aria-valuemax="5" aria-label="Quiz progress">' +
+            '<div id="trivia-progress-bar" class="trivia-progress-bar" style="width:' + progressPct + '%;"></div>' +
+          '</div>' +
+
+          '<!-- Question Prompt -->' +
+          '<div class="trivia-question-text">' + currentQ.q + '</div>' +
+
+          '<!-- Options List -->' +
+          '<div class="trivia-options-grid">' + optsHtml + '</div>' +
+
+          '<!-- Navigation Controls -->' +
+          '<div class="trivia-nav-row">' +
+            '<button type="button" class="portal-btn portal-btn-secondary trivia-nav-btn" onclick="prevTriviaQuestion()"' + (currentIdx === 0 ? ' disabled' : '') + '>' +
+              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>' +
+              '<span>Previous</span>' +
+            '</button>' +
+
+            (isLastQuestion ?
+              '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn trivia-submit-btn" onclick="submitTriviaQuiz()">' +
+                '<span>Submit Quiz</span>' +
+                '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+              '</button>' :
+              '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn" onclick="nextTriviaQuestion()">' +
+                '<span>Next</span>' +
+                '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' +
+              '</button>'
+            ) +
           '</div>' +
         '</div>' +
-
-        '<!-- Progress Bar (Determinate: 20% on Q1, 100% on Q5) -->' +
-        '<div class="trivia-progress-track" role="progressbar" aria-valuenow="' + (currentIdx + 1) + '" aria-valuemin="1" aria-valuemax="5" aria-label="Quiz progress">' +
-          '<div id="trivia-progress-bar" class="trivia-progress-bar" style="width:' + progressPct + '%;"></div>' +
-        '</div>' +
-
-        '<!-- Question Prompt -->' +
-        '<div class="trivia-question-text">' + currentQ.q + '</div>' +
-
-        '<!-- Options List -->' +
-        '<div class="trivia-options-grid">' + optsHtml + '</div>' +
-
-        '<!-- Navigation Controls -->' +
-        '<div class="trivia-nav-row">' +
-          '<button type="button" class="portal-btn portal-btn-secondary trivia-nav-btn" onclick="prevTriviaQuestion()"' + (currentIdx === 0 ? ' disabled' : '') + '>' +
-            '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>' +
-            '<span>Previous</span>' +
-          '</button>' +
-
-          (isLastQuestion ?
-            '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn trivia-submit-btn" onclick="submitTriviaQuiz()">' +
-              '<span>Submit Quiz</span>' +
-              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
-            '</button>' :
-            '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn" onclick="nextTriviaQuestion()">' +
-              '<span>Next</span>' +
-              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' +
-            '</button>'
-          ) +
-        '</div>' +
+        triviaSidePanelHtml +
       '</div>';
   }
 
@@ -1381,49 +1504,56 @@
     var stats = getArcadeStats();
 
     container.innerHTML =
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:14px;margin-bottom:16px;">' +
-        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:18px;">' +
-          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(249,115,22,0.15);color:#f97316;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:20px;width:100%;">' +
+        '<div class="card" style="display:flex;align-items:center;gap:16px;padding:20px;">' +
+          '<div style="width:52px;height:52px;border-radius:12px;background:rgba(249,115,22,0.15);color:#f97316;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
           '</div>' +
           '<div>' +
-            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Current Daily Streak</div>' +
-            '<div style="font-size:24px;font-weight:800;color:var(--text);">' + (stats.streak || 0) + ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
+            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Current Daily Streak</div>' +
+            '<div style="font-size:26px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.streak || 0) + ' <span style="font-size:14px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
           '</div>' +
         '</div>' +
 
-        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:18px;">' +
-          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(217,163,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>' +
+        '<div class="card" style="display:flex;align-items:center;gap:16px;padding:20px;">' +
+          '<div style="width:52px;height:52px;border-radius:12px;background:rgba(217,163,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>' +
           '</div>' +
           '<div>' +
-            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Total Earned Credits</div>' +
-            '<div style="font-size:24px;font-weight:800;color:var(--gold);">' + (stats.credits || 0) + '</div>' +
+            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Earned Credits</div>' +
+            '<div style="font-size:26px;font-weight:800;color:var(--gold);margin-top:2px;">' + (stats.credits || 0) + '</div>' +
           '</div>' +
         '</div>' +
 
-        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:18px;">' +
-          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
+        '<div class="card" style="display:flex;align-items:center;gap:16px;padding:20px;">' +
+          '<div style="width:52px;height:52px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
           '</div>' +
           '<div>' +
-            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">All-Time Best Streak</div>' +
-            '<div style="font-size:24px;font-weight:800;color:var(--text);">' + (stats.bestStreak || 0) + ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
+            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">All-Time Best Streak</div>' +
+            '<div style="font-size:26px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.bestStreak || 0) + ' <span style="font-size:14px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
           '</div>' +
         '</div>' +
       '</div>' +
 
-      '<div class="card" style="padding:22px;">' +
-        '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;">How Credits &amp; Streaks Work</div>' +
-        '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
-          '<p style="margin-bottom:8px;"><strong>Daily Participation Streak:</strong> Play either Daily Wordle or BB Trivia each calendar day to maintain and increment your streak. Playing 3 days in a row gives a streak of 3. If you miss a day, the streak resets to 0.</p>' +
-          '<p style="margin-bottom:8px;"><strong>Earning Credits:</strong>' +
-            '<ul style="margin:6px 0 6px 20px;">' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(380px, 1fr));gap:16px;width:100%;">' +
+        '<div class="card" style="padding:22px;">' +
+          '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;">How Daily Streaks Work</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
+            '<p style="margin-bottom:8px;"><strong>Consecutive Participation:</strong> Play either Daily Wordle or BB Trivia each calendar day to maintain and increment your streak. Playing 3 days in a row gives a streak of 3. If you miss a calendar day, the streak resets to 0.</p>' +
+            '<p style="margin:0;">Building long streaks unlocks milestone accolades, prestige profile indicators, and special recognition across the 1st Petaling Jaya Company.</p>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="card" style="padding:22px;">' +
+          '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;">Credit Earning Rates &amp; Spending</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
+            '<ul style="margin:6px 0 12px 20px;">' +
               '<li><strong>Daily Wordle:</strong> +15 Credits for successfully solving today\'s 5-letter word puzzle.</li>' +
               '<li><strong>BB Trivia:</strong> +5 Credits for every correct multiple-choice answer (up to +25 Credits per 5-question round).</li>' +
             '</ul>' +
-          '</p>' +
-          '<p style="margin:0;">Credits and streak achievements showcase your syllabus dedication across the 1st PJ Company and unlock future profile awards!</p>' +
+            '<p style="margin:0;">Spend your earned credits in the <strong>Cosmetic Shop</strong> to unlock animated RGB avatar outlines, custom gradients, status aura rings, and profile customizers!</p>' +
+          '</div>' +
         '</div>' +
       '</div>';
   }
