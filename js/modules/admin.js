@@ -1250,9 +1250,11 @@
         }
 
         if (_adminSortBy === 'squad') {
-          var sq = m.squad || 'No Platoon';
+          var sq = m.squad || 'No Platoon/Squad';
           if (sq !== lastSquad) {
-            html += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:10px 4px 4px;">' + (m.squad ? sq + ' Platoon' : 'No Platoon') + '</div>';
+            var fmtSquadFn = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad : (typeof global !== 'undefined' && typeof global.formatPlatoonOrSquad === 'function' ? global.formatPlatoonOrSquad : null);
+            var groupHeading = (fmtSquadFn ? fmtSquadFn(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No Platoon/Squad');
+            html += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:10px 4px 4px;">' + groupHeading + '</div>';
             lastSquad = sq;
           }
         }
@@ -1267,7 +1269,8 @@
 
         var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
         var safeIc   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic) : m.ic;
-        var safeSquad= (typeof escapeHtml === 'function') ? escapeHtml(m.squad || '') : (m.squad || '');
+        var rawDisplaySquad = (typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No platoon/squad');
+        var safeSquad= (typeof escapeHtml === 'function') ? escapeHtml(rawDisplaySquad) : rawDisplaySquad;
         var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'No rank') : (m.rank || 'No rank');
 
         var deptConfig = DEFAULT_DEPT_CONFIG[(m.department || '').toLowerCase()];
@@ -1289,7 +1292,7 @@
           + avatarHtml
           + '<div style="flex:1;min-width:0;">'
             + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + deptBadge + '</div>'
-            + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + (m.squad ? safeSquad + ' Platoon' : 'No platoon') + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + ' \xb7 ' + presenceBadge + '</div>'
+            + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + safeSquad + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + ' \xb7 ' + presenceBadge + '</div>'
           + '</div>'
           + '<div style="text-align:right;flex-shrink:0;">'
             + '<div class="admin-rank-badge">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.rank || '\u2014') : (m.rank || '\u2014')) + '</div>'
@@ -1365,6 +1368,20 @@
       popRank(rankEl, sec, curRank, sec ? null : 'Select section first...', !!preserveRank);
     }
 
+    var squadEl = document.getElementById('em-squad');
+    var popSquad = (typeof populateSquadOptions === 'function')
+      ? populateSquadOptions
+      : (typeof global !== 'undefined' && typeof global.populateSquadOptions === 'function'
+          ? global.populateSquadOptions
+          : (typeof window !== 'undefined' && typeof window.populateSquadOptions === 'function' ? window.populateSquadOptions : null));
+    if (squadEl && typeof popSquad === 'function') {
+      var curSquad = squadEl.value;
+      var isOff = (typeof normalizeSection === 'function' ? normalizeSection(sec) : String(sec).toLowerCase()) === 'officer';
+      var plHolder = isOff ? 'No platoon/squad (Officer)' : (sec ? (sec === 'Junior' ? 'No squad' : 'No platoon') : 'Select section first...');
+      popSquad(squadEl, sec, curSquad, plHolder, !!preserveRank);
+      squadEl.disabled = isOff;
+    }
+
     var box = document.getElementById('em-child-safety-box');
     if (box) {
       if (isMinor) {
@@ -1403,6 +1420,16 @@
           : (typeof window !== 'undefined' && typeof window.populateRankOptions === 'function' ? window.populateRankOptions : null));
     if (emRankAdd && typeof popRank === 'function') {
       popRank(emRankAdd, '', '', 'Select section first...', false);
+    }
+    var emSquadAdd = document.getElementById('em-squad');
+    var popSquad = (typeof populateSquadOptions === 'function')
+      ? populateSquadOptions
+      : (typeof global !== 'undefined' && typeof global.populateSquadOptions === 'function'
+          ? global.populateSquadOptions
+          : (typeof window !== 'undefined' && typeof window.populateSquadOptions === 'function' ? window.populateSquadOptions : null));
+    if (emSquadAdd && typeof popSquad === 'function') {
+      popSquad(emSquadAdd, '', '', 'Select section first...', false);
+      emSquadAdd.disabled = false;
     }
 
     var pc = document.getElementById('em-parent-consent');
@@ -1575,7 +1602,20 @@
     } else {
       set('em-rank', m.rank);
     }
-    set('em-squad',   m.squad);
+    var emSquadEdit = document.getElementById('em-squad');
+    var popSquad = (typeof populateSquadOptions === 'function')
+      ? populateSquadOptions
+      : (typeof global !== 'undefined' && typeof global.populateSquadOptions === 'function'
+          ? global.populateSquadOptions
+          : (typeof window !== 'undefined' && typeof window.populateSquadOptions === 'function' ? window.populateSquadOptions : null));
+    if (emSquadEdit && typeof popSquad === 'function') {
+      var isOfficerEdit = (typeof normalizeSection === 'function' ? normalizeSection(editSec) : String(editSec).toLowerCase()) === 'officer';
+      var plHolder = isOfficerEdit ? 'No platoon/squad (Officer)' : (editSec === 'Junior' ? 'No squad' : 'No platoon');
+      popSquad(emSquadEdit, editSec, m.squad, plHolder, true);
+      emSquadEdit.disabled = isOfficerEdit;
+    } else {
+      set('em-squad',   m.squad);
+    }
     set('em-dept',    m.department);
 
     handleAdminSectionChange(true);
@@ -1669,6 +1709,10 @@
           : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
     if (!att_section && rank && typeof secRankFn === 'function') {
       att_section = secRankFn(rank);
+    }
+    var isOfficerSec = (typeof normalizeSection === 'function' ? normalizeSection(att_section) : String(att_section).toLowerCase()) === 'officer';
+    if (isOfficerSec) {
+      squad = '';
     }
 
     var rawPName      = ((document.getElementById('em-parent-name') || {}).value || '').trim();
@@ -3086,6 +3130,8 @@
     global.renderAdminList          = renderAdminList;
     global.handleAdminSectionChange = handleAdminSectionChange;
     global.handleAdminRankChange    = handleAdminRankChange;
+    global.populateSquadOptions     = typeof populateSquadOptions === 'function' ? populateSquadOptions : (typeof window !== 'undefined' ? window.populateSquadOptions : null);
+    global.formatPlatoonOrSquad     = typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad : (typeof window !== 'undefined' ? window.formatPlatoonOrSquad : null);
     global.openAddMember            = openAddMember;
     global.openEditMember           = openEditMember;
     global.closeEditMember          = closeEditMember;
@@ -3147,6 +3193,8 @@
     _adminPresenceMap: _adminPresenceMap,
       handleAdminSectionChange: handleAdminSectionChange,
       handleAdminRankChange: handleAdminRankChange,
+      populateSquadOptions: typeof populateSquadOptions === 'function' ? populateSquadOptions : (typeof window !== 'undefined' ? window.populateSquadOptions : null),
+      formatPlatoonOrSquad: typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad : (typeof window !== 'undefined' ? window.formatPlatoonOrSquad : null),
       openAddMember: openAddMember,
       openEditMember: openEditMember,
       closeEditMember: closeEditMember,
