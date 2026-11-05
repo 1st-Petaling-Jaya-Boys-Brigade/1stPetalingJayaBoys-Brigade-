@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105h',
-    'sw.js CACHE_VERSION must be 20261105h'
+    '20261105i',
+    'sw.js CACHE_VERSION must be 20261105i'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105h',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105i',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6437,7 +6437,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(leaderboardHtml.includes('50%'), false, 'Raw percentage 50% is not exposed to peers in squad members list');
     console.log('  ✔ Squad views display confidential achievement tiers with 80% One Year Service tooltips without leaking raw percentages');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 388 Unique DOM IDs Invariant
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105h'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105i'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8432,6 +8432,74 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(unblockedList.includes(testBlockedEmail), false, 'Blocked email must be removed after unblocking');
     global.getSupaClient = prevClient;
     console.log('  ✔ Admin email blocklist successfully gates registration and supports unblocking');
+
+    // 5. Registration Name Collision & Duplicate Prevention
+    const mockMemsWithCreator = [
+      { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', ic: 'jeshuakoh2008@gmail.com', department: 'hq' },
+      { name: 'Jason Koh', email: 'jasonkoh2010712@gmail.com', ic: 'jasonkoh2010712@gmail.com', department: 'media' }
+    ];
+    let insertedRows = [];
+    const mockCollisionSupa = {
+      get: async (path) => {
+        if (path.includes('bb_members?')) {
+          return mockMemsWithCreator;
+        }
+        if (path.includes('bb_blocked_emails')) {
+          return [{ value: JSON.stringify([]) }];
+        }
+        return [];
+      },
+      post: async (path, body) => {
+        insertedRows.push(body);
+        return [body];
+      },
+      patch: async (path, body) => [body],
+      req: async (method, path, body) => {
+        if (method === 'POST') insertedRows.push(body);
+        return [body];
+      }
+    };
+    global.getSupaClient = () => mockCollisionSupa;
+    global.supa = mockCollisionSupa;
+    if (typeof window !== 'undefined') {
+      window.getSupaClient = () => mockCollisionSupa;
+      window.supa = mockCollisionSupa;
+    }
+
+    let collisionToastMsg = '';
+    global.showToast = (msg) => { collisionToastMsg = msg; };
+    if (regEmailEl) regEmailEl.value = 'jeshuakoh1601@gmail.com';
+    if (regNameEl) regNameEl.value = 'Jeshua Koh';
+    if (regPassEl) regPassEl.value = 'ValidPass123!';
+    if (regPass2El) regPass2El.value = 'ValidPass123!';
+    if (regSecEl) regSecEl.value = 'Officer';
+    if (regRankEl) regRankEl.value = 'Captain';
+    if (regAgeEl) regAgeEl.value = '18';
+    if (regSquadEl) regSquadEl.value = '';
+
+    await memberMod.registerMember();
+    assert.ok(collisionToastMsg.includes('already exists'), 'Registration with existing name must be blocked and prompt to log in');
+    assert.strictEqual(insertedRows.length, 0, 'No member record must be inserted when name conflicts with existing member');
+
+    // Test secondary safeguard in finalizeMemberRegistration
+    let finalizeThrew = false;
+    try {
+      await memberMod.finalizeMemberRegistration({
+        ic: 'jeshuakoh1601@gmail.com',
+        email: 'jeshuakoh1601@gmail.com',
+        name: 'Jeshua Koh',
+        rank: 'Captain',
+        section: 'Officer',
+        age: 18,
+        passwordHash: 'hash123'
+      });
+    } catch (finErr) {
+      finalizeThrew = true;
+      assert.ok(finErr.message.includes('already exists'), 'finalizeMemberRegistration must throw collision error');
+    }
+    assert.ok(finalizeThrew, 'finalizeMemberRegistration must reject duplicate name registration');
+    global.getSupaClient = prevClient;
+    console.log('  ✔ Registration strictly blocks duplicate account names and prompts to log in');
 
     // 5. Strict 388 Unique DOM IDs Invariant
     const finalHtml2 = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');

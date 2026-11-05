@@ -900,7 +900,7 @@ async function renderCompanyLeaderboard() {
   try {
     var client = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
     if (client && typeof client.get === 'function') {
-      var dbMems = await client.get('bb_members?select=id,ic,email,name,rank,squad,section,att_section,photo_url&order=name.asc');
+      var dbMems = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section&order=name.asc');
       if (Array.isArray(dbMems) && dbMems.length > 0) {
         registeredMembersList = dbMems;
         if (typeof localStorage !== 'undefined') {
