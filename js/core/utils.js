@@ -1495,7 +1495,8 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
     var dotTitle = safeName + ' (' + dotLabel + ')';
     var dotSz = Math.max(8, Math.round(sz * 0.32));
-    dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+    var presId = (cleanId && cleanId.indexOf('@') !== -1) ? cleanId : (cleanId || cleanNm);
+    dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanNm) : cleanNm) + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
   }
 
   var overflowRule = 'visible';
