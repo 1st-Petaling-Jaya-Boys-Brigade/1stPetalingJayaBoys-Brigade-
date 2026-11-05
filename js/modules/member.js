@@ -878,6 +878,44 @@ async function registerMember() {
   }
 
   try {
+    // 0a. Blocked Email Verification (bb_blocked_emails)
+    var isBlocked = false;
+    var supaCli = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+    if (supaCli && typeof supaCli.get === 'function') {
+      try {
+        var blkRows = await supaCli.get('bb_config?key=eq.bb_blocked_emails&select=value');
+        if (Array.isArray(blkRows) && blkRows.length > 0 && blkRows[0].value) {
+          var blkList = typeof blkRows[0].value === 'string' ? JSON.parse(blkRows[0].value) : blkRows[0].value;
+          if (Array.isArray(blkList) && blkList.map(function(x) { return String(x).toLowerCase().trim(); }).includes(email)) {
+            isBlocked = true;
+          }
+        }
+      } catch (blkErr) {
+        console.warn('Blocked email check error:', blkErr);
+      }
+    }
+    if (!isBlocked && typeof localStorage !== 'undefined') {
+      try {
+        var localBlk = localStorage.getItem('bb_blocked_emails');
+        if (localBlk) {
+          var parsedLocal = JSON.parse(localBlk);
+          if (Array.isArray(parsedLocal) && parsedLocal.map(function(x) { return String(x).toLowerCase().trim(); }).includes(email)) {
+            isBlocked = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (isBlocked) {
+      if (typeof showToast === 'function') {
+        showToast('This email address has been blocked by an administrator and cannot be used to register.', 'error', 6500);
+      }
+      if (typeof setButtonLoading === 'function' && regBtn) {
+        setButtonLoading(regBtn, false, 'Register Account');
+      }
+      return;
+    }
+
     // 0. Name collision & identity spoofing prevention (cross-member duplicate/similar name check)
     var allExistingMembers = [];
     var supaCli = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
@@ -1489,6 +1527,39 @@ async function loginMember() {
   var identifier = (idEl.value || '').trim();
   var pass = (document.getElementById('login-pass') || {}).value || '';
   if (!identifier || !pass) { if (typeof showToast === 'function') showToast('Please enter your email and password.', 'warning'); return; }
+
+  // Blocked email verification
+  var cleanIdent = identifier.toLowerCase().trim();
+  var isLoginBlocked = false;
+  var clientSupa = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+  if (clientSupa && typeof clientSupa.get === 'function') {
+    try {
+      var blkLoginRows = await clientSupa.get('bb_config?key=eq.bb_blocked_emails&select=value');
+      if (Array.isArray(blkLoginRows) && blkLoginRows.length > 0 && blkLoginRows[0].value) {
+        var blkLogList = typeof blkLoginRows[0].value === 'string' ? JSON.parse(blkLoginRows[0].value) : blkLoginRows[0].value;
+        if (Array.isArray(blkLogList) && blkLogList.map(function(x) { return String(x).toLowerCase().trim(); }).includes(cleanIdent)) {
+          isLoginBlocked = true;
+        }
+      }
+    } catch (_) {}
+  }
+  if (!isLoginBlocked && typeof localStorage !== 'undefined') {
+    try {
+      var localLogBlk = localStorage.getItem('bb_blocked_emails');
+      if (localLogBlk) {
+        var parsedLogBlk = JSON.parse(localLogBlk);
+        if (Array.isArray(parsedLogBlk) && parsedLogBlk.map(function(x) { return String(x).toLowerCase().trim(); }).includes(cleanIdent)) {
+          isLoginBlocked = true;
+        }
+      }
+    } catch (_) {}
+  }
+  if (isLoginBlocked) {
+    if (typeof showToast === 'function') {
+      showToast('This email address has been blocked by an administrator.', 'error', 6500);
+    }
+    return;
+  }
 
   var loginBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-login button[type="submit"]') : null;
 

@@ -159,10 +159,20 @@ async function getMasterAttendanceData(forceRefresh) {
  */
 async function getMemberAttendanceRecord(memberName) {
   if (!memberName) return null;
+
+  // Security & Privacy Protection:
+  // Jeshua Koh attendance and points belong exclusively to verified portal creator account (jeshuakoh2008@gmail.com)
+  var norm = normalizeMemberName(memberName);
+  if (norm === 'jeshuakoh') {
+    var sessEmail = (typeof sessionGet === 'function') ? String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase() : '';
+    if (sessEmail && sessEmail !== 'jeshuakoh2008@gmail.com') {
+      return null;
+    }
+  }
+
   var data = await getMasterAttendanceData();
   if (!data || !data.members) return null;
 
-  var norm = normalizeMemberName(memberName);
   if (data.members[norm]) {
     return data.members[norm];
   }
@@ -201,6 +211,22 @@ async function getMemberAttendanceRecord(memberName) {
 async function loadMemberAttendanceStats(memberName) {
   var container = document.getElementById('member-attendance-card');
   if (!container) return;
+
+  var currentSection = (typeof sessionGet === 'function') ? (sessionGet('section') || sessionGet('att_section')) : '';
+  var currentRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
+  var isOfficer = false;
+  if (currentSection && String(currentSection).toLowerCase() === 'officer') isOfficer = true;
+  if (currentRank && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor'].includes(currentRank)) isOfficer = true;
+
+  if (isOfficer) {
+    container.innerHTML = 
+      '<div class="att-empty-state" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;">' +
+        '<div style="font-size:32px;margin-bottom:8px;">🎖️</div>' +
+        '<div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Officer Record</div>' +
+        '<div style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto;">Officers serve in supervisory appointments and do not compete on Company Squad Leaderboards or receive squad attendance points.</div>' +
+      '</div>';
+    return;
+  }
 
   var name = memberName;
   if (!name && typeof sessionGet === 'function') {
@@ -1087,10 +1113,10 @@ async function renderCompanyLeaderboard() {
           '</span>';
         var dirRec = (typeof resolveMemberDirectoryInfo === 'function') ? resolveMemberDirectoryInfo(m.name || m.ic) : null;
         var regRec = dirRec || findRegisteredMemberMatch(m.name, m.ic);
+        var cleanMemName = String(m.name || '').trim();
         var isRegistered = !!(
           isSelf ||
-          (typeof isPortalCreator === 'function' && isPortalCreator(m.name, m.ic)) ||
-          /jeshua\s+koh/i.test(m.name || '') ||
+          (cleanMemName.toLowerCase() === 'jeshua koh' && (typeof isPortalCreator === 'function' ? isPortalCreator(m.name, m.ic) : true)) ||
           regRec
         );
 

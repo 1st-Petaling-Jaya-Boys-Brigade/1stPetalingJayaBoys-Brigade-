@@ -1752,6 +1752,37 @@
     try {
       var consentTimestamp = parental_consent_signed ? new Date().toISOString() : null;
 
+      // Name collision validation: Ensure candidate name does not conflict with another existing member
+      var conflictFn = (typeof isNameConflict === 'function')
+        ? isNameConflict
+        : (typeof window !== 'undefined' && typeof window.isNameConflict === 'function'
+            ? window.isNameConflict
+            : (typeof global !== 'undefined' && typeof global.isNameConflict === 'function' ? global.isNameConflict : null));
+
+      if (conflictFn) {
+        var existingMembersList = [];
+        try {
+          var allMems = await client.get('bb_members?select=id,name,email,ic');
+          if (Array.isArray(allMems)) existingMembersList = allMems;
+        } catch (_) {}
+        if (existingMembersList.length === 0 && typeof _adminMembers === 'object') {
+          existingMembersList = Object.values(_adminMembers);
+        }
+        var conflictingMem = existingMembersList.find(function(m) {
+          if (!m || !m.name) return false;
+          var mIc = String(m.ic || m.email || '').trim().toLowerCase();
+          // Exclude the member currently being edited
+          if (mIc && (mIc === String(originalIc).trim().toLowerCase() || mIc === String(ic).trim().toLowerCase())) return false;
+          return conflictFn(m.name, name);
+        });
+        if (conflictingMem) {
+          if (typeof showToast === 'function') {
+            showToast('The name "' + name + '" conflicts with an already registered member (' + conflictingMem.name + '). Duplicate names are not permitted.', 'warning', 5000);
+          }
+          return;
+        }
+      }
+
       if (!originalIc) {
         var existing = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=ic');
         if (existing && existing.length) {
@@ -3109,7 +3140,212 @@
     }
   }
 
-  // ── Window & Global Attachment ─────────────────────────────────────────────
+  // ── Admin Blocked Emails Management (bb_blocked_emails) ─────────────────
+  var _blockedEmails = [];
+
+  async function loadBlockedEmails() {
+    var client = getSupabaseClient();
+    if (client) {
+      try {
+        var res = await client.get('bb_config?key=eq.bb_blocked_emails&select=value');
+        if (res && res.length && res[0].value) {
+          var parsed = typeof res[0].value === 'string' ? JSON.parse(res[0].value) : res[0].value;
+          if (Array.isArray(parsed)) {
+            _blockedEmails = parsed.map(function(x) { return String(x).toLowerCase().trim(); });
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('bb_blocked_emails', JSON.stringify(_blockedEmails));
+              }
+            } catch (_) {}
+            updateBlockedEmailsCountBadge();
+            return _blockedEmails;
+          }
+        }
+      } catch (err) {
+        console.warn('loadBlockedEmails note:', err);
+      }
+    }
+    if (typeof localStorage !== 'undefined') {
+      try {
+        var cached = localStorage.getItem('bb_blocked_emails');
+        if (cached) {
+          var parsedCached = JSON.parse(cached);
+          if (Array.isArray(parsedCached)) _blockedEmails = parsedCached;
+        }
+      } catch (_) {}
+    }
+    updateBlockedEmailsCountBadge();
+    return _blockedEmails;
+  }
+
+  async function saveBlockedEmails(list) {
+    _blockedEmails = list.map(function(x) { return String(x).toLowerCase().trim(); }).filter(Boolean);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_blocked_emails', JSON.stringify(_blockedEmails));
+      }
+    } catch (_) {}
+
+    var client = getSupabaseClient();
+    if (client) {
+      try {
+        await client.req('POST', 'bb_config?on_conflict=key', {
+          key: 'bb_blocked_emails',
+          value: JSON.stringify(_blockedEmails),
+          updated_at: new Date().toISOString()
+        });
+      } catch (postErr) {
+        try {
+          await client.patch('bb_config?key=eq.bb_blocked_emails', {
+            value: JSON.stringify(_blockedEmails),
+            updated_at: new Date().toISOString()
+          });
+        } catch (patchErr) {
+          console.warn('saveBlockedEmails db sync note:', patchErr);
+        }
+      }
+    }
+    updateBlockedEmailsCountBadge();
+    return _blockedEmails;
+  }
+
+  function updateBlockedEmailsCountBadge() {
+    if (typeof document === 'undefined') return;
+    var badge = document.querySelector('.blocked-emails-count');
+    if (badge) badge.textContent = _blockedEmails.length;
+  }
+
+  async function addBlockedEmail(email) {
+    var em = String(email || '').trim().toLowerCase();
+    if (!em || em.indexOf('@') === -1) {
+      if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning');
+      return false;
+    }
+    if (em === 'jeshuakoh2008@gmail.com') {
+      if (typeof showToast === 'function') showToast('Portal Creator email cannot be blocked.', 'error');
+      return false;
+    }
+    await loadBlockedEmails();
+    if (_blockedEmails.includes(em)) {
+      if (typeof showToast === 'function') showToast('This email is already in the blocklist.', 'warning');
+      return false;
+    }
+    _blockedEmails.push(em);
+    await saveBlockedEmails(_blockedEmails);
+    if (typeof showToast === 'function') showToast('Email ' + em + ' has been blocked.', 'success');
+    renderBlockedEmailsList();
+    return true;
+  }
+
+  async function removeBlockedEmail(email) {
+    var em = String(email || '').trim().toLowerCase();
+    await loadBlockedEmails();
+    _blockedEmails = _blockedEmails.filter(function(x) { return x !== em; });
+    await saveBlockedEmails(_blockedEmails);
+    if (typeof showToast === 'function') showToast('Email ' + em + ' has been unblocked.', 'info');
+    renderBlockedEmailsList();
+    return true;
+  }
+
+  function renderBlockedEmailsList() {
+    if (typeof document === 'undefined') return;
+    var listContainer = document.querySelector('.blocked-emails-list');
+    if (!listContainer) return;
+
+    if (!_blockedEmails || _blockedEmails.length === 0) {
+      listContainer.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:13px;"><svg class="ui-icon" style="opacity:0.5;margin-bottom:6px;width:28px;height:28px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><div style="font-weight:600;color:var(--text-secondary);">No Blocked Emails</div><div>All registered and prospective email addresses are currently allowed.</div></div>';
+      return;
+    }
+
+    var html = '';
+    _blockedEmails.forEach(function(em) {
+      var safeEm = (typeof escapeHtml === 'function') ? escapeHtml(em) : em;
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;margin-bottom:8px;font-size:13px;">' +
+        '<div style="display:flex;align-items:center;gap:10px;overflow:hidden;">' +
+          '<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.15);color:#ef4444;flex-shrink:0;">' +
+            '<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+          '</span>' +
+          '<span style="font-family:var(--font-mono,monospace);font-weight:600;color:var(--text-primary);text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">' + safeEm + '</span>' +
+        '</div>' +
+        '<button type="button" onclick="removeBlockedEmail(\'' + safeEm + '\')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Unblock this email address">' +
+          'Unblock' +
+        '</button>' +
+      '</div>';
+    });
+    listContainer.innerHTML = html;
+  }
+
+  async function openBlockedEmailsModal() {
+    if (typeof document === 'undefined') return;
+    await loadBlockedEmails();
+
+    var existingOverlay = document.querySelector('.blocked-emails-modal-overlay');
+    if (existingOverlay) {
+      existingOverlay.style.display = 'flex';
+      renderBlockedEmailsList();
+      return;
+    }
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-backdrop blocked-emails-modal-overlay';
+    overlay.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);z-index:99999;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Blocked Emails & Account Restrictions');
+
+    overlay.innerHTML =
+      '<div class="modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:16px;max-width:520px;width:100%;box-shadow:var(--shadow-modal,0 20px 40px rgba(0,0,0,0.5));overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">' +
+        '<div style="padding:18px 22px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card-subtle);">' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,0.15);color:#ef4444;display:flex;align-items:center;justify-content:center;">' +
+              '<svg style="width:20px;height:20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+            '</div>' +
+            '<div>' +
+              '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">Blocked Emails & Restrictions</div>' +
+              '<div style="font-size:11px;color:var(--text-secondary);">Block email addresses from registering accounts or logging in</div>' +
+            '</div>' +
+          '</div>' +
+          '<button type="button" onclick="closeBlockedEmailsModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1;" aria-label="Close dialog">✕</button>' +
+        '</div>' +
+        '<div style="padding:18px 22px;display:flex;gap:8px;border-bottom:1px solid var(--border-card);">' +
+          '<input type="email" class="form-input new-blocked-email-input" placeholder="Enter email to block (e.g. spam@test.com)" style="flex:1;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitAddBlockedEmail();}"/>' +
+          '<button type="button" class="submit-btn" onclick="submitAddBlockedEmail()" style="width:auto;margin:0;padding:8px 16px;font-size:13px;background:#b91c1c;color:#ffffff;border:none;white-space:nowrap;font-weight:600;">Block Email</button>' +
+        '</div>' +
+        '<div class="blocked-emails-list" style="padding:18px 22px;overflow-y:auto;flex:1;max-height:380px;">' +
+        '</div>' +
+        '<div style="padding:12px 22px;background:var(--bg-card-subtle);border-top:1px solid var(--border-card);display:flex;justify-content:flex-end;">' +
+          '<button type="button" onclick="closeBlockedEmailsModal()" class="submit-btn" style="width:auto;margin:0;padding:6px 16px;font-size:13px;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);">Done</button>' +
+        '</div>' +
+      '</div>';
+
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeBlockedEmailsModal();
+    });
+
+    document.body.appendChild(overlay);
+    renderBlockedEmailsList();
+  }
+
+  function closeBlockedEmailsModal() {
+    if (typeof document === 'undefined') return;
+    var overlay = document.querySelector('.blocked-emails-modal-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+    }
+  }
+
+  async function submitAddBlockedEmail() {
+    if (typeof document === 'undefined') return;
+    var input = document.querySelector('.new-blocked-email-input');
+    if (!input) return;
+    var ok = await addBlockedEmail(input.value);
+    if (ok) {
+      input.value = '';
+      input.focus();
+    }
+  }
+
+    // ── Window & Global Attachment ─────────────────────────────────────────────
   if (typeof global !== 'undefined') {
     global.renderAdminAuditLogs    = renderAdminAuditLogs;
     global.SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MS;
@@ -3162,6 +3398,13 @@
     global.filterRbacMembers         = filterRbacMembers;
     global.selectAllRbacPerms        = selectAllRbacPerms;
     global.saveMemberRbacPermissions = saveMemberRbacPermissions;
+    global.loadBlockedEmails         = loadBlockedEmails;
+    global.saveBlockedEmails         = saveBlockedEmails;
+    global.addBlockedEmail           = addBlockedEmail;
+    global.removeBlockedEmail        = removeBlockedEmail;
+    global.openBlockedEmailsModal    = openBlockedEmailsModal;
+    global.closeBlockedEmailsModal   = closeBlockedEmailsModal;
+    global.submitAddBlockedEmail     = submitAddBlockedEmail;
     global.setAdminViewMode          = setAdminViewMode;
     global.getAdminViewMode          = getAdminViewMode;
     global._adminMembers            = _adminMembers;
@@ -3225,6 +3468,12 @@
       filterRbacMembers: filterRbacMembers,
       selectAllRbacPerms: selectAllRbacPerms,
       saveMemberRbacPermissions: saveMemberRbacPermissions,
+      loadBlockedEmails: loadBlockedEmails,
+      saveBlockedEmails: saveBlockedEmails,
+      addBlockedEmail: addBlockedEmail,
+      removeBlockedEmail: removeBlockedEmail,
+      openBlockedEmailsModal: openBlockedEmailsModal,
+      closeBlockedEmailsModal: closeBlockedEmailsModal,
       setAdminViewMode: setAdminViewMode,
       getAdminViewMode: getAdminViewMode,
       renderAdminAuditLogs: renderAdminAuditLogs,

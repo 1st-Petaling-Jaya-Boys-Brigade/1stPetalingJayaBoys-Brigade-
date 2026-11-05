@@ -29,11 +29,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets (Cache-Busted v20261026i) -->
-<link rel="stylesheet" href="css/variables.css?v=20261105g">
-<link rel="stylesheet" href="css/base.css?v=20261105g">
-<link rel="stylesheet" href="css/nav.css?v=20261105g">
-<link rel="stylesheet" href="css/components.css?v=20261105g">
-<link rel="stylesheet" href="css/admin.css?v=20261105g">
+<link rel="stylesheet" href="css/variables.css?v=20261105h">
+<link rel="stylesheet" href="css/base.css?v=20261105h">
+<link rel="stylesheet" href="css/nav.css?v=20261105h">
+<link rel="stylesheet" href="css/components.css?v=20261105h">
+<link rel="stylesheet" href="css/admin.css?v=20261105h">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -355,7 +355,7 @@
   background: var(--surface-tint-hover) !important;
 }
 </style>
-<script src="js/core/theme.js?v=20261105g"></script>
+<script src="js/core/theme.js?v=20261105h"></script>
 </head>
 <body>
 
@@ -2189,6 +2189,10 @@
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Member
           </button>
+          <button type="button" class="submit-btn btn-with-icon btn-blocked-emails" onclick="openBlockedEmailsModal()" style="width:auto;padding:10px 16px;margin-top:0;font-size:13px;white-space:nowrap;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);" title="Manage Blocked Emails">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            Blocked Emails
+          </button>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
           <span style="font-size:11px;color:var(--text-muted);align-self:center;margin-right:2px;font-weight:700;letter-spacing:0.5px;">Sort:</span>
@@ -3238,27 +3242,27 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261105g"></script>
-<script src="js/api/supabase.js?v=20261105g"></script>
-<script src="js/core/session.js?v=20261105g"></script>
-<script src="js/core/rbac.js?v=20261105g"></script>
-<script src="js/core/utils.js?v=20261105g"></script>
-<script src="js/core/ui.js?v=20261105g"></script>
-<script src="js/core/loading.js?v=20261105g"></script>
-<script src="js/modules/member.js?v=20261105g"></script>
-<script src="js/api/sheets.js?v=20261105g"></script>
-<script src="js/modules/attendance.js?v=20261105g"></script>
-<script src="js/modules/announcements.js?v=20261105g"></script>
-<script src="js/modules/gallery.js?v=20261105g"></script>
-<script src="js/modules/resources.js?v=20261105g"></script>
-<script src="js/modules/calendar.js?v=20261105g"></script>
-<script src="js/modules/orders.js?v=20261105g"></script>
-<script src="js/modules/forms.js?v=20261105g"></script>
-<script src="js/modules/badges.js?v=20261105g"></script>
-<script src="js/modules/tasks.js?v=20261105g"></script>
-<script src="js/modules/admin.js?v=20261105g"></script>
-<script src="js/modules/forum.js?v=20261105g"></script>
-<script src="js/modules/arcade.js?v=20261105g"></script>
+<script src="js/config.js?v=20261105h"></script>
+<script src="js/api/supabase.js?v=20261105h"></script>
+<script src="js/core/session.js?v=20261105h"></script>
+<script src="js/core/rbac.js?v=20261105h"></script>
+<script src="js/core/utils.js?v=20261105h"></script>
+<script src="js/core/ui.js?v=20261105h"></script>
+<script src="js/core/loading.js?v=20261105h"></script>
+<script src="js/modules/member.js?v=20261105h"></script>
+<script src="js/api/sheets.js?v=20261105h"></script>
+<script src="js/modules/attendance.js?v=20261105h"></script>
+<script src="js/modules/announcements.js?v=20261105h"></script>
+<script src="js/modules/gallery.js?v=20261105h"></script>
+<script src="js/modules/resources.js?v=20261105h"></script>
+<script src="js/modules/calendar.js?v=20261105h"></script>
+<script src="js/modules/orders.js?v=20261105h"></script>
+<script src="js/modules/forms.js?v=20261105h"></script>
+<script src="js/modules/badges.js?v=20261105h"></script>
+<script src="js/modules/tasks.js?v=20261105h"></script>
+<script src="js/modules/admin.js?v=20261105h"></script>
+<script src="js/modules/forum.js?v=20261105h"></script>
+<script src="js/modules/arcade.js?v=20261105h"></script>
 
 <script>
 
@@ -4051,8 +4055,7 @@ function syncTaskNotifications(tasks) {
     hasDept = window.hasDepartmentRole();
   } else if (typeof sessionGet === 'function') {
     var sDept = sessionGet('department');
-    var sRank = sessionGet('rank');
-    hasDept = !!(sDept || (sRank && ['Officer', 'Lieutenant', 'Captain', 'Chaplain'].indexOf(sRank) !== -1));
+    hasDept = !!(sDept && sDept.toLowerCase() !== 'none');
   }
   if (!hasDept) return;
 
