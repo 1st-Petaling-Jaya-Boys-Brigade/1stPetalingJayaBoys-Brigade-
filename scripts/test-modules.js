@@ -9331,6 +9331,94 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
 
+  // ── [TEST] Observability, Audit Logging & Privacy Redaction ──────
+  {
+    console.log('\n[TEST] Observability, Audit Logging & Privacy Redaction...');
+
+    const utilsMod = require('../js/core/utils.js');
+    assert.strictEqual(typeof utilsMod.logAuditEvent, 'function', 'logAuditEvent must be exported');
+    assert.strictEqual(typeof utilsMod.getAuditLogs, 'function', 'getAuditLogs must be exported');
+
+    // 1. Automated Privacy Redaction Test
+    const sensitiveDetails = {
+      password: 'PlaintextSuperSecretPassword123!',
+      session_token: 'jwt.token.secret123',
+      otp_code: '849201',
+      secret_key: 'sk_live_secretkey999',
+      credential_hash: 'sha256:abc12345',
+      safe_param: 'General Public Action'
+    };
+
+    const auditRes = await utilsMod.logAuditEvent({
+      action: 'admin.sensitive_test',
+      targetType: 'member',
+      targetId: 'member@pjbb.org',
+      actorId: 'admin@pjbb.org',
+      actorRole: 'officer_admin',
+      details: sensitiveDetails
+    });
+
+    assert.ok(auditRes && auditRes.success, 'logAuditEvent must succeed');
+    assert.strictEqual(auditRes.entry.details.password, '[REDACTED]', 'Passwords must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.session_token, '[REDACTED]', 'Tokens must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.otp_code, '[REDACTED]', 'OTP codes must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.secret_key, '[REDACTED]', 'Secret keys must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.credential_hash, '[REDACTED]', 'Credential hashes must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.safe_param, 'General Public Action', 'Safe parameters must be preserved');
+    console.log('  ✔ Automated privacy redaction of passwords, tokens, OTPs, and secrets verified');
+
+    // 2. Audit Trail Structure & Field Completeness
+    assert.ok(auditRes.entry.id, 'Audit entry must have a unique ID');
+    assert.ok(auditRes.entry.timestamp, 'Audit entry must have an ISO timestamp');
+    assert.strictEqual(auditRes.entry.action, 'admin.sensitive_test');
+    assert.strictEqual(auditRes.entry.actor_id, 'admin@pjbb.org');
+    assert.strictEqual(auditRes.entry.actor_role, 'officer_admin');
+    assert.strictEqual(auditRes.entry.target_type, 'member');
+    assert.strictEqual(auditRes.entry.target_id, 'member@pjbb.org');
+    console.log('  ✔ Audit log entry schema (actor, role, action, target, timestamp, details) verified');
+
+    // 3. getAuditLogs query filtering
+    const queriedLogs = await utilsMod.getAuditLogs({ action: 'admin.sensitive_test' });
+    assert.ok(queriedLogs && queriedLogs.success && queriedLogs.logs.length > 0, 'getAuditLogs must return logged events');
+    assert.strictEqual(queriedLogs.logs[0].details.password, '[REDACTED]', 'Queried logs must maintain redacted details');
+    console.log('  ✔ getAuditLogs query filtering and ledger retrieval verified');
+
+    // 4. Verification that debug clutter is eliminated from production code
+    const memberCode = fs.readFileSync(path.join(__dirname, '../js/modules/member.js'), 'utf8');
+    assert.ok(!memberCode.includes("console.log('[1st PJ BB Verification Code]"), 'member.js must NOT log plaintext verification codes to console');
+    assert.ok(!memberCode.includes('DEBUG: client.rpc'), 'member.js must NOT contain leftover DEBUG: client.rpc log');
+    assert.ok(memberCode.includes('auth.verification_code_generated'), 'member.js must log privacy-safe verification audit event');
+    assert.ok(memberCode.includes('auth.login_success'), 'member.js must audit successful logins');
+    assert.ok(memberCode.includes('auth.login_failed'), 'member.js must audit failed logins');
+    assert.ok(memberCode.includes('member.register'), 'member.js must audit member registrations');
+    assert.ok(memberCode.includes('auth.password_reset'), 'member.js must audit password resets');
+    console.log('  ✔ Debug clutter eliminated and member auth/registration audit trail verified');
+
+    // 5. Verification that admin lifecycle and deletions are audited
+    const adminCode = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
+    assert.ok(adminCode.includes('admin.login_success'), 'admin.js must audit successful admin logins');
+    assert.ok(adminCode.includes('admin.login_failed'), 'admin.js must audit failed admin logins');
+    assert.ok(adminCode.includes('admin.logout'), 'admin.js must audit admin logouts');
+    assert.ok(adminCode.includes('member.create'), 'admin.js must audit member creations');
+    assert.ok(adminCode.includes('member.update'), 'admin.js must audit member updates');
+    assert.ok(adminCode.includes('member.delete'), 'admin.js must audit member deletions');
+    console.log('  ✔ Admin console login, logout, member creation, update, and deletion audits verified');
+
+    // 6. Verification that Sheets, Resources, and Gallery actions are audited
+    const sheetsCode = fs.readFileSync(path.join(__dirname, '../js/api/sheets.js'), 'utf8');
+    assert.ok(sheetsCode.includes('sheets.config_update'), 'sheets.js must audit config updates');
+    assert.ok(sheetsCode.includes('sheets.export_sync'), 'sheets.js must audit attendance export/sync');
+
+    const resCode = fs.readFileSync(path.join(__dirname, '../js/modules/resources.js'), 'utf8');
+    assert.ok(resCode.includes('resource.upload'), 'resources.js must audit document uploads');
+    assert.ok(resCode.includes('resource.update'), 'resources.js must audit document updates');
+    assert.ok(resCode.includes('resource.delete'), 'resources.js must audit document deletions');
+
+    const galCode = fs.readFileSync(path.join(__dirname, '../js/modules/gallery.js'), 'utf8');
+    assert.ok(galCode.includes('gallery.delete'), 'gallery.js must audit media deletions');
+    console.log('  ✔ Google Sheets sync, document repository, and media deletion audits verified');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

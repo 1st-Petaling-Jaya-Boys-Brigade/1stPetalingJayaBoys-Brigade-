@@ -545,6 +545,16 @@
   }
 
   function logoutAdmin() {
+    var currentOfficer = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'admin';
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'admin.logout',
+        targetType: 'admin_session',
+        targetId: currentOfficer,
+        actorId: currentOfficer,
+        actorRole: 'officer_admin'
+      });
+    }
     var token = getAdminSessionToken();
     var client = getSupabaseClient();
     if (token && client && typeof client.rpc === 'function') {
@@ -656,12 +666,32 @@
           initAdminDomGuard();
           backToAdminHome();
 
+          if (typeof logAuditEvent === 'function') {
+            logAuditEvent({
+              action: 'admin.login_success',
+              targetType: 'admin_auth',
+              targetId: officerEmail || 'admin',
+              actorId: officerEmail || 'admin',
+              actorRole: 'officer_admin',
+              details: { rank: officerRank }
+            });
+          }
           if (typeof renderGallery === 'function') renderGallery();
           if (typeof renderAnnouncements === 'function') renderAnnouncements();
           if (typeof loadResources === 'function') loadResources();
           if (typeof initCalendarModule === 'function') initCalendarModule();
           return true;
         } else if (rpcAuth && rpcAuth.success === false) {
+          if (typeof logAuditEvent === 'function') {
+            logAuditEvent({
+              action: 'admin.login_failed',
+              targetType: 'admin_auth',
+              targetId: officerEmail || 'admin',
+              actorId: officerEmail || 'admin',
+              actorRole: 'anonymous',
+              details: { reason: 'invalid_credentials' }
+            });
+          }
           _adminLoginFailures++;
           if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
             var lockoutMs = Math.min(
@@ -1859,6 +1889,15 @@
             joined_at: joined_at || new Date().toISOString()
           });
         }
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'member.create',
+            targetType: 'member',
+            targetId: ic,
+            actorRole: 'officer_admin',
+            details: { name: name, rank: rank, squad: squad, department: department, section: att_section }
+          });
+        }
         if (typeof showToast === 'function') {
           showToast('✅ Member added! Default password is: ' + ic, 'success', 5000);
         }
@@ -1893,6 +1932,15 @@
           if (joined_at)     baseUpdates.joined_at     = joined_at;
           if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
           await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
+        }
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'member.update',
+            targetType: 'member',
+            targetId: originalIc || ic,
+            actorRole: 'officer_admin',
+            details: { name: name, rank: rank, squad: squad, department: department, section: att_section }
+          });
         }
         if (typeof showToast === 'function') showToast('Member updated!', 'success');
       }
@@ -2133,6 +2181,15 @@
         }
       }
 
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'member.delete',
+          targetType: 'member',
+          targetId: ic,
+          actorRole: 'officer_admin',
+          details: { name: name || display }
+        });
+      }
       closeEditMember();
       await renderAdminList();
       if (typeof showToast === 'function') {

@@ -641,6 +641,15 @@ async function deleteGalleryImage(idx, rowId) {
         }
       }
     }
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'gallery.delete',
+        targetType: 'gallery',
+        targetId: rowId ? String(rowId) : (url || 'photo'),
+        actorRole: 'officer_admin',
+        details: { url: url }
+      });
+    }
     if (typeof showToast === 'function') {
       showToast('Media deleted successfully.', 'success');
     }

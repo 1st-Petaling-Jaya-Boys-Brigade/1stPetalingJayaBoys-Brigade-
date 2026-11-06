@@ -750,6 +750,15 @@ async function addOrUpdateResource() {
         item.updatedAt = new Date().toISOString().split('T')[0];
       }
       await saveResources(resources);
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'resource.update',
+          targetType: 'resource',
+          targetId: editId,
+          actorRole: 'officer_admin',
+          details: { title: title, category: cat, visibility: vis }
+        });
+      }
       if (typeof showToast === 'function') showToast('Document updated successfully!', 'success');
     } else {
       var newRes = {
@@ -765,6 +774,15 @@ async function addOrUpdateResource() {
       };
       resources.unshift(newRes);
       await saveResources(resources);
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'resource.upload',
+          targetType: 'resource',
+          targetId: newRes.id,
+          actorRole: 'officer_admin',
+          details: { title: title, category: cat, visibility: vis }
+        });
+      }
       if (typeof showToast === 'function') showToast('✓ Document uploaded and published successfully!', 'success');
     }
 
@@ -914,6 +932,15 @@ async function deleteResource(id) {
   try {
     var updated = resources.filter(function(r) { return r.id !== id; });
     await saveResources(updated);
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'resource.delete',
+        targetType: 'resource',
+        targetId: id,
+        actorRole: 'officer_admin',
+        details: { title: item.title }
+      });
+    }
     if (typeof showToast === 'function') showToast('Resource deleted.', 'success');
   } catch (err) {
     console.error('deleteResource error:', err);

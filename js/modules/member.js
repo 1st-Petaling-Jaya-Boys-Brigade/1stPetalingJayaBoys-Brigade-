@@ -685,7 +685,17 @@ async function dispatchVerificationEmail(email, name, code) {
 
 
 
-  console.log('[1st PJ BB Verification Code] Code ' + code + ' generated for ' + cleanEmail + ' (hasMailer: ' + hasMailer + ')');
+  // Privacy-safe masked verification audit log (zero plaintext code or unmasked PII in console)
+  var maskedEmail = cleanEmail ? cleanEmail.replace(/^([^@]{1,3})[^@]*(@.*)$/, '$1***$2') : 'unknown';
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'auth.verification_code_generated',
+      targetType: 'auth',
+      targetId: maskedEmail,
+      actorRole: 'anonymous',
+      details: { hasMailer: hasMailer }
+    });
+  }
   return { hasMailer: hasMailer, code: code };
 }
 
@@ -1531,6 +1541,22 @@ async function finalizeMemberRegistration(data) {
     photo_url: ''
   };
 
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'member.register',
+      targetType: 'member',
+      targetId: data.ic,
+      actorId: data.ic,
+      actorRole: data.rank || 'member',
+      details: {
+        name: data.name,
+        section: data.section,
+        rank: data.rank,
+        isMinor: !!data.isMinor
+      }
+    });
+  }
+
   // Immediate Auto-Login on completed registration (eliminates extra login step)
   if (typeof completeLoginWithAccount === 'function') {
     completeLoginWithAccount(accountData, rememberMe);
@@ -1732,6 +1758,15 @@ async function loginMember() {
                 rpcAttemptsLeft = recRes.attempts_remaining;
               }
             }
+            if (typeof logAuditEvent === 'function') {
+              logAuditEvent({
+                action: 'auth.login_failed',
+                targetType: 'auth',
+                targetId: queryEmail,
+                actorRole: 'anonymous',
+                details: { reason: 'invalid_credentials', method: 'rpc' }
+              });
+            }
             if (typeof showToast === 'function') {
               var rpcMsg = rpcAttemptsLeft > 0
                 ? ('Incorrect password! You have ' + rpcAttemptsLeft + ' attempt' + (rpcAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
@@ -1744,8 +1779,6 @@ async function loginMember() {
       } catch (rpcErr) {
         console.warn('RPC auth fallback to direct verification:', rpcErr);
       }
-    } else {
-      console.log('DEBUG: client.rpc is not a function. client is:', client ? typeof client.rpc : 'null');
     }
 
     if (!loginSuccess) {
@@ -1778,6 +1811,15 @@ async function loginMember() {
             directAttemptsLeft = directRec.attempts_remaining;
           }
         }
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'auth.login_failed',
+            targetType: 'auth',
+            targetId: queryEmail,
+            actorRole: 'anonymous',
+            details: { reason: 'invalid_credentials', method: 'direct' }
+          });
+        }
         if (typeof showToast === 'function') {
           var directMsg = directAttemptsLeft > 0
             ? ('Incorrect password! You have ' + directAttemptsLeft + ' attempt' + (directAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
@@ -1801,7 +1843,15 @@ async function loginMember() {
           for (var k = 0; k < accounts.length; k++) {
             await client.patch('bb_members?ic=eq.' + encodeURIComponent(accounts[k].ic), { password: upgradedHash });
           }
-          console.log('Seamlessly upgraded member credentials to PBKDF2/SHA-256');
+          if (typeof logAuditEvent === 'function') {
+            logAuditEvent({
+              action: 'auth.credential_migrated',
+              targetType: 'member',
+              targetId: accounts && accounts[0] ? accounts[0].ic : 'member',
+              actorRole: 'system',
+              details: { algorithm: 'PBKDF2-SHA256' }
+            });
+          }
         } catch (upgErr) {
           console.warn('Password upgrade note:', upgErr);
         }
@@ -1810,6 +1860,17 @@ async function loginMember() {
       // Reset lockout counters on successful login via RPC
       _authFailures.count = 0;
       _authFailures.lockedUntil = 0;
+    }
+
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'auth.login_success',
+        targetType: 'auth',
+        targetId: queryEmail,
+        actorId: queryEmail,
+        actorRole: (accounts && accounts[0] && accounts[0].rank) || 'member',
+        details: { multi_account: accounts.length > 1 }
+      });
     }
 
     var rememberEl = document.getElementById('login-remember');
@@ -4945,6 +5006,16 @@ async function verifyResetCodeAndSetPassword() {
       } catch (e) {}
     }
 
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'auth.password_reset',
+        targetType: 'member',
+        targetId: email,
+        actorId: email,
+        actorRole: 'member',
+        details: { method: rpcResetSuccess ? 'rpc' : 'direct_otp' }
+      });
+    }
     if (typeof showToast === 'function') showToast('Password reset successfully! You can now log in with your new password.', 'success');
 
     // Clear forgot form
