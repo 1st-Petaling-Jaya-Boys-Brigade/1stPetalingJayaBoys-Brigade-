@@ -9332,6 +9332,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
 
   // =========================================================================
+  // =========================================================================
   // Application Security Audit, Vulnerability Remediation & Boundary Defenses
   // =========================================================================
   try {
@@ -9393,6 +9394,69 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   } catch (err) {
     console.error('AppSec Hardening Test Failed:', err);
+    process.exit(1);
+  }
+
+  // =========================================================================
+  // Data Integrity, Request Locking & Network Resilience
+  // =========================================================================
+  try {
+    console.log('\n[TEST] Data Integrity, Request Locking & Network Resilience...');
+
+    // 1. Optimistic Rollback in Resources Module on Server Network Failure
+    const resModule = require('../js/modules/resources.js');
+    resModule.resources.length = 0;
+    resModule.resources.push({
+      id: 'res-integrity-1',
+      title: 'Company Handbook 2026',
+      category: 'Handbooks & Manuals',
+      visibility: 'all',
+      url: 'https://example.com/handbook.pdf'
+    });
+
+    // Mock failing Supabase endpoints
+    const savedSupa = global.supa;
+    global.supa = {
+      req: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); },
+      patch: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); },
+      post: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); }
+    };
+
+    let toastMessage = '';
+    global.showToast = (msg) => { toastMessage = msg; };
+    global.showConfirmModal = async () => true;
+
+    await resModule.deleteResource('res-integrity-1');
+    assert.strictEqual(resModule.resources.length, 1, 'deleteResource must restore in-memory resource on server failure');
+    assert.strictEqual(resModule.resources[0].id, 'res-integrity-1', 'Resource snapshot must be preserved after network rollback');
+    assert.ok(toastMessage.includes('Failed to delete resource'), 'User must be notified of network failure');
+    console.log('  ✔ deleteResource performs optimistic rollback and user notification upon database failure');
+
+    // 2. Badges Cache Rollback & Error Propagation
+    const badgesModule = require('../js/modules/badges.js');
+    global.getSupaClient = () => ({
+      get: async () => { throw new Error('Simulated database disconnect'); }
+    });
+
+    global._memberBadgesCache = {
+      'audit@bb1pj.my': { 'target-badge': { basicDate: '2026-01-01' } }
+    };
+
+    let caughtBadgesError = false;
+    try {
+      await badgesModule.upsertMemberBadges('audit@bb1pj.my', { 'target-badge': { basicDate: '2026-11-06' } });
+    } catch (e) {
+      caughtBadgesError = true;
+    }
+    assert.ok(caughtBadgesError, 'upsertMemberBadges must rethrow error on failure');
+    assert.strictEqual(global._memberBadgesCache['audit@bb1pj.my']['target-badge'].basicDate, '2026-01-01', 'Badge cache must roll back to previous snapshot');
+    console.log('  ✔ upsertMemberBadges rolls back cache snapshot and propagates errors');
+
+    // Restore supa mock
+    global.supa = savedSupa;
+
+  } catch (err) {
+    console.error('Data Integrity Test Failed:', err);
     process.exit(1);
   }
 

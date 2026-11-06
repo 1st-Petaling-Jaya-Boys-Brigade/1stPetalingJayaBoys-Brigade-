@@ -495,8 +495,15 @@ function openGalleryLightbox(idx) {
  * Shared file uploader for gallery photos and videos (file input and drag-and-drop)
  * @param {FileList|File[]} files
  */
+var _isUploadingGallery = false;
+
 async function uploadGalleryFiles(files) {
   if (!files || !files.length) return;
+  if (_isUploadingGallery) {
+    if (typeof showToast === 'function') showToast('Media upload already in progress. Please wait.', 'warning');
+    return;
+  }
+  _isUploadingGallery = true;
   var validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'heic', 'mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'];
 
   var validFiles = Array.from(files).filter(function(f) {
@@ -589,6 +596,7 @@ async function uploadGalleryFiles(files) {
       showToast('Upload failed: ' + (lastUploadError || 'Please check storage bucket permissions.'), 'error');
     }
   }
+  _isUploadingGallery = false;
 }
 
 /**
