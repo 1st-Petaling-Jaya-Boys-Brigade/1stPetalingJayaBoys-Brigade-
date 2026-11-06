@@ -9230,6 +9230,39 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(geminiModelCalled, 'gemini-2.0-flash', 'Gemini API call must target gemini-2.0-flash');
     assert.ok(geminiActiveResponse.text.includes('AI mentor for 1st PJ'), 'Must return intelligent Gemini response');
     console.log('  ✔ Google Gemini API Free Tier integration, credential isolation, and offline fallback verified');
+    // 9. Dynamic Model Discovery (ListModels) & Active Model State
+    assert.strictEqual(typeof forumModule.listAvailableGeminiModels, 'function', 'listAvailableGeminiModels must be exported');
+    assert.strictEqual(typeof forumModule.getActiveGeminiModel, 'function', 'getActiveGeminiModel must be exported');
+    assert.strictEqual(typeof forumModule.setActiveGeminiModel, 'function', 'setActiveGeminiModel must be exported');
+
+    // Test model discovery mock
+    global.fetch = async (url) => {
+      if (url.includes('/models?key=')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            models: [
+              { name: 'models/gemini-1.5-pro', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/gemini-2.0-flash', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] }
+            ]
+          })
+        };
+      }
+      return { ok: false, status: 404 };
+    };
+
+    const discoveryRes = await forumModule.listAvailableGeminiModels('AIzaSyTestDiscoveryKey');
+    global.fetch = origFetch;
+    assert.ok(discoveryRes.ok, 'listAvailableGeminiModels must resolve successfully');
+    assert.strictEqual(discoveryRes.models.length, 2, 'Must filter only generateContent models');
+    assert.strictEqual(discoveryRes.models[0].id, 'gemini-2.0-flash', 'Must prioritize gemini-2.0-flash over gemini-1.5-pro');
+
+    forumModule.setActiveGeminiModel('gemini-2.0-flash', 'v1beta');
+    assert.strictEqual(forumModule.getActiveGeminiModel(), 'gemini-2.0-flash', 'setActiveGeminiModel persists model ID');
+    forumModule.setActiveGeminiModel('', 'v1beta');
+    console.log('  ✔ ModelService.ListModels dynamic discovery and priority ranking verified');
 
     // ── Arcade Streaks, Dynamic Leaderboards, Squad Podium & Image Recovery ───
     console.log('\n[TEST] Arcade Streaks, Dynamic Leaderboards, Squad Podium & Image Recovery...');
