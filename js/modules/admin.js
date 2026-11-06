@@ -986,7 +986,9 @@
 
   function calcAge(dob) {
     if (!dob) return null;
-    return new Date().getFullYear() - new Date(dob).getFullYear();
+    var d = new Date(dob);
+    if (isNaN(d.getTime())) return null;
+    return new Date().getFullYear() - d.getFullYear();
   }
 
   function setAdminSort(by) {
