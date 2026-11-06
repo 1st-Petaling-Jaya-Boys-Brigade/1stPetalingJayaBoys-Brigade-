@@ -614,7 +614,18 @@
     }
 
     var img = modal.querySelector('.ann-zoom-img');
-    if (img) img.src = imageUrl;
+    if (img) {
+      img._hasRetried = false;
+      img.style.display = 'block';
+      img.setAttribute('data-original-url', imageUrl);
+      img.onerror = function() {
+        var errFn = (typeof window !== 'undefined' && typeof window.handleAnnouncementImageError === 'function')
+          ? window.handleAnnouncementImageError
+          : (typeof global !== 'undefined' && typeof global.handleAnnouncementImageError === 'function' ? global.handleAnnouncementImageError : null);
+        if (errFn) errFn(img, imageUrl);
+      };
+      img.src = imageUrl;
+    }
     var cap = modal.querySelector('.ann-zoom-caption');
     if (cap) cap.textContent = title || 'Announcement Infographic';
     modal.style.display = 'flex';

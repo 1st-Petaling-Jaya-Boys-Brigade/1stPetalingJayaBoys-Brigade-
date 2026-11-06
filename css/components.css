@@ -10493,3 +10493,195 @@ select.form-input,
   padding: 5px 8px;
   font-size: 11px;
 }
+
+
+/* ── Leaderboard Podium Component (Arcade & Squad Standings) ─────────── */
+.leaderboard-podium-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 14px;
+  margin: 16px auto 26px;
+  padding: 10px 8px 0;
+  max-width: 620px;
+  width: 100%;
+}
+
+.podium-column {
+  flex: 1;
+  max-width: 170px;
+  min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.podium-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.podium-name {
+  font-family: var(--font-headline, system-ui);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  padding: 0 4px;
+}
+
+.podium-avatar-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.podium-avatar {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.podium-rank-badge {
+  position: absolute;
+  bottom: -6px;
+  right: -4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  border: 2px solid var(--bg-surface, #1e293b);
+}
+
+.podium-step {
+  width: 100%;
+  border-radius: 12px 12px 4px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 12px 8px 8px;
+  box-sizing: border-box;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.podium-step:hover {
+  transform: translateY(-2px);
+}
+
+.podium-step-1 {
+  height: 135px;
+  background: linear-gradient(180deg, rgba(245, 197, 66, 0.22) 0%, rgba(245, 197, 66, 0.06) 100%);
+  border: 1.5px solid rgba(245, 197, 66, 0.5);
+  box-shadow: 0 0 20px rgba(245, 197, 66, 0.15);
+}
+
+.podium-step-2 {
+  height: 105px;
+  background: linear-gradient(180deg, rgba(160, 174, 192, 0.2) 0%, rgba(160, 174, 192, 0.05) 100%);
+  border: 1.5px solid rgba(160, 174, 192, 0.4);
+}
+
+.podium-step-3 {
+  height: 80px;
+  background: linear-gradient(180deg, rgba(205, 127, 50, 0.2) 0%, rgba(205, 127, 50, 0.05) 100%);
+  border: 1.5px solid rgba(205, 127, 50, 0.4);
+}
+
+.podium-step-num {
+  font-family: var(--font-headline, system-ui);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.podium-step-1 .podium-step-num {
+  color: var(--brand-gold, #f5c542);
+}
+
+.podium-step-2 .podium-step-num {
+  color: #cbd5e1;
+}
+
+.podium-step-3 .podium-step-num {
+  color: #f97316;
+}
+
+.podium-step-val {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-secondary, #94a3b8);
+  margin-top: 2px;
+}
+
+/* ── Arcade Leaderboard List ─────────────────────────────────────────── */
+.arcade-leaderboard-card {
+  background: var(--bg-surface, #111827);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.arcade-leaderboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: var(--bg-card, #182234);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+  transition: background 0.15s ease;
+}
+
+.arcade-leaderboard-row:hover {
+  background: var(--surface-tint, rgba(255, 255, 255, 0.04));
+}
+
+.arcade-leaderboard-row.row-current-user {
+  border: 1.5px solid var(--accent, #f5c542);
+  background: rgba(245, 197, 66, 0.08);
+}
+
+.arcade-leaderboard-rank {
+  font-size: 13px;
+  font-weight: 800;
+  min-width: 32px;
+  color: var(--text-muted, #94a3b8);
+}
+
+.arcade-leaderboard-row.row-current-user .arcade-leaderboard-rank {
+  color: var(--accent, #f5c542);
+}
+
+.arcade-leaderboard-ellipsis {
+  text-align: center;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 6px;
+  padding: 8px 0;
+  user-select: none;
+}

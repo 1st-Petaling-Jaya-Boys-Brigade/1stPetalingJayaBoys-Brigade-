@@ -108,6 +108,52 @@ async function syncAnnouncementImageConfig(annId, imgUrl) {
   } catch (_) {}
 }
 
+async function handleAnnouncementImageError(imgEl, optUrl) {
+  if (!imgEl || imgEl._hasRetried) return;
+  imgEl._hasRetried = true;
+  var targetUrl = optUrl || imgEl.getAttribute('data-original-url') || imgEl.src;
+  if (!targetUrl) return;
+
+  if (targetUrl.includes('/storage/v1/object/')) {
+    var sm = targetUrl.match(/\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/([^?#]+)/i);
+    if (sm) {
+      var sBucket = sm[1];
+      var sPath = decodeURIComponent(sm[2]);
+      var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
+      var base = (client && (client.SUPA_URL || client.baseUrl)) || (typeof window !== 'undefined' && window.SUPA_URL) || '';
+
+      // 1. Try permanent public storage endpoint
+      if (base) {
+        var pubUrl = base + '/storage/v1/object/public/' + sBucket + '/' + sPath;
+        if (imgEl.src !== pubUrl) {
+          imgEl.src = pubUrl;
+          return;
+        }
+      }
+
+      // 2. Try re-signing with Supabase client
+      if (client && typeof client.createSignedUrl === 'function') {
+        try {
+          var res = await client.createSignedUrl(sBucket, sPath, 86400 * 7);
+          if (res && res.signedUrl && imgEl.src !== res.signedUrl) {
+            imgEl.src = res.signedUrl;
+            return;
+          }
+        } catch (_) {}
+      }
+    }
+  }
+
+  // Graceful fallback notice if media file is genuinely missing
+  imgEl.style.display = 'none';
+  if (imgEl.parentElement && imgEl.parentElement.classList.contains('ann-infographic-container')) {
+    var placeholder = document.createElement('div');
+    placeholder.style.cssText = 'padding:14px;background:var(--surface-tint);border-radius:8px;font-size:12px;color:var(--text-muted);text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;';
+    placeholder.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Attachment preview unavailable</span>';
+    imgEl.parentElement.appendChild(placeholder);
+  }
+}
+
 function clearAnnouncementInfographic() {
   _stagedAnnouncementImage = null;
   if (typeof document === 'undefined') return;
@@ -247,17 +293,34 @@ async function loadAnnouncements() {
       var rows = await supa.get('bb_announcements?order=created_at.asc&select=*');
       announcements.length = 0;
       if (rows && rows.length) {
-        rows.forEach(function(r) {
+        for (var rIdx = 0; rIdx < rows.length; rIdx++) {
+          var r = rows[rIdx];
           if (!r.reactions || typeof r.reactions !== 'object') r.reactions = {};
           // Resilient 3-tier infographic recovery: column -> bb_config map -> embedded body marker
           var cfgImg = (annImageMap && r.id && annImageMap[r.id]) ? annImageMap[r.id] : null;
           var bodyMatch = (r.body || '').match(/data-infographic-url=["']([^"']+)["']/i) || (r.body || '').match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
           var resolvedImg = r.image_url || cfgImg || (bodyMatch ? (bodyMatch[1] || bodyMatch[2]) : null);
           if (resolvedImg) {
+            // Live signed URL refresh if image is stored in Supabase storage
+            if (resolvedImg.includes('/storage/v1/object/')) {
+              var sm = resolvedImg.match(/\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/([^?#]+)/i);
+              if (sm) {
+                var sBucket = sm[1];
+                var sPath = decodeURIComponent(sm[2]);
+                try {
+                  if (typeof supa.createSignedUrl === 'function') {
+                    var sRes = await supa.createSignedUrl(sBucket, sPath, 86400 * 7);
+                    if (sRes && sRes.signedUrl) {
+                      resolvedImg = sRes.signedUrl;
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
             r.image_url = resolvedImg;
           }
           announcements.push(r);
-        });
+        }
       }
     }
   };
@@ -346,7 +409,7 @@ function renderAnnouncements() {
       var safeImgUrl = (typeof safeUrl === 'function') ? safeUrl(imgUrl, '') : imgUrl;
       if (safeImgUrl) {
         infographicHtml = '<div class="ann-infographic-container" data-ann-img-idx="' + realIdx + '" title="Click to enlarge infographic">'
-          + '<img class="ann-infographic-img" src="' + safeImgUrl + '" alt="' + safeTitle + '" loading="lazy" />'
+          + '<img class="ann-infographic-img" src="' + safeImgUrl + '" alt="' + safeTitle + '" loading="lazy" data-original-url="' + safeImgUrl + '" onerror="handleAnnouncementImageError(this)" />'
           + '<div class="ann-infographic-zoom-overlay">'
           + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>'
           + '<span>Click to enlarge</span>'
@@ -953,6 +1016,7 @@ if (typeof window !== 'undefined') {
   window.handleAnnouncementImageUrlInput  = handleAnnouncementImageUrlInput;
   window.updateAnnouncementInfographicPreview = updateAnnouncementInfographicPreview;
   window.clearAnnouncementInfographic     = clearAnnouncementInfographic;
+  window.handleAnnouncementImageError     = handleAnnouncementImageError;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -983,5 +1047,6 @@ if (typeof module !== 'undefined' && module.exports) {
     handleAnnouncementImageUrlInput: handleAnnouncementImageUrlInput,
     updateAnnouncementInfographicPreview: updateAnnouncementInfographicPreview,
     clearAnnouncementInfographic: clearAnnouncementInfographic,
+    handleAnnouncementImageError: handleAnnouncementImageError
   };
 }
