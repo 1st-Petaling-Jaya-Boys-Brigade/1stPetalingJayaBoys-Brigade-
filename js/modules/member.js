@@ -547,44 +547,47 @@ async function findMembersByEmail(rawEmail) {
 
   var memberMap = new Map();
 
-  // 1. Query by exact ic = email
-  try {
-    var rows1 = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*');
-    if (rows1 && rows1.length) {
-      rows1.forEach(function(r) { memberMap.set(r.ic, r); });
-    }
-  } catch (e) {}
+  var cfgKey = 'bb_family_' + email.replace(/[^a-zA-Z0-9]/g, '_');
 
-  // 2. Query by email column = email
+  // Parallelize member discovery queries (exact ic, email column, prefix wildcard, and family config)
   try {
-    var rows2 = await client.get('bb_members?email=eq.' + encodeURIComponent(email) + '&select=*');
-    if (rows2 && rows2.length) {
-      rows2.forEach(function(r) { memberMap.set(r.ic, r); });
-    }
-  } catch (e) {}
+    var results = await Promise.allSettled([
+      client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*'),
+      client.get('bb_members?email=eq.' + encodeURIComponent(email) + '&select=*'),
+      client.get('bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=*'),
+      client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value')
+    ]);
 
-  // 3. Query by ic like email__*
-  try {
-    var rows3 = await client.get('bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=*');
-    if (rows3 && rows3.length) {
-      rows3.forEach(function(r) { memberMap.set(r.ic, r); });
+    if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) {
+      results[0].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
     }
-  } catch (e) {}
+    if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
+      results[1].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
+    }
+    if (results[2].status === 'fulfilled' && Array.isArray(results[2].value)) {
+      results[2].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
+    }
 
-  // 4. Query bb_config for family records under bb_family_<cleanEmail>
-  try {
-    var cfgKey = 'bb_family_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-    var cfgRows = await client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value');
-    if (cfgRows && cfgRows.length && cfgRows[0].value) {
-      var famData = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
-      if (famData && Array.isArray(famData.members)) {
-        for (var i = 0; i < famData.members.length; i++) {
-          var fIc = famData.members[i].ic;
-          if (fIc && !memberMap.has(fIc)) {
-            try {
-              var memRows = await client.get('bb_members?ic=eq.' + encodeURIComponent(fIc) + '&select=*');
-              if (memRows && memRows.length) memberMap.set(fIc, memRows[0]);
-            } catch (err2) {}
+    // Process family records
+    if (results[3].status === 'fulfilled') {
+      var cfgRows = results[3].value;
+      if (cfgRows && cfgRows.length && cfgRows[0].value) {
+        var famData = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
+        if (famData && Array.isArray(famData.members)) {
+          var missingIcs = [];
+          for (var i = 0; i < famData.members.length; i++) {
+            var fIc = famData.members[i].ic;
+            if (fIc && !memberMap.has(fIc)) missingIcs.push(fIc);
+          }
+          if (missingIcs.length > 0) {
+            var famResults = await Promise.allSettled(missingIcs.map(function(id) {
+              return client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
+            }));
+            famResults.forEach(function(res, idx) {
+              if (res.status === 'fulfilled' && Array.isArray(res.value) && res.value.length > 0) {
+                memberMap.set(missingIcs[idx], res.value[0]);
+              }
+            });
           }
         }
       }
@@ -685,7 +688,17 @@ async function dispatchVerificationEmail(email, name, code) {
 
 
 
-  console.log('[1st PJ BB Verification Code] Code ' + code + ' generated for ' + cleanEmail + ' (hasMailer: ' + hasMailer + ')');
+  // Privacy-safe masked verification audit log (zero plaintext code or unmasked PII in console)
+  var maskedEmail = cleanEmail ? cleanEmail.replace(/^([^@]{1,3})[^@]*(@.*)$/, '$1***$2') : 'unknown';
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'auth.verification_code_generated',
+      targetType: 'auth',
+      targetId: maskedEmail,
+      actorRole: 'anonymous',
+      details: { hasMailer: hasMailer }
+    });
+  }
   return { hasMailer: hasMailer, code: code };
 }
 
@@ -1531,6 +1544,22 @@ async function finalizeMemberRegistration(data) {
     photo_url: ''
   };
 
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'member.register',
+      targetType: 'member',
+      targetId: data.ic,
+      actorId: data.ic,
+      actorRole: data.rank || 'member',
+      details: {
+        name: data.name,
+        section: data.section,
+        rank: data.rank,
+        isMinor: !!data.isMinor
+      }
+    });
+  }
+
   // Immediate Auto-Login on completed registration (eliminates extra login step)
   if (typeof completeLoginWithAccount === 'function') {
     completeLoginWithAccount(accountData, rememberMe);
@@ -1732,6 +1761,15 @@ async function loginMember() {
                 rpcAttemptsLeft = recRes.attempts_remaining;
               }
             }
+            if (typeof logAuditEvent === 'function') {
+              logAuditEvent({
+                action: 'auth.login_failed',
+                targetType: 'auth',
+                targetId: queryEmail,
+                actorRole: 'anonymous',
+                details: { reason: 'invalid_credentials', method: 'rpc' }
+              });
+            }
             if (typeof showToast === 'function') {
               var rpcMsg = rpcAttemptsLeft > 0
                 ? ('Incorrect password! You have ' + rpcAttemptsLeft + ' attempt' + (rpcAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
@@ -1744,8 +1782,6 @@ async function loginMember() {
       } catch (rpcErr) {
         console.warn('RPC auth fallback to direct verification:', rpcErr);
       }
-    } else {
-      console.log('DEBUG: client.rpc is not a function. client is:', client ? typeof client.rpc : 'null');
     }
 
     if (!loginSuccess) {
@@ -1778,6 +1814,15 @@ async function loginMember() {
             directAttemptsLeft = directRec.attempts_remaining;
           }
         }
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'auth.login_failed',
+            targetType: 'auth',
+            targetId: queryEmail,
+            actorRole: 'anonymous',
+            details: { reason: 'invalid_credentials', method: 'direct' }
+          });
+        }
         if (typeof showToast === 'function') {
           var directMsg = directAttemptsLeft > 0
             ? ('Incorrect password! You have ' + directAttemptsLeft + ' attempt' + (directAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
@@ -1801,7 +1846,15 @@ async function loginMember() {
           for (var k = 0; k < accounts.length; k++) {
             await client.patch('bb_members?ic=eq.' + encodeURIComponent(accounts[k].ic), { password: upgradedHash });
           }
-          console.log('Seamlessly upgraded member credentials to PBKDF2/SHA-256');
+          if (typeof logAuditEvent === 'function') {
+            logAuditEvent({
+              action: 'auth.credential_migrated',
+              targetType: 'member',
+              targetId: accounts && accounts[0] ? accounts[0].ic : 'member',
+              actorRole: 'system',
+              details: { algorithm: 'PBKDF2-SHA256' }
+            });
+          }
         } catch (upgErr) {
           console.warn('Password upgrade note:', upgErr);
         }
@@ -1810,6 +1863,17 @@ async function loginMember() {
       // Reset lockout counters on successful login via RPC
       _authFailures.count = 0;
       _authFailures.lockedUntil = 0;
+    }
+
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'auth.login_success',
+        targetType: 'auth',
+        targetId: queryEmail,
+        actorId: queryEmail,
+        actorRole: (accounts && accounts[0] && accounts[0].rank) || 'member',
+        details: { multi_account: accounts.length > 1 }
+      });
     }
 
     var rememberEl = document.getElementById('login-remember');
@@ -2833,6 +2897,31 @@ async function loadMemberCosmetics() {
 
   if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
 
+  if (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
+    var snapCosm = await supa.safeConfigGet('bb_member_cosmetics');
+    if (snapCosm && typeof snapCosm === 'object') {
+      Object.keys(snapCosm).forEach(function(k) {
+        if (!_memberCosmeticsMap[k]) {
+          _memberCosmeticsMap[k] = snapCosm[k];
+        } else {
+          var localInv = Array.isArray(_memberCosmeticsMap[k].inventory) ? _memberCosmeticsMap[k].inventory : [];
+          var remoteInv = Array.isArray(snapCosm[k].inventory) ? snapCosm[k].inventory : [];
+          _memberCosmeticsMap[k].inventory = Array.from(new Set(localInv.concat(remoteInv)));
+          if (!_memberCosmeticsMap[k].equipped || _memberCosmeticsMap[k].equipped === 'none') {
+            if (snapCosm[k].equipped && snapCosm[k].equipped !== 'none') {
+              _memberCosmeticsMap[k].equipped = snapCosm[k].equipped;
+            }
+          }
+        }
+      });
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap)); } catch (_) {}
+      }
+      if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+      return _memberCosmeticsMap;
+    }
+  }
+
   var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
   if (!client || !client.get) return _memberCosmeticsMap;
 
@@ -3600,6 +3689,19 @@ async function loadCustomAvatarOutlines() {
   }
 
   if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+
+  if (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
+    var snapOutlines = await supa.safeConfigGet('bb_custom_avatar_outlines');
+    if (snapOutlines && typeof snapOutlines === 'object') {
+      _customAvatarOutlinesMap = snapOutlines;
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(snapOutlines)); } catch (_) {}
+      }
+      if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+      if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
+      return _customAvatarOutlinesMap;
+    }
+  }
 
   var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
   if (!client || !client.get) return _customAvatarOutlinesMap;
@@ -4743,6 +4845,19 @@ async function sendPasswordResetEmail() {
         sessionStorage.setItem('bb_reset_otp_' + email, JSON.stringify(otpPayload));
       } catch (e) {}
 
+      // Server-Side PostgreSQL SECURITY DEFINER RPC Dispatch
+      if (client && typeof client.rpc === 'function') {
+        try {
+          await client.rpc('rpc_request_password_reset', {
+            p_email: email,
+            p_otp_code: code,
+            p_otp_hash: null
+          });
+        } catch (rpcErr) {
+          console.warn('RPC password reset request warning:', rpcErr);
+        }
+      }
+
       var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
       try {
         await client.req('POST', 'bb_config?on_conflict=key', {
@@ -4945,6 +5060,16 @@ async function verifyResetCodeAndSetPassword() {
       } catch (e) {}
     }
 
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'auth.password_reset',
+        targetType: 'member',
+        targetId: email,
+        actorId: email,
+        actorRole: 'member',
+        details: { method: rpcResetSuccess ? 'rpc' : 'direct_otp' }
+      });
+    }
     if (typeof showToast === 'function') showToast('Password reset successfully! You can now log in with your new password.', 'success');
 
     // Clear forgot form

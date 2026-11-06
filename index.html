@@ -1655,7 +1655,7 @@
     </div>
 
     <!-- Create Task Brief Modal (Image 2/3) -->
-    <div class="task-create-modal" role="dialog" aria-modal="true" aria-label="Create Task Brief" style="display:none;position:fixed;inset:0;z-index:999;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:16px;">
+    <div class="task-create-modal" role="dialog" aria-modal="true" aria-label="Create Task Brief" onclick="if(event.target===this)closeCreateTaskModal()" style="display:none;position:fixed;inset:0;z-index:999;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);padding:16px;">
       <div class="task-create-modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:24px 28px;width:100%;max-width:620px;box-shadow:var(--shadow-modal);max-height:calc(100vh - 40px);overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
           <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">Create Task Brief</div>
@@ -2207,14 +2207,14 @@
         <div id="admin-members-list"></div>
 
         <!-- Edit/Add member modal -->
-        <div id="edit-member-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);z-index:9999;overflow-y:auto;padding:30px 16px;">
+        <div id="edit-member-modal" role="dialog" aria-modal="true" aria-labelledby="em-modal-title" onclick="if(event.target===this)closeEditMember()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);z-index:9999;overflow-y:auto;padding:30px 16px;">
           <div style="max-width:480px;margin:0 auto;background:var(--bg-card);border-radius:16px;padding:24px;border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);color:var(--text-primary);">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
               <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:8px;" id="em-modal-title">
                 <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 <span>Edit Member</span>
               </div>
-              <button onclick="closeEditMember()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:6px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              <button type="button" onclick="closeEditMember()" aria-label="Close edit member modal" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:6px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
             <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="em-name" type="text"/></div>
             <div class="form-group"><label class="form-label">Account Email / Member ID</label><input class="form-input" id="em-ic" type="text"/></div>
@@ -3065,7 +3065,7 @@
   </button>
 </div>
 <!-- ── ADMIN CREATE / EDIT STORY HIGHLIGHT MODAL ── -->
-<div id="adm-story-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="adm-story-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+<div id="adm-story-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="adm-story-modal-title" onclick="if(event.target===this)closeAdminStoryModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--accent);" id="adm-story-modal-title">Create Highlight</div>
@@ -3107,7 +3107,7 @@
 </div>
 
 <!-- ── CALENDAR DAY DETAILS MODAL (GOOGLE DOC BREAKDOWN) ────────────────── -->
-<div id="calendar-day-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="cdm-event-name" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+<div id="calendar-day-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="cdm-event-name" onclick="if(event.target===this)closeCalendarDayModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:580px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);position:relative;">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:10px;">
       <div>
@@ -3151,7 +3151,7 @@
 </div>
 
 <!-- ── ADMIN CALENDAR EVENT EDIT MODAL ────────────────── -->
-<div id="adm-event-edit-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit Parade Event" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+<div id="adm-event-edit-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit Parade Event" onclick="if(event.target===this)closeEventEditModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--accent);">Add / Edit Parade Event</div>
@@ -3797,7 +3797,7 @@ window.addEventListener('load', function() {
 
   // 2. Coordinated Single-Flight Data Loading: Pre-populate config snapshot to eliminate redundant fetches
   if (typeof supa !== 'undefined' && typeof supa.batchConfigGet === 'function') {
-    supa.batchConfigGet(['bb_prices', 'bb_uniform_items', 'bb_payment_info', 'bb_resources', 'bb_custom_forms', 'bb_story_highlights'])
+    supa.batchConfigGet(['bb_prices', 'bb_uniform_items', 'bb_payment_info', 'bb_resources', 'bb_custom_forms', 'bb_story_highlights', 'bb_custom_avatar_outlines', 'bb_member_cosmetics', 'bb_admin_roles'])
       .then(function() {
         loadPrices();
         loadPaymentInfo();
@@ -3928,6 +3928,21 @@ function handleHashNavigation(event) {
   var sidebarOverlay = document.getElementById('sidebar-overlay');
   if (sidebarOverlay && sidebarOverlay.classList.contains('open') && typeof closeSidebar === 'function') {
     closeSidebar();
+  }
+
+  var calModal = document.getElementById('calendar-day-modal');
+  if (calModal && calModal.style.display !== 'none' && typeof closeCalendarDayModal === 'function') {
+    closeCalendarDayModal();
+  }
+
+  var admEvtModal = document.getElementById('adm-event-edit-modal');
+  if (admEvtModal && admEvtModal.style.display !== 'none' && typeof closeEventEditModal === 'function') {
+    closeEventEditModal();
+  }
+
+  var admStoryMod = document.getElementById('adm-story-modal');
+  if (admStoryMod && admStoryMod.style.display !== 'none' && typeof closeAdminStoryModal === 'function') {
+    closeAdminStoryModal();
   }
 
   // 3. Tab routing across all portal pages

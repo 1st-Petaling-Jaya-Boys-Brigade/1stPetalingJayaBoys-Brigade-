@@ -545,6 +545,16 @@
   }
 
   function logoutAdmin() {
+    var currentOfficer = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'admin';
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'admin.logout',
+        targetType: 'admin_session',
+        targetId: currentOfficer,
+        actorId: currentOfficer,
+        actorRole: 'officer_admin'
+      });
+    }
     var token = getAdminSessionToken();
     var client = getSupabaseClient();
     if (token && client && typeof client.rpc === 'function') {
@@ -656,12 +666,32 @@
           initAdminDomGuard();
           backToAdminHome();
 
+          if (typeof logAuditEvent === 'function') {
+            logAuditEvent({
+              action: 'admin.login_success',
+              targetType: 'admin_auth',
+              targetId: officerEmail || 'admin',
+              actorId: officerEmail || 'admin',
+              actorRole: 'officer_admin',
+              details: { rank: officerRank }
+            });
+          }
           if (typeof renderGallery === 'function') renderGallery();
           if (typeof renderAnnouncements === 'function') renderAnnouncements();
           if (typeof loadResources === 'function') loadResources();
           if (typeof initCalendarModule === 'function') initCalendarModule();
           return true;
         } else if (rpcAuth && rpcAuth.success === false) {
+          if (typeof logAuditEvent === 'function') {
+            logAuditEvent({
+              action: 'admin.login_failed',
+              targetType: 'admin_auth',
+              targetId: officerEmail || 'admin',
+              actorId: officerEmail || 'admin',
+              actorRole: 'anonymous',
+              details: { reason: 'invalid_credentials' }
+            });
+          }
           _adminLoginFailures++;
           if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
             var lockoutMs = Math.min(
@@ -1112,7 +1142,11 @@
     '</span>';
   }
 
-  async function renderAdminList() {
+var _adminMembersCache = null;
+  var _adminMembersCacheTime = 0;
+  var ADMIN_MEMBERS_CACHE_TTL = 30000;
+
+  async function renderAdminList(forceRefresh) {
     if (typeof document === 'undefined') return;
     var search = ((document.getElementById('admin-search') || {}).value || '').toLowerCase();
     var list   = document.getElementById('admin-members-list');
@@ -1166,14 +1200,21 @@
         }
       } catch (e) {}
 
+      var now = Date.now();
       var members;
-      try {
-        members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
-      } catch (selectErr) {
-        console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
-        members = await client.get('bb_members?order=name.asc');
+      if (!forceRefresh && _adminMembersCache && (now - _adminMembersCacheTime < ADMIN_MEMBERS_CACHE_TTL)) {
+        members = _adminMembersCache;
+      } else {
+        try {
+          members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
+        } catch (selectErr) {
+          console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
+          members = await client.get('bb_members?order=name.asc');
+        }
+        if (!Array.isArray(members)) members = [];
+        _adminMembersCache = members;
+        _adminMembersCacheTime = now;
       }
-      if (!Array.isArray(members)) members = [];
       var filtered = members.filter(function(m) {
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
@@ -1226,6 +1267,14 @@
 
       _adminMembers = {};
       filtered.forEach(function(m) { _adminMembers[m.ic] = m; });
+      if (!filtered.length) {
+        list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:12px;">'
+          + '<div style="font-size:24px;margin-bottom:6px;">🔍</div>'
+          + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">No members found</div>'
+          + '<div style="font-size:12px;color:var(--text-muted);">Try adjusting your search query or section filter.</div>'
+          + '</div>';
+        return;
+      }
       if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
       global._adminPresenceMap = _adminPresenceMap;
       if (typeof localStorage !== 'undefined') {
@@ -1331,7 +1380,13 @@
       });
     } catch (e) {
       console.error('renderAdminList error:', e);
-      list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>';
+      list.innerHTML = '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">'
+        + '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>'
+        + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Failed to load members roster</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Database request timed out or network was interrupted.</div>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminList()" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">'
+        + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+        + 'Retry</button></div>';
     }
   }
 
@@ -1687,9 +1742,19 @@
     if (modal) modal.style.display = 'none';
   }
 
+  var _isSavingEditMember = false;
+
   async function saveEditMember() {
     if (typeof document === 'undefined') return;
+    if (_isSavingEditMember) return;
     var editModal = document.getElementById('edit-member-modal');
+    var saveBtn = editModal ? editModal.querySelector('.submit-btn.gold') : null;
+    var origSaveHtml = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = 'Saving...';
+    }
+    _isSavingEditMember = true;
     var originalIc = (document.getElementById('em-original-ic') || {}).value || '';
     var oldName = (editModal && editModal.getAttribute('data-original-name')) || (_adminMembers && _adminMembers[originalIc] && _adminMembers[originalIc].name) || '';
     var rawIc      = ((document.getElementById('em-ic') || {}).value || '').trim().replace(/\s/g, '');
@@ -1861,6 +1926,15 @@
             joined_at: joined_at || new Date().toISOString()
           });
         }
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'member.create',
+            targetType: 'member',
+            targetId: ic,
+            actorRole: 'officer_admin',
+            details: { name: name, rank: rank, squad: squad, department: department, section: att_section }
+          });
+        }
         if (typeof showToast === 'function') {
           showToast('✅ Member added! Default password is: ' + ic, 'success', 5000);
         }
@@ -1895,6 +1969,15 @@
           if (joined_at)     baseUpdates.joined_at     = joined_at;
           if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
           await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
+        }
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({
+            action: 'member.update',
+            targetType: 'member',
+            targetId: originalIc || ic,
+            actorRole: 'officer_admin',
+            details: { name: name, rank: rank, squad: squad, department: department, section: att_section }
+          });
         }
         if (typeof showToast === 'function') showToast('Member updated!', 'success');
       }
@@ -2020,6 +2103,12 @@
       renderAdminList();
     } catch (e) {
       if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
+    } finally {
+      _isSavingEditMember = false;
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = origSaveHtml;
+      }
     }
   }
 
@@ -2135,6 +2224,15 @@
         }
       }
 
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'member.delete',
+          targetType: 'member',
+          targetId: ic,
+          actorRole: 'officer_admin',
+          details: { name: name || display }
+        });
+      }
       closeEditMember();
       await renderAdminList();
       if (typeof showToast === 'function') {
@@ -2363,7 +2461,14 @@
         });
       });
     } catch (e) {
-      list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load tasks.</div>';
+      console.error('renderAdminTasks error:', e);
+      list.innerHTML = '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">'
+        + '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>'
+        + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Failed to load tasks</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Database request timed out or network was interrupted.</div>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminTasks(_adminTaskFilter)" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">'
+        + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+        + 'Retry</button></div>';
     }
   }
 

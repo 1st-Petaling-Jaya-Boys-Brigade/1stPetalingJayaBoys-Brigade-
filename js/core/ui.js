@@ -1180,11 +1180,8 @@
       _notifAudioInstance.currentTime = 0;
       var p = _notifAudioInstance.play();
       if (p && typeof p.catch === 'function') {
-        p.catch(function(e) {
+        p.catch(function() {
           _playWebAudioPopFallback();
-          if (typeof console !== 'undefined' && console.log) {
-            console.log('Notification sound fallback:', e && e.message ? e.message : e);
-          }
         });
       }
       return _notifAudioInstance;

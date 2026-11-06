@@ -100,6 +100,21 @@ function normalizeMemberName(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+var DEFAULT_MAX_SQUAD_POINTS = 161;
+
+/**
+ * Resolves theme color tokens, badge background, border, and platoon name for a given squad name
+ * @param {string} sqName
+ * @returns {{ plt: string, color: string, bg: string, border: string }}
+ */
+function getPlatoonStyle(sqName) {
+  var upper = String(sqName || '').toUpperCase();
+  if (upper.indexOf('ALPHA') !== -1) return { plt: 'Alpha', color: 'var(--brand-gold, #f5c542)', bg: 'rgba(245,197,66,0.1)', border: 'rgba(245,197,66,0.3)' };
+  if (upper.indexOf('PAPA')  !== -1) return { plt: 'Papa',  color: 'var(--blue, #3b82f6)',       bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.3)' };
+  if (upper.indexOf('ZULU')  !== -1) return { plt: 'Zulu',  color: 'var(--green, #10b981)',      bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.3)' };
+  return { plt: 'Squad', color: 'var(--accent)', bg: 'rgba(200,150,30,0.1)', border: 'rgba(200,150,30,0.3)' };
+}
+
 /**
  * Loads master attendance data from Supabase bb_config with local caching
  * @param {boolean} [forceRefresh=false]
@@ -511,7 +526,6 @@ async function renderAdminMasterSheetPanel() {
   if (!container) return;
 
   var data = await getMasterAttendanceData(true);
-  var _cfg = (typeof window.loadMasterSheetConfig === 'function') ? await window.loadMasterSheetConfig() : {};
 
   var memberCount = data && data.totalMembers ? data.totalMembers : (data && data.members ? Object.keys(data.members).length : 0);
   var syncDate = data && data.lastSynced ? new Date(data.lastSynced).toLocaleString() : 'Never synced';
@@ -548,13 +562,6 @@ async function renderAdminMasterSheetPanel() {
     squadList[i].displayRank = curRank;
   }
 
-  function getPlatoonStyle(sqName) {
-    var upper = String(sqName || '').toUpperCase();
-    if (upper.indexOf('ALPHA') !== -1) return { color: 'var(--brand-gold, #f5c542)', plt: 'Alpha' };
-    if (upper.indexOf('PAPA')  !== -1) return { color: 'var(--blue, #3b82f6)',       plt: 'Papa' };
-    if (upper.indexOf('ZULU')  !== -1) return { color: 'var(--green, #10b981)',      plt: 'Zulu' };
-    return { color: 'var(--accent)', plt: 'Squad' };
-  }
 
   // Calculate platoon averages (excluding Hotel)
   var pltSums = {};
@@ -887,7 +894,6 @@ async function renderCompanyLeaderboard() {
 
   var data = await getMasterAttendanceData();
   var rawSquads = (data && data.squads) ? data.squads : null;
-  var _platoons = (data && data.platoons) ? data.platoons : {};
 
   // Viewer authorization context for privacy masking
   var viewerName = '';
@@ -997,17 +1003,9 @@ async function renderCompanyLeaderboard() {
     squadList[i].displayRank = curRank;
   }
 
-  var maxPts = squadList.length > 0 ? squadList[0].points : 161;
-  if (!maxPts || maxPts <= 0) maxPts = 161;
+  var maxPts = squadList.length > 0 ? squadList[0].points : DEFAULT_MAX_SQUAD_POINTS;
+  if (!maxPts || maxPts <= 0) maxPts = DEFAULT_MAX_SQUAD_POINTS;
 
-  // Platoon styling colors
-  function getPlatoonStyle(sqName) {
-    var upper = String(sqName || '').toUpperCase();
-    if (upper.indexOf('ALPHA') !== -1) return { plt: 'Alpha', color: 'var(--brand-gold, #f5c542)', bg: 'rgba(245,197,66,0.1)', border: 'rgba(245,197,66,0.3)' };
-    if (upper.indexOf('PAPA')  !== -1) return { plt: 'Papa',  color: 'var(--blue, #3b82f6)',       bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.3)' };
-    if (upper.indexOf('ZULU')  !== -1) return { plt: 'Zulu',  color: 'var(--green, #10b981)',      bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.3)' };
-    return { plt: 'Squad', color: 'var(--accent)', bg: 'rgba(200,150,30,0.1)', border: 'rgba(200,150,30,0.3)' };
-  }
 
     // Group synced members by squad
   var squadMembersMap = {};
@@ -1298,6 +1296,7 @@ if (typeof window !== 'undefined') {
   window.handleSaveMasterConfig = handleSaveMasterConfig;
   window.renderAttendanceBreakdownHTML = renderAttendanceBreakdownHTML;
   window.getAttendanceAchievementTier = _getTierFn;
+  window.getPlatoonStyle = getPlatoonStyle;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1316,6 +1315,7 @@ if (typeof module !== 'undefined' && module.exports) {
     copyMasterSyncToken: copyMasterSyncToken,
     handleSaveMasterConfig: handleSaveMasterConfig,
     renderAttendanceBreakdownHTML: renderAttendanceBreakdownHTML,
-    getAttendanceAchievementTier: _getTierFn
+    getAttendanceAchievementTier: _getTierFn,
+    getPlatoonStyle: getPlatoonStyle
   };
 }

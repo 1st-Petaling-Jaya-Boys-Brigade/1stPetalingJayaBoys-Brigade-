@@ -9331,6 +9331,272 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
 
+  // =========================================================================
+  // Application Security Audit, Vulnerability Remediation & Boundary Defenses
+  // =========================================================================
+  try {
+    console.log('\n[TEST] Application Security Hardening (XSS, Injection, Parameter Sanitization, and Password Reset RPC)...');
+
+    // 1. Stored XSS Mitigation in openTaskDetail: Task description sanitization
+    const tasksModule = require('../js/modules/tasks.js');
+    if (typeof tasksModule.openTaskDetail === 'function') {
+      global.window._taskMap = global.window._taskMap || {};
+      global.window._taskMap['sec-task-xss'] = {
+        id: 'sec-task-xss',
+        title: 'AppSec Audit Vulnerability Task',
+        description: 'Safe explanation <script>alert("xss")</script><img src="x" onerror="stealSession()"> with <b>bold text</b>',
+        status: 'todo',
+        priority: 'high',
+        assigned_to: 'Jeshua Koh',
+        department: 'logistics'
+      };
+
+      tasksModule.openTaskDetail('sec-task-xss');
+      const tdmDesc = document.getElementById('tdm-desc');
+      assert.ok(tdmDesc, 'tdm-desc element must exist');
+      assert.ok(!tdmDesc.innerHTML.includes('<script>'), 'openTaskDetail must eliminate script tags from task descriptions');
+      assert.ok(!tdmDesc.innerHTML.includes('onerror='), 'openTaskDetail must eliminate inline event handlers from task descriptions');
+      assert.ok(tdmDesc.innerHTML.includes('bold text'), 'openTaskDetail must preserve safe formatting');
+      console.log('  ✔ openTaskDetail sanitizes task descriptions eliminating XSS payloads');
+    }
+
+    // 2. DOM XSS Mitigation in openEditResource: fileSize escaping
+    const resModule = require('../js/modules/resources.js');
+    if (typeof resModule.openEditResource === 'function') {
+      resModule.resources = resModule.resources || [];
+      resModule.resources.push({
+        id: 'sec-res-xss',
+        title: 'Security Policy Document',
+        url: 'https://drive.google.com/test',
+        category: 'Handbooks & Manuals',
+        visibility: 'all',
+        fileSize: '4.5 MB"><img src=x onerror=alert(1)>'
+      });
+
+      resModule.openEditResource('sec-res-xss');
+      const statusEl = document.getElementById('adm-res-upload-status');
+      assert.ok(statusEl, 'adm-res-upload-status must exist');
+      assert.ok(!statusEl.innerHTML.includes('<img src=x'), 'openEditResource must escape unvalidated fileSize strings');
+      assert.ok(statusEl.innerHTML.includes('&lt;img') || statusEl.innerHTML.includes('&quot;'), 'openEditResource must HTML-encode special characters');
+      console.log('  ✔ openEditResource escapes unvalidated file size parameters in DOM innerHTML');
+    }
+
+    // 3. Attribute Injection Mitigation in updateStorySlideView: URL encoding of driveFileId
+    const gallerySource = fs.readFileSync(path.join(__dirname, '../js/modules/gallery.js'), 'utf8');
+    assert.ok(gallerySource.includes('encodeURIComponent(driveFileId)'), 'updateStorySlideView must use encodeURIComponent for driveFileId');
+    console.log('  ✔ updateStorySlideView safely URL-encodes driveFileId preventing attribute breakout');
+
+    // 4. Server-Side Password Reset RPC Dispatch
+    const memberSource = fs.readFileSync(path.join(__dirname, '../js/modules/member.js'), 'utf8');
+    assert.ok(memberSource.includes("client.rpc('rpc_request_password_reset'"), 'sendPasswordResetEmail must dispatch server-side rpc_request_password_reset');
+    console.log('  ✔ sendPasswordResetEmail dispatches server-side PostgreSQL SECURITY DEFINER RPC');
+
+  } catch (err) {
+    console.error('AppSec Hardening Test Failed:', err);
+    process.exit(1);
+  }
+
+  // =========================================================================
+  // Data Integrity, Request Locking & Network Resilience
+  // =========================================================================
+  try {
+    console.log('\n[TEST] Data Integrity, Request Locking & Network Resilience...');
+
+    // 1. Optimistic Rollback in Resources Module on Server Network Failure
+    const resModule = require('../js/modules/resources.js');
+    resModule.resources.length = 0;
+    resModule.resources.push({
+      id: 'res-integrity-1',
+      title: 'Company Handbook 2026',
+      category: 'Handbooks & Manuals',
+      visibility: 'all',
+      url: 'https://example.com/handbook.pdf'
+    });
+
+    // Mock failing Supabase endpoints
+    const savedSupa = global.supa;
+    global.supa = {
+      req: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); },
+      patch: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); },
+      post: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); }
+    };
+
+    let toastMessage = '';
+    global.showToast = (msg) => { toastMessage = msg; };
+    global.showConfirmModal = async () => true;
+
+    await resModule.deleteResource('res-integrity-1');
+    assert.strictEqual(resModule.resources.length, 1, 'deleteResource must restore in-memory resource on server failure');
+    assert.strictEqual(resModule.resources[0].id, 'res-integrity-1', 'Resource snapshot must be preserved after network rollback');
+    assert.ok(toastMessage.includes('Failed to delete resource'), 'User must be notified of network failure');
+    console.log('  ✔ deleteResource performs optimistic rollback and user notification upon database failure');
+
+    // 2. Badges Cache Rollback & Error Propagation
+    const badgesModule = require('../js/modules/badges.js');
+    global.getSupaClient = () => ({
+      get: async () => { throw new Error('Simulated database disconnect'); }
+    });
+
+    global._memberBadgesCache = {
+      'audit@bb1pj.my': { 'target-badge': { basicDate: '2026-01-01' } }
+    };
+
+    let caughtBadgesError = false;
+    try {
+      await badgesModule.upsertMemberBadges('audit@bb1pj.my', { 'target-badge': { basicDate: '2026-11-06' } });
+    } catch (e) {
+      caughtBadgesError = true;
+    }
+    assert.ok(caughtBadgesError, 'upsertMemberBadges must rethrow error on failure');
+    assert.strictEqual(global._memberBadgesCache['audit@bb1pj.my']['target-badge'].basicDate, '2026-01-01', 'Badge cache must roll back to previous snapshot');
+    console.log('  ✔ upsertMemberBadges rolls back cache snapshot and propagates errors');
+
+    // Restore supa mock
+    global.supa = savedSupa;
+
+  } catch (err) {
+    console.error('Data Integrity Test Failed:', err);
+    process.exit(1);
+  }
+
+  // ── [TEST] UI/UX Consistency, Empty States & Modal Accessibility ──────
+  {
+  console.log('\n[TEST] UI/UX Consistency, Empty States & Modal Accessibility...');
+
+  const htmlSource = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+
+  // 1. Strict 388 Unique DOM IDs Invariant
+  const idMatches = htmlSource.match(/\bid=["']([^"']+)["']/g) || [];
+  const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+  const uniqueIds = Array.from(new Set(extractedIds));
+  assert.strictEqual(uniqueIds.length, 388, `Strict DOM IDs count must be exactly 388, found ${uniqueIds.length}`);
+  console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
+
+  // 2. Modal Accessibility & Backdrop Click attributes
+  assert.ok(htmlSource.includes('id="edit-member-modal" role="dialog" aria-modal="true" aria-labelledby="em-modal-title" onclick="if(event.target===this)closeEditMember()"'), 'edit-member-modal must have role dialog, aria-modal, aria-labelledby, and backdrop dismissal');
+  assert.ok(htmlSource.includes('class="task-create-modal" role="dialog" aria-modal="true" aria-label="Create Task Brief" onclick="if(event.target===this)closeCreateTaskModal()"'), 'task-create-modal must have backdrop click dismissal');
+  assert.ok(htmlSource.includes('id="calendar-day-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="cdm-event-name" onclick="if(event.target===this)closeCalendarDayModal()"'), 'calendar-day-modal must have backdrop click dismissal');
+  assert.ok(htmlSource.includes('id="adm-event-edit-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit Parade Event" onclick="if(event.target===this)closeEventEditModal()"'), 'adm-event-edit-modal must have backdrop click dismissal');
+  assert.ok(htmlSource.includes('id="adm-story-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="adm-story-modal-title" onclick="if(event.target===this)closeAdminStoryModal()"'), 'adm-story-modal must have backdrop click dismissal');
+  console.log('  ✔ Accessible modal dialog roles, aria-modal, and backdrop click dismissal verified');
+
+  // 3. Global Escape Keyboard Dismissal
+  assert.ok(htmlSource.includes('closeEditMember();'), 'Global Escape listener must dismiss edit-member-modal');
+  assert.ok(htmlSource.includes('closeChildSafetyModal();'), 'Global Escape listener must dismiss child-safety-modal');
+  assert.ok(htmlSource.includes('closeCalendarDayModal();'), 'Global Escape listener must dismiss calendar-day-modal');
+  assert.ok(htmlSource.includes('closeEventEditModal();'), 'Global Escape listener must dismiss adm-event-edit-modal');
+  assert.ok(htmlSource.includes('closeAdminStoryModal();'), 'Global Escape listener must dismiss adm-story-modal');
+  console.log('  ✔ Global Escape shortcut modal dismissal verified across all dialogs');
+
+  // 4. Browser History Popstate Dismissal
+  assert.ok(htmlSource.includes('closeCalendarDayModal();') && htmlSource.includes('calModal'), 'Browser back navigation must dismiss calendar-day-modal');
+  assert.ok(htmlSource.includes('closeEventEditModal();') && htmlSource.includes('admEvtModal'), 'Browser back navigation must dismiss adm-event-edit-modal');
+  assert.ok(htmlSource.includes('closeAdminStoryModal();') && htmlSource.includes('admStoryMod'), 'Browser back navigation must dismiss adm-story-modal');
+  console.log('  ✔ Browser history popstate auto-dismissal verified for calendar and admin modals');
+
+  // 5. Admin Empty and Error States
+  const adminCode = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
+  assert.ok(adminCode.includes('No members found'), 'renderAdminList must render a styled empty state when search finds 0 members');
+  assert.ok(adminCode.includes('Failed to load members roster') && adminCode.includes('onclick="renderAdminList()"'), 'renderAdminList must render a retry button on fetch error');
+  assert.ok(adminCode.includes('Failed to load tasks') && adminCode.includes('onclick="renderAdminTasks(_adminTaskFilter)"'), 'renderAdminTasks must render a retry button on fetch error');
+  console.log('  ✔ Admin console empty search states and recoverable error retry cards verified');
+
+  // 6. Orders and Announcements Error & Empty States
+  const ordersCode = fs.readFileSync(path.join(__dirname, '../js/modules/orders.js'), 'utf8');
+  assert.ok(ordersCode.includes('Failed to load order submissions') && ordersCode.includes('onclick="renderAdminOrders()"'), 'renderAdminOrders must render a retry button on fetch error');
+  const annCode = fs.readFileSync(path.join(__dirname, '../js/modules/announcements.js'), 'utf8');
+  assert.ok(annCode.includes('No Company Announcements') && annCode.includes('Check back soon for upcoming parade notices'), 'renderAnnouncements must render a styled empty state card when 0 announcements exist');
+  console.log('  ✔ Orders and Announcements recoverable error cards and empty states verified');
+  }
+
+  // ── [TEST] Observability, Audit Logging & Privacy Redaction ──────
+  {
+    console.log('\n[TEST] Observability, Audit Logging & Privacy Redaction...');
+
+    const utilsMod = require('../js/core/utils.js');
+    assert.strictEqual(typeof utilsMod.logAuditEvent, 'function', 'logAuditEvent must be exported');
+    assert.strictEqual(typeof utilsMod.getAuditLogs, 'function', 'getAuditLogs must be exported');
+
+    // 1. Automated Privacy Redaction Test
+    const sensitiveDetails = {
+      password: 'PlaintextSuperSecretPassword123!',
+      session_token: 'jwt.token.secret123',
+      otp_code: '849201',
+      secret_key: 'sk_live_secretkey999',
+      credential_hash: 'sha256:abc12345',
+      safe_param: 'General Public Action'
+    };
+
+    const auditRes = await utilsMod.logAuditEvent({
+      action: 'admin.sensitive_test',
+      targetType: 'member',
+      targetId: 'member@pjbb.org',
+      actorId: 'admin@pjbb.org',
+      actorRole: 'officer_admin',
+      details: sensitiveDetails
+    });
+
+    assert.ok(auditRes && auditRes.success, 'logAuditEvent must succeed');
+    assert.strictEqual(auditRes.entry.details.password, '[REDACTED]', 'Passwords must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.session_token, '[REDACTED]', 'Tokens must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.otp_code, '[REDACTED]', 'OTP codes must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.secret_key, '[REDACTED]', 'Secret keys must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.credential_hash, '[REDACTED]', 'Credential hashes must be automatically redacted in audit logs');
+    assert.strictEqual(auditRes.entry.details.safe_param, 'General Public Action', 'Safe parameters must be preserved');
+    console.log('  ✔ Automated privacy redaction of passwords, tokens, OTPs, and secrets verified');
+
+    // 2. Audit Trail Structure & Field Completeness
+    assert.ok(auditRes.entry.id, 'Audit entry must have a unique ID');
+    assert.ok(auditRes.entry.timestamp, 'Audit entry must have an ISO timestamp');
+    assert.strictEqual(auditRes.entry.action, 'admin.sensitive_test');
+    assert.strictEqual(auditRes.entry.actor_id, 'admin@pjbb.org');
+    assert.strictEqual(auditRes.entry.actor_role, 'officer_admin');
+    assert.strictEqual(auditRes.entry.target_type, 'member');
+    assert.strictEqual(auditRes.entry.target_id, 'member@pjbb.org');
+    console.log('  ✔ Audit log entry schema (actor, role, action, target, timestamp, details) verified');
+
+    // 3. getAuditLogs query filtering
+    const queriedLogs = await utilsMod.getAuditLogs({ action: 'admin.sensitive_test' });
+    assert.ok(queriedLogs && queriedLogs.success && queriedLogs.logs.length > 0, 'getAuditLogs must return logged events');
+    assert.strictEqual(queriedLogs.logs[0].details.password, '[REDACTED]', 'Queried logs must maintain redacted details');
+    console.log('  ✔ getAuditLogs query filtering and ledger retrieval verified');
+
+    // 4. Verification that debug clutter is eliminated from production code
+    const memberCode = fs.readFileSync(path.join(__dirname, '../js/modules/member.js'), 'utf8');
+    assert.ok(!memberCode.includes("console.log('[1st PJ BB Verification Code]"), 'member.js must NOT log plaintext verification codes to console');
+    assert.ok(!memberCode.includes('DEBUG: client.rpc'), 'member.js must NOT contain leftover DEBUG: client.rpc log');
+    assert.ok(memberCode.includes('auth.verification_code_generated'), 'member.js must log privacy-safe verification audit event');
+    assert.ok(memberCode.includes('auth.login_success'), 'member.js must audit successful logins');
+    assert.ok(memberCode.includes('auth.login_failed'), 'member.js must audit failed logins');
+    assert.ok(memberCode.includes('member.register'), 'member.js must audit member registrations');
+    assert.ok(memberCode.includes('auth.password_reset'), 'member.js must audit password resets');
+    console.log('  ✔ Debug clutter eliminated and member auth/registration audit trail verified');
+
+    // 5. Verification that admin lifecycle and deletions are audited
+    const adminCode = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
+    assert.ok(adminCode.includes('admin.login_success'), 'admin.js must audit successful admin logins');
+    assert.ok(adminCode.includes('admin.login_failed'), 'admin.js must audit failed admin logins');
+    assert.ok(adminCode.includes('admin.logout'), 'admin.js must audit admin logouts');
+    assert.ok(adminCode.includes('member.create'), 'admin.js must audit member creations');
+    assert.ok(adminCode.includes('member.update'), 'admin.js must audit member updates');
+    assert.ok(adminCode.includes('member.delete'), 'admin.js must audit member deletions');
+    console.log('  ✔ Admin console login, logout, member creation, update, and deletion audits verified');
+
+    // 6. Verification that Sheets, Resources, and Gallery actions are audited
+    const sheetsCode = fs.readFileSync(path.join(__dirname, '../js/api/sheets.js'), 'utf8');
+    assert.ok(sheetsCode.includes('sheets.config_update'), 'sheets.js must audit config updates');
+    assert.ok(sheetsCode.includes('sheets.export_sync'), 'sheets.js must audit attendance export/sync');
+
+    const resCode = fs.readFileSync(path.join(__dirname, '../js/modules/resources.js'), 'utf8');
+    assert.ok(resCode.includes('resource.upload'), 'resources.js must audit document uploads');
+    assert.ok(resCode.includes('resource.update'), 'resources.js must audit document updates');
+    assert.ok(resCode.includes('resource.delete'), 'resources.js must audit document deletions');
+
+    const galCode = fs.readFileSync(path.join(__dirname, '../js/modules/gallery.js'), 'utf8');
+    assert.ok(galCode.includes('gallery.delete'), 'gallery.js must audit media deletions');
+    console.log('  ✔ Google Sheets sync, document repository, and media deletion audits verified');
+  }
+
   // ── [TEST] Edge Cases, Data Formatters, Leap Years & Boundary Resiliency ──
   {
     console.log('\n[TEST] Edge Cases, Data Formatters, Leap Years & Boundary Resiliency...');
