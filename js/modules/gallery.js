@@ -495,8 +495,15 @@ function openGalleryLightbox(idx) {
  * Shared file uploader for gallery photos and videos (file input and drag-and-drop)
  * @param {FileList|File[]} files
  */
+var _isUploadingGallery = false;
+
 async function uploadGalleryFiles(files) {
   if (!files || !files.length) return;
+  if (_isUploadingGallery) {
+    if (typeof showToast === 'function') showToast('Media upload already in progress. Please wait.', 'warning');
+    return;
+  }
+  _isUploadingGallery = true;
   var validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'heic', 'mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'];
 
   var validFiles = Array.from(files).filter(function(f) {
@@ -589,6 +596,7 @@ async function uploadGalleryFiles(files) {
       showToast('Upload failed: ' + (lastUploadError || 'Please check storage bucket permissions.'), 'error');
     }
   }
+  _isUploadingGallery = false;
 }
 
 /**
@@ -1259,7 +1267,7 @@ function updateStorySlideView() {
         ? '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location)
         : '';
       var driveLinkHtml = driveFileId
-        ? '<a href="https://drive.google.com/file/d/' + driveFileId + '/view" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;margin-left:6px;display:inline-flex;align-items:center;gap:3px;pointer-events:auto;" title="Open video in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Video &nearr;</a>'
+        ? '<a href="https://drive.google.com/file/d/' + encodeURIComponent(driveFileId) + '/view" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;margin-left:6px;display:inline-flex;align-items:center;gap:3px;pointer-events:auto;" title="Open video in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Video &nearr;</a>'
         : '';
       pillEl.innerHTML = locHtml + driveLinkHtml;
     } else {

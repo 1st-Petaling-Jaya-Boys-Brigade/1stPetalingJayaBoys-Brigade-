@@ -95,6 +95,24 @@
    */
   async function loadRolesConfig(_forceRefresh) {
     try {
+      if (!_forceRefresh && typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
+        var snapRoles = await supa.safeConfigGet('bb_admin_roles');
+        if (snapRoles && typeof snapRoles === 'object' && (snapRoles.super_admins || snapRoles.admins)) {
+          _rolesConfig = {
+            super_admins: Array.isArray(snapRoles.super_admins) ? snapRoles.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
+            admins: (snapRoles.admins && typeof snapRoles.admins === 'object') ? snapRoles.admins : {}
+          };
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_admin_roles', JSON.stringify(_rolesConfig));
+            }
+          } catch (_) {}
+          renderHeaderRoleBadge();
+          syncAdminButtonVisibility();
+          return _rolesConfig;
+        }
+      }
+
       var client = getSupabaseClient();
       if (client) {
         var res = await client.get('bb_config?key=eq.bb_admin_roles&select=value');

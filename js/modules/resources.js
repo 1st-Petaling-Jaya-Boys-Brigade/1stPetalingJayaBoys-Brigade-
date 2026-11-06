@@ -572,7 +572,8 @@ function openEditResource(id) {
 
   _lastUploadedFileSize = item.fileSize || '';
   if (statusEl) {
-    statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:11px;">Current file: ' + (item.fileSize ? item.fileSize : 'Attached Link') + '</span>';
+    var displaySize = item.fileSize ? item.fileSize : 'Attached Link';
+    statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:11px;">Current file: ' + ((typeof escapeHtml === 'function') ? escapeHtml(displaySize) : displaySize) + '</span>';
   }
 
   if (submitBtn) {
@@ -734,6 +735,8 @@ async function addOrUpdateResource() {
     submitBtn.textContent = editId ? 'Updating...' : 'Publishing...';
   }
 
+  var originalResourcesSnapshot = resources.map(function(r) { return Object.assign({}, r); });
+
   try {
     if (editId) {
       var item = resources.find(function(r) { return r.id === editId; });
@@ -771,7 +774,12 @@ async function addOrUpdateResource() {
     cancelEditResource();
   } catch (e) {
     console.error('addOrUpdateResource error:', e);
-    if (typeof showToast === 'function') showToast('Failed to save resource: ' + (e.message || 'Database error'), 'error');
+    // Rollback optimistic in-memory mutation
+    resources.length = 0;
+    originalResourcesSnapshot.forEach(function(r) { resources.push(r); });
+    renderResourcesPage();
+    renderAdminResourcesList();
+    if (typeof showToast === 'function') showToast('Failed to save resource: ' + (e.message || 'Database error') + '. Changes rolled back.', 'error');
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -911,13 +919,19 @@ async function deleteResource(id) {
   }
   if (!confirmed) return;
 
+  var originalResourcesSnapshot = resources.map(function(r) { return Object.assign({}, r); });
   try {
     var updated = resources.filter(function(r) { return r.id !== id; });
     await saveResources(updated);
     if (typeof showToast === 'function') showToast('Resource deleted.', 'success');
   } catch (err) {
     console.error('deleteResource error:', err);
-    if (typeof showToast === 'function') showToast('Failed to delete resource: ' + (err.message || 'Database error'), 'error');
+    // Rollback optimistic deletion
+    resources.length = 0;
+    originalResourcesSnapshot.forEach(function(r) { resources.push(r); });
+    renderResourcesPage();
+    renderAdminResourcesList();
+    if (typeof showToast === 'function') showToast('Failed to delete resource: ' + (err.message || 'Database error') + '. Restored.', 'error');
   }
 }
 

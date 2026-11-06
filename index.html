@@ -3797,7 +3797,7 @@ window.addEventListener('load', function() {
 
   // 2. Coordinated Single-Flight Data Loading: Pre-populate config snapshot to eliminate redundant fetches
   if (typeof supa !== 'undefined' && typeof supa.batchConfigGet === 'function') {
-    supa.batchConfigGet(['bb_prices', 'bb_uniform_items', 'bb_payment_info', 'bb_resources', 'bb_custom_forms', 'bb_story_highlights'])
+    supa.batchConfigGet(['bb_prices', 'bb_uniform_items', 'bb_payment_info', 'bb_resources', 'bb_custom_forms', 'bb_story_highlights', 'bb_custom_avatar_outlines', 'bb_member_cosmetics', 'bb_admin_roles'])
       .then(function() {
         loadPrices();
         loadPaymentInfo();

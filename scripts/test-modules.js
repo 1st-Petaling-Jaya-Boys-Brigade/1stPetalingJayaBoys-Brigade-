@@ -9331,6 +9331,134 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
 
+  // =========================================================================
+  // Application Security Audit, Vulnerability Remediation & Boundary Defenses
+  // =========================================================================
+  try {
+    console.log('\n[TEST] Application Security Hardening (XSS, Injection, Parameter Sanitization, and Password Reset RPC)...');
+
+    // 1. Stored XSS Mitigation in openTaskDetail: Task description sanitization
+    const tasksModule = require('../js/modules/tasks.js');
+    if (typeof tasksModule.openTaskDetail === 'function') {
+      global.window._taskMap = global.window._taskMap || {};
+      global.window._taskMap['sec-task-xss'] = {
+        id: 'sec-task-xss',
+        title: 'AppSec Audit Vulnerability Task',
+        description: 'Safe explanation <script>alert("xss")</script><img src="x" onerror="stealSession()"> with <b>bold text</b>',
+        status: 'todo',
+        priority: 'high',
+        assigned_to: 'Jeshua Koh',
+        department: 'logistics'
+      };
+
+      tasksModule.openTaskDetail('sec-task-xss');
+      const tdmDesc = document.getElementById('tdm-desc');
+      assert.ok(tdmDesc, 'tdm-desc element must exist');
+      assert.ok(!tdmDesc.innerHTML.includes('<script>'), 'openTaskDetail must eliminate script tags from task descriptions');
+      assert.ok(!tdmDesc.innerHTML.includes('onerror='), 'openTaskDetail must eliminate inline event handlers from task descriptions');
+      assert.ok(tdmDesc.innerHTML.includes('bold text'), 'openTaskDetail must preserve safe formatting');
+      console.log('  ✔ openTaskDetail sanitizes task descriptions eliminating XSS payloads');
+    }
+
+    // 2. DOM XSS Mitigation in openEditResource: fileSize escaping
+    const resModule = require('../js/modules/resources.js');
+    if (typeof resModule.openEditResource === 'function') {
+      resModule.resources = resModule.resources || [];
+      resModule.resources.push({
+        id: 'sec-res-xss',
+        title: 'Security Policy Document',
+        url: 'https://drive.google.com/test',
+        category: 'Handbooks & Manuals',
+        visibility: 'all',
+        fileSize: '4.5 MB"><img src=x onerror=alert(1)>'
+      });
+
+      resModule.openEditResource('sec-res-xss');
+      const statusEl = document.getElementById('adm-res-upload-status');
+      assert.ok(statusEl, 'adm-res-upload-status must exist');
+      assert.ok(!statusEl.innerHTML.includes('<img src=x'), 'openEditResource must escape unvalidated fileSize strings');
+      assert.ok(statusEl.innerHTML.includes('&lt;img') || statusEl.innerHTML.includes('&quot;'), 'openEditResource must HTML-encode special characters');
+      console.log('  ✔ openEditResource escapes unvalidated file size parameters in DOM innerHTML');
+    }
+
+    // 3. Attribute Injection Mitigation in updateStorySlideView: URL encoding of driveFileId
+    const gallerySource = fs.readFileSync(path.join(__dirname, '../js/modules/gallery.js'), 'utf8');
+    assert.ok(gallerySource.includes('encodeURIComponent(driveFileId)'), 'updateStorySlideView must use encodeURIComponent for driveFileId');
+    console.log('  ✔ updateStorySlideView safely URL-encodes driveFileId preventing attribute breakout');
+
+    // 4. Server-Side Password Reset RPC Dispatch
+    const memberSource = fs.readFileSync(path.join(__dirname, '../js/modules/member.js'), 'utf8');
+    assert.ok(memberSource.includes("client.rpc('rpc_request_password_reset'"), 'sendPasswordResetEmail must dispatch server-side rpc_request_password_reset');
+    console.log('  ✔ sendPasswordResetEmail dispatches server-side PostgreSQL SECURITY DEFINER RPC');
+
+  } catch (err) {
+    console.error('AppSec Hardening Test Failed:', err);
+    process.exit(1);
+  }
+
+  // =========================================================================
+  // Data Integrity, Request Locking & Network Resilience
+  // =========================================================================
+  try {
+    console.log('\n[TEST] Data Integrity, Request Locking & Network Resilience...');
+
+    // 1. Optimistic Rollback in Resources Module on Server Network Failure
+    const resModule = require('../js/modules/resources.js');
+    resModule.resources.length = 0;
+    resModule.resources.push({
+      id: 'res-integrity-1',
+      title: 'Company Handbook 2026',
+      category: 'Handbooks & Manuals',
+      visibility: 'all',
+      url: 'https://example.com/handbook.pdf'
+    });
+
+    // Mock failing Supabase endpoints
+    const savedSupa = global.supa;
+    global.supa = {
+      req: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); },
+      patch: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); },
+      post: async () => { throw new Error('Simulated network timeout (HTTP 504 Gateway Timeout)'); }
+    };
+
+    let toastMessage = '';
+    global.showToast = (msg) => { toastMessage = msg; };
+    global.showConfirmModal = async () => true;
+
+    await resModule.deleteResource('res-integrity-1');
+    assert.strictEqual(resModule.resources.length, 1, 'deleteResource must restore in-memory resource on server failure');
+    assert.strictEqual(resModule.resources[0].id, 'res-integrity-1', 'Resource snapshot must be preserved after network rollback');
+    assert.ok(toastMessage.includes('Failed to delete resource'), 'User must be notified of network failure');
+    console.log('  ✔ deleteResource performs optimistic rollback and user notification upon database failure');
+
+    // 2. Badges Cache Rollback & Error Propagation
+    const badgesModule = require('../js/modules/badges.js');
+    global.getSupaClient = () => ({
+      get: async () => { throw new Error('Simulated database disconnect'); }
+    });
+
+    global._memberBadgesCache = {
+      'audit@bb1pj.my': { 'target-badge': { basicDate: '2026-01-01' } }
+    };
+
+    let caughtBadgesError = false;
+    try {
+      await badgesModule.upsertMemberBadges('audit@bb1pj.my', { 'target-badge': { basicDate: '2026-11-06' } });
+    } catch (e) {
+      caughtBadgesError = true;
+    }
+    assert.ok(caughtBadgesError, 'upsertMemberBadges must rethrow error on failure');
+    assert.strictEqual(global._memberBadgesCache['audit@bb1pj.my']['target-badge'].basicDate, '2026-01-01', 'Badge cache must roll back to previous snapshot');
+    console.log('  ✔ upsertMemberBadges rolls back cache snapshot and propagates errors');
+
+    // Restore supa mock
+    global.supa = savedSupa;
+
+  } catch (err) {
+    console.error('Data Integrity Test Failed:', err);
+    process.exit(1);
+  }
+
   // ── [TEST] UI/UX Consistency, Empty States & Modal Accessibility ──────
   {
   console.log('\n[TEST] UI/UX Consistency, Empty States & Modal Accessibility...');
