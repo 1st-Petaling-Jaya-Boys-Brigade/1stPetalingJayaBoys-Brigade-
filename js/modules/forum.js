@@ -4585,34 +4585,6 @@ async function sendHelperPrompt(userPrompt) {
   renderHelperMessages();
 }
 
-function _legacySendHelperPrompt_unused(userPrompt) {
-  var now = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
-  _helperMessages.push({
-    sender: 'user',
-    text: userPrompt,
-    time: now
-  });
-  renderHelperMessages();
-
-  setTimeout(function() {
-    var reply = queryHelperAgent(userPrompt);
-    var botTime = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
-    _helperMessages.push({
-      sender: 'agent',
-      text: reply.text,
-      triage: reply.triage,
-      actions: reply.actions || [],
-      time: botTime,
-      chips: reply.chips || (!reply.triage ? [
-        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
-        { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
-        { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' }
-      ] : [])
-    });
-    renderHelperMessages();
-  }, 250);
-}
-
 function escalateToForumFromChat(title, category, tag) {
   if (_isHelperAgentOpen) toggleHelperAgent();
   if (typeof switchTabNav === 'function') {
