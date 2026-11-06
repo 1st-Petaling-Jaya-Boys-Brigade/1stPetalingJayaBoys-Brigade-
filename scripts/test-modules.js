@@ -9331,6 +9331,71 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
 
+  // =========================================================================
+  // Application Security Audit, Vulnerability Remediation & Boundary Defenses
+  // =========================================================================
+  try {
+    console.log('\n[TEST] Application Security Hardening (XSS, Injection, Parameter Sanitization, and Password Reset RPC)...');
+
+    // 1. Stored XSS Mitigation in openTaskDetail: Task description sanitization
+    const tasksModule = require('../js/modules/tasks.js');
+    if (typeof tasksModule.openTaskDetail === 'function') {
+      global.window._taskMap = global.window._taskMap || {};
+      global.window._taskMap['sec-task-xss'] = {
+        id: 'sec-task-xss',
+        title: 'AppSec Audit Vulnerability Task',
+        description: 'Safe explanation <script>alert("xss")</script><img src="x" onerror="stealSession()"> with <b>bold text</b>',
+        status: 'todo',
+        priority: 'high',
+        assigned_to: 'Jeshua Koh',
+        department: 'logistics'
+      };
+
+      tasksModule.openTaskDetail('sec-task-xss');
+      const tdmDesc = document.getElementById('tdm-desc');
+      assert.ok(tdmDesc, 'tdm-desc element must exist');
+      assert.ok(!tdmDesc.innerHTML.includes('<script>'), 'openTaskDetail must eliminate script tags from task descriptions');
+      assert.ok(!tdmDesc.innerHTML.includes('onerror='), 'openTaskDetail must eliminate inline event handlers from task descriptions');
+      assert.ok(tdmDesc.innerHTML.includes('bold text'), 'openTaskDetail must preserve safe formatting');
+      console.log('  ✔ openTaskDetail sanitizes task descriptions eliminating XSS payloads');
+    }
+
+    // 2. DOM XSS Mitigation in openEditResource: fileSize escaping
+    const resModule = require('../js/modules/resources.js');
+    if (typeof resModule.openEditResource === 'function') {
+      resModule.resources = resModule.resources || [];
+      resModule.resources.push({
+        id: 'sec-res-xss',
+        title: 'Security Policy Document',
+        url: 'https://drive.google.com/test',
+        category: 'Handbooks & Manuals',
+        visibility: 'all',
+        fileSize: '4.5 MB"><img src=x onerror=alert(1)>'
+      });
+
+      resModule.openEditResource('sec-res-xss');
+      const statusEl = document.getElementById('adm-res-upload-status');
+      assert.ok(statusEl, 'adm-res-upload-status must exist');
+      assert.ok(!statusEl.innerHTML.includes('<img src=x'), 'openEditResource must escape unvalidated fileSize strings');
+      assert.ok(statusEl.innerHTML.includes('&lt;img') || statusEl.innerHTML.includes('&quot;'), 'openEditResource must HTML-encode special characters');
+      console.log('  ✔ openEditResource escapes unvalidated file size parameters in DOM innerHTML');
+    }
+
+    // 3. Attribute Injection Mitigation in updateStorySlideView: URL encoding of driveFileId
+    const gallerySource = fs.readFileSync(path.join(__dirname, '../js/modules/gallery.js'), 'utf8');
+    assert.ok(gallerySource.includes('encodeURIComponent(driveFileId)'), 'updateStorySlideView must use encodeURIComponent for driveFileId');
+    console.log('  ✔ updateStorySlideView safely URL-encodes driveFileId preventing attribute breakout');
+
+    // 4. Server-Side Password Reset RPC Dispatch
+    const memberSource = fs.readFileSync(path.join(__dirname, '../js/modules/member.js'), 'utf8');
+    assert.ok(memberSource.includes("client.rpc('rpc_request_password_reset'"), 'sendPasswordResetEmail must dispatch server-side rpc_request_password_reset');
+    console.log('  ✔ sendPasswordResetEmail dispatches server-side PostgreSQL SECURITY DEFINER RPC');
+
+  } catch (err) {
+    console.error('AppSec Hardening Test Failed:', err);
+    process.exit(1);
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

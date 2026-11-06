@@ -4784,6 +4784,19 @@ async function sendPasswordResetEmail() {
         sessionStorage.setItem('bb_reset_otp_' + email, JSON.stringify(otpPayload));
       } catch (e) {}
 
+      // Server-Side PostgreSQL SECURITY DEFINER RPC Dispatch
+      if (client && typeof client.rpc === 'function') {
+        try {
+          await client.rpc('rpc_request_password_reset', {
+            p_email: email,
+            p_otp_code: code,
+            p_otp_hash: null
+          });
+        } catch (rpcErr) {
+          console.warn('RPC password reset request warning:', rpcErr);
+        }
+      }
+
       var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
       try {
         await client.req('POST', 'bb_config?on_conflict=key', {
