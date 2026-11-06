@@ -1057,6 +1057,67 @@ async function renderCompanyLeaderboard() {
 
   var html = '';
 
+  // 1. Leaderboard Podium for Top 3 Squads
+  var sqTop1 = squadList[0] || null;
+  var sqTop2 = squadList[1] || null;
+  var sqTop3 = squadList[2] || null;
+
+  function renderSquadPodiumPillar(sq, stepNum) {
+    if (!sq) {
+      return '<div class="podium-column">' +
+        '<div class="podium-header">' +
+          '<div class="podium-name" style="color:var(--text-muted);">-</div>' +
+          '<div class="podium-avatar-wrap"><div class="podium-avatar" style="width:48px;height:48px;background:var(--surface-tint);color:var(--text-muted);border:2px solid var(--border-subtle);">?</div></div>' +
+        '</div>' +
+        '<div class="podium-step podium-step-' + stepNum + '">' +
+          '<div class="podium-step-num">#' + stepNum + '</div>' +
+          '<div class="podium-step-val">-</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    var st = getPlatoonStyle(sq.name);
+    var safeSquadName = escapeAttHtml(sq.name);
+    var rankBadgeStyle = (stepNum === 1)
+      ? 'background:var(--brand-gold,#f5c542);color:#000;'
+      : (stepNum === 2 ? 'background:#cbd5e1;color:#000;' : 'background:#ea580c;color:#fff;');
+
+    var squadLetter = safeSquadName.charAt(0).toUpperCase();
+
+    return '<div class="podium-column">' +
+      '<div class="podium-header">' +
+        // 1. SQUAD NAME ON TOP OF EMBLEM
+        '<div class="podium-name" title="' + safeSquadName + '">' + safeSquadName + '</div>' +
+        // 2. EMBLEM / BADGE UNDER SQUAD NAME
+        '<div class="podium-avatar-wrap">' +
+          '<div class="podium-avatar" style="width:48px;height:48px;background:' + st.bg + ';border:2px solid ' + st.border + ';color:' + st.color + ';font-size:18px;font-family:var(--font-headline);font-weight:800;">' +
+            squadLetter +
+          '</div>' +
+          '<span class="podium-rank-badge" style="' + rankBadgeStyle + '">#' + stepNum + '</span>' +
+        '</div>' +
+      '</div>' +
+      // 3. PODIUM PILLAR STEP
+      '<div class="podium-step podium-step-' + stepNum + '">' +
+        '<div class="podium-step-num">#' + stepNum + '</div>' +
+        '<div class="podium-step-val">' + (sq.points || 0) + ' pts</div>' +
+        '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:3px;letter-spacing:0.3px;">' + st.plt + ' Platoon</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  html +=
+    '<div class="card squad-podium-card" style="padding:22px 16px;margin-bottom:20px;width:100%;box-sizing:border-box;">' +
+      '<div style="text-align:center;margin-bottom:12px;">' +
+        '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Squad Championship Podium</div>' +
+        '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Top 3 Leading Squads in Company Attendance &amp; Inspection Points</div>' +
+      '</div>' +
+      '<div class="leaderboard-podium-wrap">' +
+        renderSquadPodiumPillar(sqTop2, 2) +
+        renderSquadPodiumPillar(sqTop1, 1) +
+        renderSquadPodiumPillar(sqTop3, 3) +
+      '</div>' +
+    '</div>';
+
   // 2. Render Competing Squad Cards with Safe Member Rosters
   squadList.forEach(function(sq, sqIdx) {
     var st = getPlatoonStyle(sq.name);

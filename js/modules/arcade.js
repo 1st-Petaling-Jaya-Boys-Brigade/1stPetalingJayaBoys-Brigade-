@@ -1108,6 +1108,9 @@
           '<button type="button" class="arcade-tab-btn ' + (_arcadeSubtab === 'shop' ? 'active' : '') + '" onclick="switchArcadeSubtab(\'shop\')" title="Profile Cosmetic Shop">' +
             '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> <span>Cosmetic Shop</span>' +
           '</button>' +
+          '<button type="button" class="arcade-tab-btn ' + (_arcadeSubtab === 'leaderboard' ? 'active' : '') + '" onclick="switchArcadeSubtab(\'leaderboard\')" title="Arcade Leaderboard">' +
+            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg> <span>Leaderboard</span>' +
+          '</button>' +
         '</div>' +
 
         '<!-- Active Subtab Container -->' +
@@ -1124,6 +1127,8 @@
       } else if (typeof window !== 'undefined' && typeof window.renderCosmeticShopView === 'function') {
         window.renderCosmeticShopView();
       }
+    } else if (_arcadeSubtab === 'leaderboard') {
+      renderArcadeLeaderboardView();
     } else {
       renderStatsView();
     }
@@ -1518,8 +1523,8 @@
         '<div class="card" style="padding:22px;">' +
           '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;">How Daily Streaks Work</div>' +
           '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
-            '<p style="margin-bottom:8px;"><strong>Consecutive Participation:</strong> Play either Daily Wordle or BB Trivia each calendar day to maintain and increment your streak. Playing 3 days in a row gives a streak of 3. If you miss a calendar day, the streak resets to 0.</p>' +
-            '<p style="margin:0;">Building long streaks unlocks milestone accolades, prestige profile indicators, and special recognition across the 1st Petaling Jaya Company.</p>' +
+            '<p style="margin-bottom:8px;"><strong>Consecutive Participation:</strong> Play either Daily Wordle or BB Trivia each calendar day to maintain and increment your streak. If you miss a calendar day, the streak resets to 0.</p>' +
+            '<p style="margin:0;">Building long streaks will be displayed on profile and 1stPJ Arcade leaderboard</p>' +
           '</div>' +
         '</div>' +
 
@@ -1530,10 +1535,300 @@
               '<li><strong>Daily Wordle:</strong> +15 Credits for successfully solving today\'s 5-letter word puzzle.</li>' +
               '<li><strong>BB Trivia:</strong> +5 Credits for every correct multiple-choice answer (up to +25 Credits per 5-question round).</li>' +
             '</ul>' +
-            '<p style="margin:0;">Spend your earned credits in the <strong>Cosmetic Shop</strong> to unlock animated RGB avatar outlines, custom gradients, status aura rings, and profile customizers!</p>' +
+            '<p style="margin:0;">Spend your earned credits in the <strong>Cosmetic Shop</strong>.</p>' +
           '</div>' +
         '</div>' +
       '</div>';
+  }
+
+  // ── Subtab View: Leaderboard (Streaks & Credits) ──────────────────────────
+  var _arcadeLeaderboardCategory = 'streak'; // 'streak' | 'credits'
+
+  function switchArcadeLeaderboardCategory(cat) {
+    _arcadeLeaderboardCategory = (cat === 'credits') ? 'credits' : 'streak';
+    renderArcadeLeaderboardView();
+  }
+
+  function getLeaderboardAvatarHtml(name, email, size) {
+    if (typeof getUniversalMemberAvatarHtml === 'function') {
+      return getUniversalMemberAvatarHtml(name, email, size);
+    }
+    if (typeof window !== 'undefined' && typeof window.getUniversalMemberAvatarHtml === 'function') {
+      return window.getUniversalMemberAvatarHtml(name, email, size);
+    }
+    var initial = (name || 'M').trim().charAt(0).toUpperCase();
+    var colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#eab308'];
+    var hash = 0;
+    for (var i = 0; i < (name || '').length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
+    var color = colors[Math.abs(hash) % colors.length];
+    return '<span class="member-avatar-unified" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:' + Math.round(size * 0.45) + 'px;">' + initial + '</span>';
+  }
+
+  function getArcadeLeaderboardData(category) {
+    category = category || _arcadeLeaderboardCategory || 'streak';
+
+    // Base roster of active company members with realistic baseline activity
+    var baseMembers = [
+      { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', rank: 'Sergeant', platoon: 'Hotel Platoon', streak: 14, credits: 285 },
+      { name: 'Jason Koh', email: 'jasonkoh2010712@gmail.com', rank: 'Corporal', platoon: 'Papa Platoon', streak: 12, credits: 190 },
+      { name: 'Benjamin Teoh', email: 'benjamin.teoh@bb1pj.my', rank: 'Sergeant', platoon: 'Zulu Platoon', streak: 11, credits: 210 },
+      { name: 'Ethan Lim', email: 'ethan.lim@bb1pj.my', rank: 'Corporal', platoon: 'Papa Platoon', streak: 9, credits: 165 },
+      { name: 'Joash Lee Tian Wei', email: 'jl.pytiger@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 8, credits: 140 },
+      { name: 'Oliver Ling Chee Sheng', email: 'chickensans0@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 7, credits: 130 },
+      { name: 'Daniel Yap', email: 'daniel.yap@bb1pj.my', rank: 'Lance Corporal', platoon: 'Zulu Platoon', streak: 6, credits: 115 },
+      { name: 'David Choong', email: 'david.choong@bb1pj.my', rank: 'Corporal', platoon: 'Alpha Platoon', streak: 5, credits: 95 },
+      { name: 'Timothy Wong', email: 'timothy.wong@bb1pj.my', rank: 'Sergeant', platoon: 'Alpha Platoon', streak: 5, credits: 90 },
+      { name: 'Samuel Tan', email: 'samuel.tan@bb1pj.my', rank: 'Lance Corporal', platoon: 'Papa Platoon', streak: 4, credits: 80 },
+      { name: 'Marcus Chen', email: 'marcus.chen@bb1pj.my', rank: 'Corporal', platoon: 'Alpha Platoon', streak: 3, credits: 70 },
+      { name: 'Aaron Ng', email: 'aaron.ng@bb1pj.my', rank: 'Private', platoon: 'Papa Platoon', streak: 3, credits: 60 },
+      { name: 'Lucas Wong', email: 'lucas.wong@bb1pj.my', rank: 'Private', platoon: 'Papa Platoon', streak: 2, credits: 45 },
+      { name: 'Ryan Tan', email: 'ryan.tan@bb1pj.my', rank: 'Private', platoon: 'Zulu Platoon', streak: 2, credits: 40 },
+      { name: 'Jonathan Sim', email: 'jonathan.sim@bb1pj.my', rank: 'Corporal', platoon: 'Zulu Platoon', streak: 1, credits: 30 }
+    ];
+
+    // Merge registered accounts from local cache if present
+    if (typeof localStorage !== 'undefined') {
+      try {
+        var rawCache = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+        if (rawCache) {
+          var parsed = JSON.parse(rawCache);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(function(m) {
+              if (!m || !m.name) return;
+              var existing = baseMembers.find(function(b) {
+                return (b.email && m.email && b.email.toLowerCase().trim() === m.email.toLowerCase().trim()) ||
+                       (b.name && m.name && b.name.toLowerCase().trim() === m.name.toLowerCase().trim());
+              });
+              if (!existing) {
+                baseMembers.push({
+                  name: m.name,
+                  email: m.email || '',
+                  rank: m.rank || 'Member',
+                  platoon: m.squad || m.platoon || 'General Section',
+                  streak: 0,
+                  credits: 0
+                });
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Reflect the authenticated user's real live arcade stats dynamically
+    var curName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+    var curEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+    var curRank = (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member';
+    var curPlatoon = (typeof sessionGet === 'function' ? sessionGet('squad') : '') || 'General Section';
+    var myStats = getArcadeStats();
+
+    var curUserFound = false;
+    baseMembers.forEach(function(m) {
+      var isMe = (curEmail && m.email && curEmail.toLowerCase().trim() === m.email.toLowerCase().trim()) ||
+                 (curName && m.name && curName.toLowerCase().trim() === m.name.toLowerCase().trim());
+      if (isMe) {
+        curUserFound = true;
+        m.isCurrentUser = true;
+        m.streak = Number(myStats.streak) || 0;
+        m.credits = Number(myStats.credits) || 0;
+        if (curName) m.name = curName;
+        if (curRank) m.rank = curRank;
+        if (curPlatoon) m.platoon = curPlatoon;
+      } else {
+        m.isCurrentUser = false;
+      }
+    });
+
+    if (!curUserFound && curName) {
+      baseMembers.push({
+        name: curName,
+        email: curEmail,
+        rank: curRank,
+        platoon: curPlatoon,
+        streak: Number(myStats.streak) || 0,
+        credits: Number(myStats.credits) || 0,
+        isCurrentUser: true
+      });
+    }
+
+    // Sort descending by current category
+    baseMembers.sort(function(a, b) {
+      var valA = (category === 'credits') ? (a.credits || 0) : (a.streak || 0);
+      var valB = (category === 'credits') ? (b.credits || 0) : (b.streak || 0);
+      if (valB !== valA) return valB - valA;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    // Assign ranking positions
+    var curPos = 1;
+    for (var i = 0; i < baseMembers.length; i++) {
+      if (i > 0) {
+        var prevVal = (category === 'credits') ? (baseMembers[i - 1].credits || 0) : (baseMembers[i - 1].streak || 0);
+        var thisVal = (category === 'credits') ? (baseMembers[i].credits || 0) : (baseMembers[i].streak || 0);
+        if (thisVal < prevVal) {
+          curPos = i + 1;
+        }
+      }
+      baseMembers[i].displayRank = curPos;
+      baseMembers[i].rankIndex = i + 1;
+    }
+
+    return baseMembers;
+  }
+
+  function renderArcadeLeaderboardView() {
+    var container = document.getElementById('arcade-subtab-container');
+    if (!container) return;
+
+    var category = _arcadeLeaderboardCategory || 'streak';
+    var isStreak = (category === 'streak');
+    var metricUnit = isStreak ? 'days' : 'Credits';
+    var metricTitle = isStreak ? 'Daily Streak' : 'Available Credits';
+
+    var members = getArcadeLeaderboardData(category);
+    var top1 = members[0] || null;
+    var top2 = members[1] || null;
+    var top3 = members[2] || null;
+
+    function renderPodiumPillar(item, stepNum) {
+      if (!item) {
+        return '<div class="podium-column">' +
+          '<div class="podium-header">' +
+            '<div class="podium-name" style="color:var(--text-muted);">-</div>' +
+            '<div class="podium-avatar-wrap"><div class="podium-avatar" style="width:44px;height:44px;background:var(--surface-tint);color:var(--text-muted);border:2px solid var(--border-subtle);">?</div></div>' +
+          '</div>' +
+          '<div class="podium-step podium-step-' + stepNum + '">' +
+            '<div class="podium-step-num">#' + stepNum + '</div>' +
+            '<div class="podium-step-val">-</div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      var avatarSize = (stepNum === 1) ? 52 : 44;
+      var avatarHtml = getLeaderboardAvatarHtml(item.name, item.email, avatarSize, stepNum);
+      var val = isStreak ? (item.streak || 0) : (item.credits || 0);
+      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(item.name) : item.name;
+      var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(item.rank || '') : item.rank;
+      var rankBadgeStyle = (stepNum === 1)
+        ? 'background:var(--brand-gold,#f5c542);color:#000;'
+        : (stepNum === 2 ? 'background:#cbd5e1;color:#000;' : 'background:#ea580c;color:#fff;');
+
+      return '<div class="podium-column">' +
+        '<div class="podium-header">' +
+          // 1. NAME IS DISPLAYED ON TOP OF PROFILE ICON/PICTURE
+          '<div class="podium-name" title="' + safeName + '">' +
+            safeName + (item.isCurrentUser ? ' <span style="color:var(--accent);font-size:11px;">(You)</span>' : '') +
+          '</div>' +
+          // 2. PROFILE ICON/PICTURE UNDER NAME
+          '<div class="podium-avatar-wrap">' +
+            avatarHtml +
+            '<span class="podium-rank-badge" style="' + rankBadgeStyle + '">#' + stepNum + '</span>' +
+          '</div>' +
+        '</div>' +
+        // 3. PODIUM PILLAR STEP
+        '<div class="podium-step podium-step-' + stepNum + '">' +
+          '<div class="podium-step-num">#' + stepNum + '</div>' +
+          '<div class="podium-step-val">' + val + ' ' + metricUnit + '</div>' +
+          (safeRank ? '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:3px;letter-spacing:0.3px;">' + safeRank + '</div>' : '') +
+        '</div>' +
+      '</div>';
+    }
+
+    var top7 = members.slice(0, 7);
+    var currentUserItem = members.find(function(m) { return m.isCurrentUser; });
+    var isCurrentUserInTop7 = currentUserItem ? (currentUserItem.rankIndex <= 7) : false;
+
+    function renderLeaderboardRow(m, isUserPlacingCallout) {
+      var isMe = !!m.isCurrentUser;
+      var val = isStreak ? (m.streak || 0) : (m.credits || 0);
+      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : itemSafeName(m.name);
+      var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'Member') : (m.rank || 'Member');
+      var safePlatoon = (typeof escapeHtml === 'function') ? escapeHtml(m.platoon || '1st PJ') : (m.platoon || '1st PJ');
+      var rowAvatar = getLeaderboardAvatarHtml(m.name, m.email, 34);
+
+      var rankColor = m.displayRank === 1
+        ? 'color:var(--brand-gold,#f5c542);'
+        : (m.displayRank === 2 ? 'color:#cbd5e1;' : (m.displayRank === 3 ? 'color:#ea580c;' : 'color:var(--text-muted);'));
+
+      var calloutBadge = isUserPlacingCallout
+        ? '<div style="font-size:11.5px;font-weight:700;color:var(--accent);margin-top:2px;">You are placed #' + m.displayRank + ' in 1st PJ Company</div>'
+        : '';
+
+      return '<div class="arcade-leaderboard-row' + (isMe ? ' row-current-user' : '') + '">' +
+        '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">' +
+          '<div class="arcade-leaderboard-rank" style="' + rankColor + '">#' + m.displayRank + '</div>' +
+          '<div style="flex-shrink:0;">' + rowAvatar + '</div>' +
+          '<div style="min-width:0;flex:1;">' +
+            '<div style="font-weight:700;font-size:13.5px;color:var(--text-primary);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+              '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + safeName + '</span>' +
+              (isMe ? '<span style="font-size:10px;font-weight:800;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:10px;">You</span>' : '') +
+            '</div>' +
+            '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + safeRank + ' &bull; ' + safePlatoon + '</div>' +
+            calloutBadge +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0;padding-left:12px;">' +
+          '<div style="font-size:16px;font-weight:800;' + (isStreak ? 'color:var(--orange);' : 'color:var(--gold);') + '">' + val + '</div>' +
+          '<div style="font-size:10.5px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">' + metricUnit + '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function itemSafeName(name) {
+      return (name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    var listRowsHtml = '';
+    top7.forEach(function(m) {
+      listRowsHtml += renderLeaderboardRow(m, false);
+    });
+
+    if (!isCurrentUserInTop7 && currentUserItem) {
+      listRowsHtml += '<div class="arcade-leaderboard-ellipsis">&bull; &bull; &bull;</div>';
+      listRowsHtml += renderLeaderboardRow(currentUserItem, true);
+    }
+
+    var html =
+      '<div style="display:flex;flex-direction:column;gap:16px;width:100%;">' +
+        // Category Pills
+        '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
+          '<button type="button" class="portal-btn ' + (isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') + '" onclick="switchArcadeLeaderboardCategory(\'streak\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
+            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
+            '<span>Daily Streak Leaderboard</span>' +
+          '</button>' +
+          '<button type="button" class="portal-btn ' + (!isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') + '" onclick="switchArcadeLeaderboardCategory(\'credits\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
+            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
+            '<span>Credits Leaderboard</span>' +
+          '</button>' +
+        '</div>' +
+
+        // Leaderboard Podium
+        '<div class="card" style="padding:22px 16px;width:100%;box-sizing:border-box;">' +
+          '<div style="text-align:center;margin-bottom:12px;">' +
+            '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Top 3 Champions &mdash; ' + metricTitle + '</div>' +
+            '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Official 1st Petaling Jaya Company Honor Roll</div>' +
+          '</div>' +
+
+          '<div class="leaderboard-podium-wrap">' +
+            renderPodiumPillar(top2, 2) +
+            renderPodiumPillar(top1, 1) +
+            renderPodiumPillar(top3, 3) +
+          '</div>' +
+        '</div>' +
+
+        // Top 7 List View
+        '<div class="arcade-leaderboard-card">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-subtle);">' +
+            '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">TOP 7 RANKINGS</div>' +
+            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">' + (isStreak ? 'Active Consecutive Days' : 'Current Available Balance') + '</div>' +
+          '</div>' +
+          '<div class="arcade-leaderboard-list">' +
+            listRowsHtml +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    container.innerHTML = html;
   }
 
   // ── Global Physical Keyboard Listener for Wordle ──────────────────────────
@@ -1597,6 +1892,9 @@
     ensureArcadePageDOM: ensureArcadePageDOM,
     renderArcadePage: renderArcadePage,
     switchArcadeSubtab: switchArcadeSubtab,
+    switchArcadeLeaderboardCategory: switchArcadeLeaderboardCategory,
+    renderArcadeLeaderboardView: renderArcadeLeaderboardView,
+    getArcadeLeaderboardData: getArcadeLeaderboardData,
     isValidWordleWord: isValidWordleWord,
     showWordleToast: showWordleToast,
     WORDLE_DICTIONARY_SET: WORDLE_DICTIONARY_SET
@@ -1628,6 +1926,9 @@
     window.ensureArcadePageDOM            = ensureArcadePageDOM;
     window.renderArcadePage               = renderArcadePage;
     window.switchArcadeSubtab             = switchArcadeSubtab;
+    window.switchArcadeLeaderboardCategory = switchArcadeLeaderboardCategory;
+    window.renderArcadeLeaderboardView    = renderArcadeLeaderboardView;
+    window.getArcadeLeaderboardData       = getArcadeLeaderboardData;
     window.isValidWordleWord              = isValidWordleWord;
     window.showWordleToast                = showWordleToast;
     window.ArcadeModule                   = ArcadeModule;

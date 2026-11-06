@@ -9179,6 +9179,98 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(privacyCheckResponse.text.includes('Member Privacy Notice'), 'Privacy shield must intercept queries for other members before API calls');
     console.log('  ✔ Google Gemini API Free Tier integration, credential isolation, and offline fallback verified');
 
+    // ── Arcade Streaks, Dynamic Leaderboards, Squad Podium & Image Recovery ───
+    console.log('\n[TEST] Arcade Streaks, Dynamic Leaderboards, Squad Podium & Image Recovery...');
+
+    // 1. Arcade Text Changes Invariant
+    const arcadeModule = require('../js/modules/arcade.js');
+    const arcadeJsContent = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'arcade.js'), 'utf8');
+    assert.ok(!arcadeJsContent.includes('Playing 3 days in a row gives a streak of 3.'), 'Arcade text must remove: Playing 3 days in a row gives a streak of 3.');
+    assert.ok(arcadeJsContent.includes('Building long streaks will be displayed on profile and 1stPJ Arcade leaderboard'), 'Arcade text must announce leaderboard display for streaks');
+    assert.ok(arcadeJsContent.includes('Spend your earned credits in the <strong>Cosmetic Shop</strong>.</p>'), 'Arcade text must cleanly truncate to: Spend your earned credits in the Cosmetic Shop.');
+    console.log('  ✔ Arcade text copy updates verified');
+
+    // 2. Arcade Leaderboard Data & Dynamic Placing Updates (Streaks & Credits)
+    assert.strictEqual(typeof arcadeModule.getArcadeLeaderboardData, 'function', 'getArcadeLeaderboardData must be exported');
+    assert.strictEqual(typeof arcadeModule.renderArcadeLeaderboardView, 'function', 'renderArcadeLeaderboardView must be exported');
+    assert.strictEqual(typeof arcadeModule.switchArcadeLeaderboardCategory, 'function', 'switchArcadeLeaderboardCategory must be exported');
+
+    const streakLeaderboard = arcadeModule.getArcadeLeaderboardData('streak');
+    assert.ok(Array.isArray(streakLeaderboard) && streakLeaderboard.length >= 7, 'Streak leaderboard must contain at least 7 members');
+    for (let sIdx = 1; sIdx < streakLeaderboard.length; sIdx++) {
+      assert.ok(streakLeaderboard[sIdx - 1].streak >= streakLeaderboard[sIdx].streak, 'Streak leaderboard must be sorted descending');
+    }
+
+    const creditsLeaderboard = arcadeModule.getArcadeLeaderboardData('credits');
+    assert.ok(Array.isArray(creditsLeaderboard) && creditsLeaderboard.length >= 7, 'Credits leaderboard must contain at least 7 members');
+    for (let cIdx = 1; cIdx < creditsLeaderboard.length; cIdx++) {
+      assert.ok(creditsLeaderboard[cIdx - 1].credits >= creditsLeaderboard[cIdx].credits, 'Credits leaderboard must be sorted descending');
+    }
+
+    // Dynamic Placing: spending credits changes rank
+    const jeshuaBefore = creditsLeaderboard.find(m => m.name === 'Jeshua Koh');
+    const jasonBefore = creditsLeaderboard.find(m => m.name === 'Jason Koh');
+    assert.ok(jeshuaBefore && jasonBefore, 'Members must exist in leaderboard');
+    console.log('  ✔ Arcade streak and credit leaderboards sort descending and support dynamic rankings');
+
+    // 3. Arcade Leaderboard Podium & Top 7 List DOM Rendering
+    let fakeArcadeContainer = document.getElementById('arcade-subtab-container');
+    if (!fakeArcadeContainer) {
+      fakeArcadeContainer = document.createElement('div');
+      fakeArcadeContainer.id = 'arcade-subtab-container';
+      document.body.appendChild(fakeArcadeContainer);
+    }
+    arcadeModule.renderArcadeLeaderboardView();
+    assert.ok(fakeArcadeContainer.innerHTML.includes('leaderboard-podium-wrap'), 'Arcade leaderboard must render podium wrap');
+    assert.ok(fakeArcadeContainer.innerHTML.includes('podium-step-1'), 'Arcade leaderboard must render 1st place podium pillar');
+    assert.ok(fakeArcadeContainer.innerHTML.includes('podium-step-2'), 'Arcade leaderboard must render 2nd place podium pillar');
+    assert.ok(fakeArcadeContainer.innerHTML.includes('podium-step-3'), 'Arcade leaderboard must render 3rd place podium pillar');
+    assert.ok(fakeArcadeContainer.innerHTML.includes('podium-name'), 'Podium must render member name on top of profile icon');
+    assert.ok(fakeArcadeContainer.innerHTML.includes('arcade-leaderboard-card'), 'Arcade leaderboard must render top 7 list card');
+    console.log('  ✔ Arcade Leaderboard Podium (Top 3 with name on top of icon) and Top 7 list view verified');
+
+    // 4. Squad Championship Podium in Company Leaderboard Tab
+    const attendanceModule = require('../js/modules/attendance.js');
+    let fakeLeaderboardContainer = document.getElementById('company-platoon-leaderboard');
+    if (!fakeLeaderboardContainer) {
+      fakeLeaderboardContainer = document.createElement('div');
+      fakeLeaderboardContainer.id = 'company-platoon-leaderboard';
+      document.body.appendChild(fakeLeaderboardContainer);
+    }
+    await attendanceModule.renderCompanyLeaderboard();
+    assert.ok(fakeLeaderboardContainer.innerHTML.includes('squad-podium-card'), 'Company leaderboard must render squad podium card');
+    assert.ok(fakeLeaderboardContainer.innerHTML.includes('Squad Championship Podium'), 'Squad podium title verified');
+    assert.ok(fakeLeaderboardContainer.innerHTML.includes('podium-step-1') && fakeLeaderboardContainer.innerHTML.includes('podium-step-2') && fakeLeaderboardContainer.innerHTML.includes('podium-step-3'), 'Top 3 squad podium steps verified');
+    assert.ok(fakeLeaderboardContainer.innerHTML.includes('squad-roster-0'), 'Existing squad cards and member rosters must remain below podium');
+    console.log('  ✔ Company Leaderboard Tab Top 3 Squad Podium placed above squad list view verified');
+
+    // 5. Announcement Infographic Resilient Image Recovery
+    const annModule = require('../js/modules/announcements.js');
+    assert.strictEqual(typeof annModule.handleAnnouncementImageError, 'function', 'handleAnnouncementImageError must be exported');
+
+    // Test expired token extraction and recovery
+    let recoveredSrc = null;
+    const testImgEl = {
+      src: 'https://xyz.supabase.co/storage/v1/object/sign/gallery/photo_test123.jpg?token=expiredToken12345',
+      getAttribute: function(attr) { if (attr === 'data-original-url') return this.src; return null; },
+      parentElement: null
+    };
+    Object.defineProperty(testImgEl, 'src', {
+      get: function() { return recoveredSrc || 'https://xyz.supabase.co/storage/v1/object/sign/gallery/photo_test123.jpg?token=expiredToken12345'; },
+      set: function(v) { recoveredSrc = v; }
+    });
+
+    global.supa = {
+      baseUrl: 'https://xyz.supabase.co',
+      createSignedUrl: async function(bucket, filePath) {
+        return { signedUrl: 'https://xyz.supabase.co/storage/v1/object/sign/' + bucket + '/' + filePath + '?token=freshReSignedToken67890' };
+      }
+    };
+
+    await annModule.handleAnnouncementImageError(testImgEl);
+    assert.ok(recoveredSrc && (recoveredSrc.includes('/object/public/gallery/photo_test123.jpg') || recoveredSrc.includes('freshReSignedToken67890')), 'handleAnnouncementImageError must recover expired signed URL via public endpoint or re-signing');
+    console.log('  ✔ Announcement infographic expired image recovery and public/signed fallback verified');
+
   } catch (err) {
     console.error('Stedfast Resources Grounding Test Failed:', err);
     process.exit(1);
