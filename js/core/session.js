@@ -1,11 +1,11 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Session State Management (sessionStorage) with Cross-Tab Synchronization (TSK-025)
- * Session TTL Expiry (14-Day Remember Me) & Sign Out Everywhere (TSK-041)
+ * Session State Management (sessionStorage) with Cross-Tab Synchronization
+ * Session TTL Expiry (14-Day Remember Me) & Sign Out Everywhere
  */
 
-var REMEMBER_ME_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds (TSK-041)
-var _redirectTarget = null; // Post-login redirect memory (TSK-045)
+var REMEMBER_ME_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
+var _redirectTarget = null; // Post-login redirect memory
 
 /**
  * Checks whether a saved Remember Me session timestamp has exceeded 14 days
@@ -27,7 +27,7 @@ var _session = (function() {
       var l = localStorage.getItem('bb_session');
       if (l) {
         var parsed = JSON.parse(l);
-        // TSK-041: Auto-expire Remember Me sessions after 14 days
+        // Auto-expire Remember Me sessions after 14 days
         var savedAt = parsed._session_saved_at || (parsed.expires_at ? (parsed.expires_at - REMEMBER_ME_TTL_MS) : null);
         if (savedAt && isRememberMeExpired(savedAt)) {
           localStorage.removeItem('bb_session');
@@ -187,7 +187,7 @@ if (typeof BroadcastChannel !== 'undefined') {
 }
 
 /**
- * Handles incoming cross-tab storage sync messages with anti-loop protection (TSK-025)
+ * Handles incoming cross-tab storage sync messages with anti-loop protection
  */
 function handleSyncMessage(data) {
   if (!data || !data.action) return;
@@ -392,7 +392,7 @@ function sessionClear(options) {
 }
 
 /**
- * Revokes all active user sessions across all devices (TSK-041)
+ * Revokes all active user sessions across all devices
  * Calls rpc_sign_out_everywhere on Supabase, purges local credentials,
  * notifies all sibling browser tabs, and resets UI state.
  * @returns {Promise<{success: boolean}>}
@@ -400,7 +400,7 @@ function sessionClear(options) {
 async function signOutEverywhere() {
   var actorId = sessionGet('email') || sessionGet('ic') || sessionGet('name') || 'anonymous';
 
-  // 1. Invalidate remote sessions and record audit trail via Supabase RPC (TSK-041)
+  // 1. Invalidate remote sessions and record audit trail via Supabase RPC
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
@@ -447,7 +447,7 @@ async function signOutEverywhere() {
 }
 
 /**
- * Global Route-Protection Middleware & Authenticated Portal Gatekeeper (TSK-045)
+ * Global Route-Protection Middleware & Authenticated Portal Gatekeeper
  */
 var AuthGuard = {
   PROTECTED_ROUTES: ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'],
@@ -706,7 +706,7 @@ function forceKickDeletedAccount() {
   }
 }
 
-// ── Member Online, Idle & Offline Presence Tracking (TSK-062) ────────────────
+// ── Member Online, Idle & Offline Presence Tracking ────────────────
 var PRESENCE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;      // 5 minutes of inactivity = Idle
 var PRESENCE_HEARTBEAT_INTERVAL_MS = 60 * 1000;    // 60-second periodic heartbeat
 var _lastUserActivityTs = Date.now();

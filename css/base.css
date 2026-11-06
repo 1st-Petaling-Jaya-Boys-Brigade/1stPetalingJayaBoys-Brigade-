@@ -34,7 +34,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Touch Action & Interactive Target Polish (TSK-017) */
+/* Touch Action & Interactive Target Polish */
 button,
 a,
 input,
@@ -48,7 +48,7 @@ textarea,
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Prevent iOS Safari Automatic Viewport Zoom on Form Inputs (TSK-017) */
+/* Prevent iOS Safari Automatic Viewport Zoom on Form Inputs */
 @media (max-width: 768px) {
   input[type='text'],
   input[type='email'],
@@ -305,7 +305,7 @@ textarea,
   }
 }
 
-/* Accessibility: Respect Reduced Motion Preferences (TSK-017) */
+/* Accessibility: Respect Reduced Motion Preferences */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto !important;

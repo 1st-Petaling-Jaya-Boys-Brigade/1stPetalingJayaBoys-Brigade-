@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Dynamic Forms Hub & Form Builder Module (TSK-006A)
+ * Dynamic Forms Hub & Form Builder Module
  *
  * Implements the Forms Hub for members, live form search/filtering,
  * dynamic built-in form rendering and response submissions, and the
@@ -367,7 +367,7 @@ function renderBuiltinFormInline(form) {
   var container = document.getElementById('inline-form-view');
   if (!container) return;
 
-  // Scope input element IDs to form.id to prevent collision across multiple forms (BUG-010)
+  // Scope input element IDs to form.id to prevent collision across multiple forms
   var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
   var fieldsHtml = '';
   (form.fields || []).forEach(function (f, i) {
@@ -569,7 +569,7 @@ async function submitBuiltinForm(form) {
     return;
   }
 
-  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  // Cloudflare Turnstile CAPTCHA Verification
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('form')
     : '';
@@ -666,7 +666,7 @@ async function submitBuiltinForm(form) {
 // ── Admin Dynamic Form Builder ─────────────────────────────────────────────
 
 /**
- * Renders uniform products list preview in the Form Builder / Admin Form Hub (BUG-004)
+ * Renders uniform products list preview in the Form Builder / Admin Form Hub
  */
 function renderUniformProductsPreview() {
   if (typeof document === 'undefined') return;

@@ -1,4 +1,4 @@
--- Migration 006: Gallery Media Type Support (TSK-010 & TSK-033)
+-- Migration 006: Gallery Media Type Support
 -- Adds 'type' column to bb_gallery for distinguishing photos from video reels.
 
 ALTER TABLE IF EXISTS bb_gallery ADD COLUMN IF NOT EXISTS type text DEFAULT 'image';

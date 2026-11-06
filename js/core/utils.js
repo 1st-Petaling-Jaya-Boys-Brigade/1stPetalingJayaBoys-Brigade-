@@ -261,7 +261,7 @@ function hexToBytes(hex) {
 }
 
 /**
- * Computes SHA-256 hexadecimal hash using Web Crypto or Node.js crypto (BUG-009)
+ * Computes SHA-256 hexadecimal hash using Web Crypto or Node.js crypto
  * @param {string} str
  * @returns {Promise<string>}
  */
@@ -297,7 +297,7 @@ async function computeSha256(str) {
 }
 
 /**
- * Hashes a plaintext password using Web Crypto API PBKDF2-HMAC-SHA-256 (TSK-029)
+ * Hashes a plaintext password using Web Crypto API PBKDF2-HMAC-SHA-256
  * Generates a unique 128-bit cryptographically secure salt per user.
  * Output Format: 'pbkdf2:sha256:100000:<saltHex>:<hashHex>'
  * @param {string} password - Plaintext password to hash
@@ -352,7 +352,7 @@ async function hashPassword(password, saltHex) {
 }
 
 /**
- * Unicode-safe Base64 encoder (BUG-003)
+ * Unicode-safe Base64 encoder
  * @param {string} str
  * @returns {string}
  */
@@ -376,7 +376,7 @@ function safeBase64Encode(str) {
 }
 
 /**
- * Unicode-safe Base64 decoder (BUG-003)
+ * Unicode-safe Base64 decoder
  * @param {string} str
  * @returns {string|null}
  */
@@ -430,7 +430,7 @@ async function verifyPassword(password, storedHash) {
     }
   }
 
-  // 2. Legacy Base64 check (enables seamless on-the-fly upgrade without user disruption; Unicode-safe BUG-003)
+  // 2. Legacy Base64 check (enables seamless on-the-fly upgrade without user disruption; Unicode-safe )
   try {
     var decoded = safeBase64Decode(storedHash);
     if (decoded && decoded === password) {
@@ -481,7 +481,7 @@ function showConfirmModal(message, title, options) {
 }
 
 /**
- * Debounces a function call by waitMs (TSK-025)
+ * Debounces a function call by waitMs
  * @param {Function} fn
  * @param {number} waitMs
  * @returns {Function}
@@ -499,7 +499,7 @@ function debounce(fn, waitMs) {
 }
 
 /**
- * Throttles a function call by limitMs (TSK-025)
+ * Throttles a function call by limitMs
  * @param {Function} fn
  * @param {number} limitMs
  * @returns {Function}
@@ -518,7 +518,7 @@ function throttle(fn, limitMs) {
 }
 
 /**
- * Client-side image compressor before upload (TSK-025)
+ * Client-side image compressor before upload
  * Scales down dimensions maintaining aspect ratio and encodes to compressed WebP or JPEG.
  * @param {File|Blob|string} source - File, Blob, or Data URL to compress
  * @param {Object} [options]
@@ -649,7 +649,7 @@ function compressImage(source, options) {
 
 
 /**
- * Detects file format by inspecting ASCII text signatures and binary magic bytes (TSK-035)
+ * Detects file format by inspecting ASCII text signatures and binary magic bytes
  * @param {ArrayBuffer|Uint8Array} buffer
  * @returns {string} Detected format ('jpeg'|'png'|'webp'|'gif'|'pdf'|'mp4'|'webm'|'svg'|'html'|'xml'|'unknown')
  */
@@ -711,7 +711,7 @@ function detectFileType(buffer) {
 }
 
 /**
- * Checks if a JPEG byte buffer contains EXIF APP1 metadata with GPS tags (TSK-035)
+ * Checks if a JPEG byte buffer contains EXIF APP1 metadata with GPS tags
  * @param {ArrayBuffer|Uint8Array} buffer
  * @returns {boolean} True if GPS tags exist in buffer
  */
@@ -755,7 +755,7 @@ function hasExifGps(buffer) {
 }
 
 /**
- * Strips all EXIF APP1 segments from a JPEG binary buffer (TSK-035)
+ * Strips all EXIF APP1 segments from a JPEG binary buffer
  * @param {ArrayBuffer|Uint8Array} buffer
  * @returns {Uint8Array} Sanitized JPEG byte array with 0 EXIF metadata
  */
@@ -803,7 +803,7 @@ function stripExifBytes(buffer) {
 }
 
 /**
- * Strict file security, MIME-type, and magic-byte validator (TSK-035)
+ * Strict file security, MIME-type, and magic-byte validator
  * Blocks .svg, .html, .htm, scripts, executables, and polyglots to prevent Stored XSS.
  * Verifies magic bytes against approved media types.
  * @param {File|Blob|ArrayBuffer|Uint8Array} file
@@ -827,14 +827,14 @@ async function validateFileSecurity(file, options) {
   // 1. Extension Blocklist
   var blockedExts = ['svg', 'svgz', 'html', 'htm', 'xhtml', 'js', 'mjs', 'ts', 'php', 'sh', 'bat', 'cmd', 'exe', 'dll', 'vbs', 'wsf'];
   if (blockedExts.indexOf(ext) !== -1) {
-    throw new Error('File upload blocked: SVG, HTML, and executable files are strictly prohibited to prevent stored XSS and security vulnerabilities (TSK-035).');
+    throw new Error('File upload blocked: SVG, HTML, and executable files are strictly prohibited to prevent stored XSS and security vulnerabilities.');
   }
 
   // 2. MIME type Blocklist
   var declaredType = (file.type || '').toLowerCase();
   var blockedMimes = ['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/javascript', 'application/javascript', 'application/x-javascript'];
   if (blockedMimes.indexOf(declaredType) !== -1) {
-    throw new Error('File upload blocked: MIME type ' + declaredType + ' is not permitted for security reasons (TSK-035).');
+    throw new Error('File upload blocked: MIME type ' + declaredType + ' is not permitted for security reasons.');
   }
 
   // 3. Extract byte sample for Magic Byte Inspection
@@ -863,7 +863,7 @@ async function validateFileSecurity(file, options) {
 
     // Block any file detected as SVG, HTML, or XML
     if (detected === 'svg' || detected === 'html' || detected === 'xml') {
-      throw new Error('File upload blocked: Content inspection detected SVG or HTML script payload (TSK-035).');
+      throw new Error('File upload blocked: Content inspection detected SVG or HTML script payload.');
     }
 
     // Determine allowed categories
@@ -909,7 +909,7 @@ async function validateFileSecurity(file, options) {
 }
 
 /**
- * Strips EXIF metadata (GPS home/school coordinates, camera serials, device info) via HTML5 Canvas rasterization (TSK-035)
+ * Strips EXIF metadata (GPS home/school coordinates, camera serials, device info) via HTML5 Canvas rasterization
  * Guarantees that returned image blob is completely sanitized and free of EXIF APP1 tags.
  * @param {File|Blob|ArrayBuffer|Uint8Array} source
  * @param {Object} [options]
@@ -1607,7 +1607,7 @@ function getDeviceSecurityInfo() {
   };
 }
 /**
- * Computes Subresource Integrity (SRI) metadata string for content (TSK-037)
+ * Computes Subresource Integrity (SRI) metadata string for content
  * Complies with W3C Subresource Integrity specification.
  * Supports 'sha256', 'sha384' (default), and 'sha512'.
  * @param {string|Uint8Array|ArrayBuffer} content
@@ -1673,7 +1673,7 @@ async function computeIntegrityMetadata(content, algorithm) {
 }
 
 /**
- * Verifies content against expected Subresource Integrity (SRI) metadata (TSK-037)
+ * Verifies content against expected Subresource Integrity (SRI) metadata
  * @param {string|Uint8Array|ArrayBuffer} content
  * @param {string} expectedIntegrity - Single or space-delimited SRI hashes (e.g. 'sha384-xyz')
  * @returns {Promise<boolean>}
@@ -1697,7 +1697,7 @@ async function verifySubresourceIntegrity(content, expectedIntegrity) {
 }
 
 /**
- * Masks a member's surname to first name(s) + last initial for minor privacy protection (TSK-040).
+ * Masks a member's surname to first name(s) + last initial for minor privacy protection.
  * Prevents outsider enumeration of minors' full names on shared boards.
  * E.g., 'Jeshua Koh' -> 'Jeshua K.', 'Tan Wei Lun' -> 'Tan Wei L.', 'Daniel' -> 'Daniel'.
  * @param {string} fullName
@@ -1727,7 +1727,7 @@ function maskSurname(fullName) {
 var maskMemberSurname = maskSurname;
 
 /**
- * Returns either the full name or masked name depending on viewer identity (TSK-040)
+ * Returns either the full name or masked name depending on viewer identity
  * @param {string} fullName
  * @param {boolean} isSelfOrOfficer
  * @returns {string}
@@ -1739,7 +1739,7 @@ function maskMemberNameForDirectory(fullName, isSelfOrOfficer) {
 }
 
 /**
- * Formats attendance rate string with privacy masking for low percentages (TSK-040)
+ * Formats attendance rate string with privacy masking for low percentages
  * Prevents peer shaming and harassment among minors.
  * @param {number} percentage
  * @param {boolean} isSelfOrOfficer
@@ -1769,7 +1769,7 @@ function formatSafeAttendanceRate(percentage, isSelfOrOfficer) {
 }
 
 /**
- * Returns demerits/infractions for display, strictly hiding them from peers (TSK-040)
+ * Returns demerits/infractions for display, strictly hiding them from peers
  * @param {number} demerits
  * @param {boolean} isSelfOrOfficer
  * @returns {number}
@@ -1780,7 +1780,7 @@ function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
 }
 
 /**
- * TSK-057: Evaluates a member's attendance percentage into confidential achievement tiers:
+ * Evaluates a member's attendance percentage into confidential achievement tiers:
  * - 100%: Perfect
  * - >= 90%: Excellent
  * - >= 80%: Good
@@ -1876,7 +1876,7 @@ function getAttendanceAchievementTier(percentage) {
 }
 
 // Attach to window if in browser
-// ── Section 11: Immutable Admin Audit Logs & Auth Lockout (TSK-041) ──────────
+// ── Section 11: Immutable Admin Audit Logs & Auth Lockout ──────────
 
 var _inMemoryAuditLogs = [];
 var _localLockouts = {};
@@ -1884,7 +1884,7 @@ var AUTH_LOCKOUT_MAX_ATTEMPTS = 5;
 var AUTH_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout
 
 /**
- * Appends an audit log entry recording Officer, NCO, or system mutation (TSK-041).
+ * Appends an audit log entry recording Officer, NCO, or system mutation.
  * Attempts to persist to PostgreSQL bb_audit_logs via rpc_log_audit_event.
  * Falls back gracefully to in-memory audit ledger.
  *
@@ -1976,7 +1976,7 @@ async function logAuditEvent(params) {
 }
 
 /**
- * Retrieves audit logs for Officer Admin view (TSK-041)
+ * Retrieves audit logs for Officer Admin view
  * @param {Object} [filter]
  * @param {number} [filter.limit=50]
  * @param {number} [filter.offset=0]
@@ -2028,7 +2028,7 @@ async function getAuditLogs(filter) {
 }
 
 /**
- * Checks server-side lockout status for an identifier (email or IP) (TSK-041)
+ * Checks server-side lockout status for an identifier (email or IP)
  * @param {string} identifier
  * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
  */
@@ -2072,7 +2072,7 @@ async function checkAuthLockout(identifier) {
 }
 
 /**
- * Records an authentication attempt and enforces 5-failure lockout (TSK-041)
+ * Records an authentication attempt and enforces 5-failure lockout
  * @param {string} identifier
  * @param {boolean} success
  * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
@@ -2154,7 +2154,7 @@ async function recordAuthAttempt(identifier, success) {
     attempts_remaining: Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - current.failedCount)
   };
 }
-// ── Privacy-First Bot Protection & Cloudflare Turnstile Integration (TSK-043) ──
+// ── Privacy-First Bot Protection & Cloudflare Turnstile Integration ──
 
 var _turnstileTokens = {};
 var _turnstileWidgets = {};

@@ -1,5 +1,5 @@
 /**
- * 1st Petaling Jaya Boys' Brigade Portal - Admin Console Master Controller (TSK-011)
+ * 1st Petaling Jaya Boys' Brigade Portal - Admin Console Master Controller
  * File: js/modules/admin.js
  *
  * Extracts back-office navigation, subtabs, and admin CRUD handlers across
@@ -117,9 +117,9 @@
     return DEFAULT_DEPT_CONFIG;
   }
 
-  // ── Cryptographic Session & Gate Hardening (TSK-030) ──────────────────────
-  var SESSION_MAX_LIFETIME_MS = 8 * 60 * 60 * 1000; // 8 hours absolute lifetime (TSK-041)
-  var SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;     // 60 minutes idle timeout (TSK-041)
+  // ── Cryptographic Session & Gate Hardening ──────────────────────
+  var SESSION_MAX_LIFETIME_MS = 8 * 60 * 60 * 1000; // 8 hours absolute lifetime
+  var SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;     // 60 minutes idle timeout
   var MAX_LOGIN_FAILURES      = 5;
   var BASE_LOCKOUT_MS         = 30 * 1000;      // 30 seconds
   var MAX_LOCKOUT_MS          = 300 * 1000;     // 5 minutes max
@@ -271,7 +271,7 @@
   function verifyAdminSessionSync() {
     var token = getAdminSessionToken();
     if (!token) return false;
-    // Server-issued tokens (TSK-036) do not use dot notation; verified asynchronously
+    // Server-issued tokens do not use dot notation; verified asynchronously
     if (token.indexOf('.') === -1) {
       return true;
     }
@@ -435,7 +435,7 @@
       } catch (_) {}
     }
 
-    // RBAC Gatekeeper: Block standard members from accessing admin routes/console (TSK-049)
+    // RBAC Gatekeeper: Block standard members from accessing admin routes/console
     var isMemberSession = false;
     var sessEmail = null;
     var currentRole = 'member';
@@ -464,7 +464,7 @@
     if (overlay) overlay.style.display = 'block';
     if (document.body) document.body.style.overflow = 'hidden';
 
-    // Passwordless Access for Authenticated Admins & Super Admins (TSK-049)
+    // Passwordless Access for Authenticated Admins & Super Admins
     if (sessEmail && (currentRole === 'admin' || currentRole === 'super_admin')) {
       if (!verifyAdminSessionSync()) {
         await createAdminSessionToken(sessEmail, currentRole === 'super_admin' ? 'Super Admin' : 'Admin');
@@ -612,7 +612,7 @@
       }
     }
 
-    // Try server-side RPC authentication (TSK-036)
+    // Try server-side RPC authentication
     if (client && typeof client.rpc === 'function') {
       try {
         var rpcAuth = await client.rpc('rpc_admin_login', {
@@ -785,7 +785,7 @@
     var creatorSec = document.getElementById('adm-section-creator-outlines');
     if (creatorSec) creatorSec.style.display = 'none';
 
-    // Scoped Admin UI Filtering (TSK-049)
+    // Scoped Admin UI Filtering
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
 
     // Dynamically inject Super Admin Roles & Permissions button if missing
@@ -802,7 +802,7 @@
       }
     }
 
-    // Dynamically inject Creator Avatar Outlines button for Jeshua Koh (TSK-062)
+    // Dynamically inject Creator Avatar Outlines button for Jeshua Koh
     var isCreator = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
     var creatorBtn = document.getElementById('sec-btn-creator-outlines');
     if (!creatorBtn) {
@@ -850,7 +850,7 @@
       return;
     }
 
-    // Scoped Admin Permission Gate (TSK-049)
+    // Scoped Admin Permission Gate
     if (typeof RBAC !== 'undefined' && typeof RBAC.hasModulePermission === 'function') {
       if (!RBAC.hasModulePermission(section)) {
         if (typeof showToast === 'function') {
@@ -1043,7 +1043,7 @@
     var presId = (emailOrIc && emailOrIc.indexOf('@') !== -1) ? emailOrIc : (emailOrIc || cleanNm);
     var dotHtml = '<span class="nav-avatar-status-dot admin-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanNm) : cleanNm) + '" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:' + dotColor + ';border:2px solid var(--bg-card,#1e293b);z-index:10;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
-    // Creator Avatar Outline Layering (TSK-062)
+    // Creator Avatar Outline Layering
     var outlineInfo = (typeof getMemberAvatarOutline === 'function')
       ? getMemberAvatarOutline(emailOrIc, cleanNm)
       : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
@@ -1055,7 +1055,7 @@
       outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
     }
 
-    // Profile Cosmetic Layering (TSK-060)
+    // Profile Cosmetic Layering
     var cosmeticInfo = (typeof getMemberCosmetic === 'function')
       ? getMemberCosmetic(emailOrIc, cleanNm)
       : null;
@@ -1471,7 +1471,7 @@
   function openEditMember(ic) {
     if (typeof document === 'undefined') return;
     var m = (_adminMembers && _adminMembers[ic]) || { ic: ic };
-    // Dynamically inject/update member profile presence card header (TSK-062)
+    // Dynamically inject/update member profile presence card header
     var modalContainer = document.querySelector('#edit-member-modal > div');
     if (modalContainer) {
       var presCard = modalContainer.querySelector('.em-profile-presence-card');
@@ -1512,7 +1512,7 @@
     }
 
 
-    // Creator Outline Studio Section in Member Edit Modal (TSK-062)
+    // Creator Outline Studio Section in Member Edit Modal
     var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
     var existingOutlineBox = modalContainer ? modalContainer.querySelector('.em-creator-outline-box') : null;
     if (modalContainer && isCreatorUser) {
@@ -2444,7 +2444,7 @@
     }
   }
 
-  // ── Audit Logs Viewer (TSK-041) ──────────────────────────────────────────
+  // ── Audit Logs Viewer ──────────────────────────────────────────
   async function renderAdminAuditLogs(containerId) {
     if (typeof document === 'undefined') return;
     var el = document.getElementById(containerId || 'admin-audit-logs');
@@ -2478,7 +2478,7 @@
     el.innerHTML = html;
   }
 
-  // ── Super Admin Roles & Permissions Management Console (TSK-049) ─────────
+  // ── Super Admin Roles & Permissions Management Console ─────────
   async function renderAdminRoles() {
     if (typeof document === 'undefined') return;
     var panel = document.getElementById('admin-panel');
@@ -2798,7 +2798,7 @@
   }
 
 
-  // ── Creator Avatar Outlines Studio (TSK-062) ───────────────────────────────
+  // ── Creator Avatar Outlines Studio ───────────────────────────────
   async function renderCreatorAvatarOutlinesStudio() {
     if (typeof document === 'undefined') return;
 
@@ -3042,7 +3042,7 @@
                 '</div>' +
               '</div>' +
               '<div style="display:flex;flex-direction:column;gap:4px;">' +
-                '<label style="font-size:10px;text-transform:uppercase;letter-spacing:0.04em;font-weight:700;color:var(--text-muted);">Profile Cosmetic (TSK-060)</label>' +
+                '<label style="font-size:10px;text-transform:uppercase;letter-spacing:0.04em;font-weight:700;color:var(--text-muted);">Profile Cosmetic</label>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                   '<select class="form-input creator-cosmetic-select" style="font-size:12px;padding:6px 10px;flex:1;">' +
                     cosmeticsOptionsHtml +

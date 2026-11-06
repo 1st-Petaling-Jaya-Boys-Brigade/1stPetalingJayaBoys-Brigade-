@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Company Resources Hub (TSK-034)
+ * Company Resources Hub
  *
  * Implements a searchable repository for official company documents (BB Handbook,
  * Drill & Ceremonial Manual, Badge Syllabi, Songs & Hymns, Administrative Forms)
@@ -848,7 +848,7 @@ async function handleResourceFileUpload(input) {
       else mimeType = 'application/octet-stream';
     }
 
-    // Strict file security validation (TSK-035)
+    // Strict file security validation
     if (typeof validateFileSecurity === 'function') {
       await validateFileSecurity(file, { allowPdf: true, allowImages: true, bucket: 'resources' });
     }

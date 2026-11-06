@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Privacy-First Member Hub & Authentication Module (TSK-005B)
+ * Privacy-First Member Hub & Authentication Module
  *
  * Implements privacy-first authentication (Email + Password),
  * member onboarding (Section, Age, Rank, Squad), profile dashboard,
@@ -323,7 +323,7 @@ function populateSquadOptions(selectEl, section, selectedSquad, placeholderText,
   }
 }
 
-// ── Child Safety (COPPA/PDPA) & Parental Consent Governance (TSK-032) ──────────
+// ── Child Safety (COPPA/PDPA) & Parental Consent Governance ──────────
 
 function isMinorSection(section, age) {
   if (!section && (age === undefined || age === null || age === '')) return false;
@@ -520,7 +520,7 @@ async function updateMemberMediaConsent(newConsent) {
 
 var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Auth lockout and OTP cooldown state (TSK-025)
+// Auth lockout and OTP cooldown state
 var _authFailures = { count: 0, lockedUntil: 0 };
 var AUTH_MAX_ATTEMPTS = 5;
 var AUTH_LOCKOUT_MS = 30000; // 30s lockout
@@ -792,7 +792,7 @@ function resetFamilyBanner() {
 }
 
 async function registerMember() {
-  // Honeypot bot trap check (TSK-025)
+  // Honeypot bot trap check
   var hpEl = document.getElementById('reg-honeypot');
   if (hpEl && hpEl.value && hpEl.value.trim().length > 0) {
     console.warn('Bot registration blocked by honeypot');
@@ -838,7 +838,7 @@ async function registerMember() {
   }
   if (pass.length < 6) { if (typeof showToast === 'function') showToast('Password must be at least 6 characters.', 'warning'); return; }
 
-  // Child Safety Governance & Verifiable Parental Consent (TSK-032 / COPPA & PDPA 2010)
+  // Child Safety Governance & Verifiable Parental Consent ( / COPPA & PDPA 2010)
   var isMinor = isMinorSection(section, parsedAge);
   var parentName = '';
   var parentContact = '';
@@ -982,7 +982,7 @@ async function registerMember() {
     var existingAccounts = (_isFamilyRegistration && _familyAccounts.length) ? _familyAccounts : await findMembersByEmail(email);
 
     if (existingAccounts && existingAccounts.length > 0) {
-      // Must verify the exact password used for existing account (TSK-036 RPC gatekeeping)
+      // Must verify the exact password used for existing account ( RPC gatekeeping)
       var famPwValid = false;
       var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
 
@@ -1059,7 +1059,7 @@ async function registerMember() {
       return;
     }
 
-  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  // Cloudflare Turnstile CAPTCHA Verification
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('register')
     : '';
@@ -1597,7 +1597,7 @@ async function finalizeMemberRegistration(data) {
 }
 
 async function loginMember() {
-  // Server-side brute-force lockout check (TSK-041)
+  // Server-side brute-force lockout check
   var preIdEl = document.getElementById('login-email') || document.getElementById('login-ic') || {};
   var preIdentifier = (preIdEl.value || '').trim();
   if (preIdentifier && typeof checkAuthLockout === 'function') {
@@ -1611,7 +1611,7 @@ async function loginMember() {
     }
   }
 
-  // Auth Cooldown Timer Check (TSK-025)
+  // Auth Cooldown Timer Check
   if (Date.now() < _authFailures.lockedUntil) {
     var remSec = Math.ceil((_authFailures.lockedUntil - Date.now()) / 1000);
     if (typeof showToast === 'function') {
@@ -1660,7 +1660,7 @@ async function loginMember() {
 
   var loginBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-login button[type="submit"]') : null;
 
-  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  // Cloudflare Turnstile CAPTCHA Verification
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('login')
     : '';
@@ -1700,7 +1700,7 @@ async function loginMember() {
     var loginSuccess = false;
     var accounts = null;
 
-    // Check if server-side RPC authentication is available (TSK-036)
+    // Check if server-side RPC authentication is available
     if (client && typeof client.rpc === 'function') {
       try {
         var saltRes = await client.rpc('rpc_get_auth_salt', { p_email: queryEmail });
@@ -2194,7 +2194,7 @@ async function switchFamilyAccount() {
   }
 }
 
-// ── TSK-062: Creator Profile Avatar Outlines, Gradients & Animations ────────
+// ── Creator Profile Avatar Outlines, Gradients & Animations ────────
 var AVATAR_OUTLINE_STYLES = {
   none: {
     id: 'none',
@@ -2344,7 +2344,7 @@ var _customAvatarOutlinesMap = (function() {
 })();
 
 
-// ── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ────────────────
+// ── Profile Cosmetics & Gamified Arcade Credit Shop ────────────────
 var PROFILE_COSMETICS = {
   // ── 1. Headwear ───────────────────────────────────────────────────────────
   party_hat: {
@@ -4145,7 +4145,7 @@ async function renderDashboard() {
     if (sessionGet('department') !== (m.department || '')) sessionSet('department', m.department || '', { localOnly: true });
     set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
-    // Child Safety & Parental Consent Status (TSK-032)
+    // Child Safety & Parental Consent Status
     var memberSection = m.att_section || m.section || sessionGet('section') || '';
     var memberAge = sessionGet('age');
     if (!memberAge && m.date_of_birth) {
@@ -4343,7 +4343,7 @@ function logoutMember() {
   }
   resetMemberAvatar();
   setRemovePfpButtonVisible(false);
-  // Completely purge session state eliminating residual keys (BUG-011)
+  // Completely purge session state eliminating residual keys
   if (typeof sessionClear === 'function') {
     sessionClear();
   } else if (typeof window !== 'undefined' && typeof window.sessionClear === 'function') {
@@ -4368,7 +4368,7 @@ function logoutMember() {
     }
   }
 
-  // Clear in-memory caches and global state (BUG-011)
+  // Clear in-memory caches and global state
   if (typeof window !== 'undefined') {
     window._memberAttendanceData = null;
     window._currentMemberData = null;
@@ -4426,7 +4426,7 @@ async function uploadPfp(input) {
   if (!id) return;
 
   try {
-    // 1. Strict security validation & EXIF GPS stripping via canvas (TSK-035)
+    // 1. Strict security validation & EXIF GPS stripping via canvas
     var strippedResult = (typeof stripExifAndCompress === 'function')
       ? await stripExifAndCompress(file, { maxDimension: 600, quality: 0.85, bucket: 'avatars' })
       : { blob: new Blob([await file.arrayBuffer()], { type: 'image/jpeg' }) };
@@ -4616,7 +4616,7 @@ async function sendPasswordResetEmail() {
     return;
   }
 
-  // OTP Cooldown Timer Check (TSK-025)
+  // OTP Cooldown Timer Check
   var lastOtp = _lastOtpTime[email] || 0;
   var otpDiff = Date.now() - lastOtp;
   if (otpDiff < OTP_COOLDOWN_MS) {
@@ -4630,7 +4630,7 @@ async function sendPasswordResetEmail() {
   var btn = document.getElementById('btn-send-reset');
   var origText = btn ? btn.textContent : '';
 
-  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  // Cloudflare Turnstile CAPTCHA Verification
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('forgot_password')
     : '';
@@ -4673,7 +4673,7 @@ async function sendPasswordResetEmail() {
     var expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
     var memberName = 'Member';
 
-    // Calculate SHA-256 hash of OTP code for server-side RPC (TSK-036)
+    // Calculate SHA-256 hash of OTP code for server-side RPC
     var otpHash = '';
     if (typeof computeSha256 === 'function') {
       otpHash = await computeSha256(code);
@@ -4870,7 +4870,7 @@ async function verifyResetCodeAndSetPassword() {
     var now = Date.now();
     var rpcResetSuccess = false;
 
-    // 1. Try server-side RPC verification and password update (TSK-036)
+    // 1. Try server-side RPC verification and password update
     if (client && typeof client.rpc === 'function') {
       try {
         var newHash = await hashPassword(p1);

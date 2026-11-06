@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 007_storage_lockdown_private_buckets.sql (TSK-035)
+-- Migration: 007_storage_lockdown_private_buckets.sql
 --
 -- Supabase Storage Lockdown, Private Buckets & Child Safety Access Control
 --

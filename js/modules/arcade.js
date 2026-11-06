@@ -1,5 +1,5 @@
 /**
- * 1st Petaling Jaya Boys' Brigade — 1stPJ Arcade Module (TSK-056)
+ * 1st Petaling Jaya Boys' Brigade — 1stPJ Arcade Module
  *
  * Implements:
  * 1. Daily Wordle:
@@ -38,7 +38,7 @@
     'VALOR', 'SHARP', 'GUIDE', 'ANCHR', 'ROPEY'
   ];
 
-  // ── Authentic 5-Letter Wordle Dictionary (TSK-056 Dictionary Filter) ─────
+  // ── Authentic 5-Letter Wordle Dictionary ( Dictionary Filter) ─────
   var WORDLE_VALID_WORDS_RAW =
     'ABACK ABASE ABATE ABBEY ABBOT ABHOR ABIDE ABLED ABODE ABORT ABOUT ABOVE ABUSE ABYSS ACORN' +
     'ACRID ACTOR ACUTE ADAGE ADAPT ADEPT ADMIN ADMIT ADOBE ADOPT ADORE ADORN ADULT AFFIX AFIRE' +

@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 010_server_side_auth_rpc_gatekeeping.sql (TSK-036)
+-- Migration: 010_server_side_auth_rpc_gatekeeping.sql
 --
 -- Server-Side Auth & PostgreSQL SECURITY DEFINER RPC Gatekeeping
 --

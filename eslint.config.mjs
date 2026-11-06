@@ -20,7 +20,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        // Shared Portal Globals (TSK-001 / TSK-005B / TSK-007 / TSK-010 / TSK-029 / TSK-031 / TSK-034 / TSK-CALENDAR)
+        // Shared Portal Globals
         CONFIG: 'readonly',
         SUPA_URL: 'readonly',
         SUPA_KEY: 'readonly',
@@ -52,6 +52,7 @@ export default [
         formatFileSize: 'readonly',
         hasResourceAccess: 'readonly',
         RESOURCE_CATEGORIES: 'readonly',
+        resources: 'readonly',
         DEFAULT_2026_CALENDAR: 'readonly',
         currentCalendarYear: 'writable',
         currentCalendarMonth: 'writable',
@@ -100,7 +101,7 @@ export default [
         isNCO: 'readonly',
         isNcoRank: 'readonly',
         getSupaClient: 'readonly',
-        // Uniform Store & Forms Hub Globals (TSK-006A)
+        // Uniform Store & Forms Hub Globals
         UNIFORM_ITEMS: 'readonly',
         itemQtys: 'readonly',
         itemSizes: 'readonly',
@@ -114,7 +115,7 @@ export default [
         reGetValue: 'readonly',
         reSetValue: 'readonly',
         reClearValue: 'readonly',
-        // Badges & Awards Tracker Globals (TSK-008)
+        // Badges & Awards Tracker Globals
         DEFAULT_BB_BADGES: 'readonly',
         DEFAULT_PRESIDENTS_REQS: 'readonly',
         DEFAULT_FOUNDERS_REQS: 'readonly',
@@ -142,7 +143,7 @@ export default [
         filterBadgesByCategory: 'readonly',
         syncAllPortalNotifications: 'readonly',
         unlockAudioContextAndElement: 'readonly',
-        // NCO Tasks & Kanban Board Globals (TSK-009)
+        // NCO Tasks & Kanban Board Globals
         DEPT_CONFIG: 'readonly',
         checkIsNCO: 'readonly',
         switchTaskTab: 'readonly',
@@ -150,7 +151,7 @@ export default [
         openTaskDetail: 'readonly',
         closeTaskDetail: 'readonly',
         memberUpdateTaskStatus: 'readonly',
-        // Admin Console Master Controller Globals (TSK-011)
+        // Admin Console Master Controller Globals
         ADMIN_PASSWORD_HASH: 'readonly',
         timingSafeEqualToken: 'readonly',
         computeSha256: 'readonly',
@@ -224,7 +225,7 @@ export default [
         syncAttendanceToSheets: 'readonly',
         isMinorSection: 'readonly',
         fetchMemberConsent: 'readonly',
-        // Audit Logs, Lockout & Session Lifecycle (TSK-041)
+        // Audit Logs, Lockout & Session Lifecycle
         logAuditEvent: 'readonly',
         getAuditLogs: 'readonly',
         checkAuthLockout: 'readonly',
@@ -233,7 +234,7 @@ export default [
         getSupa: 'readonly',
         isAdminLoggedIn: 'readonly',
         revokeAdminSession: 'readonly',
-        // Cloudflare Turnstile CAPTCHA (TSK-043)
+        // Cloudflare Turnstile CAPTCHA
         turnstile: 'readonly',
         TURNSTILE_SITE_KEY: 'readonly',
         renderTurnstileWidget: 'readonly',
@@ -259,7 +260,7 @@ export default [
         applyAvatarOutlineElement: 'readonly',
         refreshActiveAvatarOutlines: 'readonly',
         _customAvatarOutlinesMap: 'writable',
-        // Profile Cosmetics & Gamified Arcade Credit Shop (TSK-060)
+        // Profile Cosmetics & Gamified Arcade Credit Shop
         PROFILE_COSMETICS: 'readonly',
         getMemberCosmetic: 'readonly',
         getMemberCosmeticInventory: 'readonly',
@@ -281,7 +282,7 @@ export default [
         isCreatorSession: 'readonly',
         renderCreatorAvatarOutlinesStudio: 'readonly',
         syncAdminButtonVisibility: 'readonly',
-        // Member Online, Idle & Offline Presence Tracking (TSK-062)
+        // Member Online, Idle & Offline Presence Tracking
         getMemberPresenceStatus: 'readonly',
         getLocalPresenceStatus: 'readonly',
         setLocalPresenceStatus: 'readonly',
@@ -291,7 +292,7 @@ export default [
         fetchRemoteMemberPresence: 'readonly',
         refreshLivePresenceDots: 'readonly',
         getSupabaseClient: 'readonly',
-        // AI Support Helper Agent & Bug Forum Globals (TSK-046)
+        // AI Support Helper Agent & Bug Forum Globals
         DEFAULT_FORUM_POSTS: 'readonly',
         loadForumPosts: 'readonly',
         saveForumPosts: 'readonly',
@@ -321,7 +322,7 @@ export default [
         deleteForumReply: 'readonly',
         getForumUserPermissions: 'readonly',
 
-        // 1stPJ Arcade & Gamification Globals (TSK-056)
+        // 1stPJ Arcade & Gamification Globals
         BB_WORDLE_WORDS: 'readonly',
         BB_TRIVIA_QUESTIONS: 'readonly',
         getArcadeStats: 'readonly',

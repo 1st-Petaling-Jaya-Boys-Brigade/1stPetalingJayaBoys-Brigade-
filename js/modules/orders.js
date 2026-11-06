@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Uniform Store & Orders Module (TSK-006A)
+ * Uniform Store & Orders Module
  *
  * Handles uniform catalog management, pricing, cart calculations,
  * Touch 'n Go payment screenshot preview, order submission,
@@ -815,7 +815,7 @@ async function loadPaymentInfo() {
         if (client.recordConfigSnapshot)
           client.recordConfigSnapshot('bb_payment_info', _paymentInfo);
       } else {
-        // Fallback to default payment instructions when bb_payment_info is empty (BUG-012)
+        // Fallback to default payment instructions when bb_payment_info is empty
         _paymentInfo = DEFAULT_PAYMENT_INFO;
       }
     } catch (e) {
@@ -1177,7 +1177,7 @@ function goToOrderReview() {
   var rc = document.getElementById('review-content');
   if (rc) rc.innerHTML = html;
 
-  // Show payment instructions with fallback (BUG-012)
+  // Show payment instructions with fallback
   var pib = document.getElementById('payment-info-box');
   var pit = document.getElementById('payment-info-text');
   var activeInstructions = (_paymentInfo && _paymentInfo.trim()) ? _paymentInfo : DEFAULT_PAYMENT_INFO;
@@ -1231,7 +1231,7 @@ async function compressReceiptImage(source, maxDimension, quality) {
 
   if (!source) return { blob: null, dataUrl: '' };
 
-  // Validate security (blocks SVG, HTML) (TSK-035)
+  // Validate security (blocks SVG, HTML)
   if (typeof validateFileSecurity === 'function' && typeof source !== 'string') {
     await validateFileSecurity(source, { allowedTypes: ['image/jpeg', 'image/png', 'image/webp'], bucket: 'receipts' });
   }
@@ -1348,13 +1348,13 @@ function previewTngScreenshot(input) {
   if (!input || !input.files || !input.files[0]) return;
   var file = input.files[0];
 
-  // Pre-validate file security (TSK-035)
+  // Pre-validate file security
   if (typeof validateFileSecurity === 'function') {
     try {
       var ext = (file.name || '').split('.').pop().toLowerCase();
       if (ext === 'svg' || ext === 'html' || ext === 'htm') {
         if (typeof showToast === 'function') {
-          showToast('Payment receipt must be a JPG, PNG, or WebP image. SVG and HTML are prohibited (TSK-035).', 'error');
+          showToast('Payment receipt must be a JPG, PNG, or WebP image. SVG and HTML are prohibited.', 'error');
         }
         input.value = '';
         return;
@@ -1463,7 +1463,7 @@ async function submitOrder() {
     return null;
   }
 
-  // Cloudflare Turnstile CAPTCHA Verification (TSK-043)
+  // Cloudflare Turnstile CAPTCHA Verification
   var captchaToken = (typeof getTurnstileToken === 'function')
     ? getTurnstileToken('order')
     : '';
@@ -1533,7 +1533,7 @@ async function submitOrder() {
     var notesRaw = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
     var notesClean = typeof sanitizeHtml === 'function' ? sanitizeHtml(notesRaw) : notesRaw;
 
-    // Mitigate PostgreSQL text bloat (BUG-002):
+    // Mitigate PostgreSQL text bloat:
     // Compress receipt image and upload to Supabase Storage; fallback to compressed data URL (<100KB)
     var finalScreenshot = null;
     var rawScreenshot = getTngScreenshot();

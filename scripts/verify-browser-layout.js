@@ -126,7 +126,7 @@ async function getJson(url) {
       true
     );
 
-    // ── TSK-045: Authenticated Portal Gatekeeper CDP Verification ──
+    // ── Authenticated Portal Gatekeeper CDP Verification ──
     const unauthedGatekeeper = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         const memberPage = document.getElementById('page-member');
@@ -163,7 +163,7 @@ async function getJson(url) {
     assert.strictEqual(gDiag.canActivateMember, true, 'AuthGuard must allow public access to Member tab');
     assert.strictEqual(gDiag.tasksIntercepted, true, 'Unauthorized tab switch must be intercepted and redirected to Member');
     assert.strictEqual(gDiag.redirectTarget, 'tasks', 'AuthGuard must remember intended destination');
-    console.log('\n[Authenticated Portal Gatekeeper (TSK-045)]');
+    console.log('\n[Authenticated Portal Gatekeeper]');
     console.log('  ✔ Unauthenticated user automatically redirected to Member Login/Registration screen');
     console.log('  ✔ Internal portal tabs (home, tasks, badges, attendance) blocked by AuthGuard');
     console.log('  ✔ Intended destination remembered for post-authentication redirect');
@@ -730,7 +730,7 @@ async function getJson(url) {
     console.log('  ✔ Quick access carousel cards have optimal crisp font smoothing');
 
     // 13. Test Child Safety (COPPA/PDPA) & Parental Consent Governance
-    console.log('\n[Child Safety & Parental Consent Governance (TSK-032)]');
+    console.log('\n[Child Safety & Parental Consent Governance]');
     const evalChildSafety = await sendCmd('Runtime.evaluate', {
       expression:
         '(() => {' +
@@ -793,8 +793,8 @@ async function getJson(url) {
       '  ✔ Admin console provides full section governance and child safety advisory enforcement'
     );
 
-    // 14. Test Instagram-Style Story Highlights & Event Gallery Reel (TSK-033)
-    console.log('\n[Story Highlights Reel & Full-Screen Viewer (TSK-033)]');
+    // 14. Test Instagram-Style Story Highlights & Event Gallery Reel
+    console.log('\n[Story Highlights Reel & Full-Screen Viewer]');
     const evalStoryHighlights = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         if (typeof loadStoryHighlights === 'function' && (!window.storyHighlights || !window.storyHighlights.length)) {
@@ -968,8 +968,8 @@ async function getJson(url) {
       '  ✔ Story viewer renders interactive video viewport with unblocked tactile arrow navigation'
     );
 
-    // 15. Test Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)
-    console.log('\n[Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)]');
+    // 15. Test Google Apps Script & Master Sheet Endpoint Hardening
+    console.log('\n[Google Apps Script & Master Sheet Endpoint Hardening]');
     const evalGasHardening = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         // Switch to Admin Attendance tab
@@ -1054,8 +1054,8 @@ async function getJson(url) {
       '  ✔ Generated Google Apps Script template incorporates token authentication and security audits'
     );
 
-    // 16. Test Badges Tab and President's Tracker in Browser (TSK-008)
-    console.log("\n[Badges Tab & President's Award Tracker Verification (TSK-008)]");
+    // 16. Test Badges Tab and President's Tracker in Browser
+    console.log("\n[Badges Tab & President's Award Tracker Verification]");
     const evalBadgesInit = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         if (typeof sessionSet === 'function') {
@@ -1106,8 +1106,8 @@ async function getJson(url) {
       "  ✔ Badges tab and search input render cleanly with President's Award tracker removed"
     );
 
-    // 17. Test Weekly Parade Schedule & NCO Tasks Kanban Board in Browser (TSK-009)
-    console.log('\n[Weekly Parade Schedule & NCO Tasks Board Verification (TSK-009)]');
+    // 17. Test Weekly Parade Schedule & NCO Tasks Kanban Board in Browser
+    console.log('\n[Weekly Parade Schedule & NCO Tasks Board Verification]');
     const evalTasksInit = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         if (typeof switchTab === 'function') {
@@ -1197,8 +1197,8 @@ async function getJson(url) {
       '  ✔ Weekly parade schedule and NCO Kanban board verified in headless Edge browser'
     );
 
-    // 18. Uniform Order Grid Form & Product Card Redesign Verification (TSK-006B)
-    console.log('\n[Uniform Order Grid & Product Card Redesign Verification (TSK-006B)]');
+    // 18. Uniform Order Grid Form & Product Card Redesign Verification
+    console.log('\n[Uniform Order Grid & Product Card Redesign Verification]');
     const evalUniformGrid = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         if (typeof switchTab === 'function') {
@@ -1380,8 +1380,8 @@ async function getJson(url) {
       '  ✔ Company Resources Google Drive preview cards, mockup seal, and footer bar verified in browser'
     );
 
-    // ── Modern Toast Notification & Confirmation Modal Verification (TSK-012) ──
-    console.log('\n[Modern Toast Notification & Modal System Verification (TSK-012)]');
+    // ── Modern Toast Notification & Confirmation Modal Verification ──
+    console.log('\n[Modern Toast Notification & Modal System Verification]');
 
     // 1. Trigger showToast and verify DOM elements
     const evalToast = await sendCmd('Runtime.evaluate', {
@@ -1528,8 +1528,8 @@ async function getJson(url) {
       '  ✔ Non-blocking window.alert wrapper translates calls to modern toast notifications seamlessly'
     );
 
-    // ── Admin Console Master Controller Verification (TSK-011) ──
-    console.log('\n[Admin Console Master Controller Verification (TSK-011)]');
+    // ── Admin Console Master Controller Verification ──
+    console.log('\n[Admin Console Master Controller Verification]');
     const evalAdminController = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         // 1. Verify global functions attached
@@ -1539,7 +1539,7 @@ async function getJson(url) {
         const hasSaveTask = typeof window.saveTask === 'function';
 
         // 2. Open admin console and authenticate
-        // 2a. RBAC Gatekeeper: Standard member is blocked from opening admin console (TSK-049)
+        // 2a. RBAC Gatekeeper: Standard member is blocked from opening admin console
         window.openAdmin();
         const memberBlocked = (!document.getElementById('admin-overlay') || document.getElementById('admin-overlay').style.display === 'none');
 
@@ -1750,7 +1750,7 @@ async function getJson(url) {
     assert.strictEqual(
       adminResult.openState.memberBlocked,
       true,
-      'Standard member must be blocked from opening admin console (TSK-049)'
+      'Standard member must be blocked from opening admin console'
     );
     assert.strictEqual(
       adminResult.openState.overlayVisible,
@@ -1843,7 +1843,7 @@ async function getJson(url) {
         if (typeof window.closeNotificationDropdown === 'function') window.closeNotificationDropdown();
         const closedNotifDisplay = notifCard ? notifCard.style.display : '';
 
-        // 4. Test Header Inline Search (TSK-050: no popup modal, focused inline)
+        // 4. Test Header Inline Search
         const searchModal = document.getElementById('global-search-modal');
         const searchInput = document.getElementById('global-search-input');
         if (typeof window.openGlobalSearch === 'function') window.openGlobalSearch();
@@ -1939,12 +1939,12 @@ async function getJson(url) {
     assert.strictEqual(
       appShellResult.searchOpenedDisplay,
       'none',
-      'openGlobalSearch must not open popup modal (TSK-050 inline search)'
+      'openGlobalSearch must not open popup modal ( inline search)'
     );
     assert.strictEqual(
       appShellResult.searchInputFocused,
       true,
-      'openGlobalSearch must focus inline header search input (TSK-050)'
+      'openGlobalSearch must focus inline header search input'
     );
     assert.strictEqual(
       appShellResult.searchClosedDisplay,
@@ -1954,12 +1954,12 @@ async function getJson(url) {
     assert.strictEqual(
       appShellResult.panelOffsetWidth,
       270,
-      'Sidebar panel must be widened to 270px (TSK-050)'
+      'Sidebar panel must be widened to 270px'
     );
     assert.strictEqual(
       appShellResult.panelComputed ? appShellResult.panelComputed.overflowY : '',
       'hidden',
-      'Sidebar panel must have overflow-y: hidden without scroll/slider (TSK-050)'
+      'Sidebar panel must have overflow-y: hidden without scroll/slider'
     );
     assert.strictEqual(
       appShellResult.sidebarLeftAfterScroll,
@@ -2387,7 +2387,7 @@ async function getJson(url) {
     console.log('  ✔ Creator "JK" with RGB animation and regular member single initial with unique color and hover tooltip verified in browser');
     console.log('  ✔ Remove profile picture toggle and buttons verified in browser');
 
-    // ── Cloudflare Turnstile CAPTCHA Integration (TSK-043) ──
+    // ── Cloudflare Turnstile CAPTCHA Integration ──
     console.log('\n[Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA)]');
     const turnstileDiag = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
@@ -2428,7 +2428,7 @@ async function getJson(url) {
     console.log('  ✔ Cloudflare Turnstile explicit script loader & privacy-first CSP headers verified in browser');
     console.log('  ✔ Turnstile widget containers and data actions verified across Login, Register, and Forgot Password in browser');
 
-    // Verify TSK-045 Member Logout & Re-Lock in Browser
+    // Verify  Member Logout & Re-Lock in Browser
     const logoutDiag = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         if (typeof logoutMember === 'function') logoutMember();
@@ -2459,8 +2459,8 @@ async function getJson(url) {
     assert.strictEqual(lInfo.canOrder, false, 'Internal routes must re-lock upon logout');
     console.log('  ✔ Member logout, dashboard hiding, and portal re-locking verified in browser');
 
-    // ── Granular RBAC, Scoped Admin Console & Header Role Badge Verification (TSK-049) ──
-    console.log('\n[Granular RBAC, Scoped Admin Console & Header Role Badge Verification (TSK-049)]');
+    // ── Granular RBAC, Scoped Admin Console & Header Role Badge Verification ──
+    console.log('\n[Granular RBAC, Scoped Admin Console & Header Role Badge Verification]');
     const rbacBrowserDiag = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         // 1. Header Role Badge for Member, Admin, and Super Admin
@@ -2748,7 +2748,7 @@ async function getJson(url) {
     console.log('  ✔ Comment 3-dots options menu, edit/delete actions, and author mention exclusion verified in browser');
 
 
-    // ── TSK-046: AI Support Helper Agent ("Ask Stedfast") & Bug Forum Browser Verification ──
+    // ── AI Support Helper Agent ("Ask Stedfast") & Bug Forum Browser Verification ──
     const forumAgentDiag = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         if (typeof sessionSet === 'function') {

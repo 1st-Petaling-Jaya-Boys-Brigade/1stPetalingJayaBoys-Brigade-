@@ -1,7 +1,7 @@
 -- ==============================================================================
 -- Migration: 016_profile_cosmetics_arcade_shop.sql
 -- Description: Schema and configuration store for Profile Cosmetics & Gamified
---              Arcade Credit Shop (TSK-060).
+--              Arcade Credit Shop.
 --
 -- Features:
 --   1. Configuration store for member cosmetic inventory & equipped badges:

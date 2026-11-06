@@ -6,10 +6,10 @@
 var SUPA_URL = 'https://mjfclxcklkbgsivvvlfe.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
 
-// Pre-computed cryptographic SHA-256 hash of default admin password (BUG-009)
+// Pre-computed cryptographic SHA-256 hash of default admin password
 var ADMIN_PASSWORD_HASH = 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f';
 
-// Cloudflare Turnstile CAPTCHA (TSK-043)
+// Cloudflare Turnstile CAPTCHA
 // 1x00000000000000000000AA: Cloudflare testing sitekey (Always passes)
 // 2x00000000000000000000AB: Cloudflare testing sitekey (Always blocks)
 var TURNSTILE_SITE_KEY = '1x00000000000000000000AA';

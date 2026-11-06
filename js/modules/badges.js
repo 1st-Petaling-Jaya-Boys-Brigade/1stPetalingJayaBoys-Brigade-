@@ -1,5 +1,5 @@
 /**
- * 1st Petaling Jaya Boys' Brigade Portal - Badges Module (TSK-008)
+ * 1st Petaling Jaya Boys' Brigade Portal - Badges Module
  *
  * Handles badge catalog definition, member badge assignments, proficiency tracking,
  * repeatable badges (service years), President's & Founder's Award criteria checklists,

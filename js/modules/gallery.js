@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Photo & Video Gallery and Instagram-Style Story Highlights Module (TSK-010 & TSK-033)
+ * Photo & Video Gallery and Instagram-Style Story Highlights Module
  *
  * Implements dedicated gallery tab, photo/video grid with format filtering,
  * image/video lightbox viewer, Instagram-style story highlights reel,
@@ -84,7 +84,7 @@ function isVideoMedia(url, type) {
 }
 
 /**
- * Compresses an image File or Blob before uploading to Supabase Storage (BUG-008)
+ * Compresses an image File or Blob before uploading to Supabase Storage
  * Limits dimensions (default 1920px) and quality (default 0.82) to avoid storage exhaustion.
  * @param {File|Blob} file
  * @param {number} [maxDim=1920]
@@ -100,10 +100,10 @@ async function compressGalleryPhoto(file, maxDim, quality) {
     return file;
   }
 
-    // Block SVG uploads to prevent stored XSS (TSK-035)
+    // Block SVG uploads to prevent stored XSS
   var ext = (file.name ? file.name.split('.').pop() || '' : '').toLowerCase();
   if (file.type === 'image/svg+xml' || ext === 'svg') {
-    throw new Error('File upload blocked: SVG files are strictly prohibited to prevent stored XSS (TSK-035).');
+    throw new Error('File upload blocked: SVG files are strictly prohibited to prevent stored XSS.');
   }
   if (file.type === 'image/gif' || ext === 'gif') {
     return file;
@@ -148,7 +148,7 @@ async function compressGalleryPhoto(file, maxDim, quality) {
         if (typeof canvas.toBlob === 'function') {
           canvas.toBlob(function(blob) {
             if (blob) {
-              resolve(blob); // Always resolve canvas-rasterized blob to strip EXIF GPS metadata (TSK-035)
+              resolve(blob); // Always resolve canvas-rasterized blob to strip EXIF GPS metadata
             } else {
               resolve(file);
             }
@@ -189,7 +189,7 @@ async function uploadSingleMediaFile(file) {
   var rawExt = (file.name ? file.name.split('.').pop() || '' : '').toLowerCase().replace(/[^a-z0-9]/g, '');
   var isVid = (file.type && file.type.startsWith('video/')) || ['mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'].indexOf(rawExt) !== -1;
 
-  // Validation: File size limit checks (BUG-008)
+  // Validation: File size limit checks
   var maxPhotoSize = 15 * 1024 * 1024; // 15MB limit for photos
   var maxVideoSize = 50 * 1024 * 1024; // 50MB limit for direct video upload
   if (!isVid && file.size && file.size > maxPhotoSize) {
@@ -213,12 +213,12 @@ async function uploadSingleMediaFile(file) {
   var defaultMime = isVid ? 'video/mp4' : 'image/jpeg';
   var mime = file.type || defaultMime;
 
-  // Strict file security validation (blocks SVG, HTML, scripts) (TSK-035)
+  // Strict file security validation (blocks SVG, HTML, scripts)
   if (typeof validateFileSecurity === 'function') {
     await validateFileSecurity(file, { allowVideo: true, bucket: 'gallery' });
   }
 
-  // Client-side Image Compression & EXIF GPS stripping via canvas (TSK-035, BUG-008)
+  // Client-side Image Compression & EXIF GPS stripping via canvas
   var uploadData = file;
   if (!isVid) {
     uploadData = await compressGalleryPhoto(file, 1920, 0.82);
@@ -236,7 +236,7 @@ async function uploadSingleMediaFile(file) {
   var client = getSupa();
   if (client && typeof client.uploadFile === 'function') {
     await client.uploadFile('gallery', fname, blob);
-    // Create signed URL for private gallery bucket (TSK-035)
+    // Create signed URL for private gallery bucket
     var signedRes = (typeof client.createSignedUrl === 'function')
       ? await client.createSignedUrl('gallery', fname, 86400)
       : null;
@@ -691,7 +691,7 @@ if (typeof document !== 'undefined') {
 }
 
 
-// ── Authentic Story Highlights Dataset (TSK-033) ───────────────────────────
+// ── Authentic Story Highlights Dataset ───────────────────────────
 var DEFAULT_STORY_HIGHLIGHTS = [
   {
     id: 'story-camps',
@@ -1170,7 +1170,7 @@ function updateStorySlideView() {
         }
         videoEl.currentTime = 0;
 
-        // Auto-adapt story duration to video length when metadata is ready (TSK-058)
+        // Auto-adapt story duration to video length when metadata is ready
         videoEl.onloadedmetadata = function() {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
             _storySlideDuration = Math.round(videoEl.duration * 1000);
@@ -1178,7 +1178,7 @@ function updateStorySlideView() {
           }
         };
 
-        // Synchronize top segmented progress bar dynamically with video currentTime / duration (TSK-058)
+        // Synchronize top segmented progress bar dynamically with video currentTime / duration
         videoEl.ontimeupdate = function() {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
             var pct = Math.min(100, (videoEl.currentTime / videoEl.duration) * 100);
@@ -1190,7 +1190,7 @@ function updateStorySlideView() {
           }
         };
 
-        // When video ends, advance to next slide (TSK-058)
+        // When video ends, advance to next slide
         videoEl.onended = function() {
           nextStorySlide();
         };
@@ -1507,7 +1507,7 @@ function attachStoryHoldListeners() {
   wrap.addEventListener('touchend', resumeStoryPlayback, { passive: true });
 }
 
-// ── Admin Story Highlights Management (TSK-033) ────────────────────────────
+// ── Admin Story Highlights Management ────────────────────────────
 /**
  * Renders the highlights management list in the Admin Console
  */

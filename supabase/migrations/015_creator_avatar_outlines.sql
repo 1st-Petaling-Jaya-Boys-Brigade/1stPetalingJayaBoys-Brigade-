@@ -2,7 +2,7 @@
 -- 1st Petaling Jaya Boys' Brigade Web Portal
 -- Migration: 015_creator_avatar_outlines.sql
 --
--- Custom Profile Avatar Outlines, Gradients & Creator-Granted Animations (TSK-062)
+-- Custom Profile Avatar Outlines, Gradients & Creator-Granted Animations
 --
 -- Features:
 --   1. Creator-Governed Profile Customization:

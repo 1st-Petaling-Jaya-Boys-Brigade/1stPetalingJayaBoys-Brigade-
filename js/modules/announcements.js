@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Announcements Module (TSK-010)
+ * Announcements Module
  *
  * Implements public announcement feed, rich text formatting bar,
  * emoji reactions, and admin post/edit/delete operations.
@@ -11,7 +11,7 @@
 // ── State ──────────────────────────────────────────────────────────────────
 var announcements = [];
 
-// ── Curated Positive Reaction Allowlist (TSK-040) ───────────────────────────
+// ── Curated Positive Reaction Allowlist ───────────────────────────
 // Restricts reactions exclusively to positive/affirming emojis to prevent peer shaming
 var SAFE_REACTION_EMOJIS = ['👍', '🫡', '🎉', '❤️', '🔥', '🙏'];
 var REACT_EMOJIS = SAFE_REACTION_EMOJIS;
@@ -333,7 +333,7 @@ function renderAnnouncements() {
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || '');
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
 
-    // Prominent large infographic banner (TSK-010 / Infographics)
+    // Prominent large infographic banner ( / Infographics)
     var infographicHtml = '';
     var imgUrl = a.image_url || '';
     if (!imgUrl && sanitizedBody) {
@@ -410,7 +410,7 @@ async function toggleReaction(annIdx, emoji) {
 
   var a = announcements[annIdx];
   if (!a) return;
-  // Enforce curated positive reaction allowlist (TSK-040)
+  // Enforce curated positive reaction allowlist
   if (SAFE_REACTION_EMOJIS.indexOf(emoji) === -1) {
     if (typeof showToast === 'function') {
       showToast('Only approved positive reactions are permitted.', 'warning');
