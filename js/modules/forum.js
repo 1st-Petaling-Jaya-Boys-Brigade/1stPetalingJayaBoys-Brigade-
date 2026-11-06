@@ -2741,9 +2741,27 @@ async function saveRemoteGeminiApiKey(key) {
  * @param {string} [apiKey]
  * @returns {Promise<string|null>}
  */
+var _lastGeminiError = '';
+
+/**
+ * Returns the most recent error message or status from Google Gemini API calls
+ * @returns {string}
+ */
+function getLastGeminiError() {
+  return _lastGeminiError;
+}
+
+/**
+ * Calls Google Gemini REST API using Generative Language endpoint
+ * @param {string} prompt
+ * @param {string} [apiKey]
+ * @returns {Promise<string|null>}
+ */
 async function callGeminiApi(prompt, apiKey) {
-  var key = apiKey || getGeminiApiKey();
+  var rawKey = apiKey || getGeminiApiKey();
+  var key = (rawKey || '').trim().replace(/^['"]|['"]$/g, '');
   if (!key) return null;
+  _lastGeminiError = '';
 
   var models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
   var systemPrompt = "You are Stedfast, the official AI mentor and portal assistant for the 1st Petaling Jaya Boys' Brigade Web Portal in Malaysia.\n"
@@ -2808,9 +2826,25 @@ async function callGeminiApi(prompt, apiKey) {
           }
         }
       } else {
-        console.warn('Gemini API model ' + modelName + ' HTTP ' + resp.status);
+        var errBody = null;
+        try {
+          errBody = await resp.json();
+        } catch (_) {
+          // ignore non-json error responses
+        }
+        var errMsg = (errBody && errBody.error && errBody.error.message)
+          ? errBody.error.message
+          : ('HTTP ' + resp.status + (resp.statusText ? ' ' + resp.statusText : ''));
+        _lastGeminiError = errMsg;
+        console.warn('Gemini API model ' + modelName + ' HTTP ' + resp.status + ': ' + errMsg);
       }
     } catch (err) {
+      var isAbort = err && (err.name === 'AbortError' || err.message === 'The user aborted a request.');
+      if (isAbort) {
+        _lastGeminiError = 'Request timed out after 9 seconds.';
+      } else {
+        _lastGeminiError = (err && err.message) ? err.message : String(err);
+      }
       console.warn('Gemini API fetch error with model ' + modelName + ':', err);
     }
   }
@@ -4179,7 +4213,7 @@ function ensureHelperAgentDOM() {
       '<p class="helper-settings-desc">Activate Google Gemini (Free Tier) for natural, conversational intelligence:</p>' +
       '<div class="helper-settings-input-group">' +
         '<input type="password" id="helper-gemini-key-input" class="helper-settings-input" placeholder="Paste Gemini API Key..." />' +
-        '<button type="button" class="helper-settings-save-btn" onclick="saveGeminiKeyFromHelper()">Connect</button>' +
+        '<button type="button" class="helper-settings-save-btn" onclick="saveGeminiKeyFromHelper(this)">Connect</button>' +
       '</div>' +
       '<div class="helper-settings-footer">' +
         '<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="helper-settings-link">Get Free Gemini API Key ↗</a>' +
@@ -4250,10 +4284,10 @@ function updateHelperGeminiStatus() {
 /**
  * Saves and verifies the Google Gemini API key entered by the user in the helper chat drawer
  */
-async function saveGeminiKeyFromHelper() {
+async function saveGeminiKeyFromHelper(btn) {
   var input = document.getElementById('helper-gemini-key-input');
   if (!input) return;
-  var key = (input.value || '').trim();
+  var key = (input.value || '').trim().replace(/^['"]|['"]$/g, '');
   if (!key) {
     setGeminiApiKey('');
     await saveRemoteGeminiApiKey('');
@@ -4264,27 +4298,56 @@ async function saveGeminiKeyFromHelper() {
     return;
   }
 
-  // Quick validation ping to Gemini API
-  if (typeof showToast === 'function') {
-    showToast('Testing connection to Google Gemini API...', 'info');
-  }
+  var saveBtn = btn || document.querySelector('.helper-settings-save-btn');
 
-  var testRes = await callGeminiApi('Say "Ready" in one word.', key);
-  if (!testRes) {
+  var performVerification = async function() {
     if (typeof showToast === 'function') {
-      showToast('Connection failed. Please verify your Gemini API key.', 'warning');
+      showToast('Testing connection to Google Gemini API...', 'info');
     }
-    return;
-  }
 
-  setGeminiApiKey(key);
-  await saveRemoteGeminiApiKey(key);
-  input.value = '';
-  toggleHelperSettingsPanel(false);
-  updateHelperGeminiStatus();
+    var testRes = await callGeminiApi('Say "Ready" in one word.', key);
+    if (!testRes) {
+      var lastErr = (typeof getLastGeminiError === 'function' ? getLastGeminiError() : _lastGeminiError) || '';
+      var userMsg = 'Connection failed. Please verify your Gemini API key.';
 
-  if (typeof showToast === 'function') {
-    showToast('Google Gemini AI activated successfully!', 'success');
+      if (/API_KEY_INVALID|API key not valid|key not found/i.test(lastErr)) {
+        userMsg = 'Invalid Gemini API key. Please check your key from Google AI Studio.';
+      } else if (/PERMISSION_DENIED|disabled/i.test(lastErr)) {
+        userMsg = 'Generative Language API is disabled. Please enable it in your Google Cloud Console.';
+      } else if (/FAILED_PRECONDITION|location/i.test(lastErr)) {
+        userMsg = 'Gemini API is unavailable in your current region or VPN location.';
+      } else if (/RESOURCE_EXHAUSTED|quota/i.test(lastErr)) {
+        userMsg = 'Gemini API quota exceeded. Please check your rate limits.';
+      } else if (/Failed to fetch|Content-Security-Policy|NetworkError/i.test(lastErr)) {
+        userMsg = 'Network or CSP connection blocked. Please refresh your browser.';
+      } else if (lastErr) {
+        userMsg = 'Connection failed: ' + lastErr;
+      }
+
+      if (typeof showToast === 'function') {
+        showToast(userMsg, 'warning');
+      }
+      return;
+    }
+
+    setGeminiApiKey(key);
+    await saveRemoteGeminiApiKey(key);
+    input.value = '';
+    toggleHelperSettingsPanel(false);
+    updateHelperGeminiStatus();
+
+    if (typeof showToast === 'function') {
+      showToast('Google Gemini AI activated successfully!', 'success');
+    }
+  };
+
+  if (typeof withSmartButtonLock === 'function' && saveBtn) {
+    await withSmartButtonLock(saveBtn, performVerification, {
+      loadingText: 'Connecting...',
+      srLabel: 'Testing connection to Google Gemini API'
+    });
+  } else {
+    await performVerification();
   }
 }
 
@@ -5488,6 +5551,7 @@ if (typeof window !== 'undefined') {
   window.toggleHelperSettingsPanel = toggleHelperSettingsPanel;
   window.updateHelperGeminiStatus = updateHelperGeminiStatus;
   window.saveGeminiKeyFromHelper  = saveGeminiKeyFromHelper;
+  window.getLastGeminiError       = getLastGeminiError;
 
   window.getGeminiApiKey           = getGeminiApiKey;
   window.setGeminiApiKey           = setGeminiApiKey;
@@ -5559,6 +5623,7 @@ if (typeof module !== 'undefined' && module.exports) {
     toggleHelperSettingsPanel: toggleHelperSettingsPanel,
     updateHelperGeminiStatus: updateHelperGeminiStatus,
     saveGeminiKeyFromHelper: saveGeminiKeyFromHelper,
+    getLastGeminiError: getLastGeminiError,
 
     getHelperAgentResponse: getHelperAgentResponse,
     getCompanyResourcesList: getCompanyResourcesList,
