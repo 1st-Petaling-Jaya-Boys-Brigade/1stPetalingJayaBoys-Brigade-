@@ -1507,7 +1507,7 @@
   }
 }
 
-/* ── Mobile Viewport Scaling & Precision Alignment (TSK Fix) ── */
+/* ── Mobile Viewport Scaling & Precision Alignment ── */
 @media (max-width: 768px) {
   .nav {
     height: 56px !important;

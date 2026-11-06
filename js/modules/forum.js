@@ -18,6 +18,7 @@
 
 // ── SVG Icon Registry (Zero Emojis) ──────────────────────────────────────────
 var FORUM_ICONS = {
+  gear: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>',
   all: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/></svg>',
   bugs: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="14" x="8" y="6" rx="4"/><path d="m19 7-3 2"/><path d="m5 7 3 2"/><path d="m19 19-3-2"/><path d="m5 19 3-2"/><path d="M20 13h-4"/><path d="M4 13h4"/><path d="m10 4 1 2"/><path d="m14 4-1 2"/></svg>',
   badges: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
@@ -2619,6 +2620,23 @@ var PORTAL_100_FAQS = [
   }
 ];
 
+
+/**
+ * Rigorously sanitizes AI and FAQ responses to eliminate internal task or bug codes
+ * @param {string} text
+ * @returns {string}
+ */
+function sanitizeStedfastOutput(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/\s*\((?:TSK|BUG)[-_]?\w*\)/gi, '')
+    .replace(/\b(?:TSK|BUG)[-_]?\d+[A-Z]?\b/gi, '')
+    .replace(/\b(?:TSK|BUG)[-_]?[A-Z0-9]+\b/gi, '')
+    .replace(/\s+([.,!?;:])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // ── Knowledge Base FAQ Engine (100 Official Portal FAQs) ─────────────────────
 var FAQ_KNOWLEDGE_BASE = PORTAL_100_FAQS;
 
@@ -2673,7 +2691,52 @@ function setGeminiApiKey(key) {
 }
 
 /**
- * Calls Google Gemini API Free Tier (gemini-1.5-flash) with grounded 1st PJ context
+ * Synchronizes active Gemini API key from Supabase bb_config so all members automatically get AI intelligence
+ * @returns {Promise<string>}
+ */
+async function syncRemoteGeminiApiKey() {
+  if (_cachedGeminiApiKey) return _cachedGeminiApiKey;
+  if (typeof supa !== 'undefined' && typeof supa.getConfig === 'function') {
+    try {
+      var val = await supa.getConfig('bb_gemini_api_key');
+      if (val) {
+        var k = (typeof val === 'string') ? val : (val.key || val.apiKey || '');
+        if (k && k.trim()) {
+          _cachedGeminiApiKey = k.trim();
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('bb_gemini_api_key', _cachedGeminiApiKey);
+          }
+          return _cachedGeminiApiKey;
+        }
+      }
+    } catch (e) {
+      console.warn('syncRemoteGeminiApiKey warning:', e);
+    }
+  }
+  return getGeminiApiKey();
+}
+
+/**
+ * Persists Gemini API key to Supabase bb_config
+ * @param {string} key
+ * @returns {Promise<boolean>}
+ */
+async function saveRemoteGeminiApiKey(key) {
+  var cleanKey = (key || '').trim();
+  setGeminiApiKey(cleanKey);
+  if (typeof supa !== 'undefined' && typeof supa.setConfig === 'function') {
+    try {
+      await supa.setConfig('bb_gemini_api_key', { key: cleanKey, updated_at: new Date().toISOString() });
+      return true;
+    } catch (e) {
+      console.warn('saveRemoteGeminiApiKey warning:', e);
+    }
+  }
+  return false;
+}
+
+/**
+ * Calls Google Gemini API Free Tier (gemini-2.0-flash with gemini-1.5-flash fallback) with grounded 1st PJ context
  * @param {string} prompt
  * @param {string} [apiKey]
  * @returns {Promise<string|null>}
@@ -2682,19 +2745,28 @@ async function callGeminiApi(prompt, apiKey) {
   var key = apiKey || getGeminiApiKey();
   if (!key) return null;
 
-  var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(key);
+  var models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+  var systemPrompt = "You are Stedfast, the official AI mentor and portal assistant for the 1st Petaling Jaya Boys' Brigade Web Portal in Malaysia.\n"
+    + "Company Knowledge Ground Truth:\n"
+    + "• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ).\n"
+    + "• Company Motto: Sure & Stedfast (Hebrews 6:19 - 'Which hope we have as an anchor of the soul, both sure and stedfast').\n"
+    + "• Founded: 1954 at TMC PJ, the premier Boys' Brigade company in Petaling Jaya, Malaysia.\n"
+    + "• Full Company Parade: Every Saturday from 2:15 PM – 6:00 PM at TMC PJ.\n"
+    + "• Band Rehearsals: Saturdays from 9:30 AM – 11:30 AM prior to parade (woodwind, brass, percussion).\n"
+    + "• Uniform Kits: Kit A (Ceremonial/Anchor Blue Tunic), Kit B (Day Polo/Anchor Gold), Kit C (PT/Sports). Refer to company calendar for attire.\n"
+    + "• Attendance Rule: A minimum 80% attendance threshold strictly qualifies members for the BB One Year Service award.\n"
+    + "• Sections: Pre-Junior (Ages 6–8), Junior (Ages 9–11), Senior (Ages 12–19), Officers (Adult leaders).\n"
+    + "• Platoons: Alpha, Papa, Zulu, Hotel.\n"
+    + "• Portal Navigation Tabs: Member Hub, Weekly Parade, Forms & Store, My Badges, Leaderboard, Resources, Support Forum, 1stPJ Arcade.\n"
+    + "• 1stPJ Arcade: Daily Wordle (+15 credits on solve), Timed BB Trivia (+5 credits/question), Streaks & Credits, Cosmetic Shop, Arcade Leaderboard.\n"
+    + "Core Rules for Responses:\n"
+    + "1. Respond warmly, intelligently, and helpfully in fluent English.\n"
+    + "2. Format your reply with clean Markdown (bolding, bullet points, paragraphs). Do NOT use any emojis.\n"
+    + "3. STRICT PROHIBITION: NEVER mention internal task codes, bug codes, or ticket numbers (never say TSK, BUG, or similar codes).\n"
+    + "4. PRIVACY: Never reveal other members' individual attendance percentages, points, or demerits. If the prompt context provides the authenticated user's own stats, you may answer questions about their own standing.\n"
+    + "5. Navigation: If user asks where something is, specify the exact portal tab and give concise instructions.";
 
-  var systemPrompt = 'You are Stedfast, the official AI assistant for the 1st Petaling Jaya Boys\' Brigade Web Portal in Malaysia.\n'
-    + '• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ).\n'
-    + '• Company Motto: Sure & Stedfast (Hebrews 6:19).\n'
-    + '• Parade Timings: Full Company Parade is every Saturday from 2:15 PM – 6:00 PM (starts at 9:30 AM for Band members).\n'
-    + '• Band Rehearsals: Saturdays from 9:30 AM – 11:30 AM (woodwind, brass, percussion).\n'
-    + '• Attendance Rule: A minimum 80% attendance threshold strictly qualifies for the BB One Year Service award (not President\'s Award).\n'
-    + '• Uniform Kits: Kit A (Ceremonial), Kit B (Day Polo), Kit C (PT/Sports). Refer to company calendar for dress code.\n'
-    + '• Privacy Rule: Individual member attendance percentages, points, and demerits are strictly confidential. Never reveal another member\'s data.\n'
-    + 'Answer accurately, concisely, and warmly in standard markdown without emojis.';
-
-  var body = {
+  var requestBody = {
     contents: [
       {
         role: 'user',
@@ -2705,38 +2777,42 @@ async function callGeminiApi(prompt, apiKey) {
       parts: [{ text: systemPrompt }]
     },
     generationConfig: {
-      temperature: 0.4,
-      maxOutputTokens: 600
+      temperature: 0.6,
+      maxOutputTokens: 800
     }
   };
 
-  try {
-    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timer = controller ? setTimeout(function() { controller.abort(); }, 7000) : null;
+  for (var m = 0; m < models.length; m++) {
+    var modelName = models[m];
+    var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + encodeURIComponent(key);
 
-    var resp = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller ? controller.signal : undefined
-    });
+    try {
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = controller ? setTimeout(function() { controller.abort(); }, 9000) : null;
 
-    if (timer) clearTimeout(timer);
+      var resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: controller ? controller.signal : undefined
+      });
 
-    if (!resp.ok) {
-      console.warn('Gemini API HTTP Error:', resp.status, resp.statusText);
-      return null;
-    }
+      if (timer) clearTimeout(timer);
 
-    var data = await resp.json();
-    if (data && data.candidates && data.candidates.length) {
-      var candidate = data.candidates[0];
-      if (candidate.content && candidate.content.parts && candidate.content.parts.length) {
-        return candidate.content.parts[0].text.trim();
+      if (resp.ok) {
+        var data = await resp.json();
+        if (data && data.candidates && data.candidates.length) {
+          var cand = data.candidates[0];
+          if (cand.content && cand.content.parts && cand.content.parts.length) {
+            return cand.content.parts[0].text.trim();
+          }
+        }
+      } else {
+        console.warn('Gemini API model ' + modelName + ' HTTP ' + resp.status);
       }
+    } catch (err) {
+      console.warn('Gemini API fetch error with model ' + modelName + ':', err);
     }
-  } catch (err) {
-    console.warn('Gemini API fetch error, falling back to local FAQ engine:', err);
   }
 
   return null;
@@ -4086,12 +4162,27 @@ function ensureHelperAgentDOM() {
         '<div class="helper-drawer-avatar">' + FORUM_ICONS.anchor + '</div>' +
         '<div>' +
           '<div class="helper-drawer-title">Stedfast AI Helper</div>' +
-          '<div class="helper-drawer-sub">1st PJ Boys\' Brigade Assistant</div>' +
+          '<div class="helper-drawer-sub" id="helper-engine-indicator">1st PJ Boys\' Brigade Assistant</div>' +
         '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px;">' +
+        '<button type="button" class="helper-icon-btn" id="btn-helper-settings" onclick="toggleHelperSettingsPanel()" title="Configure Google Gemini AI">' + FORUM_ICONS.gear + '</button>' +
         '<button type="button" class="helper-icon-btn" onclick="clearHelperChat()" title="Clear conversation">' + FORUM_ICONS.refresh + '</button>' +
         '<button type="button" class="helper-icon-btn" onclick="toggleHelperAgent()" title="Close chat">&times;</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="helper-settings-panel" class="helper-settings-panel" style="display:none;">' +
+      '<div class="helper-settings-row">' +
+        '<span class="helper-settings-title">Google Gemini AI Engine</span>' +
+        '<span class="helper-status-pill" id="helper-gemini-status">Checking...</span>' +
+      '</div>' +
+      '<p class="helper-settings-desc">Activate Google Gemini (Free Tier) for natural, conversational intelligence:</p>' +
+      '<div class="helper-settings-input-group">' +
+        '<input type="password" id="helper-gemini-key-input" class="helper-settings-input" placeholder="Paste Gemini API Key..." />' +
+        '<button type="button" class="helper-settings-save-btn" onclick="saveGeminiKeyFromHelper()">Connect</button>' +
+      '</div>' +
+      '<div class="helper-settings-footer">' +
+        '<a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="helper-settings-link">Get Free Gemini API Key ↗</a>' +
       '</div>' +
     '</div>' +
     '<div class="helper-drawer-body" id="helper-chat-body"></div>' +
@@ -4105,6 +4196,98 @@ function ensureHelperAgentDOM() {
   renderHelperMessages();
 }
 
+
+/**
+ * Toggles visibility of the Google Gemini AI Settings panel in the helper chat drawer
+ * @param {boolean} [force]
+ */
+function toggleHelperSettingsPanel(force) {
+  if (typeof document === 'undefined') return;
+  var panel = document.getElementById('helper-settings-panel');
+  if (!panel) return;
+  var isVisible = panel.style.display !== 'none';
+  var nextState = (typeof force === 'boolean') ? force : !isVisible;
+  panel.style.display = nextState ? 'flex' : 'none';
+  if (nextState) {
+    updateHelperGeminiStatus();
+    var inp = document.getElementById('helper-gemini-key-input');
+    if (inp) {
+      var k = getGeminiApiKey();
+      inp.value = k ? '••••••••••••••••' : '';
+      if (!k) inp.focus();
+    }
+  }
+}
+
+/**
+ * Updates the helper drawer status pill and subtitle reflecting the active AI engine
+ */
+function updateHelperGeminiStatus() {
+  if (typeof document === 'undefined') return;
+  var pill = document.getElementById('helper-gemini-status');
+  var sub = document.getElementById('helper-engine-indicator');
+  var key = getGeminiApiKey();
+
+  if (key) {
+    if (pill) {
+      pill.textContent = '● Active (Gemini 2.0 Flash)';
+      pill.className = 'helper-status-pill active';
+    }
+    if (sub) {
+      sub.textContent = 'Powered by Google Gemini 2.0 Flash';
+    }
+  } else {
+    if (pill) {
+      pill.textContent = '○ Standby (Local Engine)';
+      pill.className = 'helper-status-pill';
+    }
+    if (sub) {
+      sub.textContent = '1st PJ Boys\' Brigade Assistant';
+    }
+  }
+}
+
+/**
+ * Saves and verifies the Google Gemini API key entered by the user in the helper chat drawer
+ */
+async function saveGeminiKeyFromHelper() {
+  var input = document.getElementById('helper-gemini-key-input');
+  if (!input) return;
+  var key = (input.value || '').trim();
+  if (!key) {
+    setGeminiApiKey('');
+    await saveRemoteGeminiApiKey('');
+    updateHelperGeminiStatus();
+    if (typeof showToast === 'function') {
+      showToast('Gemini API Key removed. Reverted to local intelligence.', 'info');
+    }
+    return;
+  }
+
+  // Quick validation ping to Gemini API
+  if (typeof showToast === 'function') {
+    showToast('Testing connection to Google Gemini API...', 'info');
+  }
+
+  var testRes = await callGeminiApi('Say "Ready" in one word.', key);
+  if (!testRes) {
+    if (typeof showToast === 'function') {
+      showToast('Connection failed. Please verify your Gemini API key.', 'warning');
+    }
+    return;
+  }
+
+  setGeminiApiKey(key);
+  await saveRemoteGeminiApiKey(key);
+  input.value = '';
+  toggleHelperSettingsPanel(false);
+  updateHelperGeminiStatus();
+
+  if (typeof showToast === 'function') {
+    showToast('Google Gemini AI activated successfully!', 'success');
+  }
+}
+
 function toggleHelperAgent() {
   _isHelperAgentOpen = !_isHelperAgentOpen;
   var drawer = document.getElementById('helper-agent-drawer');
@@ -4112,6 +4295,10 @@ function toggleHelperAgent() {
   if (!drawer) return;
 
   if (_isHelperAgentOpen) {
+    updateHelperGeminiStatus();
+    syncRemoteGeminiApiKey().then(function() {
+      updateHelperGeminiStatus();
+    });
     drawer.style.display = 'flex';
     drawer.classList.add('open');
     if (trigger) trigger.classList.add('active');
@@ -4173,7 +4360,8 @@ function renderHelperMessages() {
 
 function formatHelperMarkdown(text) {
   if (!text) return '';
-  var safe = (typeof escapeHtml === 'function') ? escapeHtml(text) : text;
+  var clean = sanitizeStedfastOutput(text);
+  var safe = (typeof escapeHtml === 'function') ? escapeHtml(clean) : clean;
   safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   safe = safe.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;font-family:var(--font-mono);font-size:11px;">$1</code>');
   safe = safe.replace(/\n- /g, '<br>&bull; ');
@@ -4257,23 +4445,51 @@ function handleHelperSubmit(e) {
  * @returns {Promise<Object>}
  */
 async function getHelperAgentResponse(userPrompt) {
-  // 1. Try local exact & high-priority matches first (Privacy Shield, personal data, drill commands, resources)
-  var localRes = queryHelperAgent(userPrompt);
+  var q = (userPrompt || '').toLowerCase().trim();
 
-  // If local produced a privacy shield, personal records, drill command, or exact document match, use it directly
-  if (localRes && (localRes.triage === null || localRes.actions.some(function(a) { return a.action === 'open-url'; }))) {
-    // Only bypass if not standard fallback
-    if (!localRes.text.includes("I'm here to help! While I don't have a specific pre-set answer")) {
-      return localRes;
-    }
+  // 1. PRIVACY SHIELD ALWAYS GATES FIRST (Protects members' confidential data)
+  var isPersonalDataMetric = /\b(attendance|points?|score|rank|badges?|ic|password|email|record|records|standing|progress|results?)\b/i.test(q);
+  var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  var targetCheck = detectTargetMemberName(userPrompt, currentName);
+
+  if (targetCheck.otherName && isPersonalDataMetric) {
+    return {
+      text: '**Member Privacy Notice**: Under 1st Petaling Jaya Boys\' Brigade data privacy guidelines, individual attendance records, points, and achievement data are strictly confidential to each member.\n\n'
+        + 'I can only provide personal records for your own authenticated account (' + (currentName ? ('**' + currentName + '**') : 'when logged in') + '). I am not permitted to disclose individual attendance records or personal details for other members (including **' + targetCheck.otherName + '**).\n\n'
+        + 'To view company standings and squad scores without personal breakdown, you can visit the **Leaderboard** tab.',
+      triage: null,
+      actions: [
+        { label: 'Go to Leaderboard', action: 'navigate', target: 'attendance', icon: 'attendance' }
+      ],
+      chips: [
+        { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
+    };
   }
 
-  // 2. Check if Google Gemini API key is configured
-  var geminiKey = getGeminiApiKey();
+  // 2. CHECK FOR GOOGLE GEMINI INTELLIGENCE (Cloud-First when configured)
+  var geminiKey = await syncRemoteGeminiApiKey();
   if (geminiKey) {
     try {
-      var aiText = await callGeminiApi(userPrompt, geminiKey);
+      // Build rich user context for Gemini
+      var contextPrefix = '';
+      if (typeof sessionGet === 'function' && sessionGet('name')) {
+        var uName = sessionGet('name');
+        var uRank = sessionGet('rank') || 'Member';
+        var uPlatoon = sessionGet('platoon') || '';
+        var myAtt = ((typeof window !== 'undefined' && typeof window.getMyAttendanceSummary === 'function') ? window.getMyAttendanceSummary() : ((typeof global !== 'undefined' && typeof global.getMyAttendanceSummary === 'function') ? global.getMyAttendanceSummary() : null));
+        var myArcade = (typeof getArcadeStats === 'function') ? getArcadeStats() : null;
+        var attStr = myAtt ? (myAtt.attendanceRate + '%') : 'N/A';
+        var credStr = myArcade ? myArcade.credits : 0;
+        contextPrefix = '[Authenticated Member: ' + uName + ', Rank: ' + uRank + (uPlatoon ? (', Platoon: ' + uPlatoon) : '') + ', Attendance: ' + attStr + ', Credits: ' + credStr + ']\n';
+      }
+
+      var fullUserPrompt = contextPrefix + userPrompt;
+      var aiText = await callGeminiApi(fullUserPrompt, geminiKey);
       if (aiText && aiText.trim()) {
+        aiText = sanitizeStedfastOutput(aiText.trim());
+
         // Derive contextual actions from AI text
         var derivedActions = [];
         var lowerAi = aiText.toLowerCase();
@@ -4289,11 +4505,14 @@ async function getHelperAgentResponse(userPrompt) {
         if (lowerAi.includes('attendance') || lowerAi.includes('standing') || lowerAi.includes('service year')) {
           derivedActions.push({ label: 'Go to Member Hub', action: 'navigate', target: 'member', icon: 'member' });
         }
-        if (lowerAi.includes('resource') || lowerAi.includes('handbook') || lowerAi.includes('manual')) {
+        if (lowerAi.includes('resource') || lowerAi.includes('handbook') || lowerAi.includes('drill manual') || lowerAi.includes('manual')) {
           derivedActions.push({ label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' });
         }
-        if (lowerAi.includes('arcade') || lowerAi.includes('wordle') || lowerAi.includes('credit')) {
+        if (lowerAi.includes('arcade') || lowerAi.includes('wordle') || lowerAi.includes('credit') || lowerAi.includes('streak')) {
           derivedActions.push({ label: 'Go to 1stPJ Arcade', action: 'navigate', target: 'arcade', icon: 'arcade' });
+        }
+        if (lowerAi.includes('forum') || lowerAi.includes('bug') || lowerAi.includes('report') || lowerAi.includes('support')) {
+          derivedActions.push({ label: 'Go to Support Forum', action: 'navigate', target: 'forum', icon: 'forum' });
         }
 
         return {
@@ -4302,7 +4521,8 @@ async function getHelperAgentResponse(userPrompt) {
           actions: derivedActions.slice(0, 2),
           chips: [
             { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
-            { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' }
+            { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+            { label: '1stPJ Arcade', query: 'Where is the 1stPJ Arcade and how do credits work?', icon: 'arcade' }
           ]
         };
       }
@@ -4312,6 +4532,10 @@ async function getHelperAgentResponse(userPrompt) {
   }
 
   // 3. Fall back to local queryHelperAgent
+  var localRes = queryHelperAgent(userPrompt);
+  if (localRes && localRes.text) {
+    localRes.text = sanitizeStedfastOutput(localRes.text);
+  }
   return localRes;
 }
 
@@ -5286,6 +5510,13 @@ if (typeof window !== 'undefined') {
   window.queryHelperAgent          = queryHelperAgent;
   window.getHelperAgentResponse    = getHelperAgentResponse;
   window.callGeminiApi             = callGeminiApi;
+  window.sanitizeStedfastOutput   = sanitizeStedfastOutput;
+  window.syncRemoteGeminiApiKey   = syncRemoteGeminiApiKey;
+  window.saveRemoteGeminiApiKey   = saveRemoteGeminiApiKey;
+  window.toggleHelperSettingsPanel = toggleHelperSettingsPanel;
+  window.updateHelperGeminiStatus = updateHelperGeminiStatus;
+  window.saveGeminiKeyFromHelper  = saveGeminiKeyFromHelper;
+
   window.getGeminiApiKey           = getGeminiApiKey;
   window.setGeminiApiKey           = setGeminiApiKey;
   window.triageUserQuery           = triageUserQuery;
@@ -5350,6 +5581,13 @@ if (typeof module !== 'undefined' && module.exports) {
     getGeminiApiKey: getGeminiApiKey,
     setGeminiApiKey: setGeminiApiKey,
     callGeminiApi: callGeminiApi,
+    sanitizeStedfastOutput: sanitizeStedfastOutput,
+    syncRemoteGeminiApiKey: syncRemoteGeminiApiKey,
+    saveRemoteGeminiApiKey: saveRemoteGeminiApiKey,
+    toggleHelperSettingsPanel: toggleHelperSettingsPanel,
+    updateHelperGeminiStatus: updateHelperGeminiStatus,
+    saveGeminiKeyFromHelper: saveGeminiKeyFromHelper,
+
     getHelperAgentResponse: getHelperAgentResponse,
     getCompanyResourcesList: getCompanyResourcesList,
     searchCompanyResourcesForHelper: searchCompanyResourcesForHelper,
