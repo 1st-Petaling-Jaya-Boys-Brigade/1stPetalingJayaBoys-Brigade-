@@ -9330,6 +9330,72 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     process.exit(1);
   }
 
+  // ── Testing DevOps, Environment Hardening & Pre-Production Deployment Readiness ──
+  console.log('Testing DevOps, Environment Hardening & Pre-Production Deployment Readiness...');
+  {
+    const fs = require('fs');
+    const path = require('path');
+
+    // 1. Verify .env.example exists and documents all essential environment variables
+    const envExamplePath = path.resolve(__dirname, '../.env.example');
+    assert.ok(fs.existsSync(envExamplePath), '.env.example must exist in project root');
+    const envContent = fs.readFileSync(envExamplePath, 'utf8');
+    assert.ok(envContent.includes('VITE_SUPABASE_URL'), '.env.example must document VITE_SUPABASE_URL');
+    assert.ok(envContent.includes('VITE_SUPABASE_ANON_KEY'), '.env.example must document VITE_SUPABASE_ANON_KEY');
+    assert.ok(envContent.includes('VITE_TURNSTILE_SITE_KEY'), '.env.example must document VITE_TURNSTILE_SITE_KEY');
+    assert.ok(envContent.includes('VITE_GEMINI_API_KEY'), '.env.example must document VITE_GEMINI_API_KEY');
+    console.log('  ✔ .env.example exists and documents all critical environment variables');
+
+    // 2. Verify js/config.js exports APP_CONFIG and respects environment overrides
+    const configPath = path.resolve(__dirname, '../js/config.js');
+    assert.ok(fs.existsSync(configPath), 'js/config.js must exist');
+    const configModule = require(configPath);
+    assert.ok(configModule.APP_CONFIG, 'APP_CONFIG must be exported');
+    assert.ok(configModule.APP_CONFIG.SUPABASE_URL, 'APP_CONFIG.SUPABASE_URL must be defined');
+    assert.ok(configModule.APP_CONFIG.SUPABASE_ANON_KEY, 'APP_CONFIG.SUPABASE_ANON_KEY must be defined');
+    assert.ok(configModule.APP_CONFIG.TURNSTILE_SITE_KEY, 'APP_CONFIG.TURNSTILE_SITE_KEY must be defined');
+    assert.ok(typeof configModule.APP_CONFIG.GEMINI_API_KEY !== 'undefined', 'APP_CONFIG.GEMINI_API_KEY must be defined');
+    console.log('  ✔ js/config.js exports complete APP_CONFIG with fallback support');
+
+    // 3. Verify CSP parity across vite.config.mjs, vercel.json, and _headers
+    const viteConfigPath = path.resolve(__dirname, '../vite.config.mjs');
+    const vercelConfigPath = path.resolve(__dirname, '../vercel.json');
+    const headersPath = path.resolve(__dirname, '../_headers');
+
+    const viteRaw = fs.readFileSync(viteConfigPath, 'utf8');
+    const vercelRaw = fs.readFileSync(vercelConfigPath, 'utf8');
+    const headersRaw = fs.readFileSync(headersPath, 'utf8');
+
+    // Cloudflare Turnstile allowed in script-src & frame-src & connect-src
+    assert.ok(viteRaw.includes('https://challenges.cloudflare.com'), 'vite.config.mjs must whitelist Cloudflare Turnstile');
+    assert.ok(vercelRaw.includes('https://challenges.cloudflare.com'), 'vercel.json must whitelist Cloudflare Turnstile');
+    assert.ok(headersRaw.includes('https://challenges.cloudflare.com'), '_headers must whitelist Cloudflare Turnstile');
+
+    // Gemini API allowed in connect-src for Stedfast AI
+    assert.ok(viteRaw.includes('https://generativelanguage.googleapis.com'), 'vite.config.mjs must whitelist Gemini API in connect-src');
+    assert.ok(vercelRaw.includes('https://generativelanguage.googleapis.com'), 'vercel.json must whitelist Gemini API in connect-src');
+    assert.ok(headersRaw.includes('https://generativelanguage.googleapis.com'), '_headers must whitelist Gemini API in connect-src');
+    console.log('  ✔ CSP configuration is strictly aligned across Vite dev/preview, Vercel, and Cloudflare Pages/Netlify');
+
+    // 4. Verify production distribution build completeness
+    const distPath = path.resolve(__dirname, '../dist');
+    if (fs.existsSync(distPath)) {
+      assert.ok(fs.existsSync(path.join(distPath, 'index.html')), 'dist/index.html must exist');
+      assert.ok(fs.existsSync(path.join(distPath, 'js', 'config.js')), 'dist/js/config.js must exist for production runtime');
+      assert.ok(fs.existsSync(path.join(distPath, 'js', 'core', 'ui.js')), 'dist/js/core/ui.js must exist for production runtime');
+      assert.ok(fs.existsSync(path.join(distPath, 'sw.js')), 'dist/sw.js service worker must exist in production dist');
+      assert.ok(fs.existsSync(path.join(distPath, 'manifest.json')), 'dist/manifest.json must exist in production dist');
+      assert.ok(fs.existsSync(path.join(distPath, 'robots.txt')), 'dist/robots.txt must exist in production dist');
+      assert.ok(fs.existsSync(path.join(distPath, '_headers')), 'dist/_headers must exist in production dist');
+
+      // Verify no leaked production source maps
+      const filesInDist = fs.readdirSync(path.join(distPath, 'assets'));
+      const hasMap = filesInDist.some(f => f.endsWith('.map'));
+      assert.strictEqual(hasMap, false, 'Production build must not expose .map source files');
+      console.log('  ✔ Production build dist directory contains all autonomous runtime assets without sourcemap leaks');
+    }
+  }
+
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
