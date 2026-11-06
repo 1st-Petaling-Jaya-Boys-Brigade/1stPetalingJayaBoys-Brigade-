@@ -2484,6 +2484,81 @@ if (typeof window !== 'undefined') {
   };
 }
 
+/**
+ * Safely purges client-side caches (CacheStorage, service worker caches, session/local cache keys)
+ * to ensure users receive the latest application code and assets without stale runtime errors.
+ * Preserves essential authenticated sessions unless clearAuth is explicitly requested.
+ * @param {Object} [options]
+ * @param {boolean} [options.clearAuth=false] - If true, clears authentication session tokens
+ * @param {boolean} [options.reload=false] - If true, triggers a hard page reload after cache purge
+ * @returns {Promise<{success: boolean, cachesPurged: string[], message: string}>}
+ */
+async function clearPortalCache(options) {
+  var opt = options || {};
+  var purgedCaches = [];
+
+  // 1. Purge CacheStorage (Service Worker static and data caches)
+  if (typeof window !== 'undefined' && 'caches' in window) {
+    try {
+      var keys = await window.caches.keys();
+      for (var i = 0; i < keys.length; i++) {
+        await window.caches.delete(keys[i]);
+        purgedCaches.push(keys[i]);
+      }
+    } catch (cacheErr) {
+      console.warn('CacheStorage purge warning:', cacheErr);
+    }
+  }
+
+  // 2. Instruct active Service Worker to purge caches and skip waiting
+  if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller) {
+    try {
+      navigator.serviceWorker.controller.postMessage({ action: 'CLEAR_CACHES' });
+      navigator.serviceWorker.controller.postMessage({ action: 'SKIP_WAITING' });
+    } catch (_swMsgErr) {}
+  }
+
+  // 3. Purge sessionStorage
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      sessionStorage.clear();
+    } catch (_ssErr) {}
+  }
+
+  // 4. Clean non-essential localStorage caches
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var keysToRemove = [];
+      for (var j = 0; j < localStorage.length; j++) {
+        var k = localStorage.key(j);
+        if (!k) continue;
+        if (!opt.clearAuth) {
+          if (k.startsWith('sb-') || k.includes('auth-token') || k === 'bb_member_email' || k === 'bb_member_session' || k === 'bb_admin_session' || k === 'bb_active_role') {
+            continue;
+          }
+        }
+        if (k.startsWith('bb_cache_') || k.startsWith('bb_pfp_') || k.startsWith('_') || k.includes('offline') || k.includes('badge') || opt.clearAuth) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(function (key) {
+        localStorage.removeItem(key);
+      });
+    } catch (_lsErr) {}
+  }
+
+  // 5. Hard reload if requested
+  if (opt.reload && typeof window !== 'undefined' && window.location) {
+    window.location.reload(true);
+  }
+
+  return {
+    success: true,
+    cachesPurged: purgedCaches,
+    message: 'Portal cache purged successfully (' + purgedCaches.length + ' cache tiers cleaned).'
+  };
+}
+
 if (typeof window !== 'undefined') {
   window.escapeHtml     = escapeHtml;
   window.safeUrl        = safeUrl;
@@ -2546,6 +2621,7 @@ if (typeof window !== 'undefined') {
   window.resetTurnstileWidget      = resetTurnstileWidget;
   window.verifyTurnstileTokenServerSide = verifyTurnstileTokenServerSide;
   window.initAllTurnstileWidgets   = initAllTurnstileWidgets;
+  window.clearPortalCache          = clearPortalCache;
   window._turnstileTokens          = _turnstileTokens;
   window._turnstileWidgets         = _turnstileWidgets;
   window._mockUsedTurnstileTokens  = _mockUsedTurnstileTokens;
@@ -2611,6 +2687,7 @@ if (typeof module !== 'undefined' && module.exports) {
     resetTurnstileWidget: resetTurnstileWidget,
     verifyTurnstileTokenServerSide: verifyTurnstileTokenServerSide,
     initAllTurnstileWidgets: initAllTurnstileWidgets,
+    clearPortalCache: clearPortalCache,
     _turnstileTokens: _turnstileTokens,
     _turnstileWidgets: _turnstileWidgets,
     _mockUsedTurnstileTokens: _mockUsedTurnstileTokens

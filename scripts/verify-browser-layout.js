@@ -2274,6 +2274,44 @@ async function getJson(url) {
     assert.ok(n360.actionsRight <= n360.headerRight + 0.5, 'Header actions must fit cleanly inside 360px mobile header');
     console.log('  ✔ Ultra-narrow 360px mobile viewport verified with 0px horizontal overflow');
 
+    // Test iPad / Tablet 768x1024 viewport
+    await sendCmd('Emulation.setDeviceMetricsOverride', {
+      width: 768,
+      height: 1024,
+      deviceScaleFactor: 2,
+      mobile: false
+    });
+    await new Promise(r => setTimeout(r, 250));
+
+    const tablet768Diag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const header = document.querySelector('.nav-inner');
+        const actions = document.querySelector('.nav-actions');
+        const hr = header ? header.getBoundingClientRect() : { right: 768 };
+        const ar = actions ? actions.getBoundingClientRect() : { right: 768 };
+        return {
+          windowWidth: window.innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+          headerRight: hr.right,
+          actionsRight: ar.right
+        };
+      })()`,
+      returnByValue: true
+    });
+    const t768 = tablet768Diag.result.value;
+    assert.strictEqual(t768.scrollWidth <= t768.windowWidth, true, 'Zero horizontal overflow allowed at 768px tablet viewport');
+    assert.ok(t768.actionsRight <= t768.headerRight + 0.5, 'Header actions must fit cleanly inside 768px tablet header');
+    console.log('  ✔ Tablet 768px viewport verified with 0px horizontal overflow');
+
+    // Restore desktop viewport (1280x900)
+    await sendCmd('Emulation.setDeviceMetricsOverride', {
+      width: 1280,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false
+    });
+    await new Promise(r => setTimeout(r, 250));
+
     // ── Dual-Theme (Light & Dark) Layout, DOM & Contrast Verification ──
     console.log('\n[Dual-Theme Verification]');
     const themeDiag = await sendCmd('Runtime.evaluate', {
