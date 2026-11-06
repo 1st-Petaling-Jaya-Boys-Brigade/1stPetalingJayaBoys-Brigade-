@@ -2044,7 +2044,9 @@ function openTaskDetail(id) {
   // Description: strip [Project: ...] and [Estimate: ...] tags for clean reading and editing
   var cleanDesc = (t.description || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
   var descEl = document.getElementById('tdm-desc');
-  if (descEl) descEl.innerHTML = cleanDesc;
+  if (descEl) {
+    descEl.innerHTML = (typeof sanitizeHtml === 'function') ? sanitizeHtml(cleanDesc) : ((typeof escapeHtml === 'function') ? escapeHtml(cleanDesc) : cleanDesc);
+  }
 
   var modal = document.getElementById('task-detail-modal');
   if (modal) modal.style.display = 'block';
