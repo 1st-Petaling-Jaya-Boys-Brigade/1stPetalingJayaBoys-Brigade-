@@ -1025,33 +1025,16 @@ async function renderCompanyLeaderboard() {
   var baselineRosters = {
     'PAPA 1': [
       { name: 'Jeshua Koh', rank: 'Sgt', points: { total: 55 }, paradeAttendance: { percentage: 92 } },
-      { name: 'Jason Koh', rank: 'Cpl', points: { total: 54 }, paradeAttendance: { percentage: 88 } },
-      { name: 'Samuel Tan', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 85 } }
+      { name: 'Jason Koh', rank: 'Cpl', points: { total: 54 }, paradeAttendance: { percentage: 88 } }
     ],
     'PAPA 2': [
-      { name: 'Ethan Lim', rank: 'Cpl', points: { total: 55 }, paradeAttendance: { percentage: 100 } },
-      { name: 'Aaron Ng', rank: 'Pvt', points: { total: 54 }, paradeAttendance: { percentage: 84 } },
-      { name: 'Lucas Wong', rank: 'Pvt', points: { total: 52 }, paradeAttendance: { percentage: 50 } }
-    ],
-    'ZULU 1': [
-      { name: 'Benjamin Teoh', rank: 'Sgt', points: { total: 56 }, paradeAttendance: { percentage: 94 } },
-      { name: 'Daniel Yap', rank: 'L/Cpl', points: { total: 53 }, paradeAttendance: { percentage: 86 } },
-      { name: 'Ryan Tan', rank: 'Pvt', points: { total: 51 }, paradeAttendance: { percentage: 48 } }
-    ],
-    'ALPHA 2': [
-      { name: 'David Choong', rank: 'Cpl', points: { total: 53 }, paradeAttendance: { percentage: 88 } },
-      { name: 'Joshua Lee', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 82 } },
-      { name: 'Kevin Ong', rank: 'Pvt', points: { total: 50 }, paradeAttendance: { percentage: 76 } }
+      { name: 'Tester Account', rank: 'Lt', points: { total: 40 }, paradeAttendance: { percentage: 50 } }
     ],
     'ALPHA 1': [
-      { name: 'Timothy Wong', rank: 'Sgt', points: { total: 52 }, paradeAttendance: { percentage: 85 } },
-      { name: 'Marcus Chen', rank: 'Cpl', points: { total: 49 }, paradeAttendance: { percentage: 80 } },
-      { name: 'Bryan Low', rank: 'Pvt', points: { total: 48 }, paradeAttendance: { percentage: 45 } }
+      { name: 'OLIVER LING CHEE SHENG', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 100 } }
     ],
-    'ZULU 2': [
-      { name: 'Jonathan Sim', rank: 'Cpl', points: { total: 50 }, paradeAttendance: { percentage: 82 } },
-      { name: 'Nicholas Fong', rank: 'L/Cpl', points: { total: 48 }, paradeAttendance: { percentage: 78 } },
-      { name: 'Justin Chew', rank: 'Pvt', points: { total: 46 }, paradeAttendance: { percentage: 55 } }
+    'ALPHA 2': [
+      { name: 'Joash Lee Tian Wei', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 82 } }
     ]
   };
 

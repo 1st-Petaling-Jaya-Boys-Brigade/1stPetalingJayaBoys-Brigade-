@@ -1551,10 +1551,10 @@
 
   function getLeaderboardAvatarHtml(name, email, size) {
     if (typeof getUniversalMemberAvatarHtml === 'function') {
-      return getUniversalMemberAvatarHtml(name, email, size);
+      return getUniversalMemberAvatarHtml(name, email, size, { showPresence: true });
     }
     if (typeof window !== 'undefined' && typeof window.getUniversalMemberAvatarHtml === 'function') {
-      return window.getUniversalMemberAvatarHtml(name, email, size);
+      return window.getUniversalMemberAvatarHtml(name, email, size, { showPresence: true });
     }
     var initial = (name || 'M').trim().charAt(0).toUpperCase();
     var colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#eab308'];
@@ -1567,26 +1567,34 @@
   function getArcadeLeaderboardData(category) {
     category = category || _arcadeLeaderboardCategory || 'streak';
 
-    // Base roster of active company members with realistic baseline activity
+    // Roster of verified company members with real database arcade activity
     var baseMembers = [
-      { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', rank: 'Sergeant', platoon: 'Hotel Platoon', streak: 14, credits: 285 },
-      { name: 'Jason Koh', email: 'jasonkoh2010712@gmail.com', rank: 'Corporal', platoon: 'Papa Platoon', streak: 12, credits: 190 },
-      { name: 'Benjamin Teoh', email: 'benjamin.teoh@bb1pj.my', rank: 'Sergeant', platoon: 'Zulu Platoon', streak: 11, credits: 210 },
-      { name: 'Ethan Lim', email: 'ethan.lim@bb1pj.my', rank: 'Corporal', platoon: 'Papa Platoon', streak: 9, credits: 165 },
-      { name: 'Joash Lee Tian Wei', email: 'jl.pytiger@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 8, credits: 140 },
-      { name: 'Oliver Ling Chee Sheng', email: 'chickensans0@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 7, credits: 130 },
-      { name: 'Daniel Yap', email: 'daniel.yap@bb1pj.my', rank: 'Lance Corporal', platoon: 'Zulu Platoon', streak: 6, credits: 115 },
-      { name: 'David Choong', email: 'david.choong@bb1pj.my', rank: 'Corporal', platoon: 'Alpha Platoon', streak: 5, credits: 95 },
-      { name: 'Timothy Wong', email: 'timothy.wong@bb1pj.my', rank: 'Sergeant', platoon: 'Alpha Platoon', streak: 5, credits: 90 },
-      { name: 'Samuel Tan', email: 'samuel.tan@bb1pj.my', rank: 'Lance Corporal', platoon: 'Papa Platoon', streak: 4, credits: 80 },
-      { name: 'Marcus Chen', email: 'marcus.chen@bb1pj.my', rank: 'Corporal', platoon: 'Alpha Platoon', streak: 3, credits: 70 },
-      { name: 'Aaron Ng', email: 'aaron.ng@bb1pj.my', rank: 'Private', platoon: 'Papa Platoon', streak: 3, credits: 60 },
-      { name: 'Lucas Wong', email: 'lucas.wong@bb1pj.my', rank: 'Private', platoon: 'Papa Platoon', streak: 2, credits: 45 },
-      { name: 'Ryan Tan', email: 'ryan.tan@bb1pj.my', rank: 'Private', platoon: 'Zulu Platoon', streak: 2, credits: 40 },
-      { name: 'Jonathan Sim', email: 'jonathan.sim@bb1pj.my', rank: 'Corporal', platoon: 'Zulu Platoon', streak: 1, credits: 30 }
+      { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', rank: 'Sergeant', platoon: 'Hotel Platoon', streak: 4, credits: 75 },
+      { name: 'OLIVER LING CHEE SHENG', email: 'chickensans0@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 2, credits: 45 },
+      { name: 'Joash Lee Tian Wei', email: 'jl.pytiger@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 1, credits: 40 },
+      { name: 'Jason Koh', email: 'jasonkoh2010712@gmail.com', rank: 'Corporal', platoon: 'Papa Platoon', streak: 1, credits: 35 },
+      { name: 'Tester Account', email: 'jeshuakoh1601@gmail.com', rank: 'Lieutenant', platoon: 'Officer', streak: 0, credits: 0 }
     ];
 
-    // Merge registered accounts from local cache if present
+    // Check localStorage/sessionStorage for any live-synced arcade stats across members
+    if (typeof localStorage !== 'undefined') {
+      baseMembers.forEach(function(m) {
+        if (!m.email) return;
+        try {
+          var cleanK = 'bb_arcade_' + m.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          var raw = localStorage.getItem(cleanK);
+          if (raw) {
+            var parsedA = JSON.parse(raw);
+            if (parsedA) {
+              if (typeof parsedA.streak !== 'undefined') m.streak = Number(parsedA.streak) || 0;
+              if (typeof parsedA.credits !== 'undefined') m.credits = Number(parsedA.credits) || 0;
+            }
+          }
+        } catch (_) {}
+      });
+    }
+
+    // Merge registered accounts from local cache if present, strictly filtering deleted accounts
     if (typeof localStorage !== 'undefined') {
       try {
         var rawCache = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
@@ -1595,6 +1603,7 @@
           if (Array.isArray(parsed)) {
             parsed.forEach(function(m) {
               if (!m || !m.name) return;
+              if (m.rank === 'Deleted' || m.department === 'deleted' || m.department === 'archived_deleted') return;
               var existing = baseMembers.find(function(b) {
                 return (b.email && m.email && b.email.toLowerCase().trim() === m.email.toLowerCase().trim()) ||
                        (b.name && m.name && b.name.toLowerCase().trim() === m.name.toLowerCase().trim());
@@ -1634,8 +1643,6 @@
         if (curName) m.name = curName;
         if (curRank) m.rank = curRank;
         if (curPlatoon) m.platoon = curPlatoon;
-      } else {
-        m.isCurrentUser = false;
       }
     });
 
@@ -1651,27 +1658,18 @@
       });
     }
 
-    // Sort descending by current category
+    // Sort descending by selected metric
     baseMembers.sort(function(a, b) {
-      var valA = (category === 'credits') ? (a.credits || 0) : (a.streak || 0);
-      var valB = (category === 'credits') ? (b.credits || 0) : (b.streak || 0);
+      var valA = (category === 'streak') ? (a.streak || 0) : (a.credits || 0);
+      var valB = (category === 'streak') ? (b.streak || 0) : (b.credits || 0);
       if (valB !== valA) return valB - valA;
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    // Assign ranking positions
-    var curPos = 1;
-    for (var i = 0; i < baseMembers.length; i++) {
-      if (i > 0) {
-        var prevVal = (category === 'credits') ? (baseMembers[i - 1].credits || 0) : (baseMembers[i - 1].streak || 0);
-        var thisVal = (category === 'credits') ? (baseMembers[i].credits || 0) : (baseMembers[i].streak || 0);
-        if (thisVal < prevVal) {
-          curPos = i + 1;
-        }
-      }
-      baseMembers[i].displayRank = curPos;
-      baseMembers[i].rankIndex = i + 1;
-    }
+    // Assign ranking indexes (1-based)
+    baseMembers.forEach(function(m, idx) {
+      m.rankIndex = idx + 1;
+    });
 
     return baseMembers;
   }
@@ -1709,9 +1707,6 @@
       var val = isStreak ? (item.streak || 0) : (item.credits || 0);
       var safeName = (typeof escapeHtml === 'function') ? escapeHtml(item.name) : item.name;
       var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(item.rank || '') : item.rank;
-      var rankBadgeStyle = (stepNum === 1)
-        ? 'background:var(--brand-gold,#f5c542);color:#000;'
-        : (stepNum === 2 ? 'background:#cbd5e1;color:#000;' : 'background:#ea580c;color:#fff;');
 
       return '<div class="podium-column">' +
         '<div class="podium-header">' +
@@ -1722,7 +1717,6 @@
           // 2. PROFILE ICON/PICTURE UNDER NAME
           '<div class="podium-avatar-wrap">' +
             avatarHtml +
-            '<span class="podium-rank-badge" style="' + rankBadgeStyle + '">#' + stepNum + '</span>' +
           '</div>' +
         '</div>' +
         // 3. PODIUM PILLAR STEP
