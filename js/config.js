@@ -3,16 +3,25 @@
  * Application Configuration & Constants
  */
 
-var SUPA_URL = 'https://mjfclxcklkbgsivvvlfe.supabase.co';
-var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
+var SUPA_URL = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_URL)
+  || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL))
+  || 'https://mjfclxcklkbgsivvvlfe.supabase.co';
+
+var SUPA_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_ANON_KEY)
+  || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY))
+  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
 
 // Pre-computed cryptographic SHA-256 hash of default admin password
-var ADMIN_PASSWORD_HASH = 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f';
+var ADMIN_PASSWORD_HASH = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.ADMIN_PASSWORD_HASH)
+  || (typeof process !== 'undefined' && process.env && process.env.ADMIN_PASSWORD_HASH)
+  || 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f';
 
 // Cloudflare Turnstile CAPTCHA
 // 1x00000000000000000000AA: Cloudflare testing sitekey (Always passes)
 // 2x00000000000000000000AB: Cloudflare testing sitekey (Always blocks)
-var TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
+var TURNSTILE_SITE_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_TURNSTILE_SITE_KEY)
+  || (typeof process !== 'undefined' && process.env && (process.env.VITE_TURNSTILE_SITE_KEY || process.env.TURNSTILE_SITE_KEY))
+  || '1x00000000000000000000AA';
 
 var MEMBERS_JUNIORS_RANKS = [
   'Pre-Junior',
@@ -42,6 +51,18 @@ var OFFICER_RANKS = [
   'Staff Sergeant'
 ];
 
+var GEMINI_API_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_GEMINI_API_KEY)
+  || (typeof process !== 'undefined' && process.env && (process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY))
+  || '';
+
+var APP_CONFIG = Object.freeze({
+  SUPABASE_URL: SUPA_URL,
+  SUPABASE_ANON_KEY: SUPA_KEY,
+  ADMIN_PASSWORD_HASH: ADMIN_PASSWORD_HASH,
+  TURNSTILE_SITE_KEY: TURNSTILE_SITE_KEY,
+  GEMINI_API_KEY: GEMINI_API_KEY
+});
+
 
 /**
  * Canonical helper to check if a member rank qualifies as NCO / Leader
@@ -62,6 +83,8 @@ if (typeof window !== 'undefined') {
   window.SUPA_KEY = SUPA_KEY;
   window.ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH;
   window.TURNSTILE_SITE_KEY = TURNSTILE_SITE_KEY;
+  window.GEMINI_API_KEY = GEMINI_API_KEY;
+  window.APP_CONFIG = APP_CONFIG;
   window.MEMBERS_JUNIORS_RANKS = MEMBERS_JUNIORS_RANKS;
   window.MEMBERS_SENIOR_RANKS = MEMBERS_SENIOR_RANKS;
   window.NCO_RANKS = NCO_RANKS;
@@ -70,5 +93,17 @@ if (typeof window !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { SUPA_URL, SUPA_KEY, ADMIN_PASSWORD_HASH, TURNSTILE_SITE_KEY, MEMBERS_JUNIORS_RANKS, MEMBERS_SENIOR_RANKS, NCO_RANKS, OFFICER_RANKS, isNcoRank };
+  module.exports = {
+    APP_CONFIG,
+    SUPA_URL,
+    SUPA_KEY,
+    ADMIN_PASSWORD_HASH,
+    TURNSTILE_SITE_KEY,
+    GEMINI_API_KEY,
+    MEMBERS_JUNIORS_RANKS,
+    MEMBERS_SENIOR_RANKS,
+    NCO_RANKS,
+    OFFICER_RANKS,
+    isNcoRank
+  };
 }
