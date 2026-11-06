@@ -9098,6 +9098,87 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(!resAdminGov.text.includes('TSK-'), 'Admin console reply must never mention TSK task codes');
     console.log('  ✔ Attendance rule accuracy and complete elimination of confusing task codes verified');
 
+    // ── Official 100 FAQs & Google Gemini API Integration Test Suite ───────────
+    console.log('\n[TEST] Stedfast AI Helper 100 FAQs Grounding & Google Gemini API Integration...');
+
+    // 1. Ingestion and Integrity of all 100 Official Portal FAQs
+    assert.ok(Array.isArray(forumModule.PORTAL_100_FAQS), 'PORTAL_100_FAQS must be an array');
+    assert.strictEqual(forumModule.PORTAL_100_FAQS.length, 100, 'PORTAL_100_FAQS must contain exactly 100 FAQs');
+
+    for (let fIdx = 0; fIdx < forumModule.PORTAL_100_FAQS.length; fIdx++) {
+      const item = forumModule.PORTAL_100_FAQS[fIdx];
+      assert.strictEqual(item.num, fIdx + 1, 'FAQ ' + item.id + ' must have sequential num ' + (fIdx + 1));
+      assert.ok(item.question && item.question.trim().length > 5, 'FAQ ' + item.id + ' must have a valid question');
+      assert.ok(item.category && item.category.trim().length > 3, 'FAQ ' + item.id + ' must have a category');
+      assert.ok(item.answer && item.answer.trim().length > 10, 'FAQ ' + item.id + ' must have a valid answer');
+      assert.ok(Array.isArray(item.keywords) && item.keywords.length >= 2, 'FAQ ' + item.id + ' must have keywords');
+    }
+    console.log('  ✔ Complete 100 FAQs dataset integrity and sequential numbering verified');
+
+    // 2. Verification of User-Amended FAQs (Avatars, Parade times, Band rehearsals, Uniform Calendar, etc.)
+    const faq9 = forumModule.PORTAL_100_FAQS.find(f => f.num === 9);
+    assert.ok(!faq9.answer.includes('Jeshua'), 'FAQ 9 must not mention Jeshua example');
+    assert.ok(!faq9.answer.includes('creator'), 'FAQ 9 must not mention creator animated outlines');
+
+    const faq11 = forumModule.PORTAL_100_FAQS.find(f => f.num === 11);
+    assert.ok(faq11.answer.includes('9:30 AM') && faq11.answer.includes('Band members'), 'FAQ 11 must specify 9:30 AM for Band members');
+    assert.ok(faq11.answer.includes('2:15 PM to 6:00 PM'), 'FAQ 11 must specify full parade 2:15 PM - 6:00 PM');
+
+    const faq12 = forumModule.PORTAL_100_FAQS.find(f => f.num === 12);
+    assert.strictEqual(faq12.question, 'When are Band rehearsals held?', 'FAQ 12 question must not specify Brass only');
+    assert.ok(faq12.answer.includes('woodwind, brass, and percussion'), 'FAQ 12 must encompass woodwind, brass, and percussion');
+
+    const faq14 = forumModule.PORTAL_100_FAQS.find(f => f.num === 14);
+    assert.ok(faq14.question.includes('running late'), 'FAQ 14 must cover running late policy');
+    assert.ok(!faq14.question.includes('duty roster'), 'FAQ 14 must not mention duty roster');
+
+    const faq15 = forumModule.PORTAL_100_FAQS.find(f => f.num === 15);
+    assert.ok(faq15.answer.includes('calendar'), 'FAQ 15 must refer to company calendar');
+
+    const faq19 = forumModule.PORTAL_100_FAQS.find(f => f.num === 19);
+    assert.ok(faq19.answer.includes('clean and polished uniform'), 'FAQ 19 must state clean and polished uniform');
+
+    const faq27 = forumModule.PORTAL_100_FAQS.find(f => f.num === 27);
+    assert.ok(!faq27.question.includes('Brass'), 'FAQ 27 question must not say Brass');
+    assert.ok(!faq27.answer.includes('Brass'), 'FAQ 27 answer must not say Brass');
+
+    const faq54 = forumModule.PORTAL_100_FAQS.find(f => f.num === 54);
+    assert.ok(faq54.answer.includes('UK sizing'), 'FAQ 54 must state UK sizing');
+
+    const faq100 = forumModule.PORTAL_100_FAQS.find(f => f.num === 100);
+    assert.ok(!faq100.answer.includes('support@bbpj1.org'), 'FAQ 100 must not list email address');
+    assert.ok(faq100.answer.includes('Support Forum'), 'FAQ 100 must refer to Support Forum');
+    console.log('  ✔ All user feedback amendments (Q9, Q11, Q12, Q14, Q15, Q19, Q27, Q54, Q100) verified');
+
+    // 3. Google Gemini API Security and Credential Isolation (Zero Hardcoded Keys)
+    assert.strictEqual(typeof forumModule.getGeminiApiKey, 'function', 'getGeminiApiKey must be exported');
+    assert.strictEqual(typeof forumModule.setGeminiApiKey, 'function', 'setGeminiApiKey must be exported');
+    assert.strictEqual(typeof forumModule.callGeminiApi, 'function', 'callGeminiApi must be exported');
+    assert.strictEqual(typeof forumModule.getHelperAgentResponse, 'function', 'getHelperAgentResponse must be exported');
+
+    // Default state must be empty (strictly zero keys committed to source)
+    assert.strictEqual(forumModule.getGeminiApiKey(), '', 'Default API key in codebase must be completely empty');
+
+    // Test dynamic key configuration and cleanup
+    forumModule.setGeminiApiKey('AIzaSyMockTestKeyForIsolatedTesting');
+    assert.strictEqual(forumModule.getGeminiApiKey(), 'AIzaSyMockTestKeyForIsolatedTesting', 'setGeminiApiKey updates runtime key');
+    forumModule.setGeminiApiKey('');
+    assert.strictEqual(forumModule.getGeminiApiKey(), '', 'setGeminiApiKey cleanly clears runtime key');
+
+    // 4. callGeminiApi Graceful Handling When No Key is Configured
+    const nullCallResult = await forumModule.callGeminiApi('Tell me about 1st PJ Boys Brigade');
+    assert.strictEqual(nullCallResult, null, 'callGeminiApi must return null when no key is configured');
+
+    // 5. getHelperAgentResponse Seamless Offline & Fallback Execution
+    const attResponse = await forumModule.getHelperAgentResponse('What time does Saturday parade start and end?');
+    assert.ok(attResponse && attResponse.text, 'getHelperAgentResponse must return structured response');
+    assert.ok(attResponse.text.includes('2:15 PM') && attResponse.text.includes('9:30 AM'), 'getHelperAgentResponse must resolve 100 FAQs without remote API');
+
+    // 6. Privacy Shield Enforcement Before Any External Transmission
+    const privacyCheckResponse = await forumModule.getHelperAgentResponse("What is Jason Koh's attendance?");
+    assert.ok(privacyCheckResponse.text.includes('Member Privacy Notice'), 'Privacy shield must intercept queries for other members before API calls');
+    console.log('  ✔ Google Gemini API Free Tier integration, credential isolation, and offline fallback verified');
+
   } catch (err) {
     console.error('Stedfast Resources Grounding Test Failed:', err);
     process.exit(1);

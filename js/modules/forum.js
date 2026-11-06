@@ -165,45 +165,2582 @@ var _helperMessages = [
   }
 ];
 
-// ── Knowledge Base FAQ Engine (Zero Emojis) ──────────────────────────────────
-var FAQ_KNOWLEDGE_BASE = [
+// ── Official 100 Portal FAQs Dataset ──────────────────────────────────────
+var PORTAL_100_FAQS = [
   {
-    keywords: ['parade', 'saturday', 'venue', 'parade time', 'band rehearsal', 'brass band', 'tmc pj'],
-    answer: '**Company Parade Schedule**:\n- **Full Company Parade**: Every Saturday from **2:15 PM – 6:00 PM**.\n- **Brass Band Sectionals**: Saturdays from **9:30 AM – 11:30 AM**.\n- **Venue**: Trinity Methodist Church Petaling Jaya (TMC PJ).\n\nCheck the **Weekly Parade** tab for the upcoming parade kit and schedule notices.'
+    "id": "faq-001",
+    "num": 1,
+    "question": "How do I register for a new portal account?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "Navigate to the login screen and select **Create Account**. Enter your Full Name, Email, Password, Age, Section (Pre-Junior, Junior, Senior, or Officer), Rank, and assigned Platoon/Squad. Upon submission, you will be automatically logged in immediately.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "account",
+      "register",
+      "new",
+      "portal",
+      "navigate",
+      "login",
+      "screen"
+    ]
   },
   {
-    keywords: ['attendance', '80%', 'milestone', 'service year', 'tier', 'perfect', 'excellent', 'at risk'],
-    answer: '**Confidential Attendance Tiers**:\n- **100%**: Perfect (Emerald tier)\n- **≥ 90%**: Excellent (Blue tier)\n- **≥ 80%**: Good (Gold tier) — **One Year Service Qualified**\n- **< 80%**: At Risk (Orange tier) — One Year Service Pending\n\nOfficial BB Rule: A minimum **80% attendance threshold** is strictly required to qualify for the BB One Year Service award.'
+    "id": "faq-002",
+    "num": 2,
+    "question": "Can two members register with the same name?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "No. The portal enforces strict name-collision prevention. If a member attempts to register using a name that already exists in the company registry, registration is blocked with a prompt asking them to log into their existing account.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "register",
+      "name",
+      "two",
+      "members",
+      "same",
+      "portal",
+      "enforces"
+    ]
   },
   {
-    keywords: ['uniform', 'kit', 'dress', 'polo', 'cap', 'belt', 'store', 'order'],
-    answer: '**Official Uniform Standards & Kits**:\n- **Kit A (Full Ceremonial)**: Long sleeve uniform shirt, cross belt, badges, forage cap, black drill boots.\n- **Kit B (Day Kit)**: Company polo t-shirt, dark trousers, belt.\n- **Kit C (PT / Sports)**: Squad t-shirt, sports pants & running shoes.\n\nNeed to order replacement items? Visit the **Forms & Store** tab to submit an official Uniform Order.'
+    "id": "faq-003",
+    "num": 3,
+    "question": "How are member passwords protected?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "Passwords are cryptographically hashed client-side using the Web Crypto API with PBKDF2-HMAC-SHA-256 over 100,000 iterations and a unique 128-bit salt. Plaintext passwords and reversible base64 strings are strictly prohibited.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "passwords",
+      "100",
+      "member",
+      "protected",
+      "cryptographically",
+      "hashed",
+      "client-side"
+    ]
   },
   {
-    keywords: ['boot size', 'shoe size', 'sizing', 'boots size', 'boot', 'boots', 'size'],
-    answer: '**Uniform Boot Sizing Chart**:\n- All official BB drill boots adhere strictly to **UK sizing**.\n- When ordering drill boots in the **Forms & Store** tab, order your exact UK shoe size, or a half-size larger if you wear thick ceremonial wool socks.\n- Check seed discussion on the Support Forum for further details.'
+    "id": "faq-004",
+    "num": 4,
+    "question": "What is the \"Remember Me\" session duration?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "When \"Remember Me\" is enabled during login, your authenticated session remains securely active for up to 14 days across browser restarts.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "remember",
+      "session",
+      "duration",
+      "enabled",
+      "during",
+      "login",
+      "authenticated"
+    ]
   },
   {
-    keywords: ['badge', 'founder', 'president', 'syllabus', 'target', 'awards'],
-    answer: '**Badges & Awards Advancement**:\n- Track your target, compulsory, and elective badges in the **My Badges** tab.\n- Founder\'s & President\'s Awards require completed Service Years with qualifying attendance, alongside required service hours and leadership courses.\n- Download official handbooks and drill manuals in the **Company Resources** tab.'
+    "id": "faq-005",
+    "num": 5,
+    "question": "How do I log out of all my devices at once?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "In the **Member Hub**, click the **Sign Out Everywhere** button. This revokes all active device tokens and forces re-authentication on any other computer, tablet, or phone where your account was logged in.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "log",
+      "devices",
+      "once",
+      "member",
+      "hub",
+      "click",
+      "sign"
+    ]
   },
   {
-    keywords: ['task', 'project', 'kanban', 'nco', 'department', 'secretariat', 'logistics', 'media', 'hq'],
-    answer: '**Projects & Tasks Kanban Board**:\n- Available for NCOs and Officers assigned to company departments (HQ, Secretariat, Logistics, Media).\n- Drag and drop task cards across *To Do*, *In Progress*, and *Done*.\n- Attach documents, use `@mentions` to ping department members, and add task comments.'
+    "id": "faq-006",
+    "num": 6,
+    "question": "What happens if an admin deletes a member account?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "When an account is deleted by an administrator in the Admin Console, the portal's active session validator instantly detects the removal and redirects the browser back to the login screen, revoking all portal access.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "admin",
+      "account",
+      "portal",
+      "happens",
+      "deletes",
+      "member",
+      "deleted"
+    ]
   },
   {
-    keywords: ['admin', 'console', 'role', 'super admin', 'permission', 'officer'],
-    answer: '**Admin Console & Governance**:\n- Gated strictly to verified Officers and HQ Super Admins via RBAC.\n- Super Admins can manage member roles, sync master attendance, manage store products, and broadcast company announcements.'
+    "id": "faq-007",
+    "num": 7,
+    "question": "Why does the portal require parental consent for younger boys?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "Under COPPA and Malaysian Personal Data Protection Act (PDPA 2010) guidelines, members under 18 (Pre-Junior and Junior sections) require a parent or legal guardian's name and contact number during registration, alongside media release preferences.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "require",
+      "under",
+      "2010",
+      "portal",
+      "parental",
+      "consent",
+      "younger"
+    ]
   },
   {
-    keywords: ['storage', 'drive', 'upload', 'file', 'limit', 'mb'],
-    answer: '**Cloud Storage & Attachments**:\n- Uploaded task briefs and order proofs are persisted securely in Supabase Storage.\n- Max upload size: 15MB for documents and photos, 50MB for video highlights.'
+    "id": "faq-008",
+    "num": 8,
+    "question": "What is the Admin Email Blocklist?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "Super Admins can block specific email addresses from creating accounts via the Admin Console. Any attempt to register using a blocked email address is immediately rejected.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "email",
+      "admin",
+      "blocklist",
+      "super",
+      "admins",
+      "block",
+      "specific"
+    ]
   },
   {
-    keywords: ['password', 'sign out', 'session', 'login', 'security', 'forgot'],
-    answer: '**Password & Account Security**:\n- Accounts use salted PBKDF2 with SHA-256 (100,000 iterations).\n- Use *Sign Out Everywhere* in Member Hub to invalidate sessions across all devices if your account is compromised.'
+    "id": "faq-009",
+    "num": 9,
+    "question": "How are profile avatar colors and initials assigned?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "Each member's profile avatar displays the first letter of their first name rendered on a deterministic, high-contrast color from a curated palette.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "profile",
+      "avatar",
+      "first",
+      "colors",
+      "initials",
+      "assigned",
+      "each"
+    ]
+  },
+  {
+    "id": "faq-010",
+    "num": 10,
+    "question": "Can I view the portal without logging in?",
+    "category": "Accounts, Registration, Security & Child Privacy",
+    "answer": "Unauthenticated visitors have restricted Guest access. To view personal attendance records, uniform inspection scores, badge advancement, or order history, you must sign in to your verified account.\n\n---",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      }
+    ],
+    "keywords": [
+      "view",
+      "portal",
+      "without",
+      "logging",
+      "unauthenticated",
+      "visitors",
+      "restricted"
+    ]
+  },
+  {
+    "id": "faq-011",
+    "num": 11,
+    "question": "What time does Saturday parade start and end?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "The full company parade convenes every Saturday from **2:15 PM to 6:00 PM** (starting at **9:30 AM** for Band members).",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "saturday",
+      "time",
+      "start",
+      "end",
+      "full",
+      "company"
+    ]
+  },
+  {
+    "id": "faq-012",
+    "num": 12,
+    "question": "When are Band rehearsals held?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Band sectionals and rehearsals (woodwind, brass, and percussion) take place on Saturday mornings from **9:30 AM to 11:30 AM** prior to the main company parade.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "band",
+      "rehearsals",
+      "held",
+      "sectionals",
+      "woodwind",
+      "brass",
+      "percussion"
+    ]
+  },
+  {
+    "id": "faq-013",
+    "num": 13,
+    "question": "Where is the company parade held?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Parades are held at **Trinity Methodist Church Petaling Jaya (TMC PJ)**, located at 6 Jalan 5/37, 46000 Petaling Jaya, Selangor.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "held",
+      "petaling",
+      "jaya",
+      "46000",
+      "company",
+      "parades"
+    ]
+  },
+  {
+    "id": "faq-014",
+    "num": 14,
+    "question": "What should I do if I am running late for Saturday parade?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Contact your Squad Leader or Platoon Commander immediately before 2:15 PM with your estimated arrival time. Unexcused late arrivals past 2:30 PM are marked on the parade attendance roll.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "late",
+      "running",
+      "saturday",
+      "contact",
+      "squad",
+      "leader"
+    ]
+  },
+  {
+    "id": "faq-015",
+    "num": 15,
+    "question": "How do I know which uniform kit to wear this Saturday?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Refer to the company calendar on the **Home** tab or **Weekly Parade** tab to check the official Uniform Dress Code (Kit A, Kit B, or Kit C) scheduled for that Saturday parade.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "uniform",
+      "kit",
+      "saturday",
+      "tab",
+      "parade",
+      "know",
+      "wear"
+    ]
+  },
+  {
+    "id": "faq-016",
+    "num": 16,
+    "question": "Can I add personal reminders to the portal calendar?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Yes. In the **Home** tab calendar widget, click **+ Add Reminder** on any selected date to create personal inspection or preparation reminders.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "add",
+      "personal",
+      "reminders",
+      "calendar",
+      "portal",
+      "yes",
+      "home"
+    ]
+  },
+  {
+    "id": "faq-017",
+    "num": 17,
+    "question": "How are wet weather or venue changes announced?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Urgent venue adjustments or inclement weather arrangements are broadcasted via high-priority banners in the **Home** announcements feed and alerted via portal notifications.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "weather",
+      "venue",
+      "via",
+      "wet",
+      "changes",
+      "announced",
+      "urgent"
+    ]
+  },
+  {
+    "id": "faq-018",
+    "num": 18,
+    "question": "Does the company hold parade on public holidays?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Parades falling on major public holidays or school term breaks are indicated as \"No Official Parade Scheduled\" on the company calendar.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "company",
+      "public",
+      "holidays",
+      "hold",
+      "parades",
+      "falling"
+    ]
+  },
+  {
+    "id": "faq-019",
+    "num": 19,
+    "question": "What should I bring to Saturday parade?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "Members should bring their BB Handbook, a notebook, stationery, a full water bottle (at least 1L), and wear the designated uniform kit with a clean and polished uniform.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "bring",
+      "uniform",
+      "saturday",
+      "members",
+      "handbook",
+      "notebook"
+    ]
+  },
+  {
+    "id": "faq-020",
+    "num": 20,
+    "question": "How do I sync parade dates with my personal phone calendar?",
+    "category": "Weekly Parade, Timings & Venue",
+    "answer": "You can export scheduled events and parade dates directly from the **Weekly Parade** tab to Google Calendar or Apple iCal.\n\n---",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "dates",
+      "calendar",
+      "sync",
+      "personal",
+      "phone",
+      "export"
+    ]
+  },
+  {
+    "id": "faq-021",
+    "num": 21,
+    "question": "What is the 80% attendance rule?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "Official BB Rule: A minimum **80% parade attendance threshold** across the full company session is strictly required to qualify for the **BB One Year Service** badge.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      },
+      {
+        "label": "Go to Leaderboard",
+        "action": "navigate",
+        "target": "attendance",
+        "icon": "attendance"
+      }
+    ],
+    "keywords": [
+      "attendance",
+      "rule",
+      "official",
+      "minimum",
+      "parade",
+      "threshold",
+      "across"
+    ]
+  },
+  {
+    "id": "faq-022",
+    "num": 22,
+    "question": "Does the 80% attendance rule apply to the President's Award?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "No. The 80% attendance threshold specifically qualifies members for the **BB One Year Service** badge. The President's Award evaluates completed service years along with leadership courses, service hours, and advanced badges.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      },
+      {
+        "label": "Go to Leaderboard",
+        "action": "navigate",
+        "target": "attendance",
+        "icon": "attendance"
+      }
+    ],
+    "keywords": [
+      "service",
+      "attendance",
+      "president",
+      "award",
+      "rule",
+      "apply",
+      "threshold"
+    ]
+  },
+  {
+    "id": "faq-023",
+    "num": 23,
+    "question": "What are the Confidential Attendance Achievement Tiers?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "To protect member privacy while encouraging excellence, attendance is categorized into four tiers:\n- **Emerald Tier**: 100% (Perfect Attendance)\n- **Blue Tier**: ≥ 90% (Excellent Attendance)\n- **Gold Tier**: ≥ 80% (Good — One Year Service Qualified)\n- **Orange Tier**: < 80% (At Risk — One Year Service Pending)",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      },
+      {
+        "label": "Go to Leaderboard",
+        "action": "navigate",
+        "target": "attendance",
+        "icon": "attendance"
+      }
+    ],
+    "keywords": [
+      "attendance",
+      "tier",
+      "tiers",
+      "one",
+      "year",
+      "service",
+      "100"
+    ]
+  },
+  {
+    "id": "faq-024",
+    "num": 24,
+    "question": "Where can I check my attendance percentage?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "You can view your private attendance percentage, inspection points, and service badge status anytime in your personal **Member Hub**.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      },
+      {
+        "label": "Go to Leaderboard",
+        "action": "navigate",
+        "target": "attendance",
+        "icon": "attendance"
+      }
+    ],
+    "keywords": [
+      "attendance",
+      "percentage",
+      "check",
+      "view",
+      "private",
+      "inspection",
+      "points"
+    ]
+  },
+  {
+    "id": "faq-025",
+    "num": 25,
+    "question": "Can other members see my attendance percentage?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "No. Individual attendance percentages and uniform demerits are strictly confidential to your account. The public **Leaderboard** tab only displays overall squad rankings without exposing individual percentages.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      },
+      {
+        "label": "Go to Leaderboard",
+        "action": "navigate",
+        "target": "attendance",
+        "icon": "attendance"
+      }
+    ],
+    "keywords": [
+      "attendance",
+      "individual",
+      "percentages",
+      "other",
+      "members",
+      "see",
+      "percentage"
+    ]
+  },
+  {
+    "id": "faq-026",
+    "num": 26,
+    "question": "How often is attendance synchronized from Google Sheets?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "Company attendance is recorded on parade days and synchronized directly into the portal database by company officers using the Master Sheet Ingestion engine.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      },
+      {
+        "label": "Go to Leaderboard",
+        "action": "navigate",
+        "target": "attendance",
+        "icon": "attendance"
+      }
+    ],
+    "keywords": [
+      "attendance",
+      "synchronized",
+      "company",
+      "often",
+      "google",
+      "sheets",
+      "recorded"
+    ]
+  },
+  {
+    "id": "faq-027",
+    "num": 27,
+    "question": "Does Band attendance count toward regular parade attendance?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "Band attendance is tracked separately for Band Service awards and proficiency badges, while regular Saturday parade attendance determines the One Year Service award.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "band",
+      "parade",
+      "attendance",
+      "regular",
+      "service",
+      "count",
+      "toward"
+    ]
+  },
+  {
+    "id": "faq-028",
+    "num": 28,
+    "question": "How do I apply for an official leave of absence?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "Download the official **Leave of Absence Form** from the **Company Resources** tab, have it signed by a parent/guardian with supporting documents (e.g., school exam schedule or medical certificate), and submit it to your Platoon Commander.",
+    "actions": [
+      {
+        "label": "Go to Member Hub",
+        "action": "navigate",
+        "target": "member",
+        "icon": "member"
+      },
+      {
+        "label": "Go to Leaderboard",
+        "action": "navigate",
+        "target": "attendance",
+        "icon": "attendance"
+      }
+    ],
+    "keywords": [
+      "official",
+      "leave",
+      "absence",
+      "apply",
+      "download",
+      "form",
+      "company"
+    ]
+  },
+  {
+    "id": "faq-029",
+    "num": 29,
+    "question": "What happens if I arrive late to parade?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "Late arrivals (after 2:30 PM without prior approved leave) are marked as Late on the roll sheet. Accumulating three unexcused lates impacts your uniform inspection standing.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "late",
+      "happens",
+      "arrive",
+      "arrivals",
+      "without",
+      "prior"
+    ]
+  },
+  {
+    "id": "faq-030",
+    "num": 30,
+    "question": "How is my parade percentage calculated?",
+    "category": "Attendance, 80% Rule & Service Awards",
+    "answer": "Parade percentage is computed as `(Parades Present + Excused Official Leaves) / Total Parades Convened * 100%`.\n\n---",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "percentage",
+      "parades",
+      "100",
+      "calculated",
+      "computed",
+      "present"
+    ]
+  },
+  {
+    "id": "faq-031",
+    "num": 31,
+    "question": "How many total badges are tracked in the portal?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "The portal tracks all **41 official Boys' Brigade badges** recognized under the Senior Section awards framework.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "badges",
+      "portal",
+      "many",
+      "total",
+      "tracked",
+      "tracks",
+      "official"
+    ]
+  },
+  {
+    "id": "faq-032",
+    "num": 32,
+    "question": "What are the four main badge categories?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "1. **Special Awards** (e.g., Founder's Award, President's Award)\n2. **Service Awards** (e.g., One Year Service, Band Service)\n3. **Compulsory Awards** (e.g., Target, Drill, Christian Education, NCO Star)\n4. **Proficiency Awards** (elective subject awards grouped from Group A to Group D)",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "awards",
+      "service",
+      "award",
+      "group",
+      "four",
+      "main",
+      "badge"
+    ]
+  },
+  {
+    "id": "faq-033",
+    "num": 33,
+    "question": "How are Proficiency Badges arranged?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "In the **My Badges** tab, all Proficiency Badges are organized in clean **alphabetical order** in a responsive 5-in-a-row grid layout.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "badges",
+      "proficiency",
+      "arranged",
+      "tab",
+      "organized",
+      "clean",
+      "alphabetical"
+    ]
+  },
+  {
+    "id": "faq-034",
+    "num": 34,
+    "question": "What is the difference between Grid View and List View in My Badges?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "- **Grid View**: Displays high-resolution badge artwork with interactive Basic and Advanced stage selection buttons.\n- **List View**: Provides a streamlined tabular view showing badge names, category tags, achievement dates, and level status.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "view",
+      "grid",
+      "list",
+      "badge",
+      "difference",
+      "between",
+      "badges"
+    ]
+  },
+  {
+    "id": "faq-035",
+    "num": 35,
+    "question": "What badges have Basic and Advanced stages?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "Proficiency awards (such as First Aid, Drill, Camping, Communication, Computer Knowledge, and Expedition) offer separate Basic and Advanced achievement tiers.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "basic",
+      "advanced",
+      "badges",
+      "stages",
+      "proficiency",
+      "awards",
+      "such"
+    ]
+  },
+  {
+    "id": "faq-036",
+    "num": 36,
+    "question": "What are repeatable badges?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "Badges such as the **One Year Service Badge** can be earned repeatedly across multiple years. In the portal, clicking the badge card increments your earned service years counter.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "badges",
+      "service",
+      "badge",
+      "earned",
+      "years",
+      "repeatable",
+      "such"
+    ]
+  },
+  {
+    "id": "faq-037",
+    "num": 37,
+    "question": "Where can I view the syllabus requirements for a badge?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "Badge syllabi and assessment criteria can be downloaded from the **Company Resources** tab under the **Badges & Syllabi** category.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "badge",
+      "syllabi",
+      "view",
+      "syllabus",
+      "requirements",
+      "assessment",
+      "criteria"
+    ]
+  },
+  {
+    "id": "faq-038",
+    "num": 38,
+    "question": "How do I get my completed badge approved?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "After passing your practical assessment with an instructor or squad commander, your Platoon Commander submits your completion record to the Officer Council for verification in the Admin Console.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "commander",
+      "get",
+      "completed",
+      "badge",
+      "approved",
+      "passing",
+      "practical"
+    ]
+  },
+  {
+    "id": "faq-039",
+    "num": 39,
+    "question": "What are the prerequisites for the Founder's Award?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "The Founder's Award is the highest award in the Senior Section. Candidates must hold the President's Award, complete the Advanced Leadership Training Camp (ALTC), accumulate 50 hours of community service, and undergo an Officer Council interview.",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "award",
+      "founder",
+      "prerequisites",
+      "highest",
+      "senior",
+      "section",
+      "candidates"
+    ]
+  },
+  {
+    "id": "faq-040",
+    "num": 40,
+    "question": "Where do I sew badges on my uniform shirt?",
+    "category": "My Badges, Awards & Syllabi",
+    "answer": "Refer to the **BB Uniform & Insignia Placement Guide** in the **Company Resources** tab for exact millimeter measurements and layout diagrams for left/right sleeve placement.\n\n---",
+    "actions": [
+      {
+        "label": "Go to My Badges",
+        "action": "navigate",
+        "target": "badges",
+        "icon": "badges"
+      }
+    ],
+    "keywords": [
+      "uniform",
+      "placement",
+      "sew",
+      "badges",
+      "shirt",
+      "refer",
+      "insignia"
+    ]
+  },
+  {
+    "id": "faq-041",
+    "num": 41,
+    "question": "What reference documents are available in the Resources tab?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "The **Company Resources** tab hosts the official BB Handbook, BB Drill & Ceremonial Manual, badge syllabi, leave of absence forms, songbooks, and camp safety guidelines.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "resources",
+      "tab",
+      "reference",
+      "documents",
+      "available",
+      "company",
+      "hosts"
+    ]
+  },
+  {
+    "id": "faq-042",
+    "num": 42,
+    "question": "How does Stedfast AI Helper find documents in the Resources tab?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "Stedfast dynamically reads the live `window.resources` repository in real time. When new documents or Google Drive links are uploaded by administrators, Stedfast immediately indexes their titles, descriptions, and URLs.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "stedfast",
+      "documents",
+      "resources",
+      "helper",
+      "find",
+      "tab",
+      "dynamically"
+    ]
+  },
+  {
+    "id": "faq-043",
+    "num": 43,
+    "question": "How does Stedfast help me open documents?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "When you ask Stedfast about a document (e.g., *\"Where is the leave form?\"*), Stedfast provides an overview and an interactive **[Open Document]** button that launches the Google Drive file directly in a secure new tab.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "stedfast",
+      "open",
+      "document",
+      "help",
+      "documents",
+      "ask",
+      "leave"
+    ]
+  },
+  {
+    "id": "faq-044",
+    "num": 44,
+    "question": "What is the command for \"Attention\" in the BB Drill Manual?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "**Sedia**: Stand upright with heels touching, feet angled outward at 45°, arms pinned straight along trouser seams with clenched fists, thumbs pointing downwards, and eyes looking straight ahead.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "drill",
+      "straight",
+      "command",
+      "attention",
+      "manual",
+      "sedia",
+      "stand"
+    ]
+  },
+  {
+    "id": "faq-045",
+    "num": 45,
+    "question": "What is the command for \"Stand at Ease\"?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "**Senang Diri**: Carry the left foot smartly 12 inches to the left. Clasp hands behind the back at waist height, right hand resting over the left with thumbs crossed and fingers straight.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "left",
+      "command",
+      "stand",
+      "ease",
+      "senang",
+      "diri",
+      "carry"
+    ]
+  },
+  {
+    "id": "faq-046",
+    "num": 46,
+    "question": "What is the command for \"Right Dress\"?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "**Ke Kanan Lurus**: Turn head and eyes sharply to the right. The right marker remains still. All squad members raise their left arm horizontally, knuckles touching the left member's shoulder, and dress the line with short shuffling steps.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "right",
+      "dress",
+      "left",
+      "command",
+      "kanan",
+      "lurus",
+      "turn"
+    ]
+  },
+  {
+    "id": "faq-047",
+    "num": 47,
+    "question": "What is the command for \"Eyes Front\"?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "**Pandang Depan**: Snap head and eyes sharply to the front while dropping the raised arm smartly to the trouser seam into the position of *Sedia*.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "eyes",
+      "front",
+      "command",
+      "pandang",
+      "depan",
+      "snap",
+      "head"
+    ]
+  },
+  {
+    "id": "faq-048",
+    "num": 48,
+    "question": "What is the tempo for \"Quick March\"?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "**Cepat Jalan**: Step off with the left foot, taking a full 30-inch pace at a standard cadence of 116 to 120 paces per minute, swinging arms straight from the shoulder up to chest height in front.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "116",
+      "120",
+      "tempo",
+      "quick",
+      "march",
+      "cepat",
+      "jalan"
+    ]
+  },
+  {
+    "id": "faq-049",
+    "num": 49,
+    "question": "How is \"About Turn\" executed?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "**Ke Belakang Pusing**: Always turn clockwise through 180 degrees via the right shoulder in a sharp three-count movement, pivoting on the right heel and left toe before stamping the left foot down into *Sedia*.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "turn",
+      "right",
+      "left",
+      "180",
+      "executed",
+      "belakang",
+      "pusing"
+    ]
+  },
+  {
+    "id": "faq-050",
+    "num": 50,
+    "question": "What is the difference between \"Keluar Baris\" and \"Bersurai\"?",
+    "category": "Company Resources, Handbooks & Drill Manual",
+    "answer": "- **Keluar Baris (Fall Out)**: Turn right, pause for two beats, and march off for a temporary break.\n- **Bersurai (Dismissal)**: Turn right, salute (if an officer is on the parade square), pause, and march off, marking the formal conclusion of parade.\n\n---",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "keluar",
+      "baris",
+      "bersurai",
+      "turn",
+      "right",
+      "pause",
+      "march"
+    ]
+  },
+  {
+    "id": "faq-051",
+    "num": 51,
+    "question": "What is Kit A (Ceremonial Dress)?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "Kit A consists of the official long-sleeve blue uniform shirt, cross belt, glengarry/forage cap with BB cap badge, navy trousers, white waist belt, dark navy BB socks, and polished black drill boots.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "kit",
+      "belt",
+      "cap",
+      "navy",
+      "ceremonial",
+      "dress",
+      "consists"
+    ]
+  },
+  {
+    "id": "faq-052",
+    "num": 52,
+    "question": "What is Kit B (Day Kit)?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "Kit B consists of the 1st PJ company polo t-shirt, dark navy trousers, black BB webbed belt with chrome buckle, and polished black drill shoes or boots.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "kit",
+      "black",
+      "day",
+      "consists",
+      "1st",
+      "company",
+      "polo"
+    ]
+  },
+  {
+    "id": "faq-053",
+    "num": 53,
+    "question": "What is Kit C (PT / Sports Attire)?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "Kit C consists of the squad/section t-shirt, navy track pants or sports shorts, and athletic running shoes with sports socks.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "sports",
+      "kit",
+      "attire",
+      "consists",
+      "squad",
+      "section",
+      "t-shirt"
+    ]
+  },
+  {
+    "id": "faq-054",
+    "num": 54,
+    "question": "What shoe sizing scale do BB Drill Boots follow?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "All official BB drill boots adhere strictly to **UK sizing** (standard UK shoe sizes). When ordering drill boots through the Forms & Store tab, select your standard UK shoe size, or a half-size larger if wearing thick ceremonial wool socks.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "boot",
+      "boots",
+      "boot size",
+      "boot sizes",
+      "drill boots",
+      "shoe sizing",
+      "shoe size",
+      "uk sizing",
+      "uk size",
+      "sizing scale",
+      "drill",
+      "scale"
+    ]
+  },
+  {
+    "id": "faq-055",
+    "num": 55,
+    "question": "Should I order a half-size larger for drill boots?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "If you wear thick ceremonial wool socks or custom orthotic insoles during parade drills, ordering a half-size larger provides optimal comfort and prevents blisters.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "order",
+      "drill",
+      "half-size",
+      "larger",
+      "boots",
+      "wear",
+      "thick"
+    ]
+  },
+  {
+    "id": "faq-056",
+    "num": 56,
+    "question": "How do I wear the Forage Cap correctly?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "The forage cap should be worn tilted slightly over the right eyebrow, approximately two finger-widths above the right ear, with the cap badge centered over the left eye.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "cap",
+      "forage",
+      "right",
+      "wear",
+      "correctly",
+      "worn",
+      "tilted"
+    ]
+  },
+  {
+    "id": "faq-057",
+    "num": 57,
+    "question": "How should the Cross Belt be worn?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "The ceremonial cross belt passes over the left shoulder and rests across the right hip, with the haversack positioned securely on the left hip.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "cross",
+      "belt",
+      "left",
+      "hip",
+      "worn",
+      "ceremonial",
+      "passes"
+    ]
+  },
+  {
+    "id": "faq-058",
+    "num": 58,
+    "question": "How are uniform inspection points awarded?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "During Saturday parade inspection, squad commanders score members out of 20 points across boots, trousers, belt buckle, shirt creases, badges, and haircut standards.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "uniform",
+      "inspection",
+      "points",
+      "awarded",
+      "during",
+      "saturday",
+      "parade"
+    ]
+  },
+  {
+    "id": "faq-059",
+    "num": 59,
+    "question": "How should black drill boots be maintained?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "Boots should be cleaned with a damp cloth to remove parade dust, polished with black Kiwi wax polish, and buffed with a soft horsehair brush or cotton cloth to achieve a mirror shine.",
+    "actions": [
+      {
+        "label": "Go to Company Resources",
+        "action": "navigate",
+        "target": "resources",
+        "icon": "resources"
+      }
+    ],
+    "keywords": [
+      "drill",
+      "black",
+      "boots",
+      "cloth",
+      "maintained",
+      "cleaned",
+      "damp"
+    ]
+  },
+  {
+    "id": "faq-060",
+    "num": 60,
+    "question": "What haircut standard is expected for Senior Section members?",
+    "category": "Uniform Standards, Kits & Boot Sizing",
+    "answer": "Hair must be neat, clean, and kept off the collar, ears, and eyebrows. Exaggerated fades or unnatural hair dye are not permitted on parade.\n\n---",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "hair",
+      "haircut",
+      "standard",
+      "expected",
+      "senior",
+      "section",
+      "members"
+    ]
+  },
+  {
+    "id": "faq-061",
+    "num": 61,
+    "question": "How do I place an order in the Uniform Store?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "Go to the **Forms & Store** tab, browse the uniform catalog, select your required items and sizes (e.g., polo shirts, forage caps, drill boots), and proceed to Checkout.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "order",
+      "uniform",
+      "store",
+      "place",
+      "forms",
+      "tab",
+      "browse"
+    ]
+  },
+  {
+    "id": "faq-062",
+    "num": 62,
+    "question": "What payment methods are accepted for store orders?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "Orders can be paid via **Touch 'n Go eWallet** QR or **DuitNow Instant Transfer** using the official company payment details displayed on the checkout screen.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "order",
+      "payment",
+      "orders",
+      "methods",
+      "accepted",
+      "store",
+      "paid",
+      "via"
+    ]
+  },
+  {
+    "id": "faq-063",
+    "num": 63,
+    "question": "How do I upload payment proof?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "On the checkout screen, take a photo or screenshot of your transaction receipt and upload it. The portal automatically compresses the image client-side to keep uploads fast and secure.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "upload",
+      "payment",
+      "proof",
+      "checkout",
+      "screen",
+      "take",
+      "photo"
+    ]
+  },
+  {
+    "id": "faq-064",
+    "num": 64,
+    "question": "What image formats are allowed for payment receipts?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "Receipts must be uploaded as **JPG, PNG, or WebP** images. SVG files, HTML files, and executable scripts are strictly blocked for security.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "receipts",
+      "files",
+      "image",
+      "formats",
+      "allowed",
+      "payment",
+      "must"
+    ]
+  },
+  {
+    "id": "faq-065",
+    "num": 65,
+    "question": "What are the different order statuses?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "- **Pending Review**: Order submitted and awaiting officer payment confirmation.\n- **Paid / Confirmed**: Payment verified by the logistics department.\n- **Ready for Collection**: Items packed and ready for pickup at Saturday parade.\n- **Completed**: Order handed over to the member.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "order",
+      "payment",
+      "ready",
+      "different",
+      "statuses",
+      "pending",
+      "review"
+    ]
+  },
+  {
+    "id": "faq-066",
+    "num": 66,
+    "question": "Where do I collect my ordered items?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "Collected items are distributed by the Logistics Department at the Quartermaster Store (QM Room) at Trinity Methodist Church during Saturday parade dismissal (5:30 PM – 6:00 PM).",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "order",
+      "items",
+      "collect",
+      "ordered",
+      "collected",
+      "distributed",
+      "logistics",
+      "department"
+    ]
+  },
+  {
+    "id": "faq-067",
+    "num": 67,
+    "question": "Can I cancel or modify an order after submitting?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "To modify an order before payment confirmation, reach out to the Logistics NCO in the **Projects & Tasks** board or submit a inquiry in the **Support Forum**.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "order",
+      "modify",
+      "cancel",
+      "submitting",
+      "payment",
+      "confirmation",
+      "reach"
+    ]
+  },
+  {
+    "id": "faq-068",
+    "num": 68,
+    "question": "What are Dynamic Event Forms?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "Event forms (such as Annual Camp registration, Drill Competition consent, or Fellowship dinners) appear dynamically in the **Forms & Store** tab when announced by company administration.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "forms",
+      "event",
+      "dynamic",
+      "such",
+      "annual",
+      "camp",
+      "registration"
+    ]
+  },
+  {
+    "id": "faq-069",
+    "num": 69,
+    "question": "How do I know if an item is in stock?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "Catalog items indicate live inventory availability. If an item is temporarily backordered, expected restock dates will be noted on the product card.",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "item",
+      "know",
+      "stock",
+      "catalog",
+      "items",
+      "indicate",
+      "live"
+    ]
+  },
+  {
+    "id": "faq-070",
+    "num": 70,
+    "question": "How do officers manage incoming orders?",
+    "category": "Forms & Store Orders, Payment Receipts",
+    "answer": "Officers and logistics department members can view, filter, verify payment proofs, and update order statuses in the **Uniform Orders Management** panel within the Admin Console.\n\n---",
+    "actions": [
+      {
+        "label": "Go to Forms & Store",
+        "action": "navigate",
+        "target": "order",
+        "icon": "store"
+      }
+    ],
+    "keywords": [
+      "order",
+      "officers",
+      "orders",
+      "manage",
+      "incoming",
+      "logistics",
+      "department",
+      "members"
+    ]
+  },
+  {
+    "id": "faq-071",
+    "num": 71,
+    "question": "What is the 1stPJ Arcade?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "The **1stPJ Arcade** is a gamified learning hub featuring daily puzzles, the BB Daily Wordle, Timed BB Trivia, streak tracking, and a cosmetic reward shop.",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "1stpj",
+      "arcade",
+      "daily",
+      "gamified",
+      "learning",
+      "hub",
+      "featuring"
+    ]
+  },
+  {
+    "id": "faq-072",
+    "num": 72,
+    "question": "How does the Daily Wordle work?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "Guess the secret 5-letter BB-themed word in 6 attempts or fewer. Wordle terms are sourced from BB drill commands, rank titles, award names, and heritage vocabulary.",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "wordle",
+      "daily",
+      "work",
+      "guess",
+      "secret",
+      "5-letter",
+      "bb-themed"
+    ]
+  },
+  {
+    "id": "faq-073",
+    "num": 73,
+    "question": "What do the Wordle tile colors mean?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "- **Green**: The letter is in the word and in the correct position.\n- **Gold**: The letter is in the word but in the wrong spot.\n- **Dark Grey**: The letter is not in the word.",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "wordle",
+      "letter",
+      "word",
+      "tile",
+      "colors",
+      "mean",
+      "green"
+    ]
+  },
+  {
+    "id": "faq-074",
+    "num": 74,
+    "question": "How does Daily Streak work?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "Playing the Daily Wordle or Timed Trivia every consecutive day increases your streak counter. If a day is missed, the streak resets to zero.",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "streak",
+      "daily",
+      "day",
+      "work",
+      "playing",
+      "wordle",
+      "timed"
+    ]
+  },
+  {
+    "id": "faq-075",
+    "num": 75,
+    "question": "What is Timed BB Trivia?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "Timed Trivia presents 5 multiple-choice questions per day regarding company history, founder facts, drill theory, and badge requirements. Fast correct answers award bonus credits.",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "timed",
+      "trivia",
+      "presents",
+      "multiple-choice",
+      "questions",
+      "per",
+      "day"
+    ]
+  },
+  {
+    "id": "faq-076",
+    "num": 76,
+    "question": "How do I earn Arcade Credits?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "Credits are earned by solving the Daily Wordle (+15 credits), answering Timed Trivia (+5 credits per correct answer), and reaching weekly streak milestones.",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "credits",
+      "earn",
+      "arcade",
+      "earned",
+      "solving",
+      "daily",
+      "wordle"
+    ]
+  },
+  {
+    "id": "faq-077",
+    "num": 77,
+    "question": "What is the Cosmetic Shop?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "The Cosmetic Shop allows members to spend their earned Arcade Credits on digital profile cosmetics, including avatar outlines, animated frames, and chat badges.",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "cosmetic",
+      "shop",
+      "allows",
+      "members",
+      "spend",
+      "earned",
+      "arcade"
+    ]
+  },
+  {
+    "id": "faq-078",
+    "num": 78,
+    "question": "Does playing in the Arcade affect my parade attendance?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "No. Arcade credits and streaks are fun extracurricular rewards and do not replace physical parade attendance or uniform inspection points.",
+    "actions": [
+      {
+        "label": "Go to Weekly Parade",
+        "action": "navigate",
+        "target": "parade",
+        "icon": "parade"
+      }
+    ],
+    "keywords": [
+      "parade",
+      "arcade",
+      "attendance",
+      "playing",
+      "affect",
+      "credits",
+      "streaks"
+    ]
+  },
+  {
+    "id": "faq-079",
+    "num": 79,
+    "question": "When does the Daily Wordle puzzle reset?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "The Daily Wordle and Timed Trivia questions reset every day at midnight (12:00 AM MYT).",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "wordle",
+      "daily",
+      "reset",
+      "puzzle",
+      "timed",
+      "trivia",
+      "questions"
+    ]
+  },
+  {
+    "id": "faq-080",
+    "num": 80,
+    "question": "Where can I view the company Arcade leaderboard?",
+    "category": "1stPJ Arcade, Daily Wordle & Credit Shop",
+    "answer": "The **Leaderboard** tab includes an Arcade Credits ranking table highlighting top streak holders and puzzle solvers across the company.\n\n---",
+    "actions": [
+      {
+        "label": "Go to 1stPJ Arcade",
+        "action": "navigate",
+        "target": "arcade",
+        "icon": "arcade"
+      }
+    ],
+    "keywords": [
+      "company",
+      "arcade",
+      "leaderboard",
+      "view",
+      "tab",
+      "includes",
+      "credits"
+    ]
+  },
+  {
+    "id": "faq-081",
+    "num": 81,
+    "question": "Who can access the Projects & Tasks tab?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "The **Projects & Tasks** board is reserved for appointed Non-Commissioned Officers (NCOs: Lance Corporals, Corporals, Sergeants, Staff Sergeants) and Officers assigned to functional departments.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "projects",
+      "tasks",
+      "officers",
+      "corporals",
+      "sergeants",
+      "access",
+      "tab"
+    ]
+  },
+  {
+    "id": "faq-082",
+    "num": 82,
+    "question": "Do newly created officer accounts automatically get task access?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "No. To prevent unauthorized deletions, newly registered accounts only have standard member access. Task and board management strictly requires explicit department assignment by a Super Admin.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "newly",
+      "accounts",
+      "task",
+      "access",
+      "created",
+      "officer",
+      "automatically"
+    ]
+  },
+  {
+    "id": "faq-083",
+    "num": 83,
+    "question": "What are the company departments?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "Tasks are organized across four departments:\n1. **HQ** (Executive, administration, parade planning)\n2. **Secretariat** (Records, attendance, notices, documentation)\n3. **Logistics** (Uniform store, equipment, QM, catering)\n4. **Media** (Photography, videography, social media, sound engineering)",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "departments",
+      "media",
+      "company",
+      "tasks",
+      "organized",
+      "across",
+      "four"
+    ]
+  },
+  {
+    "id": "faq-084",
+    "num": 84,
+    "question": "What are the five columns on the Kanban board?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "1. **Brief**: Project requirements and initial scopes.\n2. **To Do**: Action items queued for execution.\n3. **In Progress**: Active assignments currently underway.\n4. **Review**: Completed work awaiting officer sign-off.\n5. **Done**: Approved and finalized deliverables.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "five",
+      "columns",
+      "kanban",
+      "board",
+      "brief",
+      "project",
+      "requirements"
+    ]
+  },
+  {
+    "id": "faq-085",
+    "num": 85,
+    "question": "Can I switch between Board View and List View?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "Yes. Click the **List View** toggle at the top of the Tasks tab to view all department tasks in a sortable, searchable data table.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "view",
+      "list",
+      "tasks",
+      "switch",
+      "between",
+      "board",
+      "yes"
+    ]
+  },
+  {
+    "id": "faq-086",
+    "num": 86,
+    "question": "How do I mention another team member in task comments?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "Type `@` followed by the member's name in the task comments box to tag them and trigger an instant portal notification in their inbox.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "member",
+      "task",
+      "comments",
+      "mention",
+      "another",
+      "team",
+      "type"
+    ]
+  },
+  {
+    "id": "faq-087",
+    "num": 87,
+    "question": "What file attachments can be added to task cards?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "You can attach PDF briefs, Word documents, Excel sheets, and images up to 15MB per file. Executable files and SVGs are prohibited.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "file",
+      "attachments",
+      "added",
+      "task",
+      "cards",
+      "attach",
+      "pdf"
+    ]
+  },
+  {
+    "id": "faq-088",
+    "num": 88,
+    "question": "How do I move a task card?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "On desktop, drag and drop the card between columns. On mobile devices, tap the card to open its detail modal and select the target column status.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "card",
+      "move",
+      "task",
+      "desktop",
+      "drag",
+      "drop",
+      "between"
+    ]
+  },
+  {
+    "id": "faq-089",
+    "num": 89,
+    "question": "Can members edit tasks created by others?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "Members can comment on and update tasks assigned to their department. Only the task author, department heads, and Super Admins can delete task cards.",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "members",
+      "tasks",
+      "department",
+      "task",
+      "edit",
+      "created",
+      "others"
+    ]
+  },
+  {
+    "id": "faq-090",
+    "num": 90,
+    "question": "Where do task notification alerts appear?",
+    "category": "Projects & Tasks Kanban Board for NCOs",
+    "answer": "When you are assigned a task or mentioned in a comment, a notification appears in your top navigation notification inbox accompanied by a chime sound effect.\n\n---",
+    "actions": [
+      {
+        "label": "Go to Projects & Tasks",
+        "action": "navigate",
+        "target": "tasks",
+        "icon": "tasks"
+      }
+    ],
+    "keywords": [
+      "notification",
+      "task",
+      "alerts",
+      "appear",
+      "assigned",
+      "mentioned",
+      "comment"
+    ]
+  },
+  {
+    "id": "faq-091",
+    "num": 91,
+    "question": "What is \"Ask Stedfast\"?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "**Stedfast** is the built-in AI Helper for the 1st PJ Web Portal, accessible via the floating anchor button on the bottom right of the screen.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "stedfast",
+      "ask",
+      "built-in",
+      "helper",
+      "1st",
+      "web",
+      "portal"
+    ]
+  },
+  {
+    "id": "faq-092",
+    "num": 92,
+    "question": "What can I ask Stedfast AI Helper?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "You can ask Stedfast about parade schedules, drill commands, badge criteria, uniform standards, where to find portal features, or your personal attendance standing.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "ask",
+      "stedfast",
+      "helper",
+      "parade",
+      "schedules",
+      "drill",
+      "commands"
+    ]
+  },
+  {
+    "id": "faq-093",
+    "num": 93,
+    "question": "How does Stedfast protect member privacy?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "Stedfast's Privacy Shield blocks queries seeking confidential records (attendance %, points, grades) of other members. It only provides personal performance data for your own authenticated session.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "stedfast",
+      "privacy",
+      "protect",
+      "member",
+      "shield",
+      "blocks",
+      "queries"
+    ]
+  },
+  {
+    "id": "faq-094",
+    "num": 94,
+    "question": "How does Stedfast help me report bugs?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "If your message mentions a glitch, error, or broken button, Stedfast automatically triages the problem, suggests quick browser fixes (such as hard refresh), and provides a one-click button to escalate the issue to the **Support Forum**.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "stedfast",
+      "button",
+      "help",
+      "report",
+      "bugs",
+      "message",
+      "mentions"
+    ]
+  },
+  {
+    "id": "faq-095",
+    "num": 95,
+    "question": "Who can see posts on the Support Forum?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "All authenticated members can view forum discussions, upvote topics, and reply to threads. Official responses from NCOs and Officers are badged with a verified checkmark.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "forum",
+      "see",
+      "posts",
+      "support",
+      "authenticated",
+      "members",
+      "view"
+    ]
+  },
+  {
+    "id": "faq-096",
+    "num": 96,
+    "question": "What is the Admin Console?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "The **Admin Console** is the back-office management panel for verified Officers and Super Admins, accessible via the sidebar button.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "admin",
+      "console",
+      "back-office",
+      "management",
+      "panel",
+      "verified",
+      "officers"
+    ]
+  },
+  {
+    "id": "faq-097",
+    "num": 97,
+    "question": "What features are managed in the Admin Console?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "Administrators use the Admin Console to manage member rosters, assign ranks and departments, sync attendance with Google Sheets, manage uniform store items, broadcast announcements, and review audit logs.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "admin",
+      "console",
+      "manage",
+      "features",
+      "managed",
+      "administrators",
+      "use"
+    ]
+  },
+  {
+    "id": "faq-098",
+    "num": 98,
+    "question": "What is the difference between an Admin and a Super Admin?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "- **Admin (Officer)**: Can view rosters, manage tasks, review store orders, and upload company resources.\n- **Super Admin**: Has master governance, including promoting roles, assigning department permissions, managing the email blocklist, and broadcasting global notices.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "admin",
+      "super",
+      "difference",
+      "between",
+      "officer",
+      "view",
+      "rosters"
+    ]
+  },
+  {
+    "id": "faq-099",
+    "num": 99,
+    "question": "How does the portal sync with Google Sheets?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "The portal uses an encrypted Google Apps Script webhook integration to ingest attendance data and member rosters directly from the official 1st PJ Google Drive Master Sheet.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "google",
+      "portal",
+      "sync",
+      "sheets",
+      "uses",
+      "encrypted",
+      "apps"
+    ]
+  },
+  {
+    "id": "faq-100",
+    "num": 100,
+    "question": "How do I report a security vulnerability or critical bug?",
+    "category": "Support Forum, Bug Triage & Admin Console",
+    "answer": "Post an issue with the category \"Bugs & Glitches\" in the **Support Forum**.",
+    "actions": [
+      {
+        "label": "Open Admin Console",
+        "action": "navigate",
+        "target": "admin",
+        "icon": "admin"
+      }
+    ],
+    "keywords": [
+      "report",
+      "security",
+      "vulnerability",
+      "critical",
+      "bug",
+      "post",
+      "issue"
+    ]
   }
 ];
+
+// ── Knowledge Base FAQ Engine (100 Official Portal FAQs) ─────────────────────
+var FAQ_KNOWLEDGE_BASE = PORTAL_100_FAQS;
+
+// Cached Google Gemini API Key
+var _cachedGeminiApiKey = '';
+
+/**
+ * Safely resolves active Gemini API key from session, localStorage, window, or cache
+ * @returns {string}
+ */
+function getGeminiApiKey() {
+  if (typeof sessionStorage !== 'undefined') {
+    var sKey = sessionStorage.getItem('bb_gemini_api_key');
+    if (sKey && sKey.trim()) return sKey.trim();
+  }
+  if (typeof localStorage !== 'undefined') {
+    var lKey = localStorage.getItem('bb_gemini_api_key');
+    if (lKey && lKey.trim()) return lKey.trim();
+  }
+  if (typeof window !== 'undefined') {
+    if (window.GEMINI_API_KEY && typeof window.GEMINI_API_KEY === 'string') {
+      return window.GEMINI_API_KEY.trim();
+    }
+    if (window.CONFIG && window.CONFIG.GEMINI_API_KEY) {
+      return window.CONFIG.GEMINI_API_KEY.trim();
+    }
+  }
+  return _cachedGeminiApiKey || '';
+}
+
+/**
+ * Securely sets or updates the Gemini API key in local memory and storage
+ * @param {string} key
+ */
+function setGeminiApiKey(key) {
+  var cleanKey = (key || '').trim();
+  _cachedGeminiApiKey = cleanKey;
+  if (typeof localStorage !== 'undefined') {
+    if (cleanKey) {
+      localStorage.setItem('bb_gemini_api_key', cleanKey);
+    } else {
+      localStorage.removeItem('bb_gemini_api_key');
+    }
+  }
+  if (typeof sessionStorage !== 'undefined') {
+    if (cleanKey) {
+      sessionStorage.setItem('bb_gemini_api_key', cleanKey);
+    } else {
+      sessionStorage.removeItem('bb_gemini_api_key');
+    }
+  }
+}
+
+/**
+ * Calls Google Gemini API Free Tier (gemini-1.5-flash) with grounded 1st PJ context
+ * @param {string} prompt
+ * @param {string} [apiKey]
+ * @returns {Promise<string|null>}
+ */
+async function callGeminiApi(prompt, apiKey) {
+  var key = apiKey || getGeminiApiKey();
+  if (!key) return null;
+
+  var endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(key);
+
+  var systemPrompt = 'You are Stedfast, the official AI assistant for the 1st Petaling Jaya Boys\' Brigade Web Portal in Malaysia.\n'
+    + '• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ).\n'
+    + '• Company Motto: Sure & Stedfast (Hebrews 6:19).\n'
+    + '• Parade Timings: Full Company Parade is every Saturday from 2:15 PM – 6:00 PM (starts at 9:30 AM for Band members).\n'
+    + '• Band Rehearsals: Saturdays from 9:30 AM – 11:30 AM (woodwind, brass, percussion).\n'
+    + '• Attendance Rule: A minimum 80% attendance threshold strictly qualifies for the BB One Year Service award (not President\'s Award).\n'
+    + '• Uniform Kits: Kit A (Ceremonial), Kit B (Day Polo), Kit C (PT/Sports). Refer to company calendar for dress code.\n'
+    + '• Privacy Rule: Individual member attendance percentages, points, and demerits are strictly confidential. Never reveal another member\'s data.\n'
+    + 'Answer accurately, concisely, and warmly in standard markdown without emojis.';
+
+  var body = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }]
+      }
+    ],
+    systemInstruction: {
+      parts: [{ text: systemPrompt }]
+    },
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 600
+    }
+  };
+
+  try {
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = controller ? setTimeout(function() { controller.abort(); }, 7000) : null;
+
+    var resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller ? controller.signal : undefined
+    });
+
+    if (timer) clearTimeout(timer);
+
+    if (!resp.ok) {
+      console.warn('Gemini API HTTP Error:', resp.status, resp.statusText);
+      return null;
+    }
+
+    var data = await resp.json();
+    if (data && data.candidates && data.candidates.length) {
+      var candidate = data.candidates[0];
+      if (candidate.content && candidate.content.parts && candidate.content.parts.length) {
+        return candidate.content.parts[0].text.trim();
+      }
+    }
+  } catch (err) {
+    console.warn('Gemini API fetch error, falling back to local FAQ engine:', err);
+  }
+
+  return null;
+}
 
 // ── Forum Reply Notifications Synchronization ──────────────────────────────
 function syncForumNotifications(posts) {
@@ -1713,7 +4250,118 @@ function handleHelperSubmit(e) {
   sendHelperPrompt(text);
 }
 
-function sendHelperPrompt(userPrompt) {
+/**
+ * Asynchronously generates response using Google Gemini API when configured,
+ * with instantaneous local knowledge fallback
+ * @param {string} userPrompt
+ * @returns {Promise<Object>}
+ */
+async function getHelperAgentResponse(userPrompt) {
+  // 1. Try local exact & high-priority matches first (Privacy Shield, personal data, drill commands, resources)
+  var localRes = queryHelperAgent(userPrompt);
+
+  // If local produced a privacy shield, personal records, drill command, or exact document match, use it directly
+  if (localRes && (localRes.triage === null || localRes.actions.some(function(a) { return a.action === 'open-url'; }))) {
+    // Only bypass if not standard fallback
+    if (!localRes.text.includes("I'm here to help! While I don't have a specific pre-set answer")) {
+      return localRes;
+    }
+  }
+
+  // 2. Check if Google Gemini API key is configured
+  var geminiKey = getGeminiApiKey();
+  if (geminiKey) {
+    try {
+      var aiText = await callGeminiApi(userPrompt, geminiKey);
+      if (aiText && aiText.trim()) {
+        // Derive contextual actions from AI text
+        var derivedActions = [];
+        var lowerAi = aiText.toLowerCase();
+        if (lowerAi.includes('parade') || lowerAi.includes('saturday')) {
+          derivedActions.push({ label: 'Go to Weekly Parade', action: 'navigate', target: 'parade', icon: 'parade' });
+        }
+        if (lowerAi.includes('uniform') || lowerAi.includes('kit') || lowerAi.includes('store') || lowerAi.includes('order') || lowerAi.includes('boot')) {
+          derivedActions.push({ label: 'Go to Forms & Store', action: 'navigate', target: 'order', icon: 'store' });
+        }
+        if (lowerAi.includes('badge') || lowerAi.includes('award')) {
+          derivedActions.push({ label: 'Go to My Badges', action: 'navigate', target: 'badges', icon: 'badges' });
+        }
+        if (lowerAi.includes('attendance') || lowerAi.includes('standing') || lowerAi.includes('service year')) {
+          derivedActions.push({ label: 'Go to Member Hub', action: 'navigate', target: 'member', icon: 'member' });
+        }
+        if (lowerAi.includes('resource') || lowerAi.includes('handbook') || lowerAi.includes('manual')) {
+          derivedActions.push({ label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' });
+        }
+        if (lowerAi.includes('arcade') || lowerAi.includes('wordle') || lowerAi.includes('credit')) {
+          derivedActions.push({ label: 'Go to 1stPJ Arcade', action: 'navigate', target: 'arcade', icon: 'arcade' });
+        }
+
+        return {
+          text: aiText,
+          triage: null,
+          actions: derivedActions.slice(0, 2),
+          chips: [
+            { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+            { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' }
+          ]
+        };
+      }
+    } catch (e) {
+      console.warn('Gemini call error in getHelperAgentResponse:', e);
+    }
+  }
+
+  // 3. Fall back to local queryHelperAgent
+  return localRes;
+}
+
+async function sendHelperPrompt(userPrompt) {
+  var now = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+  _helperMessages.push({
+    sender: 'user',
+    text: userPrompt,
+    time: now
+  });
+  renderHelperMessages();
+
+  // Show temporary typing indicator in chat
+  var body = (typeof document !== 'undefined') ? document.getElementById('helper-chat-body') : null;
+  if (body) {
+    var typingDiv = document.createElement('div');
+    typingDiv.id = 'helper-typing-indicator';
+    typingDiv.className = 'helper-bubble-wrap agent-wrap';
+    typingDiv.innerHTML = '<div class="helper-bubble agent-bubble" style="padding:10px 14px;color:var(--text-muted);font-size:12px;display:flex;align-items:center;gap:6px;">'
+      + '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-primary);animation:pulse 1s infinite;"></span>'
+      + '<span>Stedfast is thinking...</span>'
+      + '</div>';
+    body.appendChild(typingDiv);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  var reply = await getHelperAgentResponse(userPrompt);
+
+  if (body) {
+    var ind = document.getElementById('helper-typing-indicator');
+    if (ind) ind.remove();
+  }
+
+  var botTime = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+  _helperMessages.push({
+    sender: 'agent',
+    text: reply.text,
+    triage: reply.triage,
+    actions: reply.actions || [],
+    time: botTime,
+    chips: reply.chips || (!reply.triage ? [
+      { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+      { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
+      { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' }
+    ] : [])
+  });
+  renderHelperMessages();
+}
+
+function _legacySendHelperPrompt_unused(userPrompt) {
   var now = new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
   _helperMessages.push({
     sender: 'user',
@@ -2636,6 +5284,10 @@ if (typeof window !== 'undefined') {
   window.sendHelperPrompt          = sendHelperPrompt;
   window.escalateToForumFromChat   = escalateToForumFromChat;
   window.queryHelperAgent          = queryHelperAgent;
+  window.getHelperAgentResponse    = getHelperAgentResponse;
+  window.callGeminiApi             = callGeminiApi;
+  window.getGeminiApiKey           = getGeminiApiKey;
+  window.setGeminiApiKey           = setGeminiApiKey;
   window.triageUserQuery           = triageUserQuery;
   window.filterForumCategory       = filterForumCategory;
   window.filterForumStatus         = filterForumStatus;
@@ -2694,6 +5346,11 @@ if (typeof module !== 'undefined' && module.exports) {
     searchForumPostsForHelper: searchForumPostsForHelper,
     detectTargetMemberName: detectTargetMemberName,
     PORTAL_NAVIGATION_MAP: PORTAL_NAVIGATION_MAP,
+    PORTAL_100_FAQS: PORTAL_100_FAQS,
+    getGeminiApiKey: getGeminiApiKey,
+    setGeminiApiKey: setGeminiApiKey,
+    callGeminiApi: callGeminiApi,
+    getHelperAgentResponse: getHelperAgentResponse,
     getCompanyResourcesList: getCompanyResourcesList,
     searchCompanyResourcesForHelper: searchCompanyResourcesForHelper,
     resolveDrillManualQuery: resolveDrillManualQuery,
