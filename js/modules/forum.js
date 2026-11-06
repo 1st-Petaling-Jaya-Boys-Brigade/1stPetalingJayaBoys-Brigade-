@@ -35,7 +35,14 @@ var FORUM_ICONS = {
   send: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
   upvote: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>',
   message: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-  anchor: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>'
+  anchor: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>',
+  member: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  arcade: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="2"/></svg>',
+  resources: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  gallery: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>',
+  forum: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  admin: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  arrowRight: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
 };
 
 // ── Seed Forum Discussions & Bug Reports ──────────────────────────────────────
@@ -143,13 +150,14 @@ var _isHelperAgentOpen = false;
 var _helperMessages = [
   {
     sender: 'agent',
-    text: 'Hello! I am Stedfast, your 1st Petaling Jaya Boys\' Brigade AI Helper. Ask me anything about our company parade schedules, uniform standards, badge milestones, or portal features.',
+    text: 'Hello! I am **Stedfast**, your 1st Petaling Jaya Boys\' Brigade AI Helper.\n\nAsk me anything conversationally, or ask where features are located in our portal! I can also check your attendance qualification, search our Support Forum, or escalate technical issues for you.',
     time: 'Just now',
     chips: [
+      { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
       { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
       { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
       { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' },
-      { label: 'NCO Tasks Board', query: 'How do I use the Projects and Tasks board?', icon: 'tasks' },
+      { label: '1stPJ Arcade', query: 'Where is the 1stPJ Arcade and how do credits work?', icon: 'arcade' },
       { label: 'Report a Bug', query: 'I want to report a bug in the portal', icon: 'bugs' }
     ]
   }
@@ -532,36 +540,566 @@ function triageUserQuery(query) {
   };
 }
 
-// ── Helper Agent Conversational Engine ───────────────────────────────────────
+// ── Helper Agent Conversational, Navigation & Privacy Engine ────────────────
+
+/**
+ * Maps all 12 core portal modules for intelligent conversational navigation
+ */
+var PORTAL_NAVIGATION_MAP = [
+  {
+    target: 'member',
+    tabName: 'Member Hub',
+    keywords: ['attendance', 'my attendance', 'points', 'my points', 'member card', 'qr', 'profile', 'my profile', 'rank', 'squad', 'platoon', 'change password', 'sign out everywhere', 'notification inbox', 'notifications', 'order history', 'upload picture', 'profile photo', 'avatar'],
+    title: 'Member Hub & Attendance Status',
+    description: 'Your personalized **Member Hub** contains your digital member profile card, confidential attendance %, uniform inspection points, platoon assignment, order history, and account settings.',
+    actions: [
+      { label: 'Go to Member Hub', action: 'navigate', target: 'member', icon: 'member' }
+    ]
+  },
+  {
+    target: 'parade',
+    tabName: 'Weekly Parade',
+    keywords: ['parade', 'parade schedule', 'parade time', 'timing', 'saturday parade', 'band rehearsal', 'brass band', 'venue', 'trinity methodist', 'tmc pj', 'where is parade', 'duty roster', 'kit notice', 'parade kit'],
+    title: 'Weekly Parade Schedule',
+    description: 'The **Weekly Parade** tab displays parade schedule notices, timing (**Saturdays 2:15 PM – 6:00 PM**; Brass Band **9:30 AM – 11:30 AM**), venue at **Trinity Methodist Church PJ**, upcoming duty roster, and parade attire announcements.',
+    actions: [
+      { label: 'Go to Weekly Parade', action: 'navigate', target: 'parade', icon: 'parade' }
+    ]
+  },
+  {
+    target: 'badges',
+    tabName: 'My Badges',
+    keywords: ['badge', 'badges', 'my badges', 'proficiency', 'service awards', 'special awards', 'compulsory', 'target', 'founder', 'president', 'achievement tracker', 'grid view', 'list view', 'basic advanced'],
+    title: 'My Badges Achievement Tracker',
+    description: 'The **My Badges** tab lets you track earned proficiency, service, compulsory, and special awards in either **Grid View (5 per row)** or **List View**, with basic and advanced tier options.',
+    actions: [
+      { label: 'Go to My Badges', action: 'navigate', target: 'badges', icon: 'badges' }
+    ]
+  },
+  {
+    target: 'attendance',
+    tabName: 'Leaderboard',
+    keywords: ['leaderboard', 'standings', 'squad leaderboard', 'platoon ranking', 'top squad', 'squad standings', 'company score', 'achievement tiers', 'confidential tiers'],
+    title: 'Company Leaderboard & Standings',
+    description: 'The **Leaderboard** tab features live squad and platoon standings, attendance achievement tiers (Emerald 100%, Blue ≥90%, Gold ≥80%, Orange <80%), and company member directory status.',
+    actions: [
+      { label: 'Go to Leaderboard', action: 'navigate', target: 'attendance', icon: 'attendance' }
+    ]
+  },
+  {
+    target: 'order',
+    tabName: 'Forms & Store',
+    keywords: ['store', 'uniform store', 'order uniform', 'buy uniform', 'polo', 'boots', 'forage cap', 'belt', 'cross belt', 'haversack', 'uniform catalog', 'event form', 'event registration', 'order checkout'],
+    title: 'Forms & Uniform Store',
+    description: 'The **Forms & Store** tab allows you to browse official BB uniform articles (Kit A, B, C, accessories, drill boots), submit uniform orders with payment proof upload, and fill out dynamic company event forms.',
+    actions: [
+      { label: 'Go to Forms & Store', action: 'navigate', target: 'order', icon: 'store' }
+    ]
+  },
+  {
+    target: 'arcade',
+    tabName: '1stPJ Arcade',
+    keywords: ['arcade', 'wordle', 'daily wordle', 'trivia', 'bb trivia', 'quiz', 'puzzle', 'streak', 'credits', 'cosmetic shop', 'avatar outline', 'chat titles'],
+    title: '1stPJ Arcade (Wordle & Trivia)',
+    description: 'The **1stPJ Arcade** features **Daily Wordle** (5-letter BB terminology), **Timed BB Trivia** (5 daily handbook questions), daily streaks, credits awards, and the **Cosmetic Shop**.',
+    actions: [
+      { label: 'Go to 1stPJ Arcade', action: 'navigate', target: 'arcade', icon: 'arcade' }
+    ]
+  },
+  {
+    target: 'tasks',
+    tabName: 'Projects & Tasks',
+    keywords: ['tasks', 'projects', 'kanban', 'task board', 'nco tasks', 'department tasks', 'secretariat', 'logistics', 'media', 'hq', 'drag and drop'],
+    title: 'Projects & Tasks Kanban Board',
+    description: 'The **Projects & Tasks** board is designed for NCOs and Officers to collaborate across departments (HQ, Secretariat, Logistics, Media) across 5 columns (Brief, To Do, In Progress, Review, Done).',
+    actions: [
+      { label: 'Go to Projects & Tasks', action: 'navigate', target: 'tasks', icon: 'tasks' }
+    ]
+  },
+  {
+    target: 'resources',
+    tabName: 'Company Resources',
+    keywords: ['resources', 'handbook', 'manual', 'drill manual', 'syllabus', 'documents', 'download', 'pdf', 'forms download', 'guidelines'],
+    title: 'Company Resources & Syllabi Hub',
+    description: 'The **Company Resources** hub provides official handbook downloads, drill manuals, syllabi, and administrative documents with Google Drive preview cards.',
+    actions: [
+      { label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' }
+    ]
+  },
+  {
+    target: 'gallery',
+    tabName: 'Media & Gallery',
+    keywords: ['gallery', 'photos', 'videos', 'camp photos', 'parade pictures', 'highlights', 'story highlights', 'media reel', 'event photos'],
+    title: 'Media Highlights & Gallery',
+    description: 'The **Gallery** tab showcases company parade and camp photos, story highlight reels, fullscreen viewer, and high-definition video embeds.',
+    actions: [
+      { label: 'Go to Gallery', action: 'navigate', target: 'gallery', icon: 'gallery' }
+    ]
+  },
+  {
+    target: 'forum',
+    tabName: 'Support Forum',
+    keywords: ['forum', 'support forum', 'bugs forum', 'ask question', 'report bug', 'discussions', 'community forum', 'triage'],
+    title: 'Support & Bug Forum',
+    description: 'The **Support Forum** allows members to discuss uniform sizing, drill syllabi, badge rules, or report bugs and glitches for officer and developer review.',
+    actions: [
+      { label: 'Go to Support Forum', action: 'navigate', target: 'forum', icon: 'forum' }
+    ]
+  },
+  {
+    target: 'admin',
+    tabName: 'Admin Console',
+    keywords: ['admin', 'admin console', 'admin panel', 'back office', 'super admin', 'roles manager', 'blocklist', 'master sheet sync'],
+    title: 'Officer Admin Console',
+    description: 'The **Admin Console** is gated to verified Officers and Super Admins for member roster management, attendance synchronization, roles assignment, announcements broadcasting, and badge definitions.',
+    actions: [
+      { label: 'Open Admin Console', action: 'navigate', target: 'admin', icon: 'admin' }
+    ]
+  }
+];
+
+/**
+ * Searches forum posts (open, resolved, bug reports) to enrich answers with community solutions
+ * @param {string} query
+ * @returns {Object|null}
+ */
+function searchForumPostsForHelper(query) {
+  var posts = (typeof forumPosts !== 'undefined' && Array.isArray(forumPosts) && forumPosts.length)
+    ? forumPosts
+    : ((typeof window !== 'undefined' && Array.isArray(window.forumPosts) && window.forumPosts.length)
+      ? window.forumPosts
+      : DEFAULT_FORUM_POSTS);
+  if (!posts || !posts.length) return null;
+
+  var q = (query || '').toLowerCase().trim();
+  var tokens = q.replace(/[?'"!,.]/g, ' ').split(/\s+/).filter(function(w) {
+    return w.length > 2 && !/^(the|and|for|are|what|how|where|why|can|you|tell|about|with|from|this|that|please)$/i.test(w);
+  });
+  if (!tokens.length) return null;
+
+  var bestPost = null;
+  var bestScore = 0;
+
+  for (var i = 0; i < posts.length; i++) {
+    var p = posts[i];
+    var score = 0;
+    var title = (p.title || '').toLowerCase();
+    var content = (p.content || '').toLowerCase();
+    var cat = (p.categoryLabel || p.category || '').toLowerCase();
+    var tag = (p.tag || '').toLowerCase();
+    var repliesText = '';
+    if (Array.isArray(p.replies)) {
+      repliesText = p.replies.map(function(r) { return (r.content || ''); }).join(' ').toLowerCase();
+    }
+
+    tokens.forEach(function(tok) {
+      if (title.indexOf(tok) !== -1) score += 3;
+      if (tag.indexOf(tok) !== -1) score += 2;
+      if (cat.indexOf(tok) !== -1) score += 2;
+      if (content.indexOf(tok) !== -1) score += 1;
+      if (repliesText.indexOf(tok) !== -1) score += 1;
+    });
+
+    if (p.status === 'resolved' && score > 0) score += 1;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestPost = p;
+    }
+  }
+
+  if (bestPost && bestScore >= 3) {
+    return { post: bestPost, score: bestScore };
+  }
+  return null;
+}
+
+/**
+ * Formats a member name to standard Title Case (e.g. "jason koh" -> "Jason Koh")
+ * @param {string} str
+ * @returns {string}
+ */
+function formatMemberDisplayName(str) {
+  if (!str) return '';
+  return str.split(/\s+/).map(function(w) {
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+/**
+ * Detects whether the query requests data for the current user vs another member (Privacy Shield)
+ * @param {string} query
+ * @param {string} currentUserName
+ * @returns {{ isSelf: boolean, otherName: string|null }}
+ */
+function detectTargetMemberName(query, currentUserName) {
+  var q = (query || '').toLowerCase().trim();
+  var isSelf = /\b(my|mine|i|me|am i|myself|my own)\b/i.test(q);
+  if (isSelf) return { isSelf: true, otherName: null };
+
+  var matchFn = (typeof isNameMatch === 'function')
+    ? isNameMatch
+    : (typeof window !== 'undefined' && typeof window.isNameMatch === 'function' ? window.isNameMatch : null);
+
+  // 1. Natural language pattern matching for target member:
+  // e.g. "what is Jason Koh's points", "points of Jason Koh", "Check Joash Lee attendance"
+  var possessiveMatch = query.match(/(?:what\s+(?:is|are)\s+|check\s+|tell\s+me\s+|view\s+|show\s+|how\s+many\s+points\s+does\s+)([A-Za-z]+(?:\s+[A-Za-z]+){1,2})(?:'s|\s+has|\s+got|\s+earned)?\s+(?:points?|attendance|score|badges?)/i)
+    || query.match(/(?:points?|attendance|score|badges?)\s+(?:of|for)\s+([A-Za-z]+(?:\s+[A-Za-z]+){1,2})/i)
+    || query.match(/(?:check\s+|view\s+|see\s+)?([A-Za-z]+(?:\s+[A-Za-z]+){1,2})(?:'s|\s+has|\s+got|\s+earned)?\s+(?:points?|attendance|score|badges?)/i);
+
+  if (possessiveMatch && possessiveMatch[1]) {
+    var rawName = possessiveMatch[1].trim();
+    if (!/^(my|mine|i|me|the|our|your|a|an)\b/i.test(rawName)) {
+      var isCurUser = currentUserName && (matchFn ? matchFn(rawName, currentUserName) : (rawName.toLowerCase() === currentUserName.toLowerCase()));
+      if (isCurUser) {
+        return { isSelf: true, otherName: null };
+      } else {
+        return { isSelf: false, otherName: formatMemberDisplayName(rawName) };
+      }
+    }
+  }
+
+  // 2. Check known members from attendance cache if available
+  try {
+    var attCache = (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('bb_master_att_cache') : null;
+    if (attCache) {
+      var parsedAtt = JSON.parse(attCache);
+      if (parsedAtt && Array.isArray(parsedAtt.attendance)) {
+        for (var a = 0; a < parsedAtt.attendance.length; a++) {
+          var row = parsedAtt.attendance[a];
+          if (row.name && (matchFn ? matchFn(row.name, q) : (q.indexOf(row.name.toLowerCase()) !== -1))) {
+            var isCur = currentUserName && (matchFn ? matchFn(row.name, currentUserName) : (row.name.toLowerCase() === currentUserName.toLowerCase()));
+            if (isCur) return { isSelf: true, otherName: null };
+            return { isSelf: false, otherName: formatMemberDisplayName(row.name) };
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 3. Check window.departmentMembers if available
+  try {
+    var depMembers = (typeof window !== 'undefined' && Array.isArray(window.departmentMembers)) ? window.departmentMembers : [];
+    for (var d = 0; d < depMembers.length; d++) {
+      var dm = depMembers[d];
+      if (dm.name && (matchFn ? matchFn(dm.name, q) : (q.indexOf(dm.name.toLowerCase()) !== -1))) {
+        var isCurD = currentUserName && (matchFn ? matchFn(dm.name, currentUserName) : (dm.name.toLowerCase() === currentUserName.toLowerCase()));
+        if (isCurD) return { isSelf: true, otherName: null };
+        return { isSelf: false, otherName: formatMemberDisplayName(dm.name) };
+      }
+    }
+  } catch (e2) {}
+
+  // 4. Resolve via resolveMemberDirectoryInfo helper (multi-word only, len >= 2)
+  var words = q.replace(/[?'"!,.]/g, ' ').split(/\s+/).filter(Boolean);
+  var resolveFn = (typeof resolveMemberDirectoryInfo === 'function')
+    ? resolveMemberDirectoryInfo
+    : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : (typeof global !== 'undefined' && typeof global.resolveMemberDirectoryInfo === 'function' ? global.resolveMemberDirectoryInfo : null));
+
+  if (resolveFn) {
+    for (var len = 3; len >= 2; len--) {
+      for (var i = 0; i <= words.length - len; i++) {
+        var candidate = words.slice(i, i + len).join(' ');
+        if (candidate.length < 3) continue;
+        if (/^(what|when|where|which|how|who|why|is|are|the|show|tell|view|see|check|points|attendance|badge|badges|rank|squad|platoon|status|record|records)$/i.test(candidate)) continue;
+
+        var match = resolveFn(candidate);
+        if (match && match.name) {
+          var isCurrentUser = currentUserName && (matchFn ? matchFn(match.name, currentUserName) : (match.name.toLowerCase() === currentUserName.toLowerCase()));
+          if (isCurrentUser) {
+            return { isSelf: true, otherName: null };
+          } else {
+            return { isSelf: false, otherName: formatMemberDisplayName(match.name) };
+          }
+        }
+      }
+    }
+  }
+
+  return { isSelf: false, otherName: null };
+}
+
+/**
+ * Executes action button click from Stedfast chat
+ * @param {string} actionType
+ * @param {string} target
+ */
+function executeHelperAction(actionType, target) {
+  if (actionType === 'navigate') {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      if (typeof toggleHelperAgent === 'function') toggleHelperAgent();
+    }
+    if (target === 'admin') {
+      if (typeof openAdmin === 'function') openAdmin();
+      return;
+    }
+    if (typeof switchTabNav === 'function') {
+      switchTabNav(target);
+    } else if (typeof switchTab === 'function') {
+      switchTab(target);
+    }
+    if (typeof showToast === 'function') {
+      var tabLabels = {
+        member: 'Member Hub',
+        parade: 'Weekly Parade',
+        badges: 'My Badges',
+        attendance: 'Leaderboard',
+        order: 'Forms & Store',
+        arcade: '1stPJ Arcade',
+        tasks: 'Projects & Tasks',
+        resources: 'Company Resources',
+        gallery: 'Gallery',
+        forum: 'Support Forum',
+        home: 'Home'
+      };
+      showToast('Navigated to ' + (tabLabels[target] || target), 'info', 2000);
+    }
+  } else if (actionType === 'view-thread') {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      if (typeof toggleHelperAgent === 'function') toggleHelperAgent();
+    }
+    if (typeof switchTabNav === 'function') {
+      switchTabNav('forum');
+    }
+    setTimeout(function() {
+      if (typeof openForumPostDetail === 'function') {
+        openForumPostDetail(target);
+      }
+    }, 150);
+  }
+}
+
+/**
+ * Central intelligent query interpreter for Stedfast AI Helper
+ * @param {string} userText
+ * @returns {Object}
+ */
 function queryHelperAgent(userText) {
   var q = (userText || '').toLowerCase().trim();
   if (!q) return null;
 
-  var triage = triageUserQuery(userText);
-  var bestMatch = null;
-  var highestScore = 0;
+  var getSessionVal = function(key) {
+    if (typeof sessionGet === 'function') return sessionGet(key);
+    if (typeof window !== 'undefined' && typeof window.sessionGet === 'function') return window.sessionGet(key);
+    if (typeof global !== 'undefined' && typeof global.sessionGet === 'function') return global.sessionGet(key);
+    return null;
+  };
+  var currentName = (getSessionVal('name') || '').trim();
+  var currentRank = (getSessionVal('rank') || '').trim();
+  var currentSquad = (getSessionVal('squad') || '').trim();
+  var firstName = currentName ? currentName.split(' ')[0] : '';
 
-  for (var i = 0; i < FAQ_KNOWLEDGE_BASE.length; i++) {
-    var item = FAQ_KNOWLEDGE_BASE[i];
-    var score = 0;
-    for (var k = 0; k < item.keywords.length; k++) {
-      if (q.indexOf(item.keywords[k]) !== -1) {
-        score++;
-      }
-    }
-    if (score > highestScore) {
-      highestScore = score;
-      bestMatch = item;
-    }
-  }
+  // 1. PRIVACY SHIELD: Block queries seeking another member's confidential records
+  var isPersonalDataMetric = /\b(attendance|points?|score|rank|badges?|ic|password|email|record|records|standing|progress|results?)\b/i.test(q);
+  var targetCheck = detectTargetMemberName(userText, currentName);
 
-  if (bestMatch && highestScore >= 1 && !triage) {
+  if (targetCheck.otherName && isPersonalDataMetric) {
     return {
-      text: bestMatch.answer,
-      triage: null
+      text: '**Member Privacy Notice**: Under 1st Petaling Jaya Boys\' Brigade data privacy guidelines, individual attendance records, points, and achievement data are strictly confidential to each member.\n\n'
+        + 'I can only provide personal records for your own authenticated account (' + (currentName ? ('**' + currentName + '**') : 'when logged in') + '). I am not permitted to disclose individual attendance records or personal details for other members (including **' + targetCheck.otherName + '**).\n\n'
+        + 'To view company standings and squad scores without personal breakdown, you can visit the **Leaderboard** tab.',
+      triage: null,
+      actions: [
+        { label: 'Go to Leaderboard', action: 'navigate', target: 'attendance', icon: 'attendance' }
+      ],
+      chips: [
+        { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
     };
   }
 
+  // 2. CURRENT USER PERSONAL DATA & STATUS QUERIES (Excluding bug reports)
+  var isBugOrIssue = /\b(bug|error|broken|freeze|frozen|glitch|fails?|failed|crash|issue|problem|wrong|cannot|can't)\b/i.test(q);
+  var isAskingMyAttendance = targetCheck.isSelf && !isBugOrIssue && /\b(attendance|status|rate|percent|percentage)\b/i.test(q);
+  var isAskingMyPoints = targetCheck.isSelf && !isBugOrIssue && /\b(points?|score)\b/i.test(q);
+  var isAskingMyArcade = targetCheck.isSelf && !isBugOrIssue && /\b(credits?|streak|arcade|coins?)\b/i.test(q);
+
+  if (isAskingMyAttendance || isAskingMyPoints || isAskingMyArcade) {
+    if (!currentName) {
+      return {
+        text: 'You are currently viewing the portal as a **Guest Member**.\n\n'
+          + 'To check your personalized parade attendance %, achievement tier (Emerald 100%, Blue ≥90%, Gold ≥80%), uniform points, and assigned squad, please log in or register your account.',
+        triage: null,
+        actions: [
+          { label: 'Login / Register', action: 'navigate', target: 'member', icon: 'member' }
+        ],
+        chips: [
+          { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
+          { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+        ]
+      };
+    }
+
+    var attPct = 'N/A';
+    var attTierLabel = 'Good (≥80%)';
+    var isOneYearQualified = true;
+    var totalPts = 0;
+    var uniformPts = 0;
+
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        var cached = sessionStorage.getItem('bb_master_att_cache');
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.attendance)) {
+            var matchFn = (typeof isNameMatch === 'function') ? isNameMatch : null;
+            var myRow = parsed.attendance.find(function(r) {
+              return matchFn ? matchFn(r.name, currentName) : (r.name.toLowerCase() === currentName.toLowerCase());
+            });
+            if (myRow) {
+              attPct = (myRow.paradePercentage !== undefined) ? (myRow.paradePercentage + '%') : (myRow.percentage ? (myRow.percentage + '%') : '88%');
+              uniformPts = myRow.uniform || 0;
+              var paradePts = myRow.paradeAtt || 0;
+              totalPts = myRow.total || (uniformPts + paradePts);
+              var tierVal = parseFloat(attPct);
+              if (!isNaN(tierVal)) {
+                isOneYearQualified = tierVal >= 80;
+                attTierLabel = tierVal >= 100 ? '100% (Perfect)' : (tierVal >= 90 ? '≥90% (Excellent)' : (tierVal >= 80 ? '≥80% (Good)' : '<80% (At Risk)'));
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    var arcadeInfo = '';
+    if (typeof localStorage !== 'undefined') {
+      try {
+        var arc = localStorage.getItem('bb_arcade_stats');
+        if (arc) {
+          var aObj = JSON.parse(arc);
+          if (aObj) {
+            arcadeInfo = '• **1stPJ Arcade**: ' + (aObj.streak || 0) + ' Day Streak • ' + (aObj.credits || 0) + ' Credits\n';
+          }
+        }
+      } catch (e2) {}
+    }
+
+    var serviceQualStr = isOneYearQualified ? 'One Year Service Qualified' : 'One Year Service Pending (<80%)';
+    var personalSummary = 'Here is your active membership performance summary, **' + currentName + '**:\n\n'
+      + '• **Rank & Squad**: ' + (currentRank || 'Member') + ' • ' + (currentSquad || 'General Section') + '\n'
+      + '• **Parade Attendance**: ' + attPct + ' (' + attTierLabel + ' — ' + serviceQualStr + ')\n'
+      + '• **Inspection & Points**: ' + uniformPts + ' Uniform pts • ' + totalPts + ' Total Points\n'
+      + arcadeInfo
+      + '\nYour official attendance and points are synced directly from the Company Master Sheet. Would you like to view your full profile card in the Member Hub?';
+
+    return {
+      text: personalSummary,
+      triage: null,
+      actions: [
+        { label: 'Go to Member Hub', action: 'navigate', target: 'member', icon: 'member' },
+        { label: 'Go to Leaderboard', action: 'navigate', target: 'attendance', icon: 'attendance' }
+      ],
+      chips: [
+        { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
+        { label: 'My Badges', query: 'Where are my badges and awards?', icon: 'badges' }
+      ]
+    };
+  }
+
+  // 3. CONVERSATIONAL INTENTS (Greetings, Politeness, Identity, Heritage)
+  var isGreeting = /^(hi|hello|hey|heya|howdy|yo|greetings)\b/i.test(q) ||
+                   /^(good morning|morning|good afternoon|afternoon|good evening|evening)\b/i.test(q);
+  if (isGreeting && q.split(/\s+/).length <= 4) {
+    return {
+      text: 'Hello' + (firstName ? (' ' + firstName) : '') + '! I am **Stedfast**, your 1st Petaling Jaya Boys\' Brigade AI Helper.\n\nHow can I help you today? You can ask me about Saturday parade schedules, badge requirements, where to find things on the portal, or your attendance status!',
+      triage: null,
+      actions: [],
+      chips: [
+        { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+        { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' },
+        { label: '1stPJ Arcade', query: 'Where is the 1stPJ Arcade and how do credits work?', icon: 'arcade' }
+      ]
+    };
+  }
+
+  var isHowAreYou = /^(how are you|how are things|how's it going|how r u|what's up|whats up|how is your day)\b/i.test(q);
+  if (isHowAreYou) {
+    return {
+      text: 'I\'m doing great and standing **Sure & Stedfast**, ready to help you navigate our company portal! What would you like to explore today?',
+      triage: null,
+      actions: [],
+      chips: [
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+        { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+        { label: 'My Badges', query: 'Where are my badges?', icon: 'badges' }
+      ]
+    };
+  }
+
+  var isGratitude = /^(thank you|thanks|thx|tq|thank u|awesome|great job|cool|nice|good job|perfect)\b/i.test(q);
+  if (isGratitude && q.split(/\s+/).length <= 5) {
+    return {
+      text: 'You\'re very welcome! If there\'s anything else you need about Saturday parades, badge requirements, or the portal, just let me know. Have a blessed week ahead!',
+      triage: null,
+      actions: [],
+      chips: [
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+        { label: '1stPJ Arcade', query: 'Where is the 1stPJ Arcade?', icon: 'arcade' }
+      ]
+    };
+  }
+
+  var isFarewell = /^(bye|goodbye|cya|see you|see ya|good night)\b/i.test(q);
+  if (isFarewell && q.split(/\s+/).length <= 5) {
+    return {
+      text: 'Goodbye' + (firstName ? (' ' + firstName) : '') + '! Have a wonderful week ahead, and see you at Saturday parade. **Sure & Stedfast!**',
+      triage: null,
+      actions: [],
+      chips: [
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
+    };
+  }
+
+  var isIdentityQuery = /^(who are you|what are you|what can you do|what is stedfast|help me|tell me about yourself)\b/i.test(q);
+  if (isIdentityQuery) {
+    return {
+      text: 'I am **Stedfast**, the dedicated AI Helper for the **1st Petaling Jaya Boys\' Brigade Web Portal**!\n\n'
+        + 'Here is what I can do for you:\n'
+        + '• **One-Click Navigation**: Ask where any feature is, and I\'ll provide an overview plus a button to jump straight to it (Member Hub, Badges, Leaderboard, Forms, Arcade, etc.).\n'
+        + '• **Company Info**: Saturday parade timings (**2:15 PM – 6:00 PM** at TMC PJ), band rehearsals (**9:30 AM**), uniform standards (Kit A/B/C), and boot sizing.\n'
+        + '• **Your Performance**: Check your attendance %, One Year Service qualification, and Arcade credits.\n'
+        + '• **Forum Search**: Read previous community discussions and resolved bugs to give you instant solutions.\n'
+        + '• **Bug Escalation**: Analyze technical errors and help you escalate them to our dev team and officers.',
+      triage: null,
+      actions: [
+        { label: 'Go to Member Hub', action: 'navigate', target: 'member', icon: 'member' },
+        { label: 'Go to Support Forum', action: 'navigate', target: 'forum', icon: 'forum' }
+      ],
+      chips: [
+        { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
+    };
+  }
+
+  // 4. PORTAL NAVIGATION INTENT ("Where is...", "How to find...", "Navigate to...")
+  var isNavQuery = !isBugOrIssue && /\b(where|find|navigate|access|go to|open|show me|take me to|how to get to|location|locate)\b/i.test(q);
+  if (isNavQuery) {
+    for (var n = 0; n < PORTAL_NAVIGATION_MAP.length; n++) {
+      var navItem = PORTAL_NAVIGATION_MAP[n];
+      var matchedKw = navItem.keywords.some(function(kw) { return q.indexOf(kw) !== -1; });
+      if (matchedKw) {
+        return {
+          text: 'You can access **' + navItem.title + '** in the **' + navItem.tabName + '** tab!\n\n'
+            + navItem.description + '\n\n'
+            + 'Would you like to navigate there now?',
+          triage: null,
+          actions: navItem.actions,
+          chips: [
+            { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+            { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' }
+          ]
+        };
+      }
+    }
+  }
+
+  // 5. BUG / TECHNICAL ISSUE TRIAGE
+  var triage = triageUserQuery(userText);
   if (triage) {
     var responseText = 'I have analyzed your issue regarding **' + triage.categoryLabel + '**.\n\n'
       + '**Quick Tip**: Try doing a hard refresh (`Ctrl + Shift + R` or `Cmd + Shift + R`) to ensure your browser has loaded the latest company portal version.\n\n'
@@ -569,18 +1107,111 @@ function queryHelperAgent(userText) {
 
     return {
       text: responseText,
-      triage: triage
+      triage: triage,
+      actions: [
+        { label: 'Go to Support Forum', action: 'navigate', target: 'forum', icon: 'forum' }
+      ],
+      chips: []
     };
   }
 
+  // 6. COMPREHENSIVE KNOWLEDGE BASE FAQ MATCH (OFFICIAL GROUND TRUTH)
+  var isExplicitForumQuery = /\b(forum|discuss|discussions?|thread|threads?|post|posts?|topic|past|community)\b/i.test(q);
+  var bestMatch = null;
+  var highestScore = 0;
+
+  if (!isExplicitForumQuery) {
+    for (var i = 0; i < FAQ_KNOWLEDGE_BASE.length; i++) {
+      var item = FAQ_KNOWLEDGE_BASE[i];
+      var score = 0;
+      for (var k = 0; k < item.keywords.length; k++) {
+        if (q.indexOf(item.keywords[k]) !== -1) {
+          score++;
+        }
+      }
+      if (score > highestScore) {
+        highestScore = score;
+        bestMatch = item;
+      }
+    }
+  }
+
+  if (bestMatch && highestScore >= 1) {
+    var faqActions = [];
+    if (bestMatch.keywords.indexOf('parade') !== -1) {
+      faqActions.push({ label: 'Go to Weekly Parade', action: 'navigate', target: 'parade', icon: 'parade' });
+    } else if (bestMatch.keywords.indexOf('attendance') !== -1) {
+      faqActions.push({ label: 'Go to Member Hub', action: 'navigate', target: 'member', icon: 'member' });
+      faqActions.push({ label: 'Go to Leaderboard', action: 'navigate', target: 'attendance', icon: 'attendance' });
+    } else if (bestMatch.keywords.indexOf('uniform') !== -1 || bestMatch.keywords.indexOf('store') !== -1 || bestMatch.keywords.indexOf('boot size') !== -1) {
+      faqActions.push({ label: 'Go to Forms & Store', action: 'navigate', target: 'order', icon: 'store' });
+    } else if (bestMatch.keywords.indexOf('badge') !== -1) {
+      faqActions.push({ label: 'Go to My Badges', action: 'navigate', target: 'badges', icon: 'badges' });
+    } else if (bestMatch.keywords.indexOf('task') !== -1) {
+      faqActions.push({ label: 'Go to Projects & Tasks', action: 'navigate', target: 'tasks', icon: 'tasks' });
+    } else if (bestMatch.keywords.indexOf('arcade') !== -1) {
+      faqActions.push({ label: 'Go to 1stPJ Arcade', action: 'navigate', target: 'arcade', icon: 'arcade' });
+    }
+
+    return {
+      text: bestMatch.answer,
+      triage: null,
+      actions: faqActions,
+      chips: [
+        { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
+    };
+  }
+
+  // 7. FORUM KNOWLEDGE SEARCH (READING PREVIOUS SUPPORT / BUG FORUM DISCUSSIONS)
+  var forumMatch = searchForumPostsForHelper(userText);
+  if (forumMatch && forumMatch.post) {
+    var fPost = forumMatch.post;
+    var statusLabel = fPost.status === 'resolved' ? 'Resolved' : 'Active Discussion';
+    var excerpt = (fPost.replies && fPost.replies.length) ? fPost.replies[0].content : fPost.content;
+    if (excerpt.length > 200) excerpt = excerpt.slice(0, 197) + '...';
+
+    return {
+      text: 'I found a related discussion in our **Support Forum**:\n\n'
+        + '• **' + fPost.title + '** (' + statusLabel + ' • ' + fPost.categoryLabel + ')\n\n'
+        + '**Summary**: ' + excerpt + '\n\n'
+        + 'You can view the full thread, see officer replies, or join the discussion below:',
+      triage: null,
+      actions: [
+        { label: 'View Forum Discussion', action: 'view-thread', target: fPost.id, icon: 'forum' },
+        { label: 'Go to Support Forum', action: 'navigate', target: 'forum', icon: 'forum' }
+      ],
+      chips: [
+        { label: 'Ask Another Question', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
+    };
+  }
+
+  // 8. INTELLIGENT CONVERSATIONAL FALLBACK
   return {
-    text: 'I could not find an exact match in our company FAQ. You can ask about parade schedules, badge advancement (80% attendance rule), uniform kits, or post your query to the **Support Forum** for officer assistance.',
+    text: 'I\'m here to help! While I don\'t have a specific pre-set answer for that exact phrase, here is what I can assist you with:\n\n'
+      + '• **Saturday Parade & Band Schedules** (2:15 PM – 6:00 PM at TMC PJ)\n'
+      + '• **80% Attendance Rule & One Year Service milestones**\n'
+      + '• **Uniform Standards** (Kit A, B, C) and boot sizing\n'
+      + '• **Where to find any tab** (Member Hub, Badges, Arcade, Resources, Leaderboard)\n'
+      + '• **Projects & Tasks board** for company NCOs\n'
+      + '• **Community discussions & bug reports** on the Support Forum\n\n'
+      + 'Feel free to tap one of the suggested topics below, or post your query to the Support Forum for officer assistance!',
     triage: {
       category: 'general',
       categoryLabel: 'General Discussion',
       tag: 'question',
       suggestedTitle: userText.length > 50 ? (userText.slice(0, 47) + '...') : userText
-    }
+    },
+    actions: [
+      { label: 'Post to Bug & Support Forum', action: 'navigate', target: 'forum', icon: 'forum' }
+    ],
+    chips: [
+      { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
+      { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
+      { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' }
+    ]
   };
 }
 
@@ -692,6 +1323,7 @@ function renderHelperMessages() {
       '<div class="helper-bubble-wrap ' + (isUser ? 'user-wrap' : 'agent-wrap') + '">' +
         '<div class="helper-bubble ' + (isUser ? 'user-bubble' : 'agent-bubble') + '">' +
           '<div class="helper-bubble-text">' + safeText + '</div>' +
+          (msg.actions && msg.actions.length ? renderHelperActionsHtml(msg.actions) : '') +
           (msg.triage ? renderTriageCardHtml(msg.triage) : '') +
           (msg.chips && msg.chips.length ? renderChipsHtml(msg.chips) : '') +
           '<div class="helper-bubble-time">' + (msg.time || '') + '</div>' +
@@ -712,6 +1344,27 @@ function formatHelperMarkdown(text) {
   safe = safe.replace(/\n\n/g, '<br><br>');
   safe = safe.replace(/\n/g, '<br>');
   return safe;
+}
+
+function renderHelperActionsHtml(actions) {
+  if (!actions || !actions.length) return '';
+  var h = '<div class="helper-action-btns">';
+  actions.forEach(function(act) {
+    var safeLabel = (typeof escapeHtml === 'function') ? escapeHtml(act.label) : act.label;
+    var safeTarget = (typeof escapeHtml === 'function') ? escapeHtml(act.target) : act.target;
+    var safeAction = (typeof escapeHtml === 'function') ? escapeHtml(act.action) : act.action;
+    var iconSvg = FORUM_ICONS[act.icon] || FORUM_ICONS.arrowRight || '';
+    var arrowSvg = FORUM_ICONS.arrowRight || '';
+    h += '<button type="button" class="helper-action-btn" onclick="executeHelperAction(\'' + safeAction.replace(/'/g, "\\'") + '\', \'' + safeTarget.replace(/'/g, "\\'") + '\')">' +
+           '<span style="display:inline-flex;align-items:center;gap:6px;">' +
+             iconSvg +
+             '<span>' + safeLabel + '</span>' +
+           '</span>' +
+           arrowSvg +
+         '</button>';
+  });
+  h += '</div>';
+  return h;
 }
 
 function renderChipsHtml(chips) {
@@ -777,12 +1430,13 @@ function sendHelperPrompt(userPrompt) {
       sender: 'agent',
       text: reply.text,
       triage: reply.triage,
+      actions: reply.actions || [],
       time: botTime,
-      chips: !reply.triage ? [
+      chips: reply.chips || (!reply.triage ? [
         { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' },
         { label: '80% Attendance Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' },
         { label: 'Uniform Kits', query: 'What are the official uniform kits?', icon: 'store' }
-      ] : []
+      ] : [])
     });
     renderHelperMessages();
   }, 250);
@@ -1698,6 +2352,11 @@ if (typeof window !== 'undefined') {
   window.toggleForumPostStatus     = toggleForumPostStatus;
   window.submitForumReply          = submitForumReply;
   window.getForumUserPermissions   = getForumUserPermissions;
+  window.executeHelperAction       = executeHelperAction;
+  window.searchForumPostsForHelper = searchForumPostsForHelper;
+  window.detectTargetMemberName    = detectTargetMemberName;
+  window.PORTAL_NAVIGATION_MAP     = PORTAL_NAVIGATION_MAP;
+  window.forumPosts                = forumPosts;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1732,6 +2391,10 @@ if (typeof module !== 'undefined' && module.exports) {
     toggleForumPostStatus: toggleForumPostStatus,
     submitForumReply: submitForumReply,
     getForumUserPermissions: getForumUserPermissions,
+    executeHelperAction: executeHelperAction,
+    searchForumPostsForHelper: searchForumPostsForHelper,
+    detectTargetMemberName: detectTargetMemberName,
+    PORTAL_NAVIGATION_MAP: PORTAL_NAVIGATION_MAP,
     get forumPosts() { return forumPosts; },
     set forumPosts(v) { forumPosts = v; },
     get helperMessages() { return _helperMessages; }

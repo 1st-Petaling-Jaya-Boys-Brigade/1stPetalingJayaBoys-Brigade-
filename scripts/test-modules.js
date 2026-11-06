@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261105n',
-    'sw.js CACHE_VERSION must be 20261105n'
+    '20261106a',
+    'sw.js CACHE_VERSION must be 20261106a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261105n',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261106a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261105n'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261106a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8605,12 +8605,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261105n', 'Service Worker cache version must be 20261105n');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261106a', 'Service Worker cache version must be 20261106a');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261105n and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261106a and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -8879,7 +8879,119 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(finalUniqueIdsBadges.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
 
-  console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
+      // =========================================================================
+    // [TEST] Stedfast AI Helper Smart Conversational Intelligence, Privacy Shield, Navigation & Forum Search
+    // =========================================================================
+    console.log('\n[TEST] Stedfast AI Helper Smart Conversational Intelligence, Privacy Shield, Navigation & Forum Search...');
+    const forumModule = require('../js/modules/forum.js');
+
+    // 1. Conversational Greetings, Politeness & Identity
+    const resHi = forumModule.queryHelperAgent('hi');
+    assert.ok(resHi && resHi.text, 'Greeting must return a friendly response');
+    assert.ok(resHi.text.includes('Hello'), 'Greeting response must start with Hello');
+    assert.ok(!resHi.text.includes('could not find an exact match'), 'Greeting must never return generic FAQ failure message');
+    assert.ok(Array.isArray(resHi.chips) && resHi.chips.length > 0, 'Greeting must provide helpful starter prompt chips');
+
+    const resHowAreYou = forumModule.queryHelperAgent('how are you');
+    assert.ok(resHowAreYou.text.includes('Sure & Stedfast'), 'How are you must include BB motto');
+
+    const resWhoAreYou = forumModule.queryHelperAgent('who are you');
+    assert.ok(resWhoAreYou.text.includes('Stedfast') && resWhoAreYou.text.includes('Navigation'), 'Identity query must describe Stedfast navigation capabilities');
+    assert.ok(resWhoAreYou.actions.some(a => a.target === 'member'), 'Identity query must include Member Hub action button');
+
+    const resThanks = forumModule.queryHelperAgent('thank you');
+    assert.ok(resThanks.text.includes('welcome'), 'Gratitude query must return polite acknowledgment');
+    console.log('  ✔ Conversational greetings, small talk, and identity intents verified with zero FAQ errors');
+
+    // 2. Strict Privacy Shield (Protection of Other Members Data)
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('name', 'Jeshua Koh');
+      global.sessionSet('email', 'jeshuakoh2008@gmail.com');
+      global.sessionSet('rank', 'Sergeant');
+      global.sessionSet('squad', 'Hotel Platoon');
+    }
+
+    const resOtherMemberPoints = forumModule.queryHelperAgent("What is Jason Koh's points?");
+    assert.ok(resOtherMemberPoints.text.includes('Member Privacy Notice'), 'Query for another member points must trigger Member Privacy Notice');
+    assert.ok(resOtherMemberPoints.text.includes('Jason Koh'), 'Privacy notice must reference the requested member name');
+    assert.ok(resOtherMemberPoints.actions.some(a => a.target === 'attendance'), 'Privacy notice must redirect user to the public Leaderboard');
+
+    const resOtherMemberAtt = forumModule.queryHelperAgent('Check Joash Lee attendance percentage');
+    assert.ok(resOtherMemberAtt.text.includes('Member Privacy Notice'), 'Query for another member attendance must trigger Member Privacy Notice');
+    console.log('  ✔ Strict Privacy Shield blocks queries seeking other members confidential points and attendance');
+
+    // 3. Current User Personal Data Lookup (Member Performance Summary)
+    const resMyAtt = forumModule.queryHelperAgent('Where is my attendance status?');
+    assert.ok(resMyAtt.text.includes('Jeshua Koh') || resMyAtt.text.includes('attendance'), 'Personal attendance inquiry must summarize member status');
+    assert.ok(resMyAtt.actions.some(a => a.target === 'member'), 'Personal attendance inquiry must provide Go to Member Hub button');
+
+    // Guest lookup fallback
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('name', '');
+      global.sessionSet('email', '');
+    }
+    const resGuestAtt = forumModule.queryHelperAgent('Where is my attendance status?');
+    assert.ok(resGuestAtt.text.includes('Guest Member'), 'Unauthenticated attendance inquiry must prompt guest to login/register');
+    assert.ok(resGuestAtt.actions.some(a => a.target === 'member'), 'Guest prompt must provide Login / Register action button');
+
+    // Restore authenticated session
+    if (typeof global.sessionSet === 'function') {
+      global.sessionSet('name', 'Jeshua Koh');
+      global.sessionSet('email', 'jeshuakoh2008@gmail.com');
+      global.sessionSet('rank', 'Sergeant');
+    }
+    console.log('  ✔ Current user personal attendance/performance summary and guest login prompts verified');
+
+    // 4. Portal Navigation Map & Interactive Action Buttons
+    assert.ok(Array.isArray(forumModule.PORTAL_NAVIGATION_MAP), 'PORTAL_NAVIGATION_MAP must be exported');
+    assert.ok(forumModule.PORTAL_NAVIGATION_MAP.length >= 10, 'PORTAL_NAVIGATION_MAP must map all primary portal modules');
+
+    const resNavArcade = forumModule.queryHelperAgent('Where is the 1stPJ Arcade?');
+    assert.ok(resNavArcade.text.includes('1stPJ Arcade') || resNavArcade.text.includes('Arcade'), 'Arcade navigation query must explain arcade hub');
+    assert.ok(resNavArcade.actions.some(a => a.target === 'arcade'), 'Arcade query must provide Go to 1stPJ Arcade button');
+
+    const resNavForms = forumModule.queryHelperAgent('Where can I order uniform kits?');
+    assert.ok(resNavForms.text.includes('Forms & Store') || resNavForms.text.includes('uniform'), 'Forms & Store navigation must explain ordering');
+
+    const resNavBadges = forumModule.queryHelperAgent('Where are my badges and awards?');
+    assert.ok(resNavBadges.text.includes('Badges') || resNavBadges.text.includes('awards'), 'Badges navigation must explain My Badges');
+    console.log('  ✔ Portal Navigation Map accurately routes module inquiries with interactive action buttons');
+
+    // 5. Forum Discussion Knowledge Search & Community Citations
+    const resForumSearch = forumModule.searchForumPostsForHelper('80% attendance One Year Service');
+    assert.ok(resForumSearch && resForumSearch.post, 'searchForumPostsForHelper must find matching community thread');
+    assert.ok(resForumSearch.post.id === 'post-001', 'Must match post-001 discussion regarding 80% rule');
+
+    const resForumQuery = forumModule.queryHelperAgent('forum thread about 80% attendance rule');
+    assert.ok(resForumQuery.text.includes('Support Forum') && resForumQuery.text.includes('Summary'), 'Forum search query must format thread citation and summary');
+    assert.ok(resForumQuery.actions.some(a => a.action === 'view-thread'), 'Forum search query must provide View Forum Discussion action button');
+    console.log('  ✔ Forum discussion knowledge search and community thread citations verified');
+
+    // 6. Action Execution Dispatcher
+    let navigatedTab = null;
+    let _openedThread = null;
+    let toastMsg = null;
+    global.switchTabNav = function(tab) { navigatedTab = tab; };
+    global.openForumPostDetail = function(postId) { _openedThread = postId; };
+    global.showToast = function(msg) { toastMsg = msg; };
+
+    forumModule.executeHelperAction('navigate', 'arcade');
+    assert.strictEqual(navigatedTab, 'arcade', 'executeHelperAction navigate must switch to target tab');
+    assert.ok(toastMsg && toastMsg.includes('1stPJ Arcade'), 'Navigation must trigger feedback toast');
+
+    forumModule.executeHelperAction('view-thread', 'post-001');
+    assert.strictEqual(navigatedTab, 'forum', 'executeHelperAction view-thread must switch to forum tab');
+    console.log('  ✔ executeHelperAction correctly dispatches navigation and modal thread viewing');
+
+    // 7. Strict 388 Unique DOM IDs Invariant
+    const finalHtmlStedfast = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+    const finalMatchesStedfast = finalHtmlStedfast.match(/\bid=["']([^"']+)["']/g) || [];
+    const finalIdsStedfast = finalMatchesStedfast.map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    const finalUniqueIdsStedfast = Array.from(new Set(finalIdsStedfast));
+    assert.strictEqual(finalUniqueIdsStedfast.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+
+    console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
   console.error('\n✖ Test failed:', err);
