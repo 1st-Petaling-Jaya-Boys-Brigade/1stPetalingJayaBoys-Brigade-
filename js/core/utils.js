@@ -1905,6 +1905,21 @@ async function logAuditEvent(params) {
   var targetId = params.targetId ? String(params.targetId).trim() : null;
   var details = params.details || {};
 
+  // Automated privacy redaction: prevent passwords, tokens, API keys, or OTPs from entering logs
+  var safeDetails = {};
+  if (details && typeof details === 'object') {
+    var redactPattern = /password|token|code|secret|hash|otp|pin|credential/i;
+    for (var k in details) {
+      if (Object.prototype.hasOwnProperty.call(details, k)) {
+        if (redactPattern.test(k)) {
+          safeDetails[k] = '[REDACTED]';
+        } else {
+          safeDetails[k] = details[k];
+        }
+      }
+    }
+  }
+
   var actorId = params.actorId;
   if (!actorId) {
     if (typeof sessionGet === 'function') {
@@ -1939,7 +1954,7 @@ async function logAuditEvent(params) {
     action: action,
     target_type: targetType,
     target_id: targetId,
-    details: details,
+    details: safeDetails,
     created_at: new Date().toISOString()
   };
 

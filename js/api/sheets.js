@@ -286,6 +286,15 @@ async function saveMasterSheetConfig(cfgOverride) {
     }
   }
 
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'sheets.config_update',
+      targetType: 'config',
+      targetId: 'bb_master_sheet_config',
+      actorRole: 'officer_admin',
+      details: { sheetId: (cfg && cfg.sheetId) ? '[CONFIGURED]' : 'default' }
+    });
+  }
   if (typeof showToast === 'function') {
     showToast('Master Sheet security configuration saved.', 'success');
   }
@@ -400,6 +409,15 @@ async function syncToSheets(recordsOrOptions, scriptUrl, syncToken) {
     throw new Error(apiErrMsg);
   }
 
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'sheets.export_sync',
+      targetType: 'attendance',
+      targetId: 'master_attendance',
+      actorRole: 'officer_admin',
+      details: { records_count: Array.isArray(recordsOrOptions) ? recordsOrOptions.length : 1 }
+    });
+  }
   if (typeof showToast === 'function') {
     showToast('Attendance successfully synced to Google Sheets!', 'success');
   }
