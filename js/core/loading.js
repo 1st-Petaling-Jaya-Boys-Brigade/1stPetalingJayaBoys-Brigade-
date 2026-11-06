@@ -152,7 +152,6 @@
    */
   function renderSkeletonKanban() {
     var html = '<div class="skeleton-kanban-board" aria-hidden="true">';
-    var _titles = ['To Do', 'In Progress', 'Done'];
 
     for (var i = 0; i < 3; i++) {
       html +=

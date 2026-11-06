@@ -299,12 +299,15 @@ async function savePresidentsReqs(reqs) {
  * @param {string} ic
  * @param {Object} saved
  */
+var _isSavingBadges = false;
+
 async function upsertMemberBadges(ic, saved) {
-  if (!ic) return;
+  if (!ic) return false;
   if (!_memberBadgesCache) _memberBadgesCache = {};
+  var prevSaved = _memberBadgesCache[ic] ? JSON.parse(JSON.stringify(_memberBadgesCache[ic])) : null;
   _memberBadgesCache[ic] = saved;
   var client = getSupaClient();
-  if (!client) return;
+  if (!client) throw new Error('Database client unavailable');
   try {
     var existing = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=id');
     if (existing && existing.length) {
@@ -319,8 +322,13 @@ async function upsertMemberBadges(ic, saved) {
         updated_at: new Date().toISOString()
       });
     }
+    return true;
   } catch (e) {
     console.error('upsertMemberBadges error:', e);
+    if (prevSaved) {
+      _memberBadgesCache[ic] = prevSaved;
+    }
+    throw e;
   }
 }
 
@@ -826,38 +834,54 @@ async function toggleBadge(badgeId, ic, tier) {
  * Persists all member self-reported dates and checks to Supabase
  */
 async function saveBadges() {
+  if (_isSavingBadges) return;
   if (typeof sessionGet !== 'function') return;
   var ic = sessionGet('ic');
   if (!ic) return;
-  var defs = await getBadgeDefs();
-  if (!_memberBadgesCache) _memberBadgesCache = {};
-  var saved = _memberBadgesCache[ic] || {};
 
-  defs.forEach(function(b) {
-    if (b.repeatable) {
-      var repData = saved[b.id + '_rep'] || { count: 0, dates: [] };
-      var newDates = [];
-      for (var di = 0; di < repData.count; di++) {
-        var el = document.getElementById('badge-rep-' + b.id + '-' + di);
-        newDates.push(el ? el.value : '');
+  var saveBtn = typeof document !== 'undefined' ? (document.querySelector('button[onclick="saveBadges()"]') || document.querySelector('#badges-list ~ button.submit-btn')) : null;
+  if (saveBtn) saveBtn.disabled = true;
+  _isSavingBadges = true;
+
+  try {
+    var defs = await getBadgeDefs();
+    if (!_memberBadgesCache) _memberBadgesCache = {};
+    var saved = _memberBadgesCache[ic] || {};
+
+    defs.forEach(function(b) {
+      if (b.repeatable) {
+        var repData = saved[b.id + '_rep'] || { count: 0, dates: [] };
+        var newDates = [];
+        for (var di = 0; di < repData.count; di++) {
+          var el = document.getElementById('badge-rep-' + b.id + '-' + di);
+          newDates.push(el ? el.value : '');
+        }
+        repData.dates = newDates;
+        saved[b.id + '_rep'] = repData;
+      } else {
+        var entry = safeMigrateEntry(saved[b.id]);
+        var bd = document.getElementById('badge-basic-' + b.id);
+        var ad = document.getElementById('badge-adv-'   + b.id);
+        if (bd && bd.value) entry.basicDate    = bd.value;
+        if (ad && ad.value) entry.advancedDate = ad.value;
+        saved[b.id] = entry;
       }
-      repData.dates = newDates;
-      saved[b.id + '_rep'] = repData;
-    } else {
-      var entry = safeMigrateEntry(saved[b.id]);
-      var bd = document.getElementById('badge-basic-' + b.id);
-      var ad = document.getElementById('badge-adv-'   + b.id);
-      if (bd && bd.value) entry.basicDate    = bd.value;
-      if (ad && ad.value) entry.advancedDate = ad.value;
-      saved[b.id] = entry;
-    }
-  });
+    });
 
-  _memberBadgesCache[ic] = saved;
-  await upsertMemberBadges(ic, saved);
-  renderPresidentsTracker(ic, saved);
-  if (typeof showToast === 'function') {
-    showToast('Badges saved successfully!', 'success');
+    _memberBadgesCache[ic] = saved;
+    await upsertMemberBadges(ic, saved);
+    renderPresidentsTracker(ic, saved);
+    if (typeof showToast === 'function') {
+      showToast('Badges saved successfully!', 'success');
+    }
+  } catch (err) {
+    console.error('Failed to save badges:', err);
+    if (typeof showToast === 'function') {
+      showToast('Failed to save badges: ' + (err.message || 'Network error'), 'error', 4500);
+    }
+  } finally {
+    _isSavingBadges = false;
+    if (saveBtn) saveBtn.disabled = false;
   }
 }
 

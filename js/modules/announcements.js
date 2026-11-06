@@ -283,14 +283,24 @@ async function loadAnnouncements() {
   var fetchFn = async function() {
     if (typeof supa !== 'undefined' && supa.get) {
       var annImageMap = {};
-      try {
-        var cfgRows = await supa.get('bb_config?key=eq.bb_announcements_images&select=value');
-        if (cfgRows && cfgRows.length && cfgRows[0].value) {
-          annImageMap = (typeof cfgRows[0].value === 'string') ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
-        }
-      } catch (_) {}
+      var cfgPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
+        ? supa.safeConfigGet('bb_announcements_images', {})
+        : supa.get('bb_config?key=eq.bb_announcements_images&select=value');
+      var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*');
 
-      var rows = await supa.get('bb_announcements?order=created_at.asc&select=*');
+      var results = await Promise.allSettled([cfgPromise, annPromise]);
+      if (results[0].status === 'fulfilled' && results[0].value) {
+        var cfgVal = results[0].value;
+        if (Array.isArray(cfgVal) && cfgVal.length && cfgVal[0].value) {
+          try {
+            annImageMap = typeof cfgVal[0].value === 'string' ? JSON.parse(cfgVal[0].value) : cfgVal[0].value;
+          } catch (_) {}
+        } else if (typeof cfgVal === 'object') {
+          annImageMap = cfgVal;
+        }
+      }
+
+      var rows = (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) ? results[1].value : [];
       announcements.length = 0;
       if (rows && rows.length) {
         for (var rIdx = 0; rIdx < rows.length; rIdx++) {
@@ -360,7 +370,11 @@ function renderAnnouncements() {
   if (!list) return;
 
   if (!announcements.length) {
-    list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No announcements yet.</div>';
+    list.innerHTML = '<div class="empty-state-card" style="text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
+      + '<div style="font-size:28px;margin-bottom:8px;">📢</div>'
+      + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No Company Announcements</div>'
+      + '<div style="font-size:13px;max-width:340px;margin:0 auto;line-height:1.5;">Check back soon for upcoming parade notices, badge classes, and company news.</div>'
+      + '</div>';
     return;
   }
 

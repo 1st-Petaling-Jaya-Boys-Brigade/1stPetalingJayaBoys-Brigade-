@@ -1140,7 +1140,11 @@
     '</span>';
   }
 
-  async function renderAdminList() {
+var _adminMembersCache = null;
+  var _adminMembersCacheTime = 0;
+  var ADMIN_MEMBERS_CACHE_TTL = 30000;
+
+  async function renderAdminList(forceRefresh) {
     if (typeof document === 'undefined') return;
     var search = ((document.getElementById('admin-search') || {}).value || '').toLowerCase();
     var list   = document.getElementById('admin-members-list');
@@ -1194,14 +1198,21 @@
         }
       } catch (e) {}
 
+      var now = Date.now();
       var members;
-      try {
-        members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
-      } catch (selectErr) {
-        console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
-        members = await client.get('bb_members?order=name.asc');
+      if (!forceRefresh && _adminMembersCache && (now - _adminMembersCacheTime < ADMIN_MEMBERS_CACHE_TTL)) {
+        members = _adminMembersCache;
+      } else {
+        try {
+          members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
+        } catch (selectErr) {
+          console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
+          members = await client.get('bb_members?order=name.asc');
+        }
+        if (!Array.isArray(members)) members = [];
+        _adminMembersCache = members;
+        _adminMembersCacheTime = now;
       }
-      if (!Array.isArray(members)) members = [];
       var filtered = members.filter(function(m) {
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
@@ -1254,6 +1265,14 @@
 
       _adminMembers = {};
       filtered.forEach(function(m) { _adminMembers[m.ic] = m; });
+      if (!filtered.length) {
+        list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:12px;">'
+          + '<div style="font-size:24px;margin-bottom:6px;">🔍</div>'
+          + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">No members found</div>'
+          + '<div style="font-size:12px;color:var(--text-muted);">Try adjusting your search query or section filter.</div>'
+          + '</div>';
+        return;
+      }
       if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
       global._adminPresenceMap = _adminPresenceMap;
       if (typeof localStorage !== 'undefined') {
@@ -1359,7 +1378,13 @@
       });
     } catch (e) {
       console.error('renderAdminList error:', e);
-      list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>';
+      list.innerHTML = '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">'
+        + '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>'
+        + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Failed to load members roster</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Database request timed out or network was interrupted.</div>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminList()" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">'
+        + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+        + 'Retry</button></div>';
     }
   }
 
@@ -1715,9 +1740,19 @@
     if (modal) modal.style.display = 'none';
   }
 
+  var _isSavingEditMember = false;
+
   async function saveEditMember() {
     if (typeof document === 'undefined') return;
+    if (_isSavingEditMember) return;
     var editModal = document.getElementById('edit-member-modal');
+    var saveBtn = editModal ? editModal.querySelector('.submit-btn.gold') : null;
+    var origSaveHtml = saveBtn ? saveBtn.innerHTML : '';
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = 'Saving...';
+    }
+    _isSavingEditMember = true;
     var originalIc = (document.getElementById('em-original-ic') || {}).value || '';
     var oldName = (editModal && editModal.getAttribute('data-original-name')) || (_adminMembers && _adminMembers[originalIc] && _adminMembers[originalIc].name) || '';
     var rawIc      = ((document.getElementById('em-ic') || {}).value || '').trim().replace(/\s/g, '');
@@ -2066,6 +2101,12 @@
       renderAdminList();
     } catch (e) {
       if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
+    } finally {
+      _isSavingEditMember = false;
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = origSaveHtml;
+      }
     }
   }
 
@@ -2418,7 +2459,14 @@
         });
       });
     } catch (e) {
-      list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load tasks.</div>';
+      console.error('renderAdminTasks error:', e);
+      list.innerHTML = '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">'
+        + '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>'
+        + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Failed to load tasks</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Database request timed out or network was interrupted.</div>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminTasks(_adminTaskFilter)" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">'
+        + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+        + 'Retry</button></div>';
     }
   }
 
