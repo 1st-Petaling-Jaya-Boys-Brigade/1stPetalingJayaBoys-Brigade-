@@ -572,7 +572,8 @@ function openEditResource(id) {
 
   _lastUploadedFileSize = item.fileSize || '';
   if (statusEl) {
-    statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:11px;">Current file: ' + (item.fileSize ? item.fileSize : 'Attached Link') + '</span>';
+    var displaySize = item.fileSize ? item.fileSize : 'Attached Link';
+    statusEl.innerHTML = '<span style="color:var(--text-muted);font-size:11px;">Current file: ' + ((typeof escapeHtml === 'function') ? escapeHtml(displaySize) : displaySize) + '</span>';
   }
 
   if (submitBtn) {

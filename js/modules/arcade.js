@@ -1735,7 +1735,7 @@
     function renderLeaderboardRow(m, isUserPlacingCallout) {
       var isMe = !!m.isCurrentUser;
       var val = isStreak ? (m.streak || 0) : (m.credits || 0);
-      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : itemSafeName(m.name);
+      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : String(m.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'Member') : (m.rank || 'Member');
       var safePlatoon = (typeof escapeHtml === 'function') ? escapeHtml(m.platoon || '1st PJ') : (m.platoon || '1st PJ');
       var rowAvatar = getLeaderboardAvatarHtml(m.name, m.email, 34);
@@ -1768,9 +1768,6 @@
       '</div>';
     }
 
-    function itemSafeName(name) {
-      return (name || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
 
     var listRowsHtml = '';
     top7.forEach(function(m) {
