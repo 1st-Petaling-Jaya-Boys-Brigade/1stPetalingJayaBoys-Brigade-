@@ -9374,7 +9374,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Gemini API allowed in connect-src for Stedfast AI
     assert.ok(viteRaw.includes('https://generativelanguage.googleapis.com'), 'vite.config.mjs must whitelist Gemini API in connect-src');
     assert.ok(vercelRaw.includes('https://generativelanguage.googleapis.com'), 'vercel.json must whitelist Gemini API in connect-src');
+    const indexRaw = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8');
     assert.ok(headersRaw.includes('https://generativelanguage.googleapis.com'), '_headers must whitelist Gemini API in connect-src');
+    assert.ok(indexRaw.includes('https://generativelanguage.googleapis.com'), 'index.html must whitelist Gemini API in connect-src');
     console.log('  ✔ CSP configuration is strictly aligned across Vite dev/preview, Vercel, and Cloudflare Pages/Netlify');
 
     // 4. Verify production distribution build completeness
