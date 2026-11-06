@@ -2741,6 +2741,36 @@ async function saveRemoteGeminiApiKey(key) {
  * @param {string} [apiKey]
  * @returns {Promise<string|null>}
  */
+var OBSOLETE_GEMINI_MODELS = [
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-2.0-flash-thinking-exp',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro',
+  'gemini-1.0-pro',
+  'gemini-pro'
+];
+
+/**
+ * Checks whether a given Gemini model identifier is obsolete/deprecated by Google
+ * @param {string} modelName
+ * @returns {boolean}
+ */
+function isObsoleteGeminiModel(modelName) {
+  if (!modelName) return false;
+  var clean = String(modelName).replace(/^models\//, '').trim().toLowerCase();
+  if (clean === 'gemini-pro-latest' || clean === 'gemini-flash-latest' || clean === 'gemini-flash-lite-latest') {
+    return false;
+  }
+  for (var i = 0; i < OBSOLETE_GEMINI_MODELS.length; i++) {
+    var obs = OBSOLETE_GEMINI_MODELS[i];
+    if (clean === obs || clean.startsWith(obs + '-')) return true;
+  }
+  return false;
+}
+
 var _lastGeminiError = '';
 var _activeGeminiModel = '';
 var _activeGeminiApiVersion = 'v1beta';
@@ -2834,11 +2864,18 @@ function parseGeminiResponse(data) {
     var outputParts = [];
     for (var s = 0; s < data.steps.length; s++) {
       var step = data.steps[s];
-      if (step && (step.type === 'model_output' || step.type === 'output') && Array.isArray(step.content)) {
-        for (var c = 0; c < step.content.length; c++) {
-          var item = step.content[c];
-          if (item && item.type === 'text' && typeof item.text === 'string' && item.text.trim()) {
-            outputParts.push(item.text.trim());
+      if (!step) continue;
+      if (step.type === 'model_output' || step.type === 'output') {
+        if (typeof step.text === 'string' && step.text.trim()) {
+          outputParts.push(step.text.trim());
+        } else if (Array.isArray(step.content)) {
+          for (var c = 0; c < step.content.length; c++) {
+            var item = step.content[c];
+            if (typeof item === 'string' && item.trim()) {
+              outputParts.push(item.trim());
+            } else if (item && typeof item.text === 'string' && item.text.trim()) {
+              outputParts.push(item.text.trim());
+            }
           }
         }
       }
@@ -2946,14 +2983,22 @@ async function listAvailableGeminiModels(apiKey) {
   if (discovered.length > 0) {
     var priorityOrder = [
       'gemini-3.8-flash',
+      'gemini-3.1-pro-preview',
+      'gemini-flash-latest',
+      'gemini-pro-latest',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+      'gemini-2.5-flash',
+      'gemini-2.5-flash-lite',
       'gemini-3.8-pro',
       'gemini-3.0-flash',
-      'gemini-2.5-flash',
+      'gemini-2.5-pro',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-1.5-flash-8b',
-      'gemini-2.0-flash-lite',
-      'gemini-2.0-flash-lite-preview',
       'gemini-1.5-pro',
       'gemini-pro'
     ];
@@ -3006,7 +3051,6 @@ async function callGeminiApi(prompt, apiKey, options) {
     + "4. PRIVACY: Never reveal other members' individual attendance percentages, points, or demerits. If the prompt context provides the authenticated user's own stats, you may answer questions about their own standing.\n"
     + "5. Navigation: If user asks where something is, specify the exact portal tab and give concise instructions.";
 
-  var obsoleteModels = ['gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-pro'];
 
   var candidates = [];
   if (options.model) {
@@ -3021,17 +3065,23 @@ async function callGeminiApi(prompt, apiKey, options) {
     var storedMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_gemini_api_mode')) || getActiveGeminiApiMode() || 'generateContent';
     
     // Purge deprecated stored models so they never block verification
-    if (storedModel && !obsoleteModels.includes(storedModel)) {
+    if (storedModel && !isObsoleteGeminiModel(storedModel)) {
       candidates.push({ model: storedModel, apiVersion: storedVer, apiMode: storedMode });
     }
 
     var defaultCandidates = [
       { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'generateContent' },
-      { apiVersion: 'v1beta', model: 'gemini-2.5-flash', apiMode: 'generateContent' },
-      { apiVersion: 'v1beta', model: 'gemini-2.5-flash-lite', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-3.1-pro-preview', apiMode: 'generateContent' },
       { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'generateContent' },
       { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'interactions' },
+      { apiVersion: 'v1beta', model: 'gemini-3.1-pro-preview', apiMode: 'interactions' },
       { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'interactions' },
+      { apiVersion: 'v1beta', model: 'gemini-pro-latest', apiMode: 'interactions' },
+      { apiVersion: 'v1beta', model: 'gemini-pro-latest', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-3.5-flash', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-3.6-flash', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-2.5-flash', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-2.5-flash-lite', apiMode: 'generateContent' },
       { apiVersion: 'v1',     model: 'gemini-3.8-flash', apiMode: 'generateContent' },
       { apiVersion: 'v1',     model: 'gemini-2.5-flash', apiMode: 'generateContent' }
     ];
@@ -3051,7 +3101,8 @@ async function callGeminiApi(prompt, apiKey, options) {
     var endpoint = '';
     var requestBody = {};
     var headers = {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'x-goog-api-key': key
     };
 
     if (target.apiMode === 'interactions') {
@@ -3118,7 +3169,8 @@ async function callGeminiApi(prompt, apiKey, options) {
         capturedErrors.push(errMsg);
         console.warn('Gemini API [' + target.apiMode + '/' + target.apiVersion + '/' + target.model + '] HTTP ' + resp.status + ': ' + errMsg);
 
-        if (/API_KEY_INVALID|PERMISSION_DENIED|FAILED_PRECONDITION/i.test(errMsg)) {
+        var isFatalKey = /API_KEY_INVALID|API key not valid|key not found|API_KEY_EXPIRED/i.test(errMsg);
+        if (isFatalKey) {
           _lastGeminiError = errMsg;
           return null;
         }
@@ -4552,7 +4604,8 @@ function updateHelperGeminiStatus() {
   var key = getGeminiApiKey();
 
   if (key) {
-    var activeModel = (typeof getActiveGeminiModel === 'function' ? getActiveGeminiModel() : '') || 'gemini-3.8-flash';
+    var rawActiveModel = (typeof getActiveGeminiModel === 'function' ? getActiveGeminiModel() : '');
+    var activeModel = (rawActiveModel && !isObsoleteGeminiModel(rawActiveModel)) ? rawActiveModel : 'gemini-3.8-flash';
     var cleanLabel = activeModel.replace(/^models\//, '').replace(/-/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
     if (pill) {
       pill.textContent = '● Active (' + cleanLabel + ')';
@@ -4588,8 +4641,7 @@ async function saveGeminiKeyFromHelper(btn) {
   }
 
   // Purge obsolete models from local storage
-  var obsoleteModels = ['gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-pro'];
-  if (obsoleteModels.includes(getActiveGeminiModel())) {
+  if (isObsoleteGeminiModel(getActiveGeminiModel())) {
     setActiveGeminiModel('', 'v1beta', 'generateContent');
   }
 
@@ -4604,7 +4656,7 @@ async function saveGeminiKeyFromHelper(btn) {
     var testRes = await callGeminiApi('Say "Ready" in one word.', key, {
       skipSystemPrompt: true,
       skipThinking: true,
-      timeoutMs: 8000
+      timeoutMs: 5000
     });
 
     // Step 2: Fallback to model discovery only if direct ping failed
@@ -4617,16 +4669,21 @@ async function saveGeminiKeyFromHelper(btn) {
         }
         var discovery = await listAvailableGeminiModels(key);
         if (discovery.ok && discovery.models && discovery.models.length > 0) {
-          for (var m = 0; m < Math.min(discovery.models.length, 3); m++) {
-            var disc = discovery.models[m];
-            testRes = await callGeminiApi('Say "Ready" in one word.', key, {
-              model: disc.id,
-              apiVersion: disc.apiVersion,
-              apiMode: 'generateContent',
-              skipSystemPrompt: true,
-              skipThinking: true,
-              timeoutMs: 8000
-            });
+          var validModels = discovery.models.filter(function(d) { return !isObsoleteGeminiModel(d.id); });
+          var testModes = ['interactions', 'generateContent'];
+          for (var m = 0; m < Math.min(validModels.length, 3); m++) {
+            var disc = validModels[m];
+            for (var md = 0; md < testModes.length; md++) {
+              testRes = await callGeminiApi('Say "Ready" in one word.', key, {
+                model: disc.id,
+                apiVersion: disc.apiVersion,
+                apiMode: testModes[md],
+                skipSystemPrompt: true,
+                skipThinking: true,
+                timeoutMs: 5000
+              });
+              if (testRes) break;
+            }
             if (testRes) break;
           }
         }
@@ -5877,6 +5934,7 @@ if (typeof window !== 'undefined') {
   window.callGeminiApi             = callGeminiApi;
   window.sanitizeStedfastOutput   = sanitizeStedfastOutput;
   window.syncRemoteGeminiApiKey   = syncRemoteGeminiApiKey;
+  window.isObsoleteGeminiModel    = isObsoleteGeminiModel;
   window.saveRemoteGeminiApiKey   = saveRemoteGeminiApiKey;
   window.toggleHelperSettingsPanel = toggleHelperSettingsPanel;
   window.updateHelperGeminiStatus = updateHelperGeminiStatus;
@@ -5954,6 +6012,7 @@ if (typeof module !== 'undefined' && module.exports) {
     callGeminiApi: callGeminiApi,
     sanitizeStedfastOutput: sanitizeStedfastOutput,
     syncRemoteGeminiApiKey: syncRemoteGeminiApiKey,
+    isObsoleteGeminiModel: isObsoleteGeminiModel,
     saveRemoteGeminiApiKey: saveRemoteGeminiApiKey,
     toggleHelperSettingsPanel: toggleHelperSettingsPanel,
     updateHelperGeminiStatus: updateHelperGeminiStatus,
