@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261106b';
+const CACHE_VERSION = '20261106c';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -274,6 +274,25 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
   });
 
   // Purge outdated cache versions on activation
+    // Message listener for skip waiting and cache clearing
+  self.addEventListener('message', function (event) {
+    if (!event.data) return;
+    if (event.data.action === 'SKIP_WAITING' || event.data.action === 'skipWaiting') {
+      self.skipWaiting();
+    }
+    if (event.data.action === 'CLEAR_CACHES' || event.data.action === 'clearCaches') {
+      event.waitUntil(
+        caches.keys().then(function (keys) {
+          return Promise.all(
+            keys.map(function (k) {
+              return caches.delete(k);
+            })
+          );
+        })
+      );
+    }
+  });
+
   self.addEventListener('activate', function (event) {
     event.waitUntil(
       caches
