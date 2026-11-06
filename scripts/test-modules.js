@@ -4056,8 +4056,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261106a',
-    'sw.js CACHE_VERSION must be 20261106a'
+    '20261106b',
+    'sw.js CACHE_VERSION must be 20261106b'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4088,7 +4088,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261106a',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261106b',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6781,7 +6781,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261106a'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261106b'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8605,12 +8605,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261106a', 'Service Worker cache version must be 20261106a');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261106b', 'Service Worker cache version must be 20261106b');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261106a and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261106b and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -9177,6 +9177,58 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. Privacy Shield Enforcement Before Any External Transmission
     const privacyCheckResponse = await forumModule.getHelperAgentResponse("What is Jason Koh's attendance?");
     assert.ok(privacyCheckResponse.text.includes('Member Privacy Notice'), 'Privacy shield must intercept queries for other members before API calls');
+
+    // 7. Rigorous Output Sanitizer (Zero TSK and Zero BUG codes in AI responses)
+    assert.strictEqual(typeof forumModule.sanitizeStedfastOutput, 'function', 'sanitizeStedfastOutput must be exported');
+    assert.strictEqual(
+      forumModule.sanitizeStedfastOutput('Gated strictly via RBAC (TSK-049). Fixed bug BUG-003 and TSK-057.'),
+      'Gated strictly via RBAC. Fixed bug and.',
+      'sanitizeStedfastOutput must strip all TSK-xxx, BUG-xxx, and parenthesized ticket codes'
+    );
+
+    // 8. Remote Supabase Gemini API Key Sync & In-Drawer Settings Panel
+    assert.strictEqual(typeof forumModule.syncRemoteGeminiApiKey, 'function', 'syncRemoteGeminiApiKey must be exported');
+    assert.strictEqual(typeof forumModule.saveRemoteGeminiApiKey, 'function', 'saveRemoteGeminiApiKey must be exported');
+    assert.strictEqual(typeof forumModule.toggleHelperSettingsPanel, 'function', 'toggleHelperSettingsPanel must be exported');
+    assert.strictEqual(typeof forumModule.updateHelperGeminiStatus, 'function', 'updateHelperGeminiStatus must be exported');
+    assert.strictEqual(typeof forumModule.saveGeminiKeyFromHelper, 'function', 'saveGeminiKeyFromHelper must be exported');
+
+    // Test Gemini-First execution when key is present
+    forumModule.setGeminiApiKey('AIzaSyTestValidMockKey');
+    const origFetch = global.fetch;
+    let geminiApiCalled = false;
+    let geminiModelCalled = '';
+
+    global.fetch = async (url, opts) => {
+      if (url.includes('generativelanguage.googleapis.com')) {
+        geminiApiCalled = true;
+        if (url.includes('gemini-2.0-flash')) geminiModelCalled = 'gemini-2.0-flash';
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    { text: 'Hello! As an AI mentor for 1st PJ, I am here to help you with parade schedules, badges, and company guidelines.' }
+                  ]
+                }
+              }
+            ]
+          })
+        };
+      }
+      return origFetch ? origFetch(url, opts) : { ok: false, status: 500 };
+    };
+
+    const geminiActiveResponse = await forumModule.getHelperAgentResponse('Tell me what you can do');
+    global.fetch = origFetch;
+    forumModule.setGeminiApiKey('');
+
+    assert.ok(geminiApiCalled, 'getHelperAgentResponse must call Gemini API when API key is configured');
+    assert.strictEqual(geminiModelCalled, 'gemini-2.0-flash', 'Gemini API call must target gemini-2.0-flash');
+    assert.ok(geminiActiveResponse.text.includes('AI mentor for 1st PJ'), 'Must return intelligent Gemini response');
     console.log('  ✔ Google Gemini API Free Tier integration, credential isolation, and offline fallback verified');
 
     // ── Arcade Streaks, Dynamic Leaderboards, Squad Podium & Image Recovery ───
