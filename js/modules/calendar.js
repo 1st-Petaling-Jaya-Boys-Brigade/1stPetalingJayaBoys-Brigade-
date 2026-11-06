@@ -502,7 +502,6 @@
     _selectedDateStr = targetDate;
 
     var compEvents = getCompanyEventsForDate(targetDate);
-    var _memEvents = getMemberEventsForDate(targetDate);
     var ev = compEvents.length > 0 ? compEvents[0] : null;
 
     var dateObj = new Date(targetDate + 'T00:00:00');
