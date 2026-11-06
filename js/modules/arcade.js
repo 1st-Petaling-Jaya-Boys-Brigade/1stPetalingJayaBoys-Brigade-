@@ -266,9 +266,9 @@
     },
     {
       q: 'In what year was 1st Petaling Jaya Boys\' Brigade Company founded?',
-      options: ['1954', '1961', '1975', '1983'],
+      options: ['1954', '1959', '1975', '1983'],
       correct: 1,
-      expl: '1st Petaling Jaya Company was founded in 1961 and is sponsored by Trinity Methodist Church PJ.'
+      expl: '1st Petaling Jaya Company was founded in 1959 and is sponsored by Trinity Methodist Church PJ.'
     },
     {
       q: 'What is the primary twin pillar foundation of The Boys\' Brigade methodology?',
@@ -301,10 +301,10 @@
       expl: '"Hormat ke hadapan, Hormat" instructs the squad to deliver a standard salute to the front.'
     },
     {
-      q: 'What emblem is at the center of The Boys\' Brigade crest?',
-      options: ['A Lion', 'An Anchor and Cross', 'A Shield and Spear', 'A Fleur-de-lis'],
-      correct: 1,
-      expl: 'The BB emblem features an Anchor (symbolizing Christian hope) with the Cross integrated at its center.'
+      q: 'What is at the center of The Boys\' Brigade emblem?',
+      options: ['A Cross', 'A Crown', 'A Lion', 'A Shield'],
+      correct: 0,
+      expl: 'The Boys\' Brigade emblem features an Anchor with the Cross placed at its center, symbolizing Christian faith and hope.'
     },
     {
       q: 'What are the two regular parade sections for youth members in 1st PJ?',
@@ -344,9 +344,9 @@
     },
     {
       q: 'What is the traditional colour of the Senior Section BB uniform shirt in Malaysia?',
-      options: ['Royal Blue', 'Khaki', 'White', 'Navy Black'],
+      options: ['Navy Blue', 'Khaki', 'White', 'Black'],
       correct: 0,
-      expl: 'Senior Section members wear the regulation Royal Blue short-sleeved uniform shirt.'
+      expl: 'Senior Section members wear the regulation Navy Blue short-sleeved uniform shirt.'
     },
     {
       q: 'In Foot Drill, what is the command to dismiss a parade?',
@@ -367,10 +367,10 @@
       expl: 'The National Pesta is BB Malaysia\'s biennial national gathering featuring national drill, band, and sports competitions.'
     },
     {
-      q: 'What is the BB hymn traditionally sung at Company opening parade?',
-      options: ['Will Your Anchor Hold', 'Amazing Grace', 'Onward Christian Soldiers', 'How Great Thou Art'],
+      q: 'What is the BB hymn traditionally sung at Company dismissal?',
+      options: ['BB Vesper', 'Will Your Anchor Hold', 'Amazing Grace', 'Onward Christian Soldiers'],
       correct: 0,
-      expl: '"Will Your Anchor Hold" (The Anchor Song, written by Priscilla J. Owens) is the official hymn of The Boys\' Brigade.'
+      expl: 'The BB Vesper is the traditional hymn sung at Company dismissal / closing of parade.'
     }
   ];
 
