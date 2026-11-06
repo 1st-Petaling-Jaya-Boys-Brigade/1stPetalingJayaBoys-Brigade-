@@ -3006,28 +3006,36 @@ async function callGeminiApi(prompt, apiKey, options) {
     + "4. PRIVACY: Never reveal other members' individual attendance percentages, points, or demerits. If the prompt context provides the authenticated user's own stats, you may answer questions about their own standing.\n"
     + "5. Navigation: If user asks where something is, specify the exact portal tab and give concise instructions.";
 
+  var obsoleteModels = ['gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-pro'];
+
   var candidates = [];
   if (options.model) {
     candidates.push({
       model: options.model,
       apiVersion: options.apiVersion || _activeGeminiApiVersion || 'v1beta',
-      apiMode: options.apiMode || getActiveGeminiApiMode() || 'interactions'
+      apiMode: options.apiMode || getActiveGeminiApiMode() || 'generateContent'
     });
   } else {
     var storedModel = getActiveGeminiModel();
     var storedVer = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_gemini_api_version')) || _activeGeminiApiVersion || 'v1beta';
-    var storedMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_gemini_api_mode')) || getActiveGeminiApiMode() || 'interactions';
-    if (storedModel) {
+    var storedMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_gemini_api_mode')) || getActiveGeminiApiMode() || 'generateContent';
+    
+    // Purge deprecated stored models so they never block verification
+    if (storedModel && !obsoleteModels.includes(storedModel)) {
       candidates.push({ model: storedModel, apiVersion: storedVer, apiMode: storedMode });
     }
+
     var defaultCandidates = [
-      { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'interactions' },
-      { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'interactions' },
       { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'generateContent' },
       { apiVersion: 'v1beta', model: 'gemini-2.5-flash', apiMode: 'generateContent' },
       { apiVersion: 'v1beta', model: 'gemini-2.5-flash-lite', apiMode: 'generateContent' },
-      { apiVersion: 'v1',     model: 'gemini-3.8-flash', apiMode: 'generateContent' }
+      { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'interactions' },
+      { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'interactions' },
+      { apiVersion: 'v1',     model: 'gemini-3.8-flash', apiMode: 'generateContent' },
+      { apiVersion: 'v1',     model: 'gemini-2.5-flash', apiMode: 'generateContent' }
     ];
+
     for (var d = 0; d < defaultCandidates.length; d++) {
       var item = defaultCandidates[d];
       if (!candidates.some(function(c) { return c.model === item.model && c.apiVersion === item.apiVersion && c.apiMode === item.apiMode; })) {
@@ -3043,24 +3051,20 @@ async function callGeminiApi(prompt, apiKey, options) {
     var endpoint = '';
     var requestBody = {};
     var headers = {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': key
+      'Content-Type': 'application/json'
     };
 
     if (target.apiMode === 'interactions') {
-      endpoint = 'https://generativelanguage.googleapis.com/' + target.apiVersion + '/interactions?model=' + encodeURIComponent(target.model) + '&key=' + encodeURIComponent(key);
+      endpoint = 'https://generativelanguage.googleapis.com/' + target.apiVersion + '/interactions?key=' + encodeURIComponent(key);
       requestBody = {
         model: target.model,
-        input: prompt
+        input: prompt,
+        generation_config: {
+          max_output_tokens: options.skipThinking ? (options.maxTokens || 50) : (options.maxTokens || 800)
+        }
       };
       if (!options.skipSystemPrompt) {
         requestBody.system_instruction = systemPrompt;
-      }
-      requestBody.generation_config = {
-        max_output_tokens: options.skipThinking ? (options.maxTokens || 60) : (options.maxTokens || 800)
-      };
-      if (options.skipThinking) {
-        requestBody.generation_config.thinking_level = 'minimal';
       }
     } else {
       endpoint = 'https://generativelanguage.googleapis.com/' + target.apiVersion + '/models/' + target.model + ':generateContent?key=' + encodeURIComponent(key);
@@ -3072,15 +3076,9 @@ async function callGeminiApi(prompt, apiKey, options) {
           }
         ],
         generationConfig: {
-          maxOutputTokens: options.skipThinking ? (options.maxTokens || 60) : (options.maxTokens || 800)
+          maxOutputTokens: options.skipThinking ? (options.maxTokens || 50) : (options.maxTokens || 800)
         }
       };
-      if (options.skipThinking) {
-        requestBody.generationConfig.thinkingConfig = {
-          thinkingLevel: 'MINIMAL',
-          thinkingBudget: 0
-        };
-      }
       if (target.apiVersion === 'v1beta' && !options.skipSystemPrompt) {
         requestBody.systemInstruction = {
           parts: [{ text: systemPrompt }]
@@ -3114,30 +3112,8 @@ async function callGeminiApi(prompt, apiKey, options) {
         var errBody = null;
         try {
           errBody = await resp.json();
-        } catch (_) {
-          // ignore non-json error responses
-        }
+        } catch (_) {}
         var errMsg = extractGeminiErrorMessage(errBody, 'HTTP ' + resp.status + (resp.statusText ? ' ' + resp.statusText : ''));
-
-        // If thinkingConfig is unsupported on this model, retry immediately without it
-        if (resp.status === 400 && errMsg.includes('thinkingConfig') && requestBody.generationConfig && requestBody.generationConfig.thinkingConfig) {
-          delete requestBody.generationConfig.thinkingConfig;
-          var retryResp = await fetch(endpoint, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(requestBody),
-            signal: controller ? controller.signal : undefined
-          });
-          if (retryResp.ok) {
-            var retryData = await retryResp.json();
-            var retryText = parseGeminiResponse(retryData);
-            if (retryText) {
-              _lastGeminiError = '';
-              setActiveGeminiModel(target.model, target.apiVersion, target.apiMode);
-              return retryText;
-            }
-          }
-        }
 
         capturedErrors.push(errMsg);
         console.warn('Gemini API [' + target.apiMode + '/' + target.apiVersion + '/' + target.model + '] HTTP ' + resp.status + ': ' + errMsg);
@@ -3159,7 +3135,7 @@ async function callGeminiApi(prompt, apiKey, options) {
     var highPriError = capturedErrors.find(function(e) {
       return /API_KEY_INVALID|PERMISSION_DENIED|FAILED_PRECONDITION|quota|RESOURCE_EXHAUSTED/i.test(e);
     });
-    _lastGeminiError = highPriError || capturedErrors[0];
+    _lastGeminiError = highPriError || capturedErrors[capturedErrors.length - 1];
   }
 
   return null;
@@ -4602,13 +4578,19 @@ async function saveGeminiKeyFromHelper(btn) {
   var key = (input.value || '').trim().replace(/^['"]|['"]$/g, '');
   if (!key) {
     setGeminiApiKey('');
-    setActiveGeminiModel('', 'v1beta', 'interactions');
+    setActiveGeminiModel('', 'v1beta', 'generateContent');
     await saveRemoteGeminiApiKey('');
     updateHelperGeminiStatus();
     if (typeof showToast === 'function') {
       showToast('Gemini API Key removed. Reverted to local intelligence.', 'info');
     }
     return;
+  }
+
+  // Purge obsolete models from local storage
+  var obsoleteModels = ['gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-1.5-pro', 'gemini-pro'];
+  if (obsoleteModels.includes(getActiveGeminiModel())) {
+    setActiveGeminiModel('', 'v1beta', 'generateContent');
   }
 
   var saveBtn = btn || document.querySelector('.helper-settings-save-btn');
@@ -4618,14 +4600,14 @@ async function saveGeminiKeyFromHelper(btn) {
       showToast('Connecting to Google Gemini AI...', 'info');
     }
 
-    // Step 1: Ultra-fast direct test ping (Interactions API / GenerateContent fast-path)
+    // Step 1: Ultra-fast direct test ping across modern candidate models
     var testRes = await callGeminiApi('Say "Ready" in one word.', key, {
       skipSystemPrompt: true,
       skipThinking: true,
       timeoutMs: 8000
     });
 
-    // Step 2: If fast-path failed with model-specific error, try discovery fallback
+    // Step 2: Fallback to model discovery only if direct ping failed
     if (!testRes) {
       var initialErr = (typeof getLastGeminiError === 'function' ? getLastGeminiError() : _lastGeminiError) || '';
       var isFatalAuth = /API_KEY_INVALID|API key not valid|key not found|PERMISSION_DENIED|disabled/i.test(initialErr);
@@ -4665,8 +4647,6 @@ async function saveGeminiKeyFromHelper(btn) {
         userMsg = 'Gemini API is unavailable in your current region or VPN location.';
       } else if (/RESOURCE_EXHAUSTED|quota/i.test(lastErr)) {
         userMsg = 'Gemini API quota exceeded. Please check your rate limits.';
-      } else if (/not found for API version|not supported for generateContent|no longer available/i.test(lastErr)) {
-        userMsg = 'Selected model is unavailable. Updated to gemini-3.8-flash for modern compatibility.';
       } else if (/Failed to fetch|Content-Security-Policy|NetworkError/i.test(lastErr)) {
         userMsg = 'Network or CSP connection blocked. Please refresh your browser.';
       } else if (lastErr) {
