@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 011_audit_logs_lockout_session_ttl.sql (TSK-041)
+-- Migration: 011_audit_logs_lockout_session_ttl.sql
 --
 -- Immutable Admin Audit Logs, Brute-Force Lockout & Session TTL Expiry
 --

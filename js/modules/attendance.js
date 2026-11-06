@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Master Attendance & Points Breakdown Module (TSK-007)
+ * Master Attendance & Points Breakdown Module
  *
  * Connects the Company Master Sheet to the Portal:
  *   1. Reads synced attendance %, uniform inspection points, and platoon scores
@@ -13,7 +13,7 @@ var MASTER_ATTENDANCE_CACHE_TTL = 10 * 1000; // 10-second cache TTL for responsi
 var _masterAttendanceCache = null;
 var _masterAttendanceCacheTime = 0;
 
-// ── TSK-057: Confidential Attendance Achievement Tiers Helper ────────────────
+// ── Confidential Attendance Achievement Tiers Helper ────────────────
 var _getTierFn = (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function')
   ? window.getAttendanceAchievementTier
   : function(percentage) {
@@ -292,7 +292,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     }
   }
 
-  // TSK-057: Confidential Attendance Achievement Tiers
+  // Confidential Attendance Achievement Tiers
   var pTier = _getTierFn(parade.percentage);
   var bTier = isBandMember ? _getTierFn(band.percentage) : null;
 
@@ -375,7 +375,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '</button>' +
     '</div>' +
 
-    '<!-- 1. Hero Attendance Rate Cards (TSK-057: Confidential Achievement Tiers) -->' +
+    '<!-- 1. Hero Attendance Rate Cards -->' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;margin-bottom:14px;">' +
       '<!-- Parade Attendance -->' +
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
@@ -635,7 +635,7 @@ async function renderAdminMasterSheetPanel() {
       '</div>' +
     '</div>' +
 
-    '<!-- Master Sheet Security & Endpoint Hardening (TSK-038) -->' +
+    '<!-- Master Sheet Security & Endpoint Hardening -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow-card);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
         '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
@@ -854,7 +854,7 @@ async function triggerMasterSheetFetch() {
   }
 }
 
-// ── Minor Directory Privacy & Safe-Standings Helpers (TSK-040) ──────────────
+// ── Minor Directory Privacy & Safe-Standings Helpers ──────────────
 
 /**
  * Toggles visibility of a squad member roster on the company leaderboard
@@ -879,7 +879,7 @@ function toggleSquadRoster(rosterId) {
 
 /**
  * Renders the Company Platoon Leaderboard on page-attendance
- * Enforces surname masking and low attendance / demerit privacy protection (TSK-040).
+ * Enforces surname masking and low attendance / demerit privacy protection.
  */
 async function renderCompanyLeaderboard() {
   var c = document.getElementById('company-platoon-leaderboard');
@@ -1219,7 +1219,7 @@ async function renderCompanyLeaderboard() {
 }
 
 /**
- * Triggers sync of attendance records to Google Sheets (BUG-007)
+ * Triggers sync of attendance records to Google Sheets
  * Delegates to sheets.js syncToSheets with real response handling
  * @param {Object|Array} records
  * @returns {Promise<Object>}

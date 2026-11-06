@@ -1,5 +1,5 @@
 /**
- * 1st Petaling Jaya Boys' Brigade Portal - UI Notification & Modal System (TSK-012)
+ * 1st Petaling Jaya Boys' Brigade Portal - UI Notification & Modal System
  * File: js/core/ui.js
  *
  * Provides responsive, non-blocking toast notifications and accessible
@@ -257,7 +257,7 @@
   }
 
   /**
-   * Initializes global button debouncing (TSK-025)
+   * Initializes global button debouncing
    * Intercepts rapid button clicks within delayMs to prevent accidental duplicate actions and request floods.
    * @param {number} [delayMs=500]
    */
@@ -293,7 +293,7 @@
   }
 
   /**
-   * Wraps an async button action with busy/disabled state (TSK-025)
+   * Wraps an async button action with busy/disabled state
    * @param {HTMLElement} btn
    * @param {Function} asyncFn
    * @returns {Promise<any>}
@@ -327,7 +327,7 @@
     };
   }
 
-  // ── Rich Text Formatting & Color Popover Engine (TSK-010 / TSK-009) ──────
+  // ── Rich Text Formatting & Color Popover Engine ──────
   var RICH_TEXT_COLOR_PALETTE = [
     '#000000', '#262626', '#434343', '#555555', '#737373', '#8c8c8c', '#a6a6a6', '#d9d9d9', '#f2f2f2', '#ffffff',
     '#7f0000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',

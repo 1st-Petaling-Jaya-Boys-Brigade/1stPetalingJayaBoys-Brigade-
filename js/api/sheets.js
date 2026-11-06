@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Master Sheet Ingestion & Google Sheets API Client (TSK-007, TSK-038)
+ * Master Sheet Ingestion & Google Sheets API Client
  *
  * Handles communication with the Google Master Attendance Spreadsheet,
  * configuration persistence in Supabase, shared-secret token validation,
@@ -24,7 +24,7 @@ var MEMBER_ALLOWLIST_KEYS = [
   'paradeAttendance', 'bandAttendance', 'points', 'lastUpdated'
 ];
 
-// ── Security Helpers (TSK-038) ──────────────────────────────────────────────
+// ── Security Helpers ──────────────────────────────────────────────
 
 /**
  * Generates a cryptographically strong shared-secret sync token
@@ -293,10 +293,10 @@ async function saveMasterSheetConfig(cfgOverride) {
   return cfg;
 }
 
-// ── Ingestion & Data Fetching (Hardened TSK-038) ─────────────────────────────
+// ── Ingestion & Data Fetching (Hardened ) ─────────────────────────────
 
 /**
- * Pushes attendance records to Google Apps Script / Google Sheets with real CORS response validation (BUG-007)
+ * Pushes attendance records to Google Apps Script / Google Sheets with real CORS response validation
  * Eliminates mode: 'no-cors' so that errors, authentication failures, and network drops are properly caught
  * instead of giving false-positive success toasts.
  * @param {Object|Array} recordsOrOptions
@@ -352,7 +352,7 @@ async function syncToSheets(recordsOrOptions, scriptUrl, syncToken) {
     headers['X-Sync-Token'] = token;
   }
 
-  // Real CORS request - NO mode: 'no-cors' (BUG-007)
+  // Real CORS request - NO mode: 'no-cors'
   var res;
   try {
     res = await fetch(requestUrl, {
@@ -500,7 +500,7 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey, syncToken) {
 
   return `// ==============================================================================
 // 1st Petaling Jaya Boys' Brigade - Master Attendance Sheet Ingestion Script
-// Hardened Security Edition (TSK-038: PII Stripping, Token Auth & Privacy Audit)
+// Hardened Security Edition
 // 
 // Paste this code into: Google Sheets > Extensions > Apps Script
 // Sets up custom menu 'BB Portal' in your Master Attendance Spreadsheet.

@@ -577,7 +577,7 @@ select.form-input,
   flex-shrink: 0;
 }
 
-/* ── UNIFORM STORE (TSK-006B) ── */
+/* ── UNIFORM STORE ── */
 
 /* Category Filter Tabs */
 .uniform-cat-tabs {
@@ -1278,7 +1278,7 @@ select.form-input,
   border-color: var(--accent);
 }
 
-/* ── STORY HIGHLIGHTS REEL & VIEWER (TSK-033) ── */
+/* ── STORY HIGHLIGHTS REEL & VIEWER ── */
 .story-highlights-reel {
   display: flex;
   gap: 14px;
@@ -1579,7 +1579,7 @@ select.form-input,
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Desktop Exterior Navigation Arrows (TSK-058: Repositioned outside media card container) */
+/* Desktop Exterior Navigation Arrows */
 .story-arrow-btn {
   width: 46px;
   height: 46px;
@@ -1612,7 +1612,7 @@ select.form-input,
   height: 22px;
 }
 
-/* Suppress any native browser/device media controls or duration bars (TSK-058) */
+/* Suppress any native browser/device media controls or duration bars */
 .story-media-video::-webkit-media-controls,
 .story-media-video::-webkit-media-controls-panel,
 .story-media-video::-webkit-media-controls-enclosure,
@@ -1626,7 +1626,7 @@ select.form-input,
   -webkit-appearance: none !important;
 }
 
-/* Mobile Touch Tap Navigation & Arrow Suppression (TSK-058) */
+/* Mobile Touch Tap Navigation & Arrow Suppression */
 @media (max-width: 768px) {
   .story-viewer-modal {
     padding: 0;
@@ -1795,7 +1795,7 @@ select.form-input,
   display: block;
 }
 
-/* ── TASKS & PROJECT BOARD (TSK-009) ── */
+/* ── TASKS & PROJECT BOARD ── */
 .tasks-segmented-bar {
   display: flex;
   align-items: center;
@@ -3167,7 +3167,7 @@ select.form-input,
   cursor: not-allowed;
 }
 
-/* ── Quick Access Carousel & Dashboard Tiles (TSK-CAROUSEL) ── */
+/* ── Quick Access Carousel & Dashboard Tiles ── */
 .home-quick-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -3631,7 +3631,7 @@ select.form-input,
   filter: brightness(1.1);
 }
 
-/* ── COMPANY RESOURCES HUB (TSK-034) ── */
+/* ── COMPANY RESOURCES HUB ── */
 .resources-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -3895,10 +3895,10 @@ select.form-input,
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   COMPANY CALENDAR & MEMBER SCHEDULE (TSK-CALENDAR)
+   COMPANY CALENDAR & MEMBER SCHEDULE
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* Home 2-Column Responsive Layout (TSK-CAROUSEL Alignment) */
+/* Home 2-Column Responsive Layout ( Alignment) */
 .home-hero-calendar-row {
   display: flex;
   flex-direction: column;
@@ -4358,7 +4358,7 @@ select.form-input,
   font-weight: 700;
 }
 
-/* ── Offline Status Indicator Bar (TSK-016) ────────────────────────────────── */
+/* ── Offline Status Indicator Bar ────────────────────────────────── */
 .offline-indicator-bar {
   width: 100%;
   background: var(--accent-soft, rgba(245, 197, 66, 0.14));
@@ -7265,7 +7265,7 @@ select.form-input,
 }
 
 
-/* ── TSK-057: Confidential Attendance Achievement Tiers & Milestone Badges ── */
+/* ── Confidential Attendance Achievement Tiers & Milestone Badges ── */
 .att-tier-pill {
   display: inline-flex;
   align-items: center;
@@ -7334,7 +7334,7 @@ select.form-input,
 
 
 /* ═════════════════════════════════════════════════════════════════════════
-   TSK-046: AI Support Helper Agent ("Ask Stedfast") & Bug Forum
+   AI Support Helper Agent ("Ask Stedfast") & Bug Forum
    ═════════════════════════════════════════════════════════════════════════ */
 
 /* ── Floating Helper Agent Trigger Pill (Bottom-Right) ── */
@@ -8116,7 +8116,7 @@ select.form-input,
   }
 }
 
-/* ── TSK-056: 1stPJ Arcade, Daily Wordle, BB Trivia & Gamification ────────── */
+/* ── 1stPJ Arcade, Daily Wordle, BB Trivia & Gamification ────────── */
 .nav-streak-wrap {
   display: inline-flex;
   align-items: center;
@@ -8756,7 +8756,7 @@ select.form-input,
   }
 }
 
-/* ── TSK-062: Creator Profile Avatar Outlines, Gradients & Animations ── */
+/* ── Creator Profile Avatar Outlines, Gradients & Animations ── */
 .avatar-outline-container {
   position: relative !important;
 }
@@ -9015,7 +9015,7 @@ select.form-input,
 }
 
 
-/* ── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ── */
+/* ── Profile Cosmetics & Gamified Arcade Credit Shop ── */
 
 /* 1. Modular Avatar Cosmetic Badges (Top-Left Corner Placement) */
 .avatar-cosmetic-badge {
@@ -9369,7 +9369,7 @@ select.form-input,
 }
 
 /* ==========================================================================
-   TSK-010 / TSK-009: Rich Text Formatting Toolbar & Announcement Infographics
+    / Rich Text Formatting Toolbar & Announcement Infographics
    ========================================================================== */
 
 

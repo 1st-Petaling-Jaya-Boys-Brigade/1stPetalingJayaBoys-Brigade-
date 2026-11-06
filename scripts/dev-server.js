@@ -1,5 +1,5 @@
 /**
- * Lightweight Zero-Dependency Static Development Server (TSK-015)
+ * Lightweight Zero-Dependency Static Development Server
  * Serves the Boys' Brigade Portal locally with proper MIME types and caching headers.
  */
 const http = require('http');

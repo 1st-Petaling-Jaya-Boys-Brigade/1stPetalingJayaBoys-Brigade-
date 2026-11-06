@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>1st Petaling Jaya Boys' Brigade Portal</title>
-<!-- PWA Web App Manifest & Mobile Capability (TSK-016) -->
+<!-- PWA Web App Manifest & Mobile Capability -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0e17">
 <meta name="color-scheme" content="light dark">
@@ -20,7 +20,7 @@
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="bingbot" content="noindex, nofollow, noarchive, nosnippet">
-<!-- Content Security Policy (CSP), Anti-Clickjacking & Referrer Security (TSK-037) -->
+<!-- Content Security Policy (CSP), Anti-Clickjacking & Referrer Security -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.supabase.co https://*.googleusercontent.com https://drive.google.com https://images.unsplash.com; media-src 'self' blob: https://*.supabase.co https://drive.google.com https://*.googleusercontent.com https://www.youtube.com https://commondatastorage.googleapis.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://script.google.com https://script.googleusercontent.com https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com https://www.youtube.com https://www.youtube-nocookie.com https://drive.google.com; object-src 'none'; base-uri 'self'; form-action 'self';">
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
@@ -375,7 +375,7 @@
       </div>
     </div>
     <div class="nav-actions">
-      <!-- 1. Quick Search Pill (Inline Header Search - TSK-050) -->
+      <!-- 1. Quick Search Pill (Inline Header Search - ) -->
       <div class="nav-search-pill" id="nav-search-trigger" onclick="openGlobalSearch()">
         <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="search" id="global-search-input" class="nav-search-input" placeholder="Search portal..." autocomplete="off" aria-label="Search portal" onkeydown="handleHeaderSearchKeyDown(event)" onblur="handleHeaderSearchBlur()" />
@@ -413,7 +413,7 @@
         </div>
       </div>
 
-      <!-- 3. Credits & Daily Streak Counter Badge (TSK-056) -->
+      <!-- 3. Credits & Daily Streak Counter Badge -->
       <div class="nav-points-badge" id="nav-points-badge" onclick="switchTabNav('arcade')" role="button" tabindex="0" title="Daily Streak & Credits (Click to enter 1stPJ Arcade)" aria-label="Credits: 0, Streak: 0">
         <span class="nav-streak-wrap" title="Daily Game Participation Streak">
           <span class="nav-streak-val">0</span>
@@ -434,7 +434,7 @@
         </span>
       </button>
 
-      <!-- Active Role Badge (TSK-049: Member / Admin / Super Admin) -->
+      <!-- Active Role Badge -->
       <div class="nav-role-badge-wrap">
         <span class="nav-role-badge" role="status" aria-label="Current Role: Member" title="Current Role: Member">
           <span class="nav-role-badge-icon"></span>
@@ -456,7 +456,7 @@
   </div>
 </header>
 
-<!-- Offline Notification Banner (TSK-016) -->
+<!-- Offline Notification Banner -->
 <div id="offline-indicator" class="offline-indicator-bar" style="display:none;" role="status" aria-live="polite">
   <div class="offline-indicator-content">
     <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -610,7 +610,7 @@
         <div class="hero-desc">Welcome to the official portal for uniform orders, announcements, and member registration.</div>
       </div>
 
-      <!-- Quick Dashboard Carousel (TSK-CAROUSEL: 2 cards visible, aligned with calendar) -->
+      <!-- Quick Dashboard Carousel -->
       <div class="hq-carousel-wrapper" id="hq-carousel-wrapper" aria-label="Quick Access Carousel">
         <div class="hq-carousel-container" id="hq-carousel-container">
           <button type="button" class="hq-carousel-arrow hq-arrow-prev" id="hq-carousel-prev" onclick="cycleQuickCards(-1)" aria-label="Previous cards" title="Previous cards">
@@ -709,7 +709,7 @@
         <span>Open Gallery</span> &rarr;
       </button>
     </div>
-    <!-- Instagram-Style Story Highlights Reel (TSK-033) -->
+    <!-- Instagram-Style Story Highlights Reel -->
     <div id="story-highlights-reel" class="story-highlights-reel"></div>
     <div id="home-gallery-grid" class="gallery-grid"></div>
     <div id="no-photos-home" style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;display:none;">No photos uploaded yet.</div>
@@ -885,7 +885,7 @@
 
       <!-- REGISTER -->
       <form id="auth-register" style="display:none;margin:0;" onsubmit="event.preventDefault(); registerMember();" autocomplete="on">
-        <!-- Honeypot Bot Trap (TSK-025) -->
+        <!-- Honeypot Bot Trap -->
         <div style="display:none !important; position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;" aria-hidden="true">
           <label for="reg-honeypot">Leave blank</label>
           <input type="text" id="reg-honeypot" name="hp_field" tabindex="-1" autocomplete="off" />
@@ -928,7 +928,7 @@
             </select>
           </div>
         </div>
-        <!-- Child Safety & Parental Consent Governance (TSK-032 / COPPA & PDPA 2010) -->
+        <!-- Child Safety & Parental Consent Governance ( / COPPA & PDPA 2010) -->
         <div id="parent-consent-box" style="display:none;background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.3);border-radius:12px;padding:16px;margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
             <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -1051,7 +1051,7 @@
         <div style="font-size:10px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;">Sure &amp; Stedfast</div>
       </div>
 
-      <!-- My Attendance & Performance (TSK-007) -->
+      <!-- My Attendance & Performance -->
       <div class="dark-card" id="member-attendance-card" style="margin-bottom:14px;">
         <!-- Populated dynamically by loadMemberAttendanceStats() -->
       </div>
@@ -2134,7 +2134,7 @@
           <div class="adm-sec-arrow">›</div>
         </div>
 
-        <!-- Section: Company Resources (TSK-034) -->
+        <!-- Section: Company Resources -->
         <div class="adm-section-btn" id="sec-btn-resources" onclick="switchAdminSection('resources')">
           <div style="display:flex;align-items:center;gap:12px;">
             <div class="adm-sec-icon" style="background:rgba(59,130,246,0.12);color:var(--blue);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg></div>
@@ -2366,7 +2366,7 @@
               </button>
               <button class="submit-btn danger" onclick="clearFormBuilder()" style="margin-top:4px;width:auto;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
-            <!-- Uniform products preview container for Form Builder reference (BUG-004) -->
+            <!-- Uniform products preview container for Form Builder reference -->
             <div id="uniform-products-preview" style="margin-top:12px;"></div>
           </div>
           <div id="admin-forms-list"></div>
@@ -2661,7 +2661,7 @@
               data-placeholder="Write your announcement here..."></div>
             </div>
           </div>
-          <!-- Announcement Infographic Attachment (TSK-010 / Infographics) -->
+          <!-- Announcement Infographic Attachment ( / Infographics) -->
           <div class="ann-infographic-upload-box" style="margin-bottom:14px;padding:12px 14px;background:var(--bg-card-subtle);border:1px dashed var(--border-card);border-radius:10px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
               <label style="font-size:12px;font-weight:600;color:var(--text-secondary);display:inline-flex;align-items:center;gap:6px;">
@@ -2777,7 +2777,7 @@
             <div class="adm-section-desc">Photos shown on the home page</div>
           </div>
         </div>
-        <!-- Story Highlights Admin Management (TSK-033) -->
+        <!-- Story Highlights Admin Management -->
         <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <div>
@@ -2832,7 +2832,7 @@
         </div>
       </div>
 
-      <!-- ── RESOURCES SECTION (TSK-034) ────────────────────────── -->
+      <!-- ── RESOURCES SECTION ────────────────────────── -->
       <div id="adm-section-resources" style="display:none;">
         <div class="adm-section-header">
           <div class="adm-sec-icon" style="background:rgba(59,130,246,0.15);color:var(--blue);">
@@ -2967,7 +2967,7 @@
      GLOBAL ACCESSIBLE MODAL DIALOGS
      ═════════════════════════════════════════════════════════════════════════ -->
 
-<!-- Child Safety & Privacy Governance (COPPA/PDPA) Modal (TSK-032) -->
+<!-- Child Safety & Privacy Governance (COPPA/PDPA) Modal -->
 <div id="child-safety-modal" role="dialog" aria-modal="true" aria-labelledby="csm-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(6px);z-index:99999;overflow-y:auto;padding:30px 16px;">
   <div style="max-width:540px;margin:20px auto;background:var(--bg-card);border-radius:18px;padding:26px;border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);color:var(--text-primary);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -3009,9 +3009,9 @@
   </div>
 </div>
 
-<!-- ── INSTAGRAM-STYLE FULLSCREEN STORY VIEWER MODAL (TSK-033) ── -->
+<!-- ── INSTAGRAM-STYLE FULLSCREEN STORY VIEWER MODAL ── -->
 <div id="story-viewer-modal" class="story-viewer-modal" role="dialog" aria-modal="true" aria-label="Highlight Viewer">
-  <!-- Desktop Exterior Navigation Arrows (TSK-058: Repositioned outside media frame container) -->
+  <!-- Desktop Exterior Navigation Arrows -->
   <button type="button" class="story-arrow-btn story-arrow-prev" onclick="prevStorySlide()" title="Previous slide" aria-label="Previous slide">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
   </button>
@@ -3064,7 +3064,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
   </button>
 </div>
-<!-- ── ADMIN CREATE / EDIT STORY HIGHLIGHT MODAL (TSK-033) ── -->
+<!-- ── ADMIN CREATE / EDIT STORY HIGHLIGHT MODAL ── -->
 <div id="adm-story-modal" class="portal-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="adm-story-modal-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
   <div class="portal-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;padding:22px;box-shadow:var(--shadow-elevated);">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -3231,14 +3231,14 @@
   </div>
 </div>
 
-<!-- Quick Search Palette Container (Hidden per TSK-050: inline header search without popup) -->
+<!-- Quick Search Palette Container (Hidden per inline header search without popup) -->
 <div class="search-palette-overlay" id="global-search-modal" style="display:none !important;" role="dialog" aria-modal="true" aria-label="Quick Search" aria-hidden="true">
   <div class="search-palette-card" id="search-palette-card" style="display:none !important;">
     <div class="search-palette-results" id="global-search-results" style="display:none !important;"></div>
   </div>
 </div>
 
-<!-- Privacy-First Bot Protection (TSK-043: Cloudflare Turnstile) -->
+<!-- Privacy-First Bot Protection -->
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
@@ -3266,7 +3266,7 @@
 
 <script>
 
-// ── Anti-Clickjacking Frame Buster Guard (TSK-037) ───────────────────────────
+// ── Anti-Clickjacking Frame Buster Guard ───────────────────────────
 if (window.top !== window.self) {
   try {
     window.top.location = window.self.location;
@@ -3275,7 +3275,7 @@ if (window.top !== window.self) {
   }
 }
 
-// ── Navigation & Browser History (TSK-059) ─────────────────────────────────
+// ── Navigation & Browser History ─────────────────────────────────
 var TAB_TITLES = {
   home: 'Home Dashboard — 1st PJ Boys\' Brigade',
   order: 'Forms & Store — 1st PJ Boys\' Brigade',
@@ -3318,7 +3318,7 @@ function switchTab(tab, btn, skipPush) {
     }
   }
 
-  // Record browser history state on tab navigation for native Undo/Redo (TSK-059)
+  // Record browser history state on tab navigation for native Undo/Redo
   if (!skipPush && typeof history !== 'undefined' && history.pushState && typeof window !== 'undefined') {
     var curHash = (window.location.hash || '').replace('#', '').trim();
     if (curHash !== tab) {
@@ -3375,7 +3375,7 @@ function switchTabNav(tab, skipPush) {
   switchTab(tab, fakeBtn, skipPush);
 }
 
-// ── Quick Access Carousel Controller (TSK-CAROUSEL) ────────────────────────
+// ── Quick Access Carousel Controller ────────────────────────
 var _hqCurrentPage = 0;
 var _hqTouchStartX = 0;
 var _hqTouchEndX = 0;
@@ -3637,22 +3637,22 @@ function closeSidebar() {
 }
 
 // ── Badges & President's Tracker ──────────────────────────────────────────
-// Extracted to js/modules/badges.js (TSK-008)
+// Extracted to js/modules/badges.js
 
 // ── Tasks & Kanban Board ───────────────────────────────────────────────────
-// Extracted to js/modules/tasks.js (TSK-009)
+// Extracted to js/modules/tasks.js
 
 // ── Gallery & Announcements ────────────────────────────────────────────────
-// Extracted to js/modules/gallery.js and js/modules/announcements.js (TSK-010)
+// Extracted to js/modules/gallery.js and js/modules/announcements.js
 
 // ── Badges ─────────────────────────────────────────────────────────────────
-// Extracted to js/modules/badges.js (TSK-008)
+// Extracted to js/modules/badges.js
 
 // ── Admin ──────────────────────────────────────────────────────────────────
-// Extracted to js/modules/admin.js (TSK-011)
+// Extracted to js/modules/admin.js
 
 // ── Announcement Rich Text Editor ──────────────────────────────────────────
-// Extracted to js/modules/announcements.js (TSK-010)
+// Extracted to js/modules/announcements.js
 
 // ── Shared mini rich-text editor factory ──────────────────────────────────
 // Usage: createRichEditor(containerId, editorId, placeholder, minHeight)
@@ -3874,7 +3874,7 @@ window.addEventListener('load', function() {
     }
   }, 30000);
 
-  // Initialize initial history state for browser Undo/Redo stack (TSK-059)
+  // Initialize initial history state for browser Undo/Redo stack
   var initialHash = (typeof window !== 'undefined' && window.location.hash ? window.location.hash.replace('#', '').trim() : '') || 'home';
   var validInitialTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'];
   if (validInitialTabs.indexOf(initialHash) === -1 && initialHash !== 'admin') {
@@ -3939,7 +3939,7 @@ function handleHashNavigation(event) {
 }
 window.addEventListener('popstate', handleHashNavigation);
 window.addEventListener('hashchange', handleHashNavigation);
-// ── Offline Connectivity & PWA Service Worker (TSK-016) ────────────────────
+// ── Offline Connectivity & PWA Service Worker ────────────────────
 function updateOfflineIndicator() {
   var indicator = document.getElementById('offline-indicator');
   if (!indicator) return;
@@ -4582,7 +4582,7 @@ function closeNotificationDropdown() {
   toggleNotificationDropdown(false);
 }
 
-// ── Inline Header Search Controller (TSK-050) ──────────────────────────────
+// ── Inline Header Search Controller ──────────────────────────────
 var _globalSearchItems = [];
 
 function openGlobalSearch() {
@@ -4616,7 +4616,7 @@ function handleHeaderSearchBlur() {
 }
 
 function handleGlobalSearchInput() {
-  // Recommendations removed per TSK-050
+  // Recommendations removed per 
 }
 
 function handleHeaderSearchKeyDown(e) {
@@ -4822,6 +4822,6 @@ window.handleNavProfileClick      = handleNavProfileClick;
 window.handleHeaderSearchKeyDown  = handleHeaderSearchKeyDown;
 window.executeHeaderSearch        = executeHeaderSearch;
 
-// Gallery drag-and-drop auto-initialized via js/modules/gallery.js (TSK-010)
+// Gallery drag-and-drop auto-initialized via js/modules/gallery.js
 
 </script>

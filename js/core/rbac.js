@@ -1,5 +1,5 @@
 /**
- * 1st Petaling Jaya Boys' Brigade Portal - Granular Role-Based Access Control (RBAC) (TSK-049)
+ * 1st Petaling Jaya Boys' Brigade Portal - Granular Role-Based Access Control (RBAC)
  * File: js/core/rbac.js
  *
  * Implements a 3-tier RBAC system (Member, Admin, Super Admin) with granular module-level permissions,
@@ -386,7 +386,7 @@
   }
 
   /**
-   * Renders and updates the top navigation bar active role badge (TSK-049).
+   * Renders and updates the top navigation bar active role badge.
    */
   function renderHeaderRoleBadge() {
     if (typeof document === 'undefined') return;

@@ -187,7 +187,7 @@
   --muted: var(--text-secondary);
 }
 
-/* ── Geometry, Safe-Area & Interaction Tokens (TSK-017) ── */
+/* ── Geometry, Safe-Area & Interaction Tokens ── */
 :root {
   --radius-xs: 6px;
   --radius-sm: 10px;

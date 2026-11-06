@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 012_turnstile_bot_protection.sql (TSK-043)
+-- Migration: 012_turnstile_bot_protection.sql
 --
 -- Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA Integration)
 --
@@ -57,7 +57,7 @@ INSERT INTO bb_config (key, value)
 VALUES ('turnstile_site_key', '"1x00000000000000000000AA"')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
 
--- Server Secret Key (Protected by TSK-036 RLS rule: key NOT LIKE '%secret%')
+-- Server Secret Key (Protected by  RLS rule: key NOT LIKE '%secret%')
 INSERT INTO bb_config (key, value)
 VALUES ('turnstile_secret_key', '"1x0000000000000000000000000000000AA"')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;

@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal
- * Supabase REST & Storage API Client with Concurrency Safety (TSK-014)
+ * Supabase REST & Storage API Client with Concurrency Safety
  */
 
 /**
@@ -105,7 +105,7 @@ function getSupaClient() {
 }
 
 /**
- * Request Throttling: Limits maximum concurrent HTTP requests to prevent socket exhaustion (TSK-025)
+ * Request Throttling: Limits maximum concurrent HTTP requests to prevent socket exhaustion
  * Enhanced with 12s AbortController timeout boundaries and queue-abort de-registration.
  */
 const MAX_CONCURRENT_REQUESTS = 12;
@@ -168,7 +168,7 @@ async function throttledFetch(url, fetchOpts, timeoutMs) {
 }
 
 /**
- * In-memory TTL Query Cache & Request Coalescing (TSK-025)
+ * In-memory TTL Query Cache & Request Coalescing
  */
 const _queryCache = new Map();
 
@@ -196,7 +196,7 @@ function clearQueryCache() {
 const supa = {
   /**
    * PostgREST HTTP Request helper with Request Throttling, Exponential Backoff on HTTP 429/500,
-   * and TTL Query Caching / Single-flight Coalescing (TSK-025)
+   * and TTL Query Caching / Single-flight Coalescing
    */
   async req(method, path, body, extraHeaders, options) {
     options = options || {};
@@ -341,7 +341,7 @@ const supa = {
   },
 
   /**
-   * Supabase query with content-range header parsing for total records (TSK-025)
+   * Supabase query with content-range header parsing for total records
    */
   async queryWithCount(method, path, body, extraHeaders, _options) {
     const url =
@@ -399,7 +399,7 @@ const supa = {
   },
 
   /**
-   * Supabase pagination helper (limit/offset) with count resolution (TSK-025)
+   * Supabase pagination helper (limit/offset) with count resolution
    * @param {string} table - Table name (e.g. 'bb_members', 'bb_orders')
    * @param {Object} [options]
    * @param {number} [options.page=1] - 1-based page index
@@ -461,7 +461,7 @@ const supa = {
   },
 
   /**
-   * PostgREST Remote Procedure Call (RPC) execution (TSK-036)
+   * PostgREST Remote Procedure Call (RPC) execution
    * Invokes a PostgreSQL function via /rest/v1/rpc/<funcName>
    * @param {string} funcName - Function name in database schema
    * @param {Object} [params={}] - Parameters passed to the RPC function in JSON body
@@ -626,7 +626,7 @@ const supa = {
 
   /**
    * Concurrency-safe mutator for bb_config JSON blobs with sequential key locking,
-   * optimistic 3-way merge conflict resolution, and retry protection (TSK-014)
+   * optimistic 3-way merge conflict resolution, and retry protection
    * @param {string} key - Config key in bb_config (e.g. 'bb_resources', 'bb_custom_forms')
    * @param {Function|Array|Object} updater - Function receiving (currentRemote, baseSnapshot) or direct updated value
    * @param {Object} [options]
@@ -718,7 +718,7 @@ const supa = {
   PRIVATE_STORAGE_BUCKETS,
 
   /**
-   * Supabase Storage: Upload a file/blob to a bucket with strict security verification (TSK-035)
+   * Supabase Storage: Upload a file/blob to a bucket with strict security verification
    */
   async uploadFile(bucket, filePath, blob) {
     if (typeof validateFileSecurity === 'function') {
@@ -808,7 +808,7 @@ const supa = {
   },
 
   /**
-   * Supabase Storage: Get URL for a file (respects Private buckets & signed URL cache) (TSK-035)
+   * Supabase Storage: Get URL for a file (respects Private buckets & signed URL cache)
    */
   fileUrl(bucket, filePath, options) {
     options = options || {};
@@ -837,7 +837,7 @@ const supa = {
   },
 
   /**
-   * Supabase Storage: Create a signed URL for private bucket objects (TSK-035)
+   * Supabase Storage: Create a signed URL for private bucket objects
    * @param {string} bucket - Target bucket ('avatars', 'gallery', 'receipts', etc.)
    * @param {string} filePath - Object path inside bucket
    * @param {number} [expiresIn=3600] - Expiration duration in seconds (default 1 hour)
@@ -917,7 +917,7 @@ const supa = {
   },
 
   /**
-   * Supabase Storage: Batch create signed URLs for multiple private bucket objects (TSK-035)
+   * Supabase Storage: Batch create signed URLs for multiple private bucket objects
    * @param {string} bucket - Target bucket
    * @param {string[]} filePaths - Array of object paths inside bucket
    * @param {number} [expiresIn=3600]
@@ -998,7 +998,7 @@ const supa = {
   },
 
   /**
-   * Supabase Storage: Resolves a private media URL into a valid signed URL (TSK-035)
+   * Supabase Storage: Resolves a private media URL into a valid signed URL
    */
   async resolveMediaUrl(bucket, filePath, expiresIn) {
     const res = await this.createSignedUrl(bucket, filePath, expiresIn);

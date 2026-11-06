@@ -1,6 +1,6 @@
 -- ============================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 001_privacy_auth_migration.sql (TSK-005B)
+-- Migration: 001_privacy_auth_migration.sql
 -- Privacy-First Member Auth & Profile Onboarding Redesign
 -- ============================================================
 

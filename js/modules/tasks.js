@@ -1,5 +1,5 @@
 /**
- * 1st Petaling Jaya Boys' Brigade Portal - Tasks & Kanban Board Module (TSK-009)
+ * 1st Petaling Jaya Boys' Brigade Portal - Tasks & Kanban Board Module
  *
  * Implements NCO department project board, role-based NCO access checks (isNCO),
  * Kanban status transitions (To Do -> In Progress -> Done) with HTML5 drag-and-drop,
@@ -989,7 +989,7 @@ function filterProjectTasks(query) {
 }
 
 /**
- * Generates formatted Task ID (e.g. LOG-101, TSK-42)
+ * Generates formatted Task ID (e.g. LOG-101, )
  * @param {Object} t
  * @param {number} idx
  * @returns {string}
@@ -2597,7 +2597,7 @@ async function handleTaskAttachmentUpload(event) {
     var file = files[i];
     if (!file || !file.name) continue;
 
-    // Security check: prohibit SVG files to prevent stored XSS (TSK-035)
+    // Security check: prohibit SVG files to prevent stored XSS
     if (/\.svg$/i.test(file.name)) {
       if (typeof showToast === 'function') {
         showToast('SVG file uploads are blocked for security.', 'warning');

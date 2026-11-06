@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 003_password_hashing_security.sql (TSK-029)
+-- Migration: 003_password_hashing_security.sql
 --
 -- Cryptographic Password Hashing & Secret Salt Security Standard
 --
@@ -14,7 +14,7 @@
 -- ==============================================================================
 
 -- 1. Document the password column's cryptographic security standard
-COMMENT ON COLUMN bb_members.password IS 'Cryptographically hashed credential using Web Crypto API PBKDF2-HMAC-SHA256 with 100,000 iterations and unique 128-bit salt (TSK-029). Format: pbkdf2:sha256:100000:<saltHex>:<hashHex>';
+COMMENT ON COLUMN bb_members.password IS 'Cryptographically hashed credential using Web Crypto API PBKDF2-HMAC-SHA256 with 100,000 iterations and unique 128-bit salt. Format: pbkdf2:sha256:100000:<saltHex>:<hashHex>';
 
 -- 2. Verification query: Count accounts using modern PBKDF2 vs legacy format
 -- SELECT 

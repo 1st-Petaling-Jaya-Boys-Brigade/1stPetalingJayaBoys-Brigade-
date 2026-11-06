@@ -1,6 +1,6 @@
 /**
  * 1st Petaling Jaya Boys' Brigade Portal - Service Worker
- * TSK-016: PWA Manifest & Offline Caching
+ * PWA Manifest & Offline Caching
  *
  * Implements offline caching for static assets, badge requirements catalog,
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.

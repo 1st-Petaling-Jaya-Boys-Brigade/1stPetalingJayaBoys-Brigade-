@@ -1,5 +1,5 @@
 /**
- * 1st Petaling Jaya Boys' Brigade — AI Support Helper Agent & Bug Forum Module (TSK-046)
+ * 1st Petaling Jaya Boys' Brigade — AI Support Helper Agent & Bug Forum Module
  *
  * Implements:
  * 1. "Ask Stedfast" AI Helper Agent:
@@ -42,6 +42,8 @@ var FORUM_ICONS = {
   gallery: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>',
   forum: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   admin: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  doc: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+  externalLink: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
   arrowRight: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
 };
 
@@ -166,12 +168,12 @@ var _helperMessages = [
 // ── Knowledge Base FAQ Engine (Zero Emojis) ──────────────────────────────────
 var FAQ_KNOWLEDGE_BASE = [
   {
-    keywords: ['parade', 'time', 'timing', 'saturday', 'venue', 'where', 'start', 'band'],
+    keywords: ['parade', 'saturday', 'venue', 'parade time', 'band rehearsal', 'brass band', 'tmc pj'],
     answer: '**Company Parade Schedule**:\n- **Full Company Parade**: Every Saturday from **2:15 PM – 6:00 PM**.\n- **Brass Band Sectionals**: Saturdays from **9:30 AM – 11:30 AM**.\n- **Venue**: Trinity Methodist Church Petaling Jaya (TMC PJ).\n\nCheck the **Weekly Parade** tab for the upcoming parade kit and schedule notices.'
   },
   {
     keywords: ['attendance', '80%', 'milestone', 'service year', 'tier', 'perfect', 'excellent', 'at risk'],
-    answer: '**Confidential Attendance Tiers (TSK-057)**:\n- **100%**: Perfect (Emerald tier)\n- **≥ 90%**: Excellent (Blue tier)\n- **≥ 80%**: Good (Gold tier) — **One Year Service Qualified**\n- **< 80%**: At Risk (Orange tier) — One Year Service Pending\n\nOfficial BB Rule: A minimum **80% attendance threshold** is strictly required to qualify for the BB One Year Service award and President\'s Award service years.'
+    answer: '**Confidential Attendance Tiers**:\n- **100%**: Perfect (Emerald tier)\n- **≥ 90%**: Excellent (Blue tier)\n- **≥ 80%**: Good (Gold tier) — **One Year Service Qualified**\n- **< 80%**: At Risk (Orange tier) — One Year Service Pending\n\nOfficial BB Rule: A minimum **80% attendance threshold** is strictly required to qualify for the BB One Year Service award.'
   },
   {
     keywords: ['uniform', 'kit', 'dress', 'polo', 'cap', 'belt', 'store', 'order'],
@@ -183,7 +185,7 @@ var FAQ_KNOWLEDGE_BASE = [
   },
   {
     keywords: ['badge', 'founder', 'president', 'syllabus', 'target', 'awards'],
-    answer: '**Badges & Awards Advancement**:\n- Track your target, compulsory, and elective badges in the **My Badges** tab.\n- Founder\'s & President\'s Awards require **3 completed Service Years** with ≥80% attendance per year, alongside required service hours and leadership courses.\n- Download official handbooks and drill manuals in the **Company Resources** tab.'
+    answer: '**Badges & Awards Advancement**:\n- Track your target, compulsory, and elective badges in the **My Badges** tab.\n- Founder\'s & President\'s Awards require completed Service Years with qualifying attendance, alongside required service hours and leadership courses.\n- Download official handbooks and drill manuals in the **Company Resources** tab.'
   },
   {
     keywords: ['task', 'project', 'kanban', 'nco', 'department', 'secretariat', 'logistics', 'media', 'hq'],
@@ -191,7 +193,7 @@ var FAQ_KNOWLEDGE_BASE = [
   },
   {
     keywords: ['admin', 'console', 'role', 'super admin', 'permission', 'officer'],
-    answer: '**Admin Console & Governance**:\n- Gated strictly to verified Officers and HQ Super Admins via RBAC (TSK-049).\n- Super Admins can manage member roles, sync master attendance, manage store products, and broadcast company announcements.'
+    answer: '**Admin Console & Governance**:\n- Gated strictly to verified Officers and HQ Super Admins via RBAC.\n- Super Admins can manage member roles, sync master attendance, manage store products, and broadcast company announcements.'
   },
   {
     keywords: ['storage', 'drive', 'upload', 'file', 'limit', 'mb'],
@@ -854,6 +856,13 @@ function executeHelperAction(actionType, target) {
       };
       showToast('Navigated to ' + (tabLabels[target] || target), 'info', 2000);
     }
+  } else if (actionType === 'open-url') {
+    if (target && typeof window !== 'undefined') {
+      window.open(target, '_blank', 'noopener,noreferrer');
+      if (typeof showToast === 'function') {
+        showToast('Opening document...', 'info', 2000);
+      }
+    }
   } else if (actionType === 'view-thread') {
     if (typeof window !== 'undefined' && window.innerWidth <= 768) {
       if (typeof toggleHelperAgent === 'function') toggleHelperAgent();
@@ -874,6 +883,284 @@ function executeHelperAction(actionType, target) {
  * @param {string} userText
  * @returns {Object}
  */
+
+/**
+ * Safely accesses all company resources from active memory or window
+ * @returns {Array}
+ */
+function getCompanyResourcesList() {
+  if (typeof resources !== 'undefined' && Array.isArray(resources) && resources.length) {
+    return resources;
+  }
+  if (typeof window !== 'undefined' && Array.isArray(window.resources) && window.resources.length) {
+    return window.resources;
+  }
+  return [];
+}
+
+/**
+ * Searches uploaded company resources and handbooks dynamically
+ * @param {string} query
+ * @returns {Object|null}
+ */
+function searchCompanyResourcesForHelper(query) {
+  var list = getCompanyResourcesList();
+  if (!list.length) return null;
+
+  var q = (query || '').toLowerCase().trim();
+  var tokens = q.replace(/[?'"!,.]/g, ' ').split(/\s+/).filter(function(w) {
+    return w.length > 2 && !/^(the|and|for|are|what|how|where|why|can|you|tell|about|with|from|this|that|please|show|open|view|get|read)$/i.test(w);
+  });
+  if (!tokens.length) return null;
+
+  var bestDoc = null;
+  var bestScore = 0;
+
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    var score = 0;
+    var title = (r.title || '').toLowerCase();
+    var desc = (r.description || '').toLowerCase();
+    var cat = (r.category || '').toLowerCase();
+    var fType = (r.fileType || '').toLowerCase();
+
+    tokens.forEach(function(tok) {
+      if (title.indexOf(tok) !== -1) score += 4;
+      if (desc.indexOf(tok) !== -1) score += 2;
+      if (cat.indexOf(tok) !== -1) score += 2;
+      if (fType.indexOf(tok) !== -1) score += 1;
+    });
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestDoc = r;
+    }
+  }
+
+  if (bestDoc && bestScore >= 2) {
+    return { doc: bestDoc, score: bestScore };
+  }
+  return null;
+}
+
+/**
+ * Resolves specific drill commands from the official BB Drill & Ceremonial Manual
+ * @param {string} query
+ * @returns {Object|null}
+ */
+function resolveDrillManualQuery(query) {
+  var q = (query || '').toLowerCase().trim();
+  var isDrillQuery = /\b(drill|kawad|marching|commands?|sedia|senang diri|rehatkan diri|ke kanan lurus|pandang depan|cepat jalan|berhenti|pusing)\b/i.test(q);
+  if (!isDrillQuery) return null;
+
+  var commandName = '';
+  var executionDetail = '';
+
+  if (/\b(sedia|attention)\b/i.test(q)) {
+    commandName = 'Sedia (Attention)';
+    executionDetail = 'Stand upright with heels together and touching, feet angled outward at 45°. Arms held straight down along the side seams of the trousers with fists clenched and thumbs pointing downwards along the seams. Head up, shoulders back, eyes looking straight ahead at eye level.';
+  } else if (/\b(senang diri|stand at ease)\b/i.test(q)) {
+    commandName = 'Senang Diri (Stand at Ease)';
+    executionDetail = 'On the executive command, carry the left foot smartly approximately 12 inches to the left, keeping both legs straight and weight evenly balanced. Simultaneously bring both hands behind the back at waist level, right hand placed over the left with thumbs crossed and fingers extended.';
+  } else if (/\b(rehatkan diri|stand easy)\b/i.test(q)) {
+    commandName = 'Rehatkan Diri (Stand Easy)';
+    executionDetail = 'Slightly relax the upper body and arms while keeping the feet firmly in place. Squad members must not move their feet or talk unless granted permission by the Squad Commander or Drill Instructor.';
+  } else if (/\b(ke kanan lurus|kanan lurus|right dress)\b/i.test(q)) {
+    commandName = 'Ke Kanan Lurus (Right Dress)';
+    executionDetail = 'Turn head and eyes sharply to the right. The right-hand marker stands firm and keeps looking front. All other members raise their left arm horizontally to the left, fist lightly touching the shoulder of the member on the left, and adjust their position with quick short shuffling steps until in line.';
+  } else if (/\b(pandang depan|eyes front)\b/i.test(q)) {
+    commandName = 'Pandang Depan (Eyes Front)';
+    executionDetail = 'Turn head and eyes sharply to the front while simultaneously dropping the left arm smartly to the side seam into the position of *Sedia*.';
+  } else if (/\b(cepat jalan|quick march)\b/i.test(q)) {
+    commandName = 'Cepat Jalan (Quick March)';
+    executionDetail = 'Step off smartly with the left foot, taking a full 30-inch pace. March forward in standard quick time cadence (116–120 paces per minute), swinging arms straight from the shoulder with fists clenched and thumbs on top to chest level in front and waist level behind.';
+  } else if (/\b(berhenti|halt|squad berhenti)\b/i.test(q)) {
+    commandName = 'Squad Berhenti (Squad Halt)';
+    executionDetail = 'The command is called as the right foot strikes the ground. Take a check pace with the left foot, then bring the right foot smartly alongside the left foot into the position of *Sedia* with a firm stamp.';
+  } else if (/\b(ke belakang pusing|about turn)\b/i.test(q)) {
+    commandName = 'Ke Belakang Pusing (About Turn)';
+    executionDetail = 'Always turn clockwise through 180° through the right shoulder in three distinct counts: pivot 90° on right heel and left toe, balance on the left foot, complete the remaining 90° turn and bring the left foot smartly into *Sedia*.';
+  } else if (/\b(ke kanan pusing|right turn)\b/i.test(q)) {
+    commandName = 'Ke Kanan Pusing (Right Turn)';
+    executionDetail = 'Turn 90° to the right by pivoting on the right heel and left toe. Bring the left leg smartly up and stamp it down beside the right into *Sedia*.';
+  } else if (/\b(ke kiri pusing|left turn)\b/i.test(q)) {
+    commandName = 'Ke Kiri Pusing (Left Turn)';
+    executionDetail = 'Turn 90° to the left by pivoting on the left heel and right toe. Bring the right leg smartly up and stamp it down beside the left into *Sedia*.';
+  } else if (/\b(keluar baris|fall out)\b/i.test(q)) {
+    commandName = 'Keluar Baris (Fall Out)';
+    executionDetail = 'Turn to the right, pause for two beats, and march off the parade square in quick time. Used for temporary dismissal or breaks.';
+  } else if (/\b(bersurai|dismiss|dismissal)\b/i.test(q)) {
+    commandName = 'Bersurai (Dismissal)';
+    executionDetail = 'Turn to the right, salute if an Officer is present, pause for two beats, and march off the parade square. Marks the formal conclusion of the parade.';
+  }
+
+  // Find drill manual in Company Resources
+  var drillDoc = null;
+  var resList = getCompanyResourcesList();
+  for (var i = 0; i < resList.length; i++) {
+    var r = resList[i];
+    var t = (r.title || '').toLowerCase();
+    if (t.indexOf('drill') !== -1 || (r.category && r.category.toLowerCase().indexOf('drill') !== -1)) {
+      drillDoc = r;
+      break;
+    }
+  }
+
+  var text = '';
+  if (commandName && executionDetail) {
+    text = '**BB Drill Manual — ' + commandName + '**:\n\n'
+      + executionDetail + '\n\n'
+      + 'This standard adheres strictly to the official **1st Petaling Jaya Boys\' Brigade Drill & Ceremonial Manual**.';
+  } else {
+    text = '**Official BB Drill & Ceremonial Standards**:\n\n'
+      + 'Our company follows the standard Boys\' Brigade Malaysia drill manual for all static drill, marching, and ceremonial parades.\n\n'
+      + '• **Core Static Commands**: *Sedia* (Attention), *Senang Diri* (Stand at Ease), *Rehatkan Diri* (Stand Easy), *Ke Kanan Lurus* (Right Dress), *Pandang Depan* (Eyes Front).\n'
+      + '• **Turns & Marching**: *Ke Kanan/Kiri Pusing* (Turns), *Ke Belakang Pusing* (About Turn - always clockwise), *Cepat Jalan* (Quick March, 116–120 paces/min), *Squad Berhenti* (Halt).\n'
+      + '• **Dismissals**: *Keluar Baris* (Temporary Break) and *Bersurai* (End of Parade Dismissal with Officer Salute).\n\n'
+      + 'You can read and download the complete manual with diagrams in the **Company Resources** tab:';
+  }
+
+  var actions = [];
+  if (drillDoc && drillDoc.url && drillDoc.url !== '#') {
+    actions.push({ label: 'Open Drill Manual', action: 'open-url', target: drillDoc.url, icon: 'doc' });
+  }
+  actions.push({ label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' });
+
+  return {
+    text: text,
+    triage: null,
+    actions: actions,
+    chips: [
+      { label: 'Sedia command', query: 'What is sedia in drill manual?', icon: 'resources' },
+      { label: 'Senang Diri', query: 'How to do senang diri?', icon: 'resources' },
+      { label: 'Ke Kanan Lurus', query: 'What is ke kanan lurus command?', icon: 'resources' },
+      { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+    ]
+  };
+}
+
+/**
+ * Resolves questions about uploaded reference materials, BB handbook, and documents in Resources tab
+ * @param {string} query
+ * @returns {Object|null}
+ */
+function resolveCompanyResourcesQuery(query) {
+  var q = (query || '').toLowerCase().trim();
+  var isResourceQuery = /\b(resource|resources|handbook|manual|documents?|drive|files?|uploads?|uploaded|download|pdf|google drive|syllabus|syllabi|forms?|sheets?|docs?|guidelines?|absence|application)\b/i.test(q);
+  if (!isResourceQuery) return null;
+
+  var resList = getCompanyResourcesList();
+
+  // If user asks what documents are available / show uploaded resources
+  var isListAllQuery = /\b(what|which|show|list|all|available|uploaded|any)\b/i.test(q) &&
+                       /\b(resources?|documents?|handbooks?|files?|manuals?)\b/i.test(q);
+
+  if (isListAllQuery) {
+    if (!resList.length) {
+      return {
+        text: '**Company Resources Tab**:\n\n'
+          + 'No official documents have been uploaded to the repository yet. Company administrators and officers can upload BB handbooks, drill manuals, syllabi, and administrative forms in the Admin Console.\n\n'
+          + 'Once uploaded, they will be instantly available for viewing and download here!',
+        triage: null,
+        actions: [
+          { label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' }
+        ],
+        chips: [
+          { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+        ]
+      };
+    }
+
+    var listText = '**Uploaded Company Reference Materials & Documents**:\n\n'
+      + 'Here are the official materials currently available in the **Company Resources** hub:\n\n';
+
+    resList.slice(0, 8).forEach(function(r) {
+      var cat = r.category ? (' (' + r.category + ')') : '';
+      var fType = r.fileType ? (' [' + r.fileType + ']') : '';
+      listText += '• **' + (r.title || 'Untitled Document') + '**' + fType + cat + '\n';
+      if (r.description) {
+        listText += '  ' + (r.description.length > 90 ? (r.description.slice(0, 87) + '...') : r.description) + '\n';
+      }
+    });
+
+    listText += '\nTap below to access and open the documents:';
+
+    var actions = [];
+    var firstDoc = resList[0];
+    if (firstDoc && firstDoc.url && firstDoc.url !== '#') {
+      var shortTitle = firstDoc.title.length > 20 ? (firstDoc.title.slice(0, 18) + '...') : firstDoc.title;
+      actions.push({ label: 'Open ' + shortTitle, action: 'open-url', target: firstDoc.url, icon: 'doc' });
+    }
+    actions.push({ label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' });
+
+    return {
+      text: listText,
+      triage: null,
+      actions: actions,
+      chips: [
+        { label: 'BB Handbook', query: 'Tell me about the BB Handbook', icon: 'resources' },
+        { label: 'Drill Manual', query: 'What is in the BB Drill Manual?', icon: 'resources' }
+      ]
+    };
+  }
+
+  // Check specific matching document from searchCompanyResourcesForHelper
+  var match = searchCompanyResourcesForHelper(query);
+  if (match && match.doc) {
+    var doc = match.doc;
+    var fTypeBadge = doc.fileType ? (' [' + doc.fileType + ']') : '';
+    var catStr = doc.category ? (' • Category: **' + doc.category + '**') : '';
+    var sizeStr = doc.fileSize ? (' • Size: ' + doc.fileSize) : '';
+    var descStr = doc.description ? ('\n\n**Overview**: ' + doc.description) : '';
+
+    var actions = [];
+    if (doc.url && doc.url !== '#') {
+      actions.push({ label: 'Open Document', action: 'open-url', target: doc.url, icon: 'doc' });
+    }
+    actions.push({ label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' });
+
+    var docText = 'I found the official document in our **Company Resources** hub:\n\n'
+      + '• **' + (doc.title || 'Document') + '**' + fTypeBadge + catStr + sizeStr
+      + descStr + '\n\n'
+      + 'You can open this reference directly or browse all company files:';
+
+    return {
+      text: docText,
+      triage: null,
+      actions: actions,
+      chips: [
+        { label: 'All Resources', query: 'Show all uploaded resources and documents', icon: 'resources' },
+        { label: 'Drill Commands', query: 'What are the official drill commands?', icon: 'resources' }
+      ]
+    };
+  }
+
+  // If user asks about the BB Handbook in general
+  if (/\b(handbook|constitution|heritage|founder|object)\b/i.test(q)) {
+    var hbText = '**The Boys\' Brigade Handbook & Heritage**:\n\n'
+      + '• **The Object of The Boys\' Brigade**:\n'
+      + '  *"The advancement of Christ\'s Kingdom among Boys and the promotion of habits of Obedience, Reverence, Discipline, Self-respect and all that tends towards a true Christian Manliness."*\n'
+      + '• **Company Motto**: *"Sure & Stedfast"* (taken from Hebrews 6:19).\n'
+      + '• **Founder**: Sir William Alexander Smith (founded 4th October 1883 in Glasgow, Scotland).\n'
+      + '• **1st Petaling Jaya Company**: Founded at Trinity Methodist Church Petaling Jaya (TMC PJ).\n\n'
+      + 'You can find official handbooks, cadet syllabi, and administrative guidelines in the **Company Resources** tab:';
+
+    return {
+      text: hbText,
+      triage: null,
+      actions: [
+        { label: 'Go to Company Resources', action: 'navigate', target: 'resources', icon: 'resources' }
+      ],
+      chips: [
+        { label: 'Drill Manual', query: 'What is in the BB Drill Manual?', icon: 'resources' },
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
+    };
+  }
+
+  return null;
+}
+
 function queryHelperAgent(userText) {
   var q = (userText || '').toLowerCase().trim();
   if (!q) return null;
@@ -1074,6 +1361,18 @@ function queryHelperAgent(userText) {
         { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
       ]
     };
+  }
+
+    // 4. OFFICIAL BB DRILL MANUAL & CEREMONIAL COMMANDS
+  var drillMatch = resolveDrillManualQuery(userText);
+  if (drillMatch) {
+    return drillMatch;
+  }
+
+  // 5. OFFICIAL COMPANY RESOURCES & UPLOADED HANDBOOKS GROUNDING
+  var resourceMatch = resolveCompanyResourcesQuery(userText);
+  if (resourceMatch) {
+    return resourceMatch;
   }
 
   // 4. PORTAL NAVIGATION INTENT ("Where is...", "How to find...", "Navigate to...")
@@ -2395,6 +2694,10 @@ if (typeof module !== 'undefined' && module.exports) {
     searchForumPostsForHelper: searchForumPostsForHelper,
     detectTargetMemberName: detectTargetMemberName,
     PORTAL_NAVIGATION_MAP: PORTAL_NAVIGATION_MAP,
+    getCompanyResourcesList: getCompanyResourcesList,
+    searchCompanyResourcesForHelper: searchCompanyResourcesForHelper,
+    resolveDrillManualQuery: resolveDrillManualQuery,
+    resolveCompanyResourcesQuery: resolveCompanyResourcesQuery,
     get forumPosts() { return forumPosts; },
     set forumPosts(v) { forumPosts = v; },
     get helperMessages() { return _helperMessages; }

@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 002_row_level_security.sql (TSK-028)
+-- Migration: 002_row_level_security.sql
 --
 -- Supabase Row-Level Security (RLS) & Child Data Isolation Policy
 --

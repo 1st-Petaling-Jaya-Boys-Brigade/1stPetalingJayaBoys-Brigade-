@@ -44,7 +44,7 @@ Because we use modern ES module architecture, opening `index.html` via `file:///
 - **Option C (VS Code)**: Right-click `index.html` -> Click **"Open with Live Server"**.
 - **Option D (Python)**: Run `python -m http.server 8000` in terminal and visit `http://localhost:8000`.
 
-### Developer Tooling & Scripts (TSK-015)
+### Developer Tooling & Scripts
 Run these standard npm scripts from your terminal:
 - `npm run dev`: Launch Vite development server at `http://localhost:3000`.
 - `npm run serve:static`: Launch zero-dependency Node static development server.
@@ -63,11 +63,11 @@ To prevent 3 developers from colliding or creating merge conflicts, follow this 
 
 ```mermaid
 flowchart LR
-    A["git pull origin main"] --> B["git checkout -b feature/TSK-xxx"]
+    A["git pull origin main"] --> B["git checkout -b feat/descriptive-name"]
     B --> C["Write Code & Test Locally"]
     C --> D["F12 Console Check: Zero Errors"]
     D --> E["git commit -m 'feat: ...'"]
-    E --> F["git push origin feature/TSK-xxx"]
+    E --> F["git push origin feat/descriptive-name"]
     F --> G["Open Pull Request on GitHub"]
     G --> H["Code Review & Merge to main"]
 ```
@@ -80,25 +80,25 @@ flowchart LR
    git pull origin main
    ```
 2. **Create a Feature Branch**:
-   Name your branch using your Task ID or Bug ID:
+   Name your branch using a descriptive feature or fix name:
    ```bash
-   git checkout -b feature/TSK-006B-uniform-grid
+   git checkout -b feat/uniform-grid
    # or for bug fixes:
-   git checkout -b bugfix/BUG-004-uniform-preview
+   git checkout -b fix/uniform-preview
    ```
 3. **Make Your Changes & Test**:
    - Open browser, test feature on desktop and mobile responsive mode (press `Ctrl + Shift + M`).
    - Open DevTools Console (`F12`) to verify there are zero red errors.
 4. **Commit with Meaningful Messages**:
-   Include the Task ID or Bug ID in your commit title:
+   Include a clear, descriptive title in your commit message:
    ```bash
-   # Format: <type>: <description> (<TASK-ID>)
-   git commit -m "feat: implement responsive uniform product card grid (TSK-006B)"
-   git commit -m "fix: add missing uniform-products-preview container in form builder (BUG-004)"
+   # Format: <type>(<scope>): <clear description>
+   git commit -m "feat(orders): implement responsive uniform product card grid"
+   git commit -m "fix(forms): add missing uniform products preview container in form builder"
    ```
 5. **Push Your Branch to GitHub**:
    ```bash
-   git push origin feature/TSK-006B-uniform-grid
+   git push origin feat/uniform-grid
    ```
 6. **Open a Pull Request**:
    - Go to the repository on GitHub.
@@ -205,9 +205,8 @@ Always use the shared CSS variables from [`css/variables.css`](css/variables.css
 When opening a Pull Request on GitHub, copy and paste this simple checklist into the description:
 
 ```markdown
-### Task ID & Title
-- **Task ID**: TSK-00xxx
-- **Task Title**: [Title of your task]
+### Feature / Fix Title
+- **Title**: [Clear descriptive title of your change]
 
 ### Summary of Changes
 - Briefly explain what you added or changed (2–3 sentences).

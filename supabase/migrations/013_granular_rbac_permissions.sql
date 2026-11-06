@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 013_granular_rbac_permissions.sql (TSK-049)
+-- Migration: 013_granular_rbac_permissions.sql
 --
 -- Granular Role-Based Access Control (RBAC), Scoped Admin Console & Permissions
 --

@@ -1,6 +1,6 @@
 -- ============================================================
 -- 1st Petaling Jaya Boys' Brigade Web Portal
--- Migration: 005_story_highlights.sql (TSK-033)
+-- Migration: 005_story_highlights.sql
 -- Instagram-Style Story Highlights & Event Gallery Reel
 -- ============================================================
 
@@ -32,7 +32,7 @@ CREATE POLICY "Officer Manage Stories" ON bb_stories
   WITH CHECK (true);
 
 -- 4. Column Documentation
-COMMENT ON TABLE bb_stories IS 'Instagram-style circular Story Highlights and Event Gallery reels (TSK-033)';
+COMMENT ON TABLE bb_stories IS 'Instagram-style circular Story Highlights and Event Gallery reels';
 COMMENT ON COLUMN bb_stories.title IS 'Highlight collection title (e.g. Camps, Awards Day, Band, Drill)';
 COMMENT ON COLUMN bb_stories.cover IS 'Circular thumbnail cover image URL for the story bubble';
 COMMENT ON COLUMN bb_stories.items IS 'JSON array of story slides [{id, url, caption, date, location}]';

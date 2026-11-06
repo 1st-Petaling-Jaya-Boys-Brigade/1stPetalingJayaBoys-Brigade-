@@ -231,7 +231,7 @@ global.document = {
   }
 };
 
-// ── Load Core Utils & Security Firewall (TSK-031) ──
+// ── Load Core Utils & Security Firewall ──
 const utils = require('../js/core/utils.js');
 global.escapeHtml = utils.escapeHtml;
 global.safeUrl = utils.safeUrl;
@@ -346,8 +346,8 @@ global.supa = {
   }
 };
 
-// ── Core Security Firewall Tests (TSK-031) ──
-console.log('Testing Core Security Firewall (TSK-031)...');
+// ── Core Security Firewall Tests ──
+console.log('Testing Core Security Firewall...');
 
 // 1. escapeHtml tests
 const rawBadHtml = '<script>alert("XSS" & \'test\') / `eval`</script>';
@@ -503,7 +503,7 @@ assert.strictEqual(
 console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
 (async () => {
-  // BUG-003: Unicode-safe Base64 and Password Verification
+  // Unicode-safe Base64 and Password Verification
   const unicodeString = 'Passwørd_測試_🔐';
   const encodedUnicode = utils.safeBase64Encode(unicodeString);
   assert.ok(encodedUnicode && encodedUnicode.length > 0, 'safeBase64Encode produces valid base64');
@@ -519,7 +519,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const modernVerify = await utils.verifyPassword(unicodeString, modernHash);
   assert.strictEqual(modernVerify.valid, true, 'verifyPassword validates modern PBKDF2 Unicode password');
   assert.strictEqual(modernVerify.needsUpgrade, false, 'modern PBKDF2 hash does not need upgrade');
-  console.log('  ✔ Unicode-safe password hashing and base64 migration verified (BUG-003)');
+  console.log('  ✔ Unicode-safe password hashing and base64 migration verified');
 
   // 2. Load Announcements
   await announcementsModule.loadAnnouncements();
@@ -580,7 +580,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(lastPosted.path, 'bb_gallery', 'Should insert into bb_gallery table');
   console.log('  ✔ uploadGalleryFiles uploads to storage and inserts database record');
 
-  // BUG-008: Gallery Upload Size Limits & Compression Validation
+  // Gallery Upload Size Limits & Compression Validation
   const oversizePhoto = {
     name: 'huge.jpg',
     type: 'image/jpeg',
@@ -601,7 +601,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   const compRes = await galleryModule.compressGalleryPhoto(mockFile, 1920, 0.82);
   assert.ok(compRes, 'compressGalleryPhoto must process media file');
-  console.log('  ✔ uploadSingleMediaFile enforces 15MB photo / 50MB video limits and photo compression (BUG-008)');
+  console.log('  ✔ uploadSingleMediaFile enforces 15MB photo / 50MB video limits and photo compression');
   // ── Testing All-Format Media & Dedicated Gallery Tab ──
   console.log('Testing Media Normalization & Video Detection...');
   assert.strictEqual(
@@ -728,8 +728,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Dedicated Gallery tab, sidebar link, media filter bar, and story video viewport verified in index.html'
   );
 
-  // ── Load Resources Module (TSK-034) ──
-  console.log('\nTesting Resources Module (TSK-034)...');
+  // ── Load Resources Module ──
+  console.log('\nTesting Resources Module...');
   const resourcesModule = require('../js/modules/resources.js');
 
   // 1. Load Resources (Empty by default, zero non-working placeholders)
@@ -986,8 +986,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ renderResourcesPage renders Google Drive style document preview cards with fallback mockup');
 
-  // ── Child Safety (COPPA/PDPA) & Parental Consent Governance Tests (TSK-032) ──
-  console.log('\nTesting Child Safety (COPPA/PDPA) & Parental Consent Governance (TSK-032)...');
+  // ── Child Safety (COPPA/PDPA) & Parental Consent Governance Tests ──
+  console.log('\nTesting Child Safety (COPPA/PDPA) & Parental Consent Governance...');
 
   const memberModule = require('../js/modules/member.js');
 
@@ -1323,7 +1323,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(migrationSql.includes('att_section'), 'Migration must declare att_section');
   console.log('  ✔ Child Safety & Parental Consent database migration schema verified');
 
-  // BUG-011: logoutMember session purging & header state reset validation
+  // logoutMember session purging & header state reset validation
   global.sessionSet('email', 'sgt@bb.org');
   global.sessionSet('ic', '080101-14-1234');
   global.sessionSet('rank', 'Sergeant');
@@ -1333,12 +1333,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   memberModule.logoutMember();
 
   assert.strictEqual(Object.keys(mockSession).length, 0, 'mockSession must be completely emptied by sessionClear()');
-  console.log('  ✔ logoutMember purges all session keys and resets header state (BUG-011)');
+  console.log('  ✔ logoutMember purges all session keys and resets header state');
   // Restore session user for downstream tests
   mockUser = 'test@bbpj1.org';
   global.sessionSet('ic', mockUser);
 
-  // ── Calendar Module Tests (TSK-CALENDAR) ──
+  // ── Calendar Module Tests ──
   console.log('Testing Company Calendar & Member Personal Schedule...');
   const calendarModule = require('../js/modules/calendar.js');
 
@@ -1444,7 +1444,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ renderCalendarWidget generates complete interactive calendar widget DOM');
 
-  // ── Quick Access Cards Carousel Tests (TSK-CAROUSEL) ──
+  // ── Quick Access Cards Carousel Tests ──
   console.log('\nTesting Quick Access Cards Carousel...');
   const fsMod = require('fs');
   const pathMod = require('path');
@@ -1544,8 +1544,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ updateQuickCardsCarousel applies exact pixel-aligned translateX transform to card track'
   );
 
-  // ── Testing Uniform Store & Orders Module (TSK-006A) ───────────────────────
-  console.log('Testing Uniform Store & Orders Module (TSK-006A)...');
+  // ── Testing Uniform Store & Orders Module ───────────────────────
+  console.log('Testing Uniform Store & Orders Module...');
   const ordersMod = require('../js/modules/orders.js');
 
   // 1. Catalog Verification
@@ -1658,13 +1658,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(ordersMod.getTngScreenshot(), null, 'Cleared screenshot must be null');
   console.log('  ✔ Touch n Go payment screenshot handlers function cleanly');
 
-  // BUG-002: Payment Receipt Compression & Storage Upload Validation
+  // Payment Receipt Compression & Storage Upload Validation
   const compResult = await ordersMod.compressReceiptImage('data:image/jpeg;base64,sampleMockReceiptData', 1200, 0.75);
   assert.ok(compResult && compResult.dataUrl, 'compressReceiptImage must return dataUrl');
   assert.strictEqual(typeof ordersMod.compressReceiptImage, 'function', 'compressReceiptImage must be exported');
-  console.log('  ✔ compressReceiptImage downscales receipts and avoids postgres bloat (BUG-002)');
+  console.log('  ✔ compressReceiptImage downscales receipts and avoids postgres bloat');
 
-  // BUG-006: admin-order-form-filter toolbar testing
+  // admin-order-form-filter toolbar testing
   const orderFilterSelect = document.createElement('select');
   orderFilterSelect.id = 'admin-order-form-filter';
   orderFilterSelect.innerHTML = '<option value="">All</option><option value="pending">Pending</option>';
@@ -1674,9 +1674,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   document.body.appendChild(adminOrderList);
   await ordersMod.renderAdminOrders();
   assert.ok(adminOrderList.innerHTML.length > 0, 'renderAdminOrders must render list');
-  console.log('  ✔ admin-order-form-filter and status filtering function correctly (BUG-006)');
+  console.log('  ✔ admin-order-form-filter and status filtering function correctly');
 
-  // Uniform Order Form Title & Icon Header (TSK-006A/UI)
+  // Uniform Order Form Title & Icon Header (/UI)
   const ordersCode = fs.readFileSync(path.join(__dirname, '../js/modules/orders.js'), 'utf8');
   assert.ok(
     ordersCode.includes('Uniform Order Form'),
@@ -1697,7 +1697,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log('  ✔ Project overview list text updated to "Select a project to view its board."');
 
 
-  // BUG-012: Empty bb_payment_info fallback validation
+  // Empty bb_payment_info fallback validation
   const prevSupaGet = global.supa.get;
   global.supa.get = async path => {
     if (path.includes('bb_payment_info')) return [];
@@ -1707,14 +1707,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   global.supa.get = prevSupaGet;
   assert.ok(
     emptyPaymentInfo && emptyPaymentInfo.includes('Touch'),
-    'loadPaymentInfo must return fallback instructions when bb_payment_info is empty (BUG-012)'
+    'loadPaymentInfo must return fallback instructions when bb_payment_info is empty'
   );
   assert.strictEqual(
     typeof ordersMod.DEFAULT_PAYMENT_INFO,
     'string',
     'DEFAULT_PAYMENT_INFO must be exported'
   );
-  console.log('  ✔ loadPaymentInfo provides non-empty fallback instructions when database record is empty (BUG-012)');
+  console.log('  ✔ loadPaymentInfo provides non-empty fallback instructions when database record is empty');
 
   // 6. Order Submission
   ordersMod.UNIFORM_ITEMS[0].price = 45;
@@ -1728,8 +1728,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(lastPosted.path, 'bb_orders', 'Must submit order to bb_orders table');
   console.log('  ✔ submitOrder validates items and submits order record with unique order number');
 
-  // ── Testing Uniform Order Grid Form & Product Card Redesign (TSK-006B) ───────
-  console.log('Testing Uniform Order Grid Form & Product Card Redesign (TSK-006B)...');
+  // ── Testing Uniform Order Grid Form & Product Card Redesign ───────
+  console.log('Testing Uniform Order Grid Form & Product Card Redesign...');
 
   // 1. Category and Size Resolution Helpers
   assert.strictEqual(
@@ -1864,8 +1864,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ filterUniformCategory dynamically toggles active category and product card visibility'
   );
 
-  // ── Testing Forms Hub & Dynamic Form Builder (TSK-006A) ────────────────────
-  console.log('Testing Forms Hub & Dynamic Form Builder (TSK-006A)...');
+  // ── Testing Forms Hub & Dynamic Form Builder ────────────────────
+  console.log('Testing Forms Hub & Dynamic Form Builder...');
   const formsMod = require('../js/modules/forms.js');
 
   // 1. Form Type Switching & Field Management
@@ -1877,7 +1877,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(formsMod._fbFields.length >= 1, 'addFormField must push a new field');
   console.log('  ✔ Dynamic Form Builder manages form types and custom fields');
 
-  // BUG-010: renderBuiltinFormInline scoped input ID validation
+  // renderBuiltinFormInline scoped input ID validation
   const testForm1 = {
     id: 'camp_2026',
     name: 'Camp 2026',
@@ -1898,7 +1898,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   const validationRes = formsMod.validateFormAnswers(testForm1, { 'bff-camp_2026-0': 'Halal' });
   assert.strictEqual(validationRes.valid, true, 'validateFormAnswers resolves answer by scoped ID key');
-  console.log('  ✔ renderBuiltinFormInline scopes input IDs by form.id preventing collisions (BUG-010)');
+  console.log('  ✔ renderBuiltinFormInline scopes input IDs by form.id preventing collisions');
 
   // 2. Forms Hub Search & Filtering
   const filterForms = formsMod.filterForms;
@@ -1987,8 +1987,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(mockNoResEl.style.display, 'none');
   console.log('  ✔ clearFormSearch resets search input, clears state, and restores all forms');
 
-  // ── Testing Awards & President's Badge Tracker Module (TSK-008) ────────────
-  console.log("Testing Awards & President's Badge Tracker Module (TSK-008)...");
+  // ── Testing Awards & President's Badge Tracker Module ────────────
+  console.log("Testing Awards & President's Badge Tracker Module...");
   const badgesMod = require('../js/modules/badges.js');
 
   // 1. Badge Catalog Verification
@@ -2127,8 +2127,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
   console.log('  ✔ setReqTier updates active requirement tier state');
 
-  // ── Testing NCO Tasks & Kanban Board Module (TSK-009) ──────────────────────
-  console.log('Testing NCO Tasks & Kanban Board Module (TSK-009)...');
+  // ── Testing NCO Tasks & Kanban Board Module ──────────────────────
+  console.log('Testing NCO Tasks & Kanban Board Module...');
   const tasksMod = require('../js/modules/tasks.js');
 
   // 1. Department Configuration
@@ -2392,8 +2392,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   global.supa.patch = originalSupaPatch;
   global.supa.delete = originalSupaDelete;
 
-  // ── Testing Instagram-Style Story Highlights & Event Gallery Reel (TSK-033) ──
-  console.log('Testing Story Highlights & Event Gallery Reel (TSK-033)...');
+  // ── Testing Instagram-Style Story Highlights & Event Gallery Reel ──
+  console.log('Testing Story Highlights & Event Gallery Reel...');
   const galleryMod = require('../js/modules/gallery.js');
 
   // 1. Dataset verification
@@ -2614,8 +2614,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Custom slide duration and progress bar speed verified (5s photo, 10s photo, 45s video)'
   );
 
-  // ── Testing Google Apps Script & Master Sheet Endpoint Hardening (TSK-038) ──
-  console.log('\nTesting Google Apps Script & Master Sheet Endpoint Hardening (TSK-038)...');
+  // ── Testing Google Apps Script & Master Sheet Endpoint Hardening ──
+  console.log('\nTesting Google Apps Script & Master Sheet Endpoint Hardening...');
   const sheetsMod = require('../js/api/sheets.js');
   const attendanceMod = require('../js/modules/attendance.js');
 
@@ -2834,7 +2834,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ fetchMasterAttendanceFromGAS rejects unauthorized requests with HTTP 401');
 
-  // BUG-007: syncToSheets real CORS response handling & false-positive elimination
+  // syncToSheets real CORS response handling & false-positive elimination
   const syncSuccessRes = await sheetsMod.syncToSheets(
     [{ name: 'John Doe', ic: '080101-14-1234', present: 1 }],
     'https://script.google.com/macros/s/test_exec/exec',
@@ -2870,7 +2870,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'syncToSheets must reject on network error instead of false-positive toast'
   );
   global.fetch = origFetch;
-  console.log('  ✔ syncToSheets eliminates mode: no-cors and verifies real response status (BUG-007)');
+  console.log('  ✔ syncToSheets eliminates mode: no-cors and verifies real response status');
 
   // 7. Google Apps Script Hardened Template Verification
   const templateCode = sheetsMod.getGoogleAppsScriptTemplate(
@@ -2932,8 +2932,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ renderAdminMasterSheetPanel renders endpoint hardening controls and pre-populated snippet'
   );
 
-  // ── Testing Developer Tooling & Linting (TSK-015) ──────────────────────────
-  console.log('\nTesting Modern Toast Notifications & Modal Dialog System (TSK-012)...');
+  // ── Testing Developer Tooling & Linting ──────────────────────────
+  console.log('\nTesting Modern Toast Notifications & Modal Dialog System...');
   const uiModule = require('../js/core/ui.js');
   assert(uiModule, 'ui.js module must be loadable');
   assert.strictEqual(typeof uiModule.showToast, 'function', 'showToast must be a function');
@@ -3072,7 +3072,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Zero client-side native alert() and confirm() calls verified across all 17 files'
   );
 
-  console.log('\nTesting Admin Console Master Controller (TSK-011)...');
+  console.log('\nTesting Admin Console Master Controller...');
   const adminModule = require('../js/modules/admin.js');
   assert(adminModule, 'admin.js module must be loadable');
   assert(Array.isArray(adminModule.ADMIN_SECTIONS), 'ADMIN_SECTIONS must be an array');
@@ -3168,7 +3168,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Admin console authentication and modal visibility transitions function accurately'
   );
 
-  // BUG-009: Admin Password SHA-256 Hashing Verification
+  // Admin Password SHA-256 Hashing Verification
   const computedHash = await utils.computeSha256('bb2024admin');
   assert.strictEqual(
     computedHash,
@@ -3185,7 +3185,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     false,
     'verifyAdminPassword rejects incorrect credential'
   );
-  console.log('  ✔ admin credentials hashed with SHA-256 eliminating plaintext exposure (BUG-009)');
+  console.log('  ✔ admin credentials hashed with SHA-256 eliminating plaintext exposure');
 
   // Test toggleAdminPassVis
   adminPass.style.webkitTextSecurity = 'disc';
@@ -3204,8 +3204,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log(
     '  ✔ toggleAdminPassVis cleanly unmasks and re-masks password without triggering credential autofill'
   );
-  // ── TSK-030: Officer Admin Gate Hardening & Session Tamperproofing ───────
-  console.log('\nTesting Officer Admin Gate Hardening & Session Tamperproofing (TSK-030)...');
+  // ── Officer Admin Gate Hardening & Session Tamperproofing ───────
+  console.log('\nTesting Officer Admin Gate Hardening & Session Tamperproofing...');
   adminModule.openAdmin();
   adminPass.value = 'bb2024admin';
   await adminModule.adminLogin();
@@ -3448,7 +3448,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Admin task management (creation, department filtering, status updates) verified'
   );
 
-  console.log('\nTesting HTML Application Shell & View Template Cleanup (TSK-013)...');
+  console.log('\nTesting HTML Application Shell & View Template Cleanup...');
   const indexHtmlStr = fs.readFileSync('index.html', 'utf8');
   assert.ok(
     indexHtmlStr.includes('<main id="app-main"'),
@@ -3528,7 +3528,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Exactly 388 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview + 1 admin order filter + 1 registration honeypot trap)'
   );
 
-  console.log('\nTesting Client-side Validation & Concurrency Safety (TSK-014)...');
+  console.log('\nTesting Client-side Validation & Concurrency Safety...');
   const savedGlobalSupa = global.supa;
   const supaApi = require('../js/api/supabase.js');
   // Preserve test environment mock supa
@@ -3813,7 +3813,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ submitOrder enforces cart validation, session auth, and double-submit mutex locking'
   );
 
-  console.log('\nTesting PWA Manifest & Offline Caching (TSK-016)...');
+  console.log('\nTesting PWA Manifest & Offline Caching...');
   // 1. Web App Manifest
   assert.ok(fs.existsSync('manifest.json'), 'manifest.json must exist');
   const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
@@ -4152,7 +4152,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ sw.js Network-First navigation with offline cache fallback verified'
   );
 
-  console.log('\nTesting Mobile UX Polish & Theme Consistency (TSK-017)...');
+  console.log('\nTesting Mobile UX Polish & Theme Consistency...');
   const indexHtmlMobile = fs.readFileSync('index.html', 'utf8');
   assert.ok(
     indexHtmlMobile.includes('viewport-fit=cover'),
@@ -4261,7 +4261,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Admin console subtabs, department tabs, and section buttons verified with 44px touch targets'
   );
 
-  console.log('\nTesting Developer Tooling & Linting (TSK-015)...');
+  console.log('\nTesting Developer Tooling & Linting...');
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   assert(pkg.scripts, 'package.json must contain scripts');
   assert(pkg.scripts.dev, 'package.json must contain dev script');
@@ -4407,7 +4407,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
   {
-    console.log('\nTesting System Hardening, Anti-Spam & Concurrency (TSK-025)...');
+    console.log('\nTesting System Hardening, Anti-Spam & Concurrency...');
 
     // 1. Global Button Debouncing & Request Throttling
     const uiMod = require('../js/core/ui.js');
@@ -4616,8 +4616,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(sessionMod.sessionGet('name'), null, 'Cross-tab clear clears in-memory session');
     console.log('  ✔ Cross-tab storage synchronization, tab identity, deduplication & loop prevention verified');
 
-    // ── High-UX Standardized Loading Architecture (TSK-LOADING) ────────────────
-    console.log('\nTesting Standardized Loading Architecture & Timing (TSK-LOADING)...');
+    // ── High-UX Standardized Loading Architecture ────────────────
+    console.log('\nTesting Standardized Loading Architecture & Timing...');
     const loadingMod = require('../js/core/loading.js');
 
     // 1. Core timing constants
@@ -4729,8 +4729,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.fetch = origFetch;
   }
 
-  // ── Testing Storage Lockdown, Signed URLs & Photo EXIF GPS Stripping (TSK-035) ──
-  console.log('Testing Supabase Storage Lockdown, Signed URLs & Photo EXIF GPS Stripping (TSK-035)...');
+  // ── Testing Storage Lockdown, Signed URLs & Photo EXIF GPS Stripping ──
+  console.log('Testing Supabase Storage Lockdown, Signed URLs & Photo EXIF GPS Stripping...');
   {
     const utils = require('../js/core/utils.js');
     const supaMod = require('../js/api/supabase.js');
@@ -5158,8 +5158,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Announcement broadcast emailing and new device sign-in security alerts verified');
   }
 
-  // ── Testing Server-Side Auth & PostgreSQL RPC Gatekeeping (TSK-036) ──
-  console.log('\nTesting Server-Side Auth & PostgreSQL RPC Gatekeeping (TSK-036)...');
+  // ── Testing Server-Side Auth & PostgreSQL RPC Gatekeeping ──
+  console.log('\nTesting Server-Side Auth & PostgreSQL RPC Gatekeeping...');
   {
     const supaMod = require('../js/api/supabase.js');
     const memberMod = require('../js/modules/member.js');
@@ -5340,9 +5340,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
   // =========================================================================
-  // TSK-037: Content Security Policy (CSP), Anti-Clickjacking & Referrer Security
+  // Content Security Policy (CSP), Anti-Clickjacking & Referrer Security
   // =========================================================================
-  console.log('\n--- TSK-037: Content Security Policy (CSP), Anti-Clickjacking & Referrer Security ---');
+  console.log('\n--- Content Security Policy (CSP), Anti-Clickjacking & Referrer Security ---');
   {
     // 1. Verify index.html CSP, anti-clickjacking, and referrer meta tags
     const indexHtml = fs.readFileSync('index.html', 'utf8');
@@ -5414,9 +5414,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
   // =========================================================================
-  // TSK-040: Minor Directory Privacy, Leaderboard PII Masking & Safe Reactions
+  // Minor Directory Privacy, Leaderboard PII Masking & Safe Reactions
   // =========================================================================
-  console.log('\n--- TSK-040: Minor Directory Privacy, Leaderboard PII Masking & Safe Reactions ---');
+  console.log('\n--- Minor Directory Privacy, Leaderboard PII Masking & Safe Reactions ---');
   {
     // 1. Surname Masking Utilities
     assert.strictEqual(utils.maskSurname('Jeshua Koh'), 'Jeshua K.', 'maskSurname masks 2-part name');
@@ -5505,8 +5505,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Shared platoon leaderboard verified with dynamic surname masking & low attendance protection');
   }
 
-  // ── TSK-041: Immutable Admin Audit Logs, Brute-Force Lockout & Session TTL ──
-  console.log('\n--- TSK-041: Immutable Admin Audit Logs, Brute-Force Lockout & Session TTL ---');
+  // ── Immutable Admin Audit Logs, Brute-Force Lockout & Session TTL ──
+  console.log('\n--- Immutable Admin Audit Logs, Brute-Force Lockout & Session TTL ---');
   {
     // 1. SQL migration schema & triggers verification
     const migPath = path.join(__dirname, '..', 'supabase', 'migrations', '011_audit_logs_lockout_session_ttl.sql');
@@ -5607,9 +5607,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // TSK-043: Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA Integration)
+  // Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA Integration)
   // ────────────────────────────────────────────────────────────────────────────
-  console.log('\n--- TSK-043: Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA) ---');
+  console.log('\n--- Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA) ---');
   {
     // 1. Content Security Policy (CSP) & Turnstile Script Integration
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
@@ -5714,9 +5714,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
 
     // ──
-  // TSK-045: Authenticated Portal Gatekeeper & Member Login/Registration Flow
+  // Authenticated Portal Gatekeeper & Member Login/Registration Flow
   // ──
-  console.log('\n--- TSK-045: Authenticated Portal Gatekeeper & Member Route Protection ---');
+  console.log('\n--- Authenticated Portal Gatekeeper & Member Route Protection ---');
   {
     const sessionMod = require('../js/core/session.js');
     const { AuthGuard, isUserAuthenticated } = sessionMod;
@@ -5833,8 +5833,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ AuthGuard gatekeeper integration preserved strict 388 unique DOM IDs invariant with 0 bloat');
   }
 
-  // ─── TSK-049: Granular Role-Based Access Control (RBAC), Scoped Admin Console & Header Role Badge ───
-  console.log('\n--- TSK-049: Granular Role-Based Access Control (RBAC), Scoped Admin Console & Header Role Badge ---');
+  // ─── Granular Role-Based Access Control (RBAC), Scoped Admin Console & Header Role Badge ───
+  console.log('\n--- Granular Role-Based Access Control (RBAC), Scoped Admin Console & Header Role Badge ---');
   {
     const rbacMod = require('../js/core/rbac.js');
     const sessionMod = require('../js/core/session.js');
@@ -6315,9 +6315,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   
   // =========================================================================
-  // TSK-057: Confidential Attendance Achievement Tiers & One Year Service Milestone Badges
+  // Confidential Attendance Achievement Tiers & One Year Service Milestone Badges
   // =========================================================================
-  console.log('\n--- TSK-057: Confidential Attendance Achievement Tiers & One Year Service Milestone Badges ---');
+  console.log('\n--- Confidential Attendance Achievement Tiers & One Year Service Milestone Badges ---');
   {
     const attMod = attendanceMod;
     const tierFn = utils.getAttendanceAchievementTier;
@@ -6441,15 +6441,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'TSK-057 attendance tiers preserved strict 388 unique DOM IDs invariant');
+    assert.strictEqual(uniqueIds.length, 388, ' attendance tiers preserved strict 388 unique DOM IDs invariant');
     console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
   }
 
   // =========================================================================
-  // TSK-058: Story Highlights & Media Viewer UI/UX Overhaul
+  // Story Highlights & Media Viewer UI/UX Overhaul
   // =========================================================================
   {
-    console.log('\n--- TSK-058: Story Highlights & Media Viewer UI/UX Overhaul ---');
+    console.log('\n--- Story Highlights & Media Viewer UI/UX Overhaul ---');
     const galleryMod = require('../js/modules/gallery.js');
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const componentsCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
@@ -6523,14 +6523,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'TSK-058 preserved strict 388 unique DOM IDs invariant');
+    assert.strictEqual(uniqueIds.length, 388, ' preserved strict 388 unique DOM IDs invariant');
     console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
   }
 
   
-  // ── TSK-046: AI Support Helper Agent ("Ask Stedfast") & Bug Forum ────────
+  // ── AI Support Helper Agent ("Ask Stedfast") & Bug Forum ────────
   {
-    console.log('\nTesting AI Support Helper Agent & Bug Forum (TSK-046)...');
+    console.log('\nTesting AI Support Helper Agent & Bug Forum...');
     const forumMod = require('../js/modules/forum.js');
 
     // 1. Module Exports & Seed Discussions
@@ -6790,9 +6790,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
   }
 
-  // ── TSK-059: Browser Navigation Undo & Redo (HTML5 History API) ─────────────
+  // ── Browser Navigation Undo & Redo (HTML5 History API) ─────────────
   {
-    console.log('\nTesting Browser Navigation Undo & Redo (TSK-059)...');
+    console.log('\nTesting Browser Navigation Undo & Redo...');
     const idxHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
 
     // 1. History Stack Simulation & State Tracking
@@ -7027,9 +7027,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ saveEditMember enforces mandatory rank and disallows empty / "No rank" submission');
   }
 
-  // ── TSK-056: 1stPJ Arcade: Daily Wordle, BB Trivia & Gamified Learning Hub ──
+  // ── 1stPJ Arcade: Daily Wordle, BB Trivia & Gamified Learning Hub ──
   {
-    console.log('\nTesting 1stPJ Arcade & Gamified Learning Hub (TSK-056)...');
+    console.log('\nTesting 1stPJ Arcade & Gamified Learning Hub...');
     const arcadeMod = require('../js/modules/arcade.js');
     global.getArcadeStats = arcadeMod.getArcadeStats;
     global.saveArcadeStats = arcadeMod.saveArcadeStats;
@@ -7103,7 +7103,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(sessionMod.AuthGuard.PROTECTED_ROUTES.includes('arcade'), 'AuthGuard.PROTECTED_ROUTES must protect arcade tab');
     console.log('  ✔ Top header bar badge (fire icon, streak on left, Credits label) and sidebar arcade route verified');
 
-    // 7. Wordle Dictionary Validation & Warning Toast (TSK-056 Dictionary Filter)
+    // 7. Wordle Dictionary Validation & Warning Toast ( Dictionary Filter)
     assert.strictEqual(typeof arcadeMod.isValidWordleWord, 'function', 'isValidWordleWord must be exported');
     assert.strictEqual(arcadeMod.isValidWordleWord('ABACK'), true, 'Valid dictionary word ABACK must return true');
     assert.strictEqual(arcadeMod.isValidWordleWord('DRIVE'), true, 'Valid dictionary word DRIVE must return true');
@@ -7227,9 +7227,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
 
   
-  // ── TSK-062: Member Online, Idle & Offline Presence Tracking for Admin Console ──
+  // ── Member Online, Idle & Offline Presence Tracking for Admin Console ──
   {
-    console.log('\nTesting Member Online, Idle & Offline Presence Tracking (TSK-062)...');
+    console.log('\nTesting Member Online, Idle & Offline Presence Tracking...');
     const sessionMod = require('../js/core/session.js');
     const adminMod = require('../js/modules/admin.js');
 
@@ -7352,9 +7352,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
   // =========================================================================
-  // TSK-062: Creator-Governed Custom Profile Avatar Outlines, Gradients & Animations
+  // Creator-Governed Custom Profile Avatar Outlines, Gradients & Animations
   // =========================================================================
-  console.log('\nTesting Creator-Governed Custom Profile Avatar Outlines, Gradients & Animations (TSK-062)...');
+  console.log('\nTesting Creator-Governed Custom Profile Avatar Outlines, Gradients & Animations...');
   {
     const memberMod = require('../js/modules/member.js');
     const adminMod = require('../js/modules/admin.js');
@@ -7520,8 +7520,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
-    // ─── TSK-060: Profile Cosmetics & Gamified Arcade Credit Shop ────────────
-  console.log('\nTesting Profile Cosmetics & Gamified Arcade Credit Shop (TSK-060)...');
+    // ─── Profile Cosmetics & Gamified Arcade Credit Shop ────────────
+  console.log('\nTesting Profile Cosmetics & Gamified Arcade Credit Shop...');
   {
     const memberMod = require('../js/modules/member.js');
     const adminMod = require('../js/modules/admin.js');
@@ -7706,7 +7706,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'TSK-060 strictly preserves 388 unique DOM IDs invariant');
+    assert.strictEqual(uniqueIds.length, 388, ' strictly preserves 388 unique DOM IDs invariant');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
@@ -8991,7 +8991,120 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(finalUniqueIdsStedfast.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
 
-    console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
+    
+  // ── Stedfast AI Helper Company Resources & Drill Manual Grounding ────────
+  console.log('\n[TEST] Stedfast AI Helper Company Resources & Drill Manual Grounding...');
+  try {
+    const forumModule = require('../js/modules/forum.js');
+
+    // Mock company resources in global.window and global.resources
+    const mockResources = [
+      {
+        id: 'res-bb-handbook',
+        title: "Boys' Brigade Handbook",
+        category: 'Handbooks & Manuals',
+        description: "Official BB Malaysia handbook covering Object, motto, history, and awards regulations.",
+        url: 'https://drive.google.com/file/d/1MockBBHandbookDriveId/view',
+        fileType: 'DRIVE',
+        fileSize: '4.8 MB',
+        access: 'all'
+      },
+      {
+        id: 'res-bb-drill',
+        title: "BB Drill & Ceremonial Manual",
+        category: 'Handbooks & Manuals',
+        description: "Standard squad drill movements, ceremonial marching commands, and parade inspections.",
+        url: 'https://drive.google.com/file/d/1MockDrillManualDriveId/view',
+        fileType: 'DRIVE',
+        fileSize: '3.2 MB',
+        access: 'all'
+      },
+      {
+        id: 'res-absence-form',
+        title: "Leave of Absence Official Form",
+        category: 'Forms & Administration',
+        description: "Official member absence application form for school exams and family events.",
+        url: 'https://docs.google.com/document/d/1MockAbsenceFormDocId/edit',
+        fileType: 'DOC',
+        fileSize: '120 KB',
+        access: 'all'
+      }
+    ];
+
+    if (typeof global.window === 'undefined') global.window = {};
+    global.window.resources = mockResources;
+    global.resources = mockResources;
+
+    // 1. Test searchCompanyResourcesForHelper
+    const foundHandbook = forumModule.searchCompanyResourcesForHelper('handbook');
+    assert.ok(foundHandbook && foundHandbook.doc, 'Must find matching handbook in resources');
+    assert.strictEqual(foundHandbook.doc.id, 'res-bb-handbook');
+
+    const foundDrill = forumModule.searchCompanyResourcesForHelper('drill manual');
+    assert.ok(foundDrill && foundDrill.doc, 'Must find matching drill manual in resources');
+    assert.strictEqual(foundDrill.doc.id, 'res-bb-drill');
+
+    const foundForm = forumModule.searchCompanyResourcesForHelper('absence form');
+    assert.ok(foundForm && foundForm.doc, 'Must find matching absence form in resources');
+    assert.strictEqual(foundForm.doc.id, 'res-absence-form');
+    console.log('  ✔ searchCompanyResourcesForHelper dynamically matches uploaded documents & Drive links');
+
+    // 2. Test Drill Commands Query Grounding (Sedia, Senang Diri, Ke Kanan Lurus, Cepat Jalan)
+    const resSedia = forumModule.queryHelperAgent('How do I do sedia command?');
+    assert.ok(resSedia && resSedia.text, 'Sedia inquiry must return drill manual explanation');
+    assert.ok(resSedia.text.includes('Sedia') && resSedia.text.includes('45°'), 'Sedia response must explain heels together 45 degrees');
+    assert.ok(resSedia.actions.some(a => a.action === 'open-url' && a.target.includes('MockDrillManualDriveId')), 'Sedia query must provide Open Drill Manual action button');
+    assert.ok(resSedia.actions.some(a => a.target === 'resources'), 'Sedia query must provide Go to Company Resources button');
+
+    const resSenangDiri = forumModule.queryHelperAgent('What is senang diri in drill?');
+    assert.ok(resSenangDiri.text.includes('Senang Diri') && resSenangDiri.text.includes('12 inches'), 'Senang Diri response must explain left foot 12 inches');
+
+    const resKananLurus = forumModule.queryHelperAgent('How to execute ke kanan lurus command?');
+    assert.ok(resKananLurus.text.includes('Ke Kanan Lurus') && resKananLurus.text.includes('left arm'), 'Ke Kanan Lurus response must explain head turn and left arm');
+
+    const resCepatJalan = forumModule.queryHelperAgent('What is the tempo for cepat jalan?');
+    assert.ok(resCepatJalan.text.includes('Cepat Jalan') && resCepatJalan.text.includes('116–120'), 'Cepat Jalan response must explain quick march cadence (116-120 paces/min)');
+    console.log('  ✔ Drill commands grounded in official BB Drill Manual with direct document links');
+
+    // 3. Test Dynamic Ingestion of Uploaded Company Documents & Google Drive links
+    const resAbsenceDoc = forumModule.queryHelperAgent('Where can I get the leave of absence form?');
+    assert.ok(resAbsenceDoc.text.includes('Leave of Absence') || resAbsenceDoc.text.includes('absence'), 'Must cite uploaded Leave of Absence document');
+    assert.ok(resAbsenceDoc.actions.some(a => a.action === 'open-url' && a.target.includes('MockAbsenceFormDocId')), 'Must provide Open Document button pointing to Google Docs link');
+
+    const resAllDocs = forumModule.queryHelperAgent('What documents are available in the resources tab?');
+    assert.ok(resAllDocs.text.includes("Boys' Brigade Handbook") && resAllDocs.text.includes("BB Drill & Ceremonial Manual"), 'Listing documents query must enumerate active resources');
+    assert.ok(resAllDocs.actions.some(a => a.target === 'resources'), 'All documents query must link to Company Resources');
+    console.log('  ✔ Dynamic company documents & Google Drive links resolution verified');
+
+    // 4. Test executeHelperAction open-url handling
+    let openedUrl = null;
+    let openedWindowOpts = null;
+    global.window.open = function(url, target, opts) {
+      openedUrl = url;
+      openedWindowOpts = opts;
+    };
+    forumModule.executeHelperAction('open-url', 'https://drive.google.com/file/d/test12345/view');
+    assert.strictEqual(openedUrl, 'https://drive.google.com/file/d/test12345/view', 'executeHelperAction open-url must invoke window.open with URL');
+    assert.strictEqual(openedWindowOpts, 'noopener,noreferrer', 'executeHelperAction open-url must set secure window opts');
+    console.log('  ✔ executeHelperAction open-url successfully opens documents in secure new tabs');
+
+    // 5. Test Attendance Rule & Codebase Cleanup Invariants (Zero TSK codes, accurate One Year Service rule)
+    const resAttRule = forumModule.queryHelperAgent('What is the 80% attendance rule?');
+    assert.ok(!resAttRule.text.includes('TSK-'), 'Attendance reply must never mention TSK task codes');
+    assert.ok(!resAttRule.text.includes("President's Award service years"), 'Must never falsely claim 80% is for Presidents Award service years');
+    assert.ok(resAttRule.text.includes('BB One Year Service'), 'Must accurately tie 80% attendance to BB One Year Service award');
+
+    const resAdminGov = forumModule.queryHelperAgent('How does the admin console work?');
+    assert.ok(!resAdminGov.text.includes('TSK-'), 'Admin console reply must never mention TSK task codes');
+    console.log('  ✔ Attendance rule accuracy and complete elimination of confusing task codes verified');
+
+  } catch (err) {
+    console.error('Stedfast Resources Grounding Test Failed:', err);
+    process.exit(1);
+  }
+
+
+console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
   console.error('\n✖ Test failed:', err);
