@@ -94,21 +94,21 @@ function sanitizeMasterMemberRecord(rawMember) {
     isBandMember: !!rawMember.isBandMember,
     bandSection: typeof rawMember.bandSection === 'string' ? rawMember.bandSection.trim() : '',
     paradeAttendance: {
-      percentage: (rawMember.paradeAttendance && typeof rawMember.paradeAttendance.percentage === 'number')
+      percentage: (rawMember.paradeAttendance && Number.isFinite(rawMember.paradeAttendance.percentage))
         ? Math.round(rawMember.paradeAttendance.percentage * 100) / 100
         : 0
     },
     bandAttendance: {
-      percentage: (rawMember.bandAttendance && typeof rawMember.bandAttendance.percentage === 'number')
+      percentage: (rawMember.bandAttendance && Number.isFinite(rawMember.bandAttendance.percentage))
         ? Math.round(rawMember.bandAttendance.percentage * 100) / 100
         : 0
     },
     points: {
-      uniform: (rawMember.points && typeof rawMember.points.uniform === 'number') ? rawMember.points.uniform : 0,
-      uniformAvg: (rawMember.points && typeof rawMember.points.uniformAvg === 'number') ? rawMember.points.uniformAvg : 0,
-      paradeAtt: (rawMember.points && typeof rawMember.points.paradeAtt === 'number') ? rawMember.points.paradeAtt : 0,
-      bandAtt: (rawMember.points && typeof rawMember.points.bandAtt === 'number') ? rawMember.points.bandAtt : 0,
-      total: (rawMember.points && typeof rawMember.points.total === 'number') ? rawMember.points.total : 0
+      uniform: (rawMember.points && Number.isFinite(rawMember.points.uniform)) ? rawMember.points.uniform : 0,
+      uniformAvg: (rawMember.points && Number.isFinite(rawMember.points.uniformAvg)) ? rawMember.points.uniformAvg : 0,
+      paradeAtt: (rawMember.points && Number.isFinite(rawMember.points.paradeAtt)) ? rawMember.points.paradeAtt : 0,
+      bandAtt: (rawMember.points && Number.isFinite(rawMember.points.bandAtt)) ? rawMember.points.bandAtt : 0,
+      total: (rawMember.points && Number.isFinite(rawMember.points.total)) ? rawMember.points.total : 0
     },
     lastUpdated: rawMember.lastUpdated || new Date().toISOString()
   };

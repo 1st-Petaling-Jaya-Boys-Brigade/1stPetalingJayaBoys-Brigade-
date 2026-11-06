@@ -106,10 +106,13 @@ var _lastUploadedFileSize = '';
  * @returns {string}
  */
 function formatFileSize(bytes) {
-  if (!bytes || isNaN(bytes) || bytes <= 0) return '';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  if (bytes === 0 || bytes === '0') return '0 B';
+  if (!bytes || isNaN(bytes) || bytes < 0) return '';
+  var num = Number(bytes);
+  if (num < 1024) return num + ' B';
+  if (num < 1024 * 1024) return (num / 1024).toFixed(1) + ' KB';
+  if (num < 1024 * 1024 * 1024) return (num / (1024 * 1024)).toFixed(1) + ' MB';
+  return (num / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
 }
 
 /**

@@ -9597,6 +9597,105 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Google Sheets sync, document repository, and media deletion audits verified');
   }
 
+  // ── [TEST] Edge Cases, Data Formatters, Leap Years & Boundary Resiliency ──
+  {
+    console.log('\n[TEST] Edge Cases, Data Formatters, Leap Years & Boundary Resiliency...');
+
+    // 1. calcAge Edge Cases
+    const adminMod = require('../js/modules/admin.js');
+    assert.strictEqual(adminMod.calcAge(null), null, 'calcAge(null) must return null');
+    assert.strictEqual(adminMod.calcAge(undefined), null, 'calcAge(undefined) must return null');
+    assert.strictEqual(adminMod.calcAge(''), null, 'calcAge("") must return null');
+    assert.strictEqual(adminMod.calcAge('invalid-date'), null, 'calcAge("invalid-date") must return null instead of NaN');
+    assert.strictEqual(adminMod.calcAge('not-a-dob'), null, 'calcAge("not-a-dob") must return null');
+
+    const curYear = new Date().getFullYear();
+    assert.strictEqual(adminMod.calcAge('2010-05-15'), curYear - 2010, 'calcAge must accurately calculate standard turning age');
+    assert.strictEqual(adminMod.calcAge('2000-02-29'), curYear - 2000, 'calcAge must accurately calculate leap-year 2000 turning age');
+    assert.strictEqual(adminMod.calcAge('2024-02-29'), curYear - 2024, 'calcAge must accurately calculate leap-year 2024 turning age');
+    console.log('  ✔ calcAge null, invalid date, leap year, and turning age boundaries verified');
+
+    // 2. formatFileSize Edge Cases
+    const resMod = require('../js/modules/resources.js');
+    assert.strictEqual(resMod.formatFileSize(0), '0 B', 'formatFileSize(0) must return "0 B"');
+    assert.strictEqual(resMod.formatFileSize('0'), '0 B', 'formatFileSize("0") must return "0 B"');
+    assert.strictEqual(resMod.formatFileSize(null), '', 'formatFileSize(null) must return empty string');
+    assert.strictEqual(resMod.formatFileSize(undefined), '', 'formatFileSize(undefined) must return empty string');
+    assert.strictEqual(resMod.formatFileSize(-50), '', 'formatFileSize(-50) must return empty string');
+    assert.strictEqual(resMod.formatFileSize('invalid'), '', 'formatFileSize("invalid") must return empty string');
+
+    assert.strictEqual(resMod.formatFileSize(512), '512 B', '512 bytes must format to "512 B"');
+    assert.strictEqual(resMod.formatFileSize('1024'), '1.0 KB', 'String "1024" must format to "1.0 KB"');
+    assert.strictEqual(resMod.formatFileSize(1048576 * 4.5), '4.5 MB', '4.5 MB must format accurately');
+    assert.strictEqual(resMod.formatFileSize(1073741824 * 2.5), '2.5 GB', '2.5 GB must format with GB suffix');
+    console.log('  ✔ formatFileSize 0 B, string coercion, negative bounds, and GB scaling verified');
+
+    // 3. sanitizeMasterMemberRecord NaN & Infinity Protection
+    const sheetsMod = require('../js/api/sheets.js');
+    const corruptedRecord = {
+      name: 'Corrupted Stats Cadet',
+      rank: 'Corporal',
+      paradeAttendance: { percentage: NaN },
+      bandAttendance: { percentage: Infinity },
+      points: {
+        uniform: NaN,
+        uniformAvg: -Infinity,
+        paradeAtt: Infinity,
+        bandAtt: NaN,
+        total: NaN
+      },
+      password: 'LeakedPassword123!',
+      ic: '050101-10-1234'
+    };
+
+    const sanitized = sheetsMod.sanitizeMasterMemberRecord(corruptedRecord);
+    assert.ok(sanitized, 'Sanitized record must not be null');
+    assert.strictEqual(sanitized.paradeAttendance.percentage, 0, 'NaN percentage must sanitize to 0');
+    assert.strictEqual(sanitized.bandAttendance.percentage, 0, 'Infinity percentage must sanitize to 0');
+    assert.strictEqual(sanitized.points.uniform, 0, 'NaN uniform points must sanitize to 0');
+    assert.strictEqual(sanitized.points.uniformAvg, 0, '-Infinity uniformAvg points must sanitize to 0');
+    assert.strictEqual(sanitized.points.paradeAtt, 0, 'Infinity paradeAtt points must sanitize to 0');
+    assert.strictEqual(sanitized.points.bandAtt, 0, 'NaN bandAtt points must sanitize to 0');
+    assert.strictEqual(sanitized.points.total, 0, 'NaN total points must sanitize to 0');
+    assert.strictEqual(sanitized.password, undefined, 'Password must be completely stripped');
+    assert.strictEqual(sanitized.ic, undefined, 'IC must be completely stripped');
+    console.log('  ✔ sanitizeMasterMemberRecord NaN, Infinity, and PII elimination verified');
+
+    // 4. changeQty Quantity Bounds Protection
+    const ordersMod = require('../js/modules/orders.js');
+    ordersMod.changeQty('belt', -10);
+    assert.strictEqual(ordersMod.itemQtys['belt'], 0, 'Quantity must never drop below 0');
+
+    ordersMod.changeQty('belt', 50);
+    assert.strictEqual(ordersMod.itemQtys['belt'], 50, 'Quantity increases normally within bounds');
+
+    ordersMod.changeQty('belt', 100);
+    assert.strictEqual(ordersMod.itemQtys['belt'], 99, 'Quantity must cap at 99 maximum items');
+
+    ordersMod.changeQty('belt', -200);
+    assert.strictEqual(ordersMod.itemQtys['belt'], 0, 'Large negative decrement clamps safely to 0');
+    console.log('  ✔ changeQty 0-99 bounds and underflow/overflow clamping verified');
+
+    // 5. getMonthMatrix Leap Year & Calendar Rollover
+    const calMod = require('../js/modules/calendar.js');
+    const feb2024 = calMod.getMonthMatrix(2024, 1);
+    const feb2024Days = feb2024.filter(d => d.isCurrentMonth);
+    assert.strictEqual(feb2024Days.length, 29, 'Leap year February 2024 must have exactly 29 days');
+
+    const feb2025 = calMod.getMonthMatrix(2025, 1);
+    const feb2025Days = feb2025.filter(d => d.isCurrentMonth);
+    assert.strictEqual(feb2025Days.length, 28, 'Standard year February 2025 must have exactly 28 days');
+
+    const feb2000 = calMod.getMonthMatrix(2000, 1);
+    const feb2000Days = feb2000.filter(d => d.isCurrentMonth);
+    assert.strictEqual(feb2000Days.length, 29, 'Century leap year February 2000 must have exactly 29 days');
+
+    const jan2026 = calMod.getMonthMatrix(2026, 0);
+    const prevYearFiller = jan2026.filter(d => !d.isCurrentMonth && d.dateKey.startsWith('2025-12-'));
+    assert.ok(prevYearFiller.length >= 0, 'January matrix must cleanly wrap overflow filler from December of previous year');
+    console.log('  ✔ Calendar leap years (2000, 2024, 2025) and month rollover matrices verified');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

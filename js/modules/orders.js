@@ -681,7 +681,7 @@ function updateTotal() {
  */
 function changeQty(key, delta) {
   var current = itemQtys[key] || 0;
-  var next = Math.max(0, current + delta);
+  var next = Math.min(99, Math.max(0, current + delta));
   itemQtys[key] = next;
 
   // Sync with uniformCart
