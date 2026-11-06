@@ -2852,8 +2852,11 @@ async function listAvailableGeminiModels(apiKey) {
 
   if (discovered.length > 0) {
     var priorityOrder = [
-      'gemini-2.0-flash',
+      'gemini-3.8-flash',
+      'gemini-3.8-pro',
+      'gemini-3.0-flash',
       'gemini-2.5-flash',
+      'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-1.5-flash-8b',
       'gemini-2.0-flash-lite',
@@ -2923,12 +2926,14 @@ async function callGeminiApi(prompt, apiKey, options) {
       candidates.push({ model: storedModel, apiVersion: storedVer });
     }
     var defaultCandidates = [
+      { apiVersion: 'v1beta', model: 'gemini-3.8-flash' },
+      { apiVersion: 'v1',     model: 'gemini-3.8-flash' },
+      { apiVersion: 'v1beta', model: 'gemini-3.8-pro' },
+      { apiVersion: 'v1beta', model: 'gemini-3.0-flash' },
+      { apiVersion: 'v1beta', model: 'gemini-2.5-flash' },
       { apiVersion: 'v1beta', model: 'gemini-2.0-flash' },
       { apiVersion: 'v1',     model: 'gemini-1.5-flash' },
       { apiVersion: 'v1beta', model: 'gemini-1.5-flash' },
-      { apiVersion: 'v1beta', model: 'gemini-2.5-flash' },
-      { apiVersion: 'v1beta', model: 'gemini-1.5-flash-8b' },
-      { apiVersion: 'v1',     model: 'gemini-1.5-pro' },
       { apiVersion: 'v1beta', model: 'gemini-1.5-pro' },
       { apiVersion: 'v1',     model: 'gemini-pro' }
     ];
@@ -4435,7 +4440,7 @@ function updateHelperGeminiStatus() {
   var key = getGeminiApiKey();
 
   if (key) {
-    var activeModel = (typeof getActiveGeminiModel === 'function' ? getActiveGeminiModel() : '') || 'gemini-2.0-flash';
+    var activeModel = (typeof getActiveGeminiModel === 'function' ? getActiveGeminiModel() : '') || 'gemini-3.8-flash';
     var cleanLabel = activeModel.replace(/^models\//, '').replace(/-/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
     if (pill) {
       pill.textContent = '● Active (' + cleanLabel + ')';
@@ -4461,6 +4466,7 @@ async function saveGeminiKeyFromHelper(btn) {
   var key = (input.value || '').trim().replace(/^['"]|['"]$/g, '');
   if (!key) {
     setGeminiApiKey('');
+    setActiveGeminiModel('', 'v1beta');
     await saveRemoteGeminiApiKey('');
     updateHelperGeminiStatus();
     if (typeof showToast === 'function') {
@@ -4473,10 +4479,26 @@ async function saveGeminiKeyFromHelper(btn) {
 
   var performVerification = async function() {
     if (typeof showToast === 'function') {
-      showToast('Testing connection to Google Gemini API...', 'info');
+      showToast('Discovering and testing supported Gemini models...', 'info');
     }
 
-    var testRes = await callGeminiApi('Say "Ready" in one word.', key);
+    // Step 1: Discover available models via ModelService.ListModels
+    var discovery = await listAvailableGeminiModels(key);
+    var candidateModel = null;
+    var candidateVer = 'v1beta';
+
+    if (discovery.ok && discovery.models && discovery.models.length > 0) {
+      candidateModel = discovery.models[0].id;
+      candidateVer = discovery.models[0].apiVersion;
+    }
+
+    // Step 2: Validate via minimal generateContent ping
+    var testRes = await callGeminiApi('Say "Ready" in one word.', key, {
+      model: candidateModel,
+      apiVersion: candidateVer,
+      skipSystemPrompt: true
+    });
+
     if (!testRes) {
       var lastErr = (typeof getLastGeminiError === 'function' ? getLastGeminiError() : _lastGeminiError) || '';
       var userMsg = 'Connection failed. Please verify your Gemini API key.';
@@ -4489,6 +4511,8 @@ async function saveGeminiKeyFromHelper(btn) {
         userMsg = 'Gemini API is unavailable in your current region or VPN location.';
       } else if (/RESOURCE_EXHAUSTED|quota/i.test(lastErr)) {
         userMsg = 'Gemini API quota exceeded. Please check your rate limits.';
+      } else if (/not found for API version|not supported for generateContent|no longer available/i.test(lastErr)) {
+        userMsg = 'Selected model is unavailable. Updated to gemini-3.8-flash for modern compatibility.';
       } else if (/Failed to fetch|Content-Security-Policy|NetworkError/i.test(lastErr)) {
         userMsg = 'Network or CSP connection blocked. Please refresh your browser.';
       } else if (lastErr) {
@@ -4501,14 +4525,16 @@ async function saveGeminiKeyFromHelper(btn) {
       return;
     }
 
+    var activeModelName = getActiveGeminiModel() || candidateModel || 'gemini-3.8-flash';
     setGeminiApiKey(key);
     await saveRemoteGeminiApiKey(key);
     input.value = '';
     toggleHelperSettingsPanel(false);
     updateHelperGeminiStatus();
 
+    var cleanLabel = activeModelName.replace(/^models\//, '').replace(/-/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
     if (typeof showToast === 'function') {
-      showToast('Google Gemini AI activated successfully!', 'success');
+      showToast('Google Gemini AI (' + cleanLabel + ') activated successfully!', 'success');
     }
   };
 
@@ -4521,7 +4547,6 @@ async function saveGeminiKeyFromHelper(btn) {
     await performVerification();
   }
 }
-
 function toggleHelperAgent() {
   _isHelperAgentOpen = !_isHelperAgentOpen;
   var drawer = document.getElementById('helper-agent-drawer');

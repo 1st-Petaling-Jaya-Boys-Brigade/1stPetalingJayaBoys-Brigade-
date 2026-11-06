@@ -9202,7 +9202,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.fetch = async (url, opts) => {
       if (url.includes('generativelanguage.googleapis.com')) {
         geminiApiCalled = true;
-        if (url.includes('gemini-2.0-flash')) geminiModelCalled = 'gemini-2.0-flash';
+        if (url.includes('gemini-3.8-flash')) geminiModelCalled = 'gemini-3.8-flash';
+        else if (url.includes('gemini-2.0-flash')) geminiModelCalled = 'gemini-2.0-flash';
         return {
           ok: true,
           status: 200,
@@ -9227,7 +9228,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     forumModule.setGeminiApiKey('');
 
     assert.ok(geminiApiCalled, 'getHelperAgentResponse must call Gemini API when API key is configured');
-    assert.strictEqual(geminiModelCalled, 'gemini-2.0-flash', 'Gemini API call must target gemini-2.0-flash');
+    assert.strictEqual(geminiModelCalled, 'gemini-3.8-flash', 'Gemini API call must target gemini-3.8-flash');
     assert.ok(geminiActiveResponse.text.includes('AI mentor for 1st PJ'), 'Must return intelligent Gemini response');
     console.log('  ✔ Google Gemini API Free Tier integration, credential isolation, and offline fallback verified');
     // 9. Dynamic Model Discovery (ListModels) & Active Model State
@@ -9244,7 +9245,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
           json: async () => ({
             models: [
               { name: 'models/gemini-1.5-pro', supportedGenerationMethods: ['generateContent'] },
-              { name: 'models/gemini-2.0-flash', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] },
               { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] }
             ]
           })
@@ -9257,7 +9258,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.fetch = origFetch;
     assert.ok(discoveryRes.ok, 'listAvailableGeminiModels must resolve successfully');
     assert.strictEqual(discoveryRes.models.length, 2, 'Must filter only generateContent models');
-    assert.strictEqual(discoveryRes.models[0].id, 'gemini-2.0-flash', 'Must prioritize gemini-2.0-flash over gemini-1.5-pro');
+    assert.strictEqual(discoveryRes.models[0].id, 'gemini-3.8-flash', 'Must prioritize gemini-3.8-flash over gemini-1.5-pro');
 
     forumModule.setActiveGeminiModel('gemini-2.0-flash', 'v1beta');
     assert.strictEqual(forumModule.getActiveGeminiModel(), 'gemini-2.0-flash', 'setActiveGeminiModel persists model ID');
