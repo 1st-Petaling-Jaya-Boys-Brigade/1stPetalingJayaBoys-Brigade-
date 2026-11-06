@@ -1110,7 +1110,11 @@
     '</span>';
   }
 
-  async function renderAdminList() {
+var _adminMembersCache = null;
+  var _adminMembersCacheTime = 0;
+  var ADMIN_MEMBERS_CACHE_TTL = 30000;
+
+  async function renderAdminList(forceRefresh) {
     if (typeof document === 'undefined') return;
     var search = ((document.getElementById('admin-search') || {}).value || '').toLowerCase();
     var list   = document.getElementById('admin-members-list');
@@ -1164,14 +1168,21 @@
         }
       } catch (e) {}
 
+      var now = Date.now();
       var members;
-      try {
-        members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
-      } catch (selectErr) {
-        console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
-        members = await client.get('bb_members?order=name.asc');
+      if (!forceRefresh && _adminMembersCache && (now - _adminMembersCacheTime < ADMIN_MEMBERS_CACHE_TTL)) {
+        members = _adminMembersCache;
+      } else {
+        try {
+          members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
+        } catch (selectErr) {
+          console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
+          members = await client.get('bb_members?order=name.asc');
+        }
+        if (!Array.isArray(members)) members = [];
+        _adminMembersCache = members;
+        _adminMembersCacheTime = now;
       }
-      if (!Array.isArray(members)) members = [];
       var filtered = members.filter(function(m) {
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;

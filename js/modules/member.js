@@ -547,44 +547,47 @@ async function findMembersByEmail(rawEmail) {
 
   var memberMap = new Map();
 
-  // 1. Query by exact ic = email
-  try {
-    var rows1 = await client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*');
-    if (rows1 && rows1.length) {
-      rows1.forEach(function(r) { memberMap.set(r.ic, r); });
-    }
-  } catch (e) {}
+  var cfgKey = 'bb_family_' + email.replace(/[^a-zA-Z0-9]/g, '_');
 
-  // 2. Query by email column = email
+  // Parallelize member discovery queries (exact ic, email column, prefix wildcard, and family config)
   try {
-    var rows2 = await client.get('bb_members?email=eq.' + encodeURIComponent(email) + '&select=*');
-    if (rows2 && rows2.length) {
-      rows2.forEach(function(r) { memberMap.set(r.ic, r); });
-    }
-  } catch (e) {}
+    var results = await Promise.allSettled([
+      client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*'),
+      client.get('bb_members?email=eq.' + encodeURIComponent(email) + '&select=*'),
+      client.get('bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=*'),
+      client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value')
+    ]);
 
-  // 3. Query by ic like email__*
-  try {
-    var rows3 = await client.get('bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=*');
-    if (rows3 && rows3.length) {
-      rows3.forEach(function(r) { memberMap.set(r.ic, r); });
+    if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) {
+      results[0].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
     }
-  } catch (e) {}
+    if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
+      results[1].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
+    }
+    if (results[2].status === 'fulfilled' && Array.isArray(results[2].value)) {
+      results[2].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
+    }
 
-  // 4. Query bb_config for family records under bb_family_<cleanEmail>
-  try {
-    var cfgKey = 'bb_family_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-    var cfgRows = await client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value');
-    if (cfgRows && cfgRows.length && cfgRows[0].value) {
-      var famData = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
-      if (famData && Array.isArray(famData.members)) {
-        for (var i = 0; i < famData.members.length; i++) {
-          var fIc = famData.members[i].ic;
-          if (fIc && !memberMap.has(fIc)) {
-            try {
-              var memRows = await client.get('bb_members?ic=eq.' + encodeURIComponent(fIc) + '&select=*');
-              if (memRows && memRows.length) memberMap.set(fIc, memRows[0]);
-            } catch (err2) {}
+    // Process family records
+    if (results[3].status === 'fulfilled') {
+      var cfgRows = results[3].value;
+      if (cfgRows && cfgRows.length && cfgRows[0].value) {
+        var famData = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
+        if (famData && Array.isArray(famData.members)) {
+          var missingIcs = [];
+          for (var i = 0; i < famData.members.length; i++) {
+            var fIc = famData.members[i].ic;
+            if (fIc && !memberMap.has(fIc)) missingIcs.push(fIc);
+          }
+          if (missingIcs.length > 0) {
+            var famResults = await Promise.allSettled(missingIcs.map(function(id) {
+              return client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
+            }));
+            famResults.forEach(function(res, idx) {
+              if (res.status === 'fulfilled' && Array.isArray(res.value) && res.value.length > 0) {
+                memberMap.set(missingIcs[idx], res.value[0]);
+              }
+            });
           }
         }
       }
@@ -2833,6 +2836,31 @@ async function loadMemberCosmetics() {
 
   if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
 
+  if (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
+    var snapCosm = await supa.safeConfigGet('bb_member_cosmetics');
+    if (snapCosm && typeof snapCosm === 'object') {
+      Object.keys(snapCosm).forEach(function(k) {
+        if (!_memberCosmeticsMap[k]) {
+          _memberCosmeticsMap[k] = snapCosm[k];
+        } else {
+          var localInv = Array.isArray(_memberCosmeticsMap[k].inventory) ? _memberCosmeticsMap[k].inventory : [];
+          var remoteInv = Array.isArray(snapCosm[k].inventory) ? snapCosm[k].inventory : [];
+          _memberCosmeticsMap[k].inventory = Array.from(new Set(localInv.concat(remoteInv)));
+          if (!_memberCosmeticsMap[k].equipped || _memberCosmeticsMap[k].equipped === 'none') {
+            if (snapCosm[k].equipped && snapCosm[k].equipped !== 'none') {
+              _memberCosmeticsMap[k].equipped = snapCosm[k].equipped;
+            }
+          }
+        }
+      });
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap)); } catch (_) {}
+      }
+      if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+      return _memberCosmeticsMap;
+    }
+  }
+
   var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
   if (!client || !client.get) return _memberCosmeticsMap;
 
@@ -3600,6 +3628,19 @@ async function loadCustomAvatarOutlines() {
   }
 
   if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+
+  if (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
+    var snapOutlines = await supa.safeConfigGet('bb_custom_avatar_outlines');
+    if (snapOutlines && typeof snapOutlines === 'object') {
+      _customAvatarOutlinesMap = snapOutlines;
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(snapOutlines)); } catch (_) {}
+      }
+      if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+      if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
+      return _customAvatarOutlinesMap;
+    }
+  }
 
   var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
   if (!client || !client.get) return _customAvatarOutlinesMap;
