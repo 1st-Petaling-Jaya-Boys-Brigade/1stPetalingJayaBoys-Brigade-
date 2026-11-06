@@ -1235,6 +1235,14 @@ var _adminMembersCache = null;
 
       _adminMembers = {};
       filtered.forEach(function(m) { _adminMembers[m.ic] = m; });
+      if (!filtered.length) {
+        list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:12px;">'
+          + '<div style="font-size:24px;margin-bottom:6px;">🔍</div>'
+          + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">No members found</div>'
+          + '<div style="font-size:12px;color:var(--text-muted);">Try adjusting your search query or section filter.</div>'
+          + '</div>';
+        return;
+      }
       if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
       global._adminPresenceMap = _adminPresenceMap;
       if (typeof localStorage !== 'undefined') {
@@ -1340,7 +1348,13 @@ var _adminMembersCache = null;
       });
     } catch (e) {
       console.error('renderAdminList error:', e);
-      list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>';
+      list.innerHTML = '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">'
+        + '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>'
+        + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Failed to load members roster</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Database request timed out or network was interrupted.</div>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminList()" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">'
+        + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+        + 'Retry</button></div>';
     }
   }
 
@@ -2388,7 +2402,14 @@ var _adminMembersCache = null;
         });
       });
     } catch (e) {
-      list.innerHTML = '<div style="color:#f66;text-align:center;padding:20px;">Failed to load tasks.</div>';
+      console.error('renderAdminTasks error:', e);
+      list.innerHTML = '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">'
+        + '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>'
+        + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Failed to load tasks</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Database request timed out or network was interrupted.</div>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminTasks(_adminTaskFilter)" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">'
+        + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>'
+        + 'Retry</button></div>';
     }
   }
 

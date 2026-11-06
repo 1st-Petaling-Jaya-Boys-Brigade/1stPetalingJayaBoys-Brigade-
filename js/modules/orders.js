@@ -1967,8 +1967,15 @@ async function renderAdminOrders(forceRefresh) {
       });
     });
   } catch (e) {
+    console.error('renderAdminOrders error:', e);
     list.innerHTML =
-      '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>';
+      '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">' +
+      '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>' +
+      '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">Failed to load order submissions</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Database request timed out or network was interrupted.</div>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminOrders()" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">' +
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
+      'Retry</button></div>';
   }
 }
 

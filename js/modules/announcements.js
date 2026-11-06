@@ -370,7 +370,11 @@ function renderAnnouncements() {
   if (!list) return;
 
   if (!announcements.length) {
-    list.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No announcements yet.</div>';
+    list.innerHTML = '<div class="empty-state-card" style="text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
+      + '<div style="font-size:28px;margin-bottom:8px;">📢</div>'
+      + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No Company Announcements</div>'
+      + '<div style="font-size:13px;max-width:340px;margin:0 auto;line-height:1.5;">Check back soon for upcoming parade notices, badge classes, and company news.</div>'
+      + '</div>';
     return;
   }
 
