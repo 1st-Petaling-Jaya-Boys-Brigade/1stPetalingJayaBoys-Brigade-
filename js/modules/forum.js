@@ -2804,7 +2804,7 @@ async function listAvailableGeminiModels(apiKey) {
 
     try {
       var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var timer = controller ? setTimeout(function() { controller.abort(); }, 8000) : null;
+      var timer = controller ? setTimeout(function() { controller.abort(); }, 15000) : null;
 
       var resp = await fetch(endpoint, {
         method: 'GET',
@@ -2964,6 +2964,12 @@ async function callGeminiApi(prompt, apiKey, options) {
       }
     };
 
+    if (options.skipThinking) {
+      requestBody.generationConfig.thinkingConfig = {
+        thinkingBudget: 0
+      };
+    }
+
     if (target.apiVersion === 'v1beta' && !options.skipSystemPrompt) {
       requestBody.systemInstruction = {
         parts: [{ text: systemPrompt }]
@@ -2972,7 +2978,8 @@ async function callGeminiApi(prompt, apiKey, options) {
 
     try {
       var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var timer = controller ? setTimeout(function() { controller.abort(); }, 9000) : null;
+      var timeoutMs = (options && typeof options.timeoutMs === "number") ? options.timeoutMs : 25000;
+      var timer = controller ? setTimeout(function() { controller.abort(); }, timeoutMs) : null;
 
       var resp = await fetch(endpoint, {
         method: 'POST',
@@ -3003,6 +3010,28 @@ async function callGeminiApi(prompt, apiKey, options) {
         var errMsg = (errBody && errBody.error && errBody.error.message)
           ? errBody.error.message
           : ('HTTP ' + resp.status + (resp.statusText ? ' ' + resp.statusText : ''));
+        // If thinkingConfig is unsupported on this model, retry immediately without it
+        if (resp.status === 400 && errMsg.includes('thinkingConfig') && requestBody.generationConfig && requestBody.generationConfig.thinkingConfig) {
+          delete requestBody.generationConfig.thinkingConfig;
+          var retryResp = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: controller ? controller.signal : undefined
+          });
+          if (retryResp.ok) {
+            var retryData = await retryResp.json();
+            if (retryData && retryData.candidates && retryData.candidates.length) {
+              var retryCand = retryData.candidates[0];
+              if (retryCand.content && retryCand.content.parts && retryCand.content.parts.length) {
+                _lastGeminiError = '';
+                setActiveGeminiModel(target.model, target.apiVersion);
+                return retryCand.content.parts[0].text.trim();
+              }
+            }
+          }
+        }
+
         capturedErrors.push(errMsg);
         console.warn('Gemini API [' + target.apiVersion + '/' + target.model + '] HTTP ' + resp.status + ': ' + errMsg);
 
@@ -3013,7 +3042,7 @@ async function callGeminiApi(prompt, apiKey, options) {
       }
     } catch (err) {
       var isAbort = err && (err.name === 'AbortError' || err.message === 'The user aborted a request.');
-      var fetchErrMsg = isAbort ? 'Request timed out after 9 seconds.' : ((err && err.message) ? err.message : String(err));
+      var fetchErrMsg = isAbort ? ('Request timed out after ' + Math.round(timeoutMs / 1000) + ' seconds.') : ((err && err.message) ? err.message : String(err));
       capturedErrors.push(fetchErrMsg);
       console.warn('Gemini API fetch error with ' + target.model + ':', err);
     }
@@ -4492,18 +4521,22 @@ async function saveGeminiKeyFromHelper(btn) {
       candidateVer = discovery.models[0].apiVersion;
     }
 
-    // Step 2: Validate via minimal generateContent ping
+    // Step 2: Validate via fast generateContent ping with thinking bypass and 25s timeout
     var testRes = await callGeminiApi('Say "Ready" in one word.', key, {
       model: candidateModel,
       apiVersion: candidateVer,
-      skipSystemPrompt: true
+      skipSystemPrompt: true,
+      skipThinking: true,
+      timeoutMs: 25000
     });
 
     if (!testRes) {
       var lastErr = (typeof getLastGeminiError === 'function' ? getLastGeminiError() : _lastGeminiError) || '';
       var userMsg = 'Connection failed. Please verify your Gemini API key.';
 
-      if (/API_KEY_INVALID|API key not valid|key not found/i.test(lastErr)) {
+      if (/timed out/i.test(lastErr)) {
+        userMsg = 'Connection timed out. Google Gemini servers took longer than expected. Please try again.';
+      } else if (/API_KEY_INVALID|API key not valid|key not found/i.test(lastErr)) {
         userMsg = 'Invalid Gemini API key. Please check your key from Google AI Studio.';
       } else if (/PERMISSION_DENIED|disabled/i.test(lastErr)) {
         userMsg = 'Generative Language API is disabled. Please enable it in your Google Cloud Console.';
