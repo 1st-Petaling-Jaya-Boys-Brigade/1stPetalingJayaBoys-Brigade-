@@ -2816,7 +2816,62 @@ async function getJson(url) {
     assert.strictEqual(faRes.hasHeroCard, true, 'Support forum must render .forum-hero-card');
     assert.ok(faRes.postCards >= 1, 'Support forum must render initial discussion threads');
     assert.ok(faRes.filterPills >= 6, 'Support forum must render category filter pills');
-    console.log('  ✔ Floating Helper Agent ("Ask Stedfast") drawer and Support Forum tab layout verified in browser');
+    console.log('  ✔ Floating Helper Agent ("Ask Stedfast") drawer and Support Forum tab layout verified in browser');
+
+    // ── Stedfast AI Helper Conversational Intelligence & Navigation CDP Verification ──
+    const stedfastDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const greetingRes = (typeof queryHelperAgent === 'function') ? queryHelperAgent('hi') : null;
+        const privacyRes = (typeof queryHelperAgent === 'function') ? queryHelperAgent("What is Jason Koh's points?") : null;
+        const navRes = (typeof queryHelperAgent === 'function') ? queryHelperAgent('Where is the 1stPJ Arcade?') : null;
+        const activePosts = (typeof forumPosts !== 'undefined' && Array.isArray(forumPosts) && forumPosts.length)
+          ? forumPosts
+          : ((typeof DEFAULT_FORUM_POSTS !== 'undefined' && DEFAULT_FORUM_POSTS.length) ? DEFAULT_FORUM_POSTS : []);
+        const targetPost = activePosts[0] || null;
+        const forumSearchQuery = targetPost ? ('forum thread about ' + targetPost.title) : 'forum thread about 80% attendance';
+        const forumRes = (typeof queryHelperAgent === 'function') ? queryHelperAgent(forumSearchQuery) : null;
+
+        // Test action button execution
+        if (typeof executeHelperAction === 'function') {
+          executeHelperAction('navigate', 'arcade');
+        }
+        const arcadePage = document.getElementById('page-arcade');
+        const isArcadeActive = arcadePage ? arcadePage.classList.contains('active') : false;
+
+        // Return to home
+        if (typeof switchTabNav === 'function') {
+          switchTabNav('home');
+        }
+
+        return {
+          hasGreeting: greetingRes && greetingRes.text.includes('Hello'),
+          hasNoGreetingFaqError: greetingRes && !greetingRes.text.includes('could not find an exact match'),
+          greetingHasChips: greetingRes && Array.isArray(greetingRes.chips) && greetingRes.chips.length > 0,
+          hasPrivacyNotice: privacyRes && privacyRes.text.includes('Member Privacy Notice'),
+          privacyHasLeaderboardBtn: privacyRes && privacyRes.actions.some(a => a.target === 'attendance'),
+          hasArcadeNavText: navRes && navRes.text.includes('1stPJ Arcade'),
+          hasArcadeBtn: navRes && navRes.actions.some(a => a.target === 'arcade'),
+          hasForumExcerpt: forumRes && forumRes.text.includes('Support Forum') && forumRes.text.includes('Summary'),
+          hasForumViewBtn: forumRes && forumRes.actions.some(a => a.action === 'view-thread'),
+          isArcadeActive
+        };
+      })()`,
+      returnByValue: true
+    });
+
+    const sRes = (stedfastDiag.result && stedfastDiag.result.value) || {};
+    assert.strictEqual(sRes.hasGreeting, true, 'Stedfast must reply conversationally to "hi" with Hello');
+    assert.strictEqual(sRes.hasNoGreetingFaqError, true, 'Stedfast must not output rigid FAQ failure on greetings');
+    assert.strictEqual(sRes.greetingHasChips, true, 'Greeting must provide suggested starter chips');
+    assert.strictEqual(sRes.hasPrivacyNotice, true, 'Inquiries for other member points must trigger Member Privacy Notice');
+    assert.strictEqual(sRes.privacyHasLeaderboardBtn, true, 'Privacy notice must provide Go to Leaderboard action button');
+    assert.strictEqual(sRes.hasArcadeNavText, true, 'Arcade navigation query must explain 1stPJ Arcade module');
+    assert.strictEqual(sRes.hasArcadeBtn, true, 'Arcade navigation query must render Go to 1stPJ Arcade action button');
+    assert.strictEqual(sRes.hasForumExcerpt, true, 'Forum search queries must format thread summary from past discussions');
+    assert.strictEqual(sRes.hasForumViewBtn, true, 'Forum search queries must provide View Forum Discussion action button');
+    assert.strictEqual(sRes.isArcadeActive, true, 'executeHelperAction navigate must activate target page in DOM');
+    console.log('  ✔ Stedfast conversational intelligence, Privacy Shield, navigation action buttons & forum citations verified in browser');
+
 
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
