@@ -5,7 +5,8 @@
  */
 
 var REMEMBER_ME_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
-var _redirectTarget = null; // Post-login redirect memory
+var _redirectTarget = null;
+  _lastSessionVerifyTime = 0; // Post-login redirect memory
 
 /**
  * Checks whether a saved Remember Me session timestamp has exceeded 14 days
@@ -591,7 +592,10 @@ var AuthGuard = {
  * If revoked or missing, immediately kicks the user out to the login/registration page (#member).
  * @returns {Promise<boolean>} true if session is valid, false if revoked
  */
-async function verifyActiveMemberSession() {
+var _lastSessionVerifyTime = 0;
+var SESSION_VERIFY_TTL = 30 * 1000; // 30-second TTL prevents redundant remote network queries on view transitions
+
+async function verifyActiveMemberSession(force) {
   if (typeof sessionGet !== 'function') return false;
   var ic = sessionGet('ic');
   var email = sessionGet('email');
@@ -599,6 +603,42 @@ async function verifyActiveMemberSession() {
 
   // Bypass remote check for automated test harness placeholder IC
   if (ic === '010101-14-1234') return true;
+
+  // 1. Instant local verification against cached deleted/blocked members (0ms latency)
+  var cleanIc = String(ic || '').toLowerCase().trim();
+  var cleanEmail = String(email || '').toLowerCase().trim();
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cachedDel = localStorage.getItem('bb_deleted_members');
+      if (cachedDel) {
+        var localDelList = JSON.parse(cachedDel);
+        if (Array.isArray(localDelList) && localDelList.some(function(item) {
+          var itm = String(item || '').toLowerCase().trim();
+          return itm && (itm === cleanIc || itm === cleanEmail);
+        })) {
+          forceKickDeletedAccount();
+          return false;
+        }
+      }
+      var cachedBlk = localStorage.getItem('bb_blocked_emails');
+      if (cachedBlk) {
+        var localBlkList = JSON.parse(cachedBlk);
+        if (Array.isArray(localBlkList) && localBlkList.some(function(item) {
+          var itm = String(item || '').toLowerCase().trim();
+          return itm && (itm === cleanIc || itm === cleanEmail);
+        })) {
+          forceKickDeletedAccount();
+          return false;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 2. Cooldown fast-path: If verified recently within TTL and not forced, return true immediately (0ms tab transitions)
+  var now = Date.now();
+  if (!force && _lastSessionVerifyTime > 0 && (now - _lastSessionVerifyTime < SESSION_VERIFY_TTL)) {
+    return true;
+  }
 
   var lookupId = ic || email;
 
@@ -661,6 +701,7 @@ async function verifyActiveMemberSession() {
       return false;
     }
 
+    _lastSessionVerifyTime = Date.now();
     return true;
   } catch (err) {
     console.warn('verifyActiveMemberSession check failed (network/offline):', err);

@@ -1770,7 +1770,11 @@ async function adminSavePaymentInfo() {
 /**
  * Renders list of uniform orders in Admin console with search and status updater
  */
-async function renderAdminOrders() {
+var _cachedAdminOrders = null;
+var _cachedAdminOrdersTime = 0;
+var ADMIN_ORDERS_CACHE_TTL = 30000;
+
+async function renderAdminOrders(forceRefresh) {
   if (typeof document === 'undefined') return;
   var search = ((document.getElementById('admin-order-search') || {}).value || '').toLowerCase();
   var statusFilter = ((document.getElementById('admin-order-form-filter') || {}).value || '').toLowerCase();
@@ -1782,7 +1786,19 @@ async function renderAdminOrders() {
 
   try {
     if (!client || !client.get) throw new Error('Database client unavailable');
-    var orders = await client.get('bb_orders?select=*&order=created_at.desc');
+    var now = Date.now();
+    var orders;
+    if (!forceRefresh && _cachedAdminOrders && (now - _cachedAdminOrdersTime < ADMIN_ORDERS_CACHE_TTL)) {
+      orders = _cachedAdminOrders;
+    } else {
+      orders = await client.get('bb_orders?select=*&order=created_at.desc');
+      if (Array.isArray(orders)) {
+        _cachedAdminOrders = orders;
+        _cachedAdminOrdersTime = now;
+      } else {
+        orders = [];
+      }
+    }
 
     // Only show uniform orders (filter out custom form submissions)
     var filtered = orders.filter(function (o) {
@@ -1962,6 +1978,7 @@ async function renderAdminOrders() {
  * @param {string} status
  */
 async function updateOrderStatus(orderNum, status) {
+  _cachedAdminOrders = null;
   var client = getSupa();
   if (!client || !client.patch) return;
 
