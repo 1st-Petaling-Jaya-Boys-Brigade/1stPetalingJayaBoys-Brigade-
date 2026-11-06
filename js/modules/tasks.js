@@ -86,6 +86,8 @@ var _adminTaskFilter    = 'all';
 var _allAdminTasks      = [];
 var _taskMap            = {};
 var _deletedTaskIds    = {};
+var _isSubmittingTask   = false;
+var _isDeletingTask     = false;
 
 // Synchronous local memory cache restoration for instant 0ms Projects & Tasks load
 try {
@@ -3319,8 +3321,10 @@ function closeTaskDetail() {
  * Deletes the active task being viewed in the task brief modal
  */
 async function deleteActiveTask() {
-  if (!_activeDetailTaskId) return;
+  if (!_activeDetailTaskId || _isDeletingTask) return;
   var taskId = _activeDetailTaskId;
+  _isDeletingTask = true;
+  var taskBackup = _taskMap[taskId] || (_allLoadedTasks && _allLoadedTasks.find(function(t) { return String(t.id) === String(taskId); }));
   var confirmFn = (typeof showConfirmModal === 'function')
     ? showConfirmModal
     : async function(msg) { return (typeof confirm === 'function') ? confirm(msg) : true; };
@@ -3361,13 +3365,33 @@ async function deleteActiveTask() {
     showToast('Task deleted successfully', 'success');
   }
 
-  // 6. Delete remotely from Supabase
+  // 6. Delete remotely from Supabase with rollback on server failure
   var client = getSupaClient();
   if (client && !String(taskId).startsWith('temp_')) {
     try {
       await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskId));
     } catch (err) {
-      console.warn('Failed to delete task from Supabase:', err);
+      console.error('Failed to delete task from Supabase:', err);
+      // Rollback optimistic deletion
+      delete _deletedTaskIds[String(taskId)];
+      if (taskBackup) {
+        _allLoadedTasks.push(taskBackup);
+        _taskMap[taskId] = taskBackup;
+        if (typeof window !== 'undefined' && window._taskMap) {
+          window._taskMap[taskId] = taskBackup;
+        }
+      }
+      if (_tasksViewMode === 'board') {
+        renderColumnsFromTasks(_allLoadedTasks);
+      } else if (_tasksViewMode === 'mytasks') {
+        renderMyTasksView();
+      } else {
+        renderProjectsView();
+      }
+      if (typeof showToast === 'function') {
+        showToast('Failed to delete task from server: ' + (err.message || 'Network error') + '. Task restored.', 'error', 4500);
+      }
+      return;
     }
   }
 }
@@ -3548,9 +3572,14 @@ async function loadNewTaskAssigneeOptions() {
 async function handleCreateTaskSubmit(e) {
   if (e) e.preventDefault();
   if (typeof document === 'undefined') return;
+  if (_isSubmittingTask) return;
 
   var modal = document.querySelector('.task-create-modal');
   if (!modal) return;
+
+  var submitBtn = modal.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
+  _isSubmittingTask = true;
 
   var titleEl    = modal.querySelector('.new-task-title-input');
   var deptEl     = modal.querySelector('.new-task-dept-input');
@@ -3706,7 +3735,7 @@ async function handleCreateTaskSubmit(e) {
             }
             inserted = await client.post('bb_tasks', fallbackPayload);
           } else {
-            console.warn('Task post error:', postErr);
+            throw postErr;
           }
         }
 
@@ -3719,11 +3748,39 @@ async function handleCreateTaskSubmit(e) {
             delete window._taskMap[tempId];
             window._taskMap[saved.id] = localTask;
           }
+        } else if (!inserted) {
+          throw new Error('Server returned empty task response');
         }
       } catch (err) {
-        console.warn('Failed to persist task in background:', err);
+        console.error('Failed to persist task in background:', err);
+        // Optimistic update rollback: remove task from memory and re-render
+        _allLoadedTasks = _allLoadedTasks.filter(function(x) { return x.id !== tempId; });
+        delete _taskMap[tempId];
+        if (typeof window !== 'undefined' && window._taskMap) {
+          delete window._taskMap[tempId];
+        }
+        if (_tasksViewMode === 'board') {
+          if (_projectDisplayMode === 'list') {
+            renderTasksListView(_activeProject);
+          } else {
+            renderTasksBoard(_activeProject);
+          }
+        } else if (_tasksViewMode === 'mytasks') {
+          renderMyTasksView();
+        } else {
+          renderProjectsView();
+        }
+        if (typeof showToast === 'function') {
+          showToast('Failed to save task to server: ' + (err.message || 'Connection lost') + '. Changes rolled back.', 'error', 4500);
+        }
+      } finally {
+        _isSubmittingTask = false;
+        if (submitBtn) submitBtn.disabled = false;
       }
     })();
+  } else {
+    _isSubmittingTask = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 }
 
