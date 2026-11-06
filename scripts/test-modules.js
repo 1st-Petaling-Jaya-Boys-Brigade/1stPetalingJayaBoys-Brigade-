@@ -6684,11 +6684,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     }
 
     // Regular Member Avatar
-    const memberTooltip = 'Daniel Yap • Lance Corporal';
-    const memberAvatar = forumMod.getForumMemberAvatarHtml('Daniel Yap', 'danielyap@gmail.com', 24, memberTooltip);
+    const memberTooltip = 'Joash Lee Tian Wei • Lance Corporal';
+    const memberAvatar = forumMod.getForumMemberAvatarHtml('Joash Lee Tian Wei', 'jl.pytiger@gmail.com', 24, memberTooltip);
     assert.ok(memberAvatar.includes('class="forum-avatar-mini'), 'Member avatar must contain .forum-avatar-mini class');
     assert.ok(memberAvatar.includes('title="' + memberTooltip + '"'), 'Member avatar must include tooltip');
-    assert.ok(memberAvatar.includes('>D<'), 'Member avatar must include initial D');
+    assert.ok(memberAvatar.includes('>J<'), 'Member avatar must include initial J');
     console.log('  ✔ Forum member avatar rendering with equipped cosmetics and custom byline hover tooltips verified');
 
     // 4e. Forum Thread Reply Notifications (John & Jeshua example)
@@ -8055,7 +8055,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(creatorAvatar.includes('avatar-status-dot'), 'Universal avatar must include live presence status dot');
 
     // Unregistered member placeholder (empty profile picture)
-    const unregAvatar = utilsMod.getUniversalMemberAvatarHtml('Lucas Wong', '', 24, { isRegistered: false });
+    const unregAvatar = utilsMod.getUniversalMemberAvatarHtml('Unregistered Cadet', '', 24, { isRegistered: false });
     assert.ok(unregAvatar.includes('empty-profile-avatar'), 'Unregistered member must render empty-profile-avatar silhouette');
     assert.ok(unregAvatar.includes('Account not yet created'), 'Unregistered avatar must have Account not yet created tooltip');
     console.log('  ✔ Universal member avatar generator with presence dots, cosmetics, and empty silhouette verified');
@@ -9248,13 +9248,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof arcadeModule.switchArcadeLeaderboardCategory, 'function', 'switchArcadeLeaderboardCategory must be exported');
 
     const streakLeaderboard = arcadeModule.getArcadeLeaderboardData('streak');
-    assert.ok(Array.isArray(streakLeaderboard) && streakLeaderboard.length >= 7, 'Streak leaderboard must contain at least 7 members');
+    assert.ok(Array.isArray(streakLeaderboard) && streakLeaderboard.length >= 5, 'Streak leaderboard must contain verified real members');
+    assert.ok(!streakLeaderboard.some(m => ['Benjamin Teoh', 'Ethan Lim', 'Daniel Yap', 'David Choong'].includes(m.name)), 'Streak leaderboard must not contain fake dummy accounts');
     for (let sIdx = 1; sIdx < streakLeaderboard.length; sIdx++) {
       assert.ok(streakLeaderboard[sIdx - 1].streak >= streakLeaderboard[sIdx].streak, 'Streak leaderboard must be sorted descending');
     }
 
     const creditsLeaderboard = arcadeModule.getArcadeLeaderboardData('credits');
-    assert.ok(Array.isArray(creditsLeaderboard) && creditsLeaderboard.length >= 7, 'Credits leaderboard must contain at least 7 members');
+    assert.ok(Array.isArray(creditsLeaderboard) && creditsLeaderboard.length >= 5, 'Credits leaderboard must contain verified real members');
+    assert.ok(!creditsLeaderboard.some(m => ['Benjamin Teoh', 'Ethan Lim', 'Daniel Yap', 'David Choong'].includes(m.name)), 'Credits leaderboard must not contain fake dummy accounts');
     for (let cIdx = 1; cIdx < creditsLeaderboard.length; cIdx++) {
       assert.ok(creditsLeaderboard[cIdx - 1].credits >= creditsLeaderboard[cIdx].credits, 'Credits leaderboard must be sorted descending');
     }

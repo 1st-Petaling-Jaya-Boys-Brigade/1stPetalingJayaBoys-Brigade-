@@ -10543,6 +10543,7 @@ select.form-input,
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
 }
 
 .podium-avatar {
