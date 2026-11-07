@@ -214,14 +214,68 @@
       _memberReminders = events;
     }
 
+    var storageKey = 'bb_member_reminders_' + encodeURIComponent(userId);
     try {
-      var storageKey = 'bb_member_reminders_' + encodeURIComponent(userId);
       localStorage.setItem(storageKey, JSON.stringify(_memberReminders));
-      return true;
     } catch (e) {
       console.error('Failed to save personal member events:', e);
-      return false;
     }
+
+    // Persist to Supabase bb_config for multi-device sync
+    try {
+      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : (typeof window !== 'undefined' && window.supa ? window.supa : null)));
+      if (client) {
+        if (typeof client.upsert === 'function') {
+          client.upsert('bb_config', { key: storageKey, value: JSON.stringify(_memberReminders) }, 'key').catch(function() {});
+        } else if (typeof client.safeConfigUpdate === 'function') {
+          client.safeConfigUpdate(storageKey, _memberReminders).catch(function() {});
+        }
+      }
+    } catch (errSync) {
+      console.warn('saveMemberEvents remote sync warning:', errSync);
+    }
+
+    return true;
+  }
+
+  /**
+   * Asynchronously synchronizes personal reminders from Supabase bb_config across devices
+   */
+  async function fetchRemoteMemberEvents() {
+    var userId = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+    if (!userId) return loadMemberEvents();
+
+    var storageKey = 'bb_member_reminders_' + encodeURIComponent(userId);
+    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : (typeof window !== 'undefined' && window.supa ? window.supa : null)));
+    if (!client) return loadMemberEvents();
+
+    try {
+      var rows = null;
+      if (typeof client.get === 'function') {
+        rows = await client.get('bb_config?key=eq.' + encodeURIComponent(storageKey) + '&select=value');
+      } else if (typeof client.getConfig === 'function') {
+        var cfgVal = await client.getConfig(storageKey);
+        if (cfgVal) rows = [{ value: cfgVal }];
+      }
+
+      if (rows && rows.length && rows[0].value) {
+        var remote = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+        if (Array.isArray(remote)) {
+          var existingMap = {};
+          loadMemberEvents();
+          _memberReminders.forEach(function(r) { if (r && r.id) existingMap[r.id] = r; });
+          remote.forEach(function(r) { if (r && r.id) existingMap[r.id] = r; });
+          _memberReminders = Object.values(existingMap);
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(_memberReminders));
+          } catch (_) {}
+          if (typeof renderCalendarWidget === 'function') renderCalendarWidget();
+        }
+      }
+    } catch (e) {
+      console.warn('fetchRemoteMemberEvents error:', e);
+    }
+    return _memberReminders;
   }
 
   /**
@@ -902,6 +956,7 @@
     renderCalendarWidget();
     await loadCalendarEvents();
     loadMemberEvents();
+    fetchRemoteMemberEvents().catch(function() {});
     renderCalendarWidget();
   }
 
@@ -911,6 +966,7 @@
     window.saveCalendarEvents           = saveCalendarEvents;
     window.loadMemberEvents             = loadMemberEvents;
     window.saveMemberEvents             = saveMemberEvents;
+    window.fetchRemoteMemberEvents      = fetchRemoteMemberEvents;
     window.addPersonalEvent             = addPersonalEvent;
     window.deletePersonalEvent          = deletePersonalEvent;
     window.renderCalendarWidget         = renderCalendarWidget;
@@ -946,6 +1002,7 @@
       saveCalendarEvents: saveCalendarEvents,
       loadMemberEvents: loadMemberEvents,
       saveMemberEvents: saveMemberEvents,
+      fetchRemoteMemberEvents: fetchRemoteMemberEvents,
       addPersonalEvent: addPersonalEvent,
       deletePersonalEvent: deletePersonalEvent,
       getCompanyEventsForDate: getCompanyEventsForDate,
