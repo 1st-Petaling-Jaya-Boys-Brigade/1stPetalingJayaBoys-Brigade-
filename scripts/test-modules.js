@@ -341,6 +341,9 @@ global.supa = {
   fileUrl: (bucket, fname) => {
     return 'https://example.com/storage/' + bucket + '/' + fname;
   },
+  createSignedUrl: async (bucket, fname) => {
+    return { signedUrl: 'https://example.com/storage/' + bucket + '/' + fname + '?token=mock_signed', error: null };
+  },
   deleteFile: async (_bucket, _fname) => {
     return true;
   }
@@ -985,6 +988,26 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'Document mockup must feature 1PJ company seal'
   );
   console.log('  ✔ renderResourcesPage renders Google Drive style document preview cards with fallback mockup');
+
+  // 13. openResourceDocument resolves signed URLs for private Supabase Storage documents
+  let openedUrl = null;
+  const originalWindowOpen = global.window ? global.window.open : null;
+  if (!global.window) global.window = {};
+  global.window.open = (url) => { openedUrl = url; return { location: { href: '' }, closed: false, close: () => {} }; };
+  
+  resourcesModule.resources.push({
+    id: 'res-private-supa-test',
+    title: 'Private Handbook',
+    category: 'Handbooks & Manuals',
+    fileType: 'PDF',
+    url: 'https://test.supabase.co/storage/v1/object/authenticated/resources/handbook.pdf',
+    visibility: 'public'
+  });
+  
+  await resourcesModule.openResourceDocument('res-private-supa-test');
+  assert.ok(openedUrl !== null, 'openResourceDocument must trigger opening of private resource document');
+  if (originalWindowOpen) global.window.open = originalWindowOpen;
+  console.log('  ✔ openResourceDocument resolves private storage documents and opens them securely');
 
   // ── Child Safety (COPPA/PDPA) & Parental Consent Governance Tests ──
   console.log('\nTesting Child Safety (COPPA/PDPA) & Parental Consent Governance...');

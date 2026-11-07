@@ -394,7 +394,7 @@ function renderResourcesPage() {
       + '</div>';
 
     var cardAction = accessible
-      ? 'window.open(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'_blank\', \'noopener,noreferrer\')'
+      ? 'openResourceDocument(\'' + r.id + '\')'
       : 'goToMemberTab()';
 
     html += '<div class="resource-card" onclick="' + cardAction + '" title="' + safeTitle + ' (' + safeCat + ')">'
@@ -413,8 +413,8 @@ function renderResourcesPage() {
         + '</div>'
         + '<div class="resource-card-actions">'
           + (accessible
-            ? ('<a href="' + safeDocUrl + '" target="_blank" rel="noopener noreferrer" class="resource-action-btn view" title="View Document" onclick="event.stopPropagation();"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>'
-              + '<button type="button" class="resource-action-btn copy" title="Copy Direct Link" onclick="event.stopPropagation();copyResourceLink(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'' + safeTitle.replace(/'/g, "\\'") + '\');"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>')
+            ? ('<button type="button" class="resource-action-btn view" title="View Document" aria-label="View ' + safeTitle + '" onclick="event.stopPropagation();openResourceDocument(\'' + r.id + '\');"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>'
+              + '<button type="button" class="resource-action-btn copy" title="Copy Direct Link" aria-label="Copy direct link to ' + safeTitle + '" onclick="event.stopPropagation();copyResourceLink(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'' + safeTitle.replace(/'/g, "\\'") + '\');"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>')
             : ('<span title="Login to access" style="font-size:11px;opacity:0.6;">🔒</span>'))
         + '</div>'
       + '</div>'
@@ -422,6 +422,107 @@ function renderResourcesPage() {
   });
 
   container.innerHTML = html;
+}
+
+
+/**
+ * Opens a resource document securely in a new browser tab.
+ * Handles Supabase private storage signed URL derivation, Bearer token auth, and standard web links.
+ * @param {string} resourceId
+ */
+async function openResourceDocument(resourceId) {
+  var r = resources.find(function(item) { return item.id === resourceId; });
+  if (!r) return;
+
+  if (!hasResourceAccess(r.visibility)) {
+    if (typeof showToast === 'function') {
+      showToast('Please sign in to view this restricted document.', 'warning');
+    }
+    if (typeof window !== 'undefined' && typeof window.goToMemberTab === 'function') {
+      window.goToMemberTab();
+    }
+    return;
+  }
+
+  var rawUrl = (r.url || '').trim();
+  if (!rawUrl || rawUrl === '#') {
+    if (typeof showToast === 'function') {
+      showToast('No URL configured for this document.', 'warning');
+    }
+    return;
+  }
+
+  // Pre-open tab to prevent popup blocker blocking async window.open
+  var newTab = null;
+  var isSupabaseStorage = /\/storage\/v1\/object\/(?:authenticated|public|sign)\//.test(rawUrl);
+  if (isSupabaseStorage && typeof window !== 'undefined' && window.open) {
+    try {
+      newTab = window.open('about:blank', '_blank');
+    } catch (_) {}
+  }
+
+  try {
+    var supaMatch = rawUrl.match(/\/storage\/v1\/object\/(?:authenticated|public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+    if (supaMatch) {
+      var bucket = supaMatch[1];
+      var filePath = decodeURIComponent(supaMatch[2]);
+      var client = (typeof supa !== 'undefined') ? supa : (typeof getSupa === 'function' ? getSupa() : null);
+
+      if (client && typeof client.createSignedUrl === 'function') {
+        try {
+          var signedRes = await client.createSignedUrl(bucket, filePath, 86400);
+          if (signedRes && signedRes.signedUrl) {
+            if (newTab && !newTab.closed) {
+              newTab.location.href = signedRes.signedUrl;
+            } else {
+              window.open(signedRes.signedUrl, '_blank', 'noopener,noreferrer');
+            }
+            return;
+          }
+        } catch (signErr) {
+          console.warn('createSignedUrl failed, trying authenticated blob fetch:', signErr);
+        }
+      }
+
+      var key = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : '');
+      if (key) {
+        try {
+          var fetchResp = await fetch(rawUrl, {
+            headers: {
+              'apikey': key,
+              'Authorization': 'Bearer ' + key
+            }
+          });
+          if (fetchResp.ok) {
+            var blob = await fetchResp.blob();
+            var blobUrl = URL.createObjectURL(blob);
+            if (newTab && !newTab.closed) {
+              newTab.location.href = blobUrl;
+            } else {
+              window.open(blobUrl, '_blank', 'noopener,noreferrer');
+            }
+            return;
+          }
+        } catch (blobErr) {
+          console.warn('Authenticated blob fetch failed:', blobErr);
+        }
+      }
+    }
+
+    var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, rawUrl) : rawUrl;
+    if (newTab && !newTab.closed) {
+      newTab.location.href = validatedUrl;
+    } else {
+      window.open(validatedUrl, '_blank', 'noopener,noreferrer');
+    }
+  } catch (err) {
+    if (newTab && !newTab.closed) {
+      newTab.close();
+    }
+    if (typeof showToast === 'function') {
+      showToast('Unable to open document: ' + (err.message || 'Unknown error'), 'error');
+    }
+  }
 }
 
 /**
@@ -448,18 +549,34 @@ function getFileTypeBadgeHtml(type) {
  * @param {string} url
  * @param {string} title
  */
-function copyResourceLink(url, title) {
+async function copyResourceLink(url, title) {
   if (!url) return;
+  var targetUrl = url;
+  var supaMatch = url.match(/\/storage\/v1\/object\/(?:authenticated|public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+  if (supaMatch) {
+    var bucket = supaMatch[1];
+    var filePath = decodeURIComponent(supaMatch[2]);
+    var client = (typeof supa !== 'undefined') ? supa : (typeof getSupa === 'function' ? getSupa() : null);
+    if (client && typeof client.createSignedUrl === 'function') {
+      try {
+        var signedRes = await client.createSignedUrl(bucket, filePath, 86400 * 7);
+        if (signedRes && signedRes.signedUrl) {
+          targetUrl = signedRes.signedUrl;
+        }
+      } catch (_) {}
+    }
+  }
+
   if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(function() {
+    navigator.clipboard.writeText(targetUrl).then(function() {
       if (typeof showToast === 'function') {
         showToast('Link copied: ' + (title || 'Resource'), 'success');
       }
     }).catch(function() {
-      fallbackCopyText(url);
+      fallbackCopyText(targetUrl);
     });
   } else {
-    fallbackCopyText(url);
+    fallbackCopyText(targetUrl);
   }
 }
 
@@ -891,14 +1008,17 @@ async function handleResourceFileUpload(input) {
     if (typeof supa !== 'undefined' && supa.uploadFile) {
       try {
         await supa.uploadFile('gallery', 'resources/' + fname, blob);
-        uploadedUrl = supa.fileUrl('gallery', 'resources/' + fname);
+        var signRes = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('gallery', 'resources/' + fname, 86400 * 365) : null;
+        uploadedUrl = (signRes && signRes.signedUrl) ? signRes.signedUrl : supa.fileUrl('gallery', 'resources/' + fname);
       } catch (galleryErr) {
         try {
           await supa.uploadFile('gallery', fname, blob);
-          uploadedUrl = supa.fileUrl('gallery', fname);
+          var signRes2 = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('gallery', fname, 86400 * 365) : null;
+          uploadedUrl = (signRes2 && signRes2.signedUrl) ? signRes2.signedUrl : supa.fileUrl('gallery', fname);
         } catch (galleryRootErr) {
           await supa.uploadFile('resources', fname, blob);
-          uploadedUrl = supa.fileUrl('resources', fname);
+          var signRes3 = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('resources', fname, 86400 * 365) : null;
+          uploadedUrl = (signRes3 && signRes3.signedUrl) ? signRes3.signedUrl : supa.fileUrl('resources', fname);
         }
       }
     }
@@ -999,6 +1119,7 @@ if (typeof window !== 'undefined') {
   window.setResourceCategory       = setResourceCategory;
   window.searchResources           = searchResources;
   window.renderResourcesPage       = renderResourcesPage;
+  window.openResourceDocument      = openResourceDocument;
   window.getResourceThumbnailUrl   = getResourceThumbnailUrl;
   window.getFileTypeBadgeHtml      = getFileTypeBadgeHtml;
   window.copyResourceLink          = copyResourceLink;
@@ -1028,6 +1149,7 @@ if (typeof module !== 'undefined' && module.exports) {
     setResourceCategory: setResourceCategory,
     searchResources: searchResources,
     renderResourcesPage: renderResourcesPage,
+    openResourceDocument: openResourceDocument,
     getResourceThumbnailUrl: getResourceThumbnailUrl,
     getFileTypeBadgeHtml: getFileTypeBadgeHtml,
     copyResourceLink: copyResourceLink,
