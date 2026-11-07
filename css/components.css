@@ -1554,12 +1554,13 @@ select.form-input,
 /* Conceals external player header and bottom progress/control bars */
 .story-media-iframe {
   width: 100%;
-  height: calc(100% + 116px);
-  margin-top: -58px;
-  margin-bottom: -58px;
+  height: calc(100% + 200px);
+  margin-top: -65px;
+  margin-bottom: -135px;
   border: none;
   background: #000;
   display: block;
+  pointer-events: none;
 }
 
 .story-nav-zones {
@@ -1577,11 +1578,50 @@ select.form-input,
   -webkit-tap-highlight-color: transparent;
 }
 
+.story-nav-center {
+  position: absolute;
+  left: 28%;
+  right: 28%;
+  top: 10%;
+  bottom: 12%;
+  z-index: 22;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .story-nav-right {
   width: 66.667%;
   height: 100%;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+}
+
+.story-center-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 68px;
+  height: 68px;
+  margin-top: -34px;
+  margin-left: -34px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  z-index: 28;
+  pointer-events: none;
+  animation: storyPulseFade 0.45s ease forwards;
+}
+
+@keyframes storyPulseFade {
+  0% { opacity: 0; transform: scale(0.6); }
+  25% { opacity: 1; transform: scale(1.1); }
+  60% { opacity: 1; transform: scale(1.0); }
+  100% { opacity: 0; transform: scale(0.85); }
 }
 
 /* Desktop Exterior Navigation Arrows */
