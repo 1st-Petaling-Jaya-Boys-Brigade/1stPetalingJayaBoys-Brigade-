@@ -989,11 +989,22 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ renderResourcesPage renders Google Drive style document preview cards with fallback mockup');
 
-  // 13. openResourceDocument resolves signed URLs for private Supabase Storage documents
+  // 13. openResourceDocument resolves signed URLs for private Supabase Storage documents & handles public conversion
   let openedUrl = null;
+  let openedTabHref = '';
   const originalWindowOpen = global.window ? global.window.open : null;
   if (!global.window) global.window = {};
-  global.window.open = (url) => { openedUrl = url; return { location: { href: '' }, closed: false, close: () => {} }; };
+  global.window.open = (url) => {
+    openedUrl = url;
+    return {
+      location: {
+        set href(val) { openedTabHref = val; },
+        get href() { return openedTabHref; }
+      },
+      closed: false,
+      close: () => {}
+    };
+  };
   
   resourcesModule.resources.push({
     id: 'res-private-supa-test',
@@ -1006,6 +1017,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   
   await resourcesModule.openResourceDocument('res-private-supa-test');
   assert.ok(openedUrl !== null, 'openResourceDocument must trigger opening of private resource document');
+  assert.ok(
+    openedTabHref.includes('/storage/v1/object/public/resources/handbook.pdf') || openedUrl.includes('/storage/v1/object/public/resources/handbook.pdf'),
+    'openResourceDocument must resolve authenticated URL to public URL for public documents to prevent HTTP 400 authorization errors'
+  );
   if (originalWindowOpen) global.window.open = originalWindowOpen;
   console.log('  ✔ openResourceDocument resolves private storage documents and opens them securely');
 
@@ -7282,6 +7297,65 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCssTrivia.includes('.trivia-nav-btn'), 'components.css defines .trivia-nav-btn');
     assert.ok(compCssTrivia.includes('.trivia-submit-btn'), 'components.css defines .trivia-submit-btn');
     console.log('  ✔ BB Trivia progress bar, selection highlights, and navigation buttons verified in components.css');
+
+    // 12. Arcade Credits & Daily Streak Award Resiliency (Zero Stale Overwrites)
+    assert.strictEqual(typeof arcadeMod.reconcileArcadeRewards, 'function', 'reconcileArcadeRewards must be exported');
+    const todayKey = arcadeMod.getTodayDateKey();
+    const yesterdayKey = arcadeMod.getYesterdayDateKey(todayKey);
+
+    // Set baseline stats
+    arcadeMod.saveArcadeStats({
+      credits: 50,
+      streak: 2,
+      bestStreak: 2,
+      lastPlayedDate: yesterdayKey,
+      wordlePlays: 2,
+      wordleWins: 2,
+      triviaPlays: 2,
+      triviaScoreTotal: 8,
+      awardedWordle: {},
+      awardedTrivia: {}
+    });
+
+    // Simulate winning Wordle
+    const wWord = arcadeMod.getDailyWordleWord(todayKey);
+    arcadeMod.initWordle();
+    for (let c of wWord) {
+      arcadeMod.handleWordleKey(c);
+    }
+    arcadeMod.handleWordleKey('ENTER');
+
+    const postWordleStats = arcadeMod.getArcadeStats();
+    assert.strictEqual(postWordleStats.credits, 65, 'Winning Wordle must award +15 credits (50 -> 65)');
+    assert.strictEqual(postWordleStats.streak, 3, 'Consecutive day participation must increment streak (2 -> 3)');
+    assert.strictEqual(postWordleStats.lastPlayedDate, todayKey, 'lastPlayedDate must be updated to today');
+    assert.strictEqual(postWordleStats.wordlePlays, 3, 'wordlePlays incremented');
+    assert.strictEqual(postWordleStats.wordleWins, 3, 'wordleWins incremented');
+
+    // Simulate submitting BB Trivia with 4 correct answers
+    const tIndices = arcadeMod.getDailyTriviaQuestionIndices(todayKey);
+    const tState = arcadeMod.loadTriviaState(todayKey);
+    for (let i = 0; i < 4; i++) {
+      const correctAns = arcadeMod.BB_TRIVIA_QUESTIONS[tIndices[i]].correct;
+      tState.answers[i] = correctAns;
+    }
+    tState.currentIndex = 4;
+    arcadeMod.saveTriviaState(tState);
+    await arcadeMod.submitTriviaQuiz();
+
+    const postTriviaStats = arcadeMod.getArcadeStats();
+    assert.strictEqual(postTriviaStats.credits, 85, '4 correct trivia answers must award +20 credits (65 -> 85)');
+    assert.strictEqual(postTriviaStats.streak, 3, 'Same day second game maintains active streak (3)');
+    assert.strictEqual(postTriviaStats.lastPlayedDate, todayKey, 'lastPlayedDate remains today');
+    assert.strictEqual(postTriviaStats.triviaPlays, 3, 'triviaPlays incremented');
+    assert.strictEqual(postTriviaStats.triviaScoreTotal, 12, 'triviaScoreTotal incremented by 4');
+
+    // Test reconciliation
+    arcadeMod.reconcileArcadeRewards();
+    const reconciled = arcadeMod.getArcadeStats();
+    assert.strictEqual(reconciled.credits, 85, 'Reconciliation must preserve verified credits');
+    assert.strictEqual(reconciled.streak, 3, 'Reconciliation must preserve verified streak');
+    console.log('  ✔ Wordle and BB Trivia successfully award credits and increment streaks with zero stale overwrites');
   }
 
 

@@ -551,7 +551,9 @@
             wordleWins: Math.max(Number(local.wordleWins) || 0, Number(remote.wordleWins) || 0),
             triviaPlays: Math.max(Number(local.triviaPlays) || 0, Number(remote.triviaPlays) || 0),
             triviaScoreTotal: Math.max(Number(local.triviaScoreTotal) || 0, Number(remote.triviaScoreTotal) || 0),
-            lastPlayedDate: remote.lastPlayedDate || local.lastPlayedDate || null,
+            lastPlayedDate: (remote.lastPlayedDate && local.lastPlayedDate)
+              ? (remote.lastPlayedDate > local.lastPlayedDate ? remote.lastPlayedDate : local.lastPlayedDate)
+              : (remote.lastPlayedDate || local.lastPlayedDate || null),
             streak: Math.max(Number(local.streak) || 0, Number(remote.streak) || 0),
             awardedWordle: Object.assign({}, local.awardedWordle || {}, remote.awardedWordle || {}),
             awardedTrivia: Object.assign({}, local.awardedTrivia || {}, remote.awardedTrivia || {})
@@ -662,6 +664,18 @@
   }
 
   // ── Wordle Game Engine ───────────────────────────────────────────────────
+  function loadWordleState(optDate) {
+    var today = optDate || getTodayDateKey();
+    var userKey = getArcadeUserKey();
+    var storageKey = 'bb_wordle_' + today + '_' + userKey;
+    try {
+      var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(storageKey) : null;
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    if (_wordleState && _wordleState.dateKey === today) return _wordleState;
+    return null;
+  }
+
   function initWordle() {
     var today = getTodayDateKey();
     var targetWord = getDailyWordleWord(today).toUpperCase();
@@ -839,12 +853,14 @@
       stats.awardedWordle = stats.awardedWordle || {};
       if (!stats.awardedWordle[_wordleState.dateKey] && !_wordleState.creditsAwarded) {
         _wordleState.creditsAwarded = true;
-        stats.awardedWordle[_wordleState.dateKey] = true;
         recordGameParticipation();
         awardCredits(15, 'Wordle Victory');
-        stats.wordlePlays = (stats.wordlePlays || 0) + 1;
-        stats.wordleWins = (stats.wordleWins || 0) + 1;
-        saveArcadeStats(stats);
+        var freshWinStats = getArcadeStats();
+        freshWinStats.awardedWordle = freshWinStats.awardedWordle || {};
+        freshWinStats.awardedWordle[_wordleState.dateKey] = true;
+        freshWinStats.wordlePlays = (freshWinStats.wordlePlays || 0) + 1;
+        freshWinStats.wordleWins = (freshWinStats.wordleWins || 0) + 1;
+        saveArcadeStats(freshWinStats);
       }
     } else if (_wordleState.guesses.length >= _wordleState.maxTries) {
       _wordleState.isGameOver = true;
@@ -854,10 +870,12 @@
       s.awardedWordle = s.awardedWordle || {};
       if (!s.awardedWordle[_wordleState.dateKey] && !_wordleState.creditsAwarded) {
         _wordleState.creditsAwarded = true;
-        s.awardedWordle[_wordleState.dateKey] = true;
         recordGameParticipation();
-        s.wordlePlays = (s.wordlePlays || 0) + 1;
-        saveArcadeStats(s);
+        var freshLossStats = getArcadeStats();
+        freshLossStats.awardedWordle = freshLossStats.awardedWordle || {};
+        freshLossStats.awardedWordle[_wordleState.dateKey] = true;
+        freshLossStats.wordlePlays = (freshLossStats.wordlePlays || 0) + 1;
+        saveArcadeStats(freshLossStats);
       }
     }
 
@@ -1149,14 +1167,16 @@
     stats.awardedTrivia = stats.awardedTrivia || {};
     if (!stats.awardedTrivia[_triviaState.dateKey] && !_triviaState.creditsAwarded) {
       _triviaState.creditsAwarded = true;
-      stats.awardedTrivia[_triviaState.dateKey] = true;
+      recordGameParticipation('trivia');
       if (score > 0) {
         awardCredits(score * 5, 'Daily BB Trivia');
       }
-      recordGameParticipation('trivia');
-      stats.triviaPlays = (stats.triviaPlays || 0) + 1;
-      stats.triviaScoreTotal = (stats.triviaScoreTotal || 0) + score;
-      saveArcadeStats(stats);
+      var freshTriviaStats = getArcadeStats();
+      freshTriviaStats.awardedTrivia = freshTriviaStats.awardedTrivia || {};
+      freshTriviaStats.awardedTrivia[_triviaState.dateKey] = true;
+      freshTriviaStats.triviaPlays = (freshTriviaStats.triviaPlays || 0) + 1;
+      freshTriviaStats.triviaScoreTotal = (freshTriviaStats.triviaScoreTotal || 0) + score;
+      saveArcadeStats(freshTriviaStats);
     }
     saveTriviaState(_triviaState);
 
@@ -1190,6 +1210,62 @@
     return page;
   }
 
+  /**
+   * Reconciles game rewards if Wordle or Trivia was completed today but credits or streak were interrupted
+   */
+  function reconcileArcadeRewards() {
+    try {
+      var today = getTodayDateKey();
+      var stats = getArcadeStats();
+      var changed = false;
+
+      // 1. Reconcile Wordle completion
+      var wState = loadWordleState();
+      if (wState && wState.dateKey === today && wState.isGameOver && wState.hasWon) {
+        if (!stats.awardedWordle || !stats.awardedWordle[today]) {
+          stats.awardedWordle = stats.awardedWordle || {};
+          stats.awardedWordle[today] = true;
+          stats.credits = (stats.credits || 0) + 15;
+          changed = true;
+        }
+        if (stats.lastPlayedDate !== today) {
+          stats = recordGameParticipation(today);
+          changed = true;
+        }
+      }
+
+      // 2. Reconcile Trivia completion
+      var tState = loadTriviaState();
+      if (tState && tState.dateKey === today && tState.isSubmitted) {
+        var tScore = Number(tState.score) || 0;
+        if (!stats.awardedTrivia || !stats.awardedTrivia[today]) {
+          stats.awardedTrivia = stats.awardedTrivia || {};
+          stats.awardedTrivia[today] = true;
+          if (tScore > 0) {
+            stats.credits = (stats.credits || 0) + (tScore * 5);
+          }
+          changed = true;
+        }
+        if (stats.lastPlayedDate !== today) {
+          stats = recordGameParticipation(today);
+          changed = true;
+        }
+      }
+
+      // 3. Catch edge case where awardedWordle or awardedTrivia is true for today, but lastPlayedDate is stale
+      if (((stats.awardedWordle && stats.awardedWordle[today]) || (stats.awardedTrivia && stats.awardedTrivia[today])) && stats.lastPlayedDate !== today) {
+        stats = recordGameParticipation(today);
+        changed = true;
+      }
+
+      if (changed) {
+        saveArcadeStats(stats);
+      }
+    } catch (e) {
+      console.warn('reconcileArcadeRewards error:', e);
+    }
+  }
+
   function renderArcadePage() {
     if (typeof document === 'undefined') return;
     var page = ensureArcadePageDOM();
@@ -1201,6 +1277,7 @@
     });
     page.classList.add('active');
 
+    reconcileArcadeRewards();
     var stats = getArcadeStats();
     updateArcadeHeaderBadge(stats);
     fetchRemoteArcadeStats();
@@ -2003,6 +2080,7 @@
     getTriviaUserKey: getTriviaUserKey,
     getArcadeStats: getArcadeStats,
     saveArcadeStats: saveArcadeStats,
+    reconcileArcadeRewards: reconcileArcadeRewards,
     fetchRemoteWordleState: fetchRemoteWordleState,
     fetchRemoteTriviaState: fetchRemoteTriviaState,
     fetchRemoteArcadeStats: fetchRemoteArcadeStats,
@@ -2010,6 +2088,7 @@
     awardCredits: awardCredits,
     updateArcadeHeaderBadge: updateArcadeHeaderBadge,
     initWordle: initWordle,
+    loadWordleState: loadWordleState,
     evaluateGuess: evaluateGuess,
     handleWordleKey: handleWordleKey,
     submitWordleGuess: submitWordleGuess,
@@ -2041,6 +2120,7 @@
     window.getTriviaUserKey               = getTriviaUserKey;
     window.getArcadeStats                 = getArcadeStats;
     window.saveArcadeStats                = saveArcadeStats;
+    window.reconcileArcadeRewards         = reconcileArcadeRewards;
   window.fetchRemoteWordleState         = fetchRemoteWordleState;
   window.fetchRemoteTriviaState         = fetchRemoteTriviaState;
     window.fetchRemoteArcadeStats         = fetchRemoteArcadeStats;

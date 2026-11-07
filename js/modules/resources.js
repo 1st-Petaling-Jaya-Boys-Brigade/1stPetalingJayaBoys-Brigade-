@@ -350,6 +350,9 @@ function renderResourcesPage() {
     var safeCat    = (typeof escapeHtml === 'function') ? escapeHtml(r.category || 'General') : r.category;
     var safeSize   = (typeof escapeHtml === 'function') ? escapeHtml(r.fileSize || '') : r.fileSize;
     var rawUrl     = r.url || '#';
+    if (rawUrl.indexOf('/storage/v1/object/authenticated/') !== -1) {
+      rawUrl = rawUrl.replace('/storage/v1/object/authenticated/', '/storage/v1/object/public/');
+    }
     var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '#') : rawUrl;
     var safeDocUrl   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
 
@@ -470,12 +473,25 @@ async function openResourceDocument(resourceId) {
     if (supaMatch) {
       var bucket = supaMatch[1];
       var filePath = decodeURIComponent(supaMatch[2]);
-      var client = (typeof supa !== 'undefined') ? supa : (typeof getSupa === 'function' ? getSupa() : null);
+      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupaClient === 'function' ? getSupaClient() : (typeof window !== 'undefined' && window.supa ? window.supa : null)));
 
+      // 1. If it's in public storage or public document visibility, use public URL (bypasses auth requirement)
+      var publicUrl = rawUrl.replace('/storage/v1/object/authenticated/', '/storage/v1/object/public/');
+      if (bucket === 'gallery' || bucket === 'resources' || r.visibility === 'all' || r.visibility === 'public') {
+        var targetPublic = (typeof safeUrl === 'function') ? safeUrl(publicUrl, publicUrl) : publicUrl;
+        if (newTab && !newTab.closed) {
+          newTab.location.href = targetPublic;
+        } else {
+          window.open(targetPublic, '_blank', 'noopener,noreferrer');
+        }
+        return;
+      }
+
+      // 2. For restricted private buckets, attempt signed URL
       if (client && typeof client.createSignedUrl === 'function') {
         try {
           var signedRes = await client.createSignedUrl(bucket, filePath, 86400);
-          if (signedRes && signedRes.signedUrl) {
+          if (signedRes && signedRes.signedUrl && !signedRes.error && !signedRes.signedUrl.includes('?token=auth_')) {
             if (newTab && !newTab.closed) {
               newTab.location.href = signedRes.signedUrl;
             } else {
@@ -488,6 +504,7 @@ async function openResourceDocument(resourceId) {
         }
       }
 
+      // 3. Authenticated blob fetch fallback
       var key = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : '');
       if (key) {
         try {
@@ -511,6 +528,14 @@ async function openResourceDocument(resourceId) {
           console.warn('Authenticated blob fetch failed:', blobErr);
         }
       }
+
+      // 4. Fallback to publicUrl
+      if (newTab && !newTab.closed) {
+        newTab.location.href = publicUrl;
+      } else {
+        window.open(publicUrl, '_blank', 'noopener,noreferrer');
+      }
+      return;
     }
 
     var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, rawUrl) : rawUrl;
@@ -1013,16 +1038,22 @@ async function handleResourceFileUpload(input) {
       try {
         await supa.uploadFile('gallery', 'resources/' + fname, blob);
         var signRes = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('gallery', 'resources/' + fname, 86400 * 365) : null;
-        uploadedUrl = (signRes && signRes.signedUrl) ? signRes.signedUrl : supa.fileUrl('gallery', 'resources/' + fname);
+        uploadedUrl = (signRes && signRes.signedUrl && !signRes.error && !signRes.signedUrl.includes('?token=auth_'))
+          ? signRes.signedUrl
+          : supa.fileUrl('gallery', 'resources/' + fname, { private: false });
       } catch (galleryErr) {
         try {
           await supa.uploadFile('gallery', fname, blob);
           var signRes2 = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('gallery', fname, 86400 * 365) : null;
-          uploadedUrl = (signRes2 && signRes2.signedUrl) ? signRes2.signedUrl : supa.fileUrl('gallery', fname);
+          uploadedUrl = (signRes2 && signRes2.signedUrl && !signRes2.error && !signRes2.signedUrl.includes('?token=auth_'))
+            ? signRes2.signedUrl
+            : supa.fileUrl('gallery', fname, { private: false });
         } catch (galleryRootErr) {
           await supa.uploadFile('resources', fname, blob);
           var signRes3 = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('resources', fname, 86400 * 365) : null;
-          uploadedUrl = (signRes3 && signRes3.signedUrl) ? signRes3.signedUrl : supa.fileUrl('resources', fname);
+          uploadedUrl = (signRes3 && signRes3.signedUrl && !signRes3.error && !signRes3.signedUrl.includes('?token=auth_'))
+            ? signRes3.signedUrl
+            : supa.fileUrl('resources', fname, { private: false });
         }
       }
     }

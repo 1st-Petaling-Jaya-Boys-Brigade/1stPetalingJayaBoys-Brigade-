@@ -880,12 +880,7 @@ const supa = {
       });
 
       if (!r.ok) {
-        const fallbackSignedUrl = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + filePath + '?token=auth_' + Date.now();
-        _signedUrlCache.set(cacheKey, {
-          signedUrl: fallbackSignedUrl,
-          expiresAt: Date.now() + expiresIn * 1000 - 30000
-        });
-        return { signedUrl: fallbackSignedUrl, error: null };
+        return { signedUrl: null, error: new Error('Failed to create signed URL: HTTP ' + r.status) };
       }
 
       const res = await r.json();
@@ -953,14 +948,11 @@ const supa = {
       });
 
       if (!r.ok) {
-        return filePaths.map(p => {
-          const fallback = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + p + '?token=auth_' + Date.now();
-          _signedUrlCache.set(bucket + '/' + p, {
-            signedUrl: fallback,
-            expiresAt: Date.now() + expiresIn * 1000 - 30000
-          });
-          return { path: p, signedUrl: fallback, error: null };
-        });
+        return filePaths.map(p => ({
+          path: p,
+          signedUrl: null,
+          error: new Error('Failed to batch sign URLs: HTTP ' + r.status)
+        }));
       }
 
       const res = await r.json();
