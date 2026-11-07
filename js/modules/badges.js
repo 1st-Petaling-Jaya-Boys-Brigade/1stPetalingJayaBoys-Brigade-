@@ -193,7 +193,7 @@ function enrichBadgeCatalog(remoteDefs) {
       cat: (b.cat && b.cat.indexOf('Awards') !== -1) ? b.cat : def.cat,
       hasAdvanced: typeof b.hasAdvanced === 'boolean' ? b.hasAdvanced : def.hasAdvanced,
       tier: b.tier || def.tier,
-      repeatable: b.repeatable || def.repeatable,
+      repeatable: typeof b.repeatable === 'boolean' ? b.repeatable : Boolean(def.repeatable),
       image: b.image || def.image
     };
   });
@@ -1302,6 +1302,7 @@ if (typeof window !== 'undefined') {
   window.setBadgesDisplayMode       = setBadgesDisplayMode;
   window.getBadgesDisplayMode       = getBadgesDisplayMode;
   window.filterBadgesByCategory     = filterBadgesByCategory;
+  window.enrichBadgeCatalog         = enrichBadgeCatalog;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1333,6 +1334,7 @@ if (typeof module !== 'undefined' && module.exports) {
     renderAdminBadges,
     setBadgesDisplayMode,
     getBadgesDisplayMode,
-    filterBadgesByCategory
+    filterBadgesByCategory,
+    enrichBadgeCatalog
   };
 }

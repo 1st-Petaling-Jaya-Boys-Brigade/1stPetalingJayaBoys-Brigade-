@@ -1148,8 +1148,13 @@ function updateStorySlideView() {
   var safeMediaUrl = (typeof safeUrl === 'function') ? safeUrl(normUrl, '') : normUrl;
 
   if (isVid) {
-    if (safeMediaUrl.indexOf('/preview') !== -1 || safeMediaUrl.indexOf('youtube') !== -1 || safeMediaUrl.indexOf('vimeo') !== -1) {
-      // Embedded player (Google Drive Preview, YouTube)
+    var isYoutube = safeMediaUrl.indexOf('youtube') !== -1 || safeMediaUrl.indexOf('youtu.be') !== -1;
+    var isVimeo = safeMediaUrl.indexOf('vimeo') !== -1;
+    var driveMatch = safeMediaUrl.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/i);
+    var driveFileId = driveMatch ? driveMatch[1] : null;
+
+    if (isYoutube || isVimeo) {
+      // Embedded player (YouTube, Vimeo)
       var navZones = document.getElementById('story-nav-zones');
       if (navZones) navZones.style.pointerEvents = 'auto';
 
@@ -1166,7 +1171,7 @@ function updateStorySlideView() {
       if (iframeEl) {
         iframeEl.style.display = 'block';
         var autoplayUrl = safeMediaUrl;
-        if (autoplayUrl.indexOf('youtube') !== -1 || autoplayUrl.indexOf('youtu.be') !== -1) {
+        if (isYoutube) {
           if (autoplayUrl.indexOf('controls=') === -1) {
             autoplayUrl += (autoplayUrl.indexOf('?') === -1 ? '?' : '&') + 'autoplay=1&controls=0&rel=0&playsinline=1&enablejsapi=1' + (_isStoryMuted ? '&mute=1' : '');
           }
@@ -1182,7 +1187,12 @@ function updateStorySlideView() {
       applyStoryProgressAnimation(_storySlideDuration, _storyRemainingTime);
       startStoryTimer(_storySlideDuration);
     } else {
-      // Direct HTML5 Video (MP4, WebM, MOV)
+      // Direct HTML5 Video (MP4, WebM, MOV, or Google Drive byte-range direct video stream)
+      var directVideoUrl = safeMediaUrl;
+      if (driveFileId) {
+        directVideoUrl = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(driveFileId) + '&export=download';
+      }
+
       var navZonesVid = document.getElementById('story-nav-zones');
       if (navZonesVid) navZonesVid.style.pointerEvents = 'auto';
       if (imgEl) imgEl.style.display = 'none';
@@ -1201,8 +1211,8 @@ function updateStorySlideView() {
         videoEl.controls = false;
         videoEl.muted = _isStoryMuted;
         videoEl.volume = _isStoryMuted ? 0 : 1;
-        if (videoEl.src !== safeMediaUrl) {
-          videoEl.src = safeMediaUrl;
+        if (videoEl.src !== directVideoUrl) {
+          videoEl.src = directVideoUrl;
         }
         videoEl.currentTime = 0;
 
@@ -1231,9 +1241,19 @@ function updateStorySlideView() {
           nextStorySlide();
         };
 
-        // Fallback safety timeout if video stalls or encounters error
+        // Fallback safety timeout if direct stream fails
         videoEl.onerror = function() {
-          startStoryTimer(_storySlideDuration);
+          if (driveFileId && videoEl.src.indexOf('drive.usercontent.google.com') !== -1) {
+            // Fallback to embedded iframe if direct stream fails
+            videoEl.style.display = 'none';
+            if (typeof videoEl.pause === 'function') videoEl.pause();
+            if (iframeEl) {
+              iframeEl.style.display = 'block';
+              iframeEl.src = 'https://drive.google.com/file/d/' + driveFileId + '/preview';
+            }
+          } else {
+            startStoryTimer(_storySlideDuration);
+          }
         };
 
         // Attempt playback with fallback to muted if browser blocks sound
@@ -1379,6 +1399,30 @@ function startStoryTimer(duration) {
   }, duration);
 }
 
+
+var _lastPauseToggleTime = 0;
+
+/**
+ * Renders an animated pulse icon at the center of the story viewer indicating play or pause
+ * @param {boolean} isPaused
+ */
+function showStoryCenterPulse(isPaused) {
+  if (typeof document === 'undefined') return;
+  var wrap = document.getElementById('story-media-wrap') || document.querySelector('.story-viewer-card');
+  if (!wrap) return;
+  var existing = wrap.querySelector('.story-center-pulse');
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+  var pulse = document.createElement('div');
+  pulse.className = 'story-center-pulse';
+  pulse.innerHTML = isPaused
+    ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+    : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+  wrap.appendChild(pulse);
+  setTimeout(function() {
+    if (pulse && pulse.parentNode) pulse.parentNode.removeChild(pulse);
+  }, 480);
+}
 /**
  * Advances to the next slide or the next highlight collection
  */
@@ -1557,10 +1601,16 @@ function resumeStoryPlayback() {
  * Toggles play/pause state from header button
  */
 function toggleStoryPause() {
+  var now = Date.now();
+  if (now - _lastPauseToggleTime < 320) return;
+  _lastPauseToggleTime = now;
+
   if (_isStoryPaused) {
     resumeStoryPlayback();
+    showStoryCenterPulse(false);
   } else {
     pauseStoryPlayback();
+    showStoryCenterPulse(true);
   }
 }
 
@@ -1649,16 +1699,28 @@ function attachStoryHoldListeners() {
   if (!card) return;
   _storyHoldAttached = true;
 
-  // Desktop mouse hold-to-pause
+  // Desktop mouse hold-to-pause (holding > 200ms pauses; release resumes; click toggles pause)
   card.addEventListener('mousedown', function(e) {
     if (e.target && e.target.closest('button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill')) return;
-    pauseStoryPlayback();
+    clearTimeout(_storyHoldTimer);
+    _storyHoldTimer = setTimeout(function() {
+      _storyWasHoldPaused = true;
+      pauseStoryPlayback();
+    }, 200);
   });
   card.addEventListener('mouseup', function() {
-    if (_isStoryPaused) resumeStoryPlayback();
+    clearTimeout(_storyHoldTimer);
+    if (_storyWasHoldPaused) {
+      _storyWasHoldPaused = false;
+      resumeStoryPlayback();
+    }
   });
   card.addEventListener('mouseleave', function() {
-    if (_isStoryPaused) resumeStoryPlayback();
+    clearTimeout(_storyHoldTimer);
+    if (_storyWasHoldPaused) {
+      _storyWasHoldPaused = false;
+      resumeStoryPlayback();
+    }
   });
 
   // Mobile touch gestures: direct manipulation interactive dragging & 3-zone tap
@@ -2232,6 +2294,7 @@ if (typeof window !== 'undefined') {
   window.pauseStoryPlayback     = pauseStoryPlayback;
   window.resumeStoryPlayback    = resumeStoryPlayback;
   window.toggleStoryPause       = toggleStoryPause;
+  window.showStoryCenterPulse     = showStoryCenterPulse;
   window.openCreateStoryModal   = openCreateStoryModal;
   window.openEditStoryModal     = openEditStoryModal;
   window.closeAdminStoryModal   = closeAdminStoryModal;
@@ -2281,6 +2344,7 @@ if (typeof module !== 'undefined' && module.exports) {
     pauseStoryPlayback: pauseStoryPlayback,
     resumeStoryPlayback: resumeStoryPlayback,
     toggleStoryPause: toggleStoryPause,
+    showStoryCenterPulse: showStoryCenterPulse,
     openCreateStoryModal: openCreateStoryModal,
     openEditStoryModal: openEditStoryModal,
     closeAdminStoryModal: closeAdminStoryModal,
