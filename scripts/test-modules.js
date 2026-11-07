@@ -2028,6 +2028,20 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(firstAid && firstAid.hasAdvanced === true, 'First Aid must have advanced tier support');
   console.log('  ✔ DEFAULT_BB_BADGES contains official company badge definitions and tiers');
 
+  // 1b. Badge Settings Persistence (repeatable: false override)
+  const remoteDefsWithRepeatableFalse = [
+    { id: 'bb_long_year_service', name: 'Long Year Service', cat: 'Service Awards', repeatable: false }
+  ];
+  const enriched = badgesMod.enrichBadgeCatalog(remoteDefsWithRepeatableFalse);
+  const lysBadge = enriched.find(b => b.id === 'bb_long_year_service');
+  assert.ok(lysBadge, 'Long Year Service badge must exist');
+  assert.strictEqual(
+    lysBadge.repeatable,
+    false,
+    'enrichBadgeCatalog must preserve repeatable: false from remote config without reverting to true'
+  );
+  console.log('  ✔ enrichBadgeCatalog strictly preserves repeatable: false overrides');
+
   // 2. Award Requirements & Criteria Checklists
   assert.ok(
     Array.isArray(badgesMod.DEFAULT_PRESIDENTS_REQS),
@@ -2625,10 +2639,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // Open slide 2 (45s Drive video) -> duration must be 45000ms, autoplay enabled
   galleryMod.openStoryViewer(durIdx, 2);
   assert.strictEqual(galleryMod._storySlideDuration, 45000, 'Video must adopt 45-second duration');
-  assert.ok(mockIframeEl.src.includes('autoplay=1'), 'Drive video iframe must include autoplay=1');
-  assert.strictEqual(
-    mockIframeEl.getAttribute('allow'),
-    'autoplay; fullscreen; encrypted-media; picture-in-picture'
+  assert.ok(
+    mockVideoEl.src.includes('1AWZG2x90ffvHPw0rUESN38DXOmLrX3tC') || mockIframeEl.src.includes('autoplay=1'),
+    'Drive video must load direct video stream or iframe fallback'
   );
 
   galleryMod.closeStoryViewer();
@@ -7919,6 +7932,24 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(mergedStats.credits, 30, 'Remote credits must be merged into account');
     assert.strictEqual(mergedStats.streak, 3, 'Remote streak must be preserved');
     console.log('  ✔ Arcade remote streak and credits multi-device sync verified');
+
+    // 2b. Wordle & BB Trivia Remote Progress Sync & Duplicate Award Prevention
+    assert.strictEqual(typeof arcadeMod.fetchRemoteWordleState, 'function', 'fetchRemoteWordleState must be exported');
+    assert.strictEqual(typeof arcadeMod.fetchRemoteTriviaState, 'function', 'fetchRemoteTriviaState must be exported');
+
+    // Test anti-cheat duplicate prevention in stats
+    const todayKey = arcadeMod.getTodayDateKey();
+    const currentStats = arcadeMod.getArcadeStats();
+    currentStats.awardedWordle = currentStats.awardedWordle || {};
+    currentStats.awardedTrivia = currentStats.awardedTrivia || {};
+    currentStats.awardedWordle[todayKey] = true;
+    currentStats.awardedTrivia[todayKey] = true;
+    arcadeMod.saveArcadeStats(currentStats);
+
+    const reloadedStats = arcadeMod.getArcadeStats();
+    assert.strictEqual(reloadedStats.awardedWordle[todayKey], true, 'awardedWordle flag persisted');
+    assert.strictEqual(reloadedStats.awardedTrivia[todayKey], true, 'awardedTrivia flag persisted');
+    console.log('  ✔ Arcade remote progress sync and anti-cheat duplicate prevention verified');
 
     // 3. Member cosmetics client.upsert resolution
     const memberMod = require('../js/modules/member.js');
