@@ -1130,7 +1130,13 @@ function updateStorySlideView() {
 
   if (avatarEl) avatarEl.src = safeCover;
   if (titleEl) titleEl.textContent = curHighlight.title;
-  if (dateEl) dateEl.textContent = curSlide.date || '';
+  if (dateEl) {
+    var headerDateText = curSlide.date || '';
+    if (curSlide.location) {
+      headerDateText = headerDateText ? (headerDateText + ' • ' + curSlide.location) : curSlide.location;
+    }
+    dateEl.textContent = headerDateText;
+  }
 
   // 3. Media Viewport (Photo vs HTML5 Video vs Embedded Player)
   var imgEl      = document.getElementById('story-viewer-img');
@@ -1144,7 +1150,7 @@ function updateStorySlideView() {
     if (safeMediaUrl.indexOf('/preview') !== -1 || safeMediaUrl.indexOf('youtube') !== -1 || safeMediaUrl.indexOf('vimeo') !== -1) {
       // Embedded player (Google Drive Preview, YouTube)
       var navZones = document.getElementById('story-nav-zones');
-      if (navZones) navZones.style.pointerEvents = 'none'; // Unblock clicks so user can tap play & sound directly!
+      if (navZones) navZones.style.pointerEvents = 'auto';
 
       if (imgEl) imgEl.style.display = 'none';
       if (videoEl) {
@@ -1156,7 +1162,11 @@ function updateStorySlideView() {
       if (iframeEl) {
         iframeEl.style.display = 'block';
         var autoplayUrl = safeMediaUrl;
-        if (autoplayUrl.indexOf('autoplay=') === -1) {
+        if (autoplayUrl.indexOf('youtube') !== -1 || autoplayUrl.indexOf('youtu.be') !== -1) {
+          if (autoplayUrl.indexOf('controls=') === -1) {
+            autoplayUrl += (autoplayUrl.indexOf('?') === -1 ? '?' : '&') + 'autoplay=1&controls=0&rel=0&playsinline=1';
+          }
+        } else if (autoplayUrl.indexOf('autoplay=') === -1) {
           autoplayUrl += (autoplayUrl.indexOf('?') === -1 ? '?' : '&') + 'autoplay=1';
         }
         iframeEl.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
@@ -1262,7 +1272,7 @@ function updateStorySlideView() {
     }
   }
 
-  // 4. Caption & Location Pill
+  // 4. Action Buttons Pill & Caption Overlay
   var pillEl = document.getElementById('story-viewer-pill');
   var captionEl = document.getElementById('story-viewer-caption');
 
@@ -1273,14 +1283,15 @@ function updateStorySlideView() {
     if (curSlide.location || driveFileId) {
       pillEl.style.display = 'inline-flex';
       var locHtml = curSlide.location
-        ? '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location)
+        ? '<span class="story-pill-tag story-pill-loc"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location) + '</span>'
         : '';
       var driveLinkHtml = driveFileId
-        ? '<a href="https://drive.google.com/file/d/' + encodeURIComponent(driveFileId) + '/view" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;margin-left:6px;display:inline-flex;align-items:center;gap:3px;pointer-events:auto;" title="Open video in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Video &nearr;</a>'
+        ? '<a href="https://drive.google.com/file/d/' + encodeURIComponent(driveFileId) + '/view" target="_blank" rel="noopener noreferrer" class="story-pill-tag story-pill-link" title="Open full video in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Video &nearr;</a>'
         : '';
       pillEl.innerHTML = locHtml + driveLinkHtml;
     } else {
       pillEl.style.display = 'none';
+      pillEl.innerHTML = '';
     }
   }
 
@@ -1383,6 +1394,48 @@ function prevStorySlide() {
       _storyRemainingTime = _storySlideDuration;
       updateStorySlideView();
     }
+  }
+}
+
+/**
+ * Advances to the next highlight collection (Instagram-style horizontal swipe left)
+ */
+function nextStoryHighlight() {
+  clearTimeout(_storyTimer);
+  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  if (!activeHighlights.length) {
+    closeStoryViewer();
+    return;
+  }
+  if (_currentStoryHighlightIdx + 1 < activeHighlights.length) {
+    _currentStoryHighlightIdx++;
+    _currentStorySlideIdx = 0;
+    _storyRemainingTime = _storySlideDuration;
+    updateStorySlideView();
+  } else {
+    closeStoryViewer();
+  }
+}
+
+/**
+ * Returns to the previous highlight collection (Instagram-style horizontal swipe right)
+ */
+function prevStoryHighlight() {
+  clearTimeout(_storyTimer);
+  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  if (!activeHighlights.length) {
+    closeStoryViewer();
+    return;
+  }
+  if (_currentStoryHighlightIdx > 0) {
+    _currentStoryHighlightIdx--;
+    _currentStorySlideIdx = 0;
+    _storyRemainingTime = _storySlideDuration;
+    updateStorySlideView();
+  } else {
+    _currentStorySlideIdx = 0;
+    _storyRemainingTime = _storySlideDuration;
+    updateStorySlideView();
   }
 }
 
@@ -1499,6 +1552,12 @@ function attachStoryKeyListeners() {
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
       prevStorySlide();
+    } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+      e.preventDefault();
+      nextStoryHighlight();
+    } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault();
+      prevStoryHighlight();
     } else if (e.key === ' ' || e.code === 'Space') {
       e.preventDefault();
       toggleStoryPause();
@@ -1510,18 +1569,115 @@ function attachStoryKeyListeners() {
 }
 
 /**
- * Attaches touch/mouse press-and-hold to pause story
+ * Attaches touch gestures: swipe left/right between highlights, tap sides for slides, and hold to pause
  */
+var _storyTouchStartX = 0;
+var _storyTouchStartY = 0;
+var _storyTouchStartTime = 0;
+var _storyIsSwiping = false;
+var _storyHoldTimer = null;
+var _storyWasHoldPaused = false;
+
 function attachStoryHoldListeners() {
   if (_storyHoldAttached || typeof document === 'undefined') return;
-  var wrap = document.getElementById('story-media-wrap');
-  if (!wrap) return;
+  var card = document.querySelector('.story-viewer-card') || document.getElementById('story-media-wrap') || document.getElementById('story-viewer-modal');
+  if (!card) return;
   _storyHoldAttached = true;
 
-  wrap.addEventListener('mousedown', pauseStoryPlayback);
-  wrap.addEventListener('mouseup', resumeStoryPlayback);
-  wrap.addEventListener('touchstart', pauseStoryPlayback, { passive: true });
-  wrap.addEventListener('touchend', resumeStoryPlayback, { passive: true });
+  // Desktop mouse hold-to-pause
+  card.addEventListener('mousedown', function(e) {
+    if (e.target && e.target.closest('button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill')) return;
+    pauseStoryPlayback();
+  });
+  card.addEventListener('mouseup', function() {
+    if (_isStoryPaused) resumeStoryPlayback();
+  });
+  card.addEventListener('mouseleave', function() {
+    if (_isStoryPaused) resumeStoryPlayback();
+  });
+
+  // Mobile touch gestures
+  card.addEventListener('touchstart', function(e) {
+    if (!e.touches || !e.touches[0]) return;
+    var t = e.touches[0];
+    _storyTouchStartX = t.clientX;
+    _storyTouchStartY = t.clientY;
+    _storyTouchStartTime = Date.now();
+    _storyIsSwiping = false;
+    _storyWasHoldPaused = false;
+
+    if (e.target && e.target.closest('button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill')) {
+      return;
+    }
+
+    clearTimeout(_storyHoldTimer);
+    _storyHoldTimer = setTimeout(function() {
+      if (!_storyIsSwiping) {
+        _storyWasHoldPaused = true;
+        pauseStoryPlayback();
+      }
+    }, 220);
+  }, { passive: true });
+
+  card.addEventListener('touchmove', function(e) {
+    if (!e.touches || !e.touches[0]) return;
+    var t = e.touches[0];
+    var dx = t.clientX - _storyTouchStartX;
+    var dy = t.clientY - _storyTouchStartY;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      _storyIsSwiping = true;
+      clearTimeout(_storyHoldTimer);
+      if (_storyWasHoldPaused) {
+        resumeStoryPlayback();
+        _storyWasHoldPaused = false;
+      }
+    }
+  }, { passive: true });
+
+  card.addEventListener('touchend', function(e) {
+    clearTimeout(_storyHoldTimer);
+
+    if (_storyWasHoldPaused) {
+      _storyWasHoldPaused = false;
+      resumeStoryPlayback();
+      return;
+    }
+
+    if (e.target && e.target.closest('button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill')) {
+      return;
+    }
+
+    var changed = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+    if (!changed) return;
+
+    var dx = changed.clientX - _storyTouchStartX;
+    var dy = changed.clientY - _storyTouchStartY;
+    var dt = Date.now() - _storyTouchStartTime;
+
+    // 1. Horizontal swipe: change highlight collection (Instagram-style)
+    var isSwipe = Math.abs(dx) >= 38 && Math.abs(dx) > Math.abs(dy) * 1.3 && dt < 800;
+    if (isSwipe) {
+      if (dx < 0) {
+        nextStoryHighlight(); // Swipe Left -> Next Highlight
+      } else {
+        prevStoryHighlight(); // Swipe Right -> Prev Highlight
+      }
+      return;
+    }
+
+    // 2. Tap navigation: change slide within highlight (Instagram-style)
+    var isTap = Math.abs(dx) < 16 && Math.abs(dy) < 16 && dt < 350;
+    if (isTap) {
+      var box = card.getBoundingClientRect();
+      var tapRelX = changed.clientX - box.left;
+      var cardWidth = box.width || window.innerWidth || 360;
+      if (tapRelX < cardWidth * 0.35) {
+        prevStorySlide(); // Tap left 35% -> Previous Slide
+      } else {
+        nextStorySlide(); // Tap right 65% -> Next Slide
+      }
+    }
+  }, { passive: true });
 }
 
 // ── Admin Story Highlights Management ────────────────────────────
@@ -1927,6 +2083,8 @@ if (typeof window !== 'undefined') {
   window.closeStoryViewer       = closeStoryViewer;
   window.nextStorySlide         = nextStorySlide;
   window.prevStorySlide         = prevStorySlide;
+  window.nextStoryHighlight     = nextStoryHighlight;
+  window.prevStoryHighlight     = prevStoryHighlight;
   window.pauseStoryPlayback     = pauseStoryPlayback;
   window.resumeStoryPlayback    = resumeStoryPlayback;
   window.toggleStoryPause       = toggleStoryPause;
@@ -1974,6 +2132,8 @@ if (typeof module !== 'undefined' && module.exports) {
     closeStoryViewer: closeStoryViewer,
     nextStorySlide: nextStorySlide,
     prevStorySlide: prevStorySlide,
+    nextStoryHighlight: nextStoryHighlight,
+    prevStoryHighlight: prevStoryHighlight,
     pauseStoryPlayback: pauseStoryPlayback,
     resumeStoryPlayback: resumeStoryPlayback,
     toggleStoryPause: toggleStoryPause,
