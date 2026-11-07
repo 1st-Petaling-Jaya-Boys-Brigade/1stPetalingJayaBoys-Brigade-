@@ -1440,6 +1440,30 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ addPersonalEvent and deletePersonalEvent manage member reminders with XSS protection'
   );
 
+  // 4B. Multi-Device Calendar Synchronization via Supabase bb_config
+  assert.strictEqual(typeof calendarModule.fetchRemoteMemberEvents, 'function', 'fetchRemoteMemberEvents must be exported');
+  mockSession['email'] = 'sync_member@bbpj1.org';
+  const remoteReminders = [
+    { id: 'rem-sync-1', date: '2026-11-20', title: 'Remote Rehearsal', time: '9:30 AM', notes: 'Band' }
+  ];
+  const origSupaCal = global.supa;
+  global.supa = {
+    get: async (endpoint) => {
+      if (endpoint.includes('bb_member_reminders')) {
+        return [{ value: JSON.stringify(remoteReminders) }];
+      }
+      return [];
+    },
+    upsert: async () => true
+  };
+  const syncedEvents = await calendarModule.fetchRemoteMemberEvents();
+  assert.ok(Array.isArray(syncedEvents), 'fetchRemoteMemberEvents must return array');
+  const remoteMatched = calendarModule.getMemberEventsForDate('2026-11-20');
+  assert.strictEqual(remoteMatched.length, 1, 'Synced remote reminder must be accessible in calendar module');
+  assert.strictEqual(remoteMatched[0].title, 'Remote Rehearsal', 'Synced remote reminder title must match');
+  global.supa = origSupaCal;
+  console.log('  ✔ fetchRemoteMemberEvents synchronizes personal reminders across devices via Supabase bb_config');
+
   // 5. Next Upcoming Parade
   const nextParade = calendarModule.getNextUpcomingParade('2026-10-01');
   assert.ok(nextParade, 'getNextUpcomingParade should find next scheduled parade');
@@ -8351,6 +8375,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(taskTs < (accCreatedTs - 60000), 'Task was created before account creation timestamp');
     console.log('  ✔ New accounts start with 0 notifications and past notifications are filtered out');
 
+    // 3B. Resource Notifications & Cross-Device Dismissed State Sync
+    assert.ok(indexHtmlText.includes('syncResourceNotifications'), 'index.html must implement syncResourceNotifications');
+    assert.ok(indexHtmlText.includes('fetchRemoteDismissedNotifs'), 'index.html must implement fetchRemoteDismissedNotifs');
+    assert.ok(indexHtmlText.includes('bb_notif_dismissed_'), 'index.html must use bb_notif_dismissed_ for Supabase bb_config sync');
+    console.log('  ✔ syncResourceNotifications and cross-device dismissed state sync verified in index.html');
+
     // 4. Strict 388 Unique DOM IDs Invariant
     const finalHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     const finalMatches = finalHtml.match(/\bid=["']([^"']+)["']/g) || [];
@@ -8973,6 +9003,27 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const resOtherMemberAtt = forumModule.queryHelperAgent('Check Joash Lee attendance percentage');
     assert.ok(resOtherMemberAtt.text.includes('Member Privacy Notice'), 'Query for another member attendance must trigger Member Privacy Notice');
     console.log('  ✔ Strict Privacy Shield blocks queries seeking other members confidential points and attendance');
+
+    // 2B. Awards & Badges Curriculum Queries (Never Blocked by Privacy Shield)
+    const resPresBadge = forumModule.queryHelperAgent('what is the requirement for president badge');
+    assert.ok(!resPresBadge.text.includes('Member Privacy Notice'), 'President badge requirement query must NOT trigger Member Privacy Notice');
+    assert.ok(!resPresBadge.text.includes('Requirement For President'), 'Curriculum query must not be parsed as a member name');
+    assert.ok(resPresBadge.text.includes('First Aid (Advanced Level)'), 'Must include First Aid criterion');
+    assert.ok(resPresBadge.text.includes('Leadership / NCO Star'), 'Must include Leadership / NCO Star criterion');
+    assert.ok(resPresBadge.text.includes('Camping (Advanced Level)'), 'Must include Camping criterion');
+    assert.ok(resPresBadge.text.includes('Swimming'), 'Must include Swimming criterion');
+    assert.ok(resPresBadge.text.includes('Drill'), 'Must include Drill criterion');
+    assert.ok(resPresBadge.text.includes('Community Service'), 'Must include Community Service criterion');
+    assert.ok(resPresBadge.text.includes('Fire Safety / Rescue'), 'Must include Fire Safety criterion');
+    assert.ok(resPresBadge.actions.some(a => a.target === 'badges'), 'Must include navigate to My Badges action');
+
+    const resFounderBadge = forumModule.queryHelperAgent('what are the requirements for founder badge');
+    assert.ok(!resFounderBadge.text.includes('Member Privacy Notice'), 'Founder badge requirement query must NOT trigger Member Privacy Notice');
+    assert.ok(resFounderBadge.text.includes('3 Years of Service Minimum'), 'Must include 3 Years of Service criterion');
+    assert.ok(resFounderBadge.text.includes('At least 6 awards total'), 'Must include 6 awards total criterion');
+    assert.ok(resFounderBadge.text.includes('Compulsory Badges'), 'Must include 4 Compulsory Badges criterion');
+    assert.ok(resFounderBadge.actions.some(a => a.target === 'badges'), 'Must include navigate to My Badges action');
+    console.log('  ✔ Awards & Badges curriculum inquiries (President and Founder Awards) return comprehensive criteria without privacy false-positives');
 
     // 3. Current User Personal Data Lookup (Member Performance Summary)
     const resMyAtt = forumModule.queryHelperAgent('Where is my attendance status?');

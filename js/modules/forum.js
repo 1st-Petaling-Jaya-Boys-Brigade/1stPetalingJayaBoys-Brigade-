@@ -3033,23 +3033,48 @@ async function callGeminiApi(prompt, apiKey, options) {
 
   var systemPrompt = "You are Stedfast, the official AI mentor and portal assistant for the 1st Petaling Jaya Boys' Brigade Web Portal in Malaysia.\n"
     + "Company Knowledge Ground Truth:\n"
-    + "• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ).\n"
+    + "• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ), founded 1954 in Petaling Jaya, Malaysia.\n"
     + "• Company Motto: Sure & Stedfast (Hebrews 6:19 - 'Which hope we have as an anchor of the soul, both sure and stedfast').\n"
-    + "• Founded: 1954 at TMC PJ, the premier Boys' Brigade company in Petaling Jaya, Malaysia.\n"
     + "• Full Company Parade: Every Saturday from 2:15 PM – 6:00 PM at TMC PJ.\n"
     + "• Band Rehearsals: Saturdays from 9:30 AM – 11:30 AM prior to parade (woodwind, brass, percussion).\n"
     + "• Uniform Kits: Kit A (Ceremonial/Anchor Blue Tunic), Kit B (Day Polo/Anchor Gold), Kit C (PT/Sports). Refer to company calendar for attire.\n"
     + "• Attendance Rule: A minimum 80% attendance threshold strictly qualifies members for the BB One Year Service award.\n"
     + "• Sections: Pre-Junior (Ages 6–8), Junior (Ages 9–11), Senior (Ages 12–19), Officers (Adult leaders).\n"
     + "• Platoons: Alpha, Papa, Zulu, Hotel.\n"
+    + "• Ranks: Non-Commissioned Officers (Lance Corporal, Corporal, Sergeant, Staff Sergeant), Warrant Officers & Officers (Warrant Officer, Lieutenant, Captain, Chaplain), Enlisted (Recruit, Private).\n"
+    + "• President's Award Requirements (Senior Section):\n"
+    + "   1. First Aid (Advanced level)\n"
+    + "   2. Leadership / NCO Star (Advanced level)\n"
+    + "   3. Camping (Advanced level)\n"
+    + "   4. Swimming (Any level)\n"
+    + "   5. Drill (Any level)\n"
+    + "   6. Community Service (Any level)\n"
+    + "   7. Fire Safety / Rescue (Any level)\n"
+    + "• Founder's Award Requirements (Highest Senior Section Honor):\n"
+    + "   1. Minimum 3 Years of Service\n"
+    + "   2. At least 6 awards total across all groups\n"
+    + "   3. At least 1 award from each group (Groups A, B, C, D)\n"
+    + "   4. At least 2 awards at Basic level\n"
+    + "   5. At least 4 awards at Advanced level\n"
+    + "   6. All 4 Compulsory Badges: NCO Star (Leadership), Christian Education, Drill, Recruitment\n"
+    + "• Badge Groups:\n"
+    + "   - Group A (Education & Citizenship): Christian Education, Citizenship, NCO Star, International Relations\n"
+    + "   - Group B (Skills & Safety): Drill, Fire Safety, First Aid, Safety\n"
+    + "   - Group C (Adventure & Outdoors): Camping, Expedition, Hobbies, Swimming, Sportsman\n"
+    + "   - Group D (Service & Arts): Community Service, Environmental, Arts & Crafts, Music & Band\n"
+    + "   - Special Awards: President's Award, BB Founder's Award, Gold Award, Scholastic Awards (Silver, Gold), Duke of Edinburgh (Bronze, Silver, Gold)\n"
+    + "   - Service Awards: One Year Service (80% attendance required), Three Year Service, Long Year Service, Junior Section Service, Link Badge\n"
+    + "• Handbooks & Manuals (Company Resources): BB Handbook, Senior Section Handbook, BB Drill Manual, BB Songs & Hymns, Uniform Regulations (accessible in Resources tab).\n"
     + "• Portal Navigation Tabs: Member Hub, Weekly Parade, Forms & Store, My Badges, Leaderboard, Resources, Support Forum, 1stPJ Arcade.\n"
     + "• 1stPJ Arcade: Daily Wordle (+15 credits on solve), Timed BB Trivia (+5 credits/question), Streaks & Credits, Cosmetic Shop, Arcade Leaderboard.\n"
     + "Core Rules for Responses:\n"
     + "1. Respond warmly, intelligently, and helpfully in fluent English.\n"
     + "2. Format your reply with clean Markdown (bolding, bullet points, paragraphs). Do NOT use any emojis.\n"
-    + "3. STRICT PROHIBITION: NEVER mention internal task codes, bug codes, or ticket numbers (never say TSK, BUG, or similar codes).\n"
-    + "4. PRIVACY: Never reveal other members' individual attendance percentages, points, or demerits. If the prompt context provides the authenticated user's own stats, you may answer questions about their own standing.\n"
-    + "5. Navigation: If user asks where something is, specify the exact portal tab and give concise instructions.";
+    + "3. Think, analyze, and synthesize thorough, specific, and accurate answers directly answering the user's question without relying on canned or generic responses.\n"
+    + "4. When asked about awards or requirements (such as President's Award or Founder's Award), list every specific prerequisite, stage, and badge clearly.\n"
+    + "5. STRICT PROHIBITION: NEVER mention internal task codes, bug codes, or ticket numbers (never say TSK, BUG, or similar codes).\n"
+    + "6. PRIVACY: Never reveal other members' individual attendance percentages, points, or demerits. Only decline on privacy grounds when a query explicitly seeks private personal records of another specific individual. Public badge requirements and curriculum are NEVER private.\n"
+    + "7. Navigation: If user asks where something is, specify the exact portal tab and give concise instructions.";
 
 
   var candidates = [];
@@ -3727,6 +3752,12 @@ function detectTargetMemberName(query, currentUserName) {
   var isSelf = /\b(my|mine|i|me|am i|myself|my own)\b/i.test(q);
   if (isSelf) return { isSelf: true, otherName: null };
 
+  // Informational / Curriculum inquiries about badges, awards, requirements, criteria, drills, syllabus are public knowledge, NOT private records!
+  var isCurriculumInquiry = /\b(requirement|requirements|criteria|syllabus|rules?|how to earn|how to get|how do i get|what do i need|how to qualify|qualifications?|award criteria|badge syllabus|what is the requirement|what are the requirements|tell me about|explain|describe)\b/i.test(q);
+  if (isCurriculumInquiry) {
+    return { isSelf: false, otherName: null, isCurriculum: true };
+  }
+
   var matchFn = (typeof isNameMatch === 'function')
     ? isNameMatch
     : (typeof window !== 'undefined' && typeof window.isNameMatch === 'function' ? window.isNameMatch : null);
@@ -3739,7 +3770,8 @@ function detectTargetMemberName(query, currentUserName) {
 
   if (possessiveMatch && possessiveMatch[1]) {
     var rawName = possessiveMatch[1].trim();
-    if (!/^(my|mine|i|me|the|our|your|a|an)\b/i.test(rawName)) {
+    var nonPersonWords = /^(my|mine|i|me|the|our|your|a|an|president|founder|founders|award|awards|badge|badges|requirement|requirements|criteria|service|drill|camping|swimming|first aid|fire safety|christian education|target|junior|senior|nco)\b/i;
+    if (!nonPersonWords.test(rawName)) {
       var isCurUser = currentUserName && (matchFn ? matchFn(rawName, currentUserName) : (rawName.toLowerCase() === currentUserName.toLowerCase()));
       if (isCurUser) {
         return { isSelf: true, otherName: null };
@@ -4165,7 +4197,7 @@ function queryHelperAgent(userText) {
   var firstName = currentName ? currentName.split(' ')[0] : '';
 
   // 1. PRIVACY SHIELD: Block queries seeking another member's confidential records
-  var isPersonalDataMetric = /\b(attendance|points?|score|rank|badges?|ic|password|email|record|records|standing|progress|results?)\b/i.test(q);
+  var isPersonalDataMetric = /\b(attendance|points?|score|ic|password|email|record|records|standing|progress|results?)\b/i.test(q);
   var targetCheck = detectTargetMemberName(userText, currentName);
 
   if (targetCheck.otherName && isPersonalDataMetric) {
@@ -4351,7 +4383,53 @@ function queryHelperAgent(userText) {
     };
   }
 
-    // 4. OFFICIAL BB DRILL MANUAL & CEREMONIAL COMMANDS
+    // 3B. AWARDS & BADGES CURRICULUM RESOLUTION (President's Award, Founder's Award, Badges)
+  if (/\b(president|presidents|president's)\b/i.test(q) && /\b(requirement|requirements|criteria|how to|qualify|badge|award)\b/i.test(q)) {
+    return {
+      text: '**President\'s Award Requirements**:\n'
+        + 'The President\'s Award is one of the highest honors for Senior Section Boys in the 1st Petaling Jaya Boys\' Brigade. To qualify, a candidate must earn and fulfill all 7 criteria:\n\n'
+        + '1. **First Aid (Advanced Level)**\n'
+        + '2. **Leadership / NCO Star (Advanced Level)**\n'
+        + '3. **Camping (Advanced Level)**\n'
+        + '4. **Swimming (Any Level)**\n'
+        + '5. **Drill (Any Level)**\n'
+        + '6. **Community Service (Any Level)**\n'
+        + '7. **Fire Safety / Rescue (Any Level)**\n\n'
+        + 'You can review and track your individual requirements and badge achievements under the **My Badges** tab.',
+      triage: null,
+      actions: [
+        { label: 'Go to My Badges', action: 'navigate', target: 'badges', icon: 'badges' }
+      ],
+      chips: [
+        { label: 'Founder\'s Award Requirements', query: 'What are the requirements for Founder\'s Award?', icon: 'badges' },
+        { label: 'One Year Service Rule', query: 'How does 80% attendance work for badges?', icon: 'attendance' }
+      ]
+    };
+  }
+
+  if (/\b(founder|founders|founder's)\b/i.test(q) && /\b(requirement|requirements|criteria|how to|qualify|badge|award)\b/i.test(q)) {
+    return {
+      text: '**BB Founder\'s Award Requirements**:\n'
+        + 'The Founder\'s Award is the pinnacle achievement in the Boys\' Brigade Senior Section. Candidates must fulfill:\n\n'
+        + '1. **3 Years of Service Minimum**\n'
+        + '2. **At least 6 awards total** across all badge groups\n'
+        + '3. **At least 1 award from each group** (Group A, Group B, Group C, and Group D)\n'
+        + '4. **At least 2 awards at Basic level**\n'
+        + '5. **At least 4 awards at Advanced level**\n'
+        + '6. **All 4 Compulsory Badges**: NCO Star (Leadership), Christian Education, Drill, and Recruitment\n\n'
+        + 'Track your progress and Founder\'s Award checklist in the **My Badges** tab.',
+      triage: null,
+      actions: [
+        { label: 'Go to My Badges', action: 'navigate', target: 'badges', icon: 'badges' }
+      ],
+      chips: [
+        { label: 'President\'s Award Requirements', query: 'What is the requirement for president badge?', icon: 'badges' },
+        { label: 'Parade Timings', query: 'What time is Saturday parade and band?', icon: 'parade' }
+      ]
+    };
+  }
+
+  // 4. OFFICIAL BB DRILL MANUAL & CEREMONIAL COMMANDS
   var drillMatch = resolveDrillManualQuery(userText);
   if (drillMatch) {
     return drillMatch;
@@ -4898,7 +4976,7 @@ async function getHelperAgentResponse(userPrompt) {
   var q = (userPrompt || '').toLowerCase().trim();
 
   // 1. PRIVACY SHIELD ALWAYS GATES FIRST (Protects members' confidential data)
-  var isPersonalDataMetric = /\b(attendance|points?|score|rank|badges?|ic|password|email|record|records|standing|progress|results?)\b/i.test(q);
+  var isPersonalDataMetric = /\b(attendance|points?|score|ic|password|email|record|records|standing|progress|results?)\b/i.test(q);
   var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
   var targetCheck = detectTargetMemberName(userPrompt, currentName);
 

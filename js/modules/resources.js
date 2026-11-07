@@ -95,6 +95,10 @@ async function loadResources() {
   if (admPanel) {
     renderAdminResourcesList();
   }
+  var syncResFn = (typeof window !== 'undefined' && typeof window.syncResourceNotifications === 'function')
+    ? window.syncResourceNotifications
+    : ((typeof global !== 'undefined' && typeof global.syncResourceNotifications === 'function') ? global.syncResourceNotifications : null);
+  if (syncResFn) syncResFn(resources);
 }
 
 var _isUploadingResource = false;

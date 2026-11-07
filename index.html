@@ -3859,6 +3859,7 @@ window.addEventListener('load', function() {
     window.fetchRemoteArcadeStats();
   }
   updateNavUserHeader();
+  if (typeof fetchRemoteDismissedNotifs === 'function') fetchRemoteDismissedNotifs();
   renderNotifications();
 
   // Complete initial notification hydration; enable audio chime for live incoming notifications
@@ -3869,6 +3870,7 @@ window.addEventListener('load', function() {
   // Periodic background notification polling (every 30 seconds)
   setInterval(function() {
     if (typeof sessionGet === 'function' && sessionGet('ic')) {
+      if (typeof fetchRemoteDismissedNotifs === 'function') fetchRemoteDismissedNotifs();
       if (typeof syncAllPortalNotifications === 'function') {
         syncAllPortalNotifications();
       }
@@ -4056,9 +4058,15 @@ function getAccountCreationTimestamp() {
 
 var _activeNotifFilter = 'all';
 
+function getDismissedNotifStorageKey() {
+  var u = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic') || sessionGet('name') || '') : '';
+  return u ? ('bb_dismissed_notifs_' + encodeURIComponent(u.toLowerCase().trim())) : 'bb_dismissed_notifications';
+}
+
 function getDismissedNotifIds() {
+  var key = getDismissedNotifStorageKey();
   try {
-    var raw = localStorage.getItem('bb_dismissed_notifications');
+    var raw = localStorage.getItem(key) || localStorage.getItem('bb_dismissed_notifications');
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     return [];
@@ -4071,11 +4079,63 @@ function setDismissedNotifId(id) {
     var ids = getDismissedNotifIds();
     if (ids.indexOf(id) === -1) {
       ids.push(id);
+      var key = getDismissedNotifStorageKey();
+      localStorage.setItem(key, JSON.stringify(ids));
       localStorage.setItem('bb_dismissed_notifications', JSON.stringify(ids));
+
+      // Asynchronously persist to Supabase bb_config so it syncs across devices & logins
+      var u = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic') || sessionGet('name') || '') : '';
+      if (u) {
+        var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+        if (client) {
+          var configKey = 'bb_notif_dismissed_' + encodeURIComponent(u.toLowerCase().trim());
+          if (typeof client.upsert === 'function') {
+            client.upsert('bb_config', { key: configKey, value: JSON.stringify(ids) }, 'key').catch(function() {});
+          } else if (typeof client.safeConfigUpdate === 'function') {
+            client.safeConfigUpdate(configKey, ids).catch(function() {});
+          }
+        }
+      }
     }
-  } catch (e) {
-    // ignore
+  } catch (e) {}
+}
+
+async function fetchRemoteDismissedNotifs() {
+  var u = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic') || sessionGet('name') || '') : '';
+  if (!u) return getDismissedNotifIds();
+
+  var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+  if (!client) return getDismissedNotifIds();
+
+  try {
+    var configKey = 'bb_notif_dismissed_' + encodeURIComponent(u.toLowerCase().trim());
+    var rows = null;
+    if (typeof client.get === 'function') {
+      rows = await client.get('bb_config?key=eq.' + encodeURIComponent(configKey) + '&select=value');
+    } else if (typeof client.getConfig === 'function') {
+      var cfgVal = await client.getConfig(configKey);
+      if (cfgVal) rows = [{ value: cfgVal }];
+    }
+
+    if (rows && rows.length && rows[0].value) {
+      var remoteIds = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+      if (Array.isArray(remoteIds)) {
+        var localIds = getDismissedNotifIds();
+        var mergedMap = {};
+        localIds.forEach(function(i) { mergedMap[i] = true; });
+        remoteIds.forEach(function(i) { mergedMap[i] = true; });
+        var mergedList = Object.keys(mergedMap);
+
+        var key = getDismissedNotifStorageKey();
+        localStorage.setItem(key, JSON.stringify(mergedList));
+        localStorage.setItem('bb_dismissed_notifications', JSON.stringify(mergedList));
+        renderNotifications();
+      }
+    }
+  } catch (err) {
+    console.warn('fetchRemoteDismissedNotifs error:', err);
   }
+  return getDismissedNotifIds();
 }
 
 function addPortalNotification(notif) {
@@ -4120,8 +4180,11 @@ function syncTaskNotifications(tasks) {
       var tTs = new Date(t.created_at).getTime();
       if (!isNaN(tTs) && tTs < (accTs - 60000)) return;
     }
+    var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
     var isAssigned = (t.assignee_ic && myIc && t.assignee_ic.indexOf(myIc) !== -1)
-      || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1);
+      || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1)
+      || (t.assignee && myName && t.assignee.toLowerCase().indexOf(myName.toLowerCase()) !== -1)
+      || (t.department && myDept && myDept.toLowerCase() !== 'none' && t.department.toLowerCase().trim() === myDept.toLowerCase().trim());
     if (!isAssigned) return;
 
     // 1. Task Assigned Notification
@@ -4362,6 +4425,34 @@ function syncHighlightNotifications(highlightsList) {
   renderNotifications();
 }
 
+function syncResourceNotifications(resourcesList) {
+  var list = Array.isArray(resourcesList) ? resourcesList : ((typeof _companyResources !== 'undefined' && Array.isArray(_companyResources)) ? _companyResources : ((typeof resources !== 'undefined' && Array.isArray(resources)) ? resources : []));
+  if (!Array.isArray(list) || !list.length) return;
+  var dismissed = getDismissedNotifIds();
+
+  list.forEach(function(r) {
+    if (!r || !r.id) return;
+    var notifId = 'notif-resource-' + r.id;
+    if (dismissed.indexOf(notifId) !== -1) return;
+    var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
+    if (!existing) {
+      pushPortalNotification({
+        id: notifId,
+        category: 'announcements',
+        group: 'Today',
+        icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+        title: 'New Resource: ' + (r.title || 'Document'),
+        snippet: (r.description || 'New reference document or manual added to Company Resources.').slice(0, 70),
+        time: 'Today',
+        unread: true,
+        action: function() { switchTabNav('resources'); }
+      });
+    }
+  });
+
+  renderNotifications();
+}
+
 function syncForumNotifications(postsList) {
   var list = Array.isArray(postsList) ? postsList : ((typeof forumPosts !== 'undefined' && Array.isArray(forumPosts)) ? forumPosts : ((typeof window !== 'undefined' && Array.isArray(window.forumPosts)) ? window.forumPosts : []));
   if (!Array.isArray(list) || !list.length) return;
@@ -4456,6 +4547,9 @@ function syncAllPortalNotifications() {
   }
   if (typeof syncForumNotifications === 'function') {
     syncForumNotifications();
+  }
+  if (typeof syncResourceNotifications === 'function') {
+    syncResourceNotifications();
   }
 }
 
@@ -4831,8 +4925,12 @@ window.pushPortalNotification     = pushPortalNotification;
 window.syncAnnouncementNotifications = syncAnnouncementNotifications;
 window.syncFormNotifications      = syncFormNotifications;
 window.syncHighlightNotifications = syncHighlightNotifications;
+window.syncResourceNotifications  = syncResourceNotifications;
 window.syncForumNotifications     = syncForumNotifications;
 window.syncAllPortalNotifications = syncAllPortalNotifications;
+window.fetchRemoteDismissedNotifs = fetchRemoteDismissedNotifs;
+window.getDismissedNotifIds       = getDismissedNotifIds;
+window.setDismissedNotifId        = setDismissedNotifId;
 window.updateNavUserHeader        = updateNavUserHeader;
 window.handleNavProfileClick      = handleNavProfileClick;
 window.handleHeaderSearchKeyDown  = handleHeaderSearchKeyDown;

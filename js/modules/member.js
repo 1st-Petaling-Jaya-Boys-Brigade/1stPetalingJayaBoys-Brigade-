@@ -2090,6 +2090,17 @@ function completeLoginWithAccount(m, rememberMe) {
   } else if (typeof global !== 'undefined' && typeof global.fetchRemoteArcadeStats === 'function') {
     global.fetchRemoteArcadeStats();
   }
+  var getGlobalFn = function(fnName) {
+    if (typeof window !== 'undefined' && typeof window[fnName] === 'function') return window[fnName];
+    if (typeof global !== 'undefined' && typeof global[fnName] === 'function') return global[fnName];
+    return null;
+  };
+  var fnWordle = getGlobalFn('fetchRemoteWordleState'); if (fnWordle) fnWordle();
+  var fnTrivia = getGlobalFn('fetchRemoteTriviaState'); if (fnTrivia) fnTrivia();
+  var fnBadges = getGlobalFn('loadBadges'); if (fnBadges) fnBadges();
+  var fnReminders = getGlobalFn('fetchRemoteMemberEvents'); if (fnReminders) fnReminders();
+  var fnDismissed = getGlobalFn('fetchRemoteDismissedNotifs'); if (fnDismissed) fnDismissed();
+  var fnNotifs = getGlobalFn('syncAllPortalNotifications'); if (fnNotifs) fnNotifs();
   if (typeof updateArcadeHeaderBadge === 'function') updateArcadeHeaderBadge();
   if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
 
