@@ -854,6 +854,7 @@ var _storySlideStartTime = 0;
 var _storySlideDuration = 5000;
 var _storyRemainingTime = 5000;
 var _isStoryPaused = false;
+var _isStoryMuted = false;
 var _storyKeyHandlerAttached = false;
 var _storyHoldAttached = false;
 
@@ -1158,7 +1159,10 @@ function updateStorySlideView() {
         if (typeof videoEl.pause === 'function') videoEl.pause();
         videoEl.src = '';
       }
-      if (soundBtn) soundBtn.style.display = 'none';
+      if (soundBtn) {
+        soundBtn.style.display = 'flex';
+        updateSoundIcon(_isStoryMuted);
+      }
       if (iframeEl) {
         iframeEl.style.display = 'block';
         var autoplayUrl = safeMediaUrl;
@@ -1186,7 +1190,10 @@ function updateStorySlideView() {
         iframeEl.style.display = 'none';
         iframeEl.src = '';
       }
-      if (soundBtn) soundBtn.style.display = 'flex';
+      if (soundBtn) {
+        soundBtn.style.display = 'flex';
+        updateSoundIcon(_isStoryMuted);
+      }
       if (videoEl) {
         videoEl.style.display = 'block';
         videoEl.autoplay = true;
@@ -1530,6 +1537,12 @@ function closeStoryViewer() {
     if (iframeEl) {
       iframeEl.src = '';
     }
+    var card = document.querySelector('.story-viewer-card');
+    if (card) {
+      card.style.transform = '';
+      card.style.opacity = '';
+      card.style.transition = '';
+    }
     var modal = document.getElementById('story-viewer-modal');
     if (modal) modal.style.display = 'none';
   }
@@ -1543,6 +1556,12 @@ function attachStoryKeyListeners() {
   _storyKeyHandlerAttached = true;
 
   document.addEventListener('keydown', function(e) {
+    var card = document.querySelector('.story-viewer-card');
+    if (card) {
+      card.style.transform = '';
+      card.style.opacity = '';
+      card.style.transition = '';
+    }
     var modal = document.getElementById('story-viewer-modal');
     if (!modal || modal.style.display !== 'flex') return;
 
@@ -1596,7 +1615,7 @@ function attachStoryHoldListeners() {
     if (_isStoryPaused) resumeStoryPlayback();
   });
 
-  // Mobile touch gestures
+  // Mobile touch gestures: direct manipulation interactive dragging & 3-zone tap
   card.addEventListener('touchstart', function(e) {
     if (!e.touches || !e.touches[0]) return;
     var t = e.touches[0];
@@ -1624,18 +1643,104 @@ function attachStoryHoldListeners() {
     var t = e.touches[0];
     var dx = t.clientX - _storyTouchStartX;
     var dy = t.clientY - _storyTouchStartY;
-    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-      _storyIsSwiping = true;
-      clearTimeout(_storyHoldTimer);
-      if (_storyWasHoldPaused) {
-        resumeStoryPlayback();
-        _storyWasHoldPaused = false;
+
+    if (!_storyIsSwiping) {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.1) {
+        _storyIsSwiping = true;
+        clearTimeout(_storyHoldTimer);
+        if (_storyWasHoldPaused) {
+          resumeStoryPlayback();
+          _storyWasHoldPaused = false;
+        }
+      } else if (Math.abs(dy) > 15) {
+        return;
       }
+    }
+
+    if (_storyIsSwiping) {
+      var cardWidth = card.offsetWidth || window.innerWidth || 360;
+      var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+      var isFirst = _currentStoryHighlightIdx <= 0;
+      var isLast = _currentStoryHighlightIdx >= activeHighlights.length - 1;
+
+      var currentDx = dx;
+      if ((isFirst && dx > 0) || (isLast && dx < 0)) {
+        currentDx = dx * 0.3; // Elastic resistance at highlight ends
+      }
+
+      var scale = Math.max(0.9, 1 - Math.abs(currentDx) / (cardWidth * 3.5));
+      var opacity = Math.max(0.65, 1 - Math.abs(currentDx) / (cardWidth * 2.2));
+      card.style.transition = 'none';
+      card.style.transform = 'translate3d(' + currentDx + 'px, 0, 0) scale(' + scale + ')';
+      card.style.opacity = opacity;
     }
   }, { passive: true });
 
   card.addEventListener('touchend', function(e) {
     clearTimeout(_storyHoldTimer);
+
+    if (_storyIsSwiping) {
+      var changedSwipe = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+      var dxSwipe = changedSwipe ? (changedSwipe.clientX - _storyTouchStartX) : 0;
+      var dtSwipe = Date.now() - _storyTouchStartTime;
+      var cardWidth = card.offsetWidth || window.innerWidth || 360;
+      var velocity = Math.abs(dxSwipe) / Math.max(1, dtSwipe);
+
+      var isSwipeComplete = Math.abs(dxSwipe) > (cardWidth * 0.22) || (Math.abs(dxSwipe) > 35 && velocity > 0.3);
+
+      if (isSwipeComplete) {
+        if (dxSwipe < 0) {
+          // Slide smoothly out to the left
+          card.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.22s ease';
+          card.style.transform = 'translate3d(-105%, 0, 0) scale(0.9)';
+          card.style.opacity = '0';
+          setTimeout(function() {
+            card.style.transition = 'none';
+            card.style.transform = 'translate3d(40px, 0, 0) scale(0.96)';
+            card.style.opacity = '0';
+            nextStoryHighlight();
+            if (typeof requestAnimationFrame === 'function') {
+              requestAnimationFrame(function() {
+                card.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+                card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+                card.style.opacity = '1';
+              });
+            } else {
+              card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+              card.style.opacity = '1';
+            }
+          }, 220);
+        } else {
+          // Slide smoothly out to the right
+          card.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.22s ease';
+          card.style.transform = 'translate3d(105%, 0, 0) scale(0.9)';
+          card.style.opacity = '0';
+          setTimeout(function() {
+            card.style.transition = 'none';
+            card.style.transform = 'translate3d(-40px, 0, 0) scale(0.96)';
+            card.style.opacity = '0';
+            prevStoryHighlight();
+            if (typeof requestAnimationFrame === 'function') {
+              requestAnimationFrame(function() {
+                card.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+                card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+                card.style.opacity = '1';
+              });
+            } else {
+              card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+              card.style.opacity = '1';
+            }
+          }, 220);
+        }
+      } else {
+        // Snap back to center smoothly
+        card.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+        card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+        card.style.opacity = '1';
+      }
+      _storyIsSwiping = false;
+      return;
+    }
 
     if (_storyWasHoldPaused) {
       _storyWasHoldPaused = false;
@@ -1654,27 +1759,20 @@ function attachStoryHoldListeners() {
     var dy = changed.clientY - _storyTouchStartY;
     var dt = Date.now() - _storyTouchStartTime;
 
-    // 1. Horizontal swipe: change highlight collection (Instagram-style)
-    var isSwipe = Math.abs(dx) >= 38 && Math.abs(dx) > Math.abs(dy) * 1.3 && dt < 800;
-    if (isSwipe) {
-      if (dx < 0) {
-        nextStoryHighlight(); // Swipe Left -> Next Highlight
-      } else {
-        prevStoryHighlight(); // Swipe Right -> Prev Highlight
-      }
-      return;
-    }
-
-    // 2. Tap navigation: change slide within highlight (Instagram-style)
+    // Tap navigation: sides change slides, centre pauses/resumes video!
     var isTap = Math.abs(dx) < 16 && Math.abs(dy) < 16 && dt < 350;
     if (isTap) {
       var box = card.getBoundingClientRect();
       var tapRelX = changed.clientX - box.left;
-      var cardWidth = box.width || window.innerWidth || 360;
-      if (tapRelX < cardWidth * 0.35) {
-        prevStorySlide(); // Tap left 35% -> Previous Slide
+      var cardW = box.width || window.innerWidth || 360;
+      var tapRatio = tapRelX / cardW;
+
+      if (tapRatio < 0.28) {
+        prevStorySlide(); // Tap left 28% -> Previous Slide
+      } else if (tapRatio > 0.72) {
+        nextStorySlide(); // Tap right 28% -> Next Slide
       } else {
-        nextStorySlide(); // Tap right 65% -> Next Slide
+        toggleStoryPause(); // Tap around centre area -> Pause / Resume Video
       }
     }
   }, { passive: true });
