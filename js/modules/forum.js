@@ -5334,6 +5334,7 @@ function renderForumFeed() {
               catIcon + ' <span>' + (p.tag || p.category) + '</span>' +
             '</span>' +
             (p.triagedByAgent ? '<span class="forum-triaged-badge">Stedfast Triaged</span>' : '') +
+            (p.screenshotUrl ? '<span class="forum-triaged-badge" style="background:rgba(59,130,246,0.12);color:#3b82f6;border-color:rgba(59,130,246,0.25);display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Screenshot</span>' : '') +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             adminActionsHtml +
@@ -5383,7 +5384,83 @@ function upvoteForumPost(postId, userEmail) {
 /**
  * Opens modal dialog to create a new discussion thread or report a bug
  */
+var _stagedForumScreenshotFile = null;
+
+function handleForumScreenshotSelect(event) {
+  var file = (event && event.target && event.target.files && event.target.files[0]) ? event.target.files[0] : null;
+  if (!file) return;
+
+  var maxPhotoSize = 15 * 1024 * 1024;
+  if (file.size > maxPhotoSize) {
+    if (typeof showToast === 'function') {
+      showToast('Screenshot file size exceeds 15MB limit.', 'warning');
+    }
+    return;
+  }
+
+  _stagedForumScreenshotFile = file;
+  if (typeof FileReader !== 'undefined') {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var placeholder = document.getElementById('forum-screenshot-placeholder');
+      var previewWrap = document.getElementById('forum-screenshot-preview-wrap');
+      var previewImg = document.getElementById('forum-screenshot-preview-img');
+      if (placeholder) placeholder.style.display = 'none';
+      if (previewImg) previewImg.src = e.target.result;
+      if (previewWrap) previewWrap.style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function clearForumScreenshot(event) {
+  if (event && event.stopPropagation) event.stopPropagation();
+  _stagedForumScreenshotFile = null;
+  if (typeof document !== 'undefined') {
+    var placeholder = document.getElementById('forum-screenshot-placeholder');
+    var previewWrap = document.getElementById('forum-screenshot-preview-wrap');
+    var previewImg = document.getElementById('forum-screenshot-preview-img');
+    var fileInput = document.getElementById('forum-screenshot-input');
+    if (fileInput) fileInput.value = '';
+    if (previewImg) previewImg.src = '';
+    if (previewWrap) previewWrap.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'flex';
+  }
+}
+
+async function uploadForumScreenshotFile(file) {
+  if (!file) return null;
+  var client = (typeof supa !== 'undefined' ? supa : ((typeof window !== 'undefined' && window.supa) ? window.supa : null));
+  var ext = (file.name ? file.name.split('.').pop() || 'jpg' : 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  var rand = Math.random().toString(36).substring(2, 7);
+  var fname = 'shot_' + Date.now() + '_' + rand + '.' + (ext || 'jpg');
+
+  try {
+    if (client && typeof client.uploadFile === 'function') {
+      await client.uploadFile('gallery', 'forum/' + fname, file);
+      var shotUrl = client.fileUrl('gallery', 'forum/' + fname);
+      if (typeof client.createSignedUrl === 'function') {
+        var signed = await client.createSignedUrl('gallery', 'forum/' + fname, 3600 * 24 * 30);
+        if (signed && signed.signedUrl) shotUrl = signed.signedUrl;
+      }
+      return { url: shotUrl, filename: fname };
+    }
+  } catch (err) {
+    console.warn('uploadForumScreenshotFile error:', err);
+  }
+
+  // Fallback to data URL if direct upload fails
+  return new Promise(function(resolve) {
+    if (typeof FileReader === 'undefined') return resolve(null);
+    var r = new FileReader();
+    r.onload = function(ev) { resolve({ url: ev.target.result, filename: fname }); };
+    r.onerror = function() { resolve(null); };
+    r.readAsDataURL(file);
+  });
+}
+
 function openCreateForumPostModal(prefill) {
+  _stagedForumScreenshotFile = null;
   if (typeof document === 'undefined') return;
 
   var existing = document.getElementById('forum-create-modal');
@@ -5444,7 +5521,7 @@ function openCreateForumPostModal(prefill) {
   document.body.appendChild(modal);
 }
 
-function submitNewForumPost(e, customPost) {
+async function submitNewForumPost(e, customPost) {
   if (e && e.preventDefault) e.preventDefault();
   var title = '', cat = 'general', tag = '', content = '';
   if (customPost && typeof customPost === 'object') {
@@ -6032,6 +6109,9 @@ if (typeof window !== 'undefined') {
   window.handleForumSearch         = handleForumSearch;
   window.upvoteForumPost           = upvoteForumPost;
   window.openCreateForumPostModal  = openCreateForumPostModal;
+  window.handleForumScreenshotSelect = handleForumScreenshotSelect;
+  window.clearForumScreenshot       = clearForumScreenshot;
+  window.uploadForumScreenshotFile  = uploadForumScreenshotFile;
   window.submitNewForumPost        = submitNewForumPost;
   window.openEditForumPostModal    = openEditForumPostModal;
   window.submitEditForumPost       = submitEditForumPost;
@@ -6071,6 +6151,9 @@ if (typeof module !== 'undefined' && module.exports) {
     handleForumSearch: handleForumSearch,
     upvoteForumPost: upvoteForumPost,
     openCreateForumPostModal: openCreateForumPostModal,
+    handleForumScreenshotSelect: handleForumScreenshotSelect,
+    clearForumScreenshot: clearForumScreenshot,
+    uploadForumScreenshotFile: uploadForumScreenshotFile,
     submitNewForumPost: submitNewForumPost,
     openEditForumPostModal: openEditForumPostModal,
     submitEditForumPost: submitEditForumPost,

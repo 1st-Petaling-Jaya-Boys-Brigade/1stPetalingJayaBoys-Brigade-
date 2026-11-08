@@ -446,6 +446,34 @@
     return ic ? ('bb_arcade_' + String(ic).replace(/[^a-zA-Z0-9_-]/g, '_')) : 'bb_arcade_guest';
   }
 
+  function getCandidateUserKeys(prefix) {
+    var pfx = prefix || 'bb_arcade_';
+    var candidates = [];
+    var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+    var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
+    var name = (typeof sessionGet === 'function') ? sessionGet('name') : null;
+
+    var addCandidate = function(id) {
+      if (!id || typeof id !== 'string') return;
+      var clean = id.trim();
+      if (!clean) return;
+      var k1 = pfx + clean.replace(/[^a-zA-Z0-9_-]/g, '_');
+      if (!candidates.includes(k1)) candidates.push(k1);
+      var digitsOnly = clean.replace(/[^0-9]/g, '');
+      if (digitsOnly && digitsOnly.length >= 6) {
+        var k2 = pfx + digitsOnly;
+        if (!candidates.includes(k2)) candidates.push(k2);
+      }
+    };
+
+    addCandidate(ic);
+    addCandidate(email);
+    if (candidates.length === 0) addCandidate(name);
+    if (candidates.length === 0) candidates.push(pfx + 'guest');
+    return candidates;
+  }
+
+
   function getArcadeStats(refDate) {
     var defaultStats = {
       credits: 0,
@@ -481,10 +509,13 @@
 
   function saveArcadeStats(stats) {
     try {
-      var key = getArcadeUserKey();
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(key, JSON.stringify(stats));
-      }
+      var _key = getArcadeUserKey();
+      var candKeys = getCandidateUserKeys('bb_arcade_');
+      candKeys.forEach(function(k) {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(k, JSON.stringify(stats));
+        }
+      });
       if (typeof sessionSet === 'function') {
         sessionSet('game_streak', String(stats.streak || 0));
         sessionSet('game_credits', String(stats.credits || 0));
@@ -492,16 +523,19 @@
       updateArcadeHeaderBadge(stats);
 
       // Async sync to Supabase bb_config if logged in
-      var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
-      if (ic) {
-        var client = getArcadeSupaClient();
-        if (client) {
-          if (typeof client.upsert === 'function') {
-            client.upsert('bb_config', { key: key, value: JSON.stringify(stats) }, 'key').catch(function() {});
-          } else if (typeof client.safeConfigUpdate === 'function') {
-            client.safeConfigUpdate(key, stats).catch(function() {});
+      var client = getArcadeSupaClient();
+      if (client) {
+        candKeys.forEach(function(k) {
+          if (k !== 'bb_arcade_guest') {
+            if (typeof client.setConfig === 'function') {
+              client.setConfig(k, stats).catch(function() {});
+            } else if (typeof client.upsert === 'function') {
+              client.upsert('bb_config', { key: k, value: JSON.stringify(stats) }, 'key').catch(function() {});
+            } else if (typeof client.safeConfigUpdate === 'function') {
+              client.safeConfigUpdate(k, stats).catch(function() {});
+            }
           }
-        }
+        });
       }
     } catch (e) {
       console.warn('saveArcadeStats error:', e);
@@ -528,63 +562,87 @@
     if (!client) return getArcadeStats(optRefDate);
 
     var local = getArcadeStats(optRefDate);
+    var candKeys = getCandidateUserKeys('bb_arcade_');
 
     try {
-      var rows = null;
-      if (typeof client.get === 'function') {
-        rows = await client.get('bb_config?key=eq.' + encodeURIComponent(key) + '&select=value');
-      } else if (typeof client.getConfig === 'function') {
-        var cfgVal = await client.getConfig(key);
-        if (cfgVal) rows = [{ value: cfgVal }];
-      }
-
-      if (rows && rows.length && rows[0].value) {
-        var remote = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
-        if (remote && typeof remote === 'object') {
-          var today = (typeof optRefDate === 'string' && optRefDate) ? getTodayDateKey(optRefDate) : getTodayDateKey();
-          var yesterday = getYesterdayDateKey(today);
-
-          var merged = {
-            credits: Math.max(Number(local.credits) || 0, Number(remote.credits) || 0),
-            bestStreak: Math.max(Number(local.bestStreak) || 0, Number(remote.bestStreak) || 0),
-            wordlePlays: Math.max(Number(local.wordlePlays) || 0, Number(remote.wordlePlays) || 0),
-            wordleWins: Math.max(Number(local.wordleWins) || 0, Number(remote.wordleWins) || 0),
-            triviaPlays: Math.max(Number(local.triviaPlays) || 0, Number(remote.triviaPlays) || 0),
-            triviaScoreTotal: Math.max(Number(local.triviaScoreTotal) || 0, Number(remote.triviaScoreTotal) || 0),
-            lastPlayedDate: (remote.lastPlayedDate && local.lastPlayedDate)
-              ? (remote.lastPlayedDate > local.lastPlayedDate ? remote.lastPlayedDate : local.lastPlayedDate)
-              : (remote.lastPlayedDate || local.lastPlayedDate || null),
-            streak: Math.max(Number(local.streak) || 0, Number(remote.streak) || 0),
-            awardedWordle: Object.assign({}, local.awardedWordle || {}, remote.awardedWordle || {}),
-            awardedTrivia: Object.assign({}, local.awardedTrivia || {}, remote.awardedTrivia || {})
-          };
-
-          if (merged.lastPlayedDate && merged.lastPlayedDate !== today && merged.lastPlayedDate !== yesterday) {
-            merged.streak = 0;
-          }
-
-          if (typeof localStorage !== 'undefined') {
-            localStorage.setItem(key, JSON.stringify(merged));
-          }
-          if (typeof sessionSet === 'function') {
-            sessionSet('game_streak', String(merged.streak || 0));
-            sessionSet('game_credits', String(merged.credits || 0));
-          }
-          updateArcadeHeaderBadge(merged);
-
-          if ((Number(local.credits) || 0) > (Number(remote.credits) || 0) || (Number(local.streak) || 0) > (Number(remote.streak) || 0)) {
-            if (typeof client.upsert === 'function') {
-              client.upsert('bb_config', { key: key, value: JSON.stringify(merged) }, 'key').catch(function() {});
+      var remoteList = [];
+      for (var ci = 0; ci < candKeys.length; ci++) {
+        var ck = candKeys[ci];
+        if (ck === 'bb_arcade_guest') continue;
+        try {
+          var cfg = null;
+          if (typeof client.getConfig === 'function') {
+            cfg = await client.getConfig(ck);
+          } else if (typeof client.get === 'function') {
+            var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(ck) + '&select=value');
+            if (rows && rows.length && rows[0].value) {
+              cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
             }
           }
+          if (cfg && typeof cfg === 'object') {
+            remoteList.push(cfg);
+          }
+        } catch (_) {}
+      }
 
-          return merged;
+      if (remoteList.length > 0) {
+        var today = (typeof optRefDate === 'string' && optRefDate) ? getTodayDateKey(optRefDate) : getTodayDateKey();
+        var yesterday = getYesterdayDateKey(today);
+
+        var merged = Object.assign({}, local);
+        remoteList.forEach(function(remote) {
+          merged.credits = Math.max(Number(merged.credits) || 0, Number(remote.credits) || 0);
+          merged.bestStreak = Math.max(Number(merged.bestStreak) || 0, Number(remote.bestStreak) || 0);
+          merged.wordlePlays = Math.max(Number(merged.wordlePlays) || 0, Number(remote.wordlePlays) || 0);
+          merged.wordleWins = Math.max(Number(merged.wordleWins) || 0, Number(remote.wordleWins) || 0);
+          merged.triviaPlays = Math.max(Number(merged.triviaPlays) || 0, Number(remote.triviaPlays) || 0);
+          merged.triviaScoreTotal = Math.max(Number(merged.triviaScoreTotal) || 0, Number(remote.triviaScoreTotal) || 0);
+          merged.lastPlayedDate = (remote.lastPlayedDate && merged.lastPlayedDate)
+            ? (remote.lastPlayedDate > merged.lastPlayedDate ? remote.lastPlayedDate : merged.lastPlayedDate)
+            : (remote.lastPlayedDate || merged.lastPlayedDate || null);
+          merged.streak = Math.max(Number(merged.streak) || 0, Number(remote.streak) || 0);
+          merged.awardedWordle = Object.assign({}, merged.awardedWordle || {}, remote.awardedWordle || {});
+          merged.awardedTrivia = Object.assign({}, merged.awardedTrivia || {}, remote.awardedTrivia || {});
+        });
+
+        if (merged.lastPlayedDate && merged.lastPlayedDate !== today && merged.lastPlayedDate !== yesterday) {
+          merged.streak = 0;
         }
+
+        candKeys.forEach(function(k) {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(k, JSON.stringify(merged));
+          }
+        });
+
+        if (typeof sessionSet === 'function') {
+          sessionSet('game_streak', String(merged.streak || 0));
+          sessionSet('game_credits', String(merged.credits || 0));
+        }
+        updateArcadeHeaderBadge(merged);
+
+        candKeys.forEach(function(k) {
+          if (k !== 'bb_arcade_guest') {
+            if (typeof client.setConfig === 'function') {
+              client.setConfig(k, merged).catch(function() {});
+            } else if (typeof client.upsert === 'function') {
+              client.upsert('bb_config', { key: k, value: JSON.stringify(merged) }, 'key').catch(function() {});
+            }
+          }
+        });
+
+        return merged;
       } else {
         if (local && (local.credits > 0 || local.streak > 0)) {
-          if (typeof client.upsert === 'function') {
-            client.upsert('bb_config', { key: key, value: JSON.stringify(local) }, 'key').catch(function() {});
-          }
+          candKeys.forEach(function(k) {
+            if (k !== 'bb_arcade_guest') {
+              if (typeof client.setConfig === 'function') {
+                client.setConfig(k, local).catch(function() {});
+              } else if (typeof client.upsert === 'function') {
+                client.upsert('bb_config', { key: k, value: JSON.stringify(local) }, 'key').catch(function() {});
+              }
+            }
+          });
         }
       }
     } catch (e) {
@@ -737,34 +795,55 @@
     var client = getArcadeSupaClient();
     if (!client) return;
 
-    var storageKey = 'bb_wordle_' + today + '_' + userKey;
+    var candKeys = getCandidateUserKeys('bb_arcade_');
+    var bestRemote = null;
 
     try {
-      var rows = null;
-      if (typeof client.get === 'function') {
-        rows = await client.get('bb_config?key=eq.' + encodeURIComponent(storageKey) + '&select=value');
-      } else if (typeof client.getConfig === 'function') {
-        var cfgVal = await client.getConfig(storageKey);
-        if (cfgVal) rows = [{ value: cfgVal }];
+      for (var i = 0; i < candKeys.length; i++) {
+        var ck = candKeys[i];
+        if (ck === 'bb_arcade_guest') continue;
+        var sk = 'bb_wordle_' + today + '_' + ck;
+        try {
+          var cfg = null;
+          if (typeof client.getConfig === 'function') {
+            cfg = await client.getConfig(sk);
+          } else if (typeof client.get === 'function') {
+            var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(sk) + '&select=value');
+            if (rows && rows.length && rows[0].value) {
+              cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+            }
+          }
+          if (cfg && cfg.dateKey === today) {
+            if (!bestRemote) {
+              bestRemote = cfg;
+            } else if (cfg.isGameOver && !bestRemote.isGameOver) {
+              bestRemote = cfg;
+            } else if (cfg.creditsAwarded && !bestRemote.creditsAwarded) {
+              bestRemote = cfg;
+            } else if ((cfg.guesses || []).length > (bestRemote.guesses || []).length) {
+              bestRemote = cfg;
+            }
+          }
+        } catch (_) {}
       }
 
-      if (rows && rows.length && rows[0].value) {
-        var remote = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
-        if (remote && remote.dateKey === today) {
-          var localCount = (_wordleState && _wordleState.guesses) ? _wordleState.guesses.length : 0;
-          var remoteCount = (remote.guesses) ? remote.guesses.length : 0;
+      if (bestRemote && bestRemote.dateKey === today) {
+        var localCount = (_wordleState && _wordleState.guesses) ? _wordleState.guesses.length : 0;
+        var remoteCount = (bestRemote.guesses) ? bestRemote.guesses.length : 0;
 
-          if (remote.isGameOver || remoteCount > localCount || remote.creditsAwarded) {
-            _wordleState = Object.assign({}, _wordleState, remote);
+        if (bestRemote.isGameOver || remoteCount > localCount || bestRemote.creditsAwarded) {
+          _wordleState = Object.assign({}, _wordleState, bestRemote);
+          candKeys.forEach(function(k) {
+            var sk = 'bb_wordle_' + today + '_' + k;
             if (typeof localStorage !== 'undefined') {
-              localStorage.setItem(storageKey, JSON.stringify(_wordleState));
+              localStorage.setItem(sk, JSON.stringify(_wordleState));
             }
-            if (_arcadeSubtab === 'wordle') {
-              renderWordleView();
-            }
-          } else if (localCount > remoteCount || _wordleState.isGameOver) {
-            saveWordleState();
+          });
+          if (_arcadeSubtab === 'wordle') {
+            renderWordleView();
           }
+        } else if (localCount > remoteCount || _wordleState.isGameOver) {
+          saveWordleState();
         }
       } else if (_wordleState && (_wordleState.guesses.length > 0 || _wordleState.isGameOver)) {
         saveWordleState();
@@ -948,23 +1027,34 @@
     var st = state || _triviaState;
     if (!st || !st.dateKey) return;
     try {
-      var uKey = getTriviaUserKey();
-      var storageKey = uKey + '_' + st.dateKey;
-      if (typeof localStorage !== 'undefined') {
-        var json = JSON.stringify(st);
-        localStorage.setItem(storageKey, json);
-        localStorage.setItem(uKey + '_active', json);
-      }
+      var primaryKey = getTriviaUserKey();
+      var candKeys = getCandidateUserKeys('bb_trivia_');
+      var json = JSON.stringify(st);
+
+      candKeys.forEach(function(uKey) {
+        var storageKey = uKey + '_' + st.dateKey;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(storageKey, json);
+          localStorage.setItem(uKey + '_active', json);
+        }
+      });
 
       // Persist across devices to Supabase bb_config
-      if (uKey && uKey !== 'bb_trivia_guest') {
+      if (primaryKey && primaryKey !== 'bb_trivia_guest') {
         var client = getArcadeSupaClient();
         if (client) {
-          if (typeof client.upsert === 'function') {
-            client.upsert('bb_config', { key: storageKey, value: JSON.stringify(st) }, 'key').catch(function() {});
-          } else if (typeof client.safeConfigUpdate === 'function') {
-            client.safeConfigUpdate(storageKey, st).catch(function() {});
-          }
+          candKeys.forEach(function(uKey) {
+            if (uKey !== 'bb_trivia_guest') {
+              var storageKey = uKey + '_' + st.dateKey;
+              if (typeof client.setConfig === 'function') {
+                client.setConfig(storageKey, st).catch(function() {});
+              } else if (typeof client.upsert === 'function') {
+                client.upsert('bb_config', { key: storageKey, value: json }, 'key').catch(function() {});
+              } else if (typeof client.safeConfigUpdate === 'function') {
+                client.safeConfigUpdate(storageKey, st).catch(function() {});
+              }
+            }
+          });
         }
       }
     } catch (e) {
@@ -980,34 +1070,68 @@
     var client = getArcadeSupaClient();
     if (!client) return;
 
-    var storageKey = userKey + '_' + today;
+    var candKeys = getCandidateUserKeys('bb_trivia_');
+    var bestRemote = null;
 
     try {
-      var rows = null;
-      if (typeof client.get === 'function') {
-        rows = await client.get('bb_config?key=eq.' + encodeURIComponent(storageKey) + '&select=value');
-      } else if (typeof client.getConfig === 'function') {
-        var cfgVal = await client.getConfig(storageKey);
-        if (cfgVal) rows = [{ value: cfgVal }];
+      for (var i = 0; i < candKeys.length; i++) {
+        var ck = candKeys[i];
+        if (ck === 'bb_trivia_guest') continue;
+        var sk = ck + '_' + today;
+        try {
+          var cfg = null;
+          if (typeof client.getConfig === 'function') {
+            cfg = await client.getConfig(sk);
+          } else if (typeof client.get === 'function') {
+            var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(sk) + '&select=value');
+            if (rows && rows.length && rows[0].value) {
+              cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+            }
+          }
+          if (cfg && cfg.dateKey === today) {
+            if (!bestRemote) {
+              bestRemote = cfg;
+            } else if (cfg.isSubmitted && !bestRemote.isSubmitted) {
+              bestRemote = cfg;
+            } else if (cfg.creditsAwarded && !bestRemote.creditsAwarded) {
+              bestRemote = cfg;
+            } else if (Object.keys(cfg.answers || {}).length > Object.keys(bestRemote.answers || {}).length) {
+              bestRemote = cfg;
+            }
+          }
+        } catch (_) {}
       }
 
-      if (rows && rows.length && rows[0].value) {
-        var remote = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
-        if (remote && remote.dateKey === today) {
-          var localCount = (_triviaState && _triviaState.answers) ? Object.keys(_triviaState.answers).length : 0;
-          var remoteCount = (remote.answers) ? Object.keys(remote.answers).length : 0;
+      if (bestRemote && bestRemote.dateKey === today) {
+        var localCount = (_triviaState && _triviaState.answers) ? Object.keys(_triviaState.answers).length : 0;
+        var remoteCount = (bestRemote.answers) ? Object.keys(bestRemote.answers).length : 0;
 
-          if (remote.isSubmitted || remoteCount > localCount || remote.creditsAwarded) {
-            _triviaState = Object.assign({}, _triviaState, remote);
+        if (bestRemote.isSubmitted || remoteCount > localCount || bestRemote.creditsAwarded) {
+          _triviaState = Object.assign({}, _triviaState, bestRemote);
+          // Set currentIndex to the next unanswered question if not submitted
+          if (!_triviaState.isSubmitted) {
+            var nextUnanswered = 0;
+            while (nextUnanswered < 5 && _triviaState.answers[nextUnanswered] !== undefined) {
+              nextUnanswered++;
+            }
+            if (nextUnanswered < 5) {
+              _triviaState.currentIndex = nextUnanswered;
+            }
+          }
+
+          candKeys.forEach(function(uKey) {
+            var storageKey = uKey + '_' + today;
             if (typeof localStorage !== 'undefined') {
               localStorage.setItem(storageKey, JSON.stringify(_triviaState));
+              localStorage.setItem(uKey + '_active', JSON.stringify(_triviaState));
             }
-            if (_arcadeSubtab === 'trivia') {
-              renderTriviaView();
-            }
-          } else if (localCount > remoteCount || _triviaState.isSubmitted) {
-            saveTriviaState(_triviaState);
+          });
+
+          if (_arcadeSubtab === 'trivia') {
+            renderTriviaView();
           }
+        } else if (localCount > remoteCount || _triviaState.isSubmitted) {
+          saveTriviaState(_triviaState);
         }
       } else if (_triviaState && (Object.keys(_triviaState.answers || {}).length > 0 || _triviaState.isSubmitted)) {
         saveTriviaState(_triviaState);
@@ -2076,6 +2200,7 @@
     getYesterdayDateKey: getYesterdayDateKey,
     getDailyWordleWord: getDailyWordleWord,
     getDailyTriviaQuestionIndices: getDailyTriviaQuestionIndices,
+    getCandidateUserKeys: getCandidateUserKeys,
     getArcadeUserKey: getArcadeUserKey,
     getTriviaUserKey: getTriviaUserKey,
     getArcadeStats: getArcadeStats,
@@ -2116,7 +2241,8 @@
     window.BB_WORDLE_WORDS               = BB_WORDLE_WORDS;
     window.ALL_WORDLE_WORDS              = ALL_WORDLE_WORDS;
     window.BB_TRIVIA_QUESTIONS            = BB_TRIVIA_QUESTIONS;
-    window.getArcadeUserKey               = getArcadeUserKey;
+    window.getCandidateUserKeys           = getCandidateUserKeys;
+  window.getArcadeUserKey               = getArcadeUserKey;
     window.getTriviaUserKey               = getTriviaUserKey;
     window.getArcadeStats                 = getArcadeStats;
     window.saveArcadeStats                = saveArcadeStats;
