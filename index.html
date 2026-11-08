@@ -408,7 +408,7 @@
             <!-- Dynamically rendered -->
           </div>
           <div class="notif-card-footer">
-            <button class="notif-footer-link" onclick="switchTabNav('parade');toggleNotificationDropdown(false);" type="button">Weekly Parade &rarr;</button>
+            <button class="notif-footer-link" onclick="switchTabNav('parade');toggleNotificationDropdown(false);" type="button">Calendar &rarr;</button>
           </div>
         </div>
       </div>
@@ -648,9 +648,9 @@
                 <div class="hq-icon" style="color:var(--green);">
                   <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
                 </div>
-                <div class="hq-title">Weekly Parade</div>
+                <div class="hq-title">Company Calendar</div>
                 <div class="hq-desc">Saturdays 2:15 PM &ndash; 6:00 PM (Band 9:30 AM &ndash; 11:30 AM) at Trinity Methodist Church PJ.</div>
-                <div class="hq-link">View Schedule &rarr;</div>
+                <div class="hq-link">View Calendar &rarr;</div>
               </div>
 
               <!-- Card 4: Company Resources -->
@@ -672,7 +672,7 @@
 
         <div class="hq-carousel-dots-bar" id="hq-carousel-dots" role="tablist" aria-label="Card Pages">
           <button type="button" class="hq-dot active" id="hq-dot-0" onclick="setQuickCardsPage(0)" role="tab" aria-selected="true" aria-label="Page 1: Forms &amp; Member Hub" title="Forms &amp; Member Hub"></button>
-          <button type="button" class="hq-dot" id="hq-dot-1" onclick="setQuickCardsPage(1)" role="tab" aria-selected="false" aria-label="Page 2: Weekly Parade &amp; Resources" title="Weekly Parade &amp; Resources"></button>
+          <button type="button" class="hq-dot" id="hq-dot-1" onclick="setQuickCardsPage(1)" role="tab" aria-selected="false" aria-label="Page 2: Calendar &amp; Resources" title="Calendar &amp; Resources"></button>
         </div>
       </div>
     </div>
@@ -1262,11 +1262,7 @@
 
       </div>
 
-      <!-- Info Footer -->
-      <div style="margin-top:14px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;">
-        <svg class="ui-icon" style="flex-shrink:0;color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span>All members are expected to fall in promptly at <strong>2:15 PM</strong> in the designated Uniform of the Day (UOD). Band members report at <strong>9:30 AM</strong>.</span>
-      </div>
+      
     </div>
 
   </div>
@@ -3360,7 +3356,7 @@ function switchTab(tab, btn, skipPush) {
   if (tab === 'gallery')    { if (typeof renderGallery === 'function') renderGallery(); }
   if (tab === 'forum')      { if (typeof renderForumPage === 'function') renderForumPage(); if (typeof loadForumPosts === 'function') loadForumPosts(); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (tab === 'arcade')     { if (typeof renderArcadePage === 'function') renderArcadePage(); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  if (tab === 'parade')     { if (typeof renderCalendarTab === 'function') renderCalendarTab(); }
+  if (tab === 'parade')     { if (typeof resetCalendarToUpcoming === 'function') resetCalendarToUpcoming(); else if (typeof renderCalendarTab === 'function') renderCalendarTab('upcoming'); }
   if (tab === 'home')       {
     if (typeof renderCalendarWidget === 'function') renderCalendarWidget();
     if (typeof updateQuickCardsCarousel === 'function') updateQuickCardsCarousel();
@@ -3402,8 +3398,8 @@ function syncCarouselDots() {
   var currentDots = dotsContainer.querySelectorAll('.hq-dot');
   if (currentDots.length !== totalPages) {
     var html = '';
-    var pageTitlesDesktop = ['Forms & Member Hub', 'Weekly Parade & Resources'];
-    var pageTitlesMobile = ['Forms & Store', 'Member Hub', 'Weekly Parade', 'Company Resources'];
+    var pageTitlesDesktop = ['Forms & Member Hub', 'Calendar & Resources'];
+    var pageTitlesMobile = ['Forms & Store', 'Member Hub', 'Calendar', 'Company Resources'];
     for (var i = 0; i < totalPages; i++) {
       var title = (totalPages === 2) ? (pageTitlesDesktop[i] || 'Page ' + (i + 1)) : (pageTitlesMobile[i] || 'Page ' + (i + 1));
       html += '<button type="button" class="hq-dot' + (i === _hqCurrentPage ? ' active' : '') + '" id="hq-dot-' + i + '" onclick="setQuickCardsPage(' + i + ')" role="tab" aria-selected="' + (i === _hqCurrentPage ? 'true' : 'false') + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(title) : title) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(title) : title) + '"></button>';
@@ -3863,7 +3859,12 @@ window.addEventListener('load', function() {
   } else if (typeof window !== 'undefined' && typeof window.fetchRemoteArcadeStats === 'function') {
     window.fetchRemoteArcadeStats();
   }
-  updateNavUserHeader();
+  var curHash = (window.location.hash || '').replace('#', '').trim();
+  if (curHash === 'parade' || !curHash) {
+    if (typeof resetCalendarToUpcoming === 'function') resetCalendarToUpcoming();
+    else if (typeof renderCalendarTab === 'function') renderCalendarTab('upcoming');
+  }
+    updateNavUserHeader();
   if (typeof fetchRemoteDismissedNotifs === 'function') fetchRemoteDismissedNotifs();
   renderNotifications();
 
@@ -4187,7 +4188,6 @@ function syncTaskNotifications(tasks) {
     hasDept = !!(sDept && sDept.toLowerCase() !== 'none');
   }
 
-  if (typeof fetchAllRemoteTaskComments === 'function') fetchAllRemoteTaskComments();
   // Asynchronously ensure tasks and remote comments are loaded if empty
   if ((!taskList || !taskList.length) && typeof getSupaClient === 'function') {
     var client = getSupaClient();
@@ -4576,6 +4576,9 @@ function syncForumNotifications(postsList) {
 function syncAllPortalNotifications() {
   if (typeof fetchRemoteMemberPresence === 'function') {
     fetchRemoteMemberPresence().catch(function() {});
+  }
+  if (typeof fetchAllRemoteTaskComments === 'function') {
+    fetchAllRemoteTaskComments().catch(function() {});
   }
   if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
     syncTaskNotifications(_allLoadedTasks);

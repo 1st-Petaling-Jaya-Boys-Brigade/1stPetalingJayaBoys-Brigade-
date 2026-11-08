@@ -657,7 +657,7 @@ async function getJson(url) {
         }
 
         const cards = Array.from(document.querySelectorAll('#hq-carousel-track .hq-card'));
-        const paradeCard = cards.find(c => c.textContent.includes('Weekly Parade'));
+        const paradeCard = cards.find(c => (c.getAttribute('data-index') === '2') || c.textContent.includes('Weekly Parade') || c.textContent.includes('Calendar'));
         const paradeDesc = paradeCard ? paradeCard.querySelector('.hq-desc').textContent : '';
 
         const attItem = document.getElementById('snav-attendance');

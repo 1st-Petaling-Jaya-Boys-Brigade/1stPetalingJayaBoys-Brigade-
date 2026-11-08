@@ -539,6 +539,20 @@
   // MASTER CALENDAR TAB CONTROLLER & 5-VIEW SYSTEM
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /**
+   * Resets calendar state to Upcoming view and points to the closest upcoming event
+   */
+  function resetCalendarToUpcoming() {
+    _calendarViewMode = 'upcoming';
+    _calendarDate = new Date();
+    _currentMonth = _calendarDate.getMonth();
+    _currentYear = _calendarDate.getFullYear();
+    _selectedDateStr = formatDateKey(_calendarDate);
+    var allEvents = getSortedCompanyEvents();
+    _upcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
+    renderCalendarTab('upcoming');
+  }
+
   function switchCalendarView(viewMode) {
     if (['upcoming', 'week', 'month', 'year', 'events'].indexOf(viewMode) !== -1) {
       _calendarViewMode = viewMode;
@@ -846,12 +860,13 @@
       html += '</div>';
     }
 
-    // Notice & Remarks
-    html += ''
-      + '<div style="margin-bottom:16px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;">'
+    // Remark (only shown if remark exists; UOD text removed per request)
+    if (upcoming.notes && upcoming.notes.trim()) {
+      html += '<div class="cal-remark-box" style="margin-bottom:16px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;">'
         + '<svg class="ui-icon" style="flex-shrink:0;color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-        + '<span>All members are expected to fall in promptly at <strong>2:15 PM</strong> in the designated Uniform of the Day (UOD). Band members report at <strong>9:30 AM</strong>. ' + (upcoming.notes ? ('<br/><strong>Remark:</strong> ' + escapeHtml(upcoming.notes)) : '') + '</span>'
-      + '</div>'
+        + '<span><strong>Remark:</strong> ' + escapeHtml(upcoming.notes.trim()) + '</span>'
+        + '</div>';
+    }
 
       // Actions
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">'
@@ -2102,13 +2117,18 @@
   // ── Module Initialization ──────────────────────────────────────────────────
 
   async function initCalendarModule() {
+    _calendarViewMode = 'upcoming';
+    var allEvents = getSortedCompanyEvents();
+    _upcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
     renderCalendarWidget();
-    renderCalendarTab();
+    renderCalendarTab('upcoming');
     await loadCalendarEvents();
     loadMemberEvents();
     fetchRemoteMemberEvents().catch(function() {});
+    allEvents = getSortedCompanyEvents();
+    _upcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
     renderCalendarWidget();
-    renderCalendarTab();
+    renderCalendarTab('upcoming');
   }
 
   // Attach to window
@@ -2122,6 +2142,9 @@
     window.deletePersonalEvent          = deletePersonalEvent;
     window.renderCalendarWidget         = renderCalendarWidget;
     window.renderCalendarTab            = renderCalendarTab;
+    window.resetCalendarToUpcoming      = resetCalendarToUpcoming;
+    window.getCalendarViewMode          = function() { return _calendarViewMode; };
+    window.getUpcomingEventIndex        = function() { return _upcomingEventIndex; };
     window.switchCalendarView           = switchCalendarView;
     window.calNavigate                  = calNavigate;
     window.calJumpToday                 = calJumpToday;
@@ -2179,6 +2202,9 @@
       getWeekDays: getWeekDays,
       renderCalendarWidget: renderCalendarWidget,
       renderCalendarTab: renderCalendarTab,
+      resetCalendarToUpcoming: resetCalendarToUpcoming,
+      getCalendarViewMode: function() { return _calendarViewMode; },
+      getUpcomingEventIndex: function() { return _upcomingEventIndex; },
       switchCalendarView: switchCalendarView,
       openCalendarDayModal: openCalendarDayModal,
       closeCalendarDayModal: closeCalendarDayModal,
