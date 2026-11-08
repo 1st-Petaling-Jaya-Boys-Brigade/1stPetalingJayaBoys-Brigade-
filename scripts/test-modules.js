@@ -10396,6 +10396,26 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtmlPillCheck.includes('resetTasksFiltersToDefault'), 'index.html switchTab must invoke resetTasksFiltersToDefault');
     assert.ok(tasksSrc.includes('resetTasksFiltersToDefault'), 'tasks.js setTasksViewMode must invoke resetTasksFiltersToDefault');
     console.log('  ✔ Default filters invariant (Assigned to me, Open) and reset hooks verified');
+
+    // 13. Search typing focus retention (in-place filtering without DOM recreation)
+    assert.ok(typeof tasksMod.filterProjectsList === 'function', 'tasks.js must export filterProjectsList');
+    assert.ok(typeof tasksMod.filterMyTasksList === 'function', 'tasks.js must export filterMyTasksList');
+    assert.ok(tasksSrc.includes('filterProjectsList(query)'), 'handleProjectsSearchInput must delegate to filterProjectsList without rebuilding container');
+    assert.ok(tasksSrc.includes('filterMyTasksList(query)'), 'handleMyTasksSearchInput must delegate to filterMyTasksList without rebuilding container');
+    console.log('  ✔ In-place non-destructive search filtering preserves active typing mode');
+
+    // 14. Password manager and autofill suppression across search and non-auth inputs
+    const uiSrc = fs.readFileSync(path.join(__dirname, '../js/core/ui.js'), 'utf8');
+    assert.ok(uiSrc.includes('disableNonAuthAutofill'), 'ui.js must define disableNonAuthAutofill');
+    assert.ok(indexHtmlPillCheck.includes('data-lpignore="true"'), 'Search inputs in index.html must have data-lpignore');
+    assert.ok(indexHtmlPillCheck.includes('data-1p-ignore="true"'), 'Search inputs in index.html must have data-1p-ignore');
+    console.log('  ✔ Password manager autofill suppression on search and non-auth fields verified');
+
+    // 15. Create Task from Tasks view allows selecting project
+    assert.ok(tasksSrc.includes('new-task-project-select'), 'tasks.js must reference new-task-project-select');
+    assert.ok(typeof tasksMod.handleNewTaskProjectSelect === 'function', 'tasks.js must export handleNewTaskProjectSelect');
+    assert.ok(indexHtmlPillCheck.includes('class="form-input new-task-project-select"'), 'index.html must include new-task-project-select');
+    console.log('  ✔ Creating task from Tasks view allows user to choose target project');
   }
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

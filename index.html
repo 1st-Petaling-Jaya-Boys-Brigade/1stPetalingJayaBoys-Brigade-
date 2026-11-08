@@ -1097,7 +1097,7 @@
       <!-- Search -->
       <div style="position:relative;margin-bottom:16px;">
         <svg class="ui-icon" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" id="badge-search" placeholder="Search badges..." oninput="filterBadges(this.value)" class="form-input" style="padding-left:42px;"/>
+        <input type="search" id="badge-search" placeholder="Search badges..." oninput="filterBadges(this.value)" class="form-input" style="padding-left:42px;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" name="badge_search"/>
       </div>
 
       <div style="background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.2);border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
@@ -1294,7 +1294,7 @@
           <div class="task-toolbar-actions">
             <div class="task-search-box">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" class="task-search-input" placeholder="Search tasks..." oninput="filterProjectTasks(this.value)" aria-label="Search department tasks" />
+              <input type="search" class="task-search-input" placeholder="Search tasks..." oninput="filterProjectTasks(this.value)" aria-label="Search department tasks" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" name="board_task_search" />
             </div>
             <select class="task-dept-select" style="display:none !important;" onchange="changeTaskDeptFilter(this.value)" aria-label="Filter by department">
               <option value="all">All Departments</option>
@@ -1664,7 +1664,7 @@
         <form class="task-create-form" onsubmit="handleCreateTaskSubmit(event)" style="display:flex;flex-direction:column;gap:14px;">
           <div>
             <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Task Title *</label>
-            <input type="text" class="form-input new-task-title-input" placeholder="e.g. Inspect parade flags and ceremonial belts" required style="width:100%;" />
+            <input type="text" class="form-input new-task-title-input" placeholder="e.g. Inspect parade flags and ceremonial belts" required style="width:100%;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" name="task_title" />
           </div>
           <input type="hidden" class="form-input new-task-dept-input" value="logistics" />
           <input type="hidden" class="form-input new-task-project-input" />
@@ -1675,6 +1675,8 @@
                 <svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
                 <span class="new-task-project-name-text">General Project</span>
               </div>
+              <select class="form-input new-task-project-select" style="display:none;width:100%;min-height:44px;" onchange="handleNewTaskProjectSelect(this.value)" aria-label="Select Target Project">
+              </select>
             </div>
             <div style="min-width:0;">
               <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Assignee</label>
@@ -1698,7 +1700,7 @@
             </div>
             <div>
               <label style="display:block;font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Estimate</label>
-              <input type="text" class="form-input new-task-estimate-input" placeholder="e.g. 2h or 1d" style="width:100%;" />
+              <input type="text" class="form-input new-task-estimate-input" placeholder="e.g. 2h or 1d" style="width:100%;" autocomplete="off" autocorrect="off" data-lpignore="true" data-1p-ignore="true" name="task_estimate" />
             </div>
           </div>
           <div>

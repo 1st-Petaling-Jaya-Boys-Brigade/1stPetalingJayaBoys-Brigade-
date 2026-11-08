@@ -802,7 +802,7 @@ function paintProjectsList(container) {
     + '<div class="projects-search-bar" style="display:flex;align-items:center;gap:10px;position:relative;flex-wrap:wrap;">'
     +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
     +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-    +     '<input type="text" class="task-search-input" style="width:100%;" placeholder="Search projects..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_projectSearchQuery) : _projectSearchQuery) + '" oninput="handleProjectsSearchInput(this.value)" />'
+    +     '<input type="search" class="task-search-input" style="width:100%;" placeholder="Search projects..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_projectSearchQuery) : _projectSearchQuery) + '" oninput="handleProjectsSearchInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" name="project_search_query" />'
     +   '</div>'
     +   '<div class="filter-dropdown-wrapper" style="position:relative;">'
     +     '<button type="button" class="project-filter-btn' + (hasActiveProjFilter ? ' active' : '') + '" onclick="toggleProjectFilterMenu(event)" title="Filter Projects">'
@@ -1024,28 +1024,37 @@ async function deleteProject(projectName) {
  */
 function handleProjectsSearchInput(query) {
   _projectSearchQuery = query || '';
-  var container = document.querySelector('.projects-container');
-  if (container) {
-    paintProjectsList(container);
-    var inp = container.querySelector('.task-search-input');
-    if (inp) {
-      inp.focus();
-      inp.setSelectionRange(inp.value.length, inp.value.length);
-    }
-  } else {
-    filterProjectsList(query);
-  }
+  filterProjectsList(_projectSearchQuery);
 }
 
 function filterProjectsList(query) {
   _projectSearchQuery = query || '';
+  var q = (_projectSearchQuery || '').toLowerCase().trim();
   var rows = document.querySelectorAll('.project-row');
-  var q = (query || '').toLowerCase().trim();
+  var visibleCount = 0;
   rows.forEach(function(row) {
     var name = row.querySelector('.project-row-name');
     var txt = name ? name.textContent.toLowerCase() : '';
-    row.style.display = (!q || txt.includes(q)) ? 'flex' : 'none';
+    var matches = (!q || txt.indexOf(q) !== -1);
+    row.style.display = matches ? 'flex' : 'none';
+    if (matches) visibleCount++;
   });
+  var card = document.querySelector('.projects-table-card');
+  if (card) {
+    var emptyEl = card.querySelector('.projects-empty-search');
+    if (visibleCount === 0 && q) {
+      if (!emptyEl) {
+        emptyEl = document.createElement('div');
+        emptyEl.className = 'projects-empty-search';
+        emptyEl.style.cssText = 'padding:32px 16px;text-align:center;color:var(--text-muted);font-size:13px;';
+        card.appendChild(emptyEl);
+      }
+      emptyEl.textContent = 'No projects match "' + query + '"';
+      emptyEl.style.display = 'block';
+    } else if (emptyEl) {
+      emptyEl.style.display = 'none';
+    }
+  }
 }
 
 function toggleProjectFilterMenu(e) {
@@ -1835,7 +1844,41 @@ function setupKanbanDragAndDrop() {
  */
 function handleMyTasksSearchInput(val) {
   _taskSearchQuery = val || '';
-  renderMyTasksView();
+  filterMyTasksList(_taskSearchQuery);
+}
+
+function filterMyTasksList(query) {
+  _taskSearchQuery = query || '';
+  var q = (_taskSearchQuery || '').toLowerCase().trim();
+  var rows = document.querySelectorAll('.my-tasks-table-row');
+  var card = document.querySelector('.my-tasks-table-card');
+  if (rows.length && card) {
+    var visibleCount = 0;
+    rows.forEach(function(row) {
+      var txt = row.textContent.toLowerCase();
+      var matches = (!q || txt.indexOf(q) !== -1);
+      row.style.display = matches ? '' : 'none';
+      if (matches) visibleCount++;
+    });
+    var emptyEl = card.querySelector('.my-tasks-empty-search');
+    var tableContainer = card.querySelector('.my-tasks-table-container');
+    if (visibleCount === 0 && q) {
+      if (!emptyEl) {
+        emptyEl = document.createElement('div');
+        emptyEl.className = 'my-tasks-empty-search';
+        emptyEl.style.cssText = 'padding:36px 16px;text-align:center;color:var(--text-muted);font-size:13px;';
+        card.appendChild(emptyEl);
+      }
+      emptyEl.textContent = 'No tasks match "' + query + '"';
+      emptyEl.style.display = 'block';
+      if (tableContainer) tableContainer.style.display = 'none';
+    } else {
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (tableContainer) tableContainer.style.display = 'block';
+    }
+  } else {
+    renderMyTasksView();
+  }
 }
 
 /**
@@ -1931,7 +1974,7 @@ function renderMyTasksView() {
     +   '<h2 class="projects-overview-title">Tasks <span class="sr-only" style="display:none;">My Tasks</span></h2>'
     +   '<p class="projects-overview-sub">View and track tasks across all projects. Select a task to view its brief.</p>'
     + '</div>'
-    + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()">'
+    + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal(\'todo\', true)">'
     +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
     +   '<span>Add Task</span>'
     + '</button>'
@@ -1939,7 +1982,7 @@ function renderMyTasksView() {
     + '<div class="projects-search-bar my-tasks-search-bar" style="display:flex;align-items:center;gap:10px;position:relative;flex-wrap:wrap;">'
     +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
     +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-    +     '<input type="text" class="task-search-input my-tasks-search-input" style="width:100%;" placeholder="Search tasks..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_taskSearchQuery) : _taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" />'
+    +     '<input type="search" class="task-search-input my-tasks-search-input" style="width:100%;" placeholder="Search tasks..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_taskSearchQuery) : _taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" name="task_search_query" />'
     +   '</div>'
     +   '<div class="filter-dropdown-wrapper" style="position:relative;">'
     +     '<button type="button" class="my-tasks-filter-btn' + (hasNonDefaultTaskFilters ? ' active' : '') + '" onclick="toggleMyTasksFilterMenu(event)" title="Filter Tasks">'
@@ -1987,7 +2030,7 @@ function renderMyTasksView() {
       + '<div style="font-size:13px;margin-bottom:16px;">' + (_myTasksScopeFilter === 'me' ? 'You have no open tasks assigned to you. Try switching to "All Tasks" or creating a new task.' : 'Try adjusting your search query or filters.') + '</div>'
       + '<div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">'
       +   (_myTasksScopeFilter === 'me' ? '<button type="button" class="task-secondary-btn" onclick="setMyTasksScopeFilter(\'all\')">View All Tasks</button>' : '')
-      +   '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task</button>'
+      +   '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal(\'todo\', true)"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task</button>'
       + '</div>'
       + '</div>';
   } else {
@@ -3881,9 +3924,63 @@ async function memberUpdateTaskStatus(id, status, dept) {
  * Opens Create Task modal
  * @param {string} [defaultStatus='todo']
  */
-function openCreateTaskModal(defaultStatus) {
+function getAvailableProjectsList() {
+  var pMap = {};
+  if (typeof DEPT_CONFIG !== 'undefined') {
+    Object.keys(DEPT_CONFIG).forEach(function(k) {
+      var lbl = DEPT_CONFIG[k].label || (k.charAt(0).toUpperCase() + k.slice(1));
+      if (lbl && lbl.toLowerCase() !== 'none' && !lbl.toLowerCase().includes('sprint') && lbl !== 'General Project') {
+        pMap[lbl] = true;
+      }
+    });
+  }
+  if (Array.isArray(_allLoadedTasks)) {
+    _allLoadedTasks.forEach(function(t) {
+      var p = getTaskProjectName(t);
+      if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+        pMap[p] = true;
+      }
+    });
+  }
+  if (Array.isArray(_companyProjects)) {
+    _companyProjects.forEach(function(p) {
+      if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+        pMap[p] = true;
+      }
+    });
+  }
+  var list = Object.keys(pMap);
+  if (!list.length) list = ['Media', 'Secretariat', 'HQ', 'Logistics'];
+  return list;
+}
+
+function handleNewTaskProjectSelect(projectName) {
+  var modal = document.querySelector('.task-create-modal');
+  if (!modal) return;
+  var projInput = modal.querySelector('.new-task-project-input');
+  if (projInput) projInput.value = projectName;
+  var deptInput = modal.querySelector('.new-task-dept-input');
+  var targetDept = 'general';
+  if (projectName) {
+    var pLower = projectName.toLowerCase().trim();
+    if (DEPT_CONFIG[pLower]) {
+      targetDept = pLower;
+    } else {
+      Object.keys(DEPT_CONFIG).forEach(function(k) {
+        if (DEPT_CONFIG[k].label.toLowerCase() === pLower) targetDept = k;
+      });
+    }
+  }
+  if (deptInput) deptInput.value = targetDept;
+  loadNewTaskAssigneeOptions();
+}
+
+function openCreateTaskModal(defaultStatus, fromTasksView) {
   if (typeof document === 'undefined') return;
-  if (!_activeProject || _activeProject.toLowerCase() === 'all' || _activeProject.toLowerCase() === 'all tasks') {
+
+  var isFromTasks = fromTasksView === true || _tasksViewMode === 'mytasks';
+
+  if (!isFromTasks && (!_activeProject || _activeProject.toLowerCase() === 'all' || _activeProject.toLowerCase() === 'all tasks')) {
     if (typeof showToast === 'function') {
       showToast('Please select or create a project first before creating tasks.', 'warning');
     }
@@ -3896,31 +3993,46 @@ function openCreateTaskModal(defaultStatus) {
   modal.style.display = 'flex';
   modal.setAttribute('data-target-status', defaultStatus || 'todo');
 
-  var targetDept = 'general';
-  if (_activeProject) {
-    var pLower = _activeProject.toLowerCase().trim();
-    if (DEPT_CONFIG[pLower]) {
-      targetDept = pLower;
-    } else {
-      Object.keys(DEPT_CONFIG).forEach(function(k) {
-        if (DEPT_CONFIG[k].label.toLowerCase() === pLower) targetDept = k;
-      });
-    }
-  }
-  var deptInput = modal.querySelector('.new-task-dept-input');
-  if (deptInput) deptInput.value = targetDept;
-
+  var projDisplay = modal.querySelector('.new-task-project-display');
+  var projSelect = modal.querySelector('.new-task-project-select');
   var projInput = modal.querySelector('.new-task-project-input');
-  if (projInput) {
-    projInput.value = _activeProject;
-  }
+  var deptInput = modal.querySelector('.new-task-dept-input');
 
-  var projDisplay = modal.querySelector('.new-task-project-name-text');
-  if (projDisplay) {
-    projDisplay.textContent = _activeProject || 'General Project';
+  if (isFromTasks) {
+    if (projDisplay) projDisplay.style.display = 'none';
+    if (projSelect) {
+      var availableProjects = getAvailableProjectsList();
+      projSelect.innerHTML = availableProjects.map(function(p) {
+        return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(p) : p) + '">' + (typeof escapeHtml === 'function' ? escapeHtml(p) : p) + '</option>';
+      }).join('');
+      projSelect.style.display = 'block';
+      var initialProj = availableProjects[0] || 'HQ';
+      projSelect.value = initialProj;
+      if (projInput) projInput.value = initialProj;
+      handleNewTaskProjectSelect(initialProj);
+    }
+  } else {
+    if (projSelect) projSelect.style.display = 'none';
+    if (projDisplay) {
+      projDisplay.style.display = 'flex';
+      var projText = modal.querySelector('.new-task-project-name-text');
+      if (projText) projText.textContent = _activeProject || 'General Project';
+    }
+    if (projInput) projInput.value = _activeProject || '';
+    var targetDept = 'general';
+    if (_activeProject) {
+      var pLower = _activeProject.toLowerCase().trim();
+      if (DEPT_CONFIG[pLower]) {
+        targetDept = pLower;
+      } else {
+        Object.keys(DEPT_CONFIG).forEach(function(k) {
+          if (DEPT_CONFIG[k].label.toLowerCase() === pLower) targetDept = k;
+        });
+      }
+    }
+    if (deptInput) deptInput.value = targetDept;
+    loadNewTaskAssigneeOptions();
   }
-
-  loadNewTaskAssigneeOptions();
 }
 
 /**
@@ -3933,6 +4045,16 @@ function closeCreateTaskModal() {
     modal.style.display = 'none';
     var dEl = modal.querySelector('.new-task-desc-input');
     if (dEl && dEl.isContentEditable) dEl.innerHTML = '';
+    var titleEl = modal.querySelector('.new-task-title-input');
+    if (titleEl) titleEl.value = '';
+    var estEl = modal.querySelector('.new-task-estimate-input');
+    if (estEl) estEl.value = '';
+    var dueEl = modal.querySelector('.new-task-due-input');
+    if (dueEl) dueEl.value = '';
+    var projSelect = modal.querySelector('.new-task-project-select');
+    if (projSelect) projSelect.style.display = 'none';
+    var projDisplay = modal.querySelector('.new-task-project-display');
+    if (projDisplay) projDisplay.style.display = 'flex';
   }
 }
 
@@ -4056,7 +4178,10 @@ async function handleCreateTaskSubmit(e) {
   var priority = priorityEl ? priorityEl.value : 'medium';
   var due = dueEl ? dueEl.value : null;
   var estimate = estEl ? estEl.value.trim() : '';
-  var projectName = _activeProject || (projEl ? projEl.value.trim() : '');
+  var projSelEl = modal.querySelector('.new-task-project-select');
+  var projectName = (projSelEl && projSelEl.style.display !== 'none' && projSelEl.value)
+    ? projSelEl.value.trim()
+    : (_activeProject || (projEl ? projEl.value.trim() : ''));
   if (!projectName || projectName.toLowerCase() === 'all' || projectName.toLowerCase() === 'all tasks') {
     if (typeof showToast === 'function') {
       showToast('Tasks must belong to a project. Please select or create a project first.', 'warning');
@@ -4632,6 +4757,8 @@ if (typeof window !== 'undefined') {
   window.closeTaskDetail            = closeTaskDetail;
   window.memberUpdateTaskStatus     = memberUpdateTaskStatus;
   window.openCreateTaskModal        = openCreateTaskModal;
+  window.handleNewTaskProjectSelect = handleNewTaskProjectSelect;
+  window.filterMyTasksList          = filterMyTasksList;
   window.closeCreateTaskModal       = closeCreateTaskModal;
   window.loadNewTaskAssigneeOptions = loadNewTaskAssigneeOptions;
   window.handleCreateTaskSubmit     = handleCreateTaskSubmit;
@@ -4754,6 +4881,8 @@ if (typeof module !== 'undefined' && module.exports) {
     closeTaskDetail,
     memberUpdateTaskStatus,
     openCreateTaskModal,
+    handleNewTaskProjectSelect,
+    filterMyTasksList,
     closeCreateTaskModal,
     loadNewTaskAssigneeOptions,
     handleCreateTaskSubmit,

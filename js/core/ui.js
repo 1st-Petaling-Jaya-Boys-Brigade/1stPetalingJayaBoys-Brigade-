@@ -1398,6 +1398,46 @@
     }
   }
 
+// Disable browser password manager autofill on all search bars and non-auth inputs
+  function disableNonAuthAutofill() {
+    if (typeof document === 'undefined') return;
+    var inputs = document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]), textarea');
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      if (el.closest && (el.closest('#auth-login') || el.closest('#auth-register') || el.closest('#auth-forgot'))) {
+        continue;
+      }
+      if (!el.getAttribute('autocomplete') || el.getAttribute('autocomplete') === 'on') {
+        el.setAttribute('autocomplete', 'off');
+      }
+      if (!el.getAttribute('data-lpignore')) {
+        el.setAttribute('data-lpignore', 'true');
+      }
+      if (!el.getAttribute('data-1p-ignore')) {
+        el.setAttribute('data-1p-ignore', 'true');
+      }
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', disableNonAuthAutofill);
+    } else {
+      disableNonAuthAutofill();
+    }
+    document.addEventListener('focusin', function(e) {
+      if (e && e.target && e.target.tagName === 'INPUT') {
+        var el = e.target;
+        if (el.closest && (el.closest('#auth-login') || el.closest('#auth-register') || el.closest('#auth-forgot'))) return;
+        if (!el.getAttribute('autocomplete') || el.getAttribute('autocomplete') === 'on') {
+          el.setAttribute('autocomplete', 'off');
+        }
+        if (!el.getAttribute('data-lpignore')) el.setAttribute('data-lpignore', 'true');
+        if (!el.getAttribute('data-1p-ignore')) el.setAttribute('data-1p-ignore', 'true');
+      }
+    }, true);
+  }
+
   // Expose to window / global
   if (typeof global !== 'undefined') {
     global.showToast = showToast;
