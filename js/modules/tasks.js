@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -626,9 +626,7 @@ function setTasksViewMode(mode) {
     if (projContainer) projContainer.style.display = 'block';
     if (delProjBtn) delProjBtn.style.display = 'none';
     if (addBtn) {
-      addBtn.style.display = 'inline-flex';
-      addBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span>Add Project</span>';
-      addBtn.setAttribute('onclick', 'openAddProjectModal()');
+      addBtn.style.display = 'none';
     }
     if (searchBox) searchBox.style.display = 'none';
     if (sep) sep.style.display = 'none';
@@ -1668,6 +1666,14 @@ function setupKanbanDragAndDrop() {
 /**
  * Renders the "My Tasks" view (Image 4) with filter chips and interactive table
  */
+function handleMyTasksSearchInput(val) {
+  _taskSearchQuery = val || '';
+  renderMyTasksView();
+}
+
+/**
+ * Renders the My Tasks view styled identically to Projects Overview (Image 2)
+ */
 function renderMyTasksView() {
   if (typeof document === 'undefined') return;
   var container = document.querySelector('.my-tasks-container');
@@ -1734,51 +1740,51 @@ function renderMyTasksView() {
   var today = new Date(); today.setHours(0, 0, 0, 0);
 
   var html = '<div class="my-tasks-wrapper">'
-    + '<div class="my-tasks-header-bar">'
-    +   '<div class="my-tasks-title-group">'
-    +     '<h2>My Tasks</h2>'
-    +     '<p>Assigned to you, across all projects.</p>'
+    // Header: Identical layout to Projects Overview in Image 2
+    + '<div class="projects-overview-header my-tasks-header">'
+    +   '<div>'
+    +     '<h2 class="projects-overview-title">My Tasks</h2>'
+    +     '<p class="projects-overview-sub">Assigned to you, across all projects. Select a task to view its brief.</p>'
     +   '</div>'
     +   '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()">'
     +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
     +     '<span>Add Task</span>'
     +   '</button>'
     + '</div>'
-    + '<div class="my-tasks-filters-bar">'
-    +   '<button type="button" class="filter-chip' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="toggleMyTasksScope()">'
-    +     'Scope is: <strong>' + (_myTasksScopeFilter === 'me' ? 'Assigned to me' : 'All Tasks') + '</strong>'
-    +   '</button>'
-    +   '<button type="button" class="filter-chip' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="toggleMyTasksStatus()">'
-    +     'Status is: <strong>' + (_myTasksStatusFilter === 'open' ? 'Open' : 'All') + '</strong>'
-    +   '</button>'
-    +   '<div class="my-tasks-project-filter-wrap" style="position:relative;display:inline-block;">'
-    +     '<button type="button" class="filter-chip' + (_myTasksProjectFilter && _myTasksProjectFilter !== 'all' ? ' active' : '') + '" onclick="toggleMyTasksProjectDropdown(event)">'
-    +       'Project is: <strong>' + (typeof escapeHtml === 'function' ? escapeHtml(_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter) : (_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter)) + '</strong>'
-    +       '<svg class="ui-icon-xs" style="margin-left:4px;vertical-align:-1px;" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>'
+
+    // Search bar and filter chips
+    + '<div class="projects-search-bar my-tasks-search-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">'
+    +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
+    +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+    +     '<input type="text" class="task-search-input" style="width:100%;" placeholder="Search tasks..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_taskSearchQuery) : _taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" />'
+    +   '</div>'
+    +   '<div class="my-tasks-filter-chips" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    +     '<button type="button" class="filter-chip' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="toggleMyTasksScope()">'
+    +       'Scope is: <strong>' + (_myTasksScopeFilter === 'me' ? 'Assigned to me' : 'All Tasks') + '</strong>'
     +     '</button>'
-    +     '<div class="my-tasks-project-dropdown" style="display:none;"></div>'
+    +     '<button type="button" class="filter-chip' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="toggleMyTasksStatus()">'
+    +       'Status is: <strong>' + (_myTasksStatusFilter === 'open' ? 'Open' : 'All') + '</strong>'
+    +     '</button>'
+    +     '<div class="my-tasks-project-filter-wrap" style="position:relative;display:inline-block;">'
+    +       '<button type="button" class="filter-chip' + (_myTasksProjectFilter && _myTasksProjectFilter !== 'all' ? ' active' : '') + '" onclick="toggleMyTasksProjectDropdown(event)">'
+    +         'Project is: <strong>' + (typeof escapeHtml === 'function' ? escapeHtml(_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter) : (_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter)) + '</strong>'
+    +         '<svg class="ui-icon-xs" style="margin-left:4px;vertical-align:-1px;" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>'
+    +       '</button>'
+    +       '<div class="my-tasks-project-dropdown" style="display:none;"></div>'
+    +     '</div>'
     +   '</div>'
     + '</div>'
-    + '<div class="my-tasks-table-container">'
-    +   '<table class="my-tasks-table">'
-    +     '<thead>'
-    +       '<tr>'
-    +         '<th style="width:36px;"></th>'
-    +         '<th>Task</th>'
-    +         '<th>Status</th>'
-    +         '<th>Project</th>'
-    +         '<th>ID</th>'
-    +         '<th>Priority</th>'
-    +         '<th>Assignee</th>'
-    +         '<th>Due Date</th>'
-    +         '<th>Estimate</th>'
-    +       '</tr>'
-    +     '</thead>'
-    +     '<tbody>';
+
+    // Card container matching Projects Overview in Image 2
+    + '<div class="projects-table-card my-tasks-card my-tasks-table-card my-tasks-table">';
 
   if (!filtered.length) {
-    html += '<tr><td colspan="9" style="text-align:center;padding:36px;color:var(--text-muted);">'
-      + 'No tasks found for your current filter criteria.</td></tr>';
+    html += '<div style="padding:48px 20px;text-align:center;color:var(--text-muted);">'
+      + '<svg class="ui-icon-xl" style="margin:0 auto 12px;opacity:0.4;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+      + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No tasks match your criteria</div>'
+      + '<div style="font-size:13px;margin-bottom:16px;">Try adjusting your scope, status, or search filters above.</div>'
+      + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task</button>'
+      + '</div>';
   } else {
     filtered.forEach(function(t, idx) {
       _taskMap[t.id] = t;
@@ -1804,43 +1810,50 @@ function renderMyTasksView() {
       var priorityP = (t.priority || 'medium').toLowerCase();
       var pLabel = priorityP === 'high' ? 'High' : (priorityP === 'low' ? 'Low' : 'Med');
       var pCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
-      var priorityCellHtml = '<div class="my-tasks-priority-cell ' + pCls + '">'
-        + getPriorityIconSvg(priorityP, 13)
-        + '<span>' + pLabel + '</span>'
-        + '</div>';
       var assigneeName = t.assignee_name || 'Unassigned';
-      var estimate = t.estimate || '—';
 
-      html += '<tr class="my-tasks-row" data-row-tid="' + t.id + '">'
-        + '<td>'
-        +   '<input type="checkbox" class="my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task completion" />'
-        + '</td>'
-        + '<td style="font-weight:600;color:var(--text-primary);' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">'
-        +   escapeHtml(t.title)
-        + '</td>'
-        + '<td><span class="my-tasks-status-pill ' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>'
-        + '<td><div class="my-tasks-project-cell"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>' + escapeHtml(projectName) + '</div></td>'
-        + '<td><span class="task-id-badge">' + escapeHtml(taskId) + '</span></td>'
-        + '<td style="font-size:12px;font-weight:600;">' + priorityCellHtml + '</td>'
-        + '<td><div style="display:flex;align-items:center;gap:6px;">' + getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20) + '<span>' + escapeHtml(assigneeName) + '</span></div></td>'
-        + '<td style="' + (isOverdue ? 'color:var(--red);font-weight:700;' : '') + '"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' + escapeHtml(dueStr) + '</td>'
-        + '<td style="color:var(--text-secondary);font-size:12px;">' + escapeHtml(estimate) + '</td>'
-        + '</tr>';
+      html += '<div class="project-row my-tasks-row" data-row-tid="' + t.id + '">'
+        + '<div class="project-name-cell" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">'
+        +   '<input type="checkbox" class="my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="event.stopPropagation();toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task completion" style="margin-right:2px;" />'
+        +   '<span class="my-tasks-priority-indicator ' + pCls + '" title="Priority: ' + pLabel + '" style="display:inline-flex;align-items:center;">' + getPriorityIconSvg(priorityP, 13) + '</span>'
+        +   '<span class="project-row-name" style="' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</span>'
+        +   '<span class="task-id-badge" style="margin-left:6px;font-size:11px;color:var(--text-muted);font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
+        + '</div>'
+        + '<div class="my-tasks-project-cell" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);flex-shrink:0;">'
+        +   '<svg class="project-folder-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
+        +   '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(projectName) : projectName) + '</span>'
+        + '</div>'
+        + '<div style="flex-shrink:0;">'
+        +   '<span class="my-tasks-status-pill ' + statusClass + '">' + (typeof escapeHtml === 'function' ? escapeHtml(statusLabel) : statusLabel) + '</span>'
+        + '</div>'
+        + '<div class="project-assignees-stack" style="margin-right:0;flex-shrink:0;min-width:115px;">'
+        +   getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 22)
+        +   '<span style="font-size:12px;color:var(--text-secondary);margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:85px;">' + (typeof escapeHtml === 'function' ? escapeHtml(assigneeName) : assigneeName) + '</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:6px;font-size:12px;flex-shrink:0;min-width:95px;' + (isOverdue ? 'color:var(--red);font-weight:700;' : 'color:var(--text-secondary);') + '">'
+        +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+        +   '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(dueStr) : dueStr) + '</span>'
+        + '</div>'
+        + '<div class="project-actions-cell" style="flex-shrink:0;">'
+        +   '<button type="button" class="project-delete-btn" onclick="event.stopPropagation();deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
+        +     '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
+        +   '</button>'
+        + '</div>'
+        + '</div>';
     });
   }
 
-  html += '</tbody></table></div></div>';
+  html += '</div></div>';
   container.innerHTML = html;
 
   // Row click opens task detail modal
   container.querySelectorAll('.my-tasks-row').forEach(function(row) {
     row.addEventListener('click', function(e) {
-      if (e.target.closest('.my-tasks-checkbox')) return;
+      if (e.target.closest('.my-tasks-checkbox') || e.target.closest('.project-delete-btn')) return;
       openTaskDetail(row.getAttribute('data-row-tid'));
     });
   });
 }
-
 function toggleMyTasksScope() {
   _myTasksScopeFilter = (_myTasksScopeFilter === 'me') ? 'all' : 'me';
   renderMyTasksView();
@@ -2173,6 +2186,64 @@ function saveTaskComments(taskId, comments) {
   try {
     localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(comments));
   } catch (_) {}
+  var client = getSupaClient();
+  if (client) {
+    client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }, {
+      headers: { 'Prefer': 'resolution=merge-duplicates' }
+    }).catch(function() {
+      client.patch('bb_config?key=eq.bb_task_comments_' + taskId, { value: JSON.stringify(comments) }).catch(function() {
+        client.post('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
+      });
+    });
+  }
+}
+
+/**
+ * Fetches all persisted task comments from Supabase bb_config
+ */
+async function fetchAllRemoteTaskComments() {
+  var client = getSupaClient();
+  if (!client) return;
+  try {
+    var rows = await client.get('bb_config?key=like.bb_task_comments_*&select=key,value');
+    if (Array.isArray(rows) && rows.length) {
+      var updated = false;
+      rows.forEach(function(r) {
+        if (!r.key || !r.value) return;
+        var tid = r.key.replace('bb_task_comments_', '');
+        try {
+          var arr = JSON.parse(r.value);
+          if (Array.isArray(arr)) {
+            _taskCommentsMap[tid] = arr;
+            try { localStorage.setItem(r.key, r.value); } catch (_) {}
+            updated = true;
+          }
+        } catch (_) {}
+      });
+      if (updated && typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
+        syncTaskNotifications(_allLoadedTasks);
+      }
+    }
+  } catch (_) {}
+}
+
+async function fetchRemoteTaskComments(taskId) {
+  if (!taskId) return [];
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value');
+      if (Array.isArray(rows) && rows.length && rows[0].value) {
+        var parsed = JSON.parse(rows[0].value);
+        if (Array.isArray(parsed)) {
+          _taskCommentsMap[taskId] = parsed;
+          try { localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(parsed)); } catch (_) {}
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+  return getTaskComments(taskId);
 }
 
 /**
@@ -2402,7 +2473,7 @@ async function deleteTaskComment(taskId, commentId) {
  * @param {string} [myRank]
  * @returns {boolean}
  */
-function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail, myDept, myRank) {
+function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail, myDept, myRank, myPlatoon) {
   if (!text) return false;
 
   var cleanText = String(text)
@@ -2411,9 +2482,9 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   var lower = cleanText.toLowerCase();
 
   // Rule 1: @all mentions all members (even author)
-  if (/(?:^|\W)@all\b/i.test(lower)) return true;
+  if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
 
-  // Rule 2: Individual @Name mention (e.g. "@Jeshua Koh" or "@Jeshua" or "@Jason Koh")
+  // Rule 2: Individual @Name mention (e.g. "@Jeshua Koh", "@Jeshua", "@Jason Koh")
   if (myName) {
     var myNameLower = myName.toLowerCase().trim();
     if (lower.indexOf('@' + myNameLower) !== -1) return true;
@@ -2439,14 +2510,50 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   if (myDept) {
     var cleanDept = myDept.toLowerCase().trim();
     if (cleanDept && lower.indexOf('@' + cleanDept) !== -1) return true;
-    if (cleanDept === 'officers' && /(?:^|\W)@officers?\b/i.test(lower)) return true;
-    if (cleanDept === 'officer' && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+    if (cleanDept.indexOf('secretariat') !== -1 && lower.indexOf('@secretariat') !== -1) return true;
+    if (cleanDept.indexOf('logistics') !== -1 && lower.indexOf('@logistics') !== -1) return true;
+    if (cleanDept.indexOf('media') !== -1 && lower.indexOf('@media') !== -1) return true;
+    if (cleanDept.indexOf('hq') !== -1 && lower.indexOf('@hq') !== -1) return true;
+    if (cleanDept.indexOf('band') !== -1 && lower.indexOf('@band') !== -1) return true;
+    if ((cleanDept === 'officers' || cleanDept === 'officer') && /(?:^|\W)@officers?\b/i.test(lower)) return true;
   }
 
-  // Rule 4: @Officers mention (matching rank or department)
+  // Rule 4: Platoon group mention (e.g. @Hotel, @Hotel Platoon, @Alpha, @Zulu, @Papa)
+  var platoonStr = myPlatoon || '';
+  if (!platoonStr && typeof sessionGet === 'function') platoonStr = sessionGet('platoon') || '';
+  if (platoonStr) {
+    var cleanPlatoon = platoonStr.toLowerCase().trim();
+    if (cleanPlatoon && lower.indexOf('@' + cleanPlatoon) !== -1) return true;
+    var platoonParts = cleanPlatoon.split(/\s+/).filter(function(p) { return p !== 'platoon' && p.length >= 3; });
+    for (var j = 0; j < platoonParts.length; j++) {
+      if (lower.indexOf('@' + platoonParts[j]) !== -1) return true;
+    }
+  }
+
+  // Rule 5: Rank & NCO mentions
+  if (myRank) {
+    var cleanRank = myRank.toLowerCase().trim();
+    if (cleanRank && lower.indexOf('@' + cleanRank) !== -1) return true;
+    var isNco = ['lance corporal', 'corporal', 'sergeant', 'staff sergeant'].some(function(r) { return cleanRank.indexOf(r) !== -1; });
+    if (isNco && /(?:^|\W)@ncos?\b/i.test(lower)) return true;
+  }
+
+  // Rule 6: @Officers mention (matching rank or department)
   var isOfficerRank = myRank && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(myRank) !== -1;
   var isOfficerDept = myDept && (myDept.toLowerCase().trim() === 'officers' || myDept.toLowerCase().trim() === 'officer');
   if ((isOfficerRank || isOfficerDept) && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+
+  // Rule 7: Band mention matching rank or department
+  var isBand = (myRank && myRank.toLowerCase().indexOf('band') !== -1) || (myDept && myDept.toLowerCase().indexOf('band') !== -1);
+  if (isBand && lower.indexOf('@band') !== -1) return true;
+
+  // Rule 8: Admin & Super Admin mention
+  var isAdminOrSuper = (typeof isAdmin === 'function' && isAdmin()) || (typeof isSuperAdmin === 'function' && isSuperAdmin()) || (typeof window !== 'undefined' && typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
+  if (!isAdminOrSuper && typeof sessionGet === 'function') {
+    var sRole = (sessionGet('role') || '').toLowerCase();
+    if (sRole === 'admin' || sRole === 'superadmin') isAdminOrSuper = true;
+  }
+  if (isAdminOrSuper && /(?:^|\W)@(admins?|superadmins?)\b/i.test(lower)) return true;
 
   return false;
 }
@@ -4240,6 +4347,9 @@ if (typeof window !== 'undefined') {
   window.renderTasksBoard           = renderTasksBoard;
   window.setupKanbanDragAndDrop     = setupKanbanDragAndDrop;
   window.renderMyTasksView          = renderMyTasksView;
+  window.handleMyTasksSearchInput   = handleMyTasksSearchInput;
+  window.fetchRemoteTaskComments    = fetchRemoteTaskComments;
+  window.fetchAllRemoteTaskComments = fetchAllRemoteTaskComments;
   window.toggleMyTasksScope         = toggleMyTasksScope;
   window.toggleMyTasksStatus        = toggleMyTasksStatus;
   window.toggleTaskCheckbox         = toggleTaskCheckbox;
@@ -4346,6 +4456,9 @@ if (typeof module !== 'undefined' && module.exports) {
     renderTasksListView,
     setupKanbanDragAndDrop,
     renderMyTasksView,
+    handleMyTasksSearchInput,
+    fetchRemoteTaskComments,
+    fetchAllRemoteTaskComments,
     toggleMyTasksScope,
     toggleMyTasksStatus,
     toggleTaskCheckbox,

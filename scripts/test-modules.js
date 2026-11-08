@@ -6167,6 +6167,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     renderHeaderRoleBadge();
     assert.ok(mockBadgeEl.className.includes('role-member'), 'Badge renders role-member class');
     assert.strictEqual(mockTextEl.textContent, 'Member', 'Badge renders Member text label');
+    global.document.getElementById = origGetEl;
     console.log('  ✔ Top navigation active role badge rendering & ARIA status accessibility verified');
 
     // 7. Admin Module Console Gatekeeping & UI Filtering
@@ -6448,7 +6449,83 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'Sergeant'
     );
     assert.strictEqual(officersDeptMention, true, 'Member in Officers department notified on @Officers mention');
-    console.log('  ✔ isUserMentionedInComment accurately routes notifications for @all, individual names, departments (@Secretariat, @HQ, @Logistics, @Media, @Officers) and self mentions');
+
+    // Case I: Platoon mention (@Hotel) notifies members in Hotel Platoon
+    const hotelPlatoonMention = tasksMod.isUserMentionedInComment(
+      'Parade fall-in for @Hotel now',
+      'duty_nco@1stpjbb.org.my',
+      'Duty NCO',
+      'Jeshua Koh',
+      'jeshuakoh2008@gmail.com',
+      '',
+      'Sergeant',
+      'Hotel Platoon'
+    );
+    assert.strictEqual(hotelPlatoonMention, true, 'Member in Hotel Platoon notified on @Hotel mention');
+
+    // Case J: Rank mention (@Sergeant or @NCOs) notifies Sergeant
+    const ncoMention = tasksMod.isUserMentionedInComment(
+      'Meeting for all @NCOs at 1pm',
+      'captain@1stpjbb.org.my',
+      'Captain',
+      'Jeshua Koh',
+      'jeshuakoh2008@gmail.com',
+      '',
+      'Sergeant',
+      'Hotel Platoon'
+    );
+    assert.strictEqual(ncoMention, true, 'Sergeant notified on @NCOs mention');
+
+    // Case K: Super Admin mention (@Superadmin or @Admin) notifies admin users
+    global.isSuperAdmin = () => true;
+    const adminMention = tasksMod.isUserMentionedInComment(
+      'Urgent escalation for @Superadmin',
+      'user@1stpjbb.org.my',
+      'User',
+      'Jeshua Koh',
+      'jeshuakoh2008@gmail.com',
+      'HQ',
+      'Sergeant'
+    );
+    assert.strictEqual(adminMention, true, 'Superadmin notified on @Superadmin mention');
+
+    // Case L: My Tasks layout conforms to Image 2 (card container, rows, search bar, header)
+    const myTasksContainer = createMockElement('div');
+    myTasksContainer.className = 'my-tasks-container';
+    const prevQS = global.document.querySelector;
+    global.document.querySelector = function(sel) {
+      if (sel === '.my-tasks-container') return myTasksContainer;
+      if (typeof prevQS === 'function') return prevQS(sel);
+      return null;
+    };
+    tasksMod.renderMyTasksView();
+    assert.ok(myTasksContainer.innerHTML.includes('projects-overview-header'), 'My Tasks uses projects-overview-header layout');
+    assert.ok(myTasksContainer.innerHTML.includes('my-tasks-card'), 'My Tasks renders card container');
+    assert.ok(myTasksContainer.innerHTML.includes('my-tasks-search-bar'), 'My Tasks includes search bar');
+    assert.ok(myTasksContainer.innerHTML.includes('task-primary-btn'), 'My Tasks renders Add Task button matching Image 2');
+    global.document.querySelector = prevQS;
+
+    // Case M: Verify top-right "+ Add Project" button is hidden in Projects view mode
+    const mockAddBtn = createMockElement('button');
+    mockAddBtn.className = 'task-primary-btn';
+    mockAddBtn.style.display = 'inline-flex';
+    const qsAdd = global.document.querySelector;
+    global.document.querySelector = function(sel) {
+      if (sel === '.task-primary-btn') return mockAddBtn;
+      if (typeof qsAdd === 'function') return qsAdd(sel);
+      return null;
+    };
+    tasksMod.setTasksViewMode('projects');
+    assert.strictEqual(mockAddBtn.style.display, 'none', 'Top-right Add Project button is hidden in projects overview');
+    global.document.querySelector = qsAdd;
+
+    // Case N: Light mode contrast CSS rules verified in components.css
+    const compCss = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(compCss.includes("[data-theme='light'] .cal-view-tab.active"), 'Light mode cal-view-tab.active high-contrast rule exists');
+    assert.ok(compCss.includes("[data-theme='light'] .filter-chip.active"), 'Light mode filter-chip.active rule exists');
+    assert.ok(compCss.includes("[data-theme='light'] .settings-readonly-field"), 'Light mode settings-readonly-field rule exists');
+
+    console.log('  ✔ isUserMentionedInComment accurately routes notifications for @all, individual names, departments, platoons, ranks, admins and self mentions');
 
     // Test Comment Editing and Deleting in memory/storage
     const testCmtTaskId = 'test-comment-crud-task';
