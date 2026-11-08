@@ -1046,6 +1046,9 @@ function openStoryViewer(highlightIdx, slideIdx) {
   var hIdx = Math.max(0, Math.min(highlightIdx, activeHighlights.length - 1));
   _currentStoryHighlightIdx = hIdx;
   _currentStorySlideIdx = slideIdx || 0;
+  _isStoryMuted = false;
+  _isStoryPaused = false;
+  updateSoundIcon(false);
 
   var modal = document.getElementById('story-viewer-modal');
   if (!modal) return;
@@ -1311,6 +1314,8 @@ function updateStorySlideView() {
               iframeEl.style.display = 'block';
               iframeEl.src = 'https://drive.google.com/file/d/' + driveFileId + '/preview';
             }
+            applyStoryProgressAnimation(_storySlideDuration, _storyRemainingTime);
+            startStoryTimer(_storySlideDuration);
           } else {
             startStoryTimer(_storySlideDuration);
           }
@@ -1328,7 +1333,6 @@ function updateStorySlideView() {
             if (typeof videoEl.play === 'function') {
               videoEl.play().catch(function() {});
             }
-            showStoryUnmuteBadge();
           });
         }
       }
@@ -1399,12 +1403,6 @@ function updateStorySlideView() {
  * Toggles video sound between muted and unmuted
  */
 function toggleStorySound() {
-  if (typeof document !== 'undefined') {
-    var unmuteBadge = document.querySelector('.story-unmute-badge');
-    if (unmuteBadge && unmuteBadge.parentNode) {
-      unmuteBadge.parentNode.removeChild(unmuteBadge);
-    }
-  }
   var videoEl = document.getElementById('story-viewer-video');
   var iframeEl = document.getElementById('story-viewer-iframe');
 
@@ -1433,24 +1431,6 @@ function toggleStorySound() {
   updateSoundIcon(_isStoryMuted);
 }
 
-function showStoryUnmuteBadge() {
-  if (typeof document === 'undefined') return;
-  var wrap = document.getElementById('story-media-wrap') || document.querySelector('.story-media-container');
-  if (!wrap) return;
-  var existing = wrap.querySelector('.story-unmute-badge');
-  if (existing) return;
-  var badge = document.createElement('button');
-  badge.type = 'button';
-  badge.className = 'story-unmute-badge';
-  badge.setAttribute('aria-label', 'Tap to unmute video audio');
-  badge.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg> <span>Tap to Unmute</span>';
-  badge.onclick = function(e) {
-    e.stopPropagation();
-    toggleStorySound();
-    if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
-  };
-  wrap.appendChild(badge);
-}
 
 function updateSoundIcon(isMuted) {
   var icon = document.getElementById('story-sound-icon');

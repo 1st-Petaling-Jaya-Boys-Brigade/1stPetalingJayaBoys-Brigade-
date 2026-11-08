@@ -146,7 +146,7 @@
   };
 
   // ── Role Authorization Check ───────────────────────────────────────────────
-  function isCalendarAdmin() {
+  function _isCalendarAdmin() {
     if (typeof RBAC !== 'undefined') {
       if (typeof RBAC.isSuperAdmin === 'function' && RBAC.isSuperAdmin()) return true;
       if (typeof RBAC.isAdmin === 'function' && RBAC.isAdmin()) return true;
@@ -481,6 +481,17 @@
     return days;
   }
 
+  function parseEventStartHour(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return null;
+    var m = timeStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (!m) return null;
+    var h = parseInt(m[1], 10);
+    var ampm = (m[3] || '').toUpperCase();
+    if (ampm === 'PM' && h < 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    return h;
+  }
+
   // ── Standard Default Parade Rundown ────────────────────────────────────────
   var DEFAULT_PARADE_RUNDOWN = [
     { time: '9:30 AM – 11:30 AM', title: 'Band', desc: 'Sectional & full band rehearsal (Brass, Woodwinds, Percussion)', icon: 'band' },
@@ -548,8 +559,6 @@
     }
 
     loadMemberEvents();
-
-    var isAdmin = isCalendarAdmin();
     var dateTitle = '';
     if (_calendarViewMode === 'week') {
       var weekDays = getWeekDays(_calendarDate);
@@ -604,9 +613,7 @@
             + '<div class="cal-current-range-heading">' + escapeHtml(dateTitle) + '</div>'
           + '</div>'
 
-          + '<div style="display:flex;align-items:center;gap:8px;">'
-            + (isAdmin ? '<button type="button" class="portal-btn-sm portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Event</button>' : '')
-          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:8px;"></div>'
         + '</div>'
 
         // ── Active View Body Container ──
@@ -671,7 +678,8 @@
       + '<div class="cal-hero-section-title">Parade Rundown &amp; Activity Schedule</div>'
       + '<div class="schedule-table" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">';
 
-    DEFAULT_PARADE_RUNDOWN.forEach(function(step) {
+    var activeRundown = (upcoming && Array.isArray(upcoming.schedule) && upcoming.schedule.length > 0) ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
+    activeRundown.forEach(function(step) {
       html += ''
         + '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">'
           + '<div style="display:flex;align-items:center;gap:12px;">'
@@ -716,7 +724,7 @@
           + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
           + 'View Full Day Schedule'
         + '</button>'
-        + (isCalendarAdmin() ? '<button type="button" class="portal-btn portal-btn-secondary" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="font-size:13px;padding:8px 16px;">✏️ Edit This Event</button>' : '')
+
       + '</div>';
 
     // Upcoming Strip
@@ -752,12 +760,14 @@
     return html;
   }
 
-  // ── 2. WEEK VIEW (Image 3 Google Calendar Style) ───────────────────────────
-  function renderWeekView() {
+   // ── 2. WEEK VIEW (Image 3 Google Calendar Style - Reflects all views) ─────────
+  function renderWeekView(isAdminView) {
     var weekDays = getWeekDays(_calendarDate);
     var now = new Date();
     var nowTimeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     var nowHour = now.getHours() + (now.getMinutes() / 60);
+
+    var clickFn = isAdminView ? 'openAdminEventModal' : 'openCalendarDayModal';
 
     var html = '<div class="cal-week-wrapper">';
 
@@ -766,24 +776,35 @@
     html += '<div class="cal-week-tz-cell">GMT+8</div>';
     weekDays.forEach(function(day) {
       html += ''
-        + '<div class="cal-week-day-header ' + (day.isToday ? 'cal-today-col' : '') + '" onclick="openCalendarDayModal(\'' + day.dateKey + '\')">'
+        + '<div class="cal-week-day-header ' + (day.isToday ? 'cal-today-col' : '') + '" onclick="' + clickFn + '(\'' + day.dateKey + '\')">'
           + '<div class="cal-week-day-name">' + day.dayName + '</div>'
           + '<div class="cal-week-day-circle ' + (day.isToday ? 'active' : '') + '">' + day.dayNumber + '</div>'
         + '</div>';
     });
     html += '</div>'; // end cal-week-header-row
 
-    // All Day Row (Image 3: green bar at top, e.g. Diwali)
+    // All Day Row (Displays public holidays, camps, no parade, and company event pills)
     html += '<div class="cal-week-allday-row">';
     html += '<div class="cal-week-allday-label">All day</div>';
     weekDays.forEach(function(day) {
       var dayEvents = getCompanyEventsForDate(day.dateKey);
-      var allDayEv = dayEvents.find(function(e) { return e.type === 'holiday' || e.type === 'noparade' || (e.time && e.time.toLowerCase().includes('all day')); });
-      html += '<div class="cal-week-allday-cell" onclick="openCalendarDayModal(\'' + day.dateKey + '\')">';
-      if (allDayEv) {
-        var isHol = allDayEv.type === 'holiday';
-        var barStyle = isHol ? 'background:#137333;color:#fff;' : 'background:#d93025;color:#fff;';
-        html += '<div class="cal-week-allday-pill" style="' + barStyle + '" title="' + escapeHtml(allDayEv.title) + '">' + escapeHtml(allDayEv.title) + '</div>';
+      html += '<div class="cal-week-allday-cell" onclick="' + clickFn + '(\'' + day.dateKey + '\')">';
+      if (dayEvents.length > 0) {
+        dayEvents.forEach(function(ev) {
+          var isHol = ev.type === 'holiday';
+          var isNoParade = ev.type === 'noparade';
+          var isCamp = ev.type === 'camp';
+          var isCeremonial = ev.type === 'ceremonial';
+
+          var barStyle = 'background:#d97706;color:#ffffff;';
+          if (isHol) barStyle = 'background:#137333;color:#ffffff;';
+          else if (isNoParade) barStyle = 'background:#dc2626;color:#ffffff;';
+          else if (isCamp) barStyle = 'background:#2563eb;color:#ffffff;';
+          else if (isCeremonial) barStyle = 'background:#7c3aed;color:#ffffff;';
+          else if (ev.type === 'parade') barStyle = 'background:var(--accent);color:#000000;font-weight:700;';
+
+          html += '<div class="cal-week-allday-pill" style="' + barStyle + '" title="' + escapeHtml(ev.title + (ev.kit && ev.kit !== 'None' ? ' (' + ev.kit + ')' : '')) + '">' + escapeHtml(ev.title) + '</div>';
+        });
       }
       html += '</div>';
     });
@@ -810,28 +831,65 @@
 
       weekDays.forEach(function(day) {
         var dayEvents = getCompanyEventsForDate(day.dateKey);
-        // Find if any parade/timed event occurs around this hour
-        var eventAtHour = null;
-        if (dayEvents.length > 0) {
-          dayEvents.forEach(function(ev) {
-            if (ev.type !== 'holiday' && ev.type !== 'noparade') {
-              if (h === 9 && (ev.time && ev.time.includes('9:30 AM'))) {
-                eventAtHour = { title: 'Band Rehearsal', kit: 'PT Kit', time: '9:30 AM – 11:30 AM', color: '#1a73e8', ev: ev };
-              } else if (h === 14 && (ev.time && (ev.time.includes('2:15 PM') || ev.time.includes('2:00 PM')))) {
-                eventAtHour = { title: ev.title, kit: ev.kit, time: ev.time, color: '#f59e0b', ev: ev };
+        var eventsAtHour = [];
+
+        dayEvents.forEach(function(ev) {
+          if (ev.type !== 'holiday' && ev.type !== 'noparade') {
+            // 1. Check if event has a custom schedule array
+            if (ev.schedule && Array.isArray(ev.schedule) && ev.schedule.length > 0) {
+              ev.schedule.forEach(function(step) {
+                var sH = parseEventStartHour(step.time);
+                if (sH === h) {
+                  eventsAtHour.push({
+                    title: step.title,
+                    time: step.time,
+                    desc: step.desc || step.notes || ev.kit,
+                    color: (ev.type === 'ceremonial' ? '#a855f7' : (step.title.toLowerCase().includes('band') ? '#3b82f6' : '#f59e0b')),
+                    ev: ev
+                  });
+                }
+              });
+            } else {
+              // 2. Default parade or activity schedule
+              var startH = parseEventStartHour(ev.time);
+              if (h === 9 && (ev.type === 'parade' || ev.title.toLowerCase().includes('parade'))) {
+                eventsAtHour.push({
+                  title: 'Band Rehearsal',
+                  time: '9:30 AM – 11:30 AM',
+                  desc: 'Sectional & full band rehearsal',
+                  color: '#3b82f6',
+                  ev: ev
+                });
+              } else if (startH === h) {
+                eventsAtHour.push({
+                  title: ev.title,
+                  time: ev.time,
+                  desc: ev.kit && ev.kit !== 'None' ? ('Uniform: ' + ev.kit) : (ev.location || ''),
+                  color: (ev.type === 'camp' ? '#2563eb' : (ev.type === 'ceremonial' ? '#9333ea' : '#f59e0b')),
+                  ev: ev
+                });
+              } else if (h === 14 && (ev.type === 'parade' || ev.title.toLowerCase().includes('parade')) && startH !== 14) {
+                eventsAtHour.push({
+                  title: ev.title,
+                  time: ev.time || '2:15 PM – 6:00 PM',
+                  desc: 'Uniform: ' + (ev.kit || 'Day Dress'),
+                  color: '#f59e0b',
+                  ev: ev
+                });
               }
             }
-          });
-        }
+          }
+        });
 
-        html += '<div class="cal-week-hour-cell" onclick="openCalendarDayModal(\'' + day.dateKey + '\')">';
-        if (eventAtHour) {
+        html += '<div class="cal-week-hour-cell" onclick="' + clickFn + '(\'' + day.dateKey + '\')">';
+        eventsAtHour.forEach(function(item) {
           html += ''
-            + '<div class="cal-week-event-card" style="border-left:3px solid ' + eventAtHour.color + ';" onclick="event.stopPropagation();openCalendarDayModal(\'' + day.dateKey + '\')">'
-              + '<div class="cal-we-title">' + escapeHtml(eventAtHour.title) + '</div>'
-              + '<div class="cal-we-time">' + escapeHtml(eventAtHour.time) + '</div>'
+            + '<div class="cal-week-event-card" style="border-left:3px solid ' + item.color + ';" onclick="event.stopPropagation();' + clickFn + '(\'' + day.dateKey + '\', \'' + (item.ev ? item.ev.id : '') + '\')">'
+              + '<div class="cal-we-title">' + escapeHtml(item.title) + '</div>'
+              + '<div class="cal-we-time">' + escapeHtml(item.time) + '</div>'
+              + (item.desc ? ('<div style="font-size:10px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(item.desc) + '</div>') : '')
             + '</div>';
-        }
+        });
         html += '</div>';
       });
 
@@ -1044,7 +1102,6 @@
 
     var kitMeta = (ev && KIT_BADGES[ev.kit]) ? KIT_BADGES[ev.kit] : null;
     var typeMeta = (ev && TYPE_BADGES[ev.type]) ? TYPE_BADGES[ev.type] : null;
-    var isAdmin = isCalendarAdmin();
 
     // Step-Day Navigation Header Title
     var titleEl = document.getElementById('cdm-date-title');
@@ -1069,9 +1126,7 @@
       if (kitMeta && ev && ev.kit !== 'None') {
         badgesHtml += '<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + kitMeta.icon + ' ' + escapeHtml(kitMeta.label) + '</span> ';
       }
-      if (isAdmin) {
-        badgesHtml += '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="openAdminEventModal(\'' + targetDate + '\', \'' + (ev ? ev.id : '') + '\')" style="font-size:11px;padding:3px 10px;margin-left:auto;">✏️ Edit Schedule</button>';
-      }
+
       headerBadges.innerHTML = badgesHtml;
     }
 
@@ -1096,7 +1151,8 @@
             + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-top:10px;">'
               + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Schedule Rundown &bull; Saturday Timeline</div>'
               + '<div style="display:flex;flex-direction:column;gap:6px;">';
-          DEFAULT_PARADE_RUNDOWN.forEach(function(r) {
+          var activeDayRundown = (ev && Array.isArray(ev.schedule) && ev.schedule.length > 0) ? ev.schedule : DEFAULT_PARADE_RUNDOWN;
+          activeDayRundown.forEach(function(r) {
             vHtml += ''
               + '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;font-size:12px;">'
                 + '<div><strong>' + escapeHtml(r.title) + '</strong> &bull; <span style="color:var(--text-secondary);">' + escapeHtml(r.desc) + '</span></div>'
@@ -1248,58 +1304,319 @@
   var _adminMonth = new Date().getMonth();
   var _adminYear  = new Date().getFullYear();
 
+  
+  var _adminCalendarViewMode = 'month';
+
+  function adminSwitchCalendarView(viewMode) {
+    if (['upcoming', 'week', 'month', 'year', 'events'].indexOf(viewMode) !== -1) {
+      _adminCalendarViewMode = viewMode;
+    }
+    renderAdminCalendarGrid();
+  }
+
+  function adminCalNavigate(offset) {
+    if (_adminCalendarViewMode === 'week') {
+      _calendarDate.setDate(_calendarDate.getDate() + (offset * 7));
+      _adminMonth = _calendarDate.getMonth();
+      _adminYear  = _calendarDate.getFullYear();
+    } else if (_adminCalendarViewMode === 'year') {
+      _calendarDate.setFullYear(_calendarDate.getFullYear() + offset);
+      _adminYear = _calendarDate.getFullYear();
+    } else {
+      _calendarDate.setMonth(_calendarDate.getMonth() + offset);
+      _adminMonth = _calendarDate.getMonth();
+      _adminYear  = _calendarDate.getFullYear();
+    }
+    renderAdminCalendarGrid();
+  }
+
+  function adminCalJumpToday() {
+    _calendarDate = new Date();
+    _adminMonth = _calendarDate.getMonth();
+    _adminYear  = _calendarDate.getFullYear();
+    renderAdminCalendarGrid();
+  }
+
+  // ── SPREADSHEET TABLE SCHEDULE EDITOR ──────────────────────────────────────
+  function createAdminScheduleRowHtml(item) {
+    item = item || {};
+    return ''
+      + '<tr class="adm-sched-row" style="border-bottom:1px solid var(--border-card);">'
+        + '<td style="padding:6px 8px;">'
+          + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml(item.time || '') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:monospace;" />'
+        + '</td>'
+        + '<td style="padding:6px 8px;">'
+          + '<input type="text" class="form-input adm-row-title" value="' + escapeHtml(item.title || '') + '" placeholder="e.g. Fall-In" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />'
+        + '</td>'
+        + '<td style="padding:6px 8px;">'
+          + '<input type="text" class="form-input adm-row-desc" value="' + escapeHtml(item.desc || '') + '" placeholder="e.g. Roll call & inspection" style="padding:5px 8px;font-size:12px;height:auto;" />'
+        + '</td>'
+        + '<td style="padding:6px 8px;">'
+          + '<input type="text" class="form-input adm-row-notes" value="' + escapeHtml(item.notes || '') + '" placeholder="e.g. Day Dress" style="padding:5px 8px;font-size:12px;height:auto;" />'
+        + '</td>'
+        + '<td style="padding:6px 6px;text-align:center;">'
+          + '<button type="button" class="portal-btn-sm" onclick="this.closest(\'tr\').remove()" style="padding:3px 7px;font-size:13px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:6px;cursor:pointer;" title="Remove Row">&times;</button>'
+        + '</td>'
+      + '</tr>';
+  }
+
+  function addAdminScheduleRow(item) {
+    if (typeof document === 'undefined') return;
+    var tbody = document.getElementById('adm-schedule-tbody');
+    if (!tbody) return;
+    var tr = document.createElement('tr');
+    tr.className = 'adm-sched-row';
+    tr.style.borderBottom = '1px solid var(--border-card)';
+    tr.innerHTML = ''
+      + '<td style="padding:6px 8px;">'
+        + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml((item && item.time) || '2:15 PM') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:monospace;" />'
+      + '</td>'
+      + '<td style="padding:6px 8px;">'
+        + '<input type="text" class="form-input adm-row-title" value="' + escapeHtml((item && item.title) || '') + '" placeholder="e.g. Activity Name" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />'
+      + '</td>'
+      + '<td style="padding:6px 8px;">'
+        + '<input type="text" class="form-input adm-row-desc" value="' + escapeHtml((item && item.desc) || '') + '" placeholder="e.g. Activity description" style="padding:5px 8px;font-size:12px;height:auto;" />'
+      + '</td>'
+      + '<td style="padding:6px 8px;">'
+        + '<input type="text" class="form-input adm-row-notes" value="' + escapeHtml((item && item.notes) || '') + '" placeholder="e.g. Notes / Kit" style="padding:5px 8px;font-size:12px;height:auto;" />'
+      + '</td>'
+      + '<td style="padding:6px 6px;text-align:center;">'
+        + '<button type="button" class="portal-btn-sm" onclick="this.closest(\'tr\').remove()" style="padding:3px 7px;font-size:13px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:6px;cursor:pointer;" title="Remove Row">&times;</button>'
+      + '</td>';
+    tbody.appendChild(tr);
+  }
+
+  function resetAdminScheduleDefault() {
+    if (typeof document === 'undefined') return;
+    var tbody = document.getElementById('adm-schedule-tbody');
+    if (!tbody) return;
+    var rowsHtml = '';
+    DEFAULT_PARADE_RUNDOWN.forEach(function(step) {
+      rowsHtml += createAdminScheduleRowHtml(step);
+    });
+    tbody.innerHTML = rowsHtml;
+  }
+
+  function renderAdminScheduleSpreadsheet(ev) {
+    if (typeof document === 'undefined') return;
+    var modal = document.getElementById('adm-event-edit-modal');
+    if (!modal) return;
+
+    var container = document.getElementById('adm-schedule-spreadsheet-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'adm-schedule-spreadsheet-container';
+      container.style.cssText = 'margin-bottom:16px;';
+      var srField = document.getElementById('adm-ev-sr');
+      var srGroup = srField ? srField.closest('.form-group') : null;
+      if (srGroup && srGroup.parentNode) {
+        srGroup.parentNode.insertBefore(container, srGroup);
+      } else {
+        var card = modal.querySelector('.portal-modal-card');
+        if (card) card.appendChild(container);
+      }
+    }
+
+    var initialRows = [];
+    if (ev && Array.isArray(ev.schedule) && ev.schedule.length > 0) {
+      initialRows = ev.schedule;
+    } else if (ev && (ev.type === 'parade' || (ev.title && ev.title.toLowerCase().includes('parade')))) {
+      initialRows = DEFAULT_PARADE_RUNDOWN;
+    } else if (ev) {
+      initialRows = [{ time: ev.time || '2:15 PM – 6:00 PM', title: ev.title || 'Event Activity', desc: ev.notes || '', notes: ev.kit || '' }];
+    } else {
+      initialRows = DEFAULT_PARADE_RUNDOWN;
+    }
+
+    var rowsHtml = '';
+    initialRows.forEach(function(r) {
+      rowsHtml += createAdminScheduleRowHtml(r);
+    });
+
+    container.innerHTML = ''
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">'
+        + '<div>'
+          + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--accent);">Parade Rundown &amp; Activity Schedule (Table Editor)</div>'
+          + '<div style="font-size:11px;color:var(--text-secondary);">Direct spreadsheet editor: update timings, activity names, descriptions, or add new rows.</div>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px;">'
+          + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="addAdminScheduleRow()" style="font-size:11px;padding:4px 10px;font-weight:600;">+ Add Row</button>'
+          + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="resetAdminScheduleDefault()" style="font-size:11px;padding:4px 8px;" title="Reset to standard Saturday rundown">Standard Rundown</button>'
+        + '</div>'
+      + '</div>'
+      + '<div style="overflow-x:auto;border:1px solid var(--border-card);border-radius:10px;background:var(--bg-card-subtle);max-height:260px;overflow-y:auto;">'
+        + '<table class="adm-schedule-spreadsheet" style="width:100%;border-collapse:collapse;font-size:12px;">'
+          + '<thead>'
+            + '<tr style="background:var(--bg-card);border-bottom:1px solid var(--border-card);color:var(--text-secondary);text-align:left;position:sticky;top:0;z-index:2;">'
+              + '<th style="padding:8px 10px;width:140px;">Timing</th>'
+              + '<th style="padding:8px 10px;width:150px;">Activity Name</th>'
+              + '<th style="padding:8px 10px;">Description</th>'
+              + '<th style="padding:8px 10px;width:120px;">Kit / Notes</th>'
+              + '<th style="padding:8px 6px;width:36px;text-align:center;"></th>'
+            + '</tr>'
+          + '</thead>'
+          + '<tbody id="adm-schedule-tbody">'
+            + rowsHtml
+          + '</tbody>'
+        + '</table>'
+      + '</div>';
+  }
+
+  // ── FULL 5-VIEW COMPANY CALENDAR HUB IN ADMIN CONSOLE ──────────────────────
   function renderAdminCalendarGrid() {
     var container = document.getElementById('adm-calendar-grid-container');
     if (!container) return;
 
-    var headerTitle = document.getElementById('adm-cal-month-title');
-    if (headerTitle) {
-      headerTitle.textContent = MONTH_NAMES[_adminMonth] + ' ' + _adminYear;
+    var dateTitle = '';
+    if (_adminCalendarViewMode === 'week') {
+      var weekDays = getWeekDays(_calendarDate);
+      var wStart = weekDays[0].date;
+      var wEnd = weekDays[6].date;
+      var startMon = MONTH_SHORT_NAMES[wStart.getMonth()];
+      var endMon = MONTH_SHORT_NAMES[wEnd.getMonth()];
+      if (startMon === endMon) {
+        dateTitle = wStart.getDate() + ' – ' + wEnd.getDate() + ' ' + startMon + ' ' + wEnd.getFullYear();
+      } else {
+        dateTitle = wStart.getDate() + ' ' + startMon + ' – ' + wEnd.getDate() + ' ' + endMon + ' ' + wEnd.getFullYear();
+      }
+    } else if (_adminCalendarViewMode === 'year') {
+      dateTitle = String(_adminYear);
+    } else if (_adminCalendarViewMode === 'events') {
+      dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear + ' – Forward';
+    } else {
+      dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear;
     }
 
-    var matrix = getMonthMatrix(_adminYear, _adminMonth);
-    var todayStr = formatDateKey(new Date());
-
     var html = ''
-      + '<div class="adm-cal-table-wrap">'
-        + '<div class="adm-cal-grid-header">'
-          + '<div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>'
-        + '</div>'
-        + '<div class="adm-cal-grid-body">';
-
-    matrix.forEach(function(cell) {
-      var compEvents = getCompanyEventsForDate(cell.dateKey);
-      var isToday = cell.dateKey === todayStr;
-
-      var cellClass = 'adm-cal-cell';
-      if (!cell.isCurrentMonth) cellClass += ' adm-cell-overflow';
-      if (isToday) cellClass += ' adm-cell-today';
-      if (compEvents.length > 0) cellClass += ' adm-cell-has-event';
-
-      html += '<div class="' + cellClass + '" onclick="openAdminEventModal(\'' + cell.dateKey + '\')">'
-        + '<div class="adm-cell-top">'
-          + '<span class="adm-cell-num">' + cell.dayNumber + '</span>'
-          + '<button type="button" class="adm-cell-add-btn" onclick="event.stopPropagation();openAdminEventModal(\'' + cell.dateKey + '\')" title="Add/Edit Parade">+</button>'
-        + '</div>';
-
-      compEvents.forEach(function(ev) {
-        var kitMeta = KIT_BADGES[ev.kit] || { label: ev.kit, bg: 'var(--surface-tint-hover)', color: 'var(--text-primary)' };
-        var typeMeta = TYPE_BADGES[ev.type] || { bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
-
-        html += '<div class="adm-cell-event-pill" style="border-left:3px solid ' + typeMeta.color + ';">'
-          + '<div class="adm-pill-title">' + escapeHtml(ev.title) + '</div>'
-          + '<div class="adm-pill-meta">'
-            + '<span class="adm-pill-kit" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span>'
+      + '<div class="cal-hub-container" style="width:100% !important;max-width:100% !important;">'
+        // Header Toolbar
+        + '<div class="cal-hub-header">'
+          + '<div class="cal-hub-title-block">'
+            + '<div style="display:flex;align-items:center;gap:10px;">'
+              + '<span class="cal-hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>'
+              + '<div>'
+                + '<div class="cal-hub-title">Company Calendar &amp; Schedule Editor</div>'
+                + '<div class="cal-hub-sub">Click any date, event, or activity row to edit timings and schedules</div>'
+              + '</div>'
+            + '</div>'
           + '</div>'
-        + '</div>';
+
+          // View Switcher Tabs
+          + '<div class="cal-view-switcher" role="tablist">'
+            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'upcoming' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'upcoming\')">Upcoming</button>'
+            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'week' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'week\')">Week</button>'
+            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'month' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'month\')">Month</button>'
+            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'year' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'year\')">Year</button>'
+            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'events' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'events\')">Events</button>'
+          + '</div>'
+        + '</div>'
+
+        // Date Navigation Toolbar
+        + '<div class="cal-nav-toolbar">'
+          + '<div class="cal-nav-controls">'
+            + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="adminCalJumpToday()" style="font-weight:600;padding:5px 12px;">Today</button>'
+            + '<button type="button" class="cal-nav-arrow" onclick="adminCalNavigate(-1)" title="Previous">&lsaquo;</button>'
+            + '<button type="button" class="cal-nav-arrow" onclick="adminCalNavigate(1)" title="Next">&rsaquo;</button>'
+            + '<div class="cal-current-range-heading">' + escapeHtml(dateTitle) + '</div>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<button type="button" class="portal-btn portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + Add Event</button>'
+            + '<button type="button" class="portal-btn portal-btn-secondary" onclick="handleAdminResetToDefaultMaster()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;" title="Reset to authentic 2026 Google Doc Schedule"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Reset Master</button>'
+          + '</div>'
+        + '</div>'
+
+        // Body
+        + '<div class="cal-view-body">';
+
+    if (_adminCalendarViewMode === 'week') {
+      html += renderWeekView(true);
+    } else if (_adminCalendarViewMode === 'month') {
+      var matrix = getMonthMatrix(_adminYear, _adminMonth);
+      var todayStr = formatDateKey(new Date());
+
+      html += ''
+        + '<div class="adm-cal-table-wrap">'
+          + '<div class="adm-cal-grid-header">'
+            + '<div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>'
+          + '</div>'
+          + '<div class="adm-cal-grid-body">';
+
+      matrix.forEach(function(cell) {
+        var compEvents = getCompanyEventsForDate(cell.dateKey);
+        var isToday = cell.dateKey === todayStr;
+
+        var cellClass = 'adm-cal-cell';
+        if (!cell.isCurrentMonth) cellClass += ' adm-cell-overflow';
+        if (isToday) cellClass += ' adm-cell-today';
+        if (compEvents.length > 0) cellClass += ' adm-cell-has-event';
+
+        html += '<div class="' + cellClass + '" onclick="openAdminEventModal(\'' + cell.dateKey + '\')">'
+          + '<div class="adm-cell-top">'
+            + '<span class="adm-cell-num">' + cell.dayNumber + '</span>'
+            + '<button type="button" class="adm-cell-add-btn" onclick="event.stopPropagation();openAdminEventModal(\'' + cell.dateKey + '\')" title="Add/Edit Parade">+</button>'
+          + '</div>';
+
+        compEvents.forEach(function(ev) {
+          var kitMeta = KIT_BADGES[ev.kit] || { label: ev.kit, bg: 'var(--surface-tint-hover)', color: 'var(--text-primary)' };
+          var typeMeta = TYPE_BADGES[ev.type] || { bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
+
+          html += '<div class="adm-cell-event-pill" style="border-left:3px solid ' + typeMeta.color + ';" onclick="event.stopPropagation();openAdminEventModal(\'' + cell.dateKey + '\', \'' + ev.id + '\')">'
+            + '<div class="adm-pill-title">' + escapeHtml(ev.title) + '</div>'
+            + '<div class="adm-pill-meta">'
+              + '<span class="adm-pill-kit" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span>'
+            + '</div>'
+          + '</div>';
+        });
+
+        html += '</div>';
       });
 
-      html += '</div>';
-    });
+      html += '</div></div>';
+    } else if (_adminCalendarViewMode === 'year') {
+      html += renderYearView(true);
+    } else if (_adminCalendarViewMode === 'events') {
+      html += renderEventsView(true);
+    } else {
+      // Upcoming view in Admin mode
+      var upToday = formatDateKey(new Date());
+      var upcoming = getNextUpcomingEvent(upToday) || _calendarEvents[0];
+      var kitMeta  = KIT_BADGES[upcoming.kit] || { label: upcoming.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)', icon: '👕' };
+      var typeMeta = TYPE_BADGES[upcoming.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
+      var activeRundown = (upcoming && Array.isArray(upcoming.schedule) && upcoming.schedule.length > 0) ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
+
+      html += ''
+        + '<div class="cal-upcoming-hero" style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')">'
+          + '<div class="cal-hero-top-bar">'
+            + '<div class="cal-hero-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';">' + escapeHtml(typeMeta.label) + '</div>'
+            + '<div class="cal-hero-countdown">Click to edit schedule &bull; ' + upcoming.date + '</div>'
+          + '</div>'
+          + '<div class="cal-hero-title">' + escapeHtml(upcoming.title) + '</div>'
+          + '<div class="cal-hero-meta-row">'
+            + '<div class="cal-hero-meta-item">🕒 <strong>' + escapeHtml(upcoming.time || '2:15 PM – 6:00 PM') + '</strong></div>'
+            + '<div class="cal-hero-meta-item">📍 <strong>' + escapeHtml(upcoming.location || 'TMCPJ') + '</strong></div>'
+            + '<div class="cal-hero-meta-item">🥋 <strong>' + escapeHtml(kitMeta.label) + '</strong></div>'
+          + '</div>'
+          + '<div class="cal-hero-section-title">Schedule Rundown (Click any activity to edit)</div>'
+          + '<div class="schedule-table" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">';
+
+      activeRundown.forEach(function(step) {
+        html += ''
+          + '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;" onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')">'
+            + '<div>'
+              + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);">' + escapeHtml(step.title) + '</div>'
+              + '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(step.desc || step.notes || '') + '</div>'
+            + '</div>'
+            + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);">' + escapeHtml(step.time) + '</div>'
+          + '</div>';
+      });
+
+      html += '</div></div>';
+    }
 
     html += '</div></div>';
     container.innerHTML = html;
   }
+
 
   function adminNavigateMonth(offset) {
     _adminMonth += offset;
@@ -1341,6 +1658,8 @@
     var delBtn = document.getElementById('adm-ev-delete-btn');
     if (delBtn) delBtn.style.display = ev ? 'inline-block' : 'none';
 
+    renderAdminScheduleSpreadsheet(ev);
+
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   }
@@ -1371,7 +1690,27 @@
     var cleanTitle = (typeof sanitizeText === 'function') ? sanitizeText(titleVal, 100) : titleVal.trim();
     var cleanSr    = (typeof sanitizeText === 'function') ? sanitizeText(srVal, 500) : srVal.trim();
     var cleanJr    = (typeof sanitizeText === 'function') ? sanitizeText(jrVal, 500) : jrVal.trim();
-    var cleanNotes = (typeof sanitizeText === 'function') ? sanitizeText(notesVal, 500) : notesVal.trim();
+        var cleanNotes = (typeof sanitizeText === 'function') ? sanitizeText(notesVal, 500) : notesVal.trim();
+
+    var scheduleRows = [];
+    var tbody = document.getElementById('adm-schedule-tbody');
+    if (tbody) {
+      var trs = tbody.querySelectorAll('.adm-sched-row');
+      trs.forEach(function(tr) {
+        var tInp = tr.querySelector('.adm-row-time');
+        var titInp = tr.querySelector('.adm-row-title');
+        var dInp = tr.querySelector('.adm-row-desc');
+        var nInp = tr.querySelector('.adm-row-notes');
+        if (titInp && titInp.value.trim()) {
+          scheduleRows.push({
+            time: (tInp ? tInp.value.trim() : '') || '2:15 PM – 6:00 PM',
+            title: titInp.value.trim(),
+            desc: (dInp ? dInp.value.trim() : ''),
+            notes: (nInp ? nInp.value.trim() : '')
+          });
+        }
+      });
+    }
 
     var eventObj = {
       id: id || ('cal-' + dateVal + '-' + Math.random().toString(36).substr(2, 4)),
@@ -1381,6 +1720,7 @@
       kit: kitVal,
       time: timeVal || '2:15 PM – 6:00 PM',
       location: locVal || 'Trinity Methodist Church PJ',
+      schedule: scheduleRows,
       srDetails: cleanSr,
       jrDetails: cleanJr,
       notes: cleanNotes,
@@ -1647,6 +1987,12 @@
     window.handleAddModalReminder       = handleAddModalReminder;
     window.deleteModalReminder          = deleteModalReminder;
     window.renderAdminCalendarGrid      = renderAdminCalendarGrid;
+  window.closeEventEditModal          = closeAdminEventModal;
+  window.addAdminScheduleRow          = addAdminScheduleRow;
+  window.resetAdminScheduleDefault    = resetAdminScheduleDefault;
+  window.adminSwitchCalendarView      = adminSwitchCalendarView;
+  window.adminCalNavigate             = adminCalNavigate;
+  window.adminCalJumpToday            = adminCalJumpToday;
     window.adminNavigateMonth           = adminNavigateMonth;
     window.openAdminEventModal          = openAdminEventModal;
     window.closeAdminEventModal         = closeAdminEventModal;

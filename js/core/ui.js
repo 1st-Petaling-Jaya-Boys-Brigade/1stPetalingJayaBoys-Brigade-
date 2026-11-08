@@ -61,7 +61,8 @@
   var _lastToastMap = {};
   var MAX_VISIBLE_TOASTS = 3;
 
-  function showToast(message, type, duration) {
+  function showToast(message, type, duration, options) {
+    options = options || {};
     if (!message) return null;
     if (typeof document === 'undefined') return null;
 
@@ -146,11 +147,12 @@
     toast._dismissTimer = timer;
 
     try {
+      var isSilent = options && options.silent === true;
       var sndEnabled = true;
       if (typeof localStorage !== 'undefined') {
         sndEnabled = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
       }
-      if (sndEnabled && typeof playNotificationSound === 'function') {
+      if (!isSilent && sndEnabled && typeof playNotificationSound === 'function') {
         playNotificationSound();
       }
     } catch (_) {}
@@ -1171,14 +1173,14 @@
 
   function playNotificationSound(soundUrl) {
     try {
-      var now = Date.now();
-      if (now - _lastNotifSoundPlayTs < 200) return null;
-      _lastNotifSoundPlayTs = now;
-
       if (typeof Audio === 'undefined') {
         _playWebAudioPopFallback();
         return null;
       }
+
+      var now = Date.now();
+      if (now - _lastNotifSoundPlayTs < 200) return null;
+      _lastNotifSoundPlayTs = now;
 
       var url = soundUrl || NOTIF_SOUND_URL;
       if (!_notifAudioInstance || (_notifAudioInstance.src && _notifAudioInstance.src.indexOf('Notification%20Sound_PopSound%20(1).wav') === -1 && soundUrl)) {
@@ -1227,7 +1229,8 @@
       }
     } catch (_) {}
 
-    if (soundEnabled && typeof playNotificationSound === 'function') {
+    var isSilentSound = options && options.silentSound === true;
+    if (!isSilentSound && soundEnabled && typeof playNotificationSound === 'function') {
       playNotificationSound();
     }
 
@@ -1295,7 +1298,7 @@
       var perm = await Notification.requestPermission();
       if (perm === 'granted') {
         if (typeof showToast === 'function') {
-          showToast('System notifications enabled! You will now receive alerts.', 'success');
+          showToast('System notifications enabled! You will now receive alerts.', 'success', 3000, { silent: true });
         }
         triggerPortalSystemNotification(
           "1st Petaling Jaya Boys' Brigade",
@@ -1313,6 +1316,59 @@
         console.warn('requestNotificationPermission error:', err);
       }
       return 'error';
+    }
+  }
+
+  async function testNotificationPopup() {
+    if (typeof window === 'undefined') return;
+    if (!('Notification' in window)) {
+      if (typeof showToast === 'function') {
+        showToast('System notifications are not supported on this browser or platform.', 'warning');
+      }
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      triggerPortalSystemNotification(
+        "1st Petaling Jaya Boys' Brigade",
+        "Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
+        { tag: 'bb-test-' + Date.now(), silentSound: false }
+      );
+      if (typeof showToast === 'function') {
+        showToast('System test notification sent! Check your system alert banners.', 'success', 3000, { silent: true });
+      }
+      return;
+    }
+
+    if (Notification.permission === 'default') {
+      try {
+        var perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          triggerPortalSystemNotification(
+            "1st Petaling Jaya Boys' Brigade",
+            "System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
+            { tag: 'bb-test-' + Date.now(), silentSound: false }
+          );
+          if (typeof showToast === 'function') {
+            showToast('System notifications allowed! Test notification sent.', 'success', 3000, { silent: true });
+          }
+        } else {
+          if (typeof showToast === 'function') {
+            showToast('Notification permission was not granted (' + perm + ').', 'warning');
+          }
+        }
+      } catch (e) {
+        if (typeof showToast === 'function') {
+          showToast('Error requesting permission: ' + (e && e.message ? e.message : e), 'error');
+        }
+      }
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      if (typeof showToast === 'function') {
+        showToast('Notifications are blocked by your browser settings. Please allow notifications in site permissions.', 'warning', 4500);
+      }
     }
   }
 
@@ -1369,6 +1425,7 @@
     global.NOTIF_SOUND_URL = NOTIF_SOUND_URL;
     global.triggerPortalSystemNotification = triggerPortalSystemNotification;
     global.requestNotificationPermission = requestNotificationPermission;
+    global.testNotificationPopup = testNotificationPopup;
     global.triggerNewPortalNotifications = triggerNewPortalNotifications;
   }
 
@@ -1401,6 +1458,7 @@
       NOTIF_SOUND_URL: NOTIF_SOUND_URL,
       triggerPortalSystemNotification: triggerPortalSystemNotification,
       requestNotificationPermission: requestNotificationPermission,
+      testNotificationPopup: testNotificationPopup,
       triggerNewPortalNotifications: triggerNewPortalNotifications
     };
   }

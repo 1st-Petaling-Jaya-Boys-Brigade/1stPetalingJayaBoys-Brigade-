@@ -7396,6 +7396,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     }
     tState.currentIndex = 4;
     arcadeMod.saveTriviaState(tState);
+    global.showConfirmModal = async () => true;
     await arcadeMod.submitTriviaQuiz();
 
     const postTriviaStats = arcadeMod.getArcadeStats();
