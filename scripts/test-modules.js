@@ -10444,6 +10444,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(tasksSrc.includes("showPromptModal('Create New Project'"), 'openAddProjectModal must invoke showPromptModal');
     assert.ok(tasksSrc.includes("showPromptModal('Set Task Estimate'"), 'editTaskDetailEstimate must invoke showPromptModal');
     console.log('  ✔ Project creation and estimate editing use portal UI modal instead of native prompt');
+
+    // 20. Forms tab submission header bar removed from view
+    const formsHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    assert.ok(formsHtml.includes('<!-- Member bar (Hidden from Forms tab view) -->'), 'index.html must hide forms member submission bar');
+    assert.ok(formsHtml.includes('id="order-member-name"'), 'index.html must retain order-member-name DOM ID');
+    console.log('  ✔ Forms tab submission header bar removed from view while preserving DOM IDs');
   }
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
