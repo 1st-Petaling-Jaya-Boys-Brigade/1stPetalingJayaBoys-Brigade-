@@ -117,6 +117,8 @@
   var _currentMonth     = _calendarDate.getMonth();
   var _currentYear      = _calendarDate.getFullYear();
   var _selectedDateStr  = formatDateKey(_calendarDate);
+  var _upcomingEventIndex = null;
+  var _adminUpcomingEventIndex = null;
 
   function formatDateKey(dateObj) {
     var d = (dateObj instanceof Date) ? dateObj : new Date(dateObj);
@@ -126,14 +128,27 @@
     return y + '-' + m + '-' + day;
   }
 
-  // ── Kit & Type Metadata ────────────────────────────────────────────────────
+  // ── Zero-Emoji SVG Icon Registry for Calendar ──────────────────────────────
+  var CAL_ICONS = {
+    clock: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    pin: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+    shirt: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>',
+    badge: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
+    target: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+    reminder: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:12px;height:12px;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V7a3 3 0 0 0-6 0v3.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>',
+    announcement: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
+    alert: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+    calendar: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+  };
+
+  // ── Kit & Type Metadata (Zero Emojis) ──────────────────────────────────────
   var KIT_BADGES = {
-    'PT Kit':     { label: 'PT Kit',      color: 'var(--green)',          bg: 'rgba(16,185,129,0.14)', icon: '🥋' },
-    'Day Dress':  { label: 'Day Dress',   color: 'var(--blue)',           bg: 'rgba(59,130,246,0.14)', icon: '👔' },
-    'Drill Kit':  { label: 'Drill Kit',   color: 'var(--accent)',         bg: 'var(--accent-soft)',    icon: '🎖️' },
-    'Ceremonial': { label: 'Ceremonial',  color: 'var(--purple)',         bg: 'rgba(168,85,247,0.14)', icon: '🏅' },
-    'Casual':     { label: 'Casual',      color: 'var(--text-secondary)', bg: 'var(--surface-tint)',   icon: '👕' },
-    'None':       { label: 'No Kit',      color: 'var(--text-muted)',     bg: 'var(--surface-tint)',   icon: '—' }
+    'PT Kit':     { label: 'PT Kit',      color: 'var(--green)',          bg: 'rgba(16,185,129,0.14)' },
+    'Day Dress':  { label: 'Day Dress',   color: 'var(--blue)',           bg: 'rgba(59,130,246,0.14)' },
+    'Drill Kit':  { label: 'Drill Kit',   color: 'var(--accent)',         bg: 'var(--accent-soft)' },
+    'Ceremonial': { label: 'Ceremonial',  color: 'var(--purple)',         bg: 'rgba(168,85,247,0.14)' },
+    'Casual':     { label: 'Casual',      color: 'var(--text-secondary)', bg: 'var(--surface-tint)' },
+    'None':       { label: 'No Kit',      color: 'var(--text-muted)',     bg: 'var(--surface-tint)' }
   };
 
   var TYPE_BADGES = {
@@ -376,14 +391,30 @@
     return sorted[0];
   }
 
+  function getSortedCompanyEvents() {
+    return _calendarEvents.slice().sort(function(a, b) {
+      return a.date.localeCompare(b.date);
+    });
+  }
+
+  function getClosestUpcomingEventIndex(eventsList, fromDateStr) {
+    var ref = fromDateStr || formatDateKey(new Date());
+    var list = eventsList || getSortedCompanyEvents();
+    if (!list.length) return 0;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].date >= ref) {
+        return i;
+      }
+    }
+    return list.length - 1;
+  }
+
   function getUpcomingEventsList(fromDateStr, count) {
     var maxCount = count || 4;
     var refDate = fromDateStr ? new Date(fromDateStr) : new Date();
     refDate.setHours(0, 0, 0, 0);
 
-    var sorted = _calendarEvents.slice().sort(function(a, b) {
-      return a.date.localeCompare(b.date);
-    });
+    var sorted = getSortedCompanyEvents();
 
     var results = [];
     for (var i = 0; i < sorted.length; i++) {
@@ -515,7 +546,65 @@
     renderCalendarTab();
   }
 
+  function calJumpToEventIndex(idx) {
+    var allEvents = getSortedCompanyEvents();
+    if (idx >= 0 && idx < allEvents.length) {
+      _upcomingEventIndex = idx;
+      var targetEv = allEvents[_upcomingEventIndex];
+      if (targetEv) {
+        var p = targetEv.date.split('-');
+        if (p.length === 3) {
+          _currentYear = parseInt(p[0], 10);
+          _currentMonth = parseInt(p[1], 10) - 1;
+          _calendarDate = new Date(_currentYear, _currentMonth, parseInt(p[2], 10));
+        }
+      }
+      renderCalendarTab('upcoming');
+    }
+  }
+
+  function adminCalJumpToEventIndex(idx) {
+    var allEvents = getSortedCompanyEvents();
+    if (idx >= 0 && idx < allEvents.length) {
+      _adminUpcomingEventIndex = idx;
+      var targetEv = allEvents[_adminUpcomingEventIndex];
+      if (targetEv) {
+        var p = targetEv.date.split('-');
+        if (p.length === 3) {
+          _adminYear = parseInt(p[0], 10);
+          _adminMonth = parseInt(p[1], 10) - 1;
+          _calendarDate = new Date(_adminYear, _adminMonth, parseInt(p[2], 10));
+        }
+      }
+      renderAdminCalendarGrid();
+    }
+  }
+
   function calNavigate(offset) {
+    if (_calendarViewMode === 'upcoming') {
+      var allEvents = getSortedCompanyEvents();
+      if (allEvents.length > 0) {
+        if (_upcomingEventIndex === null || _upcomingEventIndex === undefined) {
+          _upcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
+        }
+        var newIdx = _upcomingEventIndex + offset;
+        if (newIdx < 0) newIdx = 0;
+        if (newIdx >= allEvents.length) newIdx = allEvents.length - 1;
+        _upcomingEventIndex = newIdx;
+
+        var targetEv = allEvents[_upcomingEventIndex];
+        if (targetEv) {
+          var p = targetEv.date.split('-');
+          if (p.length === 3) {
+            _currentYear = parseInt(p[0], 10);
+            _currentMonth = parseInt(p[1], 10) - 1;
+            _calendarDate = new Date(_currentYear, _currentMonth, parseInt(p[2], 10));
+          }
+        }
+      }
+      renderCalendarTab();
+      return;
+    }
     if (_calendarViewMode === 'week') {
       _calendarDate.setDate(_calendarDate.getDate() + (offset * 7));
       _currentMonth = _calendarDate.getMonth();
@@ -524,7 +613,7 @@
       _calendarDate.setFullYear(_calendarDate.getFullYear() + offset);
       _currentYear = _calendarDate.getFullYear();
     } else {
-      // Month, upcoming, events
+      // Month, events
       _calendarDate.setMonth(_calendarDate.getMonth() + offset);
       _currentMonth = _calendarDate.getMonth();
       _currentYear  = _calendarDate.getFullYear();
@@ -537,6 +626,7 @@
     _currentMonth    = _calendarDate.getMonth();
     _currentYear     = _calendarDate.getFullYear();
     _selectedDateStr = formatDateKey(_calendarDate);
+    _upcomingEventIndex = null;
     renderCalendarTab();
   }
 
@@ -575,8 +665,18 @@
       dateTitle = String(_currentYear);
     } else if (_calendarViewMode === 'events') {
       dateTitle = MONTH_NAMES[_currentMonth] + ' ' + _currentYear + ' – Forward';
+    } else if (_calendarViewMode === 'upcoming') {
+      var allSorted = getSortedCompanyEvents();
+      var uIdx = (_upcomingEventIndex !== null && _upcomingEventIndex !== undefined) ? _upcomingEventIndex : getClosestUpcomingEventIndex(allSorted);
+      var curEv = allSorted[uIdx];
+      if (curEv) {
+        var upDate = new Date(curEv.date + 'T00:00:00');
+        dateTitle = upDate.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+      } else {
+        dateTitle = MONTH_NAMES[_currentMonth] + ' ' + _currentYear;
+      }
     } else {
-      // Month & Upcoming
+      // Month view
       dateTitle = MONTH_NAMES[_currentMonth] + ' ' + _currentYear;
     }
 
@@ -637,28 +737,60 @@
   }
 
   // ── 1. UPCOMING PARADE / ACTIVITY VIEW ──────────────────────────────────────
-  function renderUpcomingView() {
-    var todayStr = formatDateKey(new Date());
-    var upcoming = getNextUpcomingEvent(todayStr) || _calendarEvents[0];
-    var nextList = getUpcomingEventsList(todayStr, 4);
+  function renderUpcomingView(isAdminView) {
+    var allEvents = getSortedCompanyEvents();
+    if (!allEvents.length) {
+      return '<div style="padding:48px 16px;text-align:center;color:var(--text-muted);font-size:13px;">No company events scheduled.</div>';
+    }
 
-    var diffDays = Math.ceil((new Date(upcoming.date + 'T00:00:00') - new Date()) / (1000 * 60 * 60 * 24));
+    var activeIdx;
+    if (isAdminView) {
+      if (_adminUpcomingEventIndex === null || _adminUpcomingEventIndex === undefined) {
+        _adminUpcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
+      }
+      activeIdx = _adminUpcomingEventIndex;
+    } else {
+      if (_upcomingEventIndex === null || _upcomingEventIndex === undefined) {
+        _upcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
+      }
+      activeIdx = _upcomingEventIndex;
+    }
+
+    if (activeIdx < 0) activeIdx = 0;
+    if (activeIdx >= allEvents.length) activeIdx = allEvents.length - 1;
+
+    var upcoming = allEvents[activeIdx];
+    var todayObj = new Date();
+    todayObj.setHours(0, 0, 0, 0);
+
+    var evDateObj = new Date(upcoming.date + 'T00:00:00');
+    evDateObj.setHours(0, 0, 0, 0);
+
+    var diffDays = Math.round((evDateObj - todayObj) / (1000 * 60 * 60 * 24));
     var countdownLabel = '';
-    if (diffDays === 0) countdownLabel = 'Parade Today! 🎖️';
-    else if (diffDays === 1) countdownLabel = 'Tomorrow ⏳';
+    if (diffDays === 0) countdownLabel = 'Parade Today!';
+    else if (diffDays === 1) countdownLabel = 'Tomorrow';
+    else if (diffDays === -1) countdownLabel = 'Yesterday';
     else if (diffDays > 1) countdownLabel = 'In ' + diffDays + ' days (' + upcoming.date + ')';
-    else countdownLabel = 'Upcoming Event';
+    else if (diffDays < -1) countdownLabel = Math.abs(diffDays) + ' days ago (' + upcoming.date + ')';
+    else countdownLabel = upcoming.date;
 
-    var upDateObj = new Date(upcoming.date + 'T00:00:00');
-    var fullDateFormatted = upDateObj.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    var fullDateFormatted = evDateObj.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    var kitMeta  = KIT_BADGES[upcoming.kit] || { label: upcoming.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)', icon: '👕' };
+    var kitMeta  = KIT_BADGES[upcoming.kit] || { label: upcoming.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)' };
     var typeMeta = TYPE_BADGES[upcoming.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
 
+    // Subsequent 4 events following this active event
+    var nextList = allEvents.slice(activeIdx + 1, activeIdx + 5);
+
+    var cardActionAttr = isAdminView
+      ? (' style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" title="Click to edit schedule"')
+      : '';
+
     var html = ''
-      + '<div class="cal-upcoming-hero">'
+      + '<div class="cal-upcoming-hero"' + cardActionAttr + '>'
         + '<div class="cal-hero-top-badge">'
-          + '<span class="cal-pill-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';border:1px solid ' + typeMeta.border + ';font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;">' + escapeHtml(typeMeta.label) + '</span>'
+          + '<span class="cal-pill-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';border:1px solid ' + (typeMeta.border || 'transparent') + ';font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;">' + escapeHtml(typeMeta.label) + '</span>'
           + '<span class="cal-countdown-badge">' + escapeHtml(countdownLabel) + '</span>'
         + '</div>'
 
@@ -668,27 +800,30 @@
         + '</div>'
 
         + '<div class="cal-hero-meta-strip">'
-          + '<div class="cal-hero-meta-item">🕒 <strong>' + escapeHtml(upcoming.time || '2:15 PM – 6:00 PM') + '</strong></div>'
-          + '<div class="cal-hero-meta-item">📍 <strong>' + escapeHtml(upcoming.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</strong></div>'
-          + (upcoming.kit && upcoming.kit !== 'None' ? ('<div class="cal-hero-meta-item">🥋 Uniform of the Day: <strong style="color:var(--accent);">' + kitMeta.icon + ' ' + escapeHtml(kitMeta.label) + '</strong></div>') : '')
+          + '<div class="cal-hero-meta-item">' + CAL_ICONS.clock + ' <strong>' + escapeHtml(upcoming.time || '2:15 PM – 6:00 PM') + '</strong></div>'
+          + '<div class="cal-hero-meta-item">' + CAL_ICONS.pin + ' <strong>' + escapeHtml(upcoming.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</strong></div>'
+          + (upcoming.kit && upcoming.kit !== 'None' ? ('<div class="cal-hero-meta-item">' + CAL_ICONS.shirt + ' Uniform of the Day: <strong style="color:var(--accent);">' + escapeHtml(kitMeta.label) + '</strong></div>') : '')
         + '</div>';
 
     // Rundown Table / Timeline
     html += ''
-      + '<div class="cal-hero-section-title">Parade Rundown &amp; Activity Schedule</div>'
+      + '<div class="cal-hero-section-title">Parade Rundown &amp; Activity Schedule ' + (isAdminView ? '<span style="font-size:12px;color:var(--accent);font-weight:600;">(Click any row to edit)</span>' : '') + '</div>'
       + '<div class="schedule-table" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">';
 
     var activeRundown = (upcoming && Array.isArray(upcoming.schedule) && upcoming.schedule.length > 0) ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
     activeRundown.forEach(function(step) {
+      var rowClick = isAdminView
+        ? (' onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="cursor:pointer;"')
+        : '';
       html += ''
-        + '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">'
+        + '<div' + rowClick + ' style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">'
           + '<div style="display:flex;align-items:center;gap:12px;">'
             + '<div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">'
               + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
             + '</div>'
             + '<div>'
               + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">' + escapeHtml(step.title) + '</div>'
-              + '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(step.desc) + '</div>'
+              + '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(step.desc || step.notes || '') + '</div>'
             + '</div>'
           + '</div>'
           + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">'
@@ -703,10 +838,10 @@
     if (upcoming.srDetails || upcoming.jrDetails) {
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-bottom:16px;">';
       if (upcoming.srDetails) {
-        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">🎖️ Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.srDetails) + '</div></div>';
+        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.badge + ' Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.srDetails) + '</div></div>';
       }
       if (upcoming.jrDetails) {
-        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">🎯 Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.jrDetails) + '</div></div>';
+        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.target + ' Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.jrDetails) + '</div></div>';
       }
       html += '</div>';
     }
@@ -720,35 +855,43 @@
 
       // Actions
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">'
-        + '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' + upcoming.date + '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">'
-          + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
-          + 'View Full Day Schedule'
-        + '</button>'
-
+        + (isAdminView ? (
+          '<button type="button" class="portal-btn portal-btn-primary" onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">'
+            + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
+            + 'Edit Event &amp; Schedule Rundown'
+          + '</button>'
+        ) : (
+          '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' + upcoming.date + '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">'
+            + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
+            + 'View Full Day Schedule'
+          + '</button>'
+        ))
       + '</div>';
 
-    // Upcoming Strip
-    if (nextList.length > 1) {
+    // Upcoming Strip (Click any to navigate upcoming view to that event!)
+    if (nextList.length > 0) {
       html += ''
         + '<div style="margin-top:20px;">'
           + '<div class="cal-hero-section-title" style="margin-bottom:10px;">Subsequent Company Parades &amp; Events</div>'
           + '<div class="cal-upcoming-strip-grid">';
-      for (var s = 1; s < nextList.length; s++) {
+      for (var s = 0; s < nextList.length; s++) {
         var subEv = nextList[s];
+        var sTargetIdx = activeIdx + 1 + s;
         var sDateObj = new Date(subEv.date + 'T00:00:00');
         var sDateText = sDateObj.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
-        var sKitMeta = KIT_BADGES[subEv.kit] || { label: subEv.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)', icon: '👕' };
+        var sKitMeta = KIT_BADGES[subEv.kit] || { label: subEv.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)' };
         var sTypeMeta = TYPE_BADGES[subEv.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
 
+        var jumpFn = isAdminView ? ('adminCalJumpToEventIndex(' + sTargetIdx + ')') : ('calJumpToEventIndex(' + sTargetIdx + ')');
         html += ''
-          + '<div class="cal-upcoming-mini-card" onclick="openCalendarDayModal(\'' + subEv.date + '\')">'
+          + '<div class="cal-upcoming-mini-card" onclick="' + jumpFn + '" style="cursor:pointer;" title="View this event breakdown">'
             + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
               + '<span class="cal-mini-date">' + escapeHtml(sDateText) + '</span>'
               + '<span class="cal-pill-badge" style="background:' + sTypeMeta.bg + ';color:' + sTypeMeta.color + ';">' + escapeHtml(sTypeMeta.label) + '</span>'
             + '</div>'
             + '<div class="cal-mini-title">' + escapeHtml(subEv.title) + '</div>'
             + '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">'
-              + (subEv.kit && subEv.kit !== 'None' ? ('<span style="color:var(--accent);">' + sKitMeta.icon + ' ' + escapeHtml(sKitMeta.label) + '</span> &bull; ') : '')
+              + (subEv.kit && subEv.kit !== 'None' ? ('<span style="color:var(--accent);">' + CAL_ICONS.shirt + ' ' + escapeHtml(sKitMeta.label) + '</span> &bull; ') : '')
               + escapeHtml(subEv.time || '2:15 PM – 6:00 PM')
             + '</div>'
           + '</div>';
@@ -962,7 +1105,7 @@
       memEvents.forEach(function(rem) {
         if (shownCount >= maxShow) return;
         shownCount++;
-        html += '<div class="cal-m-pill cal-m-pill-personal" title="Personal: ' + escapeHtml(rem.title) + '">📌 ' + escapeHtml(rem.title) + '</div>';
+        html += '<div class="cal-m-pill cal-m-pill-personal" title="Personal: ' + escapeHtml(rem.title) + '">' + CAL_ICONS.reminder + ' ' + escapeHtml(rem.title) + '</div>';
       });
 
       var totalEvents = compEvents.length + memEvents.length;
@@ -1053,7 +1196,7 @@
       var dayNameShort = DAY_SHORT_NAMES[evDateObj.getDay()];
 
       var typeMeta = TYPE_BADGES[ev.type] || { label: 'Event', color: '#eab308', dot: '#eab308', bg: 'rgba(234,179,8,0.15)' };
-      var kitMeta  = KIT_BADGES[ev.kit] || { label: ev.kit, icon: '👕', color: 'var(--text-secondary)' };
+      var kitMeta  = KIT_BADGES[ev.kit] || { label: ev.kit, color: 'var(--text-secondary)' };
 
       var isFirstForDate = !renderedDates[ev.date];
       renderedDates[ev.date] = true;
@@ -1141,8 +1284,8 @@
       var vHtml = '';
       if (ev && ev.type !== 'noparade') {
         vHtml += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;">'
-          + '<span style="color:var(--accent);font-weight:600;">🕒 ' + escapeHtml(ev.time || '2:15 PM – 6:00 PM') + '</span>'
-          + '<span>📍 ' + escapeHtml(ev.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</span>'
+          + '<span style="color:var(--accent);font-weight:600;">' + CAL_ICONS.clock + ' ' + escapeHtml(ev.time || '2:15 PM – 6:00 PM') + '</span>'
+          + '<span>' + CAL_ICONS.pin + ' ' + escapeHtml(ev.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</span>'
         + '</div>';
 
         // Parade Detailed Rundown
@@ -1162,7 +1305,7 @@
           vHtml += '</div></div>';
         }
       } else if (ev && ev.type === 'noparade') {
-        vHtml = '<span style="color:var(--red);font-weight:600;">⛔ No Company Parade Scheduled for this date</span>';
+        vHtml = '<span style="color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:6px;">' + CAL_ICONS.alert + ' No Company Parade Scheduled for this date</span>';
       } else {
         vHtml = '<span style="color:var(--text-muted);">No official brigade event scheduled. Enjoy your weekend!</span>';
       }
@@ -1175,7 +1318,7 @@
       if (ev && ev.srDetails) {
         srBox.innerHTML = ''
           + '<div class="cal-detail-subbox">'
-            + '<div class="cal-subbox-title">🎖️ Senior Section Program &amp; Badges</div>'
+            + '<div class="cal-subbox-title">' + CAL_ICONS.badge + ' Senior Section Program &amp; Badges</div>'
             + '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">'
               + escapeHtml(ev.srDetails)
             + '</div>'
@@ -1192,7 +1335,7 @@
       if (ev && ev.jrDetails) {
         jrBox.innerHTML = ''
           + '<div class="cal-detail-subbox">'
-            + '<div class="cal-subbox-title">🎯 Junior Section Program &amp; Badges</div>'
+            + '<div class="cal-subbox-title">' + CAL_ICONS.target + ' Junior Section Program &amp; Badges</div>'
             + '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">'
               + escapeHtml(ev.jrDetails)
             + '</div>'
@@ -1209,7 +1352,7 @@
       if (ev && ev.notes) {
         notesBox.innerHTML = ''
           + '<div class="cal-detail-subbox" style="border-left:3px solid var(--accent);background:rgba(234,179,8,0.08);">'
-            + '<div class="cal-subbox-title" style="color:var(--accent);">📢 Important Remarks &amp; Briefings</div>'
+            + '<div class="cal-subbox-title" style="color:var(--accent);">' + CAL_ICONS.announcement + ' Important Remarks &amp; Briefings</div>'
             + '<div style="font-size:12px;color:var(--text-primary);line-height:1.5;margin-top:4px;">'
               + escapeHtml(ev.notes)
             + '</div>'
@@ -1287,7 +1430,7 @@
     renderModalPersonalReminders(_selectedDateStr);
     renderCalendarWidget();
 
-    if (typeof showToast === 'function') showToast('Personal reminder added! 📌');
+    if (typeof showToast === 'function') showToast('Personal reminder added!');
   }
 
   function deleteModalReminder(id, dateStr) {
@@ -1315,6 +1458,30 @@
   }
 
   function adminCalNavigate(offset) {
+    if (_adminCalendarViewMode === 'upcoming') {
+      var allEvents = getSortedCompanyEvents();
+      if (allEvents.length > 0) {
+        if (_adminUpcomingEventIndex === null || _adminUpcomingEventIndex === undefined) {
+          _adminUpcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
+        }
+        var newIdx = _adminUpcomingEventIndex + offset;
+        if (newIdx < 0) newIdx = 0;
+        if (newIdx >= allEvents.length) newIdx = allEvents.length - 1;
+        _adminUpcomingEventIndex = newIdx;
+
+        var targetEv = allEvents[_adminUpcomingEventIndex];
+        if (targetEv) {
+          var p = targetEv.date.split('-');
+          if (p.length === 3) {
+            _adminYear = parseInt(p[0], 10);
+            _adminMonth = parseInt(p[1], 10) - 1;
+            _calendarDate = new Date(_adminYear, _adminMonth, parseInt(p[2], 10));
+          }
+        }
+      }
+      renderAdminCalendarGrid();
+      return;
+    }
     if (_adminCalendarViewMode === 'week') {
       _calendarDate.setDate(_calendarDate.getDate() + (offset * 7));
       _adminMonth = _calendarDate.getMonth();
@@ -1334,6 +1501,7 @@
     _calendarDate = new Date();
     _adminMonth = _calendarDate.getMonth();
     _adminYear  = _calendarDate.getFullYear();
+    _adminUpcomingEventIndex = null;
     renderAdminCalendarGrid();
   }
 
@@ -1483,6 +1651,16 @@
       dateTitle = String(_adminYear);
     } else if (_adminCalendarViewMode === 'events') {
       dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear + ' – Forward';
+    } else if (_adminCalendarViewMode === 'upcoming') {
+      var allSortedAdmin = getSortedCompanyEvents();
+      var auIdx = (_adminUpcomingEventIndex !== null && _adminUpcomingEventIndex !== undefined) ? _adminUpcomingEventIndex : getClosestUpcomingEventIndex(allSortedAdmin);
+      var aCurEv = allSortedAdmin[auIdx];
+      if (aCurEv) {
+        var aUpDate = new Date(aCurEv.date + 'T00:00:00');
+        dateTitle = aUpDate.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+      } else {
+        dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear;
+      }
     } else {
       dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear;
     }
@@ -1578,39 +1756,7 @@
       html += renderEventsView(true);
     } else {
       // Upcoming view in Admin mode
-      var upToday = formatDateKey(new Date());
-      var upcoming = getNextUpcomingEvent(upToday) || _calendarEvents[0];
-      var kitMeta  = KIT_BADGES[upcoming.kit] || { label: upcoming.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)', icon: '👕' };
-      var typeMeta = TYPE_BADGES[upcoming.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
-      var activeRundown = (upcoming && Array.isArray(upcoming.schedule) && upcoming.schedule.length > 0) ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
-
-      html += ''
-        + '<div class="cal-upcoming-hero" style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')">'
-          + '<div class="cal-hero-top-bar">'
-            + '<div class="cal-hero-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';">' + escapeHtml(typeMeta.label) + '</div>'
-            + '<div class="cal-hero-countdown">Click to edit schedule &bull; ' + upcoming.date + '</div>'
-          + '</div>'
-          + '<div class="cal-hero-title">' + escapeHtml(upcoming.title) + '</div>'
-          + '<div class="cal-hero-meta-row">'
-            + '<div class="cal-hero-meta-item">🕒 <strong>' + escapeHtml(upcoming.time || '2:15 PM – 6:00 PM') + '</strong></div>'
-            + '<div class="cal-hero-meta-item">📍 <strong>' + escapeHtml(upcoming.location || 'TMCPJ') + '</strong></div>'
-            + '<div class="cal-hero-meta-item">🥋 <strong>' + escapeHtml(kitMeta.label) + '</strong></div>'
-          + '</div>'
-          + '<div class="cal-hero-section-title">Schedule Rundown (Click any activity to edit)</div>'
-          + '<div class="schedule-table" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">';
-
-      activeRundown.forEach(function(step) {
-        html += ''
-          + '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;" onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')">'
-            + '<div>'
-              + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);">' + escapeHtml(step.title) + '</div>'
-              + '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(step.desc || step.notes || '') + '</div>'
-            + '</div>'
-            + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);">' + escapeHtml(step.time) + '</div>'
-          + '</div>';
-      });
-
-      html += '</div></div>';
+      html += renderUpcomingView(true);
     }
 
     html += '</div></div>';
@@ -1741,7 +1887,7 @@
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Calendar event saved & published! 📅');
+      if (typeof showToast === 'function') showToast('Calendar event saved & published!');
     } else {
       if (typeof showToast === 'function') showToast('Failed to save to database. Please retry.');
     }
@@ -1783,7 +1929,7 @@
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Restored official 2026 company master calendar! 🎖️');
+      if (typeof showToast === 'function') showToast('Restored official 2026 company master calendar!');
     }
   }
 
@@ -1904,7 +2050,7 @@
       + '</div>';
     } else if (selectedMemberEvents.length > 0) {
       html += '<div class="cal-preview-desc" style="color:#38bdf8;">'
-        + '<span>📌 You have ' + selectedMemberEvents.length + ' personal reminder(s) on this date</span>'
+        + '<span>' + CAL_ICONS.reminder + ' You have ' + selectedMemberEvents.length + ' personal reminder(s) on this date</span>'
       + '</div>';
     } else {
       html += '<div class="cal-preview-desc" style="color:var(--text-muted);">'
@@ -1979,6 +2125,8 @@
     window.switchCalendarView           = switchCalendarView;
     window.calNavigate                  = calNavigate;
     window.calJumpToday                 = calJumpToday;
+    window.calJumpToEventIndex          = calJumpToEventIndex;
+    window.getUpcomingEventsList        = getUpcomingEventsList;
     window.calStepDay                   = calStepDay;
     window.calNavigateMonth             = calNavigateMonth;
     window.calSelectDate                = calSelectDate;
@@ -1993,6 +2141,7 @@
   window.adminSwitchCalendarView      = adminSwitchCalendarView;
   window.adminCalNavigate             = adminCalNavigate;
   window.adminCalJumpToday            = adminCalJumpToday;
+  window.adminCalJumpToEventIndex     = adminCalJumpToEventIndex;
     window.adminNavigateMonth           = adminNavigateMonth;
     window.openAdminEventModal          = openAdminEventModal;
     window.closeAdminEventModal         = closeAdminEventModal;
@@ -2025,6 +2174,7 @@
       getMemberEventsForDate: getMemberEventsForDate,
       getNextUpcomingParade: getNextUpcomingParade,
       getNextUpcomingEvent: getNextUpcomingEvent,
+      getUpcomingEventsList: getUpcomingEventsList,
       getMonthMatrix: getMonthMatrix,
       getWeekDays: getWeekDays,
       renderCalendarWidget: renderCalendarWidget,
@@ -2035,6 +2185,10 @@
       calStepDay: calStepDay,
       calNavigate: calNavigate,
       calJumpToday: calJumpToday,
+      calJumpToEventIndex: calJumpToEventIndex,
+      adminCalJumpToEventIndex: adminCalJumpToEventIndex,
+      getSortedCompanyEvents: getSortedCompanyEvents,
+      getClosestUpcomingEventIndex: getClosestUpcomingEventIndex,
       openAdminEventModal: openAdminEventModal,
       closeAdminEventModal: closeAdminEventModal,
       handleAdminSaveEvent: handleAdminSaveEvent,

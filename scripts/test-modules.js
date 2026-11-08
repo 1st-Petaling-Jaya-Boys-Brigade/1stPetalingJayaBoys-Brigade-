@@ -1549,6 +1549,48 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // Reset to upcoming view for subsequent assertions
   calendarModule.renderCalendarTab('upcoming');
 
+  // Test Upcoming Prev / Next chronological event navigation
+  const sortedEvents = calendarModule.getSortedCompanyEvents();
+  assert.ok(sortedEvents.length > 0, 'Must have sorted company events');
+  const initialIndex = calendarModule.getClosestUpcomingEventIndex(sortedEvents);
+
+  // Navigate next (+1)
+  calendarModule.calNavigate(1);
+  const nextHeadingMatch = calHub.innerHTML.match(/<div class="cal-current-range-heading">([^<]+)<\/div>/);
+  const titleAfterNext = nextHeadingMatch ? nextHeadingMatch[1] : '';
+  const nextTargetEv = sortedEvents[Math.min(initialIndex + 1, sortedEvents.length - 1)];
+  const expectedNextDate = new Date(nextTargetEv.date + 'T00:00:00').toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  assert.strictEqual(titleAfterNext, expectedNextDate, 'Upcoming view calNavigate(1) should advance to next closest company event breakdown');
+
+  // Navigate prev (-1)
+  calendarModule.calNavigate(-1);
+  const prevHeadingMatch = calHub.innerHTML.match(/<div class="cal-current-range-heading">([^<]+)<\/div>/);
+  const titleAfterPrev = prevHeadingMatch ? prevHeadingMatch[1] : '';
+  const initialTargetEv = sortedEvents[initialIndex];
+  const expectedInitialDate = new Date(initialTargetEv.date + 'T00:00:00').toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  assert.strictEqual(titleAfterPrev, expectedInitialDate, 'Upcoming view calNavigate(-1) should return to previous closest company event breakdown');
+
+  // Reset with calJumpToday
+  calendarModule.calJumpToday();
+  const todayHeadingMatch = calHub.innerHTML.match(/<div class="cal-current-range-heading">([^<]+)<\/div>/);
+  const titleAfterToday = todayHeadingMatch ? todayHeadingMatch[1] : '';
+  assert.strictEqual(titleAfterToday, expectedInitialDate, 'calJumpToday should reset upcoming view to closest event to today');
+
+  // Direct index jumping
+  calendarModule.calJumpToEventIndex(0);
+  const firstHeadingMatch = calHub.innerHTML.match(/<div class="cal-current-range-heading">([^<]+)<\/div>/);
+  const titleFirst = firstHeadingMatch ? firstHeadingMatch[1] : '';
+  const firstDate = new Date(sortedEvents[0].date + 'T00:00:00').toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  assert.strictEqual(titleFirst, firstDate, 'calJumpToEventIndex(0) jumps to the first event of the year');
+  console.log('  ✔ Upcoming view next/previous navigation and direct index jumping verified');
+
+  // Zero Emojis Invariant in Calendar Module
+  const calModuleSource = fs.readFileSync(path.resolve(__dirname, '../js/modules/calendar.js'), 'utf8');
+  const calEmojiRegex = /[\p{Extended_Pictographic}\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}]/u;
+  const calEmojiLines = calModuleSource.split('\n').filter(line => calEmojiRegex.test(line));
+  assert.strictEqual(calEmojiLines.length, 0, 'Calendar module must contain 0 emojis (100% SVG icons & clean text)');
+  console.log('  ✔ Calendar module zero emojis invariant verified (0 emojis found in calendar.js)');
+
   // Test Day Schedule Modal with Prev/Next Navigation
   calendarModule.openCalendarDayModal('2026-10-03');
   const dayModal = document.getElementById('calendar-day-modal');
