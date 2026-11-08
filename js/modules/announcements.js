@@ -6,7 +6,7 @@
  * emoji reactions, and admin post/edit/delete operations.
  */
 
-/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal */
+/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator */
 
 // ── State ──────────────────────────────────────────────────────────────────
 var announcements = [];
@@ -390,6 +390,7 @@ function renderAnnouncements() {
   announcements.slice().reverse().forEach(function(a, ri) {
     var realIdx = announcements.length - 1 - ri;
     var sanitizedBody = sanitizeAnnouncementHtml(a.body || '');
+    var formattedBody = formatAnnouncementMentions(sanitizedBody);
     var reactions = a.reactions || {};
 
     // Build reaction buttons
@@ -410,7 +411,7 @@ function renderAnnouncements() {
     });
     reactHtml += '</div>';
 
-    var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || '');
+    var safeTitle = formatAnnouncementMentions((typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || ''));
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
 
     // Prominent large infographic banner ( / Infographics)
@@ -438,7 +439,7 @@ function renderAnnouncements() {
       + '<div class="ann-date">' + safeDate + '</div>'
       + '<div class="ann-title">' + safeTitle + '</div>'
       + infographicHtml
-      + '<div class="ann-body">' + sanitizedBody + '</div>'
+      + '<div class="ann-body">' + formattedBody + '</div>'
       + reactHtml
       + '</div>';
   });
@@ -1016,6 +1017,475 @@ if (typeof document !== 'undefined') {
 }
 
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
+// ── Announcements Mentions Engine (@Mentions) ──────────────────────────────
+var _currentAnnMentionCandidates = [];
+var _activeAnnMentionIndex = 0;
+var _activeAnnMentionTarget = null;
+
+/**
+ * Retrieves mention candidate list for announcements
+ * @param {string} query
+ * @returns {Array<Object>}
+ */
+function getAnnouncementMentionCandidates(query) {
+  var q = (query || '').toLowerCase().trim();
+  var candidates = [];
+
+  var presetGroups = [
+    { name: 'all', label: '@all', role: 'Group', desc: 'All Company Members' },
+    // Departments
+    { name: 'Secretariat', label: '@Secretariat', role: 'Department', desc: 'Secretariat Department' },
+    { name: 'Logistics', label: '@Logistics', role: 'Department', desc: 'Logistics Department' },
+    { name: 'Media', label: '@Media', role: 'Department', desc: 'Media Department' },
+    { name: 'HQ', label: '@HQ', role: 'Department', desc: 'HQ Management' },
+    { name: 'Officers', label: '@Officers', role: 'Department', desc: 'Company Officers' },
+    // Admins & Super Admins
+    { name: 'admins', label: '@admins', role: 'Role', desc: 'Portal Administrators' },
+    { name: 'super admins', label: '@super admins', role: 'Role', desc: 'Super Administrators' },
+    // Squads
+    { name: 'P1', label: '@P1', role: 'Squad', desc: 'Papa 1 Squad' },
+    { name: 'P2', label: '@P2', role: 'Squad', desc: 'Papa 2 Squad' },
+    { name: 'A1', label: '@A1', role: 'Squad', desc: 'Alpha 1 Squad' },
+    { name: 'A2', label: '@A2', role: 'Squad', desc: 'Alpha 2 Squad' },
+    { name: 'Z1', label: '@Z1', role: 'Squad', desc: 'Zulu 1 Squad' },
+    { name: 'Z2', label: '@Z2', role: 'Squad', desc: 'Zulu 2 Squad' },
+    // Platoons
+    { name: 'Papa', label: '@Papa', role: 'Platoon', desc: 'Papa Platoon' },
+    { name: 'Alpha', label: '@Alpha', role: 'Platoon', desc: 'Alpha Platoon' },
+    { name: 'Zulu', label: '@Zulu', role: 'Platoon', desc: 'Zulu Platoon' },
+    // Sections & Creator
+    { name: 'creator', label: '@creator', role: 'Role', desc: 'Portal Creator (Jeshua Koh)' },
+    { name: 'seniors', label: '@seniors', role: 'Section', desc: 'Senior Section Members' },
+    { name: 'juniors', label: '@juniors', role: 'Section', desc: 'Junior Section Members' }
+  ];
+
+  presetGroups.forEach(function(g) {
+    if (!q || g.name.toLowerCase().indexOf(q) !== -1 || g.label.toLowerCase().indexOf(q) !== -1) {
+      candidates.push(g);
+    }
+  });
+
+  // Members
+  var memberMap = {};
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  if (myName) {
+    memberMap[myName] = {
+      name: myName,
+      label: '@' + myName,
+      role: (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member',
+      desc: ((typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member') + ' (You)'
+    };
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
+      if (Array.isArray(cached)) {
+        cached.forEach(function(m) {
+          if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
+            memberMap[m.name.trim()] = {
+              name: m.name.trim(),
+              label: '@' + m.name.trim(),
+              role: m.rank || 'Member',
+              desc: (m.rank || 'Member') + (m.department ? (' · ' + m.department) : '')
+            };
+          }
+        });
+      }
+    }
+  } catch (_) {}
+
+  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
+        memberMap[m.name.trim()] = {
+          name: m.name.trim(),
+          label: '@' + m.name.trim(),
+          role: m.department || m.rank || 'Member',
+          desc: (m.rank || 'Member') + (m.department ? (' · ' + m.department) : '')
+        };
+      }
+    });
+  }
+
+  Object.keys(memberMap).sort().forEach(function(k) {
+    var m = memberMap[k];
+    if (!q || m.name.toLowerCase().indexOf(q) !== -1 || m.label.toLowerCase().indexOf(q) !== -1) {
+      candidates.push(m);
+    }
+  });
+
+  return candidates;
+}
+
+/**
+ * Wraps @mentions in announcement text with styled mention badges
+ * @param {string} text
+ * @returns {string}
+ */
+function formatAnnouncementMentions(text) {
+  if (!text) return '';
+  var groups = [
+    'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers',
+    'super admins', 'super admin', 'admins', 'admin',
+    'P1', 'P2', 'A1', 'A2', 'Z1', 'Z2',
+    'Papa', 'Alpha', 'Zulu',
+    'seniors', 'juniors', 'creator', 'all'
+  ];
+  var candidates = groups.slice();
+
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  if (myName && myName.trim()) candidates.push(myName.trim());
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
+      if (Array.isArray(cached)) {
+        cached.forEach(function(m) {
+          if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
+        });
+      }
+    }
+  } catch (_) {}
+
+  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
+    });
+  }
+
+  var seen = {};
+  var unique = [];
+  candidates.forEach(function(name) {
+    var k = name.toLowerCase();
+    if (!seen[k]) {
+      seen[k] = true;
+      unique.push(name);
+    }
+  });
+  unique.sort(function(a, b) { return b.length - a.length; });
+
+  var out = text;
+  unique.forEach(function(name) {
+    if (!name) return;
+    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
+    var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
+    out = out.replace(rx, function(match, prefix, matchedName) {
+      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
+    });
+  });
+
+  // Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  // Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  // Fallback for single-word mentions (e.g. @group)
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  return out;
+}
+
+/**
+ * Checks if user is mentioned in an announcement
+ */
+function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, mySquad, myPlatoon, mySection) {
+  if (!text) return false;
+  var cleanText = String(text)
+    .replace(/&nbsp;/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  var lower = cleanText.toLowerCase();
+
+  // 1. @all
+  if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
+
+  // 2. Individual @Name
+  if (myName) {
+    var myNameLower = myName.toLowerCase().trim();
+    if (lower.indexOf('@' + myNameLower) !== -1) return true;
+    var nameParts = myNameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
+    for (var i = 0; i < nameParts.length; i++) {
+      var rx = new RegExp('(?:^|\\W)@' + nameParts[i] + '\\b', 'i');
+      if (rx.test(lower)) return true;
+    }
+  }
+
+  // Also check email user prefix
+  if (myEmail) {
+    var myEmailLower = myEmail.toLowerCase().trim();
+    if (lower.indexOf('@' + myEmailLower) !== -1) return true;
+    var emailPrefix = myEmailLower.split('@')[0];
+    if (emailPrefix && emailPrefix.length >= 3) {
+      var erx = new RegExp('(?:^|\\W)@' + emailPrefix + '\\b', 'i');
+      if (erx.test(lower)) return true;
+    }
+  }
+
+  // 3. Departments: Secretariat, Logistics, Media, HQ, Officers
+  var deptStr = (myDept || (typeof sessionGet === 'function' ? sessionGet('department') : '') || '').toLowerCase().trim();
+  if (deptStr) {
+    if (lower.indexOf('@' + deptStr) !== -1) return true;
+    if (deptStr.indexOf('secretariat') !== -1 && lower.indexOf('@secretariat') !== -1) return true;
+    if (deptStr.indexOf('logistics') !== -1 && lower.indexOf('@logistics') !== -1) return true;
+    if (deptStr.indexOf('media') !== -1 && lower.indexOf('@media') !== -1) return true;
+    if (deptStr.indexOf('hq') !== -1 && lower.indexOf('@hq') !== -1) return true;
+    if ((deptStr === 'officers' || deptStr === 'officer') && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+  }
+  var rankStr = (myRank || (typeof sessionGet === 'function' ? sessionGet('rank') : '') || '');
+  var isOfficerRank = rankStr && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(rankStr) !== -1;
+  if (isOfficerRank && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+
+  // 4. Squads: P1, P2, A1, A2, Z1, Z2
+  var squadStr = (mySquad || (typeof sessionGet === 'function' ? sessionGet('squad') : '') || '').toLowerCase().trim();
+  if (squadStr) {
+    if (lower.indexOf('@' + squadStr) !== -1) return true;
+    var normSquad = squadStr.replace(/[^a-z0-9]/g, '');
+    if (normSquad === 'p1' || normSquad === 'papa1' || (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('1') !== -1)) {
+      if (/(?:^|\W)@p1\b/i.test(lower)) return true;
+    }
+    if (normSquad === 'p2' || normSquad === 'papa2' || (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('2') !== -1)) {
+      if (/(?:^|\W)@p2\b/i.test(lower)) return true;
+    }
+    if (normSquad === 'a1' || normSquad === 'alpha1' || (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('1') !== -1)) {
+      if (/(?:^|\W)@a1\b/i.test(lower)) return true;
+    }
+    if (normSquad === 'a2' || normSquad === 'alpha2' || (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('2') !== -1)) {
+      if (/(?:^|\W)@a2\b/i.test(lower)) return true;
+    }
+    if (normSquad === 'z1' || normSquad === 'zulu1' || (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('1') !== -1)) {
+      if (/(?:^|\W)@z1\b/i.test(lower)) return true;
+    }
+    if (normSquad === 'z2' || normSquad === 'zulu2' || (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('2') !== -1)) {
+      if (/(?:^|\W)@z2\b/i.test(lower)) return true;
+    }
+  }
+
+  // 5. Platoons: Papa, Alpha, Zulu
+  var platoonStr = (myPlatoon || (typeof sessionGet === 'function' ? sessionGet('platoon') : '') || squadStr || '').toLowerCase().trim();
+  if (platoonStr) {
+    if (platoonStr.indexOf('papa') !== -1 && /(?:^|\W)@papa\b/i.test(lower)) return true;
+    if (platoonStr.indexOf('alpha') !== -1 && /(?:^|\W)@alpha\b/i.test(lower)) return true;
+    if (platoonStr.indexOf('zulu') !== -1 && /(?:^|\W)@zulu\b/i.test(lower)) return true;
+  }
+
+  // 6. Section groups: seniors, juniors
+  var secStr = (mySection || (typeof sessionGet === 'function' ? sessionGet('section') : '') || '').toLowerCase().trim();
+  if (secStr.indexOf('senior') !== -1 || isOfficerRank) {
+    if (/(?:^|\W)@seniors?\b/i.test(lower)) return true;
+  }
+  if (secStr.indexOf('junior') !== -1 || secStr.indexOf('pre-junior') !== -1) {
+    if (/(?:^|\W)@juniors?\b/i.test(lower)) return true;
+  }
+
+  // 7. Creator: @creator
+  var isCreator = (typeof isPortalCreator === 'function')
+    ? isPortalCreator(myName, myEmail)
+    : (/jeshua\s+koh/i.test(myName) || (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1));
+  if (isCreator && /(?:^|\W)@creator\b/i.test(lower)) return true;
+
+  // 8. Super Admins: @super admins / @super admin
+  var isSuper = (typeof isSuperAdmin === 'function' && isSuperAdmin())
+    || (typeof window !== 'undefined' && typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
+  if (!isSuper && typeof sessionGet === 'function') {
+    var sRole = (sessionGet('role') || '').toLowerCase();
+    if (sRole === 'superadmin' || sRole === 'super admin') isSuper = true;
+  }
+  if (isSuper && /(?:^|\W)@(super\s*admins?)\b/i.test(lower)) return true;
+
+  // 9. Admins: @admins / @admin
+  var isAdminUser = isSuper || (typeof isAdmin === 'function' && isAdmin())
+    || (typeof window !== 'undefined' && typeof window.isAdmin === 'function' && window.isAdmin());
+  if (!isAdminUser && typeof sessionGet === 'function') {
+    var aRole = (sessionGet('role') || '').toLowerCase();
+    if (aRole === 'admin' || aRole === 'superadmin') isAdminUser = true;
+  }
+  if (isAdminUser && /(?:^|\W)@(admins?|administrators?)\b/i.test(lower)) return true;
+
+  return false;
+}
+
+/**
+ * Floating mention dropdown UI for Announcements (#ann-body-input)
+ */
+function showAnnouncementMentionDropdown(el, query) {
+  if (typeof document === 'undefined') return;
+  _activeAnnMentionTarget = el;
+  var container = el.parentNode;
+  var dropdown = container ? container.querySelector('.ann-mentions-dropdown') : null;
+  if (!dropdown && container) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'tb-mentions-dropdown ann-mentions-dropdown';
+    dropdown.setAttribute('role', 'listbox');
+    dropdown.setAttribute('aria-label', 'Announcement mentions');
+    dropdown.style.display = 'none';
+    dropdown.style.position = 'absolute';
+    dropdown.style.bottom = 'calc(100% + 4px)';
+    dropdown.style.left = '0';
+    dropdown.style.right = '0';
+    container.style.position = 'relative';
+    container.appendChild(dropdown);
+  }
+  if (!dropdown) return;
+
+  var candidates = getAnnouncementMentionCandidates(query);
+  _currentAnnMentionCandidates = candidates;
+  _activeAnnMentionIndex = 0;
+
+  if (!candidates.length) {
+    dropdown.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);font-style:italic;">No matching announcement groups or members</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  var html = '';
+  candidates.slice(0, 8).forEach(function(c, i) {
+    var iconHtml = '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">@</span>';
+    if (c.role !== 'Group' && c.role !== 'Department' && c.role !== 'Squad' && c.role !== 'Platoon' && c.role !== 'Role' && c.role !== 'Section') {
+      iconHtml = '<span style="width:24px;height:24px;border-radius:50%;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + (c.name ? c.name.charAt(0).toUpperCase() : 'M') + '</span>';
+    }
+
+    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onpointerdown="selectAnnouncementMentionCandidate(' + i + ', event)" ontouchstart="selectAnnouncementMentionCandidate(' + i + ', event)" onmousedown="selectAnnouncementMentionCandidate(' + i + ', event)">'
+      + iconHtml
+      + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">'
+        + '<div class="tb-mention-name">' + (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) + '</div>'
+        + '<div style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(c.desc || '') : (c.desc || '')) + '</div>'
+      + '</div>'
+      + '<span class="tb-mention-type">' + (typeof escapeHtml === 'function' ? escapeHtml(c.role || 'Member') : (c.role || 'Member')) + '</span>'
+      + '</div>';
+  });
+
+  dropdown.innerHTML = html;
+  dropdown.style.display = 'block';
+}
+
+function hideAnnouncementMentionDropdown() {
+  if (typeof document === 'undefined') return;
+  var dropdowns = document.querySelectorAll('.ann-mentions-dropdown');
+  dropdowns.forEach(function(d) { d.style.display = 'none'; });
+  _currentAnnMentionCandidates = [];
+  _activeAnnMentionIndex = 0;
+}
+
+function handleAnnouncementMentionInput(el) {
+  if (!el) return;
+  _activeAnnMentionTarget = el;
+
+  var text = '';
+  var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+  if (sel && sel.focusNode) {
+    var nodeText = sel.focusNode.textContent || '';
+    var offset = sel.focusOffset || 0;
+    text = nodeText.slice(0, offset);
+  } else {
+    text = el.innerText || el.textContent || '';
+  }
+
+  var match = text.match(/@([a-zA-Z0-9_\s]*)$/);
+  if (match) {
+    var query = match[1];
+    if (query.split(/\s+/).length <= 6) {
+      showAnnouncementMentionDropdown(el, query);
+      return;
+    }
+  }
+
+  hideAnnouncementMentionDropdown();
+}
+
+function handleAnnouncementMentionKeyDown(e, el) {
+  var dropdown = el && el.parentNode ? el.parentNode.querySelector('.ann-mentions-dropdown') : null;
+  var isDropdownOpen = dropdown && dropdown.style.display !== 'none' && _currentAnnMentionCandidates.length > 0;
+
+  if (isDropdownOpen) {
+    var items = dropdown.querySelectorAll('.tb-mention-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _activeAnnMentionIndex = (_activeAnnMentionIndex + 1) % items.length;
+      items.forEach(function(item, i) { item.classList.toggle('active', i === _activeAnnMentionIndex); });
+      return;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _activeAnnMentionIndex = (_activeAnnMentionIndex - 1 + items.length) % items.length;
+      items.forEach(function(item, i) { item.classList.toggle('active', i === _activeAnnMentionIndex); });
+      return;
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      selectAnnouncementMentionCandidate(_activeAnnMentionIndex);
+      return;
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideAnnouncementMentionDropdown();
+      return;
+    }
+  }
+}
+
+function selectAnnouncementMentionCandidate(idx, event) {
+  if (event && event.preventDefault) event.preventDefault();
+  var candidate = _currentAnnMentionCandidates[idx];
+  if (!candidate) { hideAnnouncementMentionDropdown(); return; }
+
+  var input = _activeAnnMentionTarget || (typeof document !== 'undefined' ? document.getElementById('ann-body-input') : null);
+  if (!input) { hideAnnouncementMentionDropdown(); return; }
+
+  if (input.isContentEditable || input.getAttribute('contenteditable') === 'true') {
+    var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+    if (sel && sel.focusNode) {
+      var node = sel.focusNode;
+      var nodeText = node.textContent || '';
+      var offset = sel.focusOffset || nodeText.length;
+      var beforeC = nodeText.slice(0, offset);
+      var afterC = nodeText.slice(offset);
+      var newBeforeC = beforeC.replace(/@([a-zA-Z0-9_\s]*)$/, '');
+      node.textContent = newBeforeC;
+
+      var pill = document.createElement('span');
+      pill.className = 'tb-mention-pill';
+      pill.setAttribute('contenteditable', 'false');
+      pill.textContent = '@' + candidate.name;
+
+      var spaceNode = document.createTextNode('\u00A0');
+      var parent = node.parentNode;
+      if (parent) {
+        parent.insertBefore(pill, node.nextSibling);
+        parent.insertBefore(spaceNode, pill.nextSibling);
+        if (afterC) {
+          var afterNode = document.createTextNode(afterC);
+          parent.insertBefore(afterNode, spaceNode.nextSibling);
+        }
+        try {
+          var range = document.createRange();
+          range.setStartAfter(spaceNode);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch (_) {}
+      }
+    } else {
+      var curText = input.innerText || input.textContent || '';
+      input.innerHTML = formatAnnouncementMentions(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' '));
+    }
+  } else {
+    var val = input.value || '';
+    var cursor = (typeof input.selectionStart === 'number') ? input.selectionStart : val.length;
+    var b = val.slice(0, cursor);
+    var a = val.slice(cursor);
+    var nb = b.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
+    input.value = nb + a;
+    input.selectionStart = input.selectionEnd = nb.length;
+  }
+
+  input.focus();
+  hideAnnouncementMentionDropdown();
+}
+
+
 if (typeof window !== 'undefined') {
   window.announcements            = announcements;
   window.SAFE_REACTION_EMOJIS     = SAFE_REACTION_EMOJIS;
@@ -1043,6 +1513,14 @@ if (typeof window !== 'undefined') {
   window.updateAnnouncementInfographicPreview = updateAnnouncementInfographicPreview;
   window.clearAnnouncementInfographic     = clearAnnouncementInfographic;
   window.handleAnnouncementImageError     = handleAnnouncementImageError;
+  window.getAnnouncementMentionCandidates = getAnnouncementMentionCandidates;
+  window.formatAnnouncementMentions       = formatAnnouncementMentions;
+  window.isUserMentionedInAnnouncement    = isUserMentionedInAnnouncement;
+  window.showAnnouncementMentionDropdown  = showAnnouncementMentionDropdown;
+  window.hideAnnouncementMentionDropdown  = hideAnnouncementMentionDropdown;
+  window.handleAnnouncementMentionInput   = handleAnnouncementMentionInput;
+  window.handleAnnouncementMentionKeyDown = handleAnnouncementMentionKeyDown;
+  window.selectAnnouncementMentionCandidate = selectAnnouncementMentionCandidate;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -1073,6 +1551,14 @@ if (typeof module !== 'undefined' && module.exports) {
     handleAnnouncementImageUrlInput: handleAnnouncementImageUrlInput,
     updateAnnouncementInfographicPreview: updateAnnouncementInfographicPreview,
     clearAnnouncementInfographic: clearAnnouncementInfographic,
-    handleAnnouncementImageError: handleAnnouncementImageError
+    handleAnnouncementImageError: handleAnnouncementImageError,
+    getAnnouncementMentionCandidates: getAnnouncementMentionCandidates,
+    formatAnnouncementMentions: formatAnnouncementMentions,
+    isUserMentionedInAnnouncement: isUserMentionedInAnnouncement,
+    showAnnouncementMentionDropdown: showAnnouncementMentionDropdown,
+    hideAnnouncementMentionDropdown: hideAnnouncementMentionDropdown,
+    handleAnnouncementMentionInput: handleAnnouncementMentionInput,
+    handleAnnouncementMentionKeyDown: handleAnnouncementMentionKeyDown,
+    selectAnnouncementMentionCandidate: selectAnnouncementMentionCandidate
   };
 }

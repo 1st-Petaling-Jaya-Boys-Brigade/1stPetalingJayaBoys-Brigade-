@@ -16,6 +16,8 @@
  *    - Supabase bb_config persistence with offline state fallback.
  */
 
+/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet */
+
 // ── SVG Icon Registry (Zero Emojis) ──────────────────────────────────────────
 var FORUM_ICONS = {
   gear: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>',
@@ -3239,7 +3241,7 @@ function syncForumNotifications(posts) {
   if (!myEmail && !myIc && !myName) return;
 
   list.forEach(function(p) {
-    if (!p || !p.id || !Array.isArray(p.replies) || !p.replies.length) return;
+    if (!p || !p.id) return;
 
     var pEmail = (p.authorEmail || '').toLowerCase().trim();
     var pIc = (p.authorIc || '').toLowerCase().trim();
@@ -3248,7 +3250,37 @@ function syncForumNotifications(posts) {
     var isPostAuthor = (pEmail && myEmail && pEmail === myEmail)
       || (pIc && myIc && pIc === myIc)
       || (pName && myName && pName === myName);
-    if (!isPostAuthor) return;
+
+    // Check if user is mentioned in the forum post body or title
+    var postText = (p.title || '') + ' ' + (p.content || '');
+    var isMentionedInPost = isUserMentionedInForum(postText, p.authorEmail, p.authorName, myName, myEmail);
+    if (isMentionedInPost) {
+      var pNotifId = 'notif-forum-post-mention-' + p.id;
+      var existingPostNotif = notifArray.find(function(n) { return n.id === pNotifId; });
+      if (!existingPostNotif) {
+        var authorName = p.authorName || 'Someone';
+        var cleanSnippet = (p.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleanSnippet.length > 70) cleanSnippet = cleanSnippet.slice(0, 67) + '...';
+        var pInitials = authorName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase() || 'BB';
+        notifArray.unshift({
+          id: pNotifId,
+          category: 'announcements',
+          group: 'Today',
+          avatarInitials: pInitials,
+          icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+          title: authorName + ' mentioned you in a forum post',
+          snippet: (p.title ? ('"' + p.title + '": ') : '') + (cleanSnippet || 'Tap to view discussion.'),
+          time: p.date || 'Today',
+          unread: true,
+          action: function() {
+            if (typeof switchTabNav === 'function') switchTabNav('forum');
+            if (typeof openForumPostDetail === 'function') openForumPostDetail(p.id);
+          }
+        });
+      }
+    }
+
+    if (!Array.isArray(p.replies) || !p.replies.length) return;
 
     p.replies.forEach(function(r, idx) {
       if (!r) return;
@@ -3262,7 +3294,12 @@ function syncForumNotifications(posts) {
       var isSelfReply = (rEmail && myEmail && rEmail === myEmail)
         || (rIc && myIc && rIc === myIc)
         || (rName && myName && rName === myName);
-      if (isSelfReply) return;
+
+      var isMentionedInReply = isUserMentionedInForum(r.content || '', r.authorEmail, r.authorName, myName, myEmail);
+
+      // Notify if post author OR mentioned in the reply (including self-mentions)
+      if (!isPostAuthor && !isMentionedInReply) return;
+      if (isSelfReply && !isMentionedInReply) return;
 
       var existing = notifArray.find(function(n) { return n.id === notifId; });
       if (!existing) {
@@ -3270,6 +3307,9 @@ function syncForumNotifications(posts) {
         var cleanSnippet = (r.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         if (cleanSnippet.length > 70) cleanSnippet = cleanSnippet.slice(0, 67) + '...';
         var initials = replierName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase() || 'BB';
+        var notifTitleText = isMentionedInReply && !isPostAuthor
+          ? (replierName + ' mentioned you in a forum discussion')
+          : (replierName + ' replied to your forum discussion');
 
         notifArray.unshift({
           id: notifId,
@@ -3277,7 +3317,7 @@ function syncForumNotifications(posts) {
           group: 'Today',
           avatarInitials: initials,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-          title: replierName + ' replied to your forum discussion',
+          title: notifTitleText,
           snippet: (p.title ? ('"' + p.title + '": ') : '') + (cleanSnippet || 'Tap to view discussion.'),
           time: r.date || 'Today',
           unread: true,
@@ -5301,7 +5341,7 @@ function renderForumFeed() {
     var authorTooltip = safeAuthor + (safeRank ? ' • ' + safeRank : '');
     var authorAvatarHtml = getForumMemberAvatarHtml(p.authorName, p.authorEmail || p.authorIc, 24, authorTooltip);
     var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
-    var excerpt = safeContent.length > 150 ? (safeContent.slice(0, 147) + '...') : safeContent;
+    var excerpt = formatForumMentions(safeContent.length > 150 ? (safeContent.slice(0, 147) + '...') : safeContent);
     var perms = getForumUserPermissions(p);
 
     var adminActionsHtml = '';
@@ -5512,8 +5552,8 @@ function openCreateForumPostModal(prefill) {
           '</div>' +
         '</div>' +
         '<div class="form-group">' +
-          '<label class="form-label">Description / Steps to Reproduce</label>' +
-          '<textarea id="forum-new-content" class="form-textarea" rows="5" placeholder="Describe your question or issue in detail..." required>' + (pf.content ? (typeof escapeHtml === 'function' ? escapeHtml(pf.content) : pf.content) : '') + '</textarea>' +
+          '<label class="form-label">Description / Steps to Reproduce (@ to mention)</label>' +
+          '<textarea id="forum-new-content" class="form-textarea" rows="5" placeholder="Describe your question or issue in detail... (@ to mention)" oninput="handleForumMentionInput(this)" onkeydown="handleForumMentionKeyDown(event, this)" required>' + (pf.content ? (typeof escapeHtml === 'function' ? escapeHtml(pf.content) : pf.content) : '') + '</textarea>' +
         '</div>' +
         '<div class="form-group" style="margin-top:12px;">' +
           '<label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">' +
@@ -5730,8 +5770,8 @@ function openEditForumPostModal(postId) {
           '</div>' +
         '</div>' +
         '<div class="form-group">' +
-          '<label class="form-label">Description / Content</label>' +
-          '<textarea id="forum-edit-content" class="form-textarea" rows="6" required>' + safeContent + '</textarea>' +
+          '<label class="form-label">Description / Content (@ to mention)</label>' +
+          '<textarea id="forum-edit-content" class="form-textarea" rows="6" oninput="handleForumMentionInput(this)" onkeydown="handleForumMentionKeyDown(event, this)" required>' + safeContent + '</textarea>' +
         '</div>' +
         '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">' +
           '<button type="button" class="portal-btn portal-btn-secondary" onclick="document.getElementById(\'forum-edit-modal\').remove()">Cancel</button>' +
@@ -5889,7 +5929,7 @@ function openForumPostDetail(postId) {
 
   var isResolved = p.status === 'resolved';
   var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(p.title) : p.title;
-  var safeContent = formatHelperMarkdown(p.content);
+  var safeContent = formatForumMentions(formatHelperMarkdown(p.content));
   var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(p.authorName) : p.authorName;
   var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(p.authorRank || 'Member') : p.authorRank;
   var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
@@ -5912,7 +5952,7 @@ function openForumPostDetail(postId) {
       var rAuthor = (typeof escapeHtml === 'function') ? escapeHtml(r.authorName) : r.authorName;
       var rRank = (typeof escapeHtml === 'function') ? escapeHtml(r.authorRank || '') : r.authorRank;
       var rRole = (typeof escapeHtml === 'function') ? escapeHtml(r.authorRole || '') : r.authorRole;
-      var rContent = formatHelperMarkdown(r.content);
+      var rContent = formatForumMentions(formatHelperMarkdown(r.content));
       var isOff = r.isOfficial;
       var canDeleteThisReply = perms.isSuperAdmin || (r.authorEmail && curEmail && r.authorEmail.toLowerCase().trim() === curEmail);
 
@@ -6029,7 +6069,9 @@ function openForumPostDetail(postId) {
       '<!-- Reply Box for Members, Officers and Admins -->' +
       '<form onsubmit="submitForumReply(event, \'' + p.id + '\')" style="margin-top:auto;padding-top:12px;border-top:1px solid var(--border-subtle);">' +
         '<div style="display:flex;gap:8px;align-items:flex-start;">' +
-          '<textarea id="forum-reply-input-' + p.id + '" class="form-textarea" rows="2" placeholder="Write a reply or solution..." required style="flex:1;resize:vertical;min-height:50px;font-size:13px;padding:8px 12px;"></textarea>' +
+          '<div style="flex:1;position:relative;">' +
+            '<textarea id="forum-reply-input-' + p.id + '" class="form-textarea" rows="2" placeholder="Write a reply or solution... (@ to mention)" oninput="handleForumMentionInput(this)" onkeydown="handleForumMentionKeyDown(event, this)" required style="width:100%;box-sizing:border-box;resize:vertical;min-height:50px;font-size:13px;padding:8px 12px;"></textarea>' +
+          '</div>' +
           '<button type="submit" class="portal-btn portal-btn-primary" style="font-weight:700;font-size:12px;padding:8px 16px;height:auto;display:inline-flex;align-items:center;gap:6px;">' +
             FORUM_ICONS.send + ' <span>Reply</span>' +
           '</button>' +
@@ -6163,6 +6205,356 @@ if (typeof document !== 'undefined') {
 }
 
 // ── Export Interface ─────────────────────────────────────────────────────────
+// ── Forum Mentions Engine (@Mentions) ──────────────────────────────────────
+var _currentForumMentionCandidates = [];
+var _activeForumMentionIndex = 0;
+var _activeForumMentionTarget = null;
+
+/**
+ * Retrieves mention candidate list for forum posts and replies
+ * Presets: @all, @admins, @super admins, @creator, and member names (NO departments)
+ * @param {string} query
+ * @returns {Array<Object>}
+ */
+function getForumMentionCandidates(query) {
+  var q = (query || '').toLowerCase().trim();
+  var candidates = [];
+
+  var presetGroups = [
+    { name: 'all', label: '@all', role: 'Group', desc: 'All members' },
+    { name: 'admins', label: '@admins', role: 'Role', desc: 'Portal Administrators' },
+    { name: 'super admins', label: '@super admins', role: 'Role', desc: 'Super Administrators' },
+    { name: 'creator', label: '@creator', role: 'Role', desc: 'Portal Creator (Jeshua Koh)' }
+  ];
+
+  presetGroups.forEach(function(g) {
+    if (!q || g.name.toLowerCase().indexOf(q) !== -1 || g.label.toLowerCase().indexOf(q) !== -1) {
+      candidates.push(g);
+    }
+  });
+
+  // Collect member candidates from localStorage cache / department cache / session
+  var memberMap = {};
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  if (myName) {
+    memberMap[myName] = {
+      name: myName,
+      label: '@' + myName,
+      role: (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member',
+      desc: ((typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member') + ' (You)'
+    };
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
+      if (Array.isArray(cached)) {
+        cached.forEach(function(m) {
+          if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
+            memberMap[m.name.trim()] = {
+              name: m.name.trim(),
+              label: '@' + m.name.trim(),
+              role: m.rank || 'Member',
+              desc: m.rank || 'Member'
+            };
+          }
+        });
+      }
+    }
+  } catch (_) {}
+
+  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
+        memberMap[m.name.trim()] = {
+          name: m.name.trim(),
+          label: '@' + m.name.trim(),
+          role: m.rank || 'Member',
+          desc: m.rank || 'Member'
+        };
+      }
+    });
+  }
+
+  Object.keys(memberMap).sort().forEach(function(k) {
+    var m = memberMap[k];
+    if (!q || m.name.toLowerCase().indexOf(q) !== -1 || m.label.toLowerCase().indexOf(q) !== -1) {
+      candidates.push(m);
+    }
+  });
+
+  return candidates;
+}
+
+/**
+ * Wraps @mentions in forum text with styled mention badges
+ * @param {string} text
+ * @returns {string}
+ */
+function formatForumMentions(text) {
+  if (!text) return '';
+  var groups = ['super admins', 'super admin', 'admins', 'admin', 'creator', 'all'];
+  var candidates = groups.slice();
+
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  if (myName && myName.trim()) candidates.push(myName.trim());
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
+      if (Array.isArray(cached)) {
+        cached.forEach(function(m) {
+          if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
+        });
+      }
+    }
+  } catch (_) {}
+
+  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
+    });
+  }
+
+  var seen = {};
+  var unique = [];
+  candidates.forEach(function(name) {
+    var k = name.toLowerCase();
+    if (!seen[k]) {
+      seen[k] = true;
+      unique.push(name);
+    }
+  });
+  unique.sort(function(a, b) { return b.length - a.length; });
+
+  var out = text;
+  unique.forEach(function(name) {
+    if (!name) return;
+    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
+    var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
+    out = out.replace(rx, function(match, prefix, matchedName) {
+      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
+    });
+  });
+
+  // Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  // Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  // Fallback for single-word mentions (e.g. @group)
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  return out;
+}
+
+/**
+ * Evaluates whether a forum post or reply mentions the specific logged-in user
+ * @param {string} text
+ * @param {string} [authorEmail]
+ * @param {string} [authorName]
+ * @param {string} [myName]
+ * @param {string} [myEmail]
+ * @param {string} [myRole]
+ * @returns {boolean}
+ */
+function isUserMentionedInForum(text, authorEmail, authorName, myName, myEmail, _myRole) {
+  if (!text) return false;
+  var cleanText = String(text)
+    .replace(/&nbsp;/g, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  var lower = cleanText.toLowerCase();
+
+  // 1. @all
+  if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
+
+  // 2. Individual @Name
+  if (myName) {
+    var myNameLower = myName.toLowerCase().trim();
+    if (lower.indexOf('@' + myNameLower) !== -1) return true;
+    var nameParts = myNameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
+    for (var i = 0; i < nameParts.length; i++) {
+      var rx = new RegExp('(?:^|\\W)@' + nameParts[i] + '\\b', 'i');
+      if (rx.test(lower)) return true;
+    }
+  }
+
+  // Also check email user prefix
+  if (myEmail) {
+    var myEmailLower = myEmail.toLowerCase().trim();
+    if (lower.indexOf('@' + myEmailLower) !== -1) return true;
+    var emailPrefix = myEmailLower.split('@')[0];
+    if (emailPrefix && emailPrefix.length >= 3) {
+      var erx = new RegExp('(?:^|\\W)@' + emailPrefix + '\\b', 'i');
+      if (erx.test(lower)) return true;
+    }
+  }
+
+  // 3. Creator: @creator
+  var isCreator = (typeof isPortalCreator === 'function')
+    ? isPortalCreator(myName, myEmail)
+    : (/jeshua\s+koh/i.test(myName) || (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1));
+  if (isCreator && /(?:^|\W)@creator\b/i.test(lower)) return true;
+
+  // 4. Super Admins: @super admins / @super admin
+  var isSuper = (typeof isSuperAdmin === 'function' && isSuperAdmin())
+    || (typeof window !== 'undefined' && typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
+  if (!isSuper && typeof sessionGet === 'function') {
+    var sRole = (sessionGet('role') || '').toLowerCase();
+    if (sRole === 'superadmin' || sRole === 'super admin') isSuper = true;
+  }
+  if (isSuper && /(?:^|\W)@(super\s*admins?)\b/i.test(lower)) return true;
+
+  // 5. Admins: @admins / @admin
+  var isAdminUser = isSuper || (typeof isAdmin === 'function' && isAdmin())
+    || (typeof window !== 'undefined' && typeof window.isAdmin === 'function' && window.isAdmin());
+  if (!isAdminUser && typeof sessionGet === 'function') {
+    var aRole = (sessionGet('role') || '').toLowerCase();
+    if (aRole === 'admin' || aRole === 'superadmin') isAdminUser = true;
+  }
+  if (isAdminUser && /(?:^|\W)@(admins?|administrators?)\b/i.test(lower)) return true;
+
+  // STRICT NOTE: NO departments checked for forum per user instruction
+  return false;
+}
+
+/**
+ * Floating mention dropdown UI for Forum
+ */
+function showForumMentionDropdown(inputEl, query) {
+  if (typeof document === 'undefined') return;
+  _activeForumMentionTarget = inputEl;
+  var container = inputEl.parentNode;
+  var dropdown = container ? container.querySelector('.forum-mentions-dropdown') : null;
+  if (!dropdown && container) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'tb-mentions-dropdown forum-mentions-dropdown';
+    dropdown.setAttribute('role', 'listbox');
+    dropdown.setAttribute('aria-label', 'Forum mentions');
+    dropdown.style.display = 'none';
+    dropdown.style.position = 'absolute';
+    dropdown.style.bottom = 'calc(100% + 4px)';
+    dropdown.style.left = '0';
+    dropdown.style.right = '0';
+    container.style.position = 'relative';
+    container.appendChild(dropdown);
+  }
+  if (!dropdown) return;
+
+  var candidates = getForumMentionCandidates(query);
+  _currentForumMentionCandidates = candidates;
+  _activeForumMentionIndex = 0;
+
+  if (!candidates.length) {
+    dropdown.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);font-style:italic;">No matching members or admin roles</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  var html = '';
+  candidates.slice(0, 8).forEach(function(c, i) {
+    var isGroup = c.role === 'Group' || c.role === 'Role';
+    var iconHtml = isGroup
+      ? '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">@</span>'
+      : (typeof getForumMemberAvatarHtml === 'function' ? getForumMemberAvatarHtml(c.name, c.email || '', 24) : '<span style="width:24px;height:24px;border-radius:50%;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + (c.name ? c.name.charAt(0).toUpperCase() : 'M') + '</span>');
+
+    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onpointerdown="selectForumMentionCandidate(' + i + ', event)" ontouchstart="selectForumMentionCandidate(' + i + ', event)" onmousedown="selectForumMentionCandidate(' + i + ', event)">'
+      + iconHtml
+      + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">'
+        + '<div class="tb-mention-name">' + (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) + '</div>'
+        + '<div style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(c.desc || '') : (c.desc || '')) + '</div>'
+      + '</div>'
+      + '<span class="tb-mention-type">' + (typeof escapeHtml === 'function' ? escapeHtml(c.role || 'Member') : (c.role || 'Member')) + '</span>'
+      + '</div>';
+  });
+
+  dropdown.innerHTML = html;
+  dropdown.style.display = 'block';
+}
+
+function hideForumMentionDropdown() {
+  if (typeof document === 'undefined') return;
+  var dropdowns = document.querySelectorAll('.forum-mentions-dropdown');
+  dropdowns.forEach(function(d) { d.style.display = 'none'; });
+  _currentForumMentionCandidates = [];
+  _activeForumMentionIndex = 0;
+}
+
+function handleForumMentionInput(inputEl) {
+  if (!inputEl) return;
+  _activeForumMentionTarget = inputEl;
+
+  var val = inputEl.value || '';
+  var cursor = (typeof inputEl.selectionStart === 'number') ? inputEl.selectionStart : val.length;
+  var before = val.slice(0, cursor);
+
+  var match = before.match(/@([a-zA-Z0-9_\s]*)$/);
+  if (match) {
+    var query = match[1];
+    if (query.split(/\s+/).length <= 6) {
+      showForumMentionDropdown(inputEl, query);
+      return;
+    }
+  }
+
+  hideForumMentionDropdown();
+}
+
+function handleForumMentionKeyDown(e, inputEl) {
+  var container = inputEl && inputEl.parentNode;
+  var dropdown = container ? container.querySelector('.forum-mentions-dropdown') : null;
+  var isDropdownOpen = dropdown && dropdown.style.display !== 'none' && _currentForumMentionCandidates.length > 0;
+
+  if (isDropdownOpen) {
+    var items = dropdown.querySelectorAll('.tb-mention-item');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      _activeForumMentionIndex = (_activeForumMentionIndex + 1) % items.length;
+      items.forEach(function(item, i) { item.classList.toggle('active', i === _activeForumMentionIndex); });
+      return;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      _activeForumMentionIndex = (_activeForumMentionIndex - 1 + items.length) % items.length;
+      items.forEach(function(item, i) { item.classList.toggle('active', i === _activeForumMentionIndex); });
+      return;
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      selectForumMentionCandidate(_activeForumMentionIndex);
+      return;
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hideForumMentionDropdown();
+      return;
+    }
+  }
+}
+
+function selectForumMentionCandidate(idx, event) {
+  if (event && event.preventDefault) event.preventDefault();
+  var candidate = _currentForumMentionCandidates[idx];
+  if (!candidate) { hideForumMentionDropdown(); return; }
+
+  var input = _activeForumMentionTarget;
+  if (!input) { hideForumMentionDropdown(); return; }
+
+  var val = input.value || '';
+  var cursor = (typeof input.selectionStart === 'number') ? input.selectionStart : val.length;
+  var before = val.slice(0, cursor);
+  var after = val.slice(cursor);
+  var newBefore = before.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
+  input.value = newBefore + after;
+  input.selectionStart = input.selectionEnd = newBefore.length;
+  input.focus();
+  hideForumMentionDropdown();
+}
+
+
 if (typeof window !== 'undefined') {
   window.FORUM_ICONS               = FORUM_ICONS;
   window.DEFAULT_FORUM_POSTS       = DEFAULT_FORUM_POSTS;
@@ -6221,6 +6613,14 @@ if (typeof window !== 'undefined') {
   window.detectTargetMemberName    = detectTargetMemberName;
   window.PORTAL_NAVIGATION_MAP     = PORTAL_NAVIGATION_MAP;
   window.forumPosts                = forumPosts;
+  window.getForumMentionCandidates = getForumMentionCandidates;
+  window.formatForumMentions       = formatForumMentions;
+  window.isUserMentionedInForum    = isUserMentionedInForum;
+  window.showForumMentionDropdown  = showForumMentionDropdown;
+  window.hideForumMentionDropdown  = hideForumMentionDropdown;
+  window.handleForumMentionInput   = handleForumMentionInput;
+  window.handleForumMentionKeyDown = handleForumMentionKeyDown;
+  window.selectForumMentionCandidate = selectForumMentionCandidate;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -6288,6 +6688,14 @@ if (typeof module !== 'undefined' && module.exports) {
     resolveCompanyResourcesQuery: resolveCompanyResourcesQuery,
     get forumPosts() { return forumPosts; },
     set forumPosts(v) { forumPosts = v; },
-    get helperMessages() { return _helperMessages; }
+    get helperMessages() { return _helperMessages; },
+    getForumMentionCandidates: getForumMentionCandidates,
+    formatForumMentions: formatForumMentions,
+    isUserMentionedInForum: isUserMentionedInForum,
+    showForumMentionDropdown: showForumMentionDropdown,
+    hideForumMentionDropdown: hideForumMentionDropdown,
+    handleForumMentionInput: handleForumMentionInput,
+    handleForumMentionKeyDown: handleForumMentionKeyDown,
+    selectForumMentionCandidate: selectForumMentionCandidate
   };
 }

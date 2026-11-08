@@ -8078,7 +8078,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('\nTesting Rich Text Formatting Tools, Image 5 Color Picker & Announcement Infographics...');
     const indexHtml = fs.readFileSync('index.html', 'utf8');
     const uiMod = require('../js/core/ui.js');
-    const annMod = require('../js/modules/announcements.js');
+    const annMentionsMod = require("../js/modules/announcements.js");
 
     // 1. Verify Rich Text Toolbars across all 3 locations in index.html
     assert.ok(indexHtml.includes('class="task-brief-toolbar"'), 'Task Detail toolbar present in index.html');
@@ -8103,16 +8103,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Image 5 Color Palette Popover (80 swatches + custom picker) verified');
 
     // 4. Infographic Attachment & Admin Staging Handlers
-    assert.strictEqual(typeof annMod.handleAnnouncementImageSelect, 'function', 'handleAnnouncementImageSelect exported');
-    assert.strictEqual(typeof annMod.handleAnnouncementImageUrlInput, 'function', 'handleAnnouncementImageUrlInput exported');
-    assert.strictEqual(typeof annMod.clearAnnouncementInfographic, 'function', 'clearAnnouncementInfographic exported');
+    assert.strictEqual(typeof annMentionsMod.handleAnnouncementImageSelect, 'function', 'handleAnnouncementImageSelect exported');
+    assert.strictEqual(typeof annMentionsMod.handleAnnouncementImageUrlInput, 'function', 'handleAnnouncementImageUrlInput exported');
+    assert.strictEqual(typeof annMentionsMod.clearAnnouncementInfographic, 'function', 'clearAnnouncementInfographic exported');
     assert.ok(indexHtml.includes('ann-infographic-upload-box'), 'Infographic upload box present in index.html');
     assert.ok(indexHtml.includes('ann-infographic-file-input'), 'Infographic file input present in index.html');
     assert.ok(indexHtml.includes('ann-infographic-url-input'), 'Infographic URL input present in index.html');
     console.log('  ✔ Admin Announcement Infographic uploader and URL inputs verified');
 
     // 5. Full Large Infographic Display in Home Feed without clicking
-    annMod.announcements.push({
+    annMentionsMod.announcements.push({
       id: 'ann_test_infographic',
       title: 'BB Trooping the Colour Parade',
       body: '<p>Annual ceremonial parade details.</p>',
@@ -8124,7 +8124,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const mockFeed = { innerHTML: '', querySelectorAll: () => [] };
     const origGetEl = global.document.getElementById;
     global.document.getElementById = (id) => (id === 'announcements-list' ? mockFeed : origGetEl(id));
-    annMod.renderAnnouncements();
+    annMentionsMod.renderAnnouncements();
     global.document.getElementById = origGetEl;
 
     assert.ok(mockFeed.innerHTML.includes('ann-infographic-container'), 'Feed item renders .ann-infographic-container');
@@ -10244,11 +10244,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('.helper-agent-btn') && compCss.includes('display: none !important;'), 'components.css must hide floating helper-agent-btn on mobile');
 
     // 5. Bug Forum Screenshot Uploads
-    const forumMod = require('../js/modules/forum.js');
-    assert.strictEqual(typeof forumMod.openCreateForumPostModal, 'function', 'forum.js must export openCreateForumPostModal');
-    assert.strictEqual(typeof forumMod.handleForumScreenshotSelect, 'function', 'forum.js must export handleForumScreenshotSelect');
-    assert.strictEqual(typeof forumMod.clearForumScreenshot, 'function', 'forum.js must export clearForumScreenshot');
-    assert.strictEqual(typeof forumMod.uploadForumScreenshotFile, 'function', 'forum.js must export uploadForumScreenshotFile');
+    const forumMentionsMod = require("../js/modules/forum.js");
+    assert.strictEqual(typeof forumMentionsMod.openCreateForumPostModal, 'function', 'forum.js must export openCreateForumPostModal');
+    assert.strictEqual(typeof forumMentionsMod.handleForumScreenshotSelect, 'function', 'forum.js must export handleForumScreenshotSelect');
+    assert.strictEqual(typeof forumMentionsMod.clearForumScreenshot, 'function', 'forum.js must export clearForumScreenshot');
+    assert.strictEqual(typeof forumMentionsMod.uploadForumScreenshotFile, 'function', 'forum.js must export uploadForumScreenshotFile');
 
     const forumSrc = fs.readFileSync(path.join(__dirname, '../js/modules/forum.js'), 'utf8');
     assert.ok(forumSrc.includes('forum-screenshot-input'), 'forum.js must define screenshot file input');
@@ -10272,12 +10272,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('\nTesting Performance Lag Prevention, Calendar Default, AI Helper & My Tasks Alignment...');
     const calMod = require('../js/modules/calendar.js');
     const tasksMod = require('../js/modules/tasks.js');
-    const forumMod = require('../js/modules/forum.js');
+    const forumMentionsMod = require("../js/modules/forum.js");
     const fs = require('fs');
     const path = require('path');
 
     assert.strictEqual(typeof tasksMod.renderMyTasksView, 'function', 'tasks.js must export renderMyTasksView');
-    assert.strictEqual(typeof forumMod.renderForumPage, 'function', 'forum.js must export renderForumPage');
+    assert.strictEqual(typeof forumMentionsMod.renderForumPage, 'function', 'forum.js must export renderForumPage');
 
     // 1. Calendar resetCalendarToUpcoming & Defaulting
     assert.strictEqual(typeof calMod.resetCalendarToUpcoming, 'function', 'calendar.js must export resetCalendarToUpcoming');
@@ -10478,6 +10478,124 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(tasksSrc.includes('var formattedDesc = formatCommentMentions(cleanDesc);'), 'openTaskDetail must format mentions in task brief description');
     assert.ok(tasksSrc.includes('split(/\\s+/).length <= 6'), 'Mention typing threshold must allow multi-word names up to 6 words');
     console.log('  ✔ Task brief description mention highlighting and multi-word input threshold verified');
+
+    // 23. Forum Mentions Engine (@admins, @super admins, @creator, @all, and members - NO departments)
+    assert.strictEqual(typeof forumMentionsMod.getForumMentionCandidates, 'function', 'getForumMentionCandidates must be exported');
+    assert.strictEqual(typeof forumMentionsMod.formatForumMentions, 'function', 'formatForumMentions must be exported');
+    assert.strictEqual(typeof forumMentionsMod.isUserMentionedInForum, 'function', 'isUserMentionedInForum must be exported');
+
+    const forumCandidates = forumMentionsMod.getForumMentionCandidates('');
+    const forumCandidateNames = forumCandidates.map(c => c.name);
+    assert.ok(forumCandidateNames.includes('all'), 'Forum mentions must include @all');
+    assert.ok(forumCandidateNames.includes('admins'), 'Forum mentions must include @admins');
+    assert.ok(forumCandidateNames.includes('super admins'), 'Forum mentions must include @super admins');
+    assert.ok(forumCandidateNames.includes('creator'), 'Forum mentions must include @creator');
+
+    // Strictly ensure departments are NOT in forum candidates
+    assert.strictEqual(forumCandidateNames.includes('Secretariat'), false, 'Forum mentions must NOT include @Secretariat');
+    assert.strictEqual(forumCandidateNames.includes('Logistics'), false, 'Forum mentions must NOT include @Logistics');
+    assert.strictEqual(forumCandidateNames.includes('Media'), false, 'Forum mentions must NOT include @Media');
+    assert.strictEqual(forumCandidateNames.includes('HQ'), false, 'Forum mentions must NOT include @HQ');
+
+    // Forum mention formatting
+    const forumRaw = 'Attention @admins and @super admins: @Jeshua Koh and @creator reported an issue for @all.';
+    const forumFormatted = forumMentionsMod.formatForumMentions(forumRaw);
+    assert.ok(forumFormatted.includes('<span class="tb-mention-pill">@admins</span>'), 'Must wrap @admins in pill');
+    assert.ok(forumFormatted.includes('<span class="tb-mention-pill">@super admins</span>'), 'Must wrap @super admins in pill');
+    assert.ok(forumFormatted.includes('<span class="tb-mention-pill">@creator</span>'), 'Must wrap @creator in pill');
+    assert.ok(forumFormatted.includes('<span class="tb-mention-pill">@Jeshua Koh</span>'), 'Must wrap @Jeshua Koh in pill');
+    assert.ok(forumFormatted.includes('<span class="tb-mention-pill">@all</span>'), 'Must wrap @all in pill');
+
+    // Forum mention evaluation
+    assert.strictEqual(
+      forumMentionsMod.isUserMentionedInForum('@admins please check this bug', 'user@example.com', 'User', 'Admin User', 'admin@example.com', 'admin'),
+      true,
+      'isUserMentionedInForum matches admin user'
+    );
+    assert.strictEqual(
+      forumMentionsMod.isUserMentionedInForum('@super admins urgent review', 'user@example.com', 'User', 'Super Admin', 'super@example.com', 'superadmin'),
+      true,
+      'isUserMentionedInForum matches super admin'
+    );
+    assert.strictEqual(
+      forumMentionsMod.isUserMentionedInForum('Thanks @creator for this feature', 'user@example.com', 'User', 'Jeshua Koh', 'jeshuakoh2008@gmail.com', 'superadmin'),
+      true,
+      'isUserMentionedInForum matches creator'
+    );
+    assert.strictEqual(
+      forumMentionsMod.isUserMentionedInForum('Hey @Secretariat please respond', 'user@example.com', 'User', 'Sec User', 'sec@example.com', 'member'),
+      false,
+      'isUserMentionedInForum strictly does NOT match department mentions'
+    );
+    console.log('  ✔ Forum mentions engine verified (@admins, @super admins, @creator, @all, and members with NO departments)');
+
+    // 24. Announcement Mentions Engine (Departments, Admins, Super Admins, Squads, Platoons, Creator, Seniors, Juniors, All)
+    const annMentionsMod = require("../js/modules/announcements.js");
+    assert.strictEqual(typeof annMentionsMod.getAnnouncementMentionCandidates, 'function', 'getAnnouncementMentionCandidates must be exported');
+    assert.strictEqual(typeof annMentionsMod.formatAnnouncementMentions, 'function', 'formatAnnouncementMentions must be exported');
+    assert.strictEqual(typeof annMentionsMod.isUserMentionedInAnnouncement, 'function', 'isUserMentionedInAnnouncement must be exported');
+
+    const annCandidates = annMentionsMod.getAnnouncementMentionCandidates('');
+    const annCandidateNames = annCandidates.map(c => c.name);
+    ['all', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers', 'admins', 'super admins', 'P1', 'P2', 'A1', 'A2', 'Z1', 'Z2', 'Papa', 'Alpha', 'Zulu', 'creator', 'seniors', 'juniors'].forEach(name => {
+      assert.ok(annCandidateNames.includes(name), `Announcement mentions must include @${name}`);
+    });
+
+    // Announcement formatting
+    const annRaw = 'Announcement for @seniors and @juniors: @Papa platoon, @P1 squad, @Media department, and @super admins report to @creator and @all.';
+    const annFormatted = annMentionsMod.formatAnnouncementMentions(annRaw);
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@seniors</span>'), 'Must wrap @seniors in pill');
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@juniors</span>'), 'Must wrap @juniors in pill');
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@Papa</span>'), 'Must wrap @Papa in pill');
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@P1</span>'), 'Must wrap @P1 in pill');
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@Media</span>'), 'Must wrap @Media in pill');
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@super admins</span>'), 'Must wrap @super admins in pill');
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@creator</span>'), 'Must wrap @creator in pill');
+    assert.ok(annFormatted.includes('<span class="tb-mention-pill">@all</span>'), 'Must wrap @all in pill');
+
+    // Announcement mention evaluation
+    assert.strictEqual(
+      annMentionsMod.isUserMentionedInAnnouncement('Parade notice for @Media', 'Alice', 'alice@bb.org', 'Media', 'Sergeant', 'P1', 'Papa', 'Senior'),
+      true,
+      'isUserMentionedInAnnouncement matches department'
+    );
+    assert.strictEqual(
+      annMentionsMod.isUserMentionedInAnnouncement('Squad briefing for @P1', 'Bob', 'bob@bb.org', 'HQ', 'Corporal', 'P1', 'Papa', 'Senior'),
+      true,
+      'isUserMentionedInAnnouncement matches squad P1'
+    );
+    assert.strictEqual(
+      annMentionsMod.isUserMentionedInAnnouncement('Platoon fallback for @Papa', 'Charlie', 'charlie@bb.org', 'HQ', 'Corporal', 'P2', 'Papa', 'Senior'),
+      true,
+      'isUserMentionedInAnnouncement matches platoon Papa'
+    );
+    assert.strictEqual(
+      annMentionsMod.isUserMentionedInAnnouncement('Badge inspection for @seniors', 'David', 'david@bb.org', 'Logistics', 'Sergeant', 'A1', 'Alpha', 'Senior'),
+      true,
+      'isUserMentionedInAnnouncement matches section seniors'
+    );
+    assert.strictEqual(
+      annMentionsMod.isUserMentionedInAnnouncement('Junior games for @juniors', 'Junior Boy', 'jr@bb.org', '', 'Leading Boy', '1', '1', 'Junior'),
+      true,
+      'isUserMentionedInAnnouncement matches section juniors'
+    );
+    assert.strictEqual(
+      annMentionsMod.isUserMentionedInAnnouncement('Special message to @creator', 'Jeshua Koh', 'jeshuakoh2008@gmail.com', 'HQ', 'Sergeant', 'P1', 'Papa', 'Senior'),
+      true,
+      'isUserMentionedInAnnouncement matches creator'
+    );
+    console.log('  ✔ Announcement mentions engine verified (departments, admins, squads, platoons, creator, seniors, juniors, all)');
+
+    // 25. Strict 388 Unique DOM IDs Invariant
+    const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const idSet = new Set();
+    allMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) idSet.add(matchId[1]);
+    });
+    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
