@@ -294,7 +294,7 @@ function sessionSet(key, value, options) {
   }
 
   try {
-    if (typeof sessionStorage !== 'undefined') {
+    if (typeof sessionStorage !== 'undefined' && sessionStorage && typeof sessionStorage.setItem === 'function') {
       sessionStorage.setItem('bb_session', JSON.stringify(_session));
     }
     if (typeof localStorage !== 'undefined') {
@@ -1315,6 +1315,47 @@ function markOnboardingCompleted(identifier, details) {
  * Resets onboarding state for a user (useful for re-testing)
  * @param {string} identifier
  */
+/**
+ * Asynchronously checks remote bb_config for onboarding completion record.
+ * If found, caches to session & localStorage.
+ * @param {string} [identifier]
+ * @returns {Promise<boolean>}
+ */
+async function fetchRemoteOnboardingStatus(identifier) {
+  try {
+    var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+    if (!id) return false;
+    var cleanId = String(id).toLowerCase().trim();
+    if (cleanId === '010101-14-1234' || (typeof window !== 'undefined' && window.__SKIP_ONBOARDING__)) {
+      return true;
+    }
+    if (isOnboardingCompleted(cleanId)) {
+      return true;
+    }
+    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    if (client && typeof client.get === 'function') {
+      var cfgKey = 'bb_onboarding_' + cleanId.replace(/[^a-zA-Z0-9]/g, '_');
+      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value');
+      if (rows && rows.length && rows[0].value) {
+        var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        if (parsed && (parsed.completed === true || parsed.completed === 'true')) {
+          if (typeof sessionSet === 'function') {
+            sessionSet('onboarding_completed', true);
+          }
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem('bb_onboarding_completed_' + cleanId, 'true');
+              localStorage.setItem('bb_onboarding_' + cleanId, JSON.stringify(parsed));
+            } catch (_) {}
+          }
+          return true;
+        }
+      }
+    }
+  } catch (_) {}
+  return false;
+}
+
 function resetOnboarding(identifier) {
   var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
   if (!id) return;
@@ -1363,6 +1404,7 @@ if (typeof window !== 'undefined') {
   window.forceKickDeletedAccount = forceKickDeletedAccount;
   window.isOnboardingCompleted = isOnboardingCompleted;
   window.markOnboardingCompleted = markOnboardingCompleted;
+  window.fetchRemoteOnboardingStatus = fetchRemoteOnboardingStatus;
   window.resetOnboarding = resetOnboarding;
 }
 
@@ -1397,6 +1439,7 @@ if (typeof module !== 'undefined' && module.exports) {
     forceKickDeletedAccount,
     isOnboardingCompleted,
     markOnboardingCompleted,
+    fetchRemoteOnboardingStatus,
     resetOnboarding
   };
 }

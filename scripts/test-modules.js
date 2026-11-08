@@ -10691,6 +10691,23 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(memberCode.includes("var tzString = 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)';"), 'Settings modal must strictly display GMT+8 Malaysia Time');
     console.log('  ✔ Settings modal Relaunch Onboarding Wizard & GMT+8 Malaysia Time display verified');
 
+    // 6b. Registration & Login Onboarding Triggers and Remote Sync
+    assert.ok(memberCode.includes('launchOnboardingWizard({ user: accountData, isNewAccount: true })'), 'finalizeMemberRegistration must trigger launchOnboardingWizard on account creation');
+    assert.ok(memberCode.includes('checkLoginOnboarding'), 'completeLoginWithAccount must check and launch onboarding for un-onboarded accounts');
+    assert.strictEqual(typeof sessionMod.fetchRemoteOnboardingStatus, 'function', 'fetchRemoteOnboardingStatus must be exported');
+
+    // Test fetchRemoteOnboardingStatus remote hydration
+    const remoteSyncUser = 'remote_synced_user@bb.org';
+    sessionMod.resetOnboarding(remoteSyncUser);
+    assert.strictEqual(sessionMod.isOnboardingCompleted(remoteSyncUser), false, 'Fresh user must not be completed initially');
+
+    // index.html hooks verification
+    const indexSource = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    assert.ok(indexSource.includes('launchOnboardingWizard();'), 'index.html must trigger launchOnboardingWizard for incomplete accounts');
+    assert.ok(indexSource.includes('!isOnboardingCompleted(curSessionUser)'), 'switchTab must enforce onboarding for incomplete accounts');
+    assert.ok(indexSource.includes('!isOnboardingCompleted(curUser)'), 'DOMContentLoaded must check onboarding status for restored sessions');
+    console.log('  ✔ Registration, Login & Session Restoration onboarding triggers verified');
+
     // 7. Strict 388 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];

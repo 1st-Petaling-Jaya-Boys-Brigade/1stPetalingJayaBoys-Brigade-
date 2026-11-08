@@ -1,4 +1,4 @@
-/* global isOnboardingCompleted, markOnboardingCompleted, triggerPortalSystemNotification, playNotificationSound, setTheme */
+/* global isOnboardingCompleted, markOnboardingCompleted, fetchRemoteOnboardingStatus, triggerPortalSystemNotification, playNotificationSound, setTheme */
 
 /**
  * 1st Petaling Jaya Boys\' Brigade Portal
@@ -1625,6 +1625,11 @@ async function finalizeMemberRegistration(data) {
   if (typeof window !== 'undefined' && window.location && window.history && window.history.replaceState) {
     window.history.replaceState(null, '', '#' + targetTab);
   }
+
+  // Mandatory Onboarding Launch for Newly Registered Members
+  if (typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+    launchOnboardingWizard({ user: accountData, isNewAccount: true });
+  }
 }
 
 async function loginMember() {
@@ -2129,6 +2134,23 @@ function completeLoginWithAccount(m, rememberMe) {
   if (typeof showToast === 'function') {
     showToast('Signed in as ' + m.name + ' (' + (m.att_section || m.section || 'Member') + ')', 'success', 3000);
   }
+
+  // Trigger onboarding wizard if user has not completed onboarding
+  var checkLoginOnboarding = async function() {
+    if (typeof isOnboardingCompleted === 'function' && isOnboardingCompleted(userEmail)) {
+      return;
+    }
+    var remoteDone = false;
+    if (typeof fetchRemoteOnboardingStatus === 'function') {
+      try {
+        remoteDone = await fetchRemoteOnboardingStatus(userEmail);
+      } catch (_) {}
+    }
+    if (!remoteDone && typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+      launchOnboardingWizard({ user: m });
+    }
+  };
+  checkLoginOnboarding();
 }
 
 /**
@@ -5695,8 +5717,9 @@ function launchOnboardingWizard(options) {
   } : null);
 
   var isReview = (options && options.isReview === true);
+  var isNewAccount = (options && options.isNewAccount === true);
   var email = user ? (user.email || user.ic || '') : '';
-  var alreadyDone = (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false;
+  var alreadyDone = !isNewAccount && ((typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false);
 
   var isDark = false;
   try {
@@ -5709,8 +5732,8 @@ function launchOnboardingWizard(options) {
     step: (options && options.step) || 1,
     isReview: isReview,
     user: user,
-    termsAccepted: alreadyDone || isReview,
-    privacyAccepted: alreadyDone || isReview,
+    termsAccepted: !isNewAccount && (alreadyDone || isReview),
+    privacyAccepted: !isNewAccount && (alreadyDone || isReview),
     notifSound: (typeof localStorage !== 'undefined') ? (localStorage.getItem('bb_notif_sound_enabled') !== 'false') : true,
     theme: isDark ? 'dark' : 'light',
     defaultView: (typeof localStorage !== 'undefined' ? (localStorage.getItem('bb_default_calendar_view') || 'upcoming') : 'upcoming')
@@ -5726,6 +5749,7 @@ function launchOnboardingWizard(options) {
     document.body.appendChild(overlay);
   }
   overlay.style.display = 'flex';
+  overlay.style.opacity = '1';
 
   renderOnboardingWizardDom();
 }

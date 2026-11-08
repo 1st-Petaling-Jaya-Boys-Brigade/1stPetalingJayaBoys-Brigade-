@@ -3329,6 +3329,15 @@ function switchTab(tab, btn, skipPush) {
     }
   }
 
+  if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email'))) {
+    var curSessionUser = sessionGet('email') || sessionGet('ic');
+    if (typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curSessionUser) && tab !== 'member' && tab !== 'admin') {
+      if (typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+        launchOnboardingWizard();
+      }
+    }
+  }
+
   if (typeof document !== 'undefined' && TAB_TITLES && TAB_TITLES[tab]) {
     document.title = TAB_TITLES[tab];
   }
@@ -3848,6 +3857,23 @@ window.addEventListener('load', function() {
     var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
     if (typeof checkAttendanceTabVisibility === 'function') {
       checkAttendanceTabVisibility(ic);
+    }
+    // Check if member has completed onboarding
+    var curUser = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : ic) || ic;
+    if (curUser && typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curUser)) {
+      if (typeof fetchRemoteOnboardingStatus === 'function') {
+        fetchRemoteOnboardingStatus(curUser).then(function(done) {
+          if (!done && typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+            launchOnboardingWizard();
+          }
+        }).catch(function() {
+          if (typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+            launchOnboardingWizard();
+          }
+        });
+      } else if (typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+        launchOnboardingWizard();
+      }
     }
     // Post-authentication redirect if deep-link was queued
     var pendingTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
