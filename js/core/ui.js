@@ -1243,45 +1243,69 @@
     } catch (_) {}
     if (!sysEnabled) return null;
 
-    if (now - _lastSystemNotifTs < 800) return null;
+    var isForce = options && options.force === true;
+    if (!isForce && (now - _lastSystemNotifTs < 800)) return null;
     _lastSystemNotifTs = now;
 
     if (typeof window !== 'undefined' && 'Notification' in window) {
       if (Notification.permission === 'granted') {
+        var notifTitle = title || "1st Petaling Jaya Boys' Brigade";
+        var iconUrl = (options && options.icon) || 'assets/logo.png';
         try {
-          var notif = new Notification(title || "1st Petaling Jaya Boys' Brigade", {
-            body: body || '',
-            icon: (options && options.icon) || 'assets/logo.png',
-            badge: (options && options.badge) || 'assets/logo.png',
-            tag: (options && options.tag) || ('bb-notif-' + now),
-            renotify: true
-          });
-          notif.onclick = function() {
-            try {
-              window.focus();
-              if (options && typeof options.onClick === 'function') {
-                options.onClick();
-              } else if (options && options.tab && typeof window.switchTabNav === 'function') {
-                window.switchTabNav(options.tab);
-              }
-              notif.close();
-            } catch (_) {}
-          };
-          return notif;
-        } catch (e) {
-          if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.ready) {
-            navigator.serviceWorker.ready.then(function(reg) {
-              if (reg && typeof reg.showNotification === 'function') {
-                reg.showNotification(title || "1st Petaling Jaya Boys' Brigade", {
-                  body: body || '',
-                  icon: (options && options.icon) || 'assets/logo.png',
-                  badge: (options && options.badge) || 'assets/logo.png',
-                  tag: (options && options.tag) || ('bb-notif-' + now)
-                });
-              }
-            }).catch(function() {});
+          if (window.location && typeof URL === 'function') {
+            iconUrl = new URL(iconUrl, window.location.href).href;
           }
+        } catch (_) {}
+
+        var notifOpts = {
+          body: body || '',
+          icon: iconUrl,
+          badge: iconUrl,
+          tag: (options && options.tag) || ('bb-notif-' + now),
+          renotify: true,
+          requireInteraction: false,
+          data: {
+            url: (options && options.url) || './',
+            tab: (options && options.tab) || ''
+          }
+        };
+
+        var spawnDirect = function() {
+          try {
+            var notif = new Notification(notifTitle, notifOpts);
+            notif.onclick = function() {
+              try {
+                window.focus();
+                if (options && typeof options.onClick === 'function') {
+                  options.onClick();
+                } else if (options && options.tab && typeof window.switchTabNav === 'function') {
+                  window.switchTabNav(options.tab);
+                }
+                notif.close();
+              } catch (_) {}
+            };
+            return notif;
+          } catch (_) {
+            return null;
+          }
+        };
+
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+          try {
+            if (navigator.serviceWorker.ready) {
+              navigator.serviceWorker.ready.then(function(reg) {
+                if (reg && typeof reg.showNotification === 'function') {
+                  return reg.showNotification(notifTitle, notifOpts);
+                }
+                return spawnDirect();
+              }).catch(function() {
+                return spawnDirect();
+              });
+              return true;
+            }
+          } catch (_) {}
         }
+        return spawnDirect();
       }
     }
     return null;
@@ -1289,26 +1313,16 @@
 
   async function requestNotificationPermission() {
     if (typeof window === 'undefined' || !('Notification' in window)) {
-      if (typeof showToast === 'function') {
-        showToast('System notifications are not supported on this browser or device.', 'warning');
-      }
       return 'unsupported';
     }
     try {
       var perm = await Notification.requestPermission();
       if (perm === 'granted') {
-        if (typeof showToast === 'function') {
-          showToast('System notifications enabled! You will now receive alerts.', 'success', 3000, { silent: true });
-        }
         triggerPortalSystemNotification(
           "1st Petaling Jaya Boys' Brigade",
           "System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
-          { tag: 'bb-notif-welcome' }
+          { tag: 'bb-notif-welcome', silentSound: false, force: true }
         );
-      } else if (perm === 'denied') {
-        if (typeof showToast === 'function') {
-          showToast('Notifications blocked in browser settings. Please allow notifications in site permissions.', 'warning');
-        }
       }
       return perm;
     } catch (err) {
@@ -1321,22 +1335,14 @@
 
   async function testNotificationPopup() {
     if (typeof window === 'undefined') return;
-    if (!('Notification' in window)) {
-      if (typeof showToast === 'function') {
-        showToast('System notifications are not supported on this browser or platform.', 'warning');
-      }
-      return;
-    }
+    if (!('Notification' in window)) return;
 
     if (Notification.permission === 'granted') {
       triggerPortalSystemNotification(
         "1st Petaling Jaya Boys' Brigade",
         "Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
-        { tag: 'bb-test-' + Date.now(), silentSound: false }
+        { tag: 'bb-test-' + Date.now(), silentSound: false, force: true }
       );
-      if (typeof showToast === 'function') {
-        showToast('System test notification sent! Check your system alert banners.', 'success', 3000, { silent: true });
-      }
       return;
     }
 
@@ -1347,28 +1353,11 @@
           triggerPortalSystemNotification(
             "1st Petaling Jaya Boys' Brigade",
             "System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
-            { tag: 'bb-test-' + Date.now(), silentSound: false }
+            { tag: 'bb-test-' + Date.now(), silentSound: false, force: true }
           );
-          if (typeof showToast === 'function') {
-            showToast('System notifications allowed! Test notification sent.', 'success', 3000, { silent: true });
-          }
-        } else {
-          if (typeof showToast === 'function') {
-            showToast('Notification permission was not granted (' + perm + ').', 'warning');
-          }
         }
-      } catch (e) {
-        if (typeof showToast === 'function') {
-          showToast('Error requesting permission: ' + (e && e.message ? e.message : e), 'error');
-        }
-      }
+      } catch (_) {}
       return;
-    }
-
-    if (Notification.permission === 'denied') {
-      if (typeof showToast === 'function') {
-        showToast('Notifications are blocked by your browser settings. Please allow notifications in site permissions.', 'warning', 4500);
-      }
     }
   }
 
