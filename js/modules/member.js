@@ -4449,6 +4449,7 @@ async function loadMemberOrders() {
 }
 
 function logoutMember() {
+  if (typeof window !== 'undefined' && typeof window.resetTasksFiltersToDefault === 'function') window.resetTasksFiltersToDefault();
   if (typeof sendPresenceHeartbeat === 'function') {
     try { sendPresenceHeartbeat('offline').catch(function() {}); } catch (_) {}
   } else if (typeof window !== 'undefined' && typeof window.sendPresenceHeartbeat === 'function') {
@@ -5619,6 +5620,23 @@ function openSettingsModal() {
             + '<option value="arcade"' + (defaultTab === 'arcade' ? ' selected' : '') + '>1stPJ Arcade</option>'
             + '<option value="member"' + (defaultTab === 'member' ? ' selected' : '') + '>Member Hub</option>'
           + '</select>'
+        + '</div>'
+      + '</div>'
+
+      // Section 6: Account Session & Sign Out
+      + '<div class="settings-section-card" style="margin-top:14px;border:1px solid rgba(239,68,68,0.25);background:rgba(239,68,68,0.04);">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">'
+          + '<div>'
+            + '<div style="font-size:13px;font-weight:700;color:#ef4444;display:flex;align-items:center;gap:6px;">'
+              + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
+              + '<span>Log Out</span>'
+            + '</div>'
+            + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Sign out of your account on this device</div>'
+          + '</div>'
+          + '<button type="button" class="portal-btn settings-logout-btn" onclick="closeSettingsModal(); if(typeof logoutMember===\'function\') logoutMember();" style="padding:7px 16px;background:#ef4444;color:#ffffff;border:none;font-weight:600;font-size:12px;border-radius:var(--radius-md);cursor:pointer;display:inline-flex;align-items:center;gap:6px;">'
+            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
+            + '<span>Log Out</span>'
+          + '</button>'
         + '</div>'
       + '</div>'
 

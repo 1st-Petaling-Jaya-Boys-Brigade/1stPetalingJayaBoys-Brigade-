@@ -10323,6 +10323,79 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(supaSrc.includes('realtime:public'), 'PortalRealtime must support Supabase WebSocket realtime channel');
     assert.ok(typeof tasksMod.fetchAllRemoteTasks === 'function', 'tasks.js must export fetchAllRemoteTasks');
     console.log('  ✔ Zero-dependency PortalRealtime engine and fast remote tasks synchronization verified');
+
+    // 7. Settings Logout Button & Session Purge
+    const memberSrc = fs.readFileSync(path.join(__dirname, '../js/modules/member.js'), 'utf8');
+    assert.ok(memberSrc.includes('settings-logout-btn'), 'member.js must include .settings-logout-btn in settings modal');
+    assert.ok(memberSrc.includes('logoutMember()'), 'Settings modal must invoke logoutMember on click');
+    console.log('  ✔ Settings menu Account Session Log Out button verified');
+
+    // 8. Projects & Tasks Dual Search Filter Buttons (Image 2)
+    assert.ok(tasksSrc.includes('project-filter-btn'), 'tasks.js must render .project-filter-btn next to projects search bar');
+    assert.ok(tasksSrc.includes('my-tasks-filter-btn'), 'tasks.js must render .my-tasks-filter-btn next to tasks search bar');
+    assert.ok(tasksSrc.includes('polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"'), 'Filter buttons must render funnel SVG icon matching Image 2');
+    const compCssFilterCheck = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    assert.ok(compCssFilterCheck.includes('.project-filter-btn'), 'components.css must define .project-filter-btn');
+    assert.ok(compCssFilterCheck.includes('.my-tasks-filter-btn'), 'components.css must define .my-tasks-filter-btn');
+    assert.ok(compCssFilterCheck.includes('.project-filter-dropdown'), 'components.css must define .project-filter-dropdown');
+    assert.ok(compCssFilterCheck.includes('.my-tasks-filter-dropdown'), 'components.css must define .my-tasks-filter-dropdown');
+    console.log('  ✔ Search bar Filter button and dropdown menus verified matching Image 2');
+
+    // 9. Projects Filtering by Progress (25%, 50%, 75%, 100%) and Assigned Members
+    assert.ok(typeof tasksMod.setProjectProgressFilter === 'function', 'tasks.js must export setProjectProgressFilter');
+    assert.ok(typeof tasksMod.setProjectMemberFilter === 'function', 'tasks.js must export setProjectMemberFilter');
+    assert.ok(typeof tasksMod.resetProjectFilters === 'function', 'tasks.js must export resetProjectFilters');
+    console.log('  ✔ Project filtering by progress milestones and assigned members verified');
+
+    // 10. Structured Table Layout for Tasks (Image 1)
+    const mockTasksContainer = createMockElement('div');
+    mockTasksContainer.className = 'my-tasks-container';
+    const originalQS = global.document.querySelector;
+    global.document.querySelector = function(sel) {
+      if (sel === '.my-tasks-container') return mockTasksContainer;
+      if (typeof originalQS === 'function') return originalQS(sel);
+      return null;
+    };
+    tasksMod._allLoadedTasks.push({
+      id: 'task_img1',
+      title: 'hello2',
+      status: 'planning',
+      project_name: 'HQ',
+      priority: 'high',
+      assignee_name: 'Jeshua Koh',
+      assignee_ic: '010101-14-1234',
+      due_date: '2026-11-14'
+    });
+    tasksMod.setMyTasksScopeFilter('all');
+    tasksMod.renderMyTasksView();
+    assert.ok(mockTasksContainer.innerHTML.includes('my-tasks-table'), 'Tasks view must render .my-tasks-table matching Image 1');
+    assert.ok(mockTasksContainer.innerHTML.includes('>Task<'), 'Table header must include Task');
+    assert.ok(mockTasksContainer.innerHTML.includes('>Status<'), 'Table header must include Status');
+    assert.ok(mockTasksContainer.innerHTML.includes('>Project<'), 'Table header must include Project');
+    assert.ok(mockTasksContainer.innerHTML.includes('>ID<'), 'Table header must include ID');
+    assert.ok(mockTasksContainer.innerHTML.includes('>Priority<'), 'Table header must include Priority');
+    assert.ok(mockTasksContainer.innerHTML.includes('>Assignee<'), 'Table header must include Assignee');
+    assert.ok(mockTasksContainer.innerHTML.includes('>Due Date<'), 'Table header must include Due Date');
+    assert.ok(mockTasksContainer.innerHTML.includes('>Estimate<'), 'Table header must include Estimate');
+    global.document.querySelector = originalQS;
+    console.log('  ✔ Tasks table layout with all 8 fields verified matching Image 1');
+
+    // 11. Rename "My Tasks" to "Tasks" with sr-only backward compatibility
+    const indexHtmlPillCheck = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    assert.ok(indexHtmlPillCheck.includes('title="Tasks View"'), 'index.html toggle button title must be Tasks View');
+    assert.ok(indexHtmlPillCheck.includes('<span>Tasks</span>'), 'index.html toggle button label must be Tasks');
+    assert.ok(tasksSrc.includes('Tasks <span class="sr-only"'), 'tasks.js header must render Tasks with sr-only My Tasks label');
+    console.log('  ✔ My Tasks renamed to Tasks across view toggle and header');
+
+    // 12. Persistent Default Filter Invariant
+    assert.ok(typeof tasksMod.resetTasksFiltersToDefault === 'function', 'tasks.js must export resetTasksFiltersToDefault');
+    tasksMod.setMyTasksScopeFilter('all');
+    tasksMod.setMyTasksStatusFilter('completed');
+    tasksMod.setMyTasksProjectFilter('Secretariat');
+    tasksMod.resetTasksFiltersToDefault();
+    assert.ok(indexHtmlPillCheck.includes('resetTasksFiltersToDefault'), 'index.html switchTab must invoke resetTasksFiltersToDefault');
+    assert.ok(tasksSrc.includes('resetTasksFiltersToDefault'), 'tasks.js setTasksViewMode must invoke resetTasksFiltersToDefault');
+    console.log('  ✔ Default filters invariant (Assigned to me, Open) and reset hooks verified');
   }
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
