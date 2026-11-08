@@ -2658,7 +2658,7 @@
               </div>
             </div>
             <!-- Editable area -->
-            <div id="ann-body-input" contenteditable="true"
+            <div id="ann-body-input" contenteditable="true" oninput="handleAnnouncementMentionInput(this)" onkeydown="handleAnnouncementMentionKeyDown(event, this)"
               style="min-height:160px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:0 0 10px 10px;padding:14px 16px;font-family:'Roboto',sans-serif;font-size:14px;line-height:1.7;outline:none;word-break:break-word;"
               data-placeholder="Write your announcement here..."></div>
             </div>
@@ -4396,13 +4396,30 @@ function syncAnnouncementNotifications(annList) {
     if (!existing) {
       var snippet = (a.content || a.message || a.body || '').replace(/<[^>]+>/g, '').trim();
       if (snippet.length > 70) snippet = snippet.slice(0, 67) + '...';
+
+      var annText = (a.title || '') + ' ' + (a.content || a.message || a.body || '');
+      var checkAnnMention = (typeof isUserMentionedInAnnouncement === 'function') ? isUserMentionedInAnnouncement : null;
+      var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '').trim() : '';
+      var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').trim() : '';
+      var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '').trim() : '';
+      var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '').trim() : '';
+      var mySquad = (typeof sessionGet === 'function') ? (sessionGet('squad') || '').trim() : '';
+      var myPlatoon = (typeof sessionGet === 'function') ? (sessionGet('platoon') || '').trim() : '';
+      var mySection = (typeof sessionGet === 'function') ? (sessionGet('section') || '').trim() : '';
+
+      var isMentioned = checkAnnMention ? checkAnnMention(annText, myName, myEmail, myDept, myRank, mySquad, myPlatoon, mySection) : false;
+
+      var notifTitle = isMentioned
+        ? ('You were mentioned in an announcement: ' + (a.title || 'Company Notice'))
+        : ('New Announcement: ' + (a.title || 'Company Notice'));
+
       pushPortalNotification({
         id: notifId,
         category: 'announcements',
         group: 'Today',
         timestamp: a.created_at ? new Date(a.created_at).getTime() : (a.date ? new Date(a.date).getTime() : Date.now()),
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
-        title: 'New Announcement: ' + (a.title || 'Company Notice'),
+        title: notifTitle,
         snippet: snippet || 'Tap to view company announcement.',
         time: a.date || 'Today',
         unread: true,
@@ -4511,7 +4528,7 @@ function syncForumNotifications(postsList) {
   var dismissed = getDismissedNotifIds();
 
   list.forEach(function(p) {
-    if (!p || !p.id || !Array.isArray(p.replies) || !p.replies.length) return;
+    if (!p || !p.id) return;
 
     var pEmail = (p.authorEmail || '').toLowerCase().trim();
     var pIc = (p.authorIc || '').toLowerCase().trim();
@@ -4521,9 +4538,45 @@ function syncForumNotifications(postsList) {
       || (pIc && myIc && pIc === myIc)
       || (pName && myName && pName === myName);
 
-    var checkFn = (typeof isUserMentionedInComment === 'function') ? isUserMentionedInComment : null;
-    var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
-    var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '') : '';
+    var checkForumFn = (typeof isUserMentionedInForum === 'function') ? isUserMentionedInForum : ((typeof isUserMentionedInComment === 'function') ? isUserMentionedInComment : null);
+
+    // 1. Check if user is mentioned in the forum post body or title
+    var postText = (p.title || '') + ' ' + (p.content || '');
+    var isMentionedInPost = checkForumFn ? checkForumFn(postText, p.authorEmail, p.authorName, myName, myEmail) : false;
+    if (isMentionedInPost) {
+      var pNotifId = 'notif-forum-post-mention-' + p.id;
+      if (dismissed.indexOf(pNotifId) === -1) {
+        var existingP = _allPortalNotifications.find(function(n) { return n.id === pNotifId; });
+        if (!existingP) {
+          var authorName = p.authorName || 'Someone';
+          var cleanSnippet = (p.content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          if (cleanSnippet.length > 70) cleanSnippet = cleanSnippet.slice(0, 67) + '...';
+          var pInitials = authorName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase() || 'BB';
+
+          pushPortalNotification({
+            id: pNotifId,
+            category: 'announcements',
+            group: 'Today',
+            avatarInitials: pInitials,
+            icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+            title: authorName + ' mentioned you in a forum post',
+            snippet: (p.title ? ('"' + p.title + '": ') : '') + (cleanSnippet || 'Tap to view discussion.'),
+            time: p.date || 'Today',
+            unread: true,
+            action: function() {
+              switchTabNav('forum');
+              if (typeof openForumPostDetail === 'function') {
+                openForumPostDetail(p.id);
+              } else if (typeof window !== 'undefined' && typeof window.openForumPostDetail === 'function') {
+                window.openForumPostDetail(p.id);
+              }
+            }
+          });
+        }
+      }
+    }
+
+    if (!Array.isArray(p.replies) || !p.replies.length) return;
 
     p.replies.forEach(function(r, idx) {
       if (!r) return;
@@ -4540,7 +4593,7 @@ function syncForumNotifications(postsList) {
         || (rName && myName && rName === myName);
 
       // Check if logged-in user is explicitly mentioned in the reply (including self-mentions)
-      var isMentionedInReply = checkFn ? checkFn(r.content || '', r.authorEmail, r.authorName, myName, myEmail, myDept, myRank) : false;
+      var isMentionedInReply = checkForumFn ? checkForumFn(r.content || '', r.authorEmail, r.authorName, myName, myEmail) : false;
 
       // Notify if post author OR mentioned in the reply (including self-mentions)
       if (!isPostAuthor && !isMentionedInReply) return;

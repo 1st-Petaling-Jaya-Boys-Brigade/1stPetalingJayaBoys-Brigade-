@@ -2898,6 +2898,10 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   }
   if (isAdminOrSuper && /(?:^|\W)@(admins?|superadmins?)\b/i.test(lower)) return true;
 
+  // Rule 9: Creator mention
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(myName, myEmail) : (/jeshua\s+koh/i.test(myName) || (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1));
+  if (isCreator && /(?:^|\W)@creator\b/i.test(lower)) return true;
+
   return false;
 }
 
