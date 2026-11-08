@@ -2376,7 +2376,8 @@ function openTaskDetail(id) {
   var cleanDesc = (t.description || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
   var descEl = document.getElementById('tdm-desc');
   if (descEl) {
-    descEl.innerHTML = (typeof sanitizeHtml === 'function') ? sanitizeHtml(cleanDesc) : ((typeof escapeHtml === 'function') ? escapeHtml(cleanDesc) : cleanDesc);
+    var formattedDesc = formatCommentMentions(cleanDesc);
+    descEl.innerHTML = (typeof sanitizeHtml === 'function') ? sanitizeHtml(formattedDesc) : ((typeof escapeHtml === 'function') ? escapeHtml(formattedDesc) : formattedDesc);
   }
 
   var modal = document.getElementById('task-detail-modal');
@@ -2395,6 +2396,11 @@ function handleTaskTitleBlur(el) {
 
 function handleTaskDescBlur(el) {
   if (!_activeDetailTaskId || !el) return;
+  var rawHtml = el.innerHTML || el.textContent || '';
+  var formatted = formatCommentMentions(rawHtml);
+  if (formatted !== rawHtml) {
+    el.innerHTML = formatted;
+  }
   var val = (el.innerHTML || el.textContent || '').trim();
   var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
   if (!t && _allLoadedTasks && _allLoadedTasks.length) {
@@ -3222,7 +3228,7 @@ function handleTaskBriefDescInput(el) {
   var match = text.match(/@([a-zA-Z0-9_\s]*)$/);
   if (match) {
     var query = match[1];
-    if (query.split(/\s+/).length <= 2) {
+    if (query.split(/\s+/).length <= 6) {
       showMentionDropdown(el, query);
       return;
     }
@@ -3242,7 +3248,7 @@ function handleTaskCommentInput(inputEl) {
   var match = before.match(/@([a-zA-Z0-9_\s]*)$/);
   if (match) {
     var query = match[1];
-    if (query.split(/\s+/).length <= 2) {
+    if (query.split(/\s+/).length <= 6) {
       showMentionDropdown(inputEl, query);
       return;
     }
@@ -3386,18 +3392,34 @@ function selectMentionCandidate(idx, event) {
       var offset = sel.focusOffset || nodeText.length;
       var beforeC = nodeText.slice(0, offset);
       var afterC = nodeText.slice(offset);
-      var newBeforeC = beforeC.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
-      node.textContent = newBeforeC + afterC;
-      try {
-        var range = document.createRange();
-        range.setStart(node, Math.min(newBeforeC.length, node.textContent.length));
-        range.collapse(true);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      } catch (_) {}
+      var newBeforeC = beforeC.replace(/@([a-zA-Z0-9_\s]*)$/, '');
+      node.textContent = newBeforeC;
+
+      var pill = document.createElement('span');
+      pill.className = 'tb-mention-pill';
+      pill.setAttribute('contenteditable', 'false');
+      pill.textContent = '@' + candidate.name;
+
+      var spaceNode = document.createTextNode(' ');
+      var parent = node.parentNode;
+      if (parent) {
+        parent.insertBefore(pill, node.nextSibling);
+        parent.insertBefore(spaceNode, pill.nextSibling);
+        if (afterC) {
+          var afterNode = document.createTextNode(afterC);
+          parent.insertBefore(afterNode, spaceNode.nextSibling);
+        }
+        try {
+          var range = document.createRange();
+          range.setStartAfter(spaceNode);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch (_) {}
+      }
     } else {
       var curText = input.innerText || input.textContent || '';
-      input.innerText = curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
+      input.innerHTML = formatCommentMentions(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' '));
     }
     input.focus();
   }
@@ -3406,13 +3428,85 @@ function selectMentionCandidate(idx, event) {
 }
 
 /**
- * Wraps @mentions in styled mention badges
+ * Retrieves all unique candidate mention names sorted by length descending (longest first)
+ * @returns {Array<string>}
+ */
+function getAllMentionCandidateNames() {
+  var list = ['all', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Band', 'Officers', 'Jeshua Koh'];
+  if (Array.isArray(_cachedDepartmentMembers)) {
+    _cachedDepartmentMembers.forEach(function(m) {
+      if (m && m.name && m.name.trim()) list.push(m.name.trim());
+    });
+  }
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  if (myName && myName.trim()) list.push(myName.trim());
+  if (Array.isArray(_allLoadedTasks)) {
+    _allLoadedTasks.forEach(function(t) {
+      if (t.assignee_name && t.assignee_name !== 'Unassigned' && t.assignee_name.trim()) {
+        list.push(t.assignee_name.trim());
+      }
+    });
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
+      if (Array.isArray(cached)) {
+        cached.forEach(function(m) {
+          if (m && m.name && m.name.trim()) list.push(m.name.trim());
+        });
+      }
+    }
+  } catch (_) {}
+
+  var seen = {};
+  var unique = [];
+  list.forEach(function(name) {
+    var k = name.toLowerCase();
+    if (!seen[k]) {
+      seen[k] = true;
+      unique.push(name);
+    }
+  });
+  unique.sort(function(a, b) { return b.length - a.length; });
+  return unique;
+}
+
+/**
+ * Wraps @mentions in styled mention badges matching full member & group names
  * @param {string} text
  * @returns {string}
  */
 function formatCommentMentions(text) {
   if (!text) return '';
-  return text.replace(/@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)/g, '<span class="tb-mention-pill">@$1</span>');
+  var candidates = getAllMentionCandidateNames();
+  var out = text;
+
+  // 1. Replace known full candidate names (longest first so 3-4 word names match before sub-parts)
+  candidates.forEach(function(name) {
+    if (!name) return;
+    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
+    var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
+    out = out.replace(rx, function(match, prefix, matchedName) {
+      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
+    });
+  });
+
+  // 2. Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  // 3. Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  // 4. Fallback for any other single-word @mentions not in directory
+  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
+    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+  });
+
+  return out;
 }
 
 
@@ -4871,6 +4965,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.handleTaskCommentKeyDown   = handleTaskCommentKeyDown;
   window.selectMentionCandidate     = selectMentionCandidate;
   window.formatCommentMentions      = formatCommentMentions;
+  window.getAllMentionCandidateNames= getAllMentionCandidateNames;
   window.toggleTaskCommentMenu      = toggleTaskCommentMenu;
   window.startEditTaskComment       = startEditTaskComment;
   window.saveEditTaskComment        = saveEditTaskComment;
@@ -4893,6 +4988,7 @@ if (typeof module !== 'undefined' && module.exports) {
     _currentDeptFilter,
     _taskSearchQuery,
     _allLoadedTasks,
+    _cachedDepartmentMembers,
     _adminTaskFilter,
     _allAdminTasks,
     _taskMap,
@@ -4980,6 +5076,7 @@ if (typeof module !== 'undefined' && module.exports) {
     handleTaskCommentKeyDown,
     selectMentionCandidate,
     formatCommentMentions,
+    getAllMentionCandidateNames,
     toggleTaskCommentMenu,
     startEditTaskComment,
     saveEditTaskComment,
