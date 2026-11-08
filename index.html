@@ -4042,7 +4042,16 @@ function pushPortalNotification(notif, isSilent) {
 
   _allPortalNotifications.unshift(notif);
   if (_initialNotifSyncDone && !isSilent) {
-    if (typeof playNotificationSound === 'function') {
+    if (typeof triggerPortalSystemNotification === 'function') {
+      triggerPortalSystemNotification(
+        notif.title || "1st Petaling Jaya Boys' Brigade",
+        notif.snippet || notif.message || notif.text || '',
+        {
+          tag: notif.id,
+          silentSound: false
+        }
+      );
+    } else if (typeof playNotificationSound === 'function') {
       playNotificationSound();
     }
   }

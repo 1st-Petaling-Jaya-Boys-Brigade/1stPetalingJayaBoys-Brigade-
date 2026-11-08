@@ -345,6 +345,30 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
       );
     }
   });
+
+
+  // Handle notification clicks from OS device popups
+  self.addEventListener('notificationclick', function (event) {
+    if (event.notification) {
+      event.notification.close();
+    }
+    if (event.action === 'dismiss') {
+      return;
+    }
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
+        for (var i = 0; i < clientList.length; i++) {
+          var client = clientList[i];
+          if (client.url && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow('./');
+        }
+      })
+    );
+  });
 }
 
 // ── Node.js Testing Exports ────────────────────────────────────────────────
