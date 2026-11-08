@@ -31,7 +31,7 @@
   }
 
   function applyTheme(theme, persist) {
-    if (typeof document === 'undefined') return;
+    if (typeof document === 'undefined' || !document.documentElement) return;
     var resolved = theme === 'light' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', resolved);
     syncThemeMetaTags(resolved);
@@ -67,7 +67,7 @@
 
   // Apply immediately on script execution to prevent flash of wrong theme
   var initialTheme = getPreferredTheme();
-  if (typeof document !== 'undefined') {
+  if (typeof document !== 'undefined' && document.documentElement) {
     document.documentElement.setAttribute('data-theme', initialTheme);
     syncThemeMetaTags(initialTheme);
     if (typeof document.addEventListener === 'function') {

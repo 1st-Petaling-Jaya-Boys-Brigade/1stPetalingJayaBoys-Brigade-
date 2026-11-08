@@ -5125,20 +5125,92 @@ function loadSecurityQuestion() {
 
 
 // ── Portal User Settings & Preferences System ──────────────────────────────
+function openResetModal() {
+  if (typeof document === 'undefined') return;
+  closeSettingsModal();
+  if (typeof switchTabNav === 'function') {
+    switchTabNav('member');
+  }
+  var mAuth = document.getElementById('m-auth');
+  var mPortal = document.getElementById('m-portal');
+  if (mAuth) mAuth.style.display = 'block';
+  if (mPortal) mPortal.style.display = 'none';
+  if (typeof showAuthMode === 'function') {
+    showAuthMode('forgot');
+  }
+  if (typeof showForgotStep === 'function') {
+    showForgotStep(1);
+  }
+  var userEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  if (!userEmail) {
+    var me = document.getElementById('m-email');
+    if (me && me.textContent) userEmail = me.textContent.trim();
+  }
+  var emailInp = document.getElementById('forgot-email');
+  if (emailInp && userEmail) {
+    emailInp.value = userEmail;
+  }
+  if (emailInp) {
+    try {
+      emailInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      emailInp.focus();
+    } catch (_) {}
+  }
+}
+
 function refreshSettingsModalAvatar() {
   if (typeof document === 'undefined') return;
   var pfpImg = document.getElementById('settings-pfp-img');
   var pfpPh = document.getElementById('settings-pfp-ph');
-  var navImg = document.getElementById('nav-avatar-img');
+  var wrap = document.getElementById('settings-pfp-preview-wrap');
   if (!pfpImg || !pfpPh) return;
 
-  if (navImg && navImg.src && navImg.style.display !== 'none') {
-    pfpImg.src = navImg.src;
+  var name = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  var email = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  if (!name && typeof document !== 'undefined') {
+    var sn = document.getElementById('sidebar-user-name');
+    if (sn && sn.textContent && sn.textContent.trim() !== 'Guest Member') name = sn.textContent.trim();
+    var mn = document.getElementById('m-name');
+    if (!name && mn && mn.textContent) name = mn.textContent.trim();
+  }
+  if (!email && typeof document !== 'undefined') {
+    var me = document.getElementById('m-email');
+    if (me && me.textContent) email = me.textContent.trim();
+  }
+
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshua\s+koh/i.test(name);
+  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name ? name.trim().charAt(0).toUpperCase() : 'B'));
+  var bgColor = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
+  var textColor = (typeof isBrightColor === 'function' && isBrightColor(bgColor)) ? '#1e293b' : '#ffffff';
+  var outline = (typeof getMemberAvatarOutline === 'function') ? getMemberAvatarOutline(email, name) : { style: 'none' };
+  var cosmetic = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(email, name) : { id: 'none' };
+
+  var userPhoto = (typeof sessionGet === 'function' ? sessionGet('photo_url') : '') || '';
+  if (!userPhoto && typeof hasActiveCustomPhoto === 'function' && hasActiveCustomPhoto()) {
+    var mImg = document.getElementById('m-pfp-img');
+    var sImg = document.getElementById('sidebar-user-avatar-img');
+    var nImg = document.getElementById('nav-avatar-img');
+    if (mImg && mImg.src && mImg.style.display !== 'none') userPhoto = mImg.src;
+    else if (sImg && sImg.src && sImg.style.display !== 'none') userPhoto = sImg.src;
+    else if (nImg && nImg.src && nImg.style.display !== 'none') userPhoto = nImg.src;
+  }
+  var hasPhoto = !!(userPhoto && userPhoto.length > 5 && !userPhoto.endsWith('#'));
+
+  if (hasPhoto) {
+    pfpImg.src = userPhoto;
     pfpImg.style.display = 'block';
     pfpPh.style.display = 'none';
   } else {
     pfpImg.style.display = 'none';
     pfpPh.style.display = 'flex';
+    pfpPh.textContent = initial;
+    pfpPh.style.background = bgColor;
+    pfpPh.style.color = textColor;
+  }
+
+  if (wrap) {
+    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(wrap, outline.style);
+    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(wrap, cosmetic.id, 'cosmetic-md');
   }
 }
 
@@ -5190,7 +5262,9 @@ function handleSettingsThemeToggle() {
     statusEl.textContent = isDark ? 'Dark Mode' : 'Light Mode';
   }
   if (btnEl) {
-    btnEl.innerHTML = isDark ? '☀️ Switch to Light' : '🌙 Switch to Dark';
+    var sunIcon = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+    var moonIcon = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+    btnEl.innerHTML = isDark ? (sunIcon + '<span>Switch to Light</span>') : (moonIcon + '<span>Switch to Dark</span>');
   }
 }
 
@@ -5245,7 +5319,7 @@ async function handleSettingsPasswordUpdate() {
   var pNew = pNewEl.value || '';
   var pConf = pConfEl.value || '';
 
-  var email = (typeof sessionGet === 'function') ? sessionGet('bb_user_email') : '';
+  var email = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('bb_user_email')) : '';
   if (!email) {
     if (typeof showToast === 'function') {
       showToast('Please log in to update your password.', 'warning');
@@ -5294,7 +5368,7 @@ async function handleSettingsPasswordUpdate() {
           console.warn('Direct patch by email error, trying ic match:', err);
         }
         try {
-          var ic = (typeof sessionGet === 'function') ? sessionGet('bb_user_ic') : '';
+          var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('bb_user_ic')) : '';
           if (ic) {
             await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), {
               password: newHash
@@ -5324,8 +5398,21 @@ async function handleSettingsPasswordUpdate() {
 function openSettingsModal() {
   if (typeof document === 'undefined') return;
 
-  var name = (typeof sessionGet === 'function' ? sessionGet('bb_user_name') : '') || 'Guest Member';
-  var email = (typeof sessionGet === 'function' ? sessionGet('bb_user_email') : '') || 'guest@1stpj.org.my';
+  var name = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  var email = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  if (!name && typeof document !== 'undefined') {
+    var sn = document.getElementById('sidebar-user-name');
+    if (sn && sn.textContent && sn.textContent.trim() !== 'Guest Member') name = sn.textContent.trim();
+    var mn = document.getElementById('m-name');
+    if (!name && mn && mn.textContent) name = mn.textContent.trim();
+  }
+  if (!email && typeof document !== 'undefined') {
+    var me = document.getElementById('m-email');
+    if (me && me.textContent) email = me.textContent.trim();
+  }
+  if (!name) name = 'Guest Member';
+  if (!email) email = 'guest@1stpj.org.my';
+
   var isDark = false;
   if (typeof document !== 'undefined') {
     isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -5348,10 +5435,23 @@ function openSettingsModal() {
     defaultTab = localStorage.getItem('bb_default_tab') || 'home';
   } catch (_) {}
 
-  var navImg = document.getElementById('nav-avatar-img');
-  var hasPhoto = navImg && navImg.src && navImg.style.display !== 'none';
-  var avatarUrl = hasPhoto ? navImg.src : 'assets/logo.png';
-  var initials = name ? name.charAt(0).toUpperCase() : 'B';
+  var userPhoto = (typeof sessionGet === 'function' ? sessionGet('photo_url') : '') || '';
+  if (!userPhoto && typeof hasActiveCustomPhoto === 'function' && hasActiveCustomPhoto()) {
+    var mImg = document.getElementById('m-pfp-img');
+    var sImg = document.getElementById('sidebar-user-avatar-img');
+    var nImg = document.getElementById('nav-avatar-img');
+    if (mImg && mImg.src && mImg.style.display !== 'none') userPhoto = mImg.src;
+    else if (sImg && sImg.src && sImg.style.display !== 'none') userPhoto = sImg.src;
+    else if (nImg && nImg.src && nImg.style.display !== 'none') userPhoto = nImg.src;
+  }
+  var hasPhoto = !!(userPhoto && userPhoto.length > 5 && !userPhoto.endsWith('#'));
+
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshua\s+koh/i.test(name);
+  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name ? name.trim().charAt(0).toUpperCase() : 'B'));
+  var bgColor = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
+  var textColor = (typeof isBrightColor === 'function' && isBrightColor(bgColor)) ? '#1e293b' : '#ffffff';
+  var outline = (typeof getMemberAvatarOutline === 'function') ? getMemberAvatarOutline(email, name) : { style: 'none' };
+  var cosmetic = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(email, name) : { id: 'none' };
 
   var modal = document.getElementById('settings-modal');
   if (!modal) {
@@ -5368,6 +5468,10 @@ function openSettingsModal() {
     document.body.appendChild(modal);
   }
 
+  var sunSvg = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var moonSvg = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var bellSvg = '<svg class="ui-icon-xs" style="margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+
   var modalHtml = ''
     + '<div class="portal-modal-card settings-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);">'
       + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border-card);">'
@@ -5383,16 +5487,16 @@ function openSettingsModal() {
         + '<button type="button" onclick="closeSettingsModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;" title="Close Settings">&times;</button>'
       + '</div>'
 
-      // Section 1: Profile Image
+      // Section 1: Profile Image & Avatar
       + '<div class="settings-section-card">'
         + '<div class="settings-section-title">'
           + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-          + '<span>Profile Picture</span>'
+          + '<span>Profile Picture &amp; Avatar</span>'
         + '</div>'
         + '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">'
-          + '<div id="settings-pfp-preview-wrap" style="position:relative;width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid var(--accent);background:var(--bg-card);flex-shrink:0;">'
-            + '<img id="settings-pfp-img" src="' + escapeHtml(avatarUrl) + '" alt="Avatar" style="width:100%;height:100%;object-fit:cover;display:' + (hasPhoto ? 'block' : 'none') + ';" />'
-            + '<div id="settings-pfp-ph" style="width:100%;height:100%;display:' + (hasPhoto ? 'none' : 'flex') + ';align-items:center;justify-content:center;background:var(--accent);color:#000;font-weight:700;font-size:22px;">' + escapeHtml(initials) + '</div>'
+          + '<div id="settings-pfp-preview-wrap" style="position:relative;width:64px;height:64px;border-radius:50%;overflow:visible;background:var(--bg-card);flex-shrink:0;">'
+            + '<img id="settings-pfp-img" src="' + escapeHtml(userPhoto) + '" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:' + (hasPhoto ? 'block' : 'none') + ';" />'
+            + '<div id="settings-pfp-ph" style="width:100%;height:100%;border-radius:50%;display:' + (hasPhoto ? 'none' : 'flex') + ';align-items:center;justify-content:center;background:' + bgColor + ';color:' + textColor + ';font-weight:700;font-size:22px;overflow:hidden;">' + escapeHtml(initial) + '</div>'
           + '</div>'
           + '<div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px;">'
             + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
@@ -5455,7 +5559,7 @@ function openSettingsModal() {
         + '</div>'
         + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
           + '<button type="button" class="portal-btn portal-btn-primary" onclick="handleSettingsPasswordUpdate()" style="font-weight:700;padding:8px 18px;">Update Password</button>'
-          + '<a href="javascript:void(0)" onclick="closeSettingsModal();if(typeof openResetModal===\'function\')openResetModal();" style="font-size:12px;color:var(--accent);font-weight:600;text-decoration:none;">Forgot password? Reset via OTP</a>'
+          + '<a href="javascript:void(0)" onclick="openResetModal()" style="font-size:12px;color:var(--accent);font-weight:600;text-decoration:none;">Forgot password? Reset via OTP</a>'
         + '</div>'
       + '</div>'
 
@@ -5470,7 +5574,7 @@ function openSettingsModal() {
             + '<div class="settings-row-label">Portal Color Theme</div>'
             + '<div class="settings-row-desc">Currently in <strong id="settings-theme-status">' + (isDark ? 'Dark Mode' : 'Light Mode') + '</strong></div>'
           + '</div>'
-          + '<button type="button" class="portal-btn" onclick="handleSettingsThemeToggle()" id="settings-theme-btn" style="padding:7px 16px;font-size:12px;font-weight:600;">' + (isDark ? '☀️ Switch to Light' : '🌙 Switch to Dark') + '</button>'
+          + '<button type="button" class="portal-btn" onclick="handleSettingsThemeToggle()" id="settings-theme-btn" style="padding:7px 16px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;">' + (isDark ? (sunSvg + '<span>Switch to Light</span>') : (moonSvg + '<span>Switch to Dark</span>')) + '</button>'
         + '</div>'
       + '</div>'
 
@@ -5483,20 +5587,20 @@ function openSettingsModal() {
         + '<div class="settings-row">'
           + '<div style="flex:1;">'
             + '<div class="settings-row-label">Desktop &amp; Mobile System Popups</div>'
-            + '<div class="settings-row-desc">Display OS-level notification banners for parades, announcements &amp; task mentions</div>'
+            + '<div class="settings-row-desc">Display notification</div>'
           + '</div>'
           + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.requestNotificationPermission===\'function\')window.requestNotificationPermission();" style="font-size:11.5px;padding:5px 10px;">Test</button>'
+            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.testNotificationPopup===\'function\')window.testNotificationPopup();else if(typeof window!==\'undefined\'&&typeof window.requestNotificationPermission===\'function\')window.requestNotificationPermission();" style="font-size:11.5px;padding:5px 10px;">Test</button>'
             + '<input type="checkbox" id="settings-toggle-sysnotif" onchange="handleSettingsNotificationToggle(\'system\')" ' + (sysNotifEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
           + '</div>'
         + '</div>'
         + '<div class="settings-row">'
           + '<div style="flex:1;">'
-            + '<div class="settings-row-label">Notification Chime Sound</div>'
+            + '<div class="settings-row-label">Notification Sound</div>'
             + '<div class="settings-row-desc">Play an audible chime when alerts and notifications pop up</div>'
           + '</div>'
           + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.playNotificationSound===\'function\')window.playNotificationSound();" style="font-size:11.5px;padding:5px 10px;">Preview 🔔</button>'
+            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.playNotificationSound===\'function\')window.playNotificationSound();" style="font-size:11.5px;padding:5px 10px;display:inline-flex;align-items:center;">' + bellSvg + '<span>Preview</span></button>'
             + '<input type="checkbox" id="settings-toggle-sound" onchange="handleSettingsNotificationToggle(\'sound\')" ' + (soundEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
           + '</div>'
         + '</div>'
@@ -5519,6 +5623,12 @@ function openSettingsModal() {
 
   modal.innerHTML = modalHtml;
   modal.style.display = 'flex';
+
+  var previewWrap = document.getElementById('settings-pfp-preview-wrap');
+  if (previewWrap) {
+    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(previewWrap, outline.style);
+    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(previewWrap, cosmetic.id, 'cosmetic-md');
+  }
 }
 
 function closeSettingsModal() {
@@ -5620,6 +5730,7 @@ if (typeof window !== 'undefined') {
   window.filterCosmeticShop           = filterCosmeticShop;
   window.renderCosmeticLivePreview    = renderCosmeticLivePreview;
   window.renderCosmeticShopCards      = renderCosmeticShopCards;
+  window.openResetModal                 = openResetModal;
   window.openSettingsModal              = openSettingsModal;
   window.closeSettingsModal             = closeSettingsModal;
   window.handleSettingsAvatarUpload     = handleSettingsAvatarUpload;
@@ -5714,6 +5825,7 @@ if (typeof module !== 'undefined' && module.exports) {
     filterCosmeticShop,
     renderCosmeticLivePreview,
     renderCosmeticShopCards,
+    openResetModal,
     openSettingsModal,
     closeSettingsModal,
     handleSettingsAvatarUpload,
