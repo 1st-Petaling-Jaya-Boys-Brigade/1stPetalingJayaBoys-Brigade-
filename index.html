@@ -4264,7 +4264,7 @@ function syncTaskNotifications(tasks) {
         var dueTime = new Date(t.due_date).getTime();
         var now = Date.now();
         var diffDays = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
-        if (!isNaN(dueTime) && diffDays <= 2 && diffDays >= -2) {
+        if (!isNaN(dueTime) && diffDays <= 2 && diffDays >= -14) {
           var dueNotice = (diffDays < 0) ? 'Overdue' : (diffDays === 0 ? 'Due Today' : (diffDays === 1 ? 'Due Tomorrow' : 'Due in 2 days'));
           var dueId = 'notif-task-due-' + t.id + '-' + String(t.due_date).split('T')[0];
           if (dismissed.indexOf(dueId) === -1) {
@@ -4519,7 +4519,9 @@ function syncForumNotifications(postsList) {
       || (pIc && myIc && pIc === myIc)
       || (pName && myName && pName === myName);
 
-    if (!isPostAuthor) return;
+    var checkFn = (typeof isUserMentionedInComment === 'function') ? isUserMentionedInComment : null;
+    var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
+    var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '') : '';
 
     p.replies.forEach(function(r, idx) {
       if (!r) return;
@@ -4536,11 +4538,10 @@ function syncForumNotifications(postsList) {
         || (rName && myName && rName === myName);
 
       // Check if logged-in user is explicitly mentioned in the reply (including self-mentions)
-      var checkFn = (typeof isUserMentionedInComment === 'function') ? isUserMentionedInComment : null;
-      var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
-      var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '') : '';
       var isMentionedInReply = checkFn ? checkFn(r.content || '', r.authorEmail, r.authorName, myName, myEmail, myDept, myRank) : false;
 
+      // Notify if post author OR mentioned in the reply (including self-mentions)
+      if (!isPostAuthor && !isMentionedInReply) return;
       if (isSelfReply && !isMentionedInReply) return;
 
       var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
@@ -4550,6 +4551,9 @@ function syncForumNotifications(postsList) {
         if (cleanSnippet.length > 70) cleanSnippet = cleanSnippet.slice(0, 67) + '...';
 
         var initials = replierName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase() || 'BB';
+        var notifTitleText = isMentionedInReply && !isPostAuthor
+          ? (replierName + ' mentioned you in a forum discussion')
+          : (replierName + ' replied to your forum discussion');
 
         pushPortalNotification({
           id: notifId,
@@ -4557,7 +4561,7 @@ function syncForumNotifications(postsList) {
           group: 'Today',
           avatarInitials: initials,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-          title: replierName + ' replied to your forum discussion',
+          title: notifTitleText,
           snippet: (p.title ? ('"' + p.title + '": ') : '') + (cleanSnippet || 'Tap to view discussion.'),
           time: r.date || 'Today',
           unread: true,
@@ -4737,6 +4741,9 @@ function toggleNotificationDropdown(force) {
   card.style.display = nextState ? 'block' : 'none';
   if (btn) btn.setAttribute('aria-expanded', String(nextState));
   if (nextState) {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default' && typeof requestNotificationPermission === 'function') {
+      requestNotificationPermission();
+    }
     renderNotifications();
   }
 }

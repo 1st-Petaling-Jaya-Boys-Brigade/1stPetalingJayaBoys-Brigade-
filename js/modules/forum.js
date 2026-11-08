@@ -5819,6 +5819,12 @@ async function deleteForumPost(postId) {
   forumPosts = forumPosts.filter(function(x) { return x.id !== postId; });
   saveForumPosts(forumPosts);
 
+  if (typeof syncForumNotifications === 'function') {
+    syncForumNotifications(forumPosts);
+  } else if (typeof window !== 'undefined' && typeof window.syncForumNotifications === 'function') {
+    window.syncForumNotifications(forumPosts);
+  }
+
   if (typeof document !== 'undefined') {
     var detailModal = document.getElementById('forum-detail-modal');
     removeDomElement(detailModal);
@@ -6125,6 +6131,11 @@ function submitForumReply(e, postId, customText) {
   });
 
   saveForumPosts(forumPosts);
+  if (typeof syncForumNotifications === 'function') {
+    syncForumNotifications(forumPosts);
+  } else if (typeof window !== 'undefined' && typeof window.syncForumNotifications === 'function') {
+    window.syncForumNotifications(forumPosts);
+  }
 
   if (typeof document !== 'undefined') {
     openForumPostDetail(postId);
