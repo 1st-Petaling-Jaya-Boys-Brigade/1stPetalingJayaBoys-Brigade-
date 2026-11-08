@@ -794,8 +794,6 @@
     var kitMeta  = KIT_BADGES[upcoming.kit] || { label: upcoming.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)' };
     var typeMeta = TYPE_BADGES[upcoming.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
 
-    // Subsequent 4 events following this active event
-    var nextList = allEvents.slice(activeIdx + 1, activeIdx + 5);
 
     var cardActionAttr = isAdminView
       ? (' style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" title="Click to edit schedule"')
@@ -883,36 +881,6 @@
         ))
       + '</div>';
 
-    // Upcoming Strip (Click any to navigate upcoming view to that event!)
-    if (nextList.length > 0) {
-      html += ''
-        + '<div style="margin-top:20px;">'
-          + '<div class="cal-hero-section-title" style="margin-bottom:10px;">Subsequent Company Parades &amp; Events</div>'
-          + '<div class="cal-upcoming-strip-grid">';
-      for (var s = 0; s < nextList.length; s++) {
-        var subEv = nextList[s];
-        var sTargetIdx = activeIdx + 1 + s;
-        var sDateObj = new Date(subEv.date + 'T00:00:00');
-        var sDateText = sDateObj.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
-        var sKitMeta = KIT_BADGES[subEv.kit] || { label: subEv.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)' };
-        var sTypeMeta = TYPE_BADGES[subEv.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
-
-        var jumpFn = isAdminView ? ('adminCalJumpToEventIndex(' + sTargetIdx + ')') : ('calJumpToEventIndex(' + sTargetIdx + ')');
-        html += ''
-          + '<div class="cal-upcoming-mini-card" onclick="' + jumpFn + '" style="cursor:pointer;" title="View this event breakdown">'
-            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-              + '<span class="cal-mini-date">' + escapeHtml(sDateText) + '</span>'
-              + '<span class="cal-pill-badge" style="background:' + sTypeMeta.bg + ';color:' + sTypeMeta.color + ';">' + escapeHtml(sTypeMeta.label) + '</span>'
-            + '</div>'
-            + '<div class="cal-mini-title">' + escapeHtml(subEv.title) + '</div>'
-            + '<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">'
-              + (subEv.kit && subEv.kit !== 'None' ? ('<span style="color:var(--accent);">' + CAL_ICONS.shirt + ' ' + escapeHtml(sKitMeta.label) + '</span> &bull; ') : '')
-              + escapeHtml(subEv.time || '2:15 PM – 6:00 PM')
-            + '</div>'
-          + '</div>';
-      }
-      html += '</div></div>';
-    }
 
     html += '</div>'; // end cal-upcoming-hero
     return html;
