@@ -122,7 +122,7 @@
 
   /* Typography (WCAG AA+ Contrast Verified) */
   --text-primary: #0f172a;
-  --text-secondary: #475569;
+  --text-secondary: #334155;
   --text-muted: #64748b;
   --text-inverse: #ffffff;
   --btn-on-accent: #ffffff;
@@ -139,11 +139,11 @@
   --accent-border: rgba(154, 52, 18, 0.32);
 
   /* Borders & Shadows */
-  --border-subtle: rgba(15, 23, 42, 0.08);
-  --border-card: #d5dce6;
+  --border-subtle: #e2e8f0;
+  --border-card: #cbd5e1;
   --border-hover: #94a3b8;
   --border-input: #cbd5e1;
-  --border-focus: #9a3412;
+  --border-focus: #2563eb;
   --shadow-subtle: 0 1px 4px rgba(15, 23, 42, 0.05);
   --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.12);
   --shadow-card: 0 6px 20px -4px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);

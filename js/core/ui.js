@@ -61,8 +61,7 @@
   var _lastToastMap = {};
   var MAX_VISIBLE_TOASTS = 3;
 
-  function showToast(message, type, duration, options) {
-    options = options || {};
+  function showToast(message, type, duration, _options) {
     if (!message) return null;
     if (typeof document === 'undefined') return null;
 
@@ -145,17 +144,6 @@
     }, duration);
 
     toast._dismissTimer = timer;
-
-    try {
-      var isSilent = options && options.silent === true;
-      var sndEnabled = true;
-      if (typeof localStorage !== 'undefined') {
-        sndEnabled = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
-      }
-      if (!isSilent && sndEnabled && typeof playNotificationSound === 'function') {
-        playNotificationSound();
-      }
-    } catch (_) {}
 
     return toast;
   }
@@ -1221,7 +1209,7 @@
     options = options || {};
     var now = Date.now();
 
-    // 1. Notification Sound Chime
+    // 1. Notification Sound Chime - strictly for inbox arrivals and device notifications
     var soundEnabled = true;
     try {
       if (typeof localStorage !== 'undefined') {
@@ -1234,16 +1222,17 @@
       playNotificationSound();
     }
 
-    // 2. Native OS System Notification (Desktop/Window/Laptop/Mobile)
+    // 2. Native OS System Notification (Windows Desktop Toast / macOS Banner)
     var sysEnabled = true;
     try {
       if (typeof localStorage !== 'undefined') {
         sysEnabled = localStorage.getItem('bb_notif_system_enabled') !== 'false';
       }
     } catch (_) {}
-    if (!sysEnabled) return null;
 
     var isForce = options && options.force === true;
+    if (!isForce && !sysEnabled) return null;
+
     if (!isForce && (now - _lastSystemNotifTs < 800)) return null;
     _lastSystemNotifTs = now;
 
@@ -1270,42 +1259,34 @@
           }
         };
 
-        var spawnDirect = function() {
-          try {
-            var notif = new Notification(notifTitle, notifOpts);
-            notif.onclick = function() {
-              try {
-                window.focus();
-                if (options && typeof options.onClick === 'function') {
-                  options.onClick();
-                } else if (options && options.tab && typeof window.switchTabNav === 'function') {
-                  window.switchTabNav(options.tab);
-                }
-                notif.close();
-              } catch (_) {}
-            };
-            return notif;
-          } catch (_) {
-            return null;
-          }
-        };
-
-        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-          try {
-            if (navigator.serviceWorker.ready) {
-              navigator.serviceWorker.ready.then(function(reg) {
+        // Directly spawn native desktop OS notification (Windows Action Center Toast)
+        try {
+          var notif = new Notification(notifTitle, notifOpts);
+          notif.onclick = function() {
+            try {
+              window.focus();
+              if (options && typeof options.onClick === 'function') {
+                options.onClick();
+              } else if (options && options.tab && typeof window.switchTabNav === 'function') {
+                window.switchTabNav(options.tab);
+              }
+              notif.close();
+            } catch (_) {}
+          };
+          return notif;
+        } catch (_) {
+          // Mobile fallback for environments that disallow window Notification constructor (e.g. Android Chrome)
+          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            try {
+              navigator.serviceWorker.getRegistration().then(function(reg) {
                 if (reg && typeof reg.showNotification === 'function') {
-                  return reg.showNotification(notifTitle, notifOpts);
+                  reg.showNotification(notifTitle, notifOpts);
                 }
-                return spawnDirect();
-              }).catch(function() {
-                return spawnDirect();
-              });
-              return true;
-            }
-          } catch (_) {}
+              }).catch(function() {});
+            } catch (_) {}
+          }
+          return null;
         }
-        return spawnDirect();
       }
     }
     return null;
@@ -1335,7 +1316,20 @@
 
   async function testNotificationPopup() {
     if (typeof window === 'undefined') return;
-    if (!('Notification' in window)) return;
+    if (!('Notification' in window)) {
+      if (typeof showToast === 'function') {
+        showToast('System notifications are not supported in this browser.', 'warning');
+      }
+      return;
+    }
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_notif_system_enabled', 'true');
+        var toggleEl = document.getElementById('settings-toggle-sysnotif');
+        if (toggleEl) toggleEl.checked = true;
+      }
+    } catch (_) {}
 
     if (Notification.permission === 'granted') {
       triggerPortalSystemNotification(
@@ -1343,21 +1337,39 @@
         "Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
         { tag: 'bb-test-' + Date.now(), silentSound: false, force: true }
       );
+      if (typeof showToast === 'function') {
+        showToast('Test notification sent to your device!', 'success', 2500);
+      }
       return;
     }
 
-    if (Notification.permission === 'default') {
-      try {
-        var perm = await Notification.requestPermission();
-        if (perm === 'granted') {
-          triggerPortalSystemNotification(
-            "1st Petaling Jaya Boys' Brigade",
-            "System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
-            { tag: 'bb-test-' + Date.now(), silentSound: false, force: true }
-          );
-        }
-      } catch (_) {}
+    if (Notification.permission === 'denied') {
+      if (typeof showToast === 'function') {
+        showToast('Notifications are blocked by your browser settings. Please allow notifications in site permissions.', 'warning', 4500);
+      }
       return;
+    }
+
+    try {
+      var perm = await (typeof requestNotificationPermission === 'function' ? requestNotificationPermission() : Notification.requestPermission());
+      if (perm === 'granted') {
+        triggerPortalSystemNotification(
+          "1st Petaling Jaya Boys' Brigade",
+          "Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
+          { tag: 'bb-test-' + Date.now(), silentSound: false, force: true }
+        );
+        if (typeof showToast === 'function') {
+          showToast('Notifications enabled! Test notification sent to your device.', 'success', 2500);
+        }
+      } else {
+        if (typeof showToast === 'function') {
+          showToast('Notification permission was not granted (' + perm + ').', 'info', 3000);
+        }
+      }
+    } catch (err) {
+      if (typeof showToast === 'function') {
+        showToast('Could not request notification permission: ' + (err && err.message ? err.message : err), 'warning', 3000);
+      }
     }
   }
 

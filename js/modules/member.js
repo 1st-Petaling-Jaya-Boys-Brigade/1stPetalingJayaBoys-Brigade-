@@ -2065,6 +2065,9 @@ async function checkAndNotifyNewDeviceLogin(m) {
  * @param {boolean} rememberMe
  */
 function completeLoginWithAccount(m, rememberMe) {
+  if (typeof window !== 'undefined' && typeof window.Notification !== 'undefined' && window.Notification.permission === 'default' && typeof window.requestNotificationPermission === 'function') {
+    window.requestNotificationPermission();
+  }
   var userEmail = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : m.ic));
   sessionSet('remember', rememberMe !== false);
   sessionSet('ic', m.ic);

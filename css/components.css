@@ -4843,7 +4843,7 @@ select.form-input,
   display: grid;
   grid-template-columns: 60px repeat(7, minmax(110px, 1fr));
   min-height: 48px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-card);
 }
 
 .cal-week-time-label {
@@ -4857,11 +4857,15 @@ select.form-input,
 }
 
 .cal-week-hour-cell {
-  border-right: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-card);
   padding: 2px;
   position: relative;
   cursor: pointer;
   transition: background 0.12s ease;
+}
+
+.cal-week-hour-cell:last-child {
+  border-right: none;
 }
 
 .cal-week-hour-cell:hover {
@@ -11969,7 +11973,7 @@ select.form-input,
 }
 
 [data-theme='light'] .settings-row {
-  border-bottom-color: #f1f5f9;
+  border-bottom-color: #e2e8f0;
 }
 
 [data-theme='light'] .settings-row-label {
@@ -11989,7 +11993,7 @@ select.form-input,
 
 [data-theme='light'] .project-row,
 [data-theme='light'] .my-tasks-row {
-  border-bottom-color: #f1f5f9;
+  border-bottom-color: #e2e8f0;
 }
 
 [data-theme='light'] .project-row:hover,
@@ -12200,7 +12204,7 @@ select.form-input,
 }
 
 [data-theme='light'] .filter-menu-header {
-  border-bottom-color: #f1f5f9;
+  border-bottom-color: #e2e8f0;
 }
 
 .filter-menu-title {
@@ -12328,6 +12332,121 @@ select.form-input,
 }
 
 [data-theme='light'] .my-tasks-table td {
-  border-bottom-color: #f1f5f9;
+  border-bottom-color: #e2e8f0;
   color: #1e293b;
+}
+
+
+/* ── Calendar Week & Month High-Contrast Light Mode ── */
+[data-theme='light'] .cal-week-wrapper {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme='light'] .cal-week-header-row {
+  background: #f8fafc;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+[data-theme='light'] .cal-week-tz-cell {
+  color: #334155;
+  font-weight: 700;
+  border-right: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+}
+
+[data-theme='light'] .cal-week-day-header {
+  border-right: 1px solid #cbd5e1;
+}
+
+[data-theme='light'] .cal-week-day-header:last-child {
+  border-right: none;
+}
+
+[data-theme='light'] .cal-week-day-name {
+  color: #475569;
+  font-weight: 800;
+}
+
+[data-theme='light'] .cal-week-day-circle {
+  color: #0f172a;
+}
+
+[data-theme='light'] .cal-week-allday-row {
+  background: #f8fafc;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+[data-theme='light'] .cal-week-allday-label {
+  color: #334155;
+  font-weight: 700;
+  border-right: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+}
+
+[data-theme='light'] .cal-week-allday-cell {
+  border-right: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+[data-theme='light'] .cal-week-allday-cell:last-child {
+  border-right: none;
+}
+
+[data-theme='light'] .cal-week-hour-row {
+  border-bottom: 1px solid #cbd5e1;
+}
+
+[data-theme='light'] .cal-week-time-label {
+  color: #334155;
+  font-weight: 700;
+  border-right: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+}
+
+[data-theme='light'] .cal-week-hour-cell {
+  border-right: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+[data-theme='light'] .cal-week-hour-cell:last-child {
+  border-right: none;
+}
+
+[data-theme='light'] .cal-week-hour-cell:hover {
+  background: #f1f5f9;
+}
+
+[data-theme='light'] .cal-month-table-wrapper {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme='light'] .cal-month-head-row {
+  background: #f8fafc;
+  border-bottom: 1.5px solid #cbd5e1;
+  color: #334155;
+  font-weight: 800;
+}
+
+[data-theme='light'] .cal-month-day-cell {
+  border-right: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+[data-theme='light'] .cal-month-day-cell:nth-child(7n) {
+  border-right: none;
+}
+
+[data-theme='light'] .cal-month-day-cell:hover {
+  background: #f8fafc;
+}
+
+[data-theme='light'] .my-tasks-table-container {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
 }
