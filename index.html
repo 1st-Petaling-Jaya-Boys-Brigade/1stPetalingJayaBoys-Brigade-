@@ -1584,7 +1584,7 @@
           <!-- Divider tool (horizontal rule) -->
           <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('divider', null, this)" title="Horizontal Divider (—)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
         </div>
-        <div class="task-brief-body task-editable-desc" id="tdm-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task description and deliverables" placeholder="Add a description or deliverables brief..." onblur="handleTaskDescBlur(this)"></div>
+        <div class="task-brief-body task-editable-desc" id="tdm-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task description and deliverables" placeholder="Add a description or deliverables brief..." onblur="handleTaskDescBlur(this)" oninput="handleTaskBriefDescInput(this)"></div>
         </div>
         <div id="tdm-status-btns" style="display:none !important;"></div>
 
@@ -1768,7 +1768,7 @@
           <!-- Divider tool (horizontal rule) -->
           <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('divider', null, this)" title="Horizontal Divider (—)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
         </div>
-            <div class="form-input new-task-desc-input task-brief-body task-editable-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task brief description" placeholder="Detailed brief, checklist, or instructions..." style="width:100%;min-height:120px;margin-bottom:0;border-radius:0 0 8px 8px;"></div>
+            <div class="form-input new-task-desc-input task-brief-body task-editable-desc" contenteditable="true" spellcheck="false" role="textbox" aria-label="Task brief description" placeholder="Detailed brief, checklist, or instructions..." style="width:100%;min-height:120px;margin-bottom:0;border-radius:0 0 8px 8px;" oninput="handleTaskBriefDescInput(this)"></div>
             </div>
           </div>
           <div class="task-create-footer" style="display:flex;justify-content:flex-end;gap:10px;margin-top:8px;">

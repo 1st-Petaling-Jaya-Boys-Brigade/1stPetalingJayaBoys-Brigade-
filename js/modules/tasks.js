@@ -2755,7 +2755,40 @@ function getDepartmentMentionCandidates(query) {
  * Handles typing in the comment box to reveal @ mention suggestions
  * @param {HTMLInputElement} inputEl
  */
+var _activeMentionTarget = null;
+
+/**
+ * Handles typing inside task brief contenteditable description fields (#tdm-desc, .new-task-desc-input)
+ * @param {HTMLElement} el
+ */
+function handleTaskBriefDescInput(el) {
+  if (!el) return;
+  _activeMentionTarget = el;
+
+  var text = '';
+  var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+  if (sel && sel.focusNode) {
+    var nodeText = sel.focusNode.textContent || '';
+    var offset = sel.focusOffset || 0;
+    text = nodeText.slice(0, offset);
+  } else {
+    text = el.innerText || el.textContent || '';
+  }
+
+  var match = text.match(/@([a-zA-Z0-9_\s]*)$/);
+  if (match) {
+    var query = match[1];
+    if (query.split(/\s+/).length <= 2) {
+      showMentionDropdown(el, query);
+      return;
+    }
+  }
+
+  hideMentionDropdown();
+}
+
 function handleTaskCommentInput(inputEl) {
+  _activeMentionTarget = inputEl;
   if (!inputEl) return;
   var val = inputEl.value;
   var cursor = (typeof inputEl.selectionStart === 'number') ? inputEl.selectionStart : val.length;
@@ -2800,7 +2833,7 @@ function showMentionDropdown(inputEl, query) {
       ? '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">#</span>'
       : getAssigneeAvatarHtml(c.name, c.email, 24);
 
-    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onmousedown="selectMentionCandidate(' + i + ', event)">'
+    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onpointerdown="selectMentionCandidate(' + i + ', event)" ontouchstart="selectMentionCandidate(' + i + ', event)" onmousedown="selectMentionCandidate(' + i + ', event)">'
       + iconHtml
       + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">'
         + '<div class="tb-mention-name">' + (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) + '</div>'
@@ -2878,26 +2911,53 @@ function updateActiveMentionItem(items) {
  * @param {Event} [event]
  */
 function selectMentionCandidate(idx, event) {
-  if (event && typeof event.preventDefault === 'function') event.preventDefault();
+  if (event) {
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+  }
   var candidate = _currentMentionCandidates[idx];
   if (!candidate) return;
 
-  var input = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-input') : null;
+  var input = _activeMentionTarget || ((typeof document !== 'undefined') ? document.querySelector('.tb-comment-input') : null);
   if (!input) return;
 
-  var val = input.value;
-  var cursor = (typeof input.selectionStart === 'number') ? input.selectionStart : val.length;
-  var before = val.slice(0, cursor);
-  var after = val.slice(cursor);
+  if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
+    var val = input.value;
+    var cursor = (typeof input.selectionStart === 'number') ? input.selectionStart : val.length;
+    var before = val.slice(0, cursor);
+    var after = val.slice(cursor);
 
-  // Replace @query before cursor with @CandidateName + ' '
-  var newBefore = before.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
-  input.value = newBefore + after;
-  var newCursor = newBefore.length;
-  if (typeof input.setSelectionRange === 'function') {
-    input.setSelectionRange(newCursor, newCursor);
+    var newBefore = before.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
+    input.value = newBefore + after;
+    var newCursor = newBefore.length;
+    if (typeof input.setSelectionRange === 'function') {
+      input.setSelectionRange(newCursor, newCursor);
+    }
+    input.focus();
+  } else if (input.isContentEditable || input.getAttribute('contenteditable') === 'true') {
+    var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+    if (sel && sel.focusNode) {
+      var node = sel.focusNode;
+      var nodeText = node.textContent || '';
+      var offset = sel.focusOffset || nodeText.length;
+      var beforeC = nodeText.slice(0, offset);
+      var afterC = nodeText.slice(offset);
+      var newBeforeC = beforeC.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
+      node.textContent = newBeforeC + afterC;
+      try {
+        var range = document.createRange();
+        range.setStart(node, Math.min(newBeforeC.length, node.textContent.length));
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (_) {}
+    } else {
+      var curText = input.innerText || input.textContent || '';
+      input.innerText = curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
+    }
+    input.focus();
   }
-  input.focus();
+
   hideMentionDropdown();
 }
 
@@ -4245,6 +4305,7 @@ if (typeof window !== 'undefined') {
   window.removeTaskAttachment       = removeTaskAttachment;
   window.getDepartmentMentionCandidates = getDepartmentMentionCandidates;
   window.handleTaskCommentInput     = handleTaskCommentInput;
+  window.handleTaskBriefDescInput   = handleTaskBriefDescInput;
   window.handleTaskCommentKeyDown   = handleTaskCommentKeyDown;
   window.selectMentionCandidate     = selectMentionCandidate;
   window.formatCommentMentions      = formatCommentMentions;
@@ -4344,6 +4405,7 @@ if (typeof module !== 'undefined' && module.exports) {
     removeTaskAttachment,
     getDepartmentMentionCandidates,
     handleTaskCommentInput,
+  handleTaskBriefDescInput,
     handleTaskCommentKeyDown,
     selectMentionCandidate,
     formatCommentMentions,

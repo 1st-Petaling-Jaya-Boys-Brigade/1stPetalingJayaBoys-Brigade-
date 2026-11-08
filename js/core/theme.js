@@ -15,7 +15,7 @@
     if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
       return 'light';
     }
-    return 'dark'; // Default to modern BB dark grey theme
+    return 'light'; // Default portal to light mode
   }
 
   function syncThemeMetaTags(theme) {
@@ -43,7 +43,7 @@
 
     // Update theme toggle buttons if present
     if (typeof document.querySelectorAll !== 'function') return;
-    var toggles = document.querySelectorAll('.theme-toggle-btn');
+    var toggles = document.querySelectorAll('.theme-toggle-btn, .sidebar-theme-toggle');
     toggles.forEach(function(btn) {
       var isDark = resolved === 'dark';
       btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
@@ -53,7 +53,7 @@
       }
       var text = btn.querySelector('.theme-toggle-text');
       if (text) {
-        text.textContent = isDark ? 'Light' : 'Dark';
+        text.textContent = isDark ? (btn.classList.contains('sidebar-theme-toggle') ? 'Light Mode' : 'Light') : (btn.classList.contains('sidebar-theme-toggle') ? 'Dark Mode' : 'Dark');
       }
     });
   }
