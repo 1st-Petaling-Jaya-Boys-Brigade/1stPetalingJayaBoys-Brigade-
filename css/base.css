@@ -131,7 +131,8 @@ textarea,
   #page-attendance.page,
   #page-gallery.page,
   #page-forum.page,
-  #page-arcade.page {
+  #page-arcade.page,
+  #page-parade.page {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;

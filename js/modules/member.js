@@ -5123,6 +5123,412 @@ function loadSecurityQuestion() {
   if (step2) step2.style.display = 'block';
 }
 
+
+// ── Portal User Settings & Preferences System ──────────────────────────────
+function refreshSettingsModalAvatar() {
+  if (typeof document === 'undefined') return;
+  var pfpImg = document.getElementById('settings-pfp-img');
+  var pfpPh = document.getElementById('settings-pfp-ph');
+  var navImg = document.getElementById('nav-avatar-img');
+  if (!pfpImg || !pfpPh) return;
+
+  if (navImg && navImg.src && navImg.style.display !== 'none') {
+    pfpImg.src = navImg.src;
+    pfpImg.style.display = 'block';
+    pfpPh.style.display = 'none';
+  } else {
+    pfpImg.style.display = 'none';
+    pfpPh.style.display = 'flex';
+  }
+}
+
+async function handleSettingsAvatarUpload(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  var file = input.files[0];
+  try {
+    if (typeof uploadPfp === 'function') {
+      await uploadPfp(file);
+    }
+    refreshSettingsModalAvatar();
+    if (typeof showToast === 'function') {
+      showToast('Profile picture updated successfully!', 'success');
+    }
+  } catch (err) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('handleSettingsAvatarUpload error:', err);
+    }
+    if (typeof showToast === 'function') {
+      showToast('Failed to upload profile picture.', 'error');
+    }
+  }
+}
+
+async function handleSettingsAvatarRemove() {
+  try {
+    if (typeof removePfp === 'function') {
+      await removePfp();
+    }
+    refreshSettingsModalAvatar();
+  } catch (err) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('handleSettingsAvatarRemove error:', err);
+    }
+  }
+}
+
+function handleSettingsThemeToggle() {
+  if (typeof window !== 'undefined' && typeof window.toggleTheme === 'function') {
+    window.toggleTheme();
+  }
+  var isDark = false;
+  if (typeof document !== 'undefined') {
+    isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  }
+  var statusEl = document.getElementById('settings-theme-status');
+  var btnEl = document.getElementById('settings-theme-btn');
+  if (statusEl) {
+    statusEl.textContent = isDark ? 'Dark Mode' : 'Light Mode';
+  }
+  if (btnEl) {
+    btnEl.innerHTML = isDark ? '☀️ Switch to Light' : '🌙 Switch to Dark';
+  }
+}
+
+function handleSettingsNotificationToggle(type) {
+  try {
+    if (type === 'sound') {
+      var sndEl = document.getElementById('settings-toggle-sound');
+      var enabled = sndEl ? sndEl.checked : true;
+      localStorage.setItem('bb_notif_sound_enabled', enabled ? 'true' : 'false');
+      if (enabled && typeof window !== 'undefined' && typeof window.playNotificationSound === 'function') {
+        window.playNotificationSound();
+      }
+      if (typeof showToast === 'function') {
+        showToast(enabled ? 'Notification chime enabled.' : 'Notification chime muted.', 'info', 2000, { silent: true });
+      }
+    } else if (type === 'system') {
+      var sysEl = document.getElementById('settings-toggle-sysnotif');
+      var sysEnabled = sysEl ? sysEl.checked : true;
+      localStorage.setItem('bb_notif_system_enabled', sysEnabled ? 'true' : 'false');
+      if (sysEnabled && typeof window !== 'undefined' && typeof window.requestNotificationPermission === 'function') {
+        window.requestNotificationPermission();
+      } else if (typeof showToast === 'function') {
+        showToast('System popup notifications disabled.', 'info', 2000, { silent: true });
+      }
+    }
+  } catch (_) {}
+}
+
+function handleSettingsDefaultTabChange(tab) {
+  try {
+    localStorage.setItem('bb_default_tab', tab);
+    var labelMap = {
+      home: 'Home Dashboard',
+      parade: 'Company Calendar',
+      tasks: 'Project & Tasks',
+      arcade: '1stPJ Arcade',
+      member: 'Member Hub'
+    };
+    if (typeof showToast === 'function') {
+      showToast('Default landing tab set to ' + (labelMap[tab] || tab) + '.', 'success');
+    }
+  } catch (_) {}
+}
+
+async function handleSettingsPasswordUpdate() {
+  var pCurEl = document.getElementById('settings-pwd-current');
+  var pNewEl = document.getElementById('settings-pwd-new');
+  var pConfEl = document.getElementById('settings-pwd-confirm');
+  if (!pCurEl || !pNewEl || !pConfEl) return;
+
+  var pCur = pCurEl.value || '';
+  var pNew = pNewEl.value || '';
+  var pConf = pConfEl.value || '';
+
+  var email = (typeof sessionGet === 'function') ? sessionGet('bb_user_email') : '';
+  if (!email) {
+    if (typeof showToast === 'function') {
+      showToast('Please log in to update your password.', 'warning');
+    }
+    return;
+  }
+
+  if (!pCur) {
+    if (typeof showToast === 'function') {
+      showToast('Please enter your current password.', 'warning');
+    }
+    return;
+  }
+
+  if (pNew.length < 6) {
+    if (typeof showToast === 'function') {
+      showToast('New password must be at least 6 characters long.', 'warning');
+    }
+    return;
+  }
+
+  if (pNew !== pConf) {
+    if (typeof showToast === 'function') {
+      showToast('New passwords do not match!', 'error');
+    }
+    return;
+  }
+
+  try {
+    var client = (typeof getSupa === 'function') ? getSupa() : (typeof supa !== 'undefined' ? supa : null);
+    if (!client) {
+      if (typeof showToast === 'function') showToast('Network connection unavailable.', 'error');
+      return;
+    }
+
+    var newHash = (typeof hashPassword === 'function') ? await hashPassword(pNew) : pNew;
+
+    if (typeof client.patch === 'function') {
+      try {
+        var cleanEmail = email.trim().toLowerCase();
+        await client.patch('bb_members?email=eq.' + encodeURIComponent(cleanEmail), {
+          password: newHash
+        });
+      } catch (err) {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('Direct patch by email error, trying ic match:', err);
+        }
+        try {
+          var ic = (typeof sessionGet === 'function') ? sessionGet('bb_user_ic') : '';
+          if (ic) {
+            await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), {
+              password: newHash
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
+    pCurEl.value = '';
+    pNewEl.value = '';
+    pConfEl.value = '';
+
+    if (typeof showToast === 'function') {
+      showToast('Password updated successfully!', 'success');
+    }
+  } catch (err) {
+    if (typeof console !== 'undefined' && console.error) {
+      console.error('handleSettingsPasswordUpdate error:', err);
+    }
+    if (typeof showToast === 'function') {
+      showToast('Unable to update password. Please try again.', 'error');
+    }
+  }
+}
+
+function openSettingsModal() {
+  if (typeof document === 'undefined') return;
+
+  var name = (typeof sessionGet === 'function' ? sessionGet('bb_user_name') : '') || 'Guest Member';
+  var email = (typeof sessionGet === 'function' ? sessionGet('bb_user_email') : '') || 'guest@1stpj.org.my';
+  var isDark = false;
+  if (typeof document !== 'undefined') {
+    isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  }
+
+  var tzString = 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Standard Time)';
+  try {
+    var resolvedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (resolvedTz) {
+      tzString = 'GMT+8 (' + resolvedTz + ' • Malaysia Time)';
+    }
+  } catch (_) {}
+
+  var soundEnabled = true;
+  var sysNotifEnabled = true;
+  var defaultTab = 'home';
+  try {
+    soundEnabled = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
+    sysNotifEnabled = localStorage.getItem('bb_notif_system_enabled') !== 'false';
+    defaultTab = localStorage.getItem('bb_default_tab') || 'home';
+  } catch (_) {}
+
+  var navImg = document.getElementById('nav-avatar-img');
+  var hasPhoto = navImg && navImg.src && navImg.style.display !== 'none';
+  var avatarUrl = hasPhoto ? navImg.src : 'assets/logo.png';
+  var initials = name ? name.charAt(0).toUpperCase() : 'B';
+
+  var modal = document.getElementById('settings-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'settings-modal';
+    modal.className = 'portal-modal-backdrop settings-modal-backdrop';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Portal Settings');
+    modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;';
+    modal.onclick = function(e) {
+      if (e.target === modal) closeSettingsModal();
+    };
+    document.body.appendChild(modal);
+  }
+
+  var modalHtml = ''
+    + '<div class="portal-modal-card settings-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border-card);">'
+        + '<div style="display:flex;align-items:center;gap:10px;">'
+          + '<div style="width:38px;height:38px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;">'
+            + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>'
+          + '</div>'
+          + '<div>'
+            + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);">Settings</div>'
+            + '<div style="font-size:12px;color:var(--text-secondary);">Account profile &amp; device alert preferences</div>'
+          + '</div>'
+        + '</div>'
+        + '<button type="button" onclick="closeSettingsModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;" title="Close Settings">&times;</button>'
+      + '</div>'
+
+      // Section 1: Profile Image
+      + '<div class="settings-section-card">'
+        + '<div class="settings-section-title">'
+          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+          + '<span>Profile Picture</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">'
+          + '<div id="settings-pfp-preview-wrap" style="position:relative;width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid var(--accent);background:var(--bg-card);flex-shrink:0;">'
+            + '<img id="settings-pfp-img" src="' + escapeHtml(avatarUrl) + '" alt="Avatar" style="width:100%;height:100%;object-fit:cover;display:' + (hasPhoto ? 'block' : 'none') + ';" />'
+            + '<div id="settings-pfp-ph" style="width:100%;height:100%;display:' + (hasPhoto ? 'none' : 'flex') + ';align-items:center;justify-content:center;background:var(--accent);color:#000;font-weight:700;font-size:22px;">' + escapeHtml(initials) + '</div>'
+          + '</div>'
+          + '<div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px;">'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+              + '<input type="file" id="settings-avatar-file-input" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="handleSettingsAvatarUpload(this)" />'
+              + '<button type="button" class="portal-btn portal-btn-primary" onclick="document.getElementById(\'settings-avatar-file-input\').click()" style="padding:6px 14px;font-size:12px;font-weight:600;">Upload Photo</button>'
+              + '<button type="button" class="portal-btn" onclick="handleSettingsAvatarRemove()" style="padding:6px 14px;font-size:12px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);">Remove</button>'
+            + '</div>'
+            + '<div class="settings-hint">Supported formats: JPG, PNG, WebP (max 5MB). Encrypted &amp; compressed on-device.</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+
+      // Section 2: Account Information (Locked / Non-editable)
+      + '<div class="settings-section-card">'
+        + '<div class="settings-section-title">'
+          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+          + '<span>Account Information (Locked)</span>'
+        + '</div>'
+        + '<div class="form-group" style="margin-bottom:10px;">'
+          + '<label class="form-label">Full Name</label>'
+          + '<div class="settings-readonly-field">'
+            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+            + '<span id="settings-display-name">' + escapeHtml(name) + '</span>'
+          + '</div>'
+        + '</div>'
+        + '<div class="form-group" style="margin-bottom:10px;">'
+          + '<label class="form-label">Official Registered Email</label>'
+          + '<div class="settings-readonly-field">'
+            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>'
+            + '<span id="settings-display-email">' + escapeHtml(email) + '</span>'
+          + '</div>'
+          + '<div class="settings-hint">To update official registered names or email addresses, contact a Company Officer.</div>'
+        + '</div>'
+        + '<div class="form-group" style="margin-bottom:0;">'
+          + '<label class="form-label">Time Zone</label>'
+          + '<div class="settings-readonly-field">'
+            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
+            + '<span id="settings-display-tz">' + escapeHtml(tzString) + '</span>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+
+      // Section 3: Password Management
+      + '<div class="settings-section-card">'
+        + '<div class="settings-section-title">'
+          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5m-3 3l-1.5-1.5L8.5 8.5 7 7l-1.5 1.5L4 7 2 9l5 5 2-2 1.5 1.5L9 15l2 2 5-5-2-2z"/></svg>'
+          + '<span>Password Management</span>'
+        + '</div>'
+        + '<div class="form-group" style="margin-bottom:10px;">'
+          + '<label class="form-label">Current Password</label>'
+          + '<input type="password" id="settings-pwd-current" class="form-input" placeholder="Enter current password" autocomplete="current-password" />'
+        + '</div>'
+        + '<div class="form-group" style="margin-bottom:10px;">'
+          + '<label class="form-label">New Password</label>'
+          + '<input type="password" id="settings-pwd-new" class="form-input" placeholder="Minimum 6 characters" autocomplete="new-password" />'
+        + '</div>'
+        + '<div class="form-group" style="margin-bottom:14px;">'
+          + '<label class="form-label">Confirm New Password</label>'
+          + '<input type="password" id="settings-pwd-confirm" class="form-input" placeholder="Re-enter new password" autocomplete="new-password" />'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
+          + '<button type="button" class="portal-btn portal-btn-primary" onclick="handleSettingsPasswordUpdate()" style="font-weight:700;padding:8px 18px;">Update Password</button>'
+          + '<a href="javascript:void(0)" onclick="closeSettingsModal();if(typeof openResetModal===\'function\')openResetModal();" style="font-size:12px;color:var(--accent);font-weight:600;text-decoration:none;">Forgot password? Reset via OTP</a>'
+        + '</div>'
+      + '</div>'
+
+      // Section 4: Theme & Appearance
+      + '<div class="settings-section-card">'
+        + '<div class="settings-section-title">'
+          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+          + '<span>Theme &amp; Appearance</span>'
+        + '</div>'
+        + '<div class="settings-row">'
+          + '<div>'
+            + '<div class="settings-row-label">Portal Color Theme</div>'
+            + '<div class="settings-row-desc">Currently in <strong id="settings-theme-status">' + (isDark ? 'Dark Mode' : 'Light Mode') + '</strong></div>'
+          + '</div>'
+          + '<button type="button" class="portal-btn" onclick="handleSettingsThemeToggle()" id="settings-theme-btn" style="padding:7px 16px;font-size:12px;font-weight:600;">' + (isDark ? '☀️ Switch to Light' : '🌙 Switch to Dark') + '</button>'
+        + '</div>'
+      + '</div>'
+
+      // Section 5: Notifications & Audio Alerts
+      + '<div class="settings-section-card" style="margin-bottom:0;">'
+        + '<div class="settings-section-title">'
+          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>'
+          + '<span>Notifications &amp; Audio Alerts</span>'
+        + '</div>'
+        + '<div class="settings-row">'
+          + '<div style="flex:1;">'
+            + '<div class="settings-row-label">Desktop &amp; Mobile System Popups</div>'
+            + '<div class="settings-row-desc">Display OS-level notification banners for parades, announcements &amp; task mentions</div>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.requestNotificationPermission===\'function\')window.requestNotificationPermission();" style="font-size:11.5px;padding:5px 10px;">Test</button>'
+            + '<input type="checkbox" id="settings-toggle-sysnotif" onchange="handleSettingsNotificationToggle(\'system\')" ' + (sysNotifEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
+          + '</div>'
+        + '</div>'
+        + '<div class="settings-row">'
+          + '<div style="flex:1;">'
+            + '<div class="settings-row-label">Notification Chime Sound</div>'
+            + '<div class="settings-row-desc">Play an audible chime when alerts and notifications pop up</div>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:8px;">'
+            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.playNotificationSound===\'function\')window.playNotificationSound();" style="font-size:11.5px;padding:5px 10px;">Preview 🔔</button>'
+            + '<input type="checkbox" id="settings-toggle-sound" onchange="handleSettingsNotificationToggle(\'sound\')" ' + (soundEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
+          + '</div>'
+        + '</div>'
+        + '<div class="settings-row">'
+          + '<div>'
+            + '<div class="settings-row-label">Default Starting Tab</div>'
+            + '<div class="settings-row-desc">Choose which screen opens on portal launch</div>'
+          + '</div>'
+          + '<select id="settings-select-default-tab" class="form-select" onchange="handleSettingsDefaultTabChange(this.value)" style="font-size:12px;padding:5px 10px;height:auto;min-width:130px;">'
+            + '<option value="home"' + (defaultTab === 'home' ? ' selected' : '') + '>Home Dashboard</option>'
+            + '<option value="parade"' + (defaultTab === 'parade' ? ' selected' : '') + '>Company Calendar</option>'
+            + '<option value="tasks"' + (defaultTab === 'tasks' ? ' selected' : '') + '>Project &amp; Tasks</option>'
+            + '<option value="arcade"' + (defaultTab === 'arcade' ? ' selected' : '') + '>1stPJ Arcade</option>'
+            + '<option value="member"' + (defaultTab === 'member' ? ' selected' : '') + '>Member Hub</option>'
+          + '</select>'
+        + '</div>'
+      + '</div>'
+
+    + '</div>';
+
+  modal.innerHTML = modalHtml;
+  modal.style.display = 'flex';
+}
+
+function closeSettingsModal() {
+  if (typeof document === 'undefined') return;
+  var modal = document.getElementById('settings-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 
 if (typeof window !== 'undefined') {
@@ -5214,6 +5620,14 @@ if (typeof window !== 'undefined') {
   window.filterCosmeticShop           = filterCosmeticShop;
   window.renderCosmeticLivePreview    = renderCosmeticLivePreview;
   window.renderCosmeticShopCards      = renderCosmeticShopCards;
+  window.openSettingsModal              = openSettingsModal;
+  window.closeSettingsModal             = closeSettingsModal;
+  window.handleSettingsAvatarUpload     = handleSettingsAvatarUpload;
+  window.handleSettingsAvatarRemove     = handleSettingsAvatarRemove;
+  window.handleSettingsThemeToggle      = handleSettingsThemeToggle;
+  window.handleSettingsNotificationToggle = handleSettingsNotificationToggle;
+  window.handleSettingsDefaultTabChange = handleSettingsDefaultTabChange;
+  window.handleSettingsPasswordUpdate   = handleSettingsPasswordUpdate;
 
 }
 
@@ -5300,6 +5714,14 @@ if (typeof module !== 'undefined' && module.exports) {
     filterCosmeticShop,
     renderCosmeticLivePreview,
     renderCosmeticShopCards,
+    openSettingsModal,
+    closeSettingsModal,
+    handleSettingsAvatarUpload,
+    handleSettingsAvatarRemove,
+    handleSettingsThemeToggle,
+    handleSettingsNotificationToggle,
+    handleSettingsDefaultTabChange,
+    handleSettingsPasswordUpdate,
 };
 }
 

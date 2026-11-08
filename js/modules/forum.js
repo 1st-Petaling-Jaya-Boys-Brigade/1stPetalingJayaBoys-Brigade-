@@ -5187,9 +5187,6 @@ function renderForumPage() {
             '</div>' +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<button type="button" class="portal-btn" onclick="openCreateForumPostModal({ category: \'bugs\', title: \'[Bug] \' })" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:8px 14px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.3);" title="Report a Bug with Screenshot">' +
-              FORUM_ICONS.bugs + ' <span>Report a Bug</span>' +
-            '</button>' +
             '<button type="button" class="portal-btn portal-btn-primary" onclick="openCreateForumPostModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:8px 16px;">' +
               FORUM_ICONS.plus + ' <span>New Post</span>' +
             '</button>' +
