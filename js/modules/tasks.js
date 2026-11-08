@@ -79,8 +79,22 @@ if (typeof window !== 'undefined') window._cachedDepartmentMembers = _cachedDepa
 var _currentDeptFilter  = 'all';
 var _taskSearchQuery    = '';
 var _myTasksScopeFilter = 'me';     // 'me' | 'all'
-var _myTasksStatusFilter = 'open';  // 'open' | 'all'
-var _myTasksProjectFilter = 'all';   // 'all' | <projectName>
+var _myTasksStatusFilter = 'open';  // 'open' | 'completed' | 'all'
+var _myTasksProjectFilter = 'all';  // 'all' | <projectName>
+var _projectProgressFilter = 'all'; // 'all' | '25' | '50' | '75' | '100'
+var _projectMemberFilter   = 'all'; // 'all' | <memberName>
+var _projectSearchQuery    = '';
+
+function resetTasksFiltersToDefault() {
+  _myTasksScopeFilter    = 'me';
+  _myTasksStatusFilter   = 'open';
+  _myTasksProjectFilter  = 'all';
+  _taskSearchQuery       = '';
+  _projectProgressFilter = 'all';
+  _projectMemberFilter   = 'all';
+  _projectSearchQuery    = '';
+}
+if (typeof window !== 'undefined') window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
 var _allLoadedTasks     = [];
 var _adminTaskFilter    = 'all';
 var _allAdminTasks      = [];
@@ -592,7 +606,11 @@ function previewTasksBoardDemo() {
  * @param {string} mode ('board' | 'mytasks')
  */
 function setTasksViewMode(mode) {
+  var prevMode = _tasksViewMode;
   _tasksViewMode = mode || 'projects';
+  if (prevMode !== _tasksViewMode && typeof resetTasksFiltersToDefault === 'function') {
+    resetTasksFiltersToDefault();
+  }
   if (typeof document === 'undefined') return;
 
   var boardCol = document.getElementById('tasks-columns');
@@ -726,6 +744,51 @@ function paintProjectsList(container) {
 
   var projectList = Object.keys(projectNamesMap);
 
+  // Collect unique assignees across all tasks for the member filter
+  var assigneesMapAll = {};
+  _allLoadedTasks.forEach(function(t) {
+    if (t.assignee_name && t.assignee_name.trim()) {
+      assigneesMapAll[t.assignee_name.trim()] = true;
+    }
+  });
+  var allProjectAssignees = Object.keys(assigneesMapAll).sort();
+
+  // Filter projects by search query, progress, and assigned members
+  var filteredProjects = projectList.filter(function(pName) {
+    if (_projectSearchQuery) {
+      if (pName.toLowerCase().indexOf(_projectSearchQuery.toLowerCase()) === -1) return false;
+    }
+    var pTasks = _allLoadedTasks.filter(function(t) {
+      return getTaskProjectName(t).toLowerCase() === pName.toLowerCase();
+    });
+    var completedCount = pTasks.filter(function(t) {
+      return normalizeTaskStatus(t.status) === 'completed';
+    }).length;
+    var pct = pTasks.length ? Math.round((completedCount / pTasks.length) * 100) : 0;
+
+    // Progress filter (25%, 50%, 75%, 100%)
+    if (_projectProgressFilter !== 'all') {
+      if (_projectProgressFilter === '25' && pct > 25) return false;
+      if (_projectProgressFilter === '50' && (pct <= 25 || pct > 50)) return false;
+      if (_projectProgressFilter === '75' && (pct <= 50 || pct > 75)) return false;
+      if (_projectProgressFilter === '100' && pct !== 100) return false;
+    }
+
+    // Member filter
+    if (_projectMemberFilter !== 'all') {
+      var hasMember = pTasks.some(function(t) {
+        var aName = (t.assignee_name || '').toLowerCase();
+        var qMember = _projectMemberFilter.toLowerCase();
+        return aName === qMember || aName.indexOf(qMember) !== -1;
+      });
+      if (!hasMember) return false;
+    }
+
+    return true;
+  });
+
+  var hasActiveProjFilter = (_projectProgressFilter !== 'all' || _projectMemberFilter !== 'all');
+
   var html = '<div class="projects-overview-header">'
     + '<div>'
     +   '<h2 class="projects-overview-title">Projects</h2>'
@@ -736,23 +799,56 @@ function paintProjectsList(container) {
     +   '<span>Add Project</span>'
     + '</button>'
     + '</div>'
-    + '<div class="projects-search-bar">'
+    + '<div class="projects-search-bar" style="display:flex;align-items:center;gap:10px;position:relative;flex-wrap:wrap;">'
     +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
     +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-    +     '<input type="text" class="task-search-input" style="width:100%;" placeholder="Search projects..." oninput="filterProjectsList(this.value)" />'
+    +     '<input type="text" class="task-search-input" style="width:100%;" placeholder="Search projects..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_projectSearchQuery) : _projectSearchQuery) + '" oninput="handleProjectsSearchInput(this.value)" />'
+    +   '</div>'
+    +   '<div class="filter-dropdown-wrapper" style="position:relative;">'
+    +     '<button type="button" class="project-filter-btn' + (hasActiveProjFilter ? ' active' : '') + '" onclick="toggleProjectFilterMenu(event)" title="Filter Projects">'
+    +       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
+    +       '<span>Filter</span>'
+    +       (hasActiveProjFilter ? '<span class="filter-active-dot"></span>' : '')
+    +     '</button>'
+    +     '<div class="project-filter-dropdown" style="display:none;" onclick="event.stopPropagation()">'
+    +       '<div class="filter-menu-header">'
+    +         '<span class="filter-menu-title">Filter Projects</span>'
+    +         (hasActiveProjFilter ? '<button type="button" class="filter-reset-link" onclick="resetProjectFilters()">Reset</button>' : '')
+    +       '</div>'
+    +       '<div class="filter-section">'
+    +         '<span class="filter-section-label">Progress</span>'
+    +         '<div class="filter-chip-group">'
+    +           '<button type="button" class="filter-chip-option' + (_projectProgressFilter === 'all' ? ' active' : '') + '" onclick="setProjectProgressFilter(\'all\')">All</button>'
+    +           '<button type="button" class="filter-chip-option' + (_projectProgressFilter === '25' ? ' active' : '') + '" onclick="setProjectProgressFilter(\'25\')">25%</button>'
+    +           '<button type="button" class="filter-chip-option' + (_projectProgressFilter === '50' ? ' active' : '') + '" onclick="setProjectProgressFilter(\'50\')">50%</button>'
+    +           '<button type="button" class="filter-chip-option' + (_projectProgressFilter === '75' ? ' active' : '') + '" onclick="setProjectProgressFilter(\'75\')">75%</button>'
+    +           '<button type="button" class="filter-chip-option' + (_projectProgressFilter === '100' ? ' active' : '') + '" onclick="setProjectProgressFilter(\'100\')">100%</button>'
+    +         '</div>'
+    +       '</div>'
+    +       '<div class="filter-section" style="margin-top:10px;">'
+    +         '<span class="filter-section-label">Assigned Member</span>'
+    +         '<select class="filter-select-input" onchange="setProjectMemberFilter(this.value)">'
+    +           '<option value="all"' + (_projectMemberFilter === 'all' ? ' selected' : '') + '>All Members</option>'
+    +           allProjectAssignees.map(function(m) {
+                  return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(m) : m) + '"' + (_projectMemberFilter === m ? ' selected' : '') + '>' + (typeof escapeHtml === 'function' ? escapeHtml(m) : m) + '</option>';
+                }).join('')
+    +         '</select>'
+    +       '</div>'
+    +     '</div>'
     +   '</div>'
     + '</div>'
     + '<div class="projects-table-card">';
 
-  if (!projectList.length) {
+  if (!filteredProjects.length) {
     html += '<div style="padding:48px 20px;text-align:center;color:var(--text-muted);">'
       + '<svg class="ui-icon-xl" style="margin:0 auto 12px;opacity:0.4;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
-      + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No active projects yet</div>'
-      + '<div style="font-size:13px;margin-bottom:16px;">Create your first company initiative or parade project to get started.</div>'
+      + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No matching projects found</div>'
+      + '<div style="font-size:13px;margin-bottom:16px;">Try adjusting your search query, progress, or member filters.</div>'
+      + (hasActiveProjFilter ? '<button type="button" class="task-secondary-btn" onclick="resetProjectFilters()" style="margin-right:8px;">Reset Filters</button>' : '')
       + '<button type="button" class="task-primary-btn" onclick="openAddProjectModal()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Project</button>'
       + '</div>';
   } else {
-    projectList.forEach(function(pName) {
+    filteredProjects.forEach(function(pName) {
       var pTasks = _allLoadedTasks.filter(function(t) {
         return getTaskProjectName(t).toLowerCase() === pName.toLowerCase();
       });
@@ -926,7 +1022,23 @@ async function deleteProject(projectName) {
 /**
  * Filter projects list in real-time
  */
+function handleProjectsSearchInput(query) {
+  _projectSearchQuery = query || '';
+  var container = document.querySelector('.projects-container');
+  if (container) {
+    paintProjectsList(container);
+    var inp = container.querySelector('.task-search-input');
+    if (inp) {
+      inp.focus();
+      inp.setSelectionRange(inp.value.length, inp.value.length);
+    }
+  } else {
+    filterProjectsList(query);
+  }
+}
+
 function filterProjectsList(query) {
+  _projectSearchQuery = query || '';
   var rows = document.querySelectorAll('.project-row');
   var q = (query || '').toLowerCase().trim();
   rows.forEach(function(row) {
@@ -934,6 +1046,36 @@ function filterProjectsList(query) {
     var txt = name ? name.textContent.toLowerCase() : '';
     row.style.display = (!q || txt.includes(q)) ? 'flex' : 'none';
   });
+}
+
+function toggleProjectFilterMenu(e) {
+  if (e) e.stopPropagation();
+  var menu = document.querySelector('.project-filter-dropdown');
+  if (!menu) return;
+  var isVisible = menu.style.display === 'flex' || menu.style.display === 'block';
+  var other = document.querySelector('.my-tasks-filter-dropdown');
+  if (other) other.style.display = 'none';
+  menu.style.display = isVisible ? 'none' : 'flex';
+}
+
+function setProjectProgressFilter(val) {
+  _projectProgressFilter = val || 'all';
+  var container = document.querySelector('.projects-container');
+  if (container) paintProjectsList(container);
+}
+
+function setProjectMemberFilter(val) {
+  _projectMemberFilter = val || 'all';
+  var container = document.querySelector('.projects-container');
+  if (container) paintProjectsList(container);
+}
+
+function resetProjectFilters() {
+  _projectProgressFilter = 'all';
+  _projectMemberFilter = 'all';
+  _projectSearchQuery = '';
+  var container = document.querySelector('.projects-container');
+  if (container) paintProjectsList(container);
 }
 
 /**
@@ -1720,8 +1862,7 @@ function renderMyTasksView() {
   }
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
 
-  // Determine user-assigned tasks
-  var myTasksList = _allLoadedTasks.filter(function(t) {
+  function isAssignedToUser(t) {
     var aName = (t.assignee_name || '').trim().toLowerCase();
     var aIc = (t.assignee_ic || '').trim().toLowerCase();
     var sName = myName.trim().toLowerCase();
@@ -1734,12 +1875,28 @@ function renderMyTasksView() {
     if (aIc && sIc && aIc === sIc) return true;
     if (aIc && sEmail && aIc === sEmail) return true;
     return false;
-  });
+  }
 
-  // If the user has assigned tasks, show their tasks; if they have none yet or are searching, display accessible tasks so the view is never a barren void
-  var baseList = (myTasksList.length > 0) ? myTasksList : _allLoadedTasks;
+  // Filter tasks based on Scope, Status, Project, and Search Query
+  var filtered = _allLoadedTasks.filter(function(t) {
+    // 1. Assignment Scope filter
+    if (_myTasksScopeFilter === 'me') {
+      if (!isAssignedToUser(t)) return false;
+    }
 
-  var filtered = baseList.filter(function(t) {
+    // 2. Status filter ('open' vs 'completed' vs 'all')
+    var normStatus = normalizeTaskStatus(t.status);
+    var isDone = normStatus === 'completed';
+    if (_myTasksStatusFilter === 'open' && isDone) return false;
+    if (_myTasksStatusFilter === 'completed' && !isDone) return false;
+
+    // 3. Project filter
+    if (_myTasksProjectFilter && _myTasksProjectFilter !== 'all') {
+      var p = getTaskProjectName(t);
+      if (p.toLowerCase() !== _myTasksProjectFilter.toLowerCase()) return false;
+    }
+
+    // 4. Search query
     if (_taskSearchQuery) {
       var q = _taskSearchQuery.toLowerCase();
       var matchTitle = (t.title || '').toLowerCase().indexOf(q) !== -1;
@@ -1749,35 +1906,109 @@ function renderMyTasksView() {
       var matchAsg   = (t.assignee_name || '').toLowerCase().indexOf(q) !== -1;
       if (!matchTitle && !matchDesc && !matchId && !matchProj && !matchAsg) return false;
     }
+
     return true;
   });
 
+  // Projects map for the filter dropdown
+  var taskProjectsMap = { 'all': 'All Projects' };
+  _allLoadedTasks.forEach(function(t) {
+    var p = getTaskProjectName(t);
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+      taskProjectsMap[p] = p;
+    }
+  });
+  _companyProjects.forEach(function(p) {
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+      taskProjectsMap[p] = p;
+    }
+  });
+
+  var hasNonDefaultTaskFilters = (_myTasksScopeFilter !== 'me' || _myTasksStatusFilter !== 'open' || _myTasksProjectFilter !== 'all');
+
   var html = '<div class="projects-overview-header">'
     + '<div>'
-    +   '<h2 class="projects-overview-title">My Tasks</h2>'
-    +   '<p class="projects-overview-sub">Assigned to you, across all projects. Select a task to view its brief.</p>'
+    +   '<h2 class="projects-overview-title">Tasks <span class="sr-only" style="display:none;">My Tasks</span></h2>'
+    +   '<p class="projects-overview-sub">View and track tasks across all projects. Select a task to view its brief.</p>'
     + '</div>'
     + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()">'
     +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
     +   '<span>Add Task</span>'
     + '</button>'
     + '</div>'
-    + '<div class="projects-search-bar my-tasks-search-bar">'
+    + '<div class="projects-search-bar my-tasks-search-bar" style="display:flex;align-items:center;gap:10px;position:relative;flex-wrap:wrap;">'
     +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
     +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
     +     '<input type="text" class="task-search-input my-tasks-search-input" style="width:100%;" placeholder="Search tasks..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_taskSearchQuery) : _taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" />'
     +   '</div>'
+    +   '<div class="filter-dropdown-wrapper" style="position:relative;">'
+    +     '<button type="button" class="my-tasks-filter-btn' + (hasNonDefaultTaskFilters ? ' active' : '') + '" onclick="toggleMyTasksFilterMenu(event)" title="Filter Tasks">'
+    +       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
+    +       '<span>Filter</span>'
+    +       (hasNonDefaultTaskFilters ? '<span class="filter-active-dot"></span>' : '')
+    +     '</button>'
+    +     '<div class="my-tasks-filter-dropdown" style="display:none;" onclick="event.stopPropagation()">'
+    +       '<div class="filter-menu-header">'
+    +         '<span class="filter-menu-title">Filter Tasks</span>'
+    +         '<button type="button" class="filter-reset-link" onclick="resetMyTasksFilters()">Reset to Defaults</button>'
+    +       '</div>'
+    +       '<div class="filter-section">'
+    +         '<span class="filter-section-label">Assignment</span>'
+    +         '<div class="filter-chip-group">'
+    +           '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'me\')">Assigned to me</button>'
+    +           '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'all\')">All Tasks</button>'
+    +         '</div>'
+    +       '</div>'
+    +       '<div class="filter-section" style="margin-top:10px;">'
+    +         '<span class="filter-section-label">Status</span>'
+    +         '<div class="filter-chip-group">'
+    +           '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'open\')">Open</button>'
+    +           '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'completed' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'completed\')">Completed</button>'
+    +           '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'all\')">All Statuses</button>'
+    +         '</div>'
+    +       '</div>'
+    +       '<div class="filter-section" style="margin-top:10px;">'
+    +         '<span class="filter-section-label">Project</span>'
+    +         '<select class="filter-select-input" onchange="setMyTasksProjectFilter(this.value)">'
+    +           Object.keys(taskProjectsMap).map(function(pk) {
+                  return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(pk) : pk) + '"' + (_myTasksProjectFilter === pk ? ' selected' : '') + '>' + (typeof escapeHtml === 'function' ? escapeHtml(taskProjectsMap[pk]) : taskProjectsMap[pk]) + '</option>';
+                }).join('')
+    +         '</select>'
+    +       '</div>'
+    +     '</div>'
+    +   '</div>'
     + '</div>'
-    + '<div class="projects-table-card my-tasks-card my-tasks-table">';
+    + '<div class="projects-table-card my-tasks-card my-tasks-table-card">';
 
   if (!filtered.length) {
     html += '<div style="padding:48px 20px;text-align:center;color:var(--text-muted);">'
       + '<svg class="ui-icon-xl" style="margin:0 auto 12px;opacity:0.4;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
       + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No tasks found</div>'
-      + '<div style="font-size:13px;margin-bottom:16px;">Create a new task brief or search across all projects.</div>'
-      + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task</button>'
+      + '<div style="font-size:13px;margin-bottom:16px;">' + (_myTasksScopeFilter === 'me' ? 'You have no open tasks assigned to you. Try switching to "All Tasks" or creating a new task.' : 'Try adjusting your search query or filters.') + '</div>'
+      + '<div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">'
+      +   (_myTasksScopeFilter === 'me' ? '<button type="button" class="task-secondary-btn" onclick="setMyTasksScopeFilter(\'all\')">View All Tasks</button>' : '')
+      +   '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task</button>'
+      + '</div>'
       + '</div>';
   } else {
+    html += '<div class="my-tasks-table-container">'
+      + '<table class="my-tasks-table">'
+      + '<thead>'
+      +   '<tr>'
+      +     '<th style="width:40px;text-align:center;"></th>'
+      +     '<th style="min-width:180px;">Task</th>'
+      +     '<th style="width:110px;">Status</th>'
+      +     '<th style="width:130px;">Project</th>'
+      +     '<th style="width:90px;">ID</th>'
+      +     '<th style="width:110px;">Priority</th>'
+      +     '<th style="min-width:140px;">Assignee</th>'
+      +     '<th style="width:110px;">Due Date</th>'
+      +     '<th style="width:90px;">Estimate</th>'
+      +     '<th style="width:44px;text-align:center;"></th>'
+      +   '</tr>'
+      + '</thead>'
+      + '<tbody>';
+
     filtered.forEach(function(t, idx) {
       _taskMap[t.id] = t;
       if (typeof window !== 'undefined') {
@@ -1788,49 +2019,132 @@ function renderMyTasksView() {
       var isDone = normStatus === 'completed';
       var taskId = formatTaskId(t, idx);
       var assigneeName = t.assignee_name || 'Unassigned';
+      var projName = getTaskProjectName(t) || 'General';
 
-      // Progress percentage & bar color matching Projects Overview in Image 1
-      var pct = 0;
-      var barColor = '#94a3b8';
-      if (Array.isArray(t.checklists) && t.checklists.length > 0) {
-        var doneCl = t.checklists.filter(function(c) { return c && c.done; }).length;
-        pct = Math.round((doneCl / t.checklists.length) * 100);
-      } else {
-        if (isDone) { pct = 100; barColor = '#10b981'; }
-        else if (normStatus === 'in_review') { pct = 75; barColor = '#f59e0b'; }
-        else if (normStatus === 'in_progress') { pct = 50; barColor = '#0ea5e9'; }
-        else { pct = 0; barColor = '#94a3b8'; }
-      }
-      if (isDone) barColor = '#10b981';
+      var statusLabels = {
+        'todo': 'To Do',
+        'planning': 'Planning',
+        'in_progress': 'In Progress',
+        'in_review': 'In Review',
+        'completed': 'Completed'
+      };
+      var statusLabel = statusLabels[normStatus] || (normStatus.charAt(0).toUpperCase() + normStatus.slice(1));
+      var statusPillClass = (normStatus === 'in_progress') ? 'status-inprogress' : (normStatus === 'in_review') ? 'status-inreview' : ('status-' + normStatus);
 
-      var avatarHtml = '<div class="project-assignees-stack">';
+      var prioVal = (t.priority || 'medium').toLowerCase();
+      var prioIcon = getPriorityIconSvg(prioVal, 13);
+      var prioLabel = prioVal.charAt(0).toUpperCase() + prioVal.slice(1);
+
+      var avatarHtml = '';
       if (t.assignee_name) {
-        avatarHtml += getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20);
+        avatarHtml = getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20);
+      } else {
+        avatarHtml = '<span class="assignee-empty-avatar" style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.08);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted);">—</span>';
       }
-      avatarHtml += '</div>';
 
-      html += '<div class="project-row" onclick="openTaskDetail(\'' + t.id + '\')">'
-        + '<div class="project-name-cell">'
-        +   '<input type="checkbox" class="task-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="event.stopPropagation(); toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task status" />'
-        +   '<span class="project-row-name" style="' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</span>'
-        +   '<span class="task-id-badge" style="font-size:11px;color:var(--text-muted);font-weight:700;margin-left:6px;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
-        + '</div>'
-        + avatarHtml
-        + '<div class="project-progress-cell">'
-        +   '<div class="project-progress-bar"><div class="project-progress-fill" style="width:' + pct + '%; background:' + barColor + ';"></div></div>'
-        +   '<span class="project-progress-pct">' + pct + '%</span>'
-        + '</div>'
-        + '<div class="project-actions-cell">'
-        +   '<button type="button" class="project-delete-btn" onclick="event.stopPropagation(); deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
+      var dueStr = '—';
+      if (t.due_date) {
+        dueStr = formatTaskDueDateStr(t.due_date);
+        if (dueStr === 'Due Date') dueStr = '—';
+      }
+
+      var estStr = '—';
+      if (t.estimate) {
+        estStr = t.estimate;
+      } else if (t.estimated_hours) {
+        estStr = t.estimated_hours + 'h';
+      } else if (t.description) {
+        var em = t.description.match(/\[Estimate:\s*([^\]|]+)/i);
+        if (em && em[1]) estStr = em[1].trim();
+      }
+
+      html += '<tr class="my-tasks-table-row my-tasks-row" onclick="openTaskDetail(\'' + t.id + '\')">'
+        + '<td style="width:40px;text-align:center;" onclick="event.stopPropagation()">'
+        +   '<input type="checkbox" class="task-checkbox my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task status" />'
+        + '</td>'
+        + '<td style="min-width:180px;">'
+        +   '<span class="project-row-name ' + (isDone ? 'completed-task-title' : '') + '" style="' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : 'font-weight:600;color:var(--text-primary);') + '">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</span>'
+        + '</td>'
+        + '<td style="width:110px;">'
+        +   '<span class="my-tasks-status-pill ' + statusPillClass + '">' + statusLabel + '</span>'
+        + '</td>'
+        + '<td style="width:130px;">'
+        +   '<div class="my-tasks-project-cell">'
+        +     '<svg class="ui-icon-xs" style="width:14px;height:14px;opacity:0.75;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
+        +     '<span style="font-size:12px;font-weight:500;">' + (typeof escapeHtml === 'function' ? escapeHtml(projName) : projName) + '</span>'
+        +   '</div>'
+        + '</td>'
+        + '<td style="width:90px;">'
+        +   '<span class="task-id-badge" style="font-size:11px;color:var(--text-muted);font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
+        + '</td>'
+        + '<td style="width:110px;">'
+        +   '<div class="my-tasks-priority-indicator priority-' + prioVal + '" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;">'
+        +     prioIcon
+        +     '<span>' + prioLabel + '</span>'
+        +   '</div>'
+        + '</td>'
+        + '<td style="min-width:140px;">'
+        +   '<div style="display:flex;align-items:center;gap:7px;">'
+        +     avatarHtml
+        +     '<span style="font-size:12px;font-weight:500;color:var(--text-primary);white-space:nowrap;">' + (typeof escapeHtml === 'function' ? escapeHtml(assigneeName) : assigneeName) + '</span>'
+        +   '</div>'
+        + '</td>'
+        + '<td style="width:110px;">'
+        +   '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + (dueStr !== '—' ? 'var(--text-secondary)' : 'var(--text-muted)') + ';white-space:nowrap;">'
+        +     '<svg class="ui-icon-xs" style="width:13px;height:13px;opacity:0.75;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+        +     '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(dueStr) : dueStr) + '</span>'
+        +   '</div>'
+        + '</td>'
+        + '<td style="width:90px;">'
+        +   '<span style="font-size:12px;color:' + (estStr !== '—' ? 'var(--text-primary)' : 'var(--text-muted)') + ';font-weight:500;">' + (typeof escapeHtml === 'function' ? escapeHtml(estStr) : estStr) + '</span>'
+        + '</td>'
+        + '<td style="width:44px;text-align:center;" onclick="event.stopPropagation()">'
+        +   '<button type="button" class="project-delete-btn" onclick="deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
         +     '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
         +   '</button>'
-        + '</div>'
-        + '</div>';
+        + '</td>'
+        + '</tr>';
     });
+
+    html += '</tbody></table></div>';
   }
 
   html += '</div>';
   container.innerHTML = html;
+}
+
+
+function toggleMyTasksFilterMenu(e) {
+  if (e) e.stopPropagation();
+  var menu = document.querySelector('.my-tasks-filter-dropdown');
+  if (!menu) return;
+  var isVisible = menu.style.display === 'flex' || menu.style.display === 'block';
+  var other = document.querySelector('.project-filter-dropdown');
+  if (other) other.style.display = 'none';
+  menu.style.display = isVisible ? 'none' : 'flex';
+}
+
+function setMyTasksScopeFilter(val) {
+  _myTasksScopeFilter = val || 'me';
+  renderMyTasksView();
+}
+
+function setMyTasksStatusFilter(val) {
+  _myTasksStatusFilter = val || 'open';
+  renderMyTasksView();
+}
+
+function setMyTasksProjectFilter(pKey) {
+  _myTasksProjectFilter = pKey || 'all';
+  renderMyTasksView();
+}
+
+function resetMyTasksFilters() {
+  _myTasksScopeFilter = 'me';
+  _myTasksStatusFilter = 'open';
+  _myTasksProjectFilter = 'all';
+  _taskSearchQuery = '';
+  renderMyTasksView();
 }
 
 function toggleMyTasksScope() {
@@ -1844,44 +2158,7 @@ function toggleMyTasksStatus() {
 }
 
 function toggleMyTasksProjectDropdown(e) {
-  if (e) e.stopPropagation();
-  var menu = document.querySelector('.my-tasks-project-dropdown');
-  if (!menu) return;
-  if (menu.style.display === 'block') {
-    menu.style.display = 'none';
-    return;
-  }
-
-  var projectNamesMap = { 'all': 'All Projects' };
-  _allLoadedTasks.forEach(function(t) {
-    var p = getTaskProjectName(t);
-    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
-      projectNamesMap[p] = p;
-    }
-  });
-  _companyProjects.forEach(function(p) {
-    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
-      projectNamesMap[p] = p;
-    }
-  });
-
-  var html = Object.keys(projectNamesMap).map(function(pKey) {
-    var isSel = (_myTasksProjectFilter === pKey) || (pKey === 'all' && (!_myTasksProjectFilter || _myTasksProjectFilter === 'all'));
-    return '<div class="my-tasks-project-dropdown-item' + (isSel ? ' active' : '') + '" onclick="setMyTasksProjectFilter(\'' + (typeof escapeHtml === 'function' ? escapeHtml(pKey) : pKey) + '\')">'
-      + (pKey === 'all' ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>' : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>')
-      + '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(projectNamesMap[pKey]) : projectNamesMap[pKey]) + '</span>'
-      + '</div>';
-  }).join('');
-
-  menu.innerHTML = html;
-  menu.style.display = 'block';
-}
-
-function setMyTasksProjectFilter(pKey) {
-  _myTasksProjectFilter = pKey || 'all';
-  var menu = document.querySelector('.my-tasks-project-dropdown');
-  if (menu) menu.style.display = 'none';
-  renderMyTasksView();
+  toggleMyTasksFilterMenu(e);
 }
 
 /**
@@ -4369,6 +4646,17 @@ if (typeof window !== 'undefined') {
   window.deleteTask                 = deleteTask;
   window.previewTasksBoardDemo      = previewTasksBoardDemo;
   window.filterProjectsList         = filterProjectsList;
+window.handleProjectsSearchInput  = handleProjectsSearchInput;
+window.toggleProjectFilterMenu    = toggleProjectFilterMenu;
+window.setProjectProgressFilter   = setProjectProgressFilter;
+window.setProjectMemberFilter     = setProjectMemberFilter;
+window.resetProjectFilters        = resetProjectFilters;
+window.toggleMyTasksFilterMenu    = toggleMyTasksFilterMenu;
+window.setMyTasksScopeFilter      = setMyTasksScopeFilter;
+window.setMyTasksStatusFilter     = setMyTasksStatusFilter;
+window.setMyTasksProjectFilter    = setMyTasksProjectFilter;
+window.resetMyTasksFilters        = resetMyTasksFilters;
+window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.openAddProjectModal        = openAddProjectModal;
   window.renderProjectsView         = renderProjectsView;
   window.openProjectBoard           = openProjectBoard;
@@ -4527,7 +4815,18 @@ if (typeof module !== 'undefined' && module.exports) {
     saveEditTaskComment,
     cancelEditTaskComment,
     deleteTaskComment,
-    isUserMentionedInComment
+    isUserMentionedInComment,
+    resetTasksFiltersToDefault,
+    handleProjectsSearchInput,
+    toggleProjectFilterMenu,
+    setProjectProgressFilter,
+    setProjectMemberFilter,
+    resetProjectFilters,
+    toggleMyTasksFilterMenu,
+    setMyTasksScopeFilter,
+    setMyTasksStatusFilter,
+    setMyTasksProjectFilter,
+    resetMyTasksFilters
   };
 }
 
@@ -4536,6 +4835,12 @@ if (typeof document !== 'undefined') {
     if (!e.target.closest || !e.target.closest('.tb-comment-actions')) {
       var commentMenus = document.querySelectorAll('.tb-comment-dropdown');
       commentMenus.forEach(function(m) { m.style.display = 'none'; });
+    }
+    if (!e.target.closest || !e.target.closest('.filter-dropdown-wrapper')) {
+      var d1 = document.querySelector('.project-filter-dropdown');
+      if (d1) d1.style.display = 'none';
+      var d2 = document.querySelector('.my-tasks-filter-dropdown');
+      if (d2) d2.style.display = 'none';
     }
     if (!e.target.closest || (!e.target.closest('.task-prop-pill-wrapper') && !e.target.closest('.my-tasks-project-filter-wrap'))) {
       var pMenu = document.querySelector('.my-tasks-project-dropdown');
