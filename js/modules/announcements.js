@@ -357,6 +357,9 @@ async function loadAnnouncements() {
   var adminList = (typeof document !== 'undefined') ? document.getElementById('admin-ann-list') : null;
   if (adminList) {
     renderAdminAnnList();
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('announcements', 'save');
+    }
   }
 }
 
@@ -512,6 +515,9 @@ async function toggleReaction(annIdx, emoji) {
   try {
     if (typeof supa !== 'undefined' && supa.patch && a.id) {
       await supa.patch('bb_announcements?id=eq.' + a.id, { reactions: a.reactions });
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('announcements', 'reaction');
+      }
     }
   } catch (e) {
     console.error('toggleReaction error:', e);
@@ -842,6 +848,9 @@ async function addAnnouncement() {
     if (bodyEl)  bodyEl.innerHTML = '';
     renderAnnouncements();
     renderAdminAnnList();
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('announcements', 'save');
+    }
     if (typeof syncAnnouncementNotifications === 'function') {
       syncAnnouncementNotifications(announcements);
     } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
@@ -886,6 +895,9 @@ async function deleteAnnouncement(idx) {
   try {
     if (typeof supa !== 'undefined' && supa.delete && a && a.id) {
       await supa.delete('bb_announcements?id=eq.' + a.id);
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('announcements', 'delete');
+      }
     }
     if (typeof showToast === 'function') {
       showToast('Announcement deleted.', 'success');

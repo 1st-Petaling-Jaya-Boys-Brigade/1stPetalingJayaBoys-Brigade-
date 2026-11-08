@@ -12094,3 +12094,13 @@ select.form-input,
     flex-wrap: wrap;
   }
 }
+
+.task-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+  margin: 0;
+}

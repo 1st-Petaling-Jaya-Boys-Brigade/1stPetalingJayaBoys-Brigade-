@@ -3767,6 +3767,7 @@ window.addEventListener('visibilitychange', function() {
     if (typeof verifyActiveMemberSession === 'function' && typeof sessionGet === 'function' && sessionGet('ic')) {
       verifyActiveMemberSession().catch(function() {});
     }
+    if (typeof PortalRealtime !== 'undefined' && typeof PortalRealtime.checkDeltaSync === 'function') PortalRealtime.checkDeltaSync();
   }
 });
 window.addEventListener('focus', function() {
@@ -3797,7 +3798,16 @@ window.addEventListener('load', function() {
     }
   }
 
-  // 2. Coordinated Single-Flight Data Loading: Pre-populate config snapshot to eliminate redundant fetches
+  // 2. Coordinated Single-Flight Data Loading: Immediate render from local cache (< 50ms)
+  loadPrices();
+  loadPaymentInfo();
+  loadResources();
+  if (typeof loadStoryHighlights === 'function') loadStoryHighlights();
+  loadCustomForms();
+  loadAnnouncements();
+  if (typeof initQuickCardsCarousel === 'function') initQuickCardsCarousel();
+  renderOrderItems();
+
   if (typeof supa !== 'undefined' && typeof supa.batchConfigGet === 'function') {
     supa.batchConfigGet(['bb_prices', 'bb_uniform_items', 'bb_payment_info', 'bb_resources', 'bb_custom_forms', 'bb_story_highlights', 'bb_custom_avatar_outlines', 'bb_member_cosmetics', 'bb_admin_roles'])
       .then(function() {
@@ -3807,25 +3817,22 @@ window.addEventListener('load', function() {
         if (typeof loadStoryHighlights === 'function') loadStoryHighlights();
         loadCustomForms();
       })
-      .catch(function() {
-        loadPrices();
-        loadPaymentInfo();
-        loadResources();
-        if (typeof loadStoryHighlights === 'function') loadStoryHighlights();
-        loadCustomForms();
-      });
-  } else {
-    loadPrices();
-    loadPaymentInfo();
-    loadResources();
-    if (typeof loadStoryHighlights === 'function') loadStoryHighlights();
-    loadCustomForms();
+      .catch(function() {});
   }
 
-  loadGallery();
-  loadAnnouncements();
-  if (typeof initQuickCardsCarousel === 'function') initQuickCardsCarousel();
-  renderOrderItems();
+  // Defer non-critical assets to guarantee < 2s initial render
+  var deferBackgroundInit = (typeof requestIdleCallback === 'function') ? requestIdleCallback : function(fn) { setTimeout(fn, 150); };
+  deferBackgroundInit(function() {
+    loadGallery();
+    if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
+    if (typeof loadMemberCosmetics === 'function') loadMemberCosmetics();
+    if (typeof loadMemberProfilePictures === 'function') loadMemberProfilePictures();
+    if (typeof fetchRemoteArcadeStats === 'function') {
+      fetchRemoteArcadeStats();
+    } else if (typeof window !== 'undefined' && typeof window.fetchRemoteArcadeStats === 'function') {
+      window.fetchRemoteArcadeStats();
+    }
+  });
 
   if (ic) {
     if (typeof refreshLoggedInUserProfile === 'function') refreshLoggedInUserProfile();
@@ -3849,16 +3856,9 @@ window.addEventListener('load', function() {
     }
   }
   updateOfflineIndicator();
+  if (typeof PortalRealtime !== 'undefined' && typeof PortalRealtime.connect === 'function') PortalRealtime.connect();
   if (typeof initPresenceTracking === 'function') initPresenceTracking();
-  if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
-  if (typeof loadMemberCosmetics === 'function') loadMemberCosmetics();
-  if (typeof loadMemberProfilePictures === 'function') loadMemberProfilePictures();
   if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') RBAC.loadRolesConfig();
-  if (typeof fetchRemoteArcadeStats === 'function') {
-    fetchRemoteArcadeStats();
-  } else if (typeof window !== 'undefined' && typeof window.fetchRemoteArcadeStats === 'function') {
-    window.fetchRemoteArcadeStats();
-  }
   var curHash = (window.location.hash || '').replace('#', '').trim();
   if (curHash === 'parade' || !curHash) {
     if (typeof resetCalendarToUpcoming === 'function') resetCalendarToUpcoming();
