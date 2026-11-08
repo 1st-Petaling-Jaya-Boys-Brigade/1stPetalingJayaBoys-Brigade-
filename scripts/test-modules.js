@@ -1506,6 +1506,61 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ renderCalendarWidget generates complete interactive calendar widget DOM');
 
+  // 7. 5-View Calendar Hub & Day Schedule Verification
+  assert.strictEqual(typeof calendarModule.renderCalendarTab, 'function', 'renderCalendarTab must be exported');
+  assert.strictEqual(typeof calendarModule.switchCalendarView, 'function', 'switchCalendarView must be exported');
+
+  // Test Upcoming View
+  calendarModule.renderCalendarTab('upcoming');
+  const calHub = document.getElementById('tasks-no-dept');
+  assert.ok(calHub.innerHTML.includes('cal-hub-title'), 'renderCalendarTab must render calendar hub header');
+  assert.ok(calHub.innerHTML.includes('cal-view-switcher'), 'renderCalendarTab must render 5-view switcher');
+  assert.ok(calHub.innerHTML.includes('cal-upcoming-hero'), 'Upcoming view must render hero card');
+  assert.ok(calHub.innerHTML.includes('schedule-table'), 'Upcoming view must render parade rundown schedule table');
+  console.log('  ✔ Upcoming View renders rich hero card, countdown, and full parade rundown timeline');
+
+  // Test Week View
+  calendarModule.renderCalendarTab('week');
+  assert.ok(calHub.innerHTML.includes('cal-week-wrapper'), 'Week view must render week wrapper');
+  assert.ok(calHub.innerHTML.includes('cal-week-header-row'), 'Week view must render 7-day column headers');
+  assert.ok(calHub.innerHTML.includes('cal-week-time-grid'), 'Week view must render hourly time slots grid');
+  console.log('  ✔ Week View renders 7-day columns, all-day header bar, and hourly timeline grid (Image 3 style)');
+
+  // Test Month View
+  calendarModule.renderCalendarTab('month');
+  assert.ok(calHub.innerHTML.includes('cal-month-table-wrapper'), 'Month view must render month table wrapper');
+  assert.ok(calHub.innerHTML.includes('cal-month-grid'), 'Month view must render 7-column month grid');
+  assert.ok(calHub.innerHTML.includes('cal-m-pill'), 'Month view must render colored event pills');
+  console.log('  ✔ Month View renders authentic Google Calendar 7-column grid with color-coded event pills (Image 4 style)');
+
+  // Test Year View
+  calendarModule.renderCalendarTab('year');
+  assert.ok(calHub.innerHTML.includes('cal-year-grid'), 'Year view must render year grid');
+  assert.strictEqual((calHub.innerHTML.match(/cal-year-month-box/g) || []).length, 12, 'Year view must render 12 mini months (Jan - Dec)');
+  console.log('  ✔ Year View renders 12 mini-month calendar matrices with event indicators (Image 5 style)');
+
+  // Test Events / Schedule View
+  calendarModule.renderCalendarTab('events');
+  assert.ok(calHub.innerHTML.includes('cal-agenda-container'), 'Events view must render agenda container');
+  assert.ok(calHub.innerHTML.includes('cal-agenda-row'), 'Events view must render chronological agenda rows');
+  assert.ok(calHub.innerHTML.includes('cal-agenda-date-col'), 'Events view must render date badge columns');
+  console.log('  ✔ Events / Schedule View renders chronological agenda stream with date circles and times (Image 6 style)');
+
+  // Reset to upcoming view for subsequent assertions
+  calendarModule.renderCalendarTab('upcoming');
+
+  // Test Day Schedule Modal with Prev/Next Navigation
+  calendarModule.openCalendarDayModal('2026-10-03');
+  const dayModal = document.getElementById('calendar-day-modal');
+  assert.strictEqual(dayModal.style.display, 'flex', 'openCalendarDayModal must show day schedule modal');
+  const modalName = document.getElementById('cdm-event-name');
+  assert.ok(modalName.textContent.includes("FOUNDER'S DAY"), 'Modal must display event title');
+  const modalDate = document.getElementById('cdm-date-title');
+  assert.ok(modalDate.innerHTML.includes('calStepDay(-1)') && modalDate.innerHTML.includes('calStepDay(1)'), 'Day modal must provide previous/next day navigation buttons');
+  calendarModule.closeCalendarDayModal();
+  assert.strictEqual(dayModal.style.display, 'none', 'closeCalendarDayModal must hide modal');
+  console.log('  ✔ Day Schedule Screen renders full details, UOD kit pill, rundown, and previous/next day stepping');
+
   // ── Quick Access Cards Carousel Tests ──
   console.log('\nTesting Quick Access Cards Carousel...');
   const fsMod = require('fs');

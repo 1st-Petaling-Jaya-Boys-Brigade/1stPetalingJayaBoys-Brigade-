@@ -4459,6 +4459,804 @@ select.form-input,
   font-weight: 700;
 }
 
+/* ── 5-View Calendar Hub (Upcoming, Week, Month, Year, Events) ── */
+.cal-hub-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cal-hub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.cal-hub-title-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cal-hub-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.cal-hub-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.cal-hub-title {
+  font-family: var(--font-headline);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.cal-hub-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+/* View Switcher Segmented Control */
+.cal-view-switcher {
+  display: inline-flex;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.cal-view-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-headline);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.cal-view-tab:hover {
+  color: var(--text-primary);
+  background: var(--surface-tint-hover);
+}
+
+.cal-view-tab.active {
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Date Navigation Toolbar */
+.cal-nav-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.cal-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-nav-arrow {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-primary);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.cal-nav-arrow:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(234, 179, 8, 0.12);
+}
+
+.cal-current-range-heading {
+  font-family: var(--font-headline);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* ── 1. Upcoming Hero View Styles ── */
+.cal-upcoming-hero {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.cal-hero-top-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cal-countdown-badge {
+  font-family: var(--font-headline);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(234, 179, 8, 0.14);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.cal-hero-title-wrap {
+  margin-bottom: 14px;
+}
+
+.cal-hero-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.cal-hero-event-name {
+  font-family: var(--font-headline);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.cal-hero-meta-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cal-hero-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-hero-section-title {
+  font-family: var(--font-headline);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-upcoming-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.cal-upcoming-mini-card {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cal-upcoming-mini-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.cal-mini-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cal-mini-title {
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+/* ── 2. Week View Styles (Image 3 Google Calendar Style) ── */
+.cal-week-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.cal-week-header-row {
+  display: grid;
+  grid-template-columns: 60px repeat(7, minmax(110px, 1fr));
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-card);
+  text-align: center;
+}
+
+.cal-week-tz-cell {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border-card);
+  font-weight: 600;
+}
+
+.cal-week-day-header {
+  padding: 10px 4px;
+  border-right: 1px solid var(--border-card);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cal-week-day-header:hover {
+  background: var(--surface-tint-hover);
+}
+
+.cal-week-day-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cal-week-day-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px auto 0 auto;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cal-week-day-circle.active {
+  background: #1a73e8;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(26, 115, 232, 0.4);
+}
+
+/* All-day row */
+.cal-week-allday-row {
+  display: grid;
+  grid-template-columns: 60px repeat(7, minmax(110px, 1fr));
+  border-bottom: 1px solid var(--border-card);
+  background: var(--bg-card-subtle);
+  min-height: 32px;
+}
+
+.cal-week-allday-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border-card);
+  font-weight: 600;
+}
+
+.cal-week-allday-cell {
+  padding: 4px;
+  border-right: 1px solid var(--border-card);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.cal-week-allday-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Time Grid */
+.cal-week-time-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+.cal-week-hour-row {
+  display: grid;
+  grid-template-columns: 60px repeat(7, minmax(110px, 1fr));
+  min-height: 48px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cal-week-time-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: right;
+  padding: 4px 8px 0 0;
+  border-right: 1px solid var(--border-card);
+  font-weight: 600;
+  user-select: none;
+}
+
+.cal-week-hour-cell {
+  border-right: 1px solid var(--border-subtle);
+  padding: 2px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.cal-week-hour-cell:hover {
+  background: var(--surface-tint);
+}
+
+.cal-week-event-card {
+  background: var(--bg-card-subtle);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.cal-we-title {
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-we-time {
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+/* Current Time Indicator Red Line */
+.cal-week-now-indicator {
+  position: absolute;
+  left: 60px;
+  right: 0;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+}
+
+.cal-now-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ea4335;
+  margin-left: -5px;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px rgba(234, 67, 53, 0.8);
+}
+
+.cal-now-line {
+  flex: 1;
+  height: 2px;
+  background: #ea4335;
+}
+
+/* ── 3. Month View Styles (Image 4 Google Calendar Style) ── */
+.cal-month-table-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cal-month-head-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-card);
+  text-align: center;
+  font-family: var(--font-headline);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  padding: 10px 0;
+  letter-spacing: 0.5px;
+}
+
+.cal-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.cal-month-day-cell {
+  min-height: 110px;
+  border-right: 1px solid var(--border-card);
+  border-bottom: 1px solid var(--border-card);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  background: var(--bg-card);
+}
+
+.cal-month-day-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.cal-month-day-cell:hover {
+  background: var(--surface-tint);
+}
+
+.cal-month-cell-overflow {
+  background: var(--bg-card-subtle);
+  opacity: 0.45;
+}
+
+.cal-month-cell-today {
+  background: rgba(234, 179, 8, 0.05);
+}
+
+.cal-m-cell-top {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.cal-m-day-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cal-m-today-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1a73e8;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(26, 115, 232, 0.4);
+}
+
+.cal-m-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.cal-m-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.cal-m-pill-green {
+  background: #137333;
+  color: #fff;
+}
+
+.cal-m-pill-gold {
+  background: rgba(234, 179, 8, 0.22);
+  color: var(--accent);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.cal-m-pill-red {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.cal-m-pill-cyan {
+  background: rgba(6, 182, 212, 0.2);
+  color: #06b6d4;
+  border: 1px solid rgba(6, 182, 212, 0.4);
+}
+
+.cal-m-pill-purple {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.cal-m-pill-personal {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.cal-m-more {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding-left: 2px;
+}
+
+/* ── 4. Year View Styles (Image 5 Google Calendar Style) ── */
+.cal-year-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.cal-year-month-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.cal-year-month-name {
+  font-family: var(--font-headline);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.cal-year-month-name:hover {
+  color: var(--accent);
+}
+
+.cal-year-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.cal-year-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-year-day-empty {
+  aspect-ratio: 1;
+}
+
+.cal-year-day-cell {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.cal-year-day-cell:hover {
+  background: var(--surface-tint-hover);
+}
+
+.cal-y-today {
+  background: #1a73e8 !important;
+  color: #fff !important;
+}
+
+.cal-y-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+/* ── 5. Events / Schedule View Styles (Image 6 Google Calendar Style) ── */
+.cal-agenda-container {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cal-agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cal-agenda-row:hover {
+  background: var(--surface-tint);
+}
+
+.cal-agenda-date-col {
+  width: 75px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.cal-agenda-date-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--bg-card-subtle);
+}
+
+.cal-agenda-date-circle.active {
+  background: #1a73e8;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(26, 115, 232, 0.4);
+}
+
+.cal-agenda-date-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.cal-agenda-content-col {
+  flex: 1;
+  position: relative;
+}
+
+.cal-agenda-now-line {
+  height: 2px;
+  background: #ea4335;
+  margin-bottom: 8px;
+}
+
+.cal-agenda-item-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cal-agenda-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cal-agenda-time-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 130px;
+}
+
+.cal-agenda-title-text {
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .cal-hub-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .cal-view-switcher {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .cal-view-tab {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .cal-nav-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cal-current-range-heading {
+    font-size: 15px;
+  }
+  .cal-agenda-date-col {
+    width: 65px;
+  }
+}
+
+
 /* ── Offline Status Indicator Bar ────────────────────────────────── */
 .offline-indicator-bar {
   width: 100%;

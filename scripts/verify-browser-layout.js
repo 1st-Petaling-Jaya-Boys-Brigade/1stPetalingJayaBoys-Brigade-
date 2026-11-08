@@ -1197,6 +1197,94 @@ async function getJson(url) {
       '  ✔ Weekly parade schedule and NCO Kanban board verified in headless Edge browser'
     );
 
+    // 17B. Calendar Hub 5 Views & Day Schedule Verification
+    console.log('\n[Calendar Hub 5 Views & Day Schedule Verification]');
+    const evalCalendarViews = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        if (typeof switchTab === 'function') {
+          switchTab('parade');
+        }
+        if (typeof renderCalendarTab === 'function') {
+          renderCalendarTab('upcoming');
+        }
+        const hasUpcoming = !!document.querySelector('.cal-upcoming-hero');
+        const hasTimeline = !!document.querySelector('.schedule-table');
+
+        if (typeof switchCalendarView === 'function') {
+          switchCalendarView('week');
+        }
+        const hasWeek = !!document.querySelector('.cal-week-wrapper');
+        const weekCols = document.querySelectorAll('.cal-week-day-header').length;
+
+        if (typeof switchCalendarView === 'function') {
+          switchCalendarView('month');
+        }
+        const hasMonth = !!document.querySelector('.cal-month-table-wrapper');
+        const monthCells = document.querySelectorAll('.cal-month-day-cell').length;
+
+        if (typeof switchCalendarView === 'function') {
+          switchCalendarView('year');
+        }
+        const hasYear = !!document.querySelector('.cal-year-grid');
+        const yearBoxes = document.querySelectorAll('.cal-year-month-box').length;
+
+        if (typeof switchCalendarView === 'function') {
+          switchCalendarView('events');
+        }
+        const hasEvents = !!document.querySelector('.cal-agenda-container');
+        const agendaRows = document.querySelectorAll('.cal-agenda-row').length;
+
+        // Test day schedule modal
+        if (typeof openCalendarDayModal === 'function') {
+          openCalendarDayModal('2026-10-03');
+        }
+        const modal = document.getElementById('calendar-day-modal');
+        const modalVisible = modal && window.getComputedStyle(modal).display !== 'none';
+        const hasPrevNext = modal && modal.innerHTML.includes('calStepDay');
+        if (typeof closeCalendarDayModal === 'function') {
+          closeCalendarDayModal();
+        }
+
+        // Return to upcoming view
+        if (typeof switchCalendarView === 'function') {
+          switchCalendarView('upcoming');
+        }
+
+        return {
+          hasUpcoming,
+          hasTimeline,
+          hasWeek,
+          weekCols,
+          hasMonth,
+          monthCells,
+          hasYear,
+          yearBoxes,
+          hasEvents,
+          agendaRows,
+          modalVisible,
+          hasPrevNext
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const calRes = evalCalendarViews.result.value;
+    assert.strictEqual(calRes.hasUpcoming, true, 'Upcoming Hero View must render in browser');
+    assert.strictEqual(calRes.hasTimeline, true, 'Parade Rundown schedule timeline must render in browser');
+    assert.strictEqual(calRes.hasWeek, true, 'Week View must render in browser');
+    assert.strictEqual(calRes.weekCols, 7, 'Week View must render exactly 7 day columns');
+    assert.strictEqual(calRes.hasMonth, true, 'Month View must render in browser');
+    assert.ok(calRes.monthCells >= 35, 'Month View must render at least 35 calendar cells');
+    assert.strictEqual(calRes.hasYear, true, 'Year View must render in browser');
+    assert.strictEqual(calRes.yearBoxes, 12, 'Year View must render 12 mini months');
+    assert.strictEqual(calRes.hasEvents, true, 'Events View must render in browser');
+    assert.ok(calRes.agendaRows > 0, 'Events View must render agenda rows');
+    assert.strictEqual(calRes.modalVisible, true, 'Day schedule modal must open visibly in browser');
+    assert.strictEqual(calRes.hasPrevNext, true, 'Day schedule modal must provide previous/next day navigation');
+    console.log(
+      '  ✔ All 5 calendar view modes (Upcoming, Week, Month, Year, Events) and Day Schedule modal verified in headless Edge browser'
+    );
+
     // 18. Uniform Order Grid Form & Product Card Redesign Verification
     console.log('\n[Uniform Order Grid & Product Card Redesign Verification]');
     const evalUniformGrid = await sendCmd('Runtime.evaluate', {
