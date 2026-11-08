@@ -3874,7 +3874,7 @@ window.addEventListener('load', function() {
 
   // Periodic background notification polling (every 30 seconds)
   setInterval(function() {
-    if (typeof sessionGet === 'function' && sessionGet('ic')) {
+    if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email') || sessionGet('name'))) {
       if (typeof fetchRemoteDismissedNotifs === 'function') fetchRemoteDismissedNotifs();
       if (typeof syncAllPortalNotifications === 'function') {
         syncAllPortalNotifications();
@@ -4026,11 +4026,6 @@ var _initialNotifSyncDone = false;
 
 function pushPortalNotification(notif, isSilent) {
   if (!notif || !notif.id) return false;
-  // Guard against self-mentions: never notify the author about their own comment
-  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
-  if (notif.id.indexOf('notif-mention-') === 0 && myName && notif.title && notif.title.indexOf(myName + ' mentioned you') === 0) {
-    return false;
-  }
   var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
   if (accTs > 0 && notif.timestamp && notif.timestamp < (accTs - 60000)) {
     return false;
@@ -4164,11 +4159,24 @@ function syncTaskNotifications(tasks) {
   var taskList = Array.isArray(tasks) ? tasks : ((typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) ? _allLoadedTasks : ((typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks)) ? window._allLoadedTasks : []));
   if (!Array.isArray(taskList)) return;
 
-  var myIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
   var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (!myName && typeof document !== 'undefined') {
+    var sbName = document.getElementById('sidebar-user-name');
+    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member') {
+      myName = sbName.textContent.trim();
+    }
+  }
+  if (!myName && typeof localStorage !== 'undefined') {
+    try {
+      var sess = JSON.parse(localStorage.getItem('bb_session') || '{}');
+      if (sess && sess.name) myName = sess.name;
+      if (!myIc && sess && sess.ic) myIc = sess.ic;
+    } catch (_) {}
+  }
   if (!myIc && !myName) return;
 
-  // Check if member has department role (requirement: only for members with department roles)
+  // Check if member has department role
   var hasDept = false;
   if (typeof hasDepartmentRole === 'function') {
     hasDept = hasDepartmentRole();
@@ -4178,7 +4186,20 @@ function syncTaskNotifications(tasks) {
     var sDept = sessionGet('department');
     hasDept = !!(sDept && sDept.toLowerCase() !== 'none');
   }
-  if (!hasDept) return;
+
+  if (typeof fetchAllRemoteTaskComments === 'function') fetchAllRemoteTaskComments();
+  // Asynchronously ensure tasks and remote comments are loaded if empty
+  if ((!taskList || !taskList.length) && typeof getSupaClient === 'function') {
+    var client = getSupaClient();
+    if (client) {
+      client.get('bb_tasks?order=created_at.asc').then(function(fetched) {
+        if (Array.isArray(fetched) && fetched.length) {
+          if (typeof _allLoadedTasks !== 'undefined') _allLoadedTasks = fetched;
+          syncTaskNotifications(fetched);
+        }
+      }).catch(function() {});
+    }
+  }
 
   if (typeof _activeDetailTaskId !== 'undefined' && _activeDetailTaskId) {
     var activeT = (typeof _taskMap !== 'undefined' && _taskMap[_activeDetailTaskId]) || (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]);
@@ -4510,7 +4531,13 @@ function syncForumNotifications(postsList) {
         || (rIc && myIc && rIc === myIc)
         || (rName && myName && rName === myName);
 
-      if (isSelfReply) return;
+      // Check if logged-in user is explicitly mentioned in the reply (including self-mentions)
+      var checkFn = (typeof isUserMentionedInComment === 'function') ? isUserMentionedInComment : null;
+      var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
+      var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '') : '';
+      var isMentionedInReply = checkFn ? checkFn(r.content || '', r.authorEmail, r.authorName, myName, myEmail, myDept, myRank) : false;
+
+      if (isSelfReply && !isMentionedInReply) return;
 
       var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
       if (!existing) {

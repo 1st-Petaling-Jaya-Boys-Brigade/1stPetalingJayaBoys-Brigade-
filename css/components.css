@@ -11843,3 +11843,230 @@ select.form-input,
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+
+
+/* ── Light Mode Contrast & Readability Enhancements ── */
+[data-theme='light'] .cal-view-tab.active {
+  background: #9a3412 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(154, 52, 18, 0.25);
+}
+
+[data-theme='light'] .cal-countdown-badge {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-weight: 700;
+}
+
+[data-theme='light'] .cal-m-pill-green {
+  background: #15803d;
+  color: #ffffff;
+}
+
+[data-theme='light'] .cal-m-pill-gold {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-weight: 600;
+}
+
+[data-theme='light'] .cal-m-pill-red {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+[data-theme='light'] .cal-m-pill-cyan {
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  color: #0e7490;
+  font-weight: 600;
+}
+
+[data-theme='light'] .cal-m-pill-purple {
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  color: #7e22ce;
+  font-weight: 600;
+}
+
+[data-theme='light'] .cal-m-pill-personal {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  font-weight: 600;
+}
+
+[data-theme='light'] .cal-m-cell {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .cal-m-cell.other-month {
+  background: #f8fafc;
+  opacity: 0.75;
+}
+
+[data-theme='light'] .cal-m-day-num {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+[data-theme='light'] .cal-w-col-header {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #1e293b;
+}
+
+[data-theme='light'] .cal-w-cell {
+  border-color: #f1f5f9;
+}
+
+[data-theme='light'] .cal-nav-toolbar {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .filter-chip {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+[data-theme='light'] .filter-chip:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+[data-theme='light'] .filter-chip.active {
+  background: #fffbeb;
+  border-color: #d97706;
+  color: #92400e;
+  font-weight: 600;
+}
+
+[data-theme='light'] .filter-chip.active strong {
+  color: #78350f;
+}
+
+[data-theme='light'] .settings-readonly-field {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+[data-theme='light'] .settings-readonly-field svg {
+  color: #64748b;
+}
+
+[data-theme='light'] .settings-section-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme='light'] .settings-row {
+  border-bottom-color: #f1f5f9;
+}
+
+[data-theme='light'] .settings-row-label {
+  color: #0f172a;
+}
+
+[data-theme='light'] .settings-row-desc {
+  color: #475569;
+}
+
+[data-theme='light'] .projects-table-card,
+[data-theme='light'] .my-tasks-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme='light'] .project-row,
+[data-theme='light'] .my-tasks-row {
+  border-bottom-color: #f1f5f9;
+}
+
+[data-theme='light'] .project-row:hover,
+[data-theme='light'] .my-tasks-row:hover {
+  background-color: #f8fafc;
+}
+
+[data-theme='light'] .project-row-name {
+  color: #0f172a;
+}
+
+[data-theme='light'] .task-id-badge {
+  color: #64748b;
+}
+
+[data-theme='light'] .projects-overview-sub {
+  color: #475569;
+}
+
+[data-theme='light'] .task-search-box {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .task-search-input {
+  color: #0f172a;
+}
+
+[data-theme='light'] .task-search-input::placeholder {
+  color: #94a3b8;
+}
+
+[data-theme='light'] .my-tasks-project-cell {
+  color: #475569;
+}
+
+[data-theme='light'] .project-folder-icon {
+  color: #2563eb;
+}
+
+[data-theme='light'] .forum-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .forum-filter-chip {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+[data-theme='light'] .forum-filter-chip.active {
+  background: #fffbeb;
+  border-color: #d97706;
+  color: #92400e;
+  font-weight: 600;
+}
+
+/* My Tasks Mobile Responsive Layout */
+@media (max-width: 768px) {
+  .my-tasks-row {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    gap: 8px 10px;
+  }
+  .my-tasks-row .project-name-cell {
+    flex: 1 1 100%;
+    order: 1;
+  }
+  .my-tasks-row .my-tasks-project-cell {
+    order: 2;
+  }
+  .my-tasks-row .project-assignees-stack {
+    order: 3;
+  }
+  .my-tasks-row .project-actions-cell {
+    order: 4;
+    margin-left: auto;
+  }
+}
