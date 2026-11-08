@@ -1405,6 +1405,8 @@
     var stats = getArcadeStats();
     updateArcadeHeaderBadge(stats);
     fetchRemoteArcadeStats();
+    fetchRemoteWordleState();
+    fetchRemoteTriviaState();
 
     page.innerHTML =
       '<div class="arcade-container">' +
@@ -2184,10 +2186,12 @@
       }
     });
 
-    // Auto-update header on DOM load
+    // Auto-update header and sync game states on DOM load
     document.addEventListener('DOMContentLoaded', function() {
       updateArcadeHeaderBadge();
       fetchRemoteArcadeStats();
+      fetchRemoteWordleState();
+      fetchRemoteTriviaState();
     });
   }
 

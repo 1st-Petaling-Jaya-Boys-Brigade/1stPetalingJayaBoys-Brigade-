@@ -5186,9 +5186,14 @@ function renderForumPage() {
               '<div class="page-subtitle" style="margin:0;">Community help, questions &amp; direct bug tracking for 1st PJ Web Portal</div>' +
             '</div>' +
           '</div>' +
-          '<button type="button" class="portal-btn portal-btn-primary" onclick="openCreateForumPostModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:8px 16px;">' +
-            FORUM_ICONS.plus + ' <span>New Post</span>' +
-          '</button>' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<button type="button" class="portal-btn" onclick="openCreateForumPostModal({ category: \'bugs\', title: \'[Bug] \' })" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:8px 14px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.3);" title="Report a Bug with Screenshot">' +
+              FORUM_ICONS.bugs + ' <span>Report a Bug</span>' +
+            '</button>' +
+            '<button type="button" class="portal-btn portal-btn-primary" onclick="openCreateForumPostModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:8px 16px;">' +
+              FORUM_ICONS.plus + ' <span>New Post</span>' +
+            '</button>' +
+          '</div>' +
         '</div>' +
         '<div class="page-desc">Ask questions about badge advancement, uniform kits, and portal tools, or submit technical bug reports directly to the 1st PJ development team and officers.</div>' +
       '</div>' +
@@ -5386,10 +5391,8 @@ function upvoteForumPost(postId, userEmail) {
  */
 var _stagedForumScreenshotFile = null;
 
-function handleForumScreenshotSelect(event) {
-  var file = (event && event.target && event.target.files && event.target.files[0]) ? event.target.files[0] : null;
+function handleForumScreenshotFile(file) {
   if (!file) return;
-
   var maxPhotoSize = 15 * 1024 * 1024;
   if (file.size > maxPhotoSize) {
     if (typeof showToast === 'function') {
@@ -5397,7 +5400,6 @@ function handleForumScreenshotSelect(event) {
     }
     return;
   }
-
   _stagedForumScreenshotFile = file;
   if (typeof FileReader !== 'undefined') {
     var reader = new FileReader();
@@ -5411,6 +5413,11 @@ function handleForumScreenshotSelect(event) {
     };
     reader.readAsDataURL(file);
   }
+}
+
+function handleForumScreenshotSelect(event) {
+  var file = (event && event.target && event.target.files && event.target.files[0]) ? event.target.files[0] : null;
+  handleForumScreenshotFile(file);
 }
 
 function clearForumScreenshot(event) {
@@ -5511,6 +5518,23 @@ function openCreateForumPostModal(prefill) {
           '<label class="form-label">Description / Steps to Reproduce</label>' +
           '<textarea id="forum-new-content" class="form-textarea" rows="5" placeholder="Describe your question or issue in detail..." required>' + (pf.content ? (typeof escapeHtml === 'function' ? escapeHtml(pf.content) : pf.content) : '') + '</textarea>' +
         '</div>' +
+        '<div class="form-group" style="margin-top:12px;">' +
+          '<label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">' +
+            '<span>Screenshot / Attachment (Optional)</span>' +
+            '<span style="font-size:11px;color:var(--text-muted);">PNG, JPG, WebP up to 15MB</span>' +
+          '</label>' +
+          '<div class="forum-screenshot-upload-zone" onclick="document.getElementById(\'forum-screenshot-input\').click()" style="border:1.5px dashed var(--border-subtle);border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:var(--bg-input);transition:border-color 0.2s ease;">' +
+            '<input type="file" id="forum-screenshot-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="handleForumScreenshotSelect(event)" />' +
+            '<div id="forum-screenshot-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--text-muted);font-size:12px;">' +
+              '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>' +
+              '<span>Click to attach a screenshot of the bug or issue</span>' +
+            '</div>' +
+            '<div id="forum-screenshot-preview-wrap" style="display:none;position:relative;align-items:center;justify-content:center;">' +
+              '<img id="forum-screenshot-preview-img" src="" alt="Screenshot preview" style="max-height:140px;border-radius:6px;object-fit:contain;box-shadow:0 4px 12px rgba(0,0,0,0.25);" />' +
+              '<button type="button" class="portal-btn-icon" onclick="clearForumScreenshot(event)" title="Remove screenshot" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:#fff;border-radius:50%;width:24px;height:24px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
         '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">' +
           '<button type="button" class="portal-btn portal-btn-secondary" onclick="document.getElementById(\'forum-create-modal\').remove()">Cancel</button>' +
           '<button type="submit" class="portal-btn portal-btn-primary" style="font-weight:700;">Publish Post</button>' +
@@ -5519,6 +5543,42 @@ function openCreateForumPostModal(prefill) {
     '</div>';
 
   document.body.appendChild(modal);
+
+  // Enable Ctrl+V paste directly inside the modal
+  modal.addEventListener('paste', function(e) {
+    if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length) {
+      var f = e.clipboardData.files[0];
+      if (f && f.type && f.type.startsWith('image/')) {
+        handleForumScreenshotFile(f);
+        if (typeof showToast === 'function') showToast('Screenshot pasted from clipboard!', 'info');
+      }
+    }
+  });
+
+  // Enable drag and drop on the upload zone
+  var zone = modal.querySelector('.forum-screenshot-upload-zone');
+  if (zone) {
+    zone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      zone.style.borderColor = 'var(--accent)';
+      zone.style.background = 'var(--surface-tint)';
+    });
+    zone.addEventListener('dragleave', function() {
+      zone.style.borderColor = 'var(--border-subtle)';
+      zone.style.background = 'var(--bg-input)';
+    });
+    zone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      zone.style.borderColor = 'var(--border-subtle)';
+      zone.style.background = 'var(--bg-input)';
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        var f = e.dataTransfer.files[0];
+        if (f && f.type && f.type.startsWith('image/')) {
+          handleForumScreenshotFile(f);
+        }
+      }
+    });
+  }
 }
 
 async function submitNewForumPost(e, customPost) {
@@ -5563,6 +5623,20 @@ async function submitNewForumPost(e, customPost) {
     general: 'General Discussion'
   };
 
+  var shotUrl = null;
+  var shotName = null;
+  if (_stagedForumScreenshotFile) {
+    var uploadRes = await uploadForumScreenshotFile(_stagedForumScreenshotFile);
+    if (uploadRes) {
+      shotUrl = uploadRes.url || uploadRes;
+      shotName = uploadRes.filename || _stagedForumScreenshotFile.name;
+    }
+    _stagedForumScreenshotFile = null;
+  } else if (customPost && customPost.screenshotUrl) {
+    shotUrl = customPost.screenshotUrl;
+    shotName = customPost.screenshotName || 'screenshot.jpg';
+  }
+
   var newPost = {
     id: 'post-' + Date.now(),
     title: title,
@@ -5577,6 +5651,8 @@ async function submitNewForumPost(e, customPost) {
     date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
     time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
     content: content,
+    screenshotUrl: shotUrl,
+    screenshotName: shotName,
     upvotes: 0,
     upvotedBy: [],
     replies: [],
@@ -5913,6 +5989,16 @@ function openForumPostDetail(postId) {
 
       '<!-- Post Body -->' +
       '<div style="font-size:13.5px;color:var(--text-primary);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;">' + safeContent + '</div>' +
+      (p.screenshotUrl ? 
+        '<div class="forum-post-screenshot-container" style="margin:14px 0;">' +
+          '<div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> ' +
+            '<span>Attached Bug Screenshot:</span>' +
+          '</div>' +
+          '<a href="' + p.screenshotUrl + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;cursor:zoom-in;" title="Click to view full screenshot">' +
+            '<img src="' + p.screenshotUrl + '" alt="Bug Screenshot" style="max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--border-card);box-shadow:0 4px 16px rgba(0,0,0,0.3);object-fit:contain;" />' +
+          '</a>' +
+        '</div>' : '') +
       
       // Super Admin Status Switcher
       (perms.canChangeStatus ? 
@@ -6110,6 +6196,7 @@ if (typeof window !== 'undefined') {
   window.upvoteForumPost           = upvoteForumPost;
   window.openCreateForumPostModal  = openCreateForumPostModal;
   window.handleForumScreenshotSelect = handleForumScreenshotSelect;
+  window.handleForumScreenshotFile   = handleForumScreenshotFile;
   window.clearForumScreenshot       = clearForumScreenshot;
   window.uploadForumScreenshotFile  = uploadForumScreenshotFile;
   window.submitNewForumPost        = submitNewForumPost;
@@ -6152,6 +6239,7 @@ if (typeof module !== 'undefined' && module.exports) {
     upvoteForumPost: upvoteForumPost,
     openCreateForumPostModal: openCreateForumPostModal,
     handleForumScreenshotSelect: handleForumScreenshotSelect,
+    handleForumScreenshotFile: handleForumScreenshotFile,
     clearForumScreenshot: clearForumScreenshot,
     uploadForumScreenshotFile: uploadForumScreenshotFile,
     submitNewForumPost: submitNewForumPost,

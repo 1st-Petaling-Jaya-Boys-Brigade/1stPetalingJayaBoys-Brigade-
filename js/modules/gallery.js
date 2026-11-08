@@ -1079,6 +1079,57 @@ function applyStoryProgressAnimation(durationMs, remainingMs) {
   currentFill.style.width = '100%';
 }
 
+
+var _driveBlobCache = {};
+var _driveFetching = {};
+
+/**
+ * Streams Google Drive video files directly into an HTML5 Blob URL
+ * Bypasses Google Drive preview player UI, scrubber bar, and nosniff header restrictions
+ * @param {string} fileId
+ * @param {HTMLVideoElement} targetVideoEl
+ * @returns {Promise<boolean>}
+ */
+async function loadDriveVideoBlob(fileId, targetVideoEl) {
+  if (!fileId || typeof fetch === 'undefined') return false;
+  if (_driveBlobCache[fileId]) {
+    if (targetVideoEl && targetVideoEl.src !== _driveBlobCache[fileId]) {
+      targetVideoEl.src = _driveBlobCache[fileId];
+      if (typeof targetVideoEl.play === 'function') {
+        targetVideoEl.play().catch(function() {});
+      }
+    }
+    return true;
+  }
+  if (_driveFetching[fileId]) return false;
+  _driveFetching[fileId] = true;
+
+  try {
+    var url = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(fileId) + '&export=download';
+    var resp = await fetch(url);
+    if (resp.ok) {
+      var rawBlob = await resp.blob();
+      var vidBlob = new Blob([rawBlob], { type: 'video/mp4' });
+      var blobUrl = URL.createObjectURL(vidBlob);
+      _driveBlobCache[fileId] = blobUrl;
+      if (targetVideoEl && targetVideoEl.style.display !== 'none') {
+        var prevTime = targetVideoEl.currentTime || 0;
+        targetVideoEl.src = blobUrl;
+        targetVideoEl.currentTime = prevTime;
+        if (typeof targetVideoEl.play === 'function') {
+          targetVideoEl.play().catch(function() {});
+        }
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn('loadDriveVideoBlob fetch error:', err);
+  } finally {
+    delete _driveFetching[fileId];
+  }
+  return false;
+}
+
 function updateStorySlideView() {
   if (typeof document === 'undefined') return;
   var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
@@ -1190,7 +1241,12 @@ function updateStorySlideView() {
       // Direct HTML5 Video (MP4, WebM, MOV, or Google Drive byte-range direct video stream)
       var directVideoUrl = safeMediaUrl;
       if (driveFileId) {
-        directVideoUrl = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(driveFileId) + '&export=download';
+        if (_driveBlobCache[driveFileId]) {
+          directVideoUrl = _driveBlobCache[driveFileId];
+        } else {
+          directVideoUrl = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(driveFileId) + '&export=download';
+          loadDriveVideoBlob(driveFileId, videoEl);
+        }
       }
 
       var navZonesVid = document.getElementById('story-nav-zones');
@@ -1243,8 +1299,12 @@ function updateStorySlideView() {
 
         // Fallback safety timeout if direct stream fails
         videoEl.onerror = function() {
+          if (driveFileId && _driveFetching[driveFileId]) {
+            // Blob fetch in flight; do not abort to iframe prematurely
+            return;
+          }
           if (driveFileId && videoEl.src.indexOf('drive.usercontent.google.com') !== -1) {
-            // Fallback to embedded iframe if direct stream fails
+            // Fallback to embedded iframe only if direct stream and blob fetch both fail
             videoEl.style.display = 'none';
             if (typeof videoEl.pause === 'function') videoEl.pause();
             if (iframeEl) {
@@ -2286,6 +2346,7 @@ if (typeof window !== 'undefined') {
   window.renderStoryHighlightsReel = renderStoryHighlightsReel;
   window.renderAdminStoryHighlights = renderAdminStoryHighlights;
   window.openStoryViewer        = openStoryViewer;
+  window.loadDriveVideoBlob     = loadDriveVideoBlob;
   window.closeStoryViewer       = closeStoryViewer;
   window.nextStorySlide         = nextStorySlide;
   window.prevStorySlide         = prevStorySlide;
@@ -2336,6 +2397,7 @@ if (typeof module !== 'undefined' && module.exports) {
     renderStoryHighlightsReel: renderStoryHighlightsReel,
     renderAdminStoryHighlights: renderAdminStoryHighlights,
     openStoryViewer: openStoryViewer,
+    loadDriveVideoBlob: loadDriveVideoBlob,
     closeStoryViewer: closeStoryViewer,
     nextStorySlide: nextStorySlide,
     prevStorySlide: prevStorySlide,
