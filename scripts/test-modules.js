@@ -10416,6 +10416,34 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(typeof tasksMod.handleNewTaskProjectSelect === 'function', 'tasks.js must export handleNewTaskProjectSelect');
     assert.ok(indexHtmlPillCheck.includes('class="form-input new-task-project-select"'), 'index.html must include new-task-project-select');
     console.log('  ✔ Creating task from Tasks view allows user to choose target project');
+
+    // 16. Calendar Upcoming view removes Subsequent Parades & Events strip
+    const calendarModuleSrc = fs.readFileSync(path.join(__dirname, '../js/modules/calendar.js'), 'utf8');
+    assert.ok(!calendarModuleSrc.includes('Subsequent Company Parades &amp; Events'), 'calendar.js must NOT render Subsequent Company Parades & Events section');
+    assert.ok(!calendarModuleSrc.includes('cal-upcoming-strip-grid'), 'calendar.js must NOT render cal-upcoming-strip-grid');
+    console.log('  ✔ Calendar Upcoming view Subsequent Parades & Events removed matching Image 1');
+
+    // 17. showPromptModal UI dialog engine
+    const uiMod = require('../js/core/ui.js');
+    assert.ok(typeof uiMod.showPromptModal === 'function', 'ui.js must export showPromptModal');
+    assert.ok(uiSrc.includes('portal-prompt-input'), 'ui.js must render portal-prompt-input');
+    console.log('  ✔ Modern showPromptModal dialog component verified in ui.js');
+
+    // 18. Dropdown strictly from existing projects only (no Department NCO; dynamically adds new projects)
+    const availableProjects = tasksMod.getAvailableProjectsList();
+    assert.ok(!availableProjects.includes('Department NCO'), 'Existing projects dropdown must NOT include uncreated Department NCO');
+    assert.ok(!availableProjects.includes('Officers'), 'Existing projects dropdown must NOT include Officers before creation');
+    // Simulate creating project "Officers"
+    tasksMod._companyProjects.push('Officers');
+    const updatedProjects = tasksMod.getAvailableProjectsList();
+    assert.ok(updatedProjects.includes('Officers'), 'Creating project Officers must dynamically add it to available projects');
+    tasksMod._companyProjects.pop(); // Clean up
+    console.log('  ✔ Projects dropdown strictly populated from existing workspace projects only');
+
+    // 19. Native prompt replaced with showPromptModal
+    assert.ok(tasksSrc.includes("showPromptModal('Create New Project'"), 'openAddProjectModal must invoke showPromptModal');
+    assert.ok(tasksSrc.includes("showPromptModal('Set Task Estimate'"), 'editTaskDetailEstimate must invoke showPromptModal');
+    console.log('  ✔ Project creation and estimate editing use portal UI modal instead of native prompt');
   }
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

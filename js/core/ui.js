@@ -257,6 +257,109 @@
   }
 
   /**
+   * Prompts the user with a modern accessible dialog matching portal design tokens
+   * @param {string} title - Dialog title
+   * @param {string} [placeholder=''] - Input placeholder
+   * @param {string} [defaultValue=''] - Initial value
+   * @param {Object} [options] - Configuration
+   * @param {string} [options.subtitle=''] - Optional description/instructions
+   * @param {string} [options.confirmText='Save'] - Confirmation button label
+   * @param {string} [options.cancelText='Cancel'] - Cancel button label
+   * @returns {Promise<string|null>} Resolves entered string or null if cancelled
+   */
+  function showPromptModal(title, placeholder, defaultValue, options) {
+    options = options || {};
+    var confirmText = options.confirmText || 'Save';
+    var cancelText = options.cancelText || 'Cancel';
+    var subtitle = options.subtitle || '';
+
+    return new Promise(function(resolve) {
+      if (typeof document === 'undefined') {
+        resolve(null);
+        return;
+      }
+
+      var overlay = document.createElement('div');
+      overlay.className = 'portal-modal-overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+
+      var modal = document.createElement('div');
+      modal.className = 'portal-modal-card';
+      modal.style.maxWidth = '460px';
+
+      var safeTitle = safeEscapeHtml(title || 'Enter Value');
+      var safePlaceholder = safeEscapeHtml(placeholder || '');
+      var safeVal = safeEscapeHtml(defaultValue || '');
+      var safeSubtitle = subtitle ? ('<p style="margin:0 0 14px 0;font-size:13px;color:var(--text-secondary);line-height:1.5;">' + safeEscapeHtml(subtitle) + '</p>') : '';
+
+      modal.innerHTML =
+        '<div class="portal-modal-header">' +
+          '<h3>' + safeTitle + '</h3>' +
+        '</div>' +
+        '<div class="portal-modal-body">' +
+          safeSubtitle +
+          '<div style="margin-bottom:18px;">' +
+            '<input type="text" class="form-input portal-prompt-input" style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:8px;font-size:14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);outline:none;" value="' + safeVal + '" placeholder="' + safePlaceholder + '" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />' +
+          '</div>' +
+        '</div>' +
+        '<div class="portal-modal-actions">' +
+          '<button type="button" class="portal-btn portal-btn-secondary" id="portal-prompt-cancel">' + safeEscapeHtml(cancelText) + '</button>' +
+          '<button type="button" class="portal-btn portal-btn-primary" id="portal-prompt-ok">' + safeEscapeHtml(confirmText) + '</button>' +
+        '</div>';
+
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      var input = modal.querySelector('.portal-prompt-input');
+      if (input) {
+        setTimeout(function() {
+          try {
+            input.focus();
+            if (input.select) input.select();
+          } catch (_) {}
+        }, 50);
+      }
+
+      var cleanedUp = false;
+      function cleanup(val) {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        if (typeof document !== 'undefined') {
+          document.removeEventListener('keydown', handleKeyDown);
+        }
+        overlay.classList.add('portal-modal-closing');
+        setTimeout(function() {
+          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+          resolve(val);
+        }, 200);
+      }
+
+      function handleKeyDown(e) {
+        if (e.key === 'Escape' || e.keyCode === 27) {
+          cleanup(null);
+        } else if (e.key === 'Enter' || e.keyCode === 13) {
+          e.preventDefault();
+          cleanup(input ? input.value : null);
+        }
+      }
+
+      if (typeof document !== 'undefined') {
+        document.addEventListener('keydown', handleKeyDown);
+      }
+
+      var cancelBtn = modal.querySelector('#portal-prompt-cancel');
+      var okBtn = modal.querySelector('#portal-prompt-ok');
+
+      if (cancelBtn) cancelBtn.addEventListener('click', function() { cleanup(null); });
+      if (okBtn) okBtn.addEventListener('click', function() { cleanup(input ? input.value : null); });
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) cleanup(null);
+      });
+    });
+  }
+
+  /**
    * Initializes global button debouncing
    * Intercepts rapid button clicks within delayMs to prevent accidental duplicate actions and request floods.
    * @param {number} [delayMs=500]
@@ -408,7 +511,7 @@
     return _activeRichEditor || document.getElementById('tdm-desc') || document.getElementById('ann-body-input');
   }
 
-    function executeRichFormat(cmd, value, btnOrEl) {
+    async function executeRichFormat(cmd, value, btnOrEl) {
     if (typeof document === 'undefined') return;
     var editor = resolveTargetRichEditor(btnOrEl);
     if (editor) {
@@ -434,16 +537,28 @@
         document.execCommand('insertHTML', false, '<code>code</code>&nbsp;');
       }
     } else if (cmd === 'link') {
-      var url = (typeof prompt === 'function') ? prompt('Enter URL (https://...):') : null;
+      var url = null;
+      if (typeof showPromptModal === 'function') {
+        url = await showPromptModal('Insert Link', 'https://...', '', { confirmText: 'Insert', cancelText: 'Cancel' });
+      } else if (typeof prompt === 'function') {
+        url = prompt('Enter URL (https://...):');
+      }
       if (url && url.trim()) {
+        restoreRichEditorRange();
         var validUrl = (typeof safeUrl === 'function') ? safeUrl(url.trim(), '#') : url.trim();
         if (validUrl && validUrl !== '#') {
           document.execCommand('createLink', false, validUrl);
         }
       }
     } else if (cmd === 'image') {
-      var imgUrl = (typeof prompt === 'function') ? prompt('Enter Image URL (https://...):') : null;
+      var imgUrl = null;
+      if (typeof showPromptModal === 'function') {
+        imgUrl = await showPromptModal('Insert Image', 'https://...', '', { confirmText: 'Insert Image', cancelText: 'Cancel' });
+      } else if (typeof prompt === 'function') {
+        imgUrl = prompt('Enter Image URL (https://...):');
+      }
       if (imgUrl && imgUrl.trim()) {
+        restoreRichEditorRange();
         var validImgUrl = (typeof safeUrl === 'function') ? safeUrl(imgUrl.trim(), '') : imgUrl.trim();
         if (validImgUrl) {
           document.execCommand('insertHTML', false, '<img src="' + safeEscapeHtml(validImgUrl) + '" alt="Embedded image" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;" /><br/>');
@@ -1443,6 +1558,7 @@
     global.showToast = showToast;
     global.dismissToast = dismissToast;
     global.showConfirmModal = showConfirmModal;
+    global.showPromptModal = showPromptModal;
     global.ensureToastContainer = ensureToastContainer;
     global.initGlobalButtonDebounce = initGlobalButtonDebounce;
     global.withButtonLock = withButtonLock;
@@ -1476,6 +1592,7 @@
       showToast: showToast,
       dismissToast: dismissToast,
       showConfirmModal: showConfirmModal,
+      showPromptModal: showPromptModal,
       ensureToastContainer: ensureToastContainer,
       initGlobalButtonDebounce: initGlobalButtonDebounce,
             withButtonLock: withButtonLock,

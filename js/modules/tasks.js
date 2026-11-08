@@ -1091,9 +1091,26 @@ function resetProjectFilters() {
  * Opens prompt / modal to create a new project
  */
 async function openAddProjectModal() {
-  var name = (typeof prompt === 'function') ? prompt('Enter new project name:') : null;
+  var name = null;
+  if (typeof showPromptModal === 'function') {
+    name = await showPromptModal('Create New Project', 'e.g. Officers, Band, Quartermaster', '', {
+      confirmText: 'Create Project',
+      cancelText: 'Cancel',
+      subtitle: 'Enter a name for the new project in your workspace.'
+    });
+  } else if (typeof prompt === 'function') {
+    name = prompt('Enter new project name:');
+  }
   if (!name || !name.trim()) return;
   var cleanName = (typeof sanitizeText === 'function') ? sanitizeText(name.trim(), 80) : name.trim();
+  if (Array.isArray(_allLoadedTasks)) {
+    _allLoadedTasks.forEach(function(t) {
+      var p = getTaskProjectName(t);
+      if (p && p !== 'General Project' && !p.toLowerCase().includes('sprint') && _companyProjects.indexOf(p) === -1) {
+        _companyProjects.push(p);
+      }
+    });
+  }
   if (_companyProjects.indexOf(cleanName) === -1) {
     _companyProjects.push(cleanName);
     await saveProjectsCatalog();
@@ -2410,9 +2427,14 @@ function formatTaskDesc(cmd, val, btnEl) {
 /**
  * Inserts URL link into task brief description
  */
-function insertTaskDescLink() {
+async function insertTaskDescLink() {
   if (typeof document === 'undefined') return;
-  var url = (typeof prompt === 'function') ? prompt('Enter URL (https://...):') : null;
+  var url = null;
+  if (typeof showPromptModal === 'function') {
+    url = await showPromptModal('Insert Link', 'https://...', '', { confirmText: 'Insert', cancelText: 'Cancel' });
+  } else if (typeof prompt === 'function') {
+    url = prompt('Enter URL (https://...):');
+  }
   if (url && url.trim()) {
     formatTaskDesc('createLink', url.trim());
   }
@@ -2439,8 +2461,13 @@ function addActiveTaskSubtask(text) {
 /**
  * Links a related task in the task brief (Image 5)
  */
-function addActiveTaskLink() {
-  var urlOrTitle = (typeof prompt === 'function') ? prompt('Enter link URL or related task ID:') : null;
+async function addActiveTaskLink() {
+  var urlOrTitle = null;
+  if (typeof showPromptModal === 'function') {
+    urlOrTitle = await showPromptModal('Add Related Link', 'https://... or related task ID', '', { confirmText: 'Add Link', cancelText: 'Cancel' });
+  } else if (typeof prompt === 'function') {
+    urlOrTitle = prompt('Enter link URL or related task ID:');
+  }
   if (!urlOrTitle || !urlOrTitle.trim()) return;
   var emptyNotice = document.querySelector('.tb-links-empty');
   if (emptyNotice) emptyNotice.style.display = 'none';
@@ -3763,16 +3790,28 @@ function handleTaskDetailDueChange(val) {
 /**
  * Estimate editing for Task Brief (Image 2)
  */
-function editTaskDetailEstimate(e) {
+async function editTaskDetailEstimate(e) {
   if (e) e.stopPropagation();
   if (!_activeDetailTaskId) return;
   var t = _taskMap[_activeDetailTaskId];
   var currentEst = (t && t.estimate) || '';
-  var newEst = (typeof prompt === 'function') ? prompt('Enter task estimate (e.g. 2h, 1d):', currentEst) : null;
+  var newEst = null;
+  if (typeof showPromptModal === 'function') {
+    newEst = await showPromptModal('Set Task Estimate', 'e.g. 2h, 1d, 30m', currentEst, {
+      confirmText: 'Save Estimate',
+      cancelText: 'Cancel',
+      subtitle: 'Enter the estimated effort or duration for this task.'
+    });
+  } else if (typeof prompt === 'function') {
+    newEst = prompt('Enter task estimate (e.g. 2h, 1d):', currentEst);
+  }
   if (newEst !== null) {
     saveTaskField(_activeDetailTaskId, 'estimate', newEst.trim());
     var estValEl = document.querySelector('.tdm-estimate-val');
     if (estValEl) estValEl.textContent = newEst.trim() || 'Estimate';
+    if (typeof showToast === 'function') {
+      showToast('Estimate updated', 'success');
+    }
   }
 }
 
@@ -3926,30 +3965,28 @@ async function memberUpdateTaskStatus(id, status, dept) {
  */
 function getAvailableProjectsList() {
   var pMap = {};
-  if (typeof DEPT_CONFIG !== 'undefined') {
-    Object.keys(DEPT_CONFIG).forEach(function(k) {
-      var lbl = DEPT_CONFIG[k].label || (k.charAt(0).toUpperCase() + k.slice(1));
-      if (lbl && lbl.toLowerCase() !== 'none' && !lbl.toLowerCase().includes('sprint') && lbl !== 'General Project') {
-        pMap[lbl] = true;
+  var list = [];
+  if (Array.isArray(_companyProjects)) {
+    _companyProjects.forEach(function(p) {
+      if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project' && !pMap[p]) {
+        pMap[p] = true;
+        list.push(p);
       }
     });
   }
   if (Array.isArray(_allLoadedTasks)) {
     _allLoadedTasks.forEach(function(t) {
       var p = getTaskProjectName(t);
-      if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+      if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project' && !pMap[p]) {
         pMap[p] = true;
+        list.push(p);
       }
     });
   }
-  if (Array.isArray(_companyProjects)) {
-    _companyProjects.forEach(function(p) {
-      if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
-        pMap[p] = true;
-      }
-    });
+  if (_activeProject && !_activeProject.toLowerCase().includes('sprint') && _activeProject !== 'General Project' && _activeProject.toLowerCase() !== 'all' && _activeProject.toLowerCase() !== 'all tasks' && !pMap[_activeProject]) {
+    pMap[_activeProject] = true;
+    list.push(_activeProject);
   }
-  var list = Object.keys(pMap);
   if (!list.length) list = ['Media', 'Secretariat', 'HQ', 'Logistics'];
   return list;
 }
@@ -4006,7 +4043,7 @@ function openCreateTaskModal(defaultStatus, fromTasksView) {
         return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(p) : p) + '">' + (typeof escapeHtml === 'function' ? escapeHtml(p) : p) + '</option>';
       }).join('');
       projSelect.style.display = 'block';
-      var initialProj = availableProjects[0] || 'HQ';
+      var initialProj = availableProjects[0] || 'Media';
       projSelect.value = initialProj;
       if (projInput) projInput.value = initialProj;
       handleNewTaskProjectSelect(initialProj);
@@ -4758,6 +4795,8 @@ if (typeof window !== 'undefined') {
   window.memberUpdateTaskStatus     = memberUpdateTaskStatus;
   window.openCreateTaskModal        = openCreateTaskModal;
   window.handleNewTaskProjectSelect = handleNewTaskProjectSelect;
+  window.getAvailableProjectsList   = getAvailableProjectsList;
+  window._companyProjects           = _companyProjects;
   window.filterMyTasksList          = filterMyTasksList;
   window.closeCreateTaskModal       = closeCreateTaskModal;
   window.loadNewTaskAssigneeOptions = loadNewTaskAssigneeOptions;
@@ -4882,6 +4921,8 @@ if (typeof module !== 'undefined' && module.exports) {
     memberUpdateTaskStatus,
     openCreateTaskModal,
     handleNewTaskProjectSelect,
+    getAvailableProjectsList,
+    _companyProjects,
     filterMyTasksList,
     closeCreateTaskModal,
     loadNewTaskAssigneeOptions,

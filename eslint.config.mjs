@@ -35,6 +35,7 @@ export default [
         sessionClear: 'readonly',
         showToast: 'readonly',
         showConfirmModal: 'readonly',
+        showPromptModal: 'readonly',
         SHOW_DELAY_MS: 'readonly',
         MIN_DISPLAY_MS: 'readonly',
         LONG_WAIT_THRESHOLD_MS: 'readonly',
