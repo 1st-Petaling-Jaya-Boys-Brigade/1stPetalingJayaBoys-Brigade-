@@ -1032,6 +1032,257 @@ const supa = {
   }
 };
 
+
+// ── Realtime Synchronization Engine (Zero-Dependency) ──────────────────────
+var PortalRealtime = (function() {
+  var _ws = null;
+  var _broadcastChannel = null;
+  var _heartbeatTimer = null;
+  var _deltaSyncTimer = null;
+  var _reconnectAttempts = 0;
+  var _refCounter = 1;
+  var _lastEntityTimestamps = {};
+
+  // 1. Cross-Tab Instant BroadcastChannel (0ms latency on same machine)
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      _broadcastChannel = new BroadcastChannel('bb_portal_realtime');
+      _broadcastChannel.onmessage = function(ev) {
+        if (!ev || !ev.data) return;
+        var msg = ev.data;
+        if (msg.type === 'PORTAL_REALTIME_CHANGE') {
+          triggerEntityUpdate(msg.entity, msg.action, msg.data, true);
+        }
+      };
+    } catch (_) {}
+  }
+
+  function broadcastLocalChange(entity, action, data) {
+    if (_broadcastChannel) {
+      try {
+        _broadcastChannel.postMessage({
+          type: 'PORTAL_REALTIME_CHANGE',
+          entity: entity,
+          action: action || 'update',
+          data: data || null
+        });
+      } catch (_) {}
+    }
+  }
+
+  // 2. Supabase Realtime WebSocket Connection (Instant cross-device push)
+  function connectWebSocket() {
+    if (typeof WebSocket === 'undefined') return;
+    if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) return;
+
+    try {
+      var sUrl = (typeof SUPA_URL !== 'undefined') ? SUPA_URL : (typeof window !== 'undefined' ? window.SUPA_URL : '');
+      var sKey = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : '');
+      if (!sUrl || !sKey) return;
+
+      var wsUrl = sUrl.replace(/^https?:\/\//, function(m) {
+        return m.startsWith('https') ? 'wss://' : 'ws://';
+      }) + '/realtime/v1/websocket?apikey=' + encodeURIComponent(sKey) + '&vsn=1.0.0';
+
+      _ws = new WebSocket(wsUrl);
+
+      _ws.onopen = function() {
+        _reconnectAttempts = 0;
+        // Join realtime:public channel to receive postgres change events
+        var joinMsg = {
+          topic: 'realtime:public',
+          event: 'phx_join',
+          payload: {
+            config: {
+              broadcast: { self: false },
+              postgres_changes: [
+                { event: '*', schema: 'public', table: 'bb_config' },
+                { event: '*', schema: 'public', table: 'bb_tasks' },
+                { event: '*', schema: 'public', table: 'bb_announcements' },
+                { event: '*', schema: 'public', table: 'bb_members' }
+              ]
+            }
+          },
+          ref: String(_refCounter++)
+        };
+        _ws.send(JSON.stringify(joinMsg));
+
+        // Phoenix WebSocket heartbeat every 25s
+        if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+        _heartbeatTimer = setInterval(function() {
+          if (_ws && _ws.readyState === WebSocket.OPEN) {
+            _ws.send(JSON.stringify({
+              topic: 'phoenix',
+              event: 'heartbeat',
+              payload: {},
+              ref: String(_refCounter++)
+            }));
+          }
+        }, 25000);
+      };
+
+      _ws.onmessage = function(event) {
+        if (!event || !event.data) return;
+        try {
+          var data = JSON.parse(event.data);
+          if (data.event === 'postgres_changes' && data.payload) {
+            var payload = data.payload.data || data.payload;
+            var table = payload.table;
+            var record = payload.record || {};
+            var oldRecord = payload.old_record || {};
+            var evType = payload.type || payload.eventType || '';
+
+            if (table === 'bb_config') {
+              var key = record.key || oldRecord.key || '';
+              if (key === 'bb_forum_posts') {
+                triggerEntityUpdate('forum', 'update', record);
+              } else if (key === 'bb_company_calendar') {
+                triggerEntityUpdate('calendar', 'update', record);
+              } else if (key.startsWith('bb_task_comments_')) {
+                triggerEntityUpdate('comments', 'update', { key: key });
+              } else if (key === 'bb_announcements') {
+                triggerEntityUpdate('announcements', 'update', record);
+              } else if (key === 'bb_admin_roles') {
+                triggerEntityUpdate('roles', 'update', record);
+              } else {
+                triggerEntityUpdate('config', 'update', { key: key });
+              }
+            } else if (table === 'bb_tasks') {
+              triggerEntityUpdate('tasks', evType || 'update', record);
+            } else if (table === 'bb_announcements') {
+              triggerEntityUpdate('announcements', evType || 'update', record);
+            } else if (table === 'bb_members') {
+              triggerEntityUpdate('members', evType || 'update', record);
+            }
+          }
+        } catch (_) {}
+      };
+
+      _ws.onclose = function() {
+        if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+        var delay = Math.min(10000, 1000 * Math.pow(2, _reconnectAttempts++));
+        setTimeout(connectWebSocket, delay);
+      };
+
+      _ws.onerror = function() {
+        try { _ws.close(); } catch (_) {}
+      };
+    } catch (_) {}
+  }
+
+  // 3. Smart Fast Delta Poller (3s fallback interval, tiny payload)
+  async function checkDeltaSync() {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    var client = (typeof getSupaClient === 'function') ? getSupaClient() : null;
+    if (!client || typeof client.get !== 'function') return;
+
+    try {
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_company_projects)&select=key,updated_at');
+      if (Array.isArray(rows)) {
+        rows.forEach(function(r) {
+          if (!r.key) return;
+          var ts = r.updated_at || '';
+          if (_lastEntityTimestamps[r.key] && _lastEntityTimestamps[r.key] !== ts) {
+            if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update');
+            else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update');
+            else if (r.key === 'bb_announcements') triggerEntityUpdate('announcements', 'update');
+            else if (r.key === 'bb_company_projects') triggerEntityUpdate('projects', 'update');
+          }
+          _lastEntityTimestamps[r.key] = ts;
+        });
+      }
+
+      var taskRows = await client.get('bb_tasks?select=id,updated_at&order=updated_at.desc&limit=1');
+      if (Array.isArray(taskRows) && taskRows.length) {
+        var tId = taskRows[0].id + ':' + (taskRows[0].updated_at || '');
+        if (_lastEntityTimestamps['bb_tasks_latest'] && _lastEntityTimestamps['bb_tasks_latest'] !== tId) {
+          triggerEntityUpdate('tasks', 'update');
+        }
+        _lastEntityTimestamps['bb_tasks_latest'] = tId;
+      }
+    } catch (_) {}
+  }
+
+  function startDeltaSync() {
+    if (_deltaSyncTimer) clearInterval(_deltaSyncTimer);
+    _deltaSyncTimer = setInterval(checkDeltaSync, 3500);
+  }
+
+  // 4. Central Realtime Dispatcher
+  function triggerEntityUpdate(entity, action, data, fromBroadcast) {
+    if (!fromBroadcast) {
+      broadcastLocalChange(entity, action, data);
+    }
+
+    if (entity === 'calendar') {
+      if (typeof window !== 'undefined' && typeof window.loadCalendarEvents === 'function') {
+        window.loadCalendarEvents().then(function() {
+          if (typeof window.renderCalendarWidget === 'function') window.renderCalendarWidget();
+          if (typeof window.renderAdminCalendarGrid === 'function') window.renderAdminCalendarGrid();
+          var pParade = document.getElementById('page-parade');
+          if (pParade && pParade.style.display !== 'none' && typeof window.renderCalendarTab === 'function') {
+            window.renderCalendarTab();
+          }
+        }).catch(function() {});
+      }
+    } else if (entity === 'forum') {
+      if (typeof window !== 'undefined' && typeof window.loadForumPosts === 'function') {
+        window.loadForumPosts().then(function() {
+          var pForum = document.getElementById('page-forum');
+          if (pForum && pForum.style.display !== 'none' && typeof window.renderForumFeed === 'function') {
+            window.renderForumFeed();
+          }
+          if (typeof window.syncForumNotifications === 'function') {
+            window.syncForumNotifications();
+          }
+          if (typeof window.renderNotifications === 'function') {
+            window.renderNotifications();
+          }
+        }).catch(function() {});
+      }
+    } else if (entity === 'tasks' || entity === 'comments') {
+      if (typeof window !== 'undefined' && typeof window.fetchAllRemoteTasks === 'function') {
+        window.fetchAllRemoteTasks(true).catch(function() {});
+      }
+      if (typeof window !== 'undefined' && typeof window.fetchAllRemoteTaskComments === 'function') {
+        window.fetchAllRemoteTaskComments().catch(function() {});
+      }
+    } else if (entity === 'announcements') {
+      if (typeof window !== 'undefined' && typeof window.loadAnnouncements === 'function') {
+        window.loadAnnouncements().then(function() {
+          if (typeof window.renderAnnouncements === 'function') window.renderAnnouncements();
+          if (typeof window.renderAdminAnnList === 'function') window.renderAdminAnnList();
+          if (typeof window.syncAnnouncementNotifications === 'function') window.syncAnnouncementNotifications();
+        }).catch(function() {});
+      }
+    } else if (entity === 'projects') {
+      if (typeof window !== 'undefined' && typeof window.loadProjectsCatalog === 'function') {
+        window.loadProjectsCatalog();
+        if (typeof window.renderProjectsView === 'function') window.renderProjectsView();
+      }
+    }
+
+    if (typeof window !== 'undefined' && typeof window.syncAllPortalNotifications === 'function') {
+      window.syncAllPortalNotifications();
+    }
+  }
+
+  return {
+    connect: function() {
+      connectWebSocket();
+      startDeltaSync();
+    },
+    broadcast: broadcastLocalChange,
+    trigger: triggerEntityUpdate,
+    checkDeltaSync: checkDeltaSync
+  };
+})();
+
+// Attach to window and export
+if (typeof window !== 'undefined') {
+  window.PortalRealtime = PortalRealtime;
+}
+
 // Attach to window for global access across the app
 if (typeof window !== 'undefined') {
   window.supa = supa;
@@ -1040,6 +1291,9 @@ if (typeof window !== 'undefined') {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    PortalRealtime,
+    broadcastRealtime: PortalRealtime.broadcast,
+    triggerRealtime: PortalRealtime.trigger,
     supa,
     getSupaClient,
     rpc: supa.rpc,

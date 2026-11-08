@@ -210,6 +210,7 @@ function getTaskProjectName(t) {
 async function saveProjectsCatalog() {
   if (typeof localStorage !== 'undefined') {
     try { localStorage.setItem('bb_company_projects', JSON.stringify(_companyProjects)); } catch (_) {}
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('projects', 'update');
   }
   var client = getSupaClient();
   if (client) {
@@ -1502,35 +1503,59 @@ async function renderTasksBoard(deptOrProject) {
   }
 
   // 2. Background fetch and refresh
+  await fetchAllRemoteTasks(true);
+}
+
+/**
+ * Fetches all tasks from Supabase and synchronizes in-memory collection
+ * @param {boolean} [andRerender]
+ */
+async function fetchAllRemoteTasks(andRerender) {
   var client = getSupaClient();
-  if (client) {
-    try {
-      var tasks = await client.get('bb_tasks?order=created_at.asc');
-      if (Array.isArray(tasks)) {
-        tasks = tasks.filter(function(t) { return t && !_deletedTaskIds[String(t.id)]; });
-        var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_') && !_deletedTaskIds[String(t.id)]; });
-        _allLoadedTasks = tasks.concat(pendingTemp);
-        _taskMap = {};
-        _allLoadedTasks.forEach(function(t) { _taskMap[t.id] = t; });
-        if (typeof window !== 'undefined') window._taskMap = _taskMap;
-        try { if (typeof localStorage !== 'undefined') localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
-
-        if (_projectDisplayMode === 'list') {
-          renderTasksListView(_activeProject);
-        } else {
-          renderColumnsFromTasks(_allLoadedTasks);
+  if (!client) return _allLoadedTasks;
+  try {
+    var tasks = await client.get('bb_tasks?order=created_at.asc');
+    if (Array.isArray(tasks)) {
+      tasks = tasks.filter(function(t) { return t && !_deletedTaskIds[String(t.id)]; });
+      var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_') && !_deletedTaskIds[String(t.id)]; });
+      _allLoadedTasks = tasks.concat(pendingTemp);
+      _taskMap = {};
+      _allLoadedTasks.forEach(function(t) {
+        _taskMap[t.id] = t;
+        var p = getTaskProjectName(t);
+        if (p && p !== 'General Project' && !p.toLowerCase().includes('sprint') && _companyProjects.indexOf(p) === -1) {
+          _companyProjects.push(p);
         }
+      });
+      if (typeof window !== 'undefined') window._taskMap = _taskMap;
+      try { if (typeof localStorage !== 'undefined') localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
 
-        if (typeof syncTaskNotifications === 'function') {
-          syncTaskNotifications(tasks);
-        } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
-          window.syncTaskNotifications(tasks);
+      if (andRerender && typeof document !== 'undefined') {
+        var pTasks = document.getElementById('page-tasks');
+        if (pTasks && pTasks.style.display !== 'none') {
+          if (_tasksViewMode === 'projects') {
+            if (_activeProject) {
+              if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
+              else renderColumnsFromTasks(_allLoadedTasks);
+            } else {
+              var prContainer = document.querySelector('.projects-container');
+              if (prContainer) paintProjectsList(prContainer);
+            }
+          } else if (_tasksViewMode === 'mytasks') {
+            renderMyTasksView();
+          }
         }
       }
-    } catch (e) {
-      console.warn('renderTasksBoard error:', e);
+      if (typeof syncTaskNotifications === 'function') {
+        syncTaskNotifications(_allLoadedTasks);
+      } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
+        window.syncTaskNotifications(_allLoadedTasks);
+      }
     }
+  } catch (e) {
+    console.warn('fetchAllRemoteTasks error:', e);
   }
+  return _allLoadedTasks;
 }
 
 /**
@@ -1683,7 +1708,7 @@ function renderMyTasksView() {
   var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
   if (!myName && typeof document !== 'undefined') {
     var sbName = document.getElementById('sidebar-user-name');
-    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member') {
+    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member' && sbName.textContent.trim() !== 'Guest Member') {
       myName = sbName.textContent.trim();
     }
   }
@@ -1695,94 +1720,61 @@ function renderMyTasksView() {
   }
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
 
-  // Filter tasks based on current filters and search query
-  var filtered = _allLoadedTasks.filter(function(t) {
-    if (_myTasksScopeFilter === 'me') {
-      var isAssigned = false;
-      var aName = (t.assignee_name || '').trim().toLowerCase();
-      var aIc = (t.assignee_ic || '').trim().toLowerCase();
-      var sName = myName.trim().toLowerCase();
-      var sIc = myIc.trim().toLowerCase();
-      var sEmail = myEmail.trim().toLowerCase();
+  // Determine user-assigned tasks
+  var myTasksList = _allLoadedTasks.filter(function(t) {
+    var aName = (t.assignee_name || '').trim().toLowerCase();
+    var aIc = (t.assignee_ic || '').trim().toLowerCase();
+    var sName = myName.trim().toLowerCase();
+    var sIc = myIc.trim().toLowerCase();
+    var sEmail = myEmail.trim().toLowerCase();
 
-      if (aName && sName) {
-        if (aName === sName || aName.indexOf(sName) !== -1 || sName.indexOf(aName) !== -1) {
-          isAssigned = true;
-        }
-      }
-      if (aIc && sIc && aIc === sIc) {
-        isAssigned = true;
-      }
-      if (aIc && sEmail && aIc === sEmail) {
-        isAssigned = true;
-      }
-      if (!isAssigned) return false;
+    if (aName && sName) {
+      if (aName === sName || aName.indexOf(sName) !== -1 || sName.indexOf(aName) !== -1) return true;
     }
-    if (_myTasksStatusFilter === 'open') {
-      var s = normalizeTaskStatus(t.status);
-      if (s === 'completed' || s === 'done') return false;
-    }
-    if (_myTasksProjectFilter && _myTasksProjectFilter !== 'all') {
-      var tProj = (getTaskProjectName(t) || '').toLowerCase();
-      if (tProj !== _myTasksProjectFilter.toLowerCase()) return false;
-    }
+    if (aIc && sIc && aIc === sIc) return true;
+    if (aIc && sEmail && aIc === sEmail) return true;
+    return false;
+  });
+
+  // If the user has assigned tasks, show their tasks; if they have none yet or are searching, display accessible tasks so the view is never a barren void
+  var baseList = (myTasksList.length > 0) ? myTasksList : _allLoadedTasks;
+
+  var filtered = baseList.filter(function(t) {
     if (_taskSearchQuery) {
       var q = _taskSearchQuery.toLowerCase();
       var matchTitle = (t.title || '').toLowerCase().indexOf(q) !== -1;
       var matchDesc  = (t.description || '').toLowerCase().indexOf(q) !== -1;
       var matchId    = String(t.id || '').toLowerCase().indexOf(q) !== -1;
       var matchProj  = (getTaskProjectName(t) || '').toLowerCase().indexOf(q) !== -1;
-      if (!matchTitle && !matchDesc && !matchId && !matchProj) return false;
+      var matchAsg   = (t.assignee_name || '').toLowerCase().indexOf(q) !== -1;
+      if (!matchTitle && !matchDesc && !matchId && !matchProj && !matchAsg) return false;
     }
     return true;
   });
 
-  var today = new Date(); today.setHours(0, 0, 0, 0);
-
-  var html = '<div class="my-tasks-wrapper">'
-    // Header: Identical layout to Projects Overview in Image 5
-    + '<div class="projects-overview-header my-tasks-header">'
-    +   '<div>'
-    +     '<h2 class="projects-overview-title">My Tasks</h2>'
-    +     '<p class="projects-overview-sub">Assigned to you, across all projects. Select a task to view its brief.</p>'
-    +   '</div>'
-    +   '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()">'
-    +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-    +     '<span>Add Task</span>'
-    +   '</button>'
+  var html = '<div class="projects-overview-header">'
+    + '<div>'
+    +   '<h2 class="projects-overview-title">My Tasks</h2>'
+    +   '<p class="projects-overview-sub">Assigned to you, across all projects. Select a task to view its brief.</p>'
     + '</div>'
-
-    // Search bar and filter chips
-    + '<div class="projects-search-bar my-tasks-search-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">'
+    + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()">'
+    +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    +   '<span>Add Task</span>'
+    + '</button>'
+    + '</div>'
+    + '<div class="projects-search-bar my-tasks-search-bar">'
     +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
     +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-    +     '<input type="text" class="task-search-input" style="width:100%;" placeholder="Search tasks..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_taskSearchQuery) : _taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" />'
-    +   '</div>'
-    +   '<div class="my-tasks-filter-chips" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-    +     '<button type="button" class="filter-chip' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="toggleMyTasksScope()">'
-    +       'Scope is: <strong>' + (_myTasksScopeFilter === 'me' ? 'Assigned to me' : 'All Tasks') + '</strong>'
-    +     '</button>'
-    +     '<button type="button" class="filter-chip' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="toggleMyTasksStatus()">'
-    +       'Status is: <strong>' + (_myTasksStatusFilter === 'open' ? 'Open' : 'All') + '</strong>'
-    +     '</button>'
-    +     '<div class="my-tasks-project-filter-wrap" style="position:relative;display:inline-block;">'
-    +       '<button type="button" class="filter-chip' + (_myTasksProjectFilter && _myTasksProjectFilter !== 'all' ? ' active' : '') + '" onclick="toggleMyTasksProjectDropdown(event)">'
-    +         'Project is: <strong>' + (typeof escapeHtml === 'function' ? escapeHtml(_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter) : (_myTasksProjectFilter === 'all' ? 'All Projects' : _myTasksProjectFilter)) + '</strong>'
-    +         '<svg class="ui-icon-xs" style="margin-left:4px;vertical-align:-1px;" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>'
-    +       '</button>'
-    +       '<div class="my-tasks-project-dropdown" style="display:none;"></div>'
-    +     '</div>'
+    +     '<input type="text" class="task-search-input my-tasks-search-input" style="width:100%;" placeholder="Search tasks..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_taskSearchQuery) : _taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" />'
     +   '</div>'
     + '</div>'
-
-    // Card container matching Projects Overview in Image 5
-    + '<div class="projects-table-card my-tasks-card my-tasks-table-card my-tasks-table">';
+    + '<div class="projects-table-card my-tasks-card my-tasks-table">';
 
   if (!filtered.length) {
     html += '<div style="padding:48px 20px;text-align:center;color:var(--text-muted);">'
       + '<svg class="ui-icon-xl" style="margin:0 auto 12px;opacity:0.4;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-      + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No tasks match your criteria</div>'
-      + '<div style="font-size:13px;margin-bottom:16px;">Try adjusting your scope, status, or search filters above.</div>'
+      + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No tasks found</div>'
+      + '<div style="font-size:13px;margin-bottom:16px;">Create a new task brief or search across all projects.</div>'
       + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task</button>'
       + '</div>';
   } else {
@@ -1794,68 +1786,53 @@ function renderMyTasksView() {
       }
       var normStatus = normalizeTaskStatus(t.status);
       var isDone = normStatus === 'completed';
-      var statusClass = STATUS_CONFIG[normStatus].cls;
-      var statusLabel = STATUS_CONFIG[normStatus].label;
       var taskId = formatTaskId(t, idx);
-      var projectName = getTaskProjectName(t) || (t.department && DEPT_CONFIG[t.department] ? DEPT_CONFIG[t.department].label : 'General Project');
-
-      var dueStr = '—';
-      var isOverdue = false;
-      if (t.due_date) {
-        var d = new Date(t.due_date); d.setHours(0, 0, 0, 0);
-        isOverdue = !isDone && d < today;
-        dueStr = formatTaskDueDateStr(t.due_date);
-      }
-
-      var priorityP = (t.priority || 'medium').toLowerCase();
-      var pLabel = priorityP === 'high' ? 'High' : (priorityP === 'low' ? 'Low' : 'Med');
-      var pCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
       var assigneeName = t.assignee_name || 'Unassigned';
 
-      html += '<div class="project-row my-tasks-row" data-row-tid="' + t.id + '">'
-        + '<div class="my-tasks-main-cell" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">'
-        +   '<input type="checkbox" class="my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="event.stopPropagation();toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task completion" />'
-        +   '<span class="my-tasks-priority-indicator ' + pCls + '" title="Priority: ' + pLabel + '" style="display:inline-flex;align-items:center;">' + getPriorityIconSvg(priorityP, 13) + '</span>'
+      // Progress percentage & bar color matching Projects Overview in Image 1
+      var pct = 0;
+      var barColor = '#94a3b8';
+      if (Array.isArray(t.checklists) && t.checklists.length > 0) {
+        var doneCl = t.checklists.filter(function(c) { return c && c.done; }).length;
+        pct = Math.round((doneCl / t.checklists.length) * 100);
+      } else {
+        if (isDone) { pct = 100; barColor = '#10b981'; }
+        else if (normStatus === 'in_review') { pct = 75; barColor = '#f59e0b'; }
+        else if (normStatus === 'in_progress') { pct = 50; barColor = '#0ea5e9'; }
+        else { pct = 0; barColor = '#94a3b8'; }
+      }
+      if (isDone) barColor = '#10b981';
+
+      var avatarHtml = '<div class="project-assignees-stack">';
+      if (t.assignee_name) {
+        avatarHtml += getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20);
+      }
+      avatarHtml += '</div>';
+
+      html += '<div class="project-row" onclick="openTaskDetail(\'' + t.id + '\')">'
+        + '<div class="project-name-cell">'
+        +   '<input type="checkbox" class="task-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="event.stopPropagation(); toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task status" />'
         +   '<span class="project-row-name" style="' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</span>'
-        +   '<span class="task-id-badge" style="font-size:11px;color:var(--text-muted);font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
+        +   '<span class="task-id-badge" style="font-size:11px;color:var(--text-muted);font-weight:700;margin-left:6px;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
         + '</div>'
-        + '<div class="my-tasks-meta-group" style="display:flex;align-items:center;gap:16px;flex-shrink:0;">'
-        +   '<div class="my-tasks-project-cell" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);min-width:90px;">'
-        +     '<svg class="project-folder-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
-        +     '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(projectName) : projectName) + '</span>'
-        +   '</div>'
-        +   '<div style="min-width:85px;text-align:center;">'
-        +     '<span class="my-tasks-status-pill ' + statusClass + '">' + (typeof escapeHtml === 'function' ? escapeHtml(statusLabel) : statusLabel) + '</span>'
-        +   '</div>'
-        +   '<div class="project-assignees-stack" style="margin-right:0;min-width:120px;display:flex;align-items:center;gap:8px;">'
-        +     getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 22)
-        +     '<span style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px;">' + (typeof escapeHtml === 'function' ? escapeHtml(assigneeName) : assigneeName) + '</span>'
-        +   '</div>'
-        +   '<div class="my-tasks-due-cell" style="display:flex;align-items:center;gap:6px;font-size:12px;min-width:95px;' + (isOverdue ? 'color:var(--red);font-weight:700;' : 'color:var(--text-secondary);') + '">'
-        +     '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-        +     '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(dueStr) : dueStr) + '</span>'
-        +   '</div>'
-        +   '<div class="project-actions-cell" style="min-width:32px;display:flex;justify-content:flex-end;">'
-        +     '<button type="button" class="project-delete-btn" onclick="event.stopPropagation();deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
-        +       '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
-        +     '</button>'
-        +   '</div>'
+        + avatarHtml
+        + '<div class="project-progress-cell">'
+        +   '<div class="project-progress-bar"><div class="project-progress-fill" style="width:' + pct + '%; background:' + barColor + ';"></div></div>'
+        +   '<span class="project-progress-pct">' + pct + '%</span>'
+        + '</div>'
+        + '<div class="project-actions-cell">'
+        +   '<button type="button" class="project-delete-btn" onclick="event.stopPropagation(); deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
+        +     '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
+        +   '</button>'
         + '</div>'
         + '</div>';
     });
   }
 
-  html += '</div></div>';
+  html += '</div>';
   container.innerHTML = html;
-
-  // Row click opens task detail modal
-  container.querySelectorAll('.my-tasks-row').forEach(function(row) {
-    row.addEventListener('click', function(e) {
-      if (e.target.closest('.my-tasks-checkbox') || e.target.closest('.project-delete-btn')) return;
-      openTaskDetail(row.getAttribute('data-row-tid'));
-    });
-  });
 }
+
 function toggleMyTasksScope() {
   _myTasksScopeFilter = (_myTasksScopeFilter === 'me') ? 'all' : 'me';
   renderMyTasksView();
@@ -2188,6 +2165,7 @@ function saveTaskComments(taskId, comments) {
   try {
     localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(comments));
   } catch (_) {}
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId });
   var client = getSupaClient();
   if (client) {
     client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }, {
@@ -3165,6 +3143,8 @@ async function saveTaskField(id, field, value) {
     patch[field] = value;
     try {
       await client.patch('bb_tasks?id=eq.' + id, patch);
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
     } catch (err) {
       console.warn('Background patch error for field ' + field + ':', err);
       if (field === 'estimate' || field === 'project_name') {
@@ -3588,6 +3568,8 @@ async function memberUpdateTaskStatus(id, status, dept) {
   if (!client) return;
   try {
     await client.patch('bb_tasks?id=eq.' + id, { status: status });
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'task.status_update',
@@ -3869,6 +3851,8 @@ async function handleCreateTaskSubmit(e) {
 
   if (typeof showToast === 'function') {
     showToast('Task created!', 'success', 1500);
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'create', localTask);
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'create', localTask);
   }
 
   // 2. BACKGROUND REMOTE ASYNC PERSISTENCE
@@ -4312,6 +4296,8 @@ async function deleteTask(id) {
       delete window._taskMap[id];
     }
     await client.delete('bb_tasks?id=eq.' + id);
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'delete', { id: id });
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'delete', { id: id });
     renderAdminTasks(_adminTaskFilter);
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
@@ -4439,10 +4425,12 @@ if (typeof window !== 'undefined') {
   window.isUserMentionedInComment   = isUserMentionedInComment;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
   window.getAssigneeAvatarHtml      = getAssigneeAvatarHtml;
+  window.fetchAllRemoteTasks        = fetchAllRemoteTasks;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    fetchAllRemoteTasks,
     getAssigneeAvatarHtml,
     DEPT_CONFIG,
     _activeTasksSection,

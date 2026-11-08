@@ -10309,11 +10309,20 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(forumSrc.includes("'Go to Calendar'"), 'forum.js must provide Go to Calendar action button');
     console.log('  ✔ Stedfast AI Helper references Calendar tab and renders Go to Calendar action');
 
-    // 5. My Tasks Aligned Layout Matching Projects (Image 5)
-    assert.ok(tasksSrc.includes('my-tasks-main-cell'), 'tasks.js must render .my-tasks-main-cell for task title & checkbox');
-    assert.ok(tasksSrc.includes('my-tasks-meta-group'), 'tasks.js must render .my-tasks-meta-group for aligned metadata');
-    assert.ok(tasksSrc.includes('my-tasks-due-cell'), 'tasks.js must render due date column');
-    console.log('  ✔ My Tasks UI restructured into aligned tabular layout matching Projects Overview');
+    // 5. My Tasks Aligned Layout Matching Projects (Image 1)
+    assert.ok(tasksSrc.includes('project-name-cell'), 'tasks.js must render .project-name-cell for task title & checkbox');
+    assert.ok(tasksSrc.includes('project-assignees-stack'), 'tasks.js must render .project-assignees-stack for avatars');
+    assert.ok(tasksSrc.includes('project-progress-cell'), 'tasks.js must render .project-progress-cell for progress bar');
+    assert.ok(tasksSrc.includes('task-checkbox'), 'tasks.js must render clean task checkbox');
+    console.log('  ✔ My Tasks UI structured identically to Projects Overview (Image 1)');
+
+    // 6. Zero-Dependency Realtime Synchronization Engine
+    const supaSrc = fs.readFileSync(path.join(__dirname, '../js/api/supabase.js'), 'utf8');
+    assert.ok(supaSrc.includes('PortalRealtime = (function()'), 'supabase.js must define PortalRealtime engine');
+    assert.ok(supaSrc.includes('bb_portal_realtime'), 'PortalRealtime must initialize BroadcastChannel for cross-tab 0ms sync');
+    assert.ok(supaSrc.includes('realtime:public'), 'PortalRealtime must support Supabase WebSocket realtime channel');
+    assert.ok(typeof tasksMod.fetchAllRemoteTasks === 'function', 'tasks.js must export fetchAllRemoteTasks');
+    console.log('  ✔ Zero-dependency PortalRealtime engine and fast remote tasks synchronization verified');
   }
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

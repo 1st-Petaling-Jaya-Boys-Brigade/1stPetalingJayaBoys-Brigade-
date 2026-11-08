@@ -1902,7 +1902,7 @@
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Calendar event saved & published!');
+      if (typeof showToast === 'function') showToast('Calendar event saved & published!'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('calendar', 'update');
     } else {
       if (typeof showToast === 'function') showToast('Failed to save to database. Please retry.');
     }
@@ -1926,7 +1926,7 @@
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Event removed from company calendar.');
+      if (typeof showToast === 'function') showToast('Event removed from company calendar.'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('calendar', 'delete');
     }
   }
 
@@ -1944,7 +1944,7 @@
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Restored official 2026 company master calendar!');
+      if (typeof showToast === 'function') showToast('Restored official 2026 company master calendar!'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('calendar', 'restore');
     }
   }
 

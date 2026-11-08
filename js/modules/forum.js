@@ -5664,7 +5664,7 @@ async function submitNewForumPost(e, customPost) {
     var modal = document.getElementById('forum-create-modal');
     removeDomElement(modal);
     if (typeof showToast === 'function') {
-      showToast('Forum post published!', 'success');
+      showToast('Forum post published!', 'success'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'create');
     }
   }
 }
@@ -5787,7 +5787,7 @@ function submitEditForumPost(e, postId) {
   }
 
   if (typeof showToast === 'function') {
-    showToast('Forum post updated!', 'success');
+    showToast('Forum post updated!', 'success'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'update');
   }
 }
 
@@ -5823,7 +5823,7 @@ async function deleteForumPost(postId) {
     var detailModal = document.getElementById('forum-detail-modal');
     removeDomElement(detailModal);
     if (typeof showToast === 'function') {
-      showToast('Post deleted successfully.', 'info');
+      showToast('Post deleted successfully.', 'info'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'delete');
     }
   }
 }
@@ -5865,7 +5865,7 @@ async function deleteForumReply(postId, replyId) {
   if (typeof document !== 'undefined') {
     openForumPostDetail(postId);
     if (typeof showToast === 'function') {
-      showToast('Reply removed.', 'info');
+      showToast('Reply removed.', 'info'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'reply_delete');
     }
   }
 }
@@ -6129,7 +6129,7 @@ function submitForumReply(e, postId, customText) {
   if (typeof document !== 'undefined') {
     openForumPostDetail(postId);
     if (typeof showToast === 'function') {
-      showToast('Reply posted!', 'success');
+      showToast('Reply posted!', 'success'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'reply');
     }
   }
 }
