@@ -10450,6 +10450,34 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(formsHtml.includes('<!-- Member bar (Hidden from Forms tab view) -->'), 'index.html must hide forms member submission bar');
     assert.ok(formsHtml.includes('id="order-member-name"'), 'index.html must retain order-member-name DOM ID');
     console.log('  ✔ Forms tab submission header bar removed from view while preserving DOM IDs');
+
+    // 21. Full name mention highlighting in comments and task brief
+    // Seed department members with full 4-word name matching Image 1
+    tasksMod._cachedDepartmentMembers.push({ name: 'OLIVER LING CHEE SHENG', department: 'Media', rank: 'Corporal' });
+    tasksMod._cachedDepartmentMembers.push({ name: 'Jeshua Koh', department: 'HQ', rank: 'Sergeant' });
+
+    const commentText = '@OLIVER LING CHEE SHENG Oliver this is a test... let me know if you got a notification message';
+    const formattedComment = tasksMod.formatCommentMentions(commentText);
+    assert.ok(
+      formattedComment.includes('<span class="tb-mention-pill">@OLIVER LING CHEE SHENG</span>'),
+      'formatCommentMentions must highlight the FULL 4-word member name OLIVER LING CHEE SHENG'
+    );
+    assert.ok(
+      !formattedComment.includes('@OLIVER LING</span> CHEE SHENG'),
+      'Must NOT truncate mention pill after two words'
+    );
+
+    const multiMention = 'Hey @Jeshua Koh check with @OLIVER LING CHEE SHENG and @Media';
+    const formattedMulti = tasksMod.formatCommentMentions(multiMention);
+    assert.ok(formattedMulti.includes('>@Jeshua Koh</span>'), 'Must highlight Jeshua Koh');
+    assert.ok(formattedMulti.includes('>@OLIVER LING CHEE SHENG</span>'), 'Must highlight OLIVER LING CHEE SHENG');
+    assert.ok(formattedMulti.includes('>@Media</span>'), 'Must highlight @Media group');
+    console.log('  ✔ Full-name mention highlighting verified across multi-word members and groups');
+
+    // 22. Task brief description mentions highlighting
+    assert.ok(tasksSrc.includes('var formattedDesc = formatCommentMentions(cleanDesc);'), 'openTaskDetail must format mentions in task brief description');
+    assert.ok(tasksSrc.includes('split(/\\s+/).length <= 6'), 'Mention typing threshold must allow multi-word names up to 6 words');
+    console.log('  ✔ Task brief description mention highlighting and multi-word input threshold verified');
   }
 
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
