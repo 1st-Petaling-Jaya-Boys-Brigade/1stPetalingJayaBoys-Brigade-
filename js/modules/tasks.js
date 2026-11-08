@@ -440,7 +440,7 @@ function switchTaskSectionView(section) {
           + '<div class="page-title" style="text-align:center;">Department Role Required</div>'
           + '<div class="page-subtitle" style="text-align:center;margin-bottom:10px;">Access Restricted</div>'
           + '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:24px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5;">You are currently logged in, but your account has not been assigned a Department role. Only members and NCOs assigned to a department by an Administrator can access Projects & Tasks. Please contact an Officer to assign your Department in the Admin Console.</div>'
-          + '<button class="submit-btn gold" onclick="switchTaskSectionView(\'parade\')"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Weekly Parade</button>';
+          + '<button class="submit-btn gold" onclick="switchTaskSectionView(\'parade\')"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Back to Calendar</button>';
       }
       if (board) board.style.display = 'none';
       if (typeof showToast === 'function') {
@@ -1740,7 +1740,7 @@ function renderMyTasksView() {
   var today = new Date(); today.setHours(0, 0, 0, 0);
 
   var html = '<div class="my-tasks-wrapper">'
-    // Header: Identical layout to Projects Overview in Image 2
+    // Header: Identical layout to Projects Overview in Image 5
     + '<div class="projects-overview-header my-tasks-header">'
     +   '<div>'
     +     '<h2 class="projects-overview-title">My Tasks</h2>'
@@ -1775,7 +1775,7 @@ function renderMyTasksView() {
     +   '</div>'
     + '</div>'
 
-    // Card container matching Projects Overview in Image 2
+    // Card container matching Projects Overview in Image 5
     + '<div class="projects-table-card my-tasks-card my-tasks-table-card my-tasks-table">';
 
   if (!filtered.length) {
@@ -1813,31 +1813,33 @@ function renderMyTasksView() {
       var assigneeName = t.assignee_name || 'Unassigned';
 
       html += '<div class="project-row my-tasks-row" data-row-tid="' + t.id + '">'
-        + '<div class="project-name-cell" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">'
-        +   '<input type="checkbox" class="my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="event.stopPropagation();toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task completion" style="margin-right:2px;" />'
+        + '<div class="my-tasks-main-cell" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">'
+        +   '<input type="checkbox" class="my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="event.stopPropagation();toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task completion" />'
         +   '<span class="my-tasks-priority-indicator ' + pCls + '" title="Priority: ' + pLabel + '" style="display:inline-flex;align-items:center;">' + getPriorityIconSvg(priorityP, 13) + '</span>'
         +   '<span class="project-row-name" style="' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : '') + '">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</span>'
-        +   '<span class="task-id-badge" style="margin-left:6px;font-size:11px;color:var(--text-muted);font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
+        +   '<span class="task-id-badge" style="font-size:11px;color:var(--text-muted);font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
         + '</div>'
-        + '<div class="my-tasks-project-cell" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);flex-shrink:0;">'
-        +   '<svg class="project-folder-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
-        +   '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(projectName) : projectName) + '</span>'
-        + '</div>'
-        + '<div style="flex-shrink:0;">'
-        +   '<span class="my-tasks-status-pill ' + statusClass + '">' + (typeof escapeHtml === 'function' ? escapeHtml(statusLabel) : statusLabel) + '</span>'
-        + '</div>'
-        + '<div class="project-assignees-stack" style="margin-right:0;flex-shrink:0;min-width:115px;">'
-        +   getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 22)
-        +   '<span style="font-size:12px;color:var(--text-secondary);margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:85px;">' + (typeof escapeHtml === 'function' ? escapeHtml(assigneeName) : assigneeName) + '</span>'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:6px;font-size:12px;flex-shrink:0;min-width:95px;' + (isOverdue ? 'color:var(--red);font-weight:700;' : 'color:var(--text-secondary);') + '">'
-        +   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-        +   '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(dueStr) : dueStr) + '</span>'
-        + '</div>'
-        + '<div class="project-actions-cell" style="flex-shrink:0;">'
-        +   '<button type="button" class="project-delete-btn" onclick="event.stopPropagation();deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
-        +     '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
-        +   '</button>'
+        + '<div class="my-tasks-meta-group" style="display:flex;align-items:center;gap:16px;flex-shrink:0;">'
+        +   '<div class="my-tasks-project-cell" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);min-width:90px;">'
+        +     '<svg class="project-folder-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
+        +     '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(projectName) : projectName) + '</span>'
+        +   '</div>'
+        +   '<div style="min-width:85px;text-align:center;">'
+        +     '<span class="my-tasks-status-pill ' + statusClass + '">' + (typeof escapeHtml === 'function' ? escapeHtml(statusLabel) : statusLabel) + '</span>'
+        +   '</div>'
+        +   '<div class="project-assignees-stack" style="margin-right:0;min-width:120px;display:flex;align-items:center;gap:8px;">'
+        +     getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 22)
+        +     '<span style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px;">' + (typeof escapeHtml === 'function' ? escapeHtml(assigneeName) : assigneeName) + '</span>'
+        +   '</div>'
+        +   '<div class="my-tasks-due-cell" style="display:flex;align-items:center;gap:6px;font-size:12px;min-width:95px;' + (isOverdue ? 'color:var(--red);font-weight:700;' : 'color:var(--text-secondary);') + '">'
+        +     '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+        +     '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(dueStr) : dueStr) + '</span>'
+        +   '</div>'
+        +   '<div class="project-actions-cell" style="min-width:32px;display:flex;justify-content:flex-end;">'
+        +     '<button type="button" class="project-delete-btn" onclick="event.stopPropagation();deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
+        +       '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
+        +     '</button>'
+        +   '</div>'
         + '</div>'
         + '</div>';
     });
@@ -2201,13 +2203,25 @@ function saveTaskComments(taskId, comments) {
 /**
  * Fetches all persisted task comments from Supabase bb_config
  */
+var _isFetchingRemoteTaskComments = false;
+var _lastFetchRemoteTaskCommentsTime = 0;
+
+/**
+ * Fetches all persisted task comments from Supabase bb_config with 30s throttle
+ */
 async function fetchAllRemoteTaskComments() {
+  var now = Date.now();
+  if (_isFetchingRemoteTaskComments || (now - _lastFetchRemoteTaskCommentsTime < 30000)) return;
+  _isFetchingRemoteTaskComments = true;
+  _lastFetchRemoteTaskCommentsTime = now;
   var client = getSupaClient();
-  if (!client) return;
+  if (!client) {
+    _isFetchingRemoteTaskComments = false;
+    return;
+  }
   try {
     var rows = await client.get('bb_config?key=like.bb_task_comments_*&select=key,value');
     if (Array.isArray(rows) && rows.length) {
-      var updated = false;
       rows.forEach(function(r) {
         if (!r.key || !r.value) return;
         var tid = r.key.replace('bb_task_comments_', '');
@@ -2216,15 +2230,13 @@ async function fetchAllRemoteTaskComments() {
           if (Array.isArray(arr)) {
             _taskCommentsMap[tid] = arr;
             try { localStorage.setItem(r.key, r.value); } catch (_) {}
-            updated = true;
           }
         } catch (_) {}
       });
-      if (updated && typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
-        syncTaskNotifications(_allLoadedTasks);
-      }
     }
-  } catch (_) {}
+  } catch (_) {} finally {
+    _isFetchingRemoteTaskComments = false;
+  }
 }
 
 async function fetchRemoteTaskComments(taskId) {

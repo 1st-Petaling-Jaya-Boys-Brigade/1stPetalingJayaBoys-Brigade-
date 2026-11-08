@@ -4527,6 +4527,9 @@ function logoutMember() {
   if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
     AuthGuard.clearRedirectTarget();
   }
+  if (typeof window !== 'undefined' && typeof window.resetCalendarToUpcoming === 'function') {
+    window.resetCalendarToUpcoming();
+  }
   if (typeof switchTab === 'function') {
     switchTab('member');
   }

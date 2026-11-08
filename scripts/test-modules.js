@@ -10267,6 +10267,55 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Support & Bug Forum screenshot upload, client preview, and post lightbox rendering verified');
   }
 
+  // ── [TEST] Performance Lag Prevention, Calendar Default, AI Helper & My Tasks Alignment ──
+  {
+    console.log('\nTesting Performance Lag Prevention, Calendar Default, AI Helper & My Tasks Alignment...');
+    const calMod = require('../js/modules/calendar.js');
+    const tasksMod = require('../js/modules/tasks.js');
+    const forumMod = require('../js/modules/forum.js');
+    const fs = require('fs');
+    const path = require('path');
+
+    assert.strictEqual(typeof tasksMod.renderMyTasksView, 'function', 'tasks.js must export renderMyTasksView');
+    assert.strictEqual(typeof forumMod.renderForumPage, 'function', 'forum.js must export renderForumPage');
+
+    // 1. Calendar resetCalendarToUpcoming & Defaulting
+    assert.strictEqual(typeof calMod.resetCalendarToUpcoming, 'function', 'calendar.js must export resetCalendarToUpcoming');
+    calMod.resetCalendarToUpcoming();
+    assert.strictEqual(calMod.getCalendarViewMode(), 'upcoming', 'resetCalendarToUpcoming must reset _calendarViewMode to upcoming');
+    assert.ok(typeof calMod.getUpcomingEventIndex() === 'number' && calMod.getUpcomingEventIndex() >= 0, 'Must calculate a valid upcoming event index');
+    console.log('  ✔ resetCalendarToUpcoming defaults calendar to Upcoming view and points to closest event');
+
+    // 2. Removal of UOD Fall-In Text from everywhere
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const calSrc = fs.readFileSync(path.join(__dirname, '../js/modules/calendar.js'), 'utf8');
+    const uodText = 'All members are expected to fall in promptly at';
+    assert.ok(!indexHtml.includes(uodText), 'index.html must not contain hardcoded UOD fall-in text');
+    assert.ok(!calSrc.includes(uodText), 'calendar.js must not contain hardcoded UOD fall-in text');
+    assert.ok(calSrc.includes('cal-remark-box'), 'calendar.js must render clean remark box for admin event notes');
+    console.log('  ✔ Hardcoded UOD fall-in text completely eliminated while preserving editable remarks');
+
+    // 3. Performance Lag Loop Prevention
+    const tasksSrc = fs.readFileSync(path.join(__dirname, '../js/modules/tasks.js'), 'utf8');
+    assert.ok(tasksSrc.includes('_isFetchingRemoteTaskComments = false'), 'tasks.js must declare re-entrancy lock');
+    assert.ok(tasksSrc.includes('_lastFetchRemoteTaskCommentsTime'), 'tasks.js must throttle comments fetch');
+    assert.ok(!indexHtml.includes('fetchAllRemoteTaskComments();\r\n  if (typeof fetchAllRemoteTaskComments'), 'index.html must not call fetchAllRemoteTaskComments inside syncTaskNotifications');
+    console.log('  ✔ Circular notification fetching eliminated with 30s throttling and mutex locks');
+
+    // 4. Stedfast AI Helper Calendar Alignment
+    const forumSrc = fs.readFileSync(path.join(__dirname, '../js/modules/forum.js'), 'utf8');
+    assert.ok(!forumSrc.includes("'Go to Weekly Parade'"), 'forum.js must not include Go to Weekly Parade action button');
+    assert.ok(!forumSrc.includes('"Go to Weekly Parade"'), 'forum.js must not include Go to Weekly Parade in FAQ JSON');
+    assert.ok(forumSrc.includes("'Go to Calendar'"), 'forum.js must provide Go to Calendar action button');
+    console.log('  ✔ Stedfast AI Helper references Calendar tab and renders Go to Calendar action');
+
+    // 5. My Tasks Aligned Layout Matching Projects (Image 5)
+    assert.ok(tasksSrc.includes('my-tasks-main-cell'), 'tasks.js must render .my-tasks-main-cell for task title & checkbox');
+    assert.ok(tasksSrc.includes('my-tasks-meta-group'), 'tasks.js must render .my-tasks-meta-group for aligned metadata');
+    assert.ok(tasksSrc.includes('my-tasks-due-cell'), 'tasks.js must render due date column');
+    console.log('  ✔ My Tasks UI restructured into aligned tabular layout matching Projects Overview');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

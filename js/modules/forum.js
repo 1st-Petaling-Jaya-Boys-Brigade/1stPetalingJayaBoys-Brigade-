@@ -412,11 +412,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-011",
     "num": 11,
     "question": "What time does Saturday parade start and end?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "The full company parade convenes every Saturday from **2:15 PM to 6:00 PM** (starting at **9:30 AM** for Band members).",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -436,11 +436,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-012",
     "num": 12,
     "question": "When are Band rehearsals held?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "Band sectionals and rehearsals (woodwind, brass, and percussion) take place on Saturday mornings from **9:30 AM to 11:30 AM** prior to the main company parade.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -460,11 +460,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-013",
     "num": 13,
     "question": "Where is the company parade held?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "Parades are held at **Trinity Methodist Church Petaling Jaya (TMC PJ)**, located at 6 Jalan 5/37, 46000 Petaling Jaya, Selangor.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -484,11 +484,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-014",
     "num": 14,
     "question": "What should I do if I am running late for Saturday parade?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "Contact your Squad Leader or Platoon Commander immediately before 2:15 PM with your estimated arrival time. Unexcused late arrivals past 2:30 PM are marked on the parade attendance roll.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -508,11 +508,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-015",
     "num": 15,
     "question": "How do I know which uniform kit to wear this Saturday?",
-    "category": "Weekly Parade, Timings & Venue",
-    "answer": "Refer to the company calendar on the **Home** tab or **Weekly Parade** tab to check the official Uniform Dress Code (Kit A, Kit B, or Kit C) scheduled for that Saturday parade.",
+    "category": "Company Calendar, Timings & Venue",
+    "answer": "Refer to the company calendar on the **Home** tab or **Calendar** tab to check the official Uniform Dress Code (Kit A, Kit B, or Kit C) scheduled for that Saturday parade.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -532,11 +532,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-016",
     "num": 16,
     "question": "Can I add personal reminders to the portal calendar?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "Yes. In the **Home** tab calendar widget, click **+ Add Reminder** on any selected date to create personal inspection or preparation reminders.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -556,11 +556,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-017",
     "num": 17,
     "question": "How are wet weather or venue changes announced?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "Urgent venue adjustments or inclement weather arrangements are broadcasted via high-priority banners in the **Home** announcements feed and alerted via portal notifications.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -580,11 +580,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-018",
     "num": 18,
     "question": "Does the company hold parade on public holidays?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "Parades falling on major public holidays or school term breaks are indicated as \"No Official Parade Scheduled\" on the company calendar.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -604,11 +604,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-019",
     "num": 19,
     "question": "What should I bring to Saturday parade?",
-    "category": "Weekly Parade, Timings & Venue",
+    "category": "Company Calendar, Timings & Venue",
     "answer": "Members should bring their BB Handbook, a notebook, stationery, a full water bottle (at least 1L), and wear the designated uniform kit with a clean and polished uniform.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -628,11 +628,11 @@ var PORTAL_100_FAQS = [
     "id": "faq-020",
     "num": 20,
     "question": "How do I sync parade dates with my personal phone calendar?",
-    "category": "Weekly Parade, Timings & Venue",
-    "answer": "You can export scheduled events and parade dates directly from the **Weekly Parade** tab to Google Calendar or Apple iCal.\n\n---",
+    "category": "Company Calendar, Timings & Venue",
+    "answer": "You can export scheduled events and parade dates directly from the **Calendar** tab to Google Calendar or Apple iCal.\n\n---",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -836,7 +836,7 @@ var PORTAL_100_FAQS = [
     "answer": "Band attendance is tracked separately for Band Service awards and proficiency badges, while regular Saturday parade attendance determines the One Year Service award.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -890,7 +890,7 @@ var PORTAL_100_FAQS = [
     "answer": "Late arrivals (after 2:30 PM without prior approved leave) are marked as Late on the roll sheet. Accumulating three unexcused lates impacts your uniform inspection standing.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -914,7 +914,7 @@ var PORTAL_100_FAQS = [
     "answer": "Parade percentage is computed as `(Parades Present + Excused Official Leaves) / Total Parades Convened * 100%`.\n\n---",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -2074,7 +2074,7 @@ var PORTAL_100_FAQS = [
     "answer": "No. Arcade credits and streaks are fun extracurricular rewards and do not replace physical parade attendance or uniform inspection points.",
     "actions": [
       {
-        "label": "Go to Weekly Parade",
+        "label": "Go to Calendar",
         "action": "navigate",
         "target": "parade",
         "icon": "parade"
@@ -3065,7 +3065,7 @@ async function callGeminiApi(prompt, apiKey, options) {
     + "   - Special Awards: President's Award, BB Founder's Award, Gold Award, Scholastic Awards (Silver, Gold), Duke of Edinburgh (Bronze, Silver, Gold)\n"
     + "   - Service Awards: One Year Service (80% attendance required), Three Year Service, Long Year Service, Junior Section Service, Link Badge\n"
     + "• Handbooks & Manuals (Company Resources): BB Handbook, Senior Section Handbook, BB Drill Manual, BB Songs & Hymns, Uniform Regulations (accessible in Resources tab).\n"
-    + "• Portal Navigation Tabs: Member Hub, Weekly Parade, Forms & Store, My Badges, Leaderboard, Resources, Support Forum, 1stPJ Arcade.\n"
+    + "• Portal Navigation Tabs: Member Hub, Calendar, Forms & Store, My Badges, Leaderboard, Resources, Support Forum, 1stPJ Arcade.\n"
     + "• 1stPJ Arcade: Daily Wordle (+15 credits on solve), Timed BB Trivia (+5 credits/question), Streaks & Credits, Cosmetic Shop, Arcade Leaderboard.\n"
     + "Core Rules for Responses:\n"
     + "1. Respond warmly, intelligently, and helpfully in fluent English.\n"
@@ -3573,12 +3573,12 @@ var PORTAL_NAVIGATION_MAP = [
   },
   {
     target: 'parade',
-    tabName: 'Weekly Parade',
+    tabName: 'Calendar',
     keywords: ['parade', 'parade schedule', 'parade time', 'timing', 'saturday parade', 'band rehearsal', 'brass band', 'venue', 'trinity methodist', 'tmc pj', 'where is parade', 'duty roster', 'kit notice', 'parade kit'],
-    title: 'Weekly Parade Schedule',
-    description: 'The **Weekly Parade** tab displays parade schedule notices, timing (**Saturdays 2:15 PM – 6:00 PM**; Brass Band **9:30 AM – 11:30 AM**), venue at **Trinity Methodist Church PJ**, upcoming duty roster, and parade attire announcements.',
+    title: 'Company Calendar Schedule',
+    description: 'The **Calendar** tab displays parade schedule notices, timing (**Saturdays 2:15 PM – 6:00 PM**; Brass Band **9:30 AM – 11:30 AM**), venue at **Trinity Methodist Church PJ**, upcoming duty roster, and parade attire announcements.',
     actions: [
-      { label: 'Go to Weekly Parade', action: 'navigate', target: 'parade', icon: 'parade' }
+      { label: 'Go to Calendar', action: 'navigate', target: 'parade', icon: 'parade' }
     ]
   },
   {
@@ -3863,7 +3863,7 @@ function executeHelperAction(actionType, target) {
     if (typeof showToast === 'function') {
       var tabLabels = {
         member: 'Member Hub',
-        parade: 'Weekly Parade',
+        parade: 'Calendar',
         badges: 'My Badges',
         attendance: 'Leaderboard',
         order: 'Forms & Store',
@@ -4504,7 +4504,7 @@ function queryHelperAgent(userText) {
   if (bestMatch && highestScore >= 1) {
     var faqActions = [];
     if (bestMatch.keywords.indexOf('parade') !== -1) {
-      faqActions.push({ label: 'Go to Weekly Parade', action: 'navigate', target: 'parade', icon: 'parade' });
+      faqActions.push({ label: 'Go to Calendar', action: 'navigate', target: 'parade', icon: 'parade' });
     } else if (bestMatch.keywords.indexOf('attendance') !== -1) {
       faqActions.push({ label: 'Go to Member Hub', action: 'navigate', target: 'member', icon: 'member' });
       faqActions.push({ label: 'Go to Leaderboard', action: 'navigate', target: 'attendance', icon: 'attendance' });
@@ -5022,7 +5022,7 @@ async function getHelperAgentResponse(userPrompt) {
         var derivedActions = [];
         var lowerAi = aiText.toLowerCase();
         if (lowerAi.includes('parade') || lowerAi.includes('saturday')) {
-          derivedActions.push({ label: 'Go to Weekly Parade', action: 'navigate', target: 'parade', icon: 'parade' });
+          derivedActions.push({ label: 'Go to Calendar', action: 'navigate', target: 'parade', icon: 'parade' });
         }
         if (lowerAi.includes('uniform') || lowerAi.includes('kit') || lowerAi.includes('store') || lowerAi.includes('order') || lowerAi.includes('boot')) {
           derivedActions.push({ label: 'Go to Forms & Store', action: 'navigate', target: 'order', icon: 'store' });
