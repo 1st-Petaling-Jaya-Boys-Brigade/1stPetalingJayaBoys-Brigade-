@@ -145,6 +145,16 @@
 
     toast._dismissTimer = timer;
 
+    try {
+      var sndEnabled = true;
+      if (typeof localStorage !== 'undefined') {
+        sndEnabled = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
+      }
+      if (sndEnabled && typeof playNotificationSound === 'function') {
+        playNotificationSound();
+      }
+    } catch (_) {}
+
     return toast;
   }
 
@@ -1202,6 +1212,135 @@
     });
   }
 
+  // ── Native OS Desktop & Mobile Web Notifications ─────────────────────────
+  var _lastSystemNotifTs = 0;
+
+  function triggerPortalSystemNotification(title, body, options) {
+    options = options || {};
+    var now = Date.now();
+
+    // 1. Notification Sound Chime
+    var soundEnabled = true;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        soundEnabled = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
+      }
+    } catch (_) {}
+
+    if (soundEnabled && typeof playNotificationSound === 'function') {
+      playNotificationSound();
+    }
+
+    // 2. Native OS System Notification (Desktop/Window/Laptop/Mobile)
+    var sysEnabled = true;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        sysEnabled = localStorage.getItem('bb_notif_system_enabled') !== 'false';
+      }
+    } catch (_) {}
+    if (!sysEnabled) return null;
+
+    if (now - _lastSystemNotifTs < 800) return null;
+    _lastSystemNotifTs = now;
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        try {
+          var notif = new Notification(title || "1st Petaling Jaya Boys' Brigade", {
+            body: body || '',
+            icon: (options && options.icon) || 'assets/logo.png',
+            badge: (options && options.badge) || 'assets/logo.png',
+            tag: (options && options.tag) || ('bb-notif-' + now),
+            renotify: true
+          });
+          notif.onclick = function() {
+            try {
+              window.focus();
+              if (options && typeof options.onClick === 'function') {
+                options.onClick();
+              } else if (options && options.tab && typeof window.switchTabNav === 'function') {
+                window.switchTabNav(options.tab);
+              }
+              notif.close();
+            } catch (_) {}
+          };
+          return notif;
+        } catch (e) {
+          if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then(function(reg) {
+              if (reg && typeof reg.showNotification === 'function') {
+                reg.showNotification(title || "1st Petaling Jaya Boys' Brigade", {
+                  body: body || '',
+                  icon: (options && options.icon) || 'assets/logo.png',
+                  badge: (options && options.badge) || 'assets/logo.png',
+                  tag: (options && options.tag) || ('bb-notif-' + now)
+                });
+              }
+            }).catch(function() {});
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  async function requestNotificationPermission() {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      if (typeof showToast === 'function') {
+        showToast('System notifications are not supported on this browser or device.', 'warning');
+      }
+      return 'unsupported';
+    }
+    try {
+      var perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        if (typeof showToast === 'function') {
+          showToast('System notifications enabled! You will now receive alerts.', 'success');
+        }
+        triggerPortalSystemNotification(
+          "1st Petaling Jaya Boys' Brigade",
+          "System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
+          { tag: 'bb-notif-welcome' }
+        );
+      } else if (perm === 'denied') {
+        if (typeof showToast === 'function') {
+          showToast('Notifications blocked in browser settings. Please allow notifications in site permissions.', 'warning');
+        }
+      }
+      return perm;
+    } catch (err) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('requestNotificationPermission error:', err);
+      }
+      return 'error';
+    }
+  }
+
+  var _lastSeenNotifUnread = -1;
+  function triggerNewPortalNotifications() {
+    if (typeof document === 'undefined') return;
+    var countPill = document.getElementById('notif-unread-count');
+    if (!countPill) return;
+    var count = parseInt(countPill.textContent, 10) || 0;
+    if (_lastSeenNotifUnread === -1) {
+      _lastSeenNotifUnread = count;
+      return;
+    }
+    if (count > _lastSeenNotifUnread) {
+      _lastSeenNotifUnread = count;
+      var notifList = (typeof window !== 'undefined' && Array.isArray(window._allPortalNotifications))
+        ? window._allPortalNotifications
+        : ((typeof global !== 'undefined' && Array.isArray(global._allPortalNotifications)) ? global._allPortalNotifications : []);
+      var activeList = notifList.filter(function(n) { return n && n.unread; });
+      var latest = activeList[0];
+      var title = latest ? (latest.title || "1st PJ Notification") : "1st PJ Boys' Brigade";
+      var body = latest ? (latest.message || latest.text || "You have a new unread notification.") : "You have new unread notifications.";
+      triggerPortalSystemNotification(title, body, { tag: latest ? latest.id : undefined });
+    } else {
+      _lastSeenNotifUnread = count;
+    }
+  }
+
   // Expose to window / global
   if (typeof global !== 'undefined') {
     global.showToast = showToast;
@@ -1228,6 +1367,9 @@
     global.playNotificationSound = playNotificationSound;
     global.unlockAudioContextAndElement = unlockAudioContextAndElement;
     global.NOTIF_SOUND_URL = NOTIF_SOUND_URL;
+    global.triggerPortalSystemNotification = triggerPortalSystemNotification;
+    global.requestNotificationPermission = requestNotificationPermission;
+    global.triggerNewPortalNotifications = triggerNewPortalNotifications;
   }
 
   // CommonJS export for Node testing
@@ -1256,7 +1398,10 @@
       toggleTableGridPicker: toggleTableGridPicker,
       playNotificationSound: playNotificationSound,
       unlockAudioContextAndElement: unlockAudioContextAndElement,
-      NOTIF_SOUND_URL: NOTIF_SOUND_URL
+      NOTIF_SOUND_URL: NOTIF_SOUND_URL,
+      triggerPortalSystemNotification: triggerPortalSystemNotification,
+      requestNotificationPermission: requestNotificationPermission,
+      triggerNewPortalNotifications: triggerNewPortalNotifications
     };
   }
 })(typeof window !== 'undefined' ? window : this);
