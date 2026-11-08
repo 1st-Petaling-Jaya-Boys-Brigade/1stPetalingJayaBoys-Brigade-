@@ -10598,6 +10598,111 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+
+  // ── [TEST] Portal Onboarding & Welcome Wizard System ──
+  {
+    console.log('\n[TEST] Portal Onboarding & Welcome Wizard System...');
+    const memberMod = require('../js/modules/member.js');
+    const sessionMod = require('../js/core/session.js');
+
+    assert.strictEqual(typeof memberMod.launchOnboardingWizard, 'function', 'member.js must export launchOnboardingWizard');
+    assert.strictEqual(typeof memberMod.closeOnboardingWizard, 'function', 'member.js must export closeOnboardingWizard');
+    assert.strictEqual(typeof memberMod.setOnboardingStep, 'function', 'member.js must export setOnboardingStep');
+    assert.strictEqual(typeof memberMod.completeOnboardingWizard, 'function', 'member.js must export completeOnboardingWizard');
+    assert.strictEqual(typeof sessionMod.isOnboardingCompleted, 'function', 'session.js must export isOnboardingCompleted');
+    assert.strictEqual(typeof sessionMod.markOnboardingCompleted, 'function', 'session.js must export markOnboardingCompleted');
+    assert.strictEqual(typeof sessionMod.resetOnboarding, 'function', 'session.js must export resetOnboarding');
+
+    // 1. Onboarding status checking and persistence
+    const testUserEmail = 'new_cadet_2026@bb.org';
+    sessionMod.resetOnboarding(testUserEmail);
+    assert.strictEqual(sessionMod.isOnboardingCompleted(testUserEmail), false, 'New member must have incomplete onboarding by default');
+
+    sessionMod.markOnboardingCompleted(testUserEmail, {
+      terms_accepted: true,
+      privacy_accepted: true,
+      notifications_enabled: true,
+      theme: 'light',
+      default_calendar_view: 'upcoming'
+    });
+    assert.strictEqual(sessionMod.isOnboardingCompleted(testUserEmail), true, 'markOnboardingCompleted must mark user onboarding as completed');
+    console.log('  ✔ isOnboardingCompleted and markOnboardingCompleted state management verified');
+
+    // 2. Step 1: Code of Conduct & Privacy Terms (Strictly NO PDPA/COPPA mention)
+    const memberCode = fs.readFileSync(path.resolve(__dirname, '..', 'js', 'modules', 'member.js'), 'utf8');
+    assert.ok(memberCode.includes('renderStep1ConductHtml'), 'member.js must implement renderStep1ConductHtml');
+    assert.ok(memberCode.includes('Code of Conduct &amp; Privacy Terms'), 'Step 1 must be titled Code of Conduct & Privacy Terms');
+    assert.ok(memberCode.includes('The Object of') && memberCode.includes('advancement of Christ'), 'Step 1 must include The Object of The Boys Brigade');
+
+    // Check the step 1 HTML content specifically:
+    const step1Idx = memberCode.indexOf('function renderStep1ConductHtml()');
+    assert.ok(step1Idx !== -1, 'renderStep1ConductHtml function must be defined');
+    const step1End = memberCode.indexOf('\nfunction ', step1Idx + 20);
+    const step1Body = memberCode.slice(step1Idx, step1End);
+    assert.ok(!step1Body.includes('PDPA'), 'Step 1 MUST NOT mention PDPA per user instruction');
+    assert.ok(!step1Body.includes('COPPA'), 'Step 1 MUST NOT mention COPPA per user instruction');
+    assert.ok(step1Body.includes('Pillars of Portal Conduct'), 'Step 1 must explain Pillars of Portal Conduct');
+    assert.ok(step1Body.includes('Privacy Terms &amp; Data Usage'), 'Step 1 must explain Privacy Terms & Data Usage');
+    console.log('  ✔ Step 1 Code of Conduct & Privacy Terms verified without PDPA/COPPA');
+
+    // 3. Step 2: Device Notifications & Audio Chime
+    const step2Idx = memberCode.indexOf('function renderStep2NotificationsHtml()');
+    assert.ok(step2Idx !== -1, 'renderStep2NotificationsHtml function must be defined');
+    const step2End = memberCode.indexOf('\nfunction ', step2Idx + 20);
+    const step2Body = memberCode.slice(step2Idx, step2End);
+    assert.ok(step2Body.includes('Device Pop-up Notifications &amp; Sound'), 'Step 2 must present device pop-up alerts and sound');
+    assert.ok(step2Body.includes('Direct @Mentions'), 'Step 2 must list Direct @Mentions notification trigger');
+    assert.ok(step2Body.includes('Task Assignments'), 'Step 2 must list Task Assignments notification trigger');
+    assert.ok(step2Body.includes('Urgent Announcements'), 'Step 2 must list Urgent Announcements trigger');
+    assert.ok(step2Body.includes('Support Forum Replies'), 'Step 2 must list Support Forum Replies trigger');
+    assert.ok(step2Body.includes('handleOnboardingEnableNotifications'), 'Step 2 must wire notification permission request');
+    assert.ok(step2Body.includes('handleOnboardingTestNotification'), 'Step 2 must provide test notification pop-up');
+    assert.ok(step2Body.includes('handleOnboardingSoundToggle'), 'Step 2 must allow toggling audio notification sound');
+    console.log('  ✔ Step 2 OS Device Notifications & Audio Chime verified');
+
+    // 4. Step 3: File System & Media Upload Permissions
+    const step3Idx = memberCode.indexOf('function renderStep3UploadsHtml()');
+    assert.ok(step3Idx !== -1, 'renderStep3UploadsHtml function must be defined');
+    const step3End = memberCode.indexOf('\nfunction ', step3Idx + 20);
+    const step3Body = memberCode.slice(step3Idx, step3End);
+    assert.ok(step3Body.includes('File System &amp; Upload Permissions'), 'Step 3 must present file system & upload permissions');
+    assert.ok(step3Body.includes('Uniform Store Orders'), 'Step 3 must highlight uniform order receipts');
+    assert.ok(step3Body.includes('Parade Leave Forms'), 'Step 3 must highlight medical leave certificates');
+    assert.ok(step3Body.includes('Projects &amp; Tasks'), 'Step 3 must highlight task document attachments');
+    assert.ok(step3Body.includes('Member Profile Avatar'), 'Step 3 must highlight profile avatar uploads');
+    console.log('  ✔ Step 3 File System & Upload Permissions verified');
+
+    // 5. Step 4: Preferences & Company Timezone (Strict GMT+8 Malaysia Time, NO user location)
+    const step4Idx = memberCode.indexOf('function renderStep4PreferencesHtml()');
+    assert.ok(step4Idx !== -1, 'renderStep4PreferencesHtml function must be defined');
+    const step4End = memberCode.indexOf('\nfunction ', step4Idx + 20);
+    const step4Body = memberCode.slice(step4Idx, step4End);
+    assert.ok(step4Body.includes('GMT+8'), 'Step 4 must use GMT+8');
+    assert.ok(step4Body.includes('Asia/Kuala_Lumpur • Malaysia Time'), 'Step 4 must use Asia/Kuala_Lumpur • Malaysia Time');
+    assert.ok(!step4Body.includes('geolocation'), 'Step 4 MUST NOT request user geolocation');
+    assert.ok(!step4Body.includes('getCurrentPosition'), 'Step 4 MUST NOT call getCurrentPosition');
+    assert.ok(step4Body.includes('handleOnboardingThemeSelect'), 'Step 4 must allow theme selection (Light/Dark)');
+    assert.ok(step4Body.includes('handleOnboardingCalendarViewChange'), 'Step 4 must allow default calendar view selection');
+    console.log('  ✔ Step 4 Company Timezone (GMT+8 Malaysia Time) & Preferences verified with NO user location requests');
+
+    // 6. Settings Modal Relaunch Button & Timezone
+    assert.ok(memberCode.includes('Portal Onboarding &amp; Code of Conduct'), 'Settings modal must include Onboarding row');
+    assert.ok(memberCode.includes('launchOnboardingWizard({isReview:true})'), 'Settings modal must offer Relaunch Wizard action');
+    assert.ok(memberCode.includes("var tzString = 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)';"), 'Settings modal must strictly display GMT+8 Malaysia Time');
+    console.log('  ✔ Settings modal Relaunch Onboarding Wizard & GMT+8 Malaysia Time display verified');
+
+    // 7. Strict 388 Unique DOM IDs Invariant
+    const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const idSet = new Set();
+    allMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) idSet.add(matchId[1]);
+    });
+    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

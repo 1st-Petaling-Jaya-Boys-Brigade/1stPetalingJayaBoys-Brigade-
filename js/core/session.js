@@ -522,6 +522,15 @@ var AuthGuard = {
   },
 
   /**
+   * Checks whether the current user has completed onboarding.
+   * @param {string} [identifier]
+   * @returns {boolean}
+   */
+  isUserOnboarded: function(identifier) {
+    return (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(identifier) : true;
+  },
+
+  /**
    * Stores the intended destination route when unauthenticated access is intercepted.
    * @param {string} route
    */
@@ -1219,6 +1228,106 @@ function getMemberPresenceStatus(member, presenceMap) {
  * Top-level convenience alias for AuthGuard.isUserAuthenticated
  * @returns {boolean}
  */
+
+/**
+ * Checks whether the member has completed the mandatory onboarding wizard.
+ * @param {string} [identifier]
+ * @returns {boolean}
+ */
+function isOnboardingCompleted(identifier) {
+  try {
+    var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+    if (!id) return true; // Unauthenticated route protection handled by AuthGuard
+
+    var cleanId = String(id).toLowerCase().trim();
+    // Test accounts / layout test bypass
+    if (cleanId === '010101-14-1234' || (typeof window !== 'undefined' && window.__SKIP_ONBOARDING__)) {
+      return true;
+    }
+
+    if (typeof sessionGet === 'function') {
+      var sVal = sessionGet('onboarding_completed');
+      if (sVal === true || sVal === 'true') return true;
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      if (localStorage.getItem('bb_onboarding_completed_' + cleanId) === 'true') {
+        return true;
+      }
+      var blob = localStorage.getItem('bb_onboarding_' + cleanId);
+      if (blob) {
+        try {
+          var parsed = JSON.parse(blob);
+          if (parsed && parsed.completed === true) return true;
+        } catch (_) {}
+      }
+    }
+    return false;
+  } catch (_) {
+    return true; // Fallback to avoid deadlocking portal in extreme browser exceptions
+  }
+}
+
+/**
+ * Persists onboarding completion locally and remotely.
+ * @param {string} identifier
+ * @param {Object} [details]
+ */
+function markOnboardingCompleted(identifier, details) {
+  var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+  if (!id) return;
+  var cleanId = String(id).toLowerCase().trim();
+
+  if (typeof sessionSet === 'function') {
+    sessionSet('onboarding_completed', true);
+  }
+
+  var payload = Object.assign({
+    completed: true,
+    completed_at: new Date().toISOString(),
+    terms_accepted: true,
+    privacy_accepted: true,
+    timezone: 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)'
+  }, details || {});
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('bb_onboarding_completed_' + cleanId, 'true');
+      localStorage.setItem('bb_onboarding_' + cleanId, JSON.stringify(payload));
+    } catch (_) {}
+  }
+
+  // Remote synchronization to bb_config
+  try {
+    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    if (client && typeof client.upsert === 'function') {
+      var cfgKey = 'bb_onboarding_' + cleanId.replace(/[^a-zA-Z0-9]/g, '_');
+      client.upsert('bb_config', {
+        key: cfgKey,
+        value: JSON.stringify(payload),
+        updated_at: new Date().toISOString()
+      }, 'key').catch(function() {});
+    }
+  } catch (_) {}
+}
+
+/**
+ * Resets onboarding state for a user (useful for re-testing)
+ * @param {string} identifier
+ */
+function resetOnboarding(identifier) {
+  var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+  if (!id) return;
+  var cleanId = String(id).toLowerCase().trim();
+  if (typeof sessionSet === 'function') {
+    sessionSet('onboarding_completed', false);
+  }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('bb_onboarding_completed_' + cleanId);
+    localStorage.removeItem('bb_onboarding_' + cleanId);
+  }
+}
+
 function isUserAuthenticated() {
   return AuthGuard.isUserAuthenticated();
 }
@@ -1252,6 +1361,9 @@ if (typeof window !== 'undefined') {
   window.PRESENCE_HEARTBEAT_INTERVAL_MS = PRESENCE_HEARTBEAT_INTERVAL_MS;
   window.verifyActiveMemberSession = verifyActiveMemberSession;
   window.forceKickDeletedAccount = forceKickDeletedAccount;
+  window.isOnboardingCompleted = isOnboardingCompleted;
+  window.markOnboardingCompleted = markOnboardingCompleted;
+  window.resetOnboarding = resetOnboarding;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1282,6 +1394,9 @@ if (typeof module !== 'undefined' && module.exports) {
     PRESENCE_IDLE_TIMEOUT_MS,
     PRESENCE_HEARTBEAT_INTERVAL_MS,
     verifyActiveMemberSession,
-    forceKickDeletedAccount
+    forceKickDeletedAccount,
+    isOnboardingCompleted,
+    markOnboardingCompleted,
+    resetOnboarding
   };
 }

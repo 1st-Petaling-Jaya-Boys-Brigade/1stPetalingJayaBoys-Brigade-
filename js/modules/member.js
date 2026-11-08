@@ -1,5 +1,7 @@
+/* global isOnboardingCompleted, markOnboardingCompleted, triggerPortalSystemNotification, playNotificationSound, setTheme */
+
 /**
- * 1st Petaling Jaya Boys' Brigade Portal
+ * 1st Petaling Jaya Boys\' Brigade Portal
  * Privacy-First Member Hub & Authentication Module
  *
  * Implements privacy-first authentication (Email + Password),
@@ -5425,14 +5427,7 @@ function openSettingsModal() {
     isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   }
 
-  var tzString = 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Standard Time)';
-  try {
-    var resolvedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (resolvedTz) {
-      tzString = 'GMT+8 (' + resolvedTz + ' • Malaysia Time)';
-    }
-  } catch (_) {}
-
+  var tzString = 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)';
   var soundEnabled = true;
   var sysNotifEnabled = true;
   var defaultTab = 'home';
@@ -5624,6 +5619,16 @@ function openSettingsModal() {
             + '<option value="member"' + (defaultTab === 'member' ? ' selected' : '') + '>Member Hub</option>'
           + '</select>'
         + '</div>'
+        + '<div class="settings-row">'
+          + '<div style="flex:1;">'
+            + '<div class="settings-row-label">Portal Onboarding &amp; Code of Conduct</div>'
+            + '<div class="settings-row-desc">Review community conduct rules, test device pop-up alerts, or reconfigure setup</div>'
+          + '</div>'
+          + '<button type="button" class="portal-btn" onclick="closeSettingsModal();launchOnboardingWizard({isReview:true});" style="font-size:12px;padding:6px 14px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">'
+            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>'
+            + '<span>Relaunch Wizard</span>'
+          + '</button>'
+        + '</div>'
       + '</div>'
 
       // Section 6: Account Session & Sign Out
@@ -5660,6 +5665,571 @@ function closeSettingsModal() {
   var modal = document.getElementById('settings-modal');
   if (modal) {
     modal.style.display = 'none';
+  }
+}
+
+// ── Portal Onboarding & Welcome Wizard System ──────────────────────────────
+var _onboardingState = {
+  step: 1,
+  isReview: false,
+  user: null,
+  termsAccepted: false,
+  privacyAccepted: false,
+  notifSound: true,
+  theme: 'light',
+  defaultView: 'upcoming'
+};
+
+/**
+ * Launches the multi-step Onboarding Wizard modal.
+ * @param {Object} [options]
+ */
+function launchOnboardingWizard(options) {
+  if (typeof document === 'undefined' || !document.body) return;
+
+  var user = (options && options.user) || (typeof sessionGet === 'function' ? {
+    name: sessionGet('name') || '',
+    email: sessionGet('email') || sessionGet('ic') || '',
+    rank: sessionGet('rank') || '',
+    section: sessionGet('section') || 'Senior'
+  } : null);
+
+  var isReview = (options && options.isReview === true);
+  var email = user ? (user.email || user.ic || '') : '';
+  var alreadyDone = (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false;
+
+  var isDark = false;
+  try {
+    if (document.documentElement && typeof document.documentElement.getAttribute === 'function') {
+      isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    }
+  } catch (_) {}
+
+  _onboardingState = {
+    step: (options && options.step) || 1,
+    isReview: isReview,
+    user: user,
+    termsAccepted: alreadyDone || isReview,
+    privacyAccepted: alreadyDone || isReview,
+    notifSound: (typeof localStorage !== 'undefined') ? (localStorage.getItem('bb_notif_sound_enabled') !== 'false') : true,
+    theme: isDark ? 'dark' : 'light',
+    defaultView: (typeof localStorage !== 'undefined' ? (localStorage.getItem('bb_default_calendar_view') || 'upcoming') : 'upcoming')
+  };
+
+  var overlay = document.querySelector('.portal-onboarding-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'portal-onboarding-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', '1st PJ Boys Brigade Portal Onboarding');
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+
+  renderOnboardingWizardDom();
+}
+
+/**
+ * Closes the onboarding wizard modal.
+ */
+function closeOnboardingWizard() {
+  if (typeof document === 'undefined') return;
+  var email = _onboardingState.user ? (_onboardingState.user.email || _onboardingState.user.ic || '') : '';
+  var alreadyDone = (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false;
+
+  if (!_onboardingState.isReview && !alreadyDone) {
+    if (typeof showToast === 'function') {
+      showToast('Please complete onboarding to access your portal dashboard.', 'warning', 4000);
+    }
+    return;
+  }
+
+  var overlay = document.querySelector('.portal-onboarding-overlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 0.2s ease';
+    setTimeout(function() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }, 200);
+  }
+}
+
+/**
+ * Navigates to a specific onboarding step.
+ * @param {number} stepNum
+ */
+function setOnboardingStep(stepNum) {
+  if (stepNum < 1) stepNum = 1;
+  if (stepNum > 4) stepNum = 4;
+
+  // Validate step 1 checkboxes before allowing forward progression
+  if (stepNum > 1 && !_onboardingState.termsAccepted) {
+    if (typeof showToast === 'function') {
+      showToast('Please accept the Code of Conduct and Privacy Terms to continue.', 'warning');
+    }
+    return;
+  }
+
+  _onboardingState.step = stepNum;
+  renderOnboardingWizardDom();
+}
+
+/**
+ * Renders the full DOM structure for the active onboarding step.
+ */
+function renderOnboardingWizardDom() {
+  var overlay = document.querySelector('.portal-onboarding-overlay');
+  if (!overlay) return;
+
+  var step = _onboardingState.step;
+  var progressPercent = step === 1 ? 25 : (step === 2 ? 50 : (step === 3 ? 75 : 100));
+  var email = _onboardingState.user ? (_onboardingState.user.email || _onboardingState.user.ic || '') : '';
+  var alreadyDone = (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false;
+  var canClose = _onboardingState.isReview || alreadyDone;
+
+  var closeBtnHtml = canClose
+    ? '<button type="button" onclick="closeOnboardingWizard()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;" title="Close Wizard">&times;</button>'
+    : '';
+
+  var stepNames = [
+    { num: 1, name: 'Terms' },
+    { num: 2, name: 'Pop-ups' },
+    { num: 3, name: 'Uploads' },
+    { num: 4, name: 'Preferences' }
+  ];
+
+  var stepperHtml = stepNames.map(function(s) {
+    var cls = 'onboarding-step-pill';
+    var icon = s.num;
+    if (s.num === step) {
+      cls += ' active';
+    } else if (s.num < step) {
+      cls += ' completed';
+      icon = '✓';
+    }
+    return ''
+      + '<div class="' + cls + '">'
+        + '<div class="onboarding-step-dot">' + icon + '</div>'
+        + '<span class="step-title-text">' + s.name + '</span>'
+      + '</div>';
+  }).join('');
+
+  var contentHtml = getOnboardingStepContentHtml(step);
+
+  overlay.innerHTML = ''
+    + '<div class="portal-onboarding-card">'
+      + '<div class="onboarding-header">'
+        + '<div class="onboarding-brand-row">'
+          + '<div class="onboarding-brand-title">'
+            + '<div class="onboarding-brand-crest">'
+              + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>'
+            + '</div>'
+            + '<div class="onboarding-brand-text">'
+              + '<h2>1st Petaling Jaya Boys\' Brigade</h2>'
+              + '<p>Portal Onboarding &amp; Setup</p>'
+            + '</div>'
+          + '</div>'
+          + closeBtnHtml
+        + '</div>'
+        + '<div class="onboarding-stepper">' + stepperHtml + '</div>'
+        + '<div class="onboarding-progress-track">'
+          + '<div class="onboarding-progress-fill" style="width:' + progressPercent + '%;"></div>'
+        + '</div>'
+      + '</div>'
+      + '<div class="onboarding-body">'
+        + contentHtml
+      + '</div>'
+    + '</div>';
+}
+
+/**
+ * Returns HTML for the active step.
+ * @param {number} step
+ * @returns {string}
+ */
+function getOnboardingStepContentHtml(step) {
+  if (step === 1) return renderStep1ConductHtml();
+  if (step === 2) return renderStep2NotificationsHtml();
+  if (step === 3) return renderStep3UploadsHtml();
+  if (step === 4) return renderStep4PreferencesHtml();
+  return '';
+}
+
+/**
+ * Step 1: Code of Conduct & Privacy Terms (No PDPA/COPPA mention)
+ */
+function renderStep1ConductHtml() {
+  var conductChecked = _onboardingState.termsAccepted ? 'checked' : '';
+  var privacyChecked = _onboardingState.privacyAccepted ? 'checked' : '';
+  var canProceed = _onboardingState.termsAccepted && _onboardingState.privacyAccepted;
+
+  return ''
+    + '<div class="onboarding-step-badge">Step 1 of 4 · Ethos &amp; Integrity</div>'
+    + '<h3 class="onboarding-step-title">Code of Conduct &amp; Privacy Terms</h3>'
+    + '<p class="onboarding-step-desc">Welcome to the 1st PJ Boys\' Brigade Portal. Please review our community conduct guidelines and data usage rules before accessing your workspace.</p>'
+    + '<div class="onboarding-terms-box">'
+      + '<h4>The Object of The Boys\' Brigade</h4>'
+      + '<p style="font-style:italic;color:var(--text-primary);border-left:3px solid var(--accent);padding-left:12px;margin:8px 0 14px;">"The advancement of Christ\'s kingdom among boys and the promotion of habits of Obedience, Reverence, Discipline, Self-respect and all that tends towards a true Christian manliness."</p>'
+      + '<h4>Pillars of Portal Conduct</h4>'
+      + '<ul>'
+        + '<li><strong>Brotherhood &amp; Respect:</strong> Treat all officers, NCOs, fellow members, and parents with courtesy, honor, and reverence. Cyberbullying, foul language, harassment, and toxic behavior in forums, announcements, or task comments are strictly prohibited.</li>'
+        + '<li><strong>Honesty &amp; Truthfulness:</strong> Submit accurate and truthful records for parade roll call, uniform inspections, badge syllabus submissions, and squad duties.</li>'
+        + '<li><strong>Account Responsibility:</strong> Safeguard your password. Never share login credentials or impersonate other members.</li>'
+      + '</ul>'
+      + '<h4>Privacy Terms &amp; Data Usage</h4>'
+      + '<ul>'
+        + '<li><strong>What We Store:</strong> Full name, section (Junior / Senior / Officer), rank, squad/platoon, parade attendance records, badge progress, and team task assignments.</li>'
+        + '<li><strong>What We NEVER Collect:</strong> We strictly <strong>never</strong> store national identity numbers (IC/MyKad), home street addresses, banking/card credentials, or unencrypted passwords.</li>'
+        + '<li><strong>Security Standards:</strong> Passwords are cryptographically salted and hashed using PBKDF2 with SHA-256 (100,000 iterations). Role-based security restricts administrative tools to authorized Officers.</li>'
+      + '</ul>'
+    + '</div>'
+    + '<label class="onboarding-checkbox-row">'
+      + '<input type="checkbox" id="onboarding-chk-conduct" ' + conductChecked + ' onchange="handleOnboardingCheckboxChange()" />'
+      + '<span class="onboarding-checkbox-text">I agree to uphold the Boys\' Brigade Code of Conduct and Portal Terms of Service.</span>'
+    + '</label>'
+    + '<label class="onboarding-checkbox-row">'
+      + '<input type="checkbox" id="onboarding-chk-privacy" ' + privacyChecked + ' onchange="handleOnboardingCheckboxChange()" />'
+      + '<span class="onboarding-checkbox-text">I have read and agree to the Portal Privacy Terms and data usage.</span>'
+    + '</label>'
+    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
+      + '<div></div>'
+      + '<button type="button" class="portal-btn portal-btn-primary" id="onboarding-btn-step1" onclick="setOnboardingStep(2)" ' + (canProceed ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"') + ' style="font-weight:700;padding:10px 22px;">Agree &amp; Continue &rarr;</button>'
+    + '</div>';
+}
+
+function handleOnboardingCheckboxChange() {
+  var c1 = document.getElementById('onboarding-chk-conduct');
+  var c2 = document.getElementById('onboarding-chk-privacy');
+  _onboardingState.termsAccepted = c1 ? !!c1.checked : false;
+  _onboardingState.privacyAccepted = c2 ? !!c2.checked : false;
+
+  var btn = document.getElementById('onboarding-btn-step1');
+  if (btn) {
+    var valid = _onboardingState.termsAccepted && _onboardingState.privacyAccepted;
+    btn.disabled = !valid;
+    btn.style.opacity = valid ? '1' : '0.5';
+    btn.style.cursor = valid ? 'pointer' : 'not-allowed';
+  }
+}
+
+/**
+ * Step 2: OS Device Notifications & Audio Chime
+ */
+function renderStep2NotificationsHtml() {
+  var perm = (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default';
+  var statusBadge = '';
+  if (perm === 'granted') {
+    statusBadge = '<span class="onboarding-status-pill granted"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Device Notifications Active</span>';
+  } else if (perm === 'denied') {
+    statusBadge = '<span class="onboarding-status-pill denied"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Blocked in Browser (Click lock icon in address bar to allow)</span>';
+  } else {
+    statusBadge = '<span class="onboarding-status-pill default"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Permission Not Yet Granted</span>';
+  }
+
+  var soundChecked = _onboardingState.notifSound ? 'checked' : '';
+
+  return ''
+    + '<div class="onboarding-step-badge">Step 2 of 4 · Stay Connected</div>'
+    + '<h3 class="onboarding-step-title">Device Pop-up Notifications &amp; Sound</h3>'
+    + '<p class="onboarding-step-desc">Receive instant pop-up notifications directly on your Windows, Mac, or mobile screen so you never miss urgent company events.</p>'
+    + '<div class="onboarding-grid">'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Direct @Mentions</div>'
+        + '<div class="onboarding-card-mini-desc">Instant desktop pop-up when someone mentions your name or rank in tasks, announcements, or forums.</div>'
+      + '</div>'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Task Assignments</div>'
+        + '<div class="onboarding-card-mini-desc">Immediate alerts when you are assigned project tasks or when milestone deadlines are nearing.</div>'
+      + '</div>'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Urgent Announcements</div>'
+        + '<div class="onboarding-card-mini-desc">Live alerts for company parade updates, uniform of the day, and special event schedules.</div>'
+      + '</div>'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Support Forum Replies</div>'
+        + '<div class="onboarding-card-mini-desc">Notifications when officers or cadets reply to your questions and bug reports.</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">'
+        + '<div style="display:flex;align-items:center;gap:10px;">'
+          + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Device Permission:</span>'
+          + '<span id="onboarding-notif-status">' + statusBadge + '</span>'
+        + '</div>'
+        + '<div style="display:flex;gap:8px;">'
+          + '<button type="button" class="portal-btn portal-btn-primary" onclick="handleOnboardingEnableNotifications()" style="font-size:12px;padding:6px 14px;font-weight:600;">Enable Device Pop-ups</button>'
+          + '<button type="button" class="portal-btn" onclick="handleOnboardingTestNotification()" style="font-size:12px;padding:6px 14px;">Send Test Pop-up</button>'
+        + '</div>'
+      + '</div>'
+      + '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">'
+        + '<input type="checkbox" id="onboarding-chk-sound" ' + soundChecked + ' onchange="handleOnboardingSoundToggle(this.checked)" style="width:17px;height:17px;accent-color:var(--accent);" />'
+        + '<span style="font-size:12.5px;color:var(--text-secondary);">Play audio chime when receiving new notifications</span>'
+      + '</label>'
+    + '</div>'
+    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
+      + '<button type="button" class="portal-btn" onclick="setOnboardingStep(1)" style="padding:10px 18px;">&larr; Back</button>'
+      + '<button type="button" class="portal-btn portal-btn-primary" onclick="setOnboardingStep(3)" style="font-weight:700;padding:10px 22px;">Continue &rarr;</button>'
+    + '</div>';
+}
+
+function handleOnboardingEnableNotifications() {
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    Notification.requestPermission().then(function(perm) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_notif_system_enabled', perm === 'granted' ? 'true' : 'false');
+      }
+      renderOnboardingWizardDom();
+      if (perm === 'granted') {
+        if (typeof showToast === 'function') showToast('Device notifications enabled successfully!', 'success');
+        handleOnboardingTestNotification();
+      } else if (perm === 'denied') {
+        if (typeof showToast === 'function') showToast('Notifications blocked in browser. Please click the lock icon in your address bar to allow.', 'warning');
+      }
+    });
+  } else if (typeof showToast === 'function') {
+    showToast('Web notifications are not supported in this browser.', 'warning');
+  }
+}
+
+function handleOnboardingTestNotification() {
+  if (typeof triggerPortalSystemNotification === 'function') {
+    triggerPortalSystemNotification(
+      "1st Petaling Jaya Boys\' Brigade",
+      "Pop-up notification test successful! Your device is ready.",
+      { force: true }
+    );
+  } else if (typeof playNotificationSound === 'function') {
+    playNotificationSound();
+  }
+  if (typeof showToast === 'function') {
+    showToast('Sent test notification & played audio chime!', 'info', 3000);
+  }
+}
+
+function handleOnboardingSoundToggle(checked) {
+  _onboardingState.notifSound = !!checked;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('bb_notif_sound_enabled', checked ? 'true' : 'false');
+  }
+}
+
+/**
+ * Step 3: File System & Media Upload Permissions
+ */
+function renderStep3UploadsHtml() {
+  var user = _onboardingState.user || {};
+  var name = user.name || (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
+  var email = user.email || user.ic || (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  var photoUrl = (typeof sessionGet === 'function' ? sessionGet('photo_url') : '') || '';
+  var hasPhoto = !!(photoUrl && photoUrl.length > 5 && !photoUrl.endsWith('#'));
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshuas+koh/i.test(name);
+  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name ? name.trim().charAt(0).toUpperCase() : 'B'));
+  var bgColor = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
+  var textColor = (typeof isBrightColor === 'function' && isBrightColor(bgColor)) ? '#1e293b' : '#ffffff';
+
+  return ''
+    + '<div class="onboarding-step-badge">Step 3 of 4 · Media &amp; Attachments</div>'
+    + '<h3 class="onboarding-step-title">File System &amp; Upload Permissions</h3>'
+    + '<p class="onboarding-step-desc">The portal allows members and parents to submit documents and photos directly from your device.</p>'
+    + '<div class="onboarding-grid">'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Uniform Store Orders</div>'
+        + '<div class="onboarding-card-mini-desc">Upload TnG e-Wallet or bank transfer payment slips for fast uniform order verification.</div>'
+      + '</div>'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Parade Leave Forms</div>'
+        + '<div class="onboarding-card-mini-desc">Attach medical certificates (MC) or parent excuse letters for approved parade leave.</div>'
+      + '</div>'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Projects &amp; Tasks</div>'
+        + '<div class="onboarding-card-mini-desc">Attach reference documents, spreadsheets, and media directly to team project boards.</div>'
+      + '</div>'
+      + '<div class="onboarding-card-mini">'
+        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>'
+        + '<div class="onboarding-card-mini-title">Member Profile Avatar</div>'
+        + '<div class="onboarding-card-mini-desc">Upload a photo to personalize your official 1st PJ Boys\' Brigade membership card.</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.25);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">'
+      + '<div style="color:var(--accent);flex-shrink:0;">'
+        + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
+      + '</div>'
+      + '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;">'
+        + '<strong style="color:var(--text-primary);display:block;margin-bottom:2px;">Browser Permission Note:</strong>'
+        + 'When uploading files, your browser will prompt for file access. Select <strong>Allow</strong> or choose files from your device to proceed smoothly.'
+      + '</div>'
+    + '</div>'
+    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;">'
+      + '<div style="width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;background:' + bgColor + ';color:' + textColor + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;">'
+        + (hasPhoto ? ('<img src="' + escapeHtml(photoUrl) + '" alt="Avatar" style="width:100%;height:100%;object-fit:cover;" />') : escapeHtml(initial))
+      + '</div>'
+      + '<div style="flex:1;">'
+        + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">' + escapeHtml(name) + '</div>'
+        + '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">Default profile avatar is ready. You can customize your photo anytime in Settings.</div>'
+      + '</div>'
+    + '</div>'
+    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
+      + '<button type="button" class="portal-btn" onclick="setOnboardingStep(2)" style="padding:10px 18px;">&larr; Back</button>'
+      + '<button type="button" class="portal-btn portal-btn-primary" onclick="setOnboardingStep(4)" style="font-weight:700;padding:10px 22px;">Continue &rarr;</button>'
+    + '</div>';
+}
+
+/**
+ * Step 4: Workspace Preferences & Company Timezone (Strict GMT+8 Malaysia Time)
+ */
+function renderStep4PreferencesHtml() {
+  var isDark = _onboardingState.theme === 'dark';
+  var view = _onboardingState.defaultView || 'upcoming';
+
+  var nowMy = new Date();
+  var myTimeStr = '';
+  try {
+    myTimeStr = new Intl.DateTimeFormat('en-MY', {
+      timeZone: 'Asia/Kuala_Lumpur',
+      weekday: 'long',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(nowMy);
+  } catch (_) {
+    myTimeStr = 'Saturdays, 2:15 PM';
+  }
+
+  return ''
+    + '<div class="onboarding-step-badge">Step 4 of 4 · Personalization</div>'
+    + '<h3 class="onboarding-step-title">Preferences &amp; Company Timezone</h3>'
+    + '<p class="onboarding-step-desc">Configure your theme and confirm synchronization with 1st PJ Company Time.</p>'
+    + '<div class="onboarding-tz-banner">'
+      + '<div style="width:38px;height:38px;border-radius:10px;background:rgba(217,163,35,0.18);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+        + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
+      + '</div>'
+      + '<div style="flex:1;">'
+        + '<div style="font-size:13.5px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">'
+          + '<span>Official Company Timezone</span>'
+          + '<span style="font-size:11px;background:var(--accent);color:#0f172a;font-weight:800;padding:2px 8px;border-radius:12px;">GMT+8</span>'
+        + '</div>'
+        + '<div class="onboarding-tz-clock">Asia/Kuala_Lumpur • Malaysia Time (' + escapeHtml(myTimeStr) + ')</div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.45;">'
+          + 'All parade fall-in times (2:15 PM), band rehearsals (9:30 AM), uniform inspections, task due dates, and company events are strictly synchronized to Malaysia Time (GMT+8) regardless of your physical device location.'
+        + '</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="margin-bottom:14px;">'
+      + '<label style="font-size:13px;font-weight:700;color:var(--text-primary);display:block;margin-bottom:8px;">Select Color Theme</label>'
+      + '<div class="onboarding-theme-grid">'
+        + '<div class="onboarding-theme-btn ' + (!isDark ? 'selected' : '') + '" onclick="handleOnboardingThemeSelect(\'light\')">'
+          + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
+          + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">Light Mode</div>'
+          + '<div style="font-size:11.5px;color:var(--text-secondary);">Crisp daytime clarity &amp; high contrast</div>'
+        + '</div>'
+        + '<div class="onboarding-theme-btn ' + (isDark ? 'selected' : '') + '" onclick="handleOnboardingThemeSelect(\'dark\')">'
+          + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+          + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">Dark Mode</div>'
+          + '<div style="font-size:11.5px;color:var(--text-secondary);">Sleek low-glare dark finish with gold accents</div>'
+        + '</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">'
+      + '<label style="font-size:13px;font-weight:700;color:var(--text-primary);display:block;margin-bottom:6px;">Default Calendar View</label>'
+      + '<div style="display:flex;gap:12px;flex-wrap:wrap;">'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">'
+          + '<input type="radio" name="onboarding-cal-view" value="upcoming" ' + (view === 'upcoming' ? 'checked' : '') + ' onchange="handleOnboardingCalendarViewChange(\'upcoming\')" style="accent-color:var(--accent);" />'
+          + 'Upcoming Hero [Recommended]'
+        + '</label>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">'
+          + '<input type="radio" name="onboarding-cal-view" value="week" ' + (view === 'week' ? 'checked' : '') + ' onchange="handleOnboardingCalendarViewChange(\'week\')" style="accent-color:var(--accent);" />'
+          + 'Week View'
+        + '</label>'
+        + '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">'
+          + '<input type="radio" name="onboarding-cal-view" value="month" ' + (view === 'month' ? 'checked' : '') + ' onchange="handleOnboardingCalendarViewChange(\'month\')" style="accent-color:var(--accent);" />'
+          + 'Month View'
+        + '</label>'
+      + '</div>'
+    + '</div>'
+    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
+      + '<button type="button" class="portal-btn" onclick="setOnboardingStep(3)" style="padding:10px 18px;">&larr; Back</button>'
+      + '<button type="button" class="portal-btn portal-btn-primary" onclick="completeOnboardingWizard()" style="font-weight:800;padding:10px 24px;box-shadow:0 4px 14px rgba(217,163,35,0.35);">Complete Onboarding &amp; Enter Portal ✨</button>'
+    + '</div>';
+}
+
+function handleOnboardingThemeSelect(theme) {
+  _onboardingState.theme = theme;
+  if (typeof setTheme === 'function') {
+    setTheme(theme);
+  } else if (typeof window !== 'undefined' && typeof window.setTheme === 'function') {
+    window.setTheme(theme);
+  } else if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  renderOnboardingWizardDom();
+}
+
+function handleOnboardingCalendarViewChange(view) {
+  _onboardingState.defaultView = view;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('bb_default_calendar_view', view);
+  }
+}
+
+/**
+ * Completes the onboarding wizard, persists user consent and configuration, and enters dashboard.
+ */
+function completeOnboardingWizard() {
+  var user = _onboardingState.user || (typeof sessionGet === 'function' ? {
+    name: sessionGet('name') || '',
+    email: sessionGet('email') || sessionGet('ic') || ''
+  } : null);
+
+  var email = user ? (user.email || user.ic || '') : '';
+  var name = user ? (user.name || '') : '';
+
+  if (typeof markOnboardingCompleted === 'function') {
+    markOnboardingCompleted(email, {
+      completed: true,
+      completed_at: new Date().toISOString(),
+      terms_accepted: true,
+      privacy_accepted: true,
+      timezone: 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)',
+      notifications_enabled: (typeof Notification !== 'undefined') ? (Notification.permission === 'granted') : false,
+      notification_sound: _onboardingState.notifSound,
+      theme: _onboardingState.theme,
+      default_calendar_view: _onboardingState.defaultView
+    });
+  }
+
+  // Smooth dismiss animation
+  var overlay = document.querySelector('.portal-onboarding-overlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 0.25s ease';
+    setTimeout(function() {
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }, 250);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('🎉 Welcome to the 1st Petaling Jaya Boys\' Brigade Web Portal' + (name ? (', ' + name) : '') + '!', 'success', 5000);
+  }
+
+  // Route to intended tab if one was queued by AuthGuard, or default to home/member
+  var redirectTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
+    ? AuthGuard.getRedirectTarget()
+    : null;
+  if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
+    AuthGuard.clearRedirectTarget();
+  }
+
+  var dest = (redirectTarget && redirectTarget !== 'member' && redirectTarget !== 'admin') ? redirectTarget : 'home';
+  if (typeof switchTabNav === 'function') {
+    switchTabNav(dest);
   }
 }
 
@@ -5762,9 +6332,20 @@ if (typeof window !== 'undefined') {
   window.handleSettingsThemeToggle      = handleSettingsThemeToggle;
   window.handleSettingsNotificationToggle = handleSettingsNotificationToggle;
   window.handleSettingsDefaultTabChange = handleSettingsDefaultTabChange;
-  window.handleSettingsPasswordUpdate   = handleSettingsPasswordUpdate;
-
+    window.handleSettingsPasswordUpdate   = handleSettingsPasswordUpdate;
+  window.launchOnboardingWizard         = launchOnboardingWizard;
+  window.closeOnboardingWizard          = closeOnboardingWizard;
+  window.setOnboardingStep              = setOnboardingStep;
+  window.handleOnboardingThemeSelect    = handleOnboardingThemeSelect;
+  window.handleOnboardingTestNotification = handleOnboardingTestNotification;
+  window.handleOnboardingEnableNotifications = handleOnboardingEnableNotifications;
+  window.handleOnboardingSoundToggle    = handleOnboardingSoundToggle;
+  window.handleOnboardingCheckboxChange = handleOnboardingCheckboxChange;
+  window.handleOnboardingCalendarViewChange = handleOnboardingCalendarViewChange;
+  window.completeOnboardingWizard       = completeOnboardingWizard;
 }
+
+
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -5857,7 +6438,17 @@ if (typeof module !== 'undefined' && module.exports) {
     handleSettingsThemeToggle,
     handleSettingsNotificationToggle,
     handleSettingsDefaultTabChange,
-    handleSettingsPasswordUpdate,
+        handleSettingsPasswordUpdate,
+    launchOnboardingWizard,
+    closeOnboardingWizard,
+    setOnboardingStep,
+    handleOnboardingThemeSelect,
+    handleOnboardingTestNotification,
+    handleOnboardingEnableNotifications,
+    handleOnboardingSoundToggle,
+    handleOnboardingCheckboxChange,
+    handleOnboardingCalendarViewChange,
+    completeOnboardingWizard
 };
 }
 
