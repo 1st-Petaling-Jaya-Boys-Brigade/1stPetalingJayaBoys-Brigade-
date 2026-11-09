@@ -72,6 +72,7 @@ var _projectDisplayMode = (typeof localStorage !== 'undefined' && localStorage.g
 var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;
+var _initialTaskDetailState = null;
 var _justDragged = false;
 var _draggedTaskId = null;
 var _cachedDepartmentMembers = [];
@@ -2382,6 +2383,11 @@ function openTaskDetail(id) {
 
   var modal = document.getElementById('task-detail-modal');
   if (modal) modal.style.display = 'block';
+  _initialTaskDetailState = {
+    id: id,
+    title: (t.title || '').trim(),
+    descHtml: (descEl ? descEl.innerHTML : '').trim()
+  };
   renderTaskComments(id);
   renderTaskAttachments(id);
 }
@@ -2389,7 +2395,11 @@ function openTaskDetail(id) {
 function handleTaskTitleBlur(el) {
   if (!_activeDetailTaskId || !el) return;
   var val = (el.textContent || '').trim();
-  if (val) {
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
+  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
+    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
+  }
+  if (val && t && val !== (t.title || '').trim()) {
     saveTaskField(_activeDetailTaskId, 'title', val);
   }
 }
@@ -2407,6 +2417,9 @@ function handleTaskDescBlur(el) {
     t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
   }
   var fullDesc = buildTaskDescriptionWithMeta(t || {}, val);
+  if (t && String(t.description || '').trim() === String(fullDesc || '').trim()) {
+    return;
+  }
   saveTaskField(_activeDetailTaskId, 'description', fullDesc);
   if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
     syncTaskNotifications(_allLoadedTasks);
@@ -3531,6 +3544,9 @@ function saveActiveTaskBrief() {
     t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
   }
   var fullDesc = buildTaskDescriptionWithMeta(t || {}, val);
+  if (t && String(t.description || '').trim() === String(fullDesc || '').trim()) {
+    return;
+  }
   saveTaskField(_activeDetailTaskId, 'description', fullDesc);
 }
 
@@ -3551,6 +3567,9 @@ async function saveTaskField(id, field, value) {
     } catch (_) {}
   }
   if (!t) return;
+  var currentVal = t[field];
+  if (currentVal === value) return;
+  if (typeof currentVal === 'string' && typeof value === 'string' && currentVal.trim() === value.trim()) return;
   t[field] = value;
   _taskMap[id] = t;
   if (typeof window !== 'undefined') {
@@ -3918,14 +3937,24 @@ async function editTaskDetailEstimate(e) {
  */
 function closeTaskDetail() {
   if (typeof document === 'undefined') return;
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
+  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
+    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
+  }
   var titleEl = document.getElementById('tdm-title');
-  if (titleEl && _activeDetailTaskId) {
+  if (titleEl && _activeDetailTaskId && t) {
     var titleVal = (titleEl.textContent || '').trim();
-    if (titleVal) {
+    if (titleVal && titleVal !== (t.title || '').trim() && (!_initialTaskDetailState || titleVal !== _initialTaskDetailState.title)) {
       saveTaskField(_activeDetailTaskId, 'title', titleVal);
     }
   }
-  saveActiveTaskBrief();
+  var descEl = document.getElementById('tdm-desc');
+  if (descEl && _activeDetailTaskId && t) {
+    var descHtml = (descEl.innerHTML || '').trim();
+    if (!_initialTaskDetailState || descHtml !== _initialTaskDetailState.descHtml) {
+      saveActiveTaskBrief();
+    }
+  }
   var m = document.getElementById('task-detail-modal');
   if (m) m.style.display = 'none';
   var sMenu = document.querySelector('.tdm-status-dropdown');
@@ -3933,6 +3962,7 @@ function closeTaskDetail() {
   var aMenu = document.querySelector('.tdm-assignee-dropdown');
   if (aMenu) aMenu.style.display = 'none';
   _activeDetailTaskId = null;
+  _initialTaskDetailState = null;
 }
 
 /**

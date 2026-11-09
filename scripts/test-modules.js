@@ -4228,8 +4228,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261106c',
-    'sw.js CACHE_VERSION must be 20261106c'
+    '20261109a',
+    'sw.js CACHE_VERSION must be 20261109a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4260,7 +4260,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261106c',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7030,7 +7030,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261106c'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8938,12 +8938,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261106c', 'Service Worker cache version must be 20261106c');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109a', 'Service Worker cache version must be 20261109a');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261106c and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261109a and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10182,25 +10182,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261106c', 'sw.js CACHE_VERSION must be 20261106c');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261106c', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261106c', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109a', 'sw.js CACHE_VERSION must be 20261109a');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109a', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109a', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261106c cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261109a cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261106c'), 'config.js must use v=20261106c');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261106c'), 'forum.js must use v=20261106c');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261106c'), 'variables.css must use v=20261106c');
-    assert.ok(indexRaw.includes('css/base.css?v=20261106c'), 'base.css must use v=20261106c');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261106c');
+    assert.ok(indexRaw.includes('js/config.js?v=20261109a'), 'config.js must use v=20261109a');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109a'), 'forum.js must use v=20261109a');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261109a'), 'variables.css must use v=20261109a');
+    assert.ok(indexRaw.includes('css/base.css?v=20261109a'), 'base.css must use v=20261109a');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109a');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -10378,7 +10378,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(mockTasksContainer.innerHTML.includes('>Due Date<'), 'Table header must include Due Date');
     assert.ok(mockTasksContainer.innerHTML.includes('>Estimate<'), 'Table header must include Estimate');
     global.document.querySelector = originalQS;
+    const tasksRawDirty = fs.readFileSync(path.join(__dirname, '../js/modules/tasks.js'), 'utf8');
+    assert.ok(tasksRawDirty.includes('var currentVal = t[field];'), 'saveTaskField must inspect current field value');
+    assert.ok(tasksRawDirty.includes('if (currentVal === value) return;'), 'saveTaskField must exit early if value is unchanged');
     console.log('  ✔ Tasks table layout with all 8 fields verified matching Image 1');
+    console.log('  ✔ Task brief dirty-check eliminates spurious Task updated toasts when closing unchanged briefs');
 
     // 11. Rename "My Tasks" to "Tasks" with sr-only backward compatibility
     const indexHtmlPillCheck = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
@@ -10617,6 +10621,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const testUserEmail = 'new_cadet_2026@bb.org';
     sessionMod.resetOnboarding(testUserEmail);
     assert.strictEqual(sessionMod.isOnboardingCompleted(testUserEmail), false, 'New member must have incomplete onboarding by default');
+    // Permanent creator bypass
+    assert.strictEqual(sessionMod.isOnboardingCompleted('jeshuakoh2008@gmail.com'), true, 'Jeshua Koh must be permanently marked as onboarded');
 
     sessionMod.markOnboardingCompleted(testUserEmail, {
       terms_accepted: true,
