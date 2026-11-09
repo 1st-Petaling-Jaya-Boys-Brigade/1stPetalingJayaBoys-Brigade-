@@ -1097,7 +1097,7 @@ async function renderCompanyLeaderboard() {
     '<div class="card squad-podium-card" style="padding:22px 16px;margin-bottom:20px;width:100%;box-sizing:border-box;">' +
       '<div style="text-align:center;margin-bottom:12px;">' +
         '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Squad Championship Podium</div>' +
-        '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Top 3 Leading Squads in Company Attendance &amp; Inspection Points</div>' +
+        '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Top 3 Leading Squads in Attendance, Inspection, and Squad Points</div>' +
       '</div>' +
       '<div class="leaderboard-podium-wrap">' +
         renderSquadPodiumPillar(sqTop2, 2) +

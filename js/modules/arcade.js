@@ -1434,7 +1434,7 @@
               '</div>' +
             '</div>' +
           '</div>' +
-          '<div class="page-desc">Strengthen your Boys\' Brigade knowledge, awards syllabus, and company history! Play the Daily Wordle and answer Timed BB Trivia to earn Credits and build your daily streak.</div>' +
+          '<div class="page-desc">Strengthen your Boys\' Brigade knowledge, awards syllabus, and company history! Play the Daily Wordle and answer BB Trivia to earn Credits and build your daily streak.</div>' +
         '</div>' +
 
         '<!-- Subtabs Bar -->' +

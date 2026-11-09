@@ -5232,7 +5232,7 @@ function renderForumPage() {
             '</button>' +
           '</div>' +
         '</div>' +
-        '<div class="page-desc">Ask questions about badge advancement, uniform kits, and portal tools, or submit technical bug reports directly to the 1st PJ development team and officers.</div>' +
+        '<div class="page-desc">Ask questions about portal tools, or submit technical bug reports directly to the 1st PJ development team and officers.</div>' +
       '</div>' +
 
       '<!-- Controls Bar: Search & Status Filter -->' +
