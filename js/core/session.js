@@ -850,7 +850,7 @@ function recordUserActivity() {
 
 var _cachedPresenceMap = null;
 var _lastPresenceFetchTs = 0;
-var PRESENCE_FETCH_CACHE_MS = 15000; // 15-second throttle
+var PRESENCE_FETCH_CACHE_MS = 120000; // 2-minute throttle to protect database connection pool
 var _isFetchingPresence = false;
 
 /**
@@ -967,6 +967,8 @@ function refreshLivePresenceDots() {
   });
 }
 
+var _lastSessionVerifyTs = 0;
+
 /**
  * Sends presence heartbeat to local cache and Supabase bb_config (leader tab only)
  * @param {string} [forcedStatus]
@@ -976,7 +978,9 @@ async function sendPresenceHeartbeat(forcedStatus) {
     if (typeof isUserAuthenticated === 'function' && !isUserAuthenticated()) {
       return;
     }
-    if (typeof verifyActiveMemberSession === 'function') {
+    var nowTs = Date.now();
+    if (typeof verifyActiveMemberSession === 'function' && (nowTs - _lastSessionVerifyTs > 600000)) {
+      _lastSessionVerifyTs = nowTs;
       verifyActiveMemberSession().catch(function() {});
     }
     var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
@@ -1054,11 +1058,14 @@ function initPresenceTracking() {
     });
   }
 
-  // Periodic activity checker & remote presence sync (every 15 seconds)
+  // Periodic activity checker & remote presence sync (every 3 minutes)
   if (_presenceCheckTimer) clearInterval(_presenceCheckTimer);
   _presenceCheckTimer = setInterval(function() {
-    if (typeof fetchRemoteMemberPresence === 'function') {
-      fetchRemoteMemberPresence().catch(function() {});
+    var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+    if (!isTabHidden && typeof isLeaderTab === 'function' && isLeaderTab()) {
+      if (typeof fetchRemoteMemberPresence === 'function') {
+        fetchRemoteMemberPresence().catch(function() {});
+      }
     }
     if (typeof isUserAuthenticated !== 'function' || !isUserAuthenticated()) {
       if (_localPresenceStatus !== 'offline') setLocalPresenceStatus('offline');
@@ -1067,7 +1074,6 @@ function initPresenceTracking() {
 
     var now = Date.now();
     var idleTime = now - _lastUserActivityTs;
-    var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
 
     if (idleTime >= PRESENCE_IDLE_TIMEOUT_MS || (isTabHidden && idleTime >= 2 * 60 * 1000)) {
       if (_localPresenceStatus !== 'idle') {
@@ -1084,15 +1090,16 @@ function initPresenceTracking() {
         }
       }
     }
-  }, 15000);
+  }, 180000);
 
-  // Periodic heartbeat timer (every 60 seconds)
+  // Periodic heartbeat timer (every 3 minutes)
   if (_presenceHeartbeatTimer) clearInterval(_presenceHeartbeatTimer);
   _presenceHeartbeatTimer = setInterval(function() {
-    if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+    var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+    if (!isTabHidden && typeof isLeaderTab === 'function' && isLeaderTab()) {
       sendPresenceHeartbeat();
     }
-  }, PRESENCE_HEARTBEAT_INTERVAL_MS);
+  }, 180000);
 
   // Initial heartbeat and remote presence sync
   if (typeof fetchRemoteMemberPresence === 'function') {

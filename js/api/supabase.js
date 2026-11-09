@@ -172,6 +172,30 @@ async function throttledFetch(url, fetchOpts, timeoutMs) {
  */
 const _queryCache = new Map();
 
+/**
+ * Global Circuit Breaker for Supabase Database Overload Protection
+ * Trips when the server returns 544 DatabaseTimeout, 503 Service Unavailable, or AbortError timeouts.
+ * Enforces a 60-second cooldown period where GET queries fail-fast (or return cached snapshots)
+ * without bombarding the PostgreSQL connection pool on Supabase Nano compute.
+ */
+let _circuitBreakerOpenUntil = 0;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 60000;
+
+function tripCircuitBreaker(reason) {
+  _circuitBreakerOpenUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
+  if (typeof console !== 'undefined' && console.warn) {
+    console.warn('[Supabase Circuit Breaker] Activated 60s cooldown due to: ' + reason);
+  }
+}
+
+function isCircuitBreakerOpen() {
+  return Date.now() < _circuitBreakerOpenUntil;
+}
+
+function resetCircuitBreaker() {
+  _circuitBreakerOpenUntil = 0;
+}
+
 function getCacheKey(method, path, headers) {
   return `${method}:${path}:${headers ? JSON.stringify(headers) : ''}`;
 }
@@ -246,7 +270,16 @@ const supa = {
       invalidateCache(path);
     }
 
-    const cKey = getCacheKey(method, path, headers);
+        const cKey = getCacheKey(method, path, headers);
+    if (method === 'GET' && isCircuitBreakerOpen()) {
+      const cached = _queryCache.get(cKey);
+      if (cached && cached.data) {
+        return cached.data !== null && typeof cached.data === 'object'
+          ? JSON.parse(JSON.stringify(cached.data))
+          : cached.data;
+      }
+      return null;
+    }
     if (shouldCache) {
       const cached = _queryCache.get(cKey);
       if (cached) {
@@ -274,6 +307,9 @@ const supa = {
           // Handle rate limit (HTTP 429) and server errors (HTTP 500-599) with exponential backoff & jitter
           // Fail fast on HTTP 544 DatabaseTimeout to prevent cascading connection pool exhaustion
           if (r.status === 429 || (r.status >= 500 && r.status <= 599)) {
+            if (r.status === 544) {
+              tripCircuitBreaker('HTTP 544 DatabaseTimeout');
+            }
             if (attempt < maxRetries && r.status !== 544) {
               attempt++;
               let delay = baseDelay * Math.pow(2, attempt) + Math.random() * 50;
@@ -284,6 +320,9 @@ const supa = {
               }
               await new Promise(res => setTimeout(res, Math.min(maxDelay, delay)));
               continue;
+            }
+            if (r.status >= 500) {
+              tripCircuitBreaker('HTTP ' + r.status);
             }
             const e = await r.text();
             throw new Error(`HTTP ${r.status}: ${e}`);
@@ -306,6 +345,10 @@ const supa = {
 
           return data;
         } catch (err) {
+          const isTimeout = err && (err.name === 'AbortError' || (err.message && (err.message.includes('aborted') || err.message.includes('timeout'))));
+          if (isTimeout) {
+            tripCircuitBreaker('Request Timeout');
+          }
           const isNetworkError = err && (err.name === 'TypeError' || err.message === 'Failed to fetch');
           if (isNetworkError && attempt < maxRetries) {
             attempt++;
@@ -1180,8 +1223,16 @@ var PortalRealtime = (function() {
       return;
     }
     // If WebSocket is alive and receiving live events, skip polling
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      scheduleNextDeltaSync(120000);
+      return;
+    }
     if (_ws && _ws.readyState === 1) {
-      scheduleNextDeltaSync(30000);
+      scheduleNextDeltaSync(180000);
+      return;
+    }
+    if (isCircuitBreakerOpen()) {
+      scheduleNextDeltaSync(60000);
       return;
     }
     var client = (typeof getSupaClient === 'function') ? getSupaClient() : null;
@@ -1223,23 +1274,23 @@ var PortalRealtime = (function() {
         }
         _lastEntityTimestamps['bb_members_latest'] = mKey;
       }
-      _deltaSyncBackoff = 25000;
+      _deltaSyncBackoff = 90000;
     } catch (_) {
       // Back off on error to prevent database saturation
-      _deltaSyncBackoff = Math.min(60000, _deltaSyncBackoff * 1.5);
+      _deltaSyncBackoff = Math.min(300000, _deltaSyncBackoff * 2);
     }
     scheduleNextDeltaSync(_deltaSyncBackoff);
   }
 
   function scheduleNextDeltaSync(delayMs) {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 25000);
+    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 90000);
   }
 
   function startDeltaSync() {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncBackoff = 25000;
-    scheduleNextDeltaSync(25000);
+    _deltaSyncBackoff = 90000;
+    scheduleNextDeltaSync(90000);
   }
 
   // 4. Central Realtime Dispatcher
@@ -1433,6 +1484,9 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined') {
   window.supa = supa;
   window.getSupaClient = getSupaClient;
+  window.isCircuitBreakerOpen = isCircuitBreakerOpen;
+  window.resetCircuitBreaker = resetCircuitBreaker;
+  window.tripCircuitBreaker = tripCircuitBreaker;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1458,6 +1512,9 @@ if (typeof module !== 'undefined' && module.exports) {
     createSignedUrl: supa.createSignedUrl,
     createSignedUrls: supa.createSignedUrls,
     resolveMediaUrl: supa.resolveMediaUrl,
-    clearSignedUrlCache: supa.clearSignedUrlCache
+    clearSignedUrlCache: supa.clearSignedUrlCache,
+    isCircuitBreakerOpen,
+    resetCircuitBreaker,
+    tripCircuitBreaker
   };
 }
