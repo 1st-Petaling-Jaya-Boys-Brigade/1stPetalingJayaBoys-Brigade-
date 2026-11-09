@@ -1,4 +1,4 @@
-/* global isOnboardingCompleted, markOnboardingCompleted, fetchRemoteOnboardingStatus, triggerPortalSystemNotification, playNotificationSound, setTheme */
+/* global isOnboardingCompleted, markOnboardingCompleted, fetchRemoteOnboardingStatus, triggerPortalSystemNotification, playNotificationSound, setTheme, getAmbientParticlesState, toggleAmbientParticles, setAmbientParticlesMode */
 
 /**
  * 1st Petaling Jaya Boys\' Brigade Portal
@@ -5299,6 +5299,38 @@ function handleSettingsThemeToggle() {
   }
 }
 
+function handleSettingsParticlesToggle() {
+  var currentState = (typeof getAmbientParticlesState === 'function')
+    ? getAmbientParticlesState()
+    : { enabled: true, mode: 'both' };
+  var newState = !currentState.enabled;
+  if (typeof toggleAmbientParticles === 'function') {
+    toggleAmbientParticles(newState);
+  }
+
+  var btn = document.getElementById('settings-particles-btn');
+  if (btn) {
+    btn.className = 'portal-btn' + (newState ? '' : ' portal-btn-primary');
+    btn.innerHTML = newState
+      ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
+      : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>';
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(newState ? 'Falling snow & leaves animation enabled.' : 'Falling snow & leaves animation disabled.', 'info', 2500, { silent: true });
+  }
+}
+
+function handleSettingsParticlesModeChange(mode) {
+  if (typeof setAmbientParticlesMode === 'function') {
+    setAmbientParticlesMode(mode);
+  }
+  if (typeof showToast === 'function') {
+    var modeLabel = mode === 'snow' ? 'Falling snow only ❄️' : (mode === 'leaves' ? 'Falling leaves only 🍂' : 'Snow & leaves ❄️ 🍂');
+    showToast('Seasonal animation set to: ' + modeLabel, 'info', 2500, { silent: true });
+  }
+}
+
 function handleSettingsNotificationToggle(type) {
   try {
     if (type === 'sound') {
@@ -5495,6 +5527,11 @@ function openSettingsModal() {
   var sunSvg = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
   var moonSvg = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
   var bellSvg = '<svg class="ui-icon-xs" style="margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+  var particlesState = (typeof getAmbientParticlesState === 'function')
+    ? getAmbientParticlesState()
+    : { enabled: true, mode: 'both' };
+  var particlesEnabled = particlesState.enabled !== false;
+  var particlesMode = particlesState.mode || 'both';
 
   var modalHtml = ''
     + '<div class="portal-modal-card settings-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);">'
@@ -5599,6 +5636,24 @@ function openSettingsModal() {
             + '<div class="settings-row-desc">Currently in <strong id="settings-theme-status">' + (isDark ? 'Dark Mode' : 'Light Mode') + '</strong></div>'
           + '</div>'
           + '<button type="button" class="portal-btn" onclick="handleSettingsThemeToggle()" id="settings-theme-btn" style="padding:7px 16px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;">' + (isDark ? (sunSvg + '<span>Switch to Light</span>') : (moonSvg + '<span>Switch to Dark</span>')) + '</button>'
+        + '</div>'
+        + '<div class="settings-row" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-card);">'
+          + '<div style="flex:1;">'
+            + '<div class="settings-row-label">Seasonal Falling Effects (Snow &amp; Leaves)</div>'
+            + '<div class="settings-row-desc">Ambient seasonal snowflakes and autumn leaves across your portal background</div>'
+          + '</div>'
+          + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+            + '<select id="settings-select-particles-mode" class="form-select" onchange="handleSettingsParticlesModeChange(this.value)" style="font-size:12px;padding:5px 8px;height:auto;min-width:135px;">'
+              + '<option value="both"' + (particlesMode === 'both' ? ' selected' : '') + '>Snow &amp; Leaves ❄️ 🍂</option>'
+              + '<option value="snow"' + (particlesMode === 'snow' ? ' selected' : '') + '>Snow Only ❄️</option>'
+              + '<option value="leaves"' + (particlesMode === 'leaves' ? ' selected' : '') + '>Leaves Only 🍂</option>'
+            + '</select>'
+            + '<button type="button" class="portal-btn' + (particlesEnabled ? '' : ' portal-btn-primary') + '" onclick="handleSettingsParticlesToggle()" id="settings-particles-btn" style="padding:6px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">'
+              + (particlesEnabled
+                  ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
+                  : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>')
+            + '</button>'
+          + '</div>'
         + '</div>'
       + '</div>'
 
@@ -6354,6 +6409,8 @@ if (typeof window !== 'undefined') {
   window.handleSettingsAvatarUpload     = handleSettingsAvatarUpload;
   window.handleSettingsAvatarRemove     = handleSettingsAvatarRemove;
   window.handleSettingsThemeToggle      = handleSettingsThemeToggle;
+  window.handleSettingsParticlesToggle  = handleSettingsParticlesToggle;
+  window.handleSettingsParticlesModeChange = handleSettingsParticlesModeChange;
   window.handleSettingsNotificationToggle = handleSettingsNotificationToggle;
   window.handleSettingsDefaultTabChange = handleSettingsDefaultTabChange;
     window.handleSettingsPasswordUpdate   = handleSettingsPasswordUpdate;
@@ -6460,6 +6517,8 @@ if (typeof module !== 'undefined' && module.exports) {
     handleSettingsAvatarUpload,
     handleSettingsAvatarRemove,
     handleSettingsThemeToggle,
+    handleSettingsParticlesToggle,
+    handleSettingsParticlesModeChange,
     handleSettingsNotificationToggle,
     handleSettingsDefaultTabChange,
         handleSettingsPasswordUpdate,
