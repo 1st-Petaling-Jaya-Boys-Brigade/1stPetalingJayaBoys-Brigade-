@@ -417,6 +417,20 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
  * Loads all announcements from Supabase ordered by creation date ascending
  */
 async function loadAnnouncements() {
+  // Synchronous cache hydration for 0ms instantaneous render on startup
+  if (announcements.length === 0 && typeof localStorage !== 'undefined') {
+    try {
+      var cachedAnnStr = localStorage.getItem('bb_announcements_cache');
+      if (cachedAnnStr) {
+        var parsedLocalAnn = JSON.parse(cachedAnnStr);
+        if (Array.isArray(parsedLocalAnn) && parsedLocalAnn.length > 0) {
+          parsedLocalAnn.forEach(function(item) { announcements.push(item); });
+          renderAnnouncements();
+        }
+      }
+    } catch (_) {}
+  }
+
   var list = (typeof document !== 'undefined') ? document.getElementById('announcements-list') : null;
   var loader = (list && typeof createSmartLoader === 'function' && announcements.length === 0)
     ? createSmartLoader({
@@ -448,9 +462,9 @@ async function loadAnnouncements() {
         }
       }
 
-      var rows = (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) ? results[1].value : [];
-      announcements.length = 0;
-      if (rows && rows.length) {
+      var rows = (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) ? results[1].value : null;
+      if (rows && rows.length > 0) {
+        announcements.length = 0;
         for (var rIdx = 0; rIdx < rows.length; rIdx++) {
           var r = rows[rIdx];
           if (!r.reactions || typeof r.reactions !== 'object') r.reactions = {};
@@ -479,6 +493,19 @@ async function loadAnnouncements() {
           }
           announcements.push(r);
         }
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
+          }
+        } catch (_) {}
+      } else if (results[1].status === 'fulfilled' && rows && rows.length === 0) {
+        // Explicit empty announcements confirmed by server
+        announcements.length = 0;
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bb_announcements_cache');
+          }
+        } catch (_) {}
       }
     }
   };

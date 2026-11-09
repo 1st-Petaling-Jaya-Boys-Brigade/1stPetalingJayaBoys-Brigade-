@@ -126,16 +126,17 @@ async function getMasterAttendanceData(forceRefresh) {
     return _masterAttendanceCache;
   }
 
-  // Check sessionStorage cache with TTL
-  if (!forceRefresh && typeof sessionStorage !== 'undefined') {
+  // Check sessionStorage or localStorage cache
+  if (!forceRefresh) {
     try {
-      var cachedStr = sessionStorage.getItem('bb_master_att_cache');
-      var cachedTimeStr = sessionStorage.getItem('bb_master_att_cache_time');
-      var cachedTime = cachedTimeStr ? parseInt(cachedTimeStr, 10) : 0;
-      if (cachedStr && (now - cachedTime < MASTER_ATTENDANCE_CACHE_TTL)) {
-        _masterAttendanceCache = JSON.parse(cachedStr);
-        _masterAttendanceCacheTime = cachedTime;
-        return _masterAttendanceCache;
+      var cachedStr = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('bb_master_att_cache') : null)
+        || (typeof localStorage !== 'undefined' ? localStorage.getItem('bb_master_att_cache') : null);
+      if (cachedStr) {
+        var parsedLocalAtt = JSON.parse(cachedStr);
+        if (parsedLocalAtt && parsedLocalAtt.squads) {
+          _masterAttendanceCache = parsedLocalAtt;
+          return _masterAttendanceCache;
+        }
       }
     } catch (e) {}
   }
@@ -157,6 +158,12 @@ async function getMasterAttendanceData(forceRefresh) {
           sessionStorage.setItem('bb_master_att_cache', JSON.stringify(parsed));
           sessionStorage.setItem('bb_master_att_cache_time', String(now));
         } catch (e2) {}
+      }
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('bb_master_att_cache', JSON.stringify(parsed));
+          localStorage.setItem('bb_master_att_cache_time', String(now));
+        } catch (e3) {}
       }
       return parsed;
     }
