@@ -1446,11 +1446,12 @@ select.form-input,
   top: 22px;
   left: 0;
   right: 0;
-  z-index: 30;
+  z-index: 35;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 14px;
+  pointer-events: none;
 }
 
 .story-header-left {
@@ -1523,6 +1524,10 @@ select.form-input,
 .story-btn-icon:hover {
   background: rgba(0, 0, 0, 0.75);
   transform: scale(1.08);
+}
+
+.story-btn-icon * {
+  pointer-events: none;
 }
 
 .story-media-container {

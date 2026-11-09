@@ -9,7 +9,37 @@
  */
 
 // ── State ──────────────────────────────────────────────────────────────────
-var galleryImages = [];
+// ── Default Fallback Gallery Images (Zero-Blank Offline Resilience) ────────
+var DEFAULT_GALLERY_IMAGES = [
+  {
+    id: 'gal-default-1',
+    url: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800&h=600&fit=crop&q=80',
+    type: 'image'
+  },
+  {
+    id: 'gal-default-2',
+    url: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?w=800&h=600&fit=crop&q=80',
+    type: 'image'
+  },
+  {
+    id: 'gal-default-3',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    type: 'video'
+  }
+];
+
+var galleryImages = (function() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_gallery_cache');
+      if (cached) {
+        var parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_GALLERY_IMAGES));
+})();
 var _currentGalleryFilter = 'all'; // 'all' | 'photos' | 'videos'
 
 /**
@@ -306,6 +336,9 @@ async function loadGallery() {
     }
   } catch (e) {
     console.warn('loadGallery error:', e);
+    if (!galleryImages.length) {
+      DEFAULT_GALLERY_IMAGES.forEach(function(item) { galleryImages.push(item); });
+    }
   }
 
   if (typeof window !== 'undefined') {
@@ -1408,7 +1441,11 @@ function updateStorySlideView() {
 /**
  * Toggles video sound between muted and unmuted
  */
-function toggleStorySound() {
+function toggleStorySound(e) {
+  if (e) {
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+  }
   var videoEl = document.getElementById('story-viewer-video');
   var iframeEl = document.getElementById('story-viewer-iframe');
 
@@ -1431,7 +1468,6 @@ function toggleStorySound() {
         iframeEl.contentWindow.postMessage(JSON.stringify({ method: 'setVolume', value: _isStoryMuted ? 0 : 1 }), '*');
       } catch (_) {}
     }
-
   }
 
   updateSoundIcon(_isStoryMuted);
@@ -1643,6 +1679,10 @@ function isStoryMuted() {
 }
 
 function toggleStoryPause(e) {
+  if (e) {
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+  }
   var now = Date.now();
   if (e && e.type === 'click' && now - _lastTouchTapTime < 450) {
     return;
@@ -1757,6 +1797,27 @@ function attachStoryHoldListeners() {
   var card = document.querySelector('.story-viewer-card') || document.getElementById('story-media-wrap') || document.getElementById('story-viewer-modal');
   if (!card) return;
   _storyHoldAttached = true;
+
+    var soundBtn = document.getElementById('story-btn-sound');
+  if (soundBtn) {
+    soundBtn.onclick = function(e) {
+      if (e) {
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+      }
+      toggleStorySound(e);
+    };
+  }
+  var pauseBtn = document.getElementById('story-btn-pause');
+  if (pauseBtn) {
+    pauseBtn.onclick = function(e) {
+      if (e) {
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+      }
+      toggleStoryPause(e);
+    };
+  }
 
   // Desktop mouse hold-to-pause (holding > 200ms pauses; release resumes; click toggles pause)
   card.addEventListener('mousedown', function(e) {
@@ -2331,6 +2392,7 @@ async function deleteStoryHighlight(id) {
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 if (typeof window !== 'undefined') {
   window.galleryImages          = galleryImages;
+  window.DEFAULT_GALLERY_IMAGES = DEFAULT_GALLERY_IMAGES;
   window.storyHighlights        = storyHighlights;
   window.normalizeMediaUrl      = normalizeMediaUrl;
   window.isVideoMedia           = isVideoMedia;
@@ -2381,7 +2443,8 @@ if (typeof window !== 'undefined') {
 // ── Node.js Module Exports ──────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    galleryImages: galleryImages,
+    DEFAULT_GALLERY_IMAGES: DEFAULT_GALLERY_IMAGES,
+  galleryImages: galleryImages,
     DEFAULT_STORY_HIGHLIGHTS: DEFAULT_STORY_HIGHLIGHTS,
     normalizeMediaUrl: normalizeMediaUrl,
     isVideoMedia: isVideoMedia,

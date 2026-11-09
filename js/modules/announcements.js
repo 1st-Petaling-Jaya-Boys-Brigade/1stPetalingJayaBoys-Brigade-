@@ -8,8 +8,34 @@
 
 /* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator */
 
+// ── Default Fallback Announcements (Zero-Blank Offline Resilience) ────────
+var DEFAULT_ANNOUNCEMENTS = [
+  {
+    id: 'ann-default-welcome',
+    title: 'Welcome to the 1st Petaling Jaya Boys\' Brigade Portal',
+    body: '<p>Welcome all members, recruits, parents, and officers to the official 1stPJ Boys\' Brigade Portal, which serves as an all-in-one hub for parade and calendar schedules, badge tracking, uniform store, forms, company announcements and more.</p>',
+    created_at: '2026-11-01T00:00:00.000Z',
+    author: 'Captain',
+    category: 'General',
+    image_url: null,
+    reactions: {},
+    allowed_reactions: ['✅', '❌', '🙌', '👍', '🙏', '🔥', '❤️', '🥳', '🎉']
+  }
+];
+
 // ── State ──────────────────────────────────────────────────────────────────
-var announcements = [];
+var announcements = (function() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_announcements_cache');
+      if (cached) {
+        var parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_ANNOUNCEMENTS));
+})();
 
 // ── Curated WhatsApp Emoji Reaction Allowlist ───────────────────────────
 // The 9 official WhatsApp emojis for member reactions
@@ -463,6 +489,10 @@ async function loadAnnouncements() {
       }
 
       var rows = (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) ? results[1].value : null;
+      if (results[1].status !== 'fulfilled' && announcements.length === 0) {
+        // Network or server timeout: preserve cached or fallback data
+        announcements = JSON.parse(JSON.stringify(DEFAULT_ANNOUNCEMENTS));
+      }
       if (rows && rows.length > 0) {
         announcements.length = 0;
         for (var rIdx = 0; rIdx < rows.length; rIdx++) {
@@ -522,6 +552,7 @@ async function loadAnnouncements() {
 
   if (typeof window !== 'undefined') {
     window.announcements = announcements;
+    window.DEFAULT_ANNOUNCEMENTS = DEFAULT_ANNOUNCEMENTS;
   }
   renderAnnouncements();
   if (typeof syncAnnouncementNotifications === 'function') {
@@ -1979,6 +2010,7 @@ if (typeof window !== 'undefined') {
 // ── Node.js Module Exports ──────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    DEFAULT_ANNOUNCEMENTS: DEFAULT_ANNOUNCEMENTS,
     announcements: announcements,
     SAFE_REACTION_EMOJIS: SAFE_REACTION_EMOJIS,
     REACT_EMOJIS: REACT_EMOJIS,
