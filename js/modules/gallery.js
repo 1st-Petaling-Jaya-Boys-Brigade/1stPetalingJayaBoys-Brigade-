@@ -261,6 +261,20 @@ async function uploadSingleMediaFile(file) {
  * Loads all gallery images and videos from Supabase ordered by creation date ascending
  */
 async function loadGallery() {
+  // Synchronous cache hydration for 0ms instantaneous render on startup
+  if (galleryImages.length === 0 && typeof localStorage !== 'undefined') {
+    try {
+      var cachedGalStr = localStorage.getItem('bb_gallery_cache');
+      if (cachedGalStr) {
+        var parsedLocalGal = JSON.parse(cachedGalStr);
+        if (Array.isArray(parsedLocalGal) && parsedLocalGal.length > 0) {
+          parsedLocalGal.forEach(function(item) { galleryImages.push(item); });
+          renderGallery();
+        }
+      }
+    } catch (_) {}
+  }
+
   try {
     var client = getSupa();
     if (client && client.req) {
@@ -270,12 +284,24 @@ async function loadGallery() {
       } catch (errGet) {
         rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=*');
       }
-      galleryImages.length = 0;
-      if (rows && rows.length) {
+      if (Array.isArray(rows) && rows.length > 0) {
+        galleryImages.length = 0;
         rows.forEach(function(r) {
           var detectedType = r.type || (isVideoMedia(r.url) ? 'video' : 'image');
           galleryImages.push({ id: r.id, url: r.url, type: detectedType });
         });
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('bb_gallery_cache', JSON.stringify(galleryImages));
+          }
+        } catch (_) {}
+      } else if (Array.isArray(rows) && rows.length === 0) {
+        galleryImages.length = 0;
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('bb_gallery_cache');
+          }
+        } catch (_) {}
       }
     }
   } catch (e) {
@@ -1406,15 +1432,6 @@ function toggleStorySound() {
       } catch (_) {}
     }
 
-    var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
-    var curHighlight = activeHighlights[_currentStoryHighlightIdx];
-    var curSlide = curHighlight && curHighlight.items ? curHighlight.items[_currentStorySlideIdx] : null;
-    var rawUrl = curSlide ? (curSlide.url || '') : '';
-    if (rawUrl.indexOf('drive.google.com') !== -1 || rawUrl.indexOf('docs.google.com') !== -1) {
-      if (typeof showToast === 'function') {
-        showToast('Use player sound icon on video to mute/unmute Drive audio', 'info');
-      }
-    }
   }
 
   updateSoundIcon(_isStoryMuted);
@@ -1565,8 +1582,10 @@ function pauseStoryPlayback() {
     var curSlide = curHighlight && curHighlight.items ? curHighlight.items[_currentStorySlideIdx] : null;
     var rawUrl = curSlide ? (curSlide.url || '') : '';
     if (rawUrl.indexOf('drive.google.com') !== -1 || rawUrl.indexOf('docs.google.com') !== -1) {
-      if (typeof showToast === 'function') {
-        showToast('Click the video to pause/resume Drive playback', 'info');
+      if (!iframeEl.dataset) iframeEl.dataset = {};
+      if (iframeEl.src && !iframeEl.src.includes('about:blank')) {
+        iframeEl.dataset.pausedSrc = iframeEl.src;
+        iframeEl.src = 'about:blank';
       }
     }
   }
@@ -1596,7 +1615,10 @@ function resumeStoryPlayback() {
   } else {
     var iframeEl = document.getElementById('story-viewer-iframe');
     if (iframeEl && iframeEl.style.display !== 'none') {
-      if (iframeEl.contentWindow && typeof iframeEl.contentWindow.postMessage === 'function') {
+      if (iframeEl.dataset && iframeEl.dataset.pausedSrc) {
+        iframeEl.src = iframeEl.dataset.pausedSrc;
+        delete iframeEl.dataset.pausedSrc;
+      } else if (iframeEl.contentWindow && typeof iframeEl.contentWindow.postMessage === 'function') {
         try {
           iframeEl.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
           iframeEl.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
@@ -1610,6 +1632,14 @@ function resumeStoryPlayback() {
     pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     pauseBtn.title = 'Pause Highlight';
   }
+}
+
+function isStoryPaused() {
+  return _isStoryPaused;
+}
+
+function isStoryMuted() {
+  return _isStoryMuted;
 }
 
 function toggleStoryPause(e) {
@@ -2325,6 +2355,8 @@ if (typeof window !== 'undefined') {
   window.pauseStoryPlayback     = pauseStoryPlayback;
   window.resumeStoryPlayback    = resumeStoryPlayback;
   window.toggleStoryPause       = toggleStoryPause;
+  window.isStoryPaused          = isStoryPaused;
+  window.isStoryMuted           = isStoryMuted;
   window.showStoryCenterPulse     = showStoryCenterPulse;
   window.openCreateStoryModal   = openCreateStoryModal;
   window.openEditStoryModal     = openEditStoryModal;
@@ -2378,6 +2410,8 @@ if (typeof module !== 'undefined' && module.exports) {
     pauseStoryPlayback: pauseStoryPlayback,
     resumeStoryPlayback: resumeStoryPlayback,
     toggleStoryPause: toggleStoryPause,
+    isStoryPaused: isStoryPaused,
+    isStoryMuted: isStoryMuted,
     showStoryCenterPulse: showStoryCenterPulse,
     openCreateStoryModal: openCreateStoryModal,
     openEditStoryModal: openEditStoryModal,

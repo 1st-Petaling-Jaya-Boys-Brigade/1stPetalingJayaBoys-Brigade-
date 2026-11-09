@@ -704,13 +704,16 @@ async function verifyActiveMemberSession(force) {
 
     // 2. Query bb_members table directly for active member row
     var query = 'bb_members?select=ic,email,department&or=(ic.eq.' + encodeURIComponent(lookupId) +
-      (email ? (',email.eq.' + encodeURIComponent(email)) : '') + ')';
+      (email ? (',email.ilike.' + encodeURIComponent(cleanEmail)) : '') + ')';
     var rows = await client.get(query);
 
-    // If no record exists or marked as deleted, immediately revoke access
-    if (!rows || rows.length === 0 || rows[0].department === 'deleted' || (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)) {
-      forceKickDeletedAccount();
-      return false;
+    // Only revoke access if database explicitly returns a record marked as deleted or archived.
+    // Transient network timeouts, empty query fallbacks, or offline states must NEVER purge user sessions.
+    if (Array.isArray(rows) && rows.length > 0) {
+      if (rows[0].department === 'deleted' || (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)) {
+        forceKickDeletedAccount();
+        return false;
+      }
     }
 
     _lastSessionVerifyTime = Date.now();

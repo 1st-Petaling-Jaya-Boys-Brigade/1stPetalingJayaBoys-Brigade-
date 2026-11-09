@@ -109,7 +109,7 @@ function getSupaClient() {
  * Enhanced with 12s AbortController timeout boundaries and queue-abort de-registration.
  */
 const MAX_CONCURRENT_REQUESTS = 12;
-const DEFAULT_REQUEST_TIMEOUT_MS = 12000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 let _activeRequests = 0;
 const _requestQueue = [];
 
@@ -272,8 +272,9 @@ const supa = {
           });
 
           // Handle rate limit (HTTP 429) and server errors (HTTP 500-599) with exponential backoff & jitter
+          // Fail fast on HTTP 544 DatabaseTimeout to prevent cascading connection pool exhaustion
           if (r.status === 429 || (r.status >= 500 && r.status <= 599)) {
-            if (attempt < maxRetries) {
+            if (attempt < maxRetries && r.status !== 544) {
               attempt++;
               let delay = baseDelay * Math.pow(2, attempt) + Math.random() * 50;
               const retryAfter = r.headers && typeof r.headers.get === 'function' ? r.headers.get('Retry-After') : null;
@@ -1170,11 +1171,24 @@ var PortalRealtime = (function() {
     } catch (_) {}
   }
 
-  // 3. Smart Fast Delta Poller (3s fallback interval, tiny payload)
+  // 3. Smart Adaptive Delta Poller (25s interval, backoff on error, paused when hidden or WebSocket active)
+  var _deltaSyncBackoff = 25000;
+
   async function checkDeltaSync() {
-    if (typeof document !== 'undefined' && document.hidden) return;
+    if (typeof document !== 'undefined' && document.hidden) {
+      scheduleNextDeltaSync(30000);
+      return;
+    }
+    // If WebSocket is alive and receiving live events, skip polling
+    if (_ws && _ws.readyState === 1) {
+      scheduleNextDeltaSync(30000);
+      return;
+    }
     var client = (typeof getSupaClient === 'function') ? getSupaClient() : null;
-    if (!client || typeof client.get !== 'function') return;
+    if (!client || typeof client.get !== 'function') {
+      scheduleNextDeltaSync(30000);
+      return;
+    }
 
     try {
       var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_company_projects)&select=key,updated_at');
@@ -1209,12 +1223,23 @@ var PortalRealtime = (function() {
         }
         _lastEntityTimestamps['bb_members_latest'] = mKey;
       }
-    } catch (_) {}
+      _deltaSyncBackoff = 25000;
+    } catch (_) {
+      // Back off on error to prevent database saturation
+      _deltaSyncBackoff = Math.min(60000, _deltaSyncBackoff * 1.5);
+    }
+    scheduleNextDeltaSync(_deltaSyncBackoff);
+  }
+
+  function scheduleNextDeltaSync(delayMs) {
+    if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
+    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 25000);
   }
 
   function startDeltaSync() {
-    if (_deltaSyncTimer) clearInterval(_deltaSyncTimer);
-    _deltaSyncTimer = setInterval(checkDeltaSync, 3500);
+    if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
+    _deltaSyncBackoff = 25000;
+    scheduleNextDeltaSync(25000);
   }
 
   // 4. Central Realtime Dispatcher
