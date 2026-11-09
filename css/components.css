@@ -1895,6 +1895,57 @@ select.form-input,
   display: block;
 }
 
+/* ── WhatsApp Consistent Emoji & Announcement Reactions ── */
+.wa-emoji {
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ann-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.ann-reaction-chip:hover {
+  border-color: var(--gold);
+}
+
+.ann-reaction-chip.active {
+  border-color: var(--gold);
+  background: rgba(200, 150, 30, 0.15);
+  color: var(--gold);
+  opacity: 1;
+}
+
+.ann-reaction-chip:not(.active) {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+.ann-view-reactions-btn {
+  transition: all 0.15s ease;
+}
+
+.ann-view-reactions-btn:hover {
+  background: var(--bg-card) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
 /* ── TASKS & PROJECT BOARD ── */
 .tasks-segmented-bar {
   display: flex;
