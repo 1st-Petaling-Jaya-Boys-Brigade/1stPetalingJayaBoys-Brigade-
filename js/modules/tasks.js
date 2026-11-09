@@ -17,7 +17,8 @@ var DEPT_CONFIG = {
   logistics:      { label: 'Logistics',      color: '#42a5f5',      cls: 'dept-logistics',   prefix: 'LOG' },
   media:          { label: 'Media',          color: '#ffb74d',      cls: 'dept-media',       prefix: 'MED' },
   hq:             { label: 'HQ',             color: '#10b981',      cls: 'dept-hq',          prefix: 'HQ'  },
-  officers:       { label: 'Officers',       color: '#f59e0b',      cls: 'dept-officers',    prefix: 'OFF' }
+  officers:       { label: 'Officers',       color: '#f59e0b',      cls: 'dept-officers',    prefix: 'OFF' },
+  officer:        { label: 'Officers',       color: '#f59e0b',      cls: 'dept-officers',    prefix: 'OFF' }
 };
 
 var STATUS_ORDER = ['planning', 'todo', 'inprogress', 'inreview', 'completed'];
@@ -348,11 +349,13 @@ function switchTaskTab(tab, btn) {
 function hasDepartmentRole(memberOrDept, rank) {
   var dept = '';
   var rk = rank || '';
+  var sec = '';
   var explicitMember = false;
 
   if (memberOrDept && typeof memberOrDept === 'object') {
     dept = memberOrDept.department || '';
     rk = memberOrDept.rank || rk;
+    sec = memberOrDept.section || memberOrDept.att_section || '';
     explicitMember = true;
   } else if (typeof memberOrDept === 'string') {
     dept = memberOrDept;
@@ -366,9 +369,12 @@ function hasDepartmentRole(memberOrDept, rank) {
     if (!rk && typeof sessionGet === 'function') {
       rk = sessionGet('rank') || '';
     }
+    if (!sec && typeof sessionGet === 'function') {
+      sec = sessionGet('section') || '';
+    }
   }
 
-  // 1. Department Assignment Check (Media, Logistics, Secretariat, HQ)
+  // 1. Department Assignment Check (Media, Logistics, Secretariat, HQ, Officers)
   if (dept) {
     var dKey = String(dept).toLowerCase().trim();
     if (
@@ -378,11 +384,15 @@ function hasDepartmentRole(memberOrDept, rank) {
       dKey === 'secretariat' ||
       dKey === 'logistics' ||
       dKey === 'media' ||
-      dKey === 'hq'
+      dKey === 'hq' ||
+      dKey === 'officers' ||
+      dKey === 'officer'
     ) {
       return true;
     }
   }
+  // 2. Explicit department assignment is required for Projects & Tasks access.
+  // Department 'officers' / 'officer' grants full department access to officers.
 
   // 3. Officer Admin active session
   if (!explicitMember) {
@@ -531,17 +541,20 @@ async function checkTasksAccess() {
   }
 
   try {
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,department,rank');
+    if (typeof client.get !== 'function') return;
+    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,department,rank,section,att_section,squad');
     var m    = data && data[0];
     var dept = m && m.department;
     var rank = (m && m.rank) || (typeof sessionGet === 'function' ? sessionGet('rank') : '');
+    var sec  = (m && (m.att_section || m.section)) || (typeof sessionGet === 'function' ? sessionGet('section') : '');
 
     if (typeof sessionSet === 'function') {
       if (sessionGet('department') !== (dept || '')) sessionSet('department', dept || '', { localOnly: true });
       if (rank && sessionGet('rank') !== rank) sessionSet('rank', rank, { localOnly: true });
+      if (sec && sessionGet('section') !== sec) sessionSet('section', sec, { localOnly: true });
     }
 
-    var isAllowed = hasDepartmentRole(m || { department: dept, rank: rank }, rank);
+    var isAllowed = hasDepartmentRole(m || { department: dept, rank: rank, section: sec }, rank);
 
     if (!isAllowed) {
       if (boardPill) boardPill.style.display = 'none';
@@ -561,7 +574,15 @@ async function checkTasksAccess() {
     if (boardPill) boardPill.style.display = 'inline-flex';
     if (snavTasks) snavTasks.style.display = 'flex';
 
-    if (!dept || !DEPT_CONFIG[dept.toLowerCase()]) {
+    var cleanDeptKey = String(dept || '').toLowerCase().trim();
+    if (cleanDeptKey === 'officer') cleanDeptKey = 'officers';
+    var cleanSecKey = String(sec || '').toLowerCase().trim();
+    var isOfficerRankUser = ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer'].indexOf(rank) !== -1;
+    if (!cleanDeptKey && (cleanSecKey === 'officer' || cleanSecKey === 'officers' || isOfficerRankUser)) {
+      cleanDeptKey = 'officers';
+    }
+
+    if (!cleanDeptKey || !DEPT_CONFIG[cleanDeptKey]) {
       if (boardPill) boardPill.style.display = 'none';
       if (snavTasks) snavTasks.style.display = 'none';
       if (gate) {
@@ -575,12 +596,12 @@ async function checkTasksAccess() {
       return;
     }
 
-    var cfg = DEPT_CONFIG[dept.toLowerCase()];
+    var cfg = DEPT_CONFIG[cleanDeptKey];
     var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
     var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Projects & Tasks';
     var db  = document.getElementById('tasks-dept-badge');
     if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
-    _currentDeptFilter = dept.toLowerCase();
+    _currentDeptFilter = cleanDeptKey;
 
     if (gate) gate.style.display = 'none';
     if (board) board.style.display = 'block';

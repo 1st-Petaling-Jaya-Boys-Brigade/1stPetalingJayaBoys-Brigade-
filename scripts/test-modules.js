@@ -4233,8 +4233,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261109e',
-    'sw.js CACHE_VERSION must be 20261109e'
+    '20261109f',
+    'sw.js CACHE_VERSION must be 20261109f'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4265,7 +4265,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109e',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109f',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7037,7 +7037,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109e'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109f'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8945,12 +8945,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109e', 'Service Worker cache version must be 20261109e');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109f', 'Service Worker cache version must be 20261109f');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261109e and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261109f and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10197,25 +10197,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109e', 'sw.js CACHE_VERSION must be 20261109e');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109e', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109e', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109f', 'sw.js CACHE_VERSION must be 20261109f');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109f', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109f', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261109e cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261109f cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261109e'), 'config.js must use v=20261109e');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109e'), 'forum.js must use v=20261109e');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261109e'), 'variables.css must use v=20261109e');
-    assert.ok(indexRaw.includes('css/base.css?v=20261109e'), 'base.css must use v=20261109e');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109e');
+    assert.ok(indexRaw.includes('js/config.js?v=20261109f'), 'config.js must use v=20261109f');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109f'), 'forum.js must use v=20261109f');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261109f'), 'variables.css must use v=20261109f');
+    assert.ok(indexRaw.includes('css/base.css?v=20261109f'), 'base.css must use v=20261109f');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109f');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -10889,6 +10889,148 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       if (chipContainer.parentNode) chipContainer.parentNode.removeChild(chipContainer);
       console.log('  ✔ Admin announcement reaction chips and presets (All, Poll, Clear) verified');
     }
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const idSet = new Set();
+    allMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) idSet.add(matchId[1]);
+    });
+    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // ── Testing Highlights Video Playback, Unmuted Audio, Progress Bar & Realtime Member Sync ──
+  console.log('\nTesting Highlights Video Playback, Unmuted Audio, Progress Bar & Realtime Member Sync...');
+  {
+    const tasksMod = require('../js/modules/tasks.js');
+    const galleryMod = require('../js/modules/gallery.js');
+    const supaMod = require('../js/api/supabase.js');
+
+    // 1. Department Role Gate: Officers Access
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'Officers', rank: 'Lieutenant' }), true, 'Officer with department Officers must have access');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'officers', rank: 'Captain' }), true, 'Department officers (lowercase) must have access');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'officer', rank: 'Lieutenant' }), true, 'Department officer (singular) must have access');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'Media', rank: 'Corporal' }), true, 'Department Media must have access');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), false, 'Officer without explicit department role must be blocked');
+    console.log('  ✔ Projects & Tasks department role gating correctly admits Officers department and requires explicit assignment');
+
+    // 2. Real-time Member Profile Updates & Sidebar Badge Formatting
+    const sessionMod = require('../js/core/session.js');
+    global.sessionGet = sessionMod.sessionGet;
+    global.sessionSet = sessionMod.sessionSet;
+    if (typeof window !== 'undefined') {
+      window.sessionGet = sessionMod.sessionGet;
+      window.sessionSet = sessionMod.sessionSet;
+    }
+    global.sessionSet('ic', 'tester-sync@pjbb.org');
+    global.sessionSet('name', 'Tester Account');
+    global.sessionSet('rank', 'Private');
+    global.sessionSet('department', '');
+    global.sessionSet('section', 'Senior');
+
+    let sidebarNameEl = document.getElementById('sidebar-user-name');
+    let sidebarBadgeEl = document.getElementById('sidebar-user-badge');
+    if (!sidebarNameEl) {
+      sidebarNameEl = document.createElement('div');
+      sidebarNameEl.id = 'sidebar-user-name';
+      document.body.appendChild(sidebarNameEl);
+    }
+    if (!sidebarBadgeEl) {
+      sidebarBadgeEl = document.createElement('div');
+      sidebarBadgeEl.id = 'sidebar-user-badge';
+      document.body.appendChild(sidebarBadgeEl);
+    }
+
+    (supaMod.triggerRealtime || (supaMod.PortalRealtime && supaMod.PortalRealtime.trigger) || global.PortalRealtime.trigger)('members', 'update', {
+      ic: 'tester-sync@pjbb.org',
+      name: 'Tester Account',
+      rank: 'Lieutenant',
+      department: 'Officers',
+      att_section: 'Officer',
+      section: 'Officer'
+    });
+
+    assert.strictEqual(global.sessionGet('department'), 'Officers', 'Realtime member update must synchronize department to Officers');
+    assert.strictEqual(global.sessionGet('rank'), 'Lieutenant', 'Realtime member update must synchronize rank to Lieutenant');
+    assert.strictEqual(sidebarBadgeEl.textContent, 'Lieutenant · Officer', 'Sidebar badge must cleanly separate rank and section with · without concatenation');
+    console.log('  ✔ Real-time member sync immediately updates session and formats user badge as "Lieutenant · Officer"');
+
+    // 3. Highlights Video Playback & Default Unmuted Audio
+    const mockModal = document.getElementById('story-viewer-modal');
+    const mockVideoEl = document.getElementById('story-viewer-video');
+    const mockIframeEl = document.getElementById('story-viewer-iframe');
+    const mockImgEl = document.getElementById('story-viewer-img');
+    const mockSoundBtn = document.getElementById('story-btn-sound');
+
+    // Open video slide
+    galleryMod.openStoryViewer(2, 1);
+    assert.strictEqual(mockModal.style.display, 'flex', 'Highlight viewer modal must be visible');
+    assert.strictEqual(mockVideoEl.style.display, 'block', 'Direct HTML5 video element must be visible');
+    assert.strictEqual(mockVideoEl.muted, false, 'Audio must be unmuted by default on video playback');
+    assert.strictEqual(mockSoundBtn.title, 'Mute Story Sound', 'Sound button must indicate ability to mute unmuted audio');
+
+    // User can toggle mute/unmute
+    galleryMod.toggleStorySound();
+    assert.strictEqual(mockVideoEl.muted, true, 'User toggling sound mutes the video');
+    assert.strictEqual(mockSoundBtn.title, 'Unmute Story Sound', 'Sound button updates title to Unmute');
+
+    galleryMod.toggleStorySound();
+    assert.strictEqual(mockVideoEl.muted, false, 'User toggling sound again unmutes the video');
+    console.log('  ✔ Highlight video slide plays unmuted by default with toggleable mute controls');
+
+    // 4. Google Drive Video & Photo Handling
+    const driveHighlight = {
+      id: 'story-gdrive-test',
+      title: 'Drive Showcase',
+      active: true,
+      items: [
+        {
+          id: 'gd-vid',
+          url: 'https://drive.google.com/file/d/1DriveVidSample999/view?usp=sharing',
+          type: 'video',
+          caption: 'Drive Video Slide',
+          duration: 30
+        },
+        {
+          id: 'gd-img',
+          url: 'https://drive.google.com/file/d/1DrivePhotoSample888/view?usp=sharing',
+          type: 'image',
+          caption: 'Drive Photo Slide',
+          duration: 5
+        }
+      ]
+    };
+
+    galleryMod.storyHighlights.push(driveHighlight);
+    const gdHighlightIdx = galleryMod.storyHighlights.length - 1;
+
+    // Slide 0: Drive Video -> must render in iframe preview stream with autoplay=1
+    galleryMod.openStoryViewer(gdHighlightIdx, 0);
+    assert.strictEqual(mockIframeEl.style.display, 'block', 'Google Drive video must be displayed in iframe player');
+    assert.strictEqual(mockVideoEl.style.display, 'none', 'Direct video element must be hidden for Google Drive video');
+    assert.ok(mockIframeEl.src.includes('1DriveVidSample999/preview'), 'Iframe src must embed Drive preview URL');
+    assert.ok(mockIframeEl.src.includes('autoplay=1'), 'Iframe src must have autoplay parameter');
+
+    // Slide 1: Drive Photo -> must render in img tag using lh3 direct image stream
+    galleryMod.openStoryViewer(gdHighlightIdx, 1);
+    assert.strictEqual(mockImgEl.style.display, 'block', 'Google Drive photo must be displayed in img tag');
+    assert.strictEqual(mockIframeEl.style.display, 'none', 'Iframe must be hidden for Google Drive photo');
+    assert.ok(mockImgEl.src.includes('lh3.googleusercontent.com/d/1DrivePhotoSample888'), 'Img src must load from Googleusercontent direct URL');
+
+    galleryMod.closeStoryViewer();
+    galleryMod.storyHighlights.pop();
+    console.log('  ✔ Google Drive videos render via embedded preview iframe; Google Drive photos render via direct image stream');
+
+    // 5. Desktop Highlights UI & Keyboard Navigation
+    const compCss = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    assert.ok(compCss.includes('.story-viewer-modal'), 'components.css defines .story-viewer-modal');
+    assert.ok(compCss.includes('.story-viewer-card'), 'components.css defines .story-viewer-card');
+    assert.ok(compCss.includes('.story-arrow-btn'), 'components.css defines .story-arrow-btn');
+    assert.ok(compCss.includes('aspect-ratio: 9/16'), '.story-viewer-card is configured with authentic 9:16 vertical ratio (Image 1)');
+    console.log('  ✔ Desktop highlights UI upgraded to centered 9:16 card on pure dark background with exterior navigation arrows (Image 1)');
 
     // 6. Strict 388 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');

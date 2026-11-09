@@ -1200,6 +1200,15 @@ var PortalRealtime = (function() {
         }
         _lastEntityTimestamps['bb_tasks_latest'] = tId;
       }
+
+      var memberRows = await client.get('bb_members?select=ic,updated_at&order=updated_at.desc&limit=1');
+      if (Array.isArray(memberRows) && memberRows.length) {
+        var mKey = (memberRows[0].ic || '') + ':' + (memberRows[0].updated_at || '');
+        if (_lastEntityTimestamps['bb_members_latest'] && _lastEntityTimestamps['bb_members_latest'] !== mKey) {
+          triggerEntityUpdate('members', 'update', memberRows[0]);
+        }
+        _lastEntityTimestamps['bb_members_latest'] = mKey;
+      }
     } catch (_) {}
   }
 
@@ -1259,6 +1268,118 @@ var PortalRealtime = (function() {
       if (typeof window !== 'undefined' && typeof window.loadProjectsCatalog === 'function') {
         window.loadProjectsCatalog();
         if (typeof window.renderProjectsView === 'function') window.renderProjectsView();
+      }
+    } else if (entity === 'members') {
+      var sessGetFn = (typeof sessionGet === 'function')
+        ? sessionGet
+        : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+          ? window.sessionGet
+          : (typeof global !== 'undefined' && typeof global.sessionGet === 'function')
+            ? global.sessionGet
+            : null;
+
+      var sessSetFn = (typeof sessionSet === 'function')
+        ? sessionSet
+        : (typeof window !== 'undefined' && typeof window.sessionSet === 'function')
+          ? window.sessionSet
+          : (typeof global !== 'undefined' && typeof global.sessionSet === 'function')
+            ? global.sessionSet
+            : null;
+
+      if (data && data.ic) {
+        try {
+          var memCache = JSON.parse(localStorage.getItem('bb_members_cache') || '[]');
+          if (Array.isArray(memCache)) {
+            var updatedCache = false;
+            memCache.forEach(function(m) {
+              if (m.ic === data.ic || (data.name && m.name === data.name)) {
+                if (data.name !== undefined) m.name = data.name;
+                if (data.rank !== undefined) m.rank = data.rank;
+                if (data.squad !== undefined) m.squad = data.squad;
+                if (data.department !== undefined) m.department = data.department;
+                if (data.section !== undefined) m.section = data.section;
+                if (data.att_section !== undefined) m.att_section = data.att_section;
+                updatedCache = true;
+              }
+            });
+            if (updatedCache) localStorage.setItem('bb_members_cache', JSON.stringify(memCache));
+          }
+        } catch (_) {}
+      }
+
+      var currentIc = sessGetFn ? (sessGetFn('ic') || sessGetFn('email')) : '';
+      var currentName = sessGetFn ? sessGetFn('name') : '';
+      var isMe = (data && data.ic && currentIc && data.ic.toLowerCase() === currentIc.toLowerCase()) ||
+                 (data && data.name && currentName && data.name.toLowerCase() === currentName.toLowerCase()) ||
+                 !data || !data.ic;
+
+      if (isMe) {
+        if (data && data.ic) {
+          if (data.name && sessSetFn) sessSetFn('name', data.name);
+          if (data.rank !== undefined && sessSetFn) sessSetFn('rank', data.rank);
+          if (data.squad !== undefined && sessSetFn) sessSetFn('squad', data.squad);
+          if (data.department !== undefined && sessSetFn) sessSetFn('department', data.department);
+          if ((data.att_section || data.section) && sessSetFn) sessSetFn('section', data.att_section || data.section);
+
+          var sn = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-name') : null;
+          if (sn && data.name) sn.textContent = data.name;
+
+          var effRank = data.rank !== undefined ? data.rank : (sessGetFn ? sessGetFn('rank') : '');
+          var effSec = data.att_section || data.section || (sessGetFn ? sessGetFn('section') : '');
+          var effSquad = data.squad !== undefined ? data.squad : (sessGetFn ? sessGetFn('squad') : '');
+          var fmtSquadFn = (typeof formatPlatoonOrSquad === 'function')
+            ? formatPlatoonOrSquad
+            : (typeof window !== 'undefined' && typeof window.formatPlatoonOrSquad === 'function')
+              ? window.formatPlatoonOrSquad
+              : (typeof global !== 'undefined' && typeof global.formatPlatoonOrSquad === 'function')
+                ? global.formatPlatoonOrSquad
+                : null;
+          var sqFmt = fmtSquadFn ? fmtSquadFn(effSquad, effSec) : (effSquad ? effSquad + ' Sq' : '');
+          var badgeStr = (effRank ? effRank + (sqFmt || effSec ? ' · ' : '') : '') + (sqFmt || effSec || 'Member');
+          var sb = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-badge') : null;
+          if (sb) sb.textContent = badgeStr;
+
+          var rbacObj = (typeof RBAC !== 'undefined') ? RBAC : (typeof window !== 'undefined' && typeof window.RBAC !== 'undefined') ? window.RBAC : (typeof global !== 'undefined' ? global.RBAC : null);
+          if (rbacObj && typeof rbacObj.renderHeaderRoleBadge === 'function') {
+            try { rbacObj.renderHeaderRoleBadge(); } catch (_) {}
+          }
+          var checkTasksFn = (typeof checkTasksAccess === 'function')
+            ? checkTasksAccess
+            : (typeof window !== 'undefined' && typeof window.checkTasksAccess === 'function')
+              ? window.checkTasksAccess
+              : (typeof global !== 'undefined' && typeof global.checkTasksAccess === 'function')
+                ? global.checkTasksAccess
+                : null;
+          if (checkTasksFn) {
+            try { checkTasksFn(); } catch (_) {}
+          }
+        }
+
+        if (!data || !data.department || !data.ic) {
+          var refreshProfileFn = (typeof refreshLoggedInUserProfile === 'function')
+            ? refreshLoggedInUserProfile
+            : (typeof window !== 'undefined' && typeof window.refreshLoggedInUserProfile === 'function')
+              ? window.refreshLoggedInUserProfile
+              : (typeof global !== 'undefined' && typeof global.refreshLoggedInUserProfile === 'function')
+                ? global.refreshLoggedInUserProfile
+                : null;
+          if (refreshProfileFn) {
+            refreshProfileFn().catch(function() {});
+          }
+        }
+      }
+
+      if (typeof document !== 'undefined') {
+        var admP = document.getElementById('page-admin');
+        if (admP && admP.style.display !== 'none') {
+          var loadAdminFn = (typeof window !== 'undefined' && typeof window.loadAdminMembers === 'function') ? window.loadAdminMembers : (typeof global !== 'undefined' && typeof global.loadAdminMembers === 'function' ? global.loadAdminMembers : null);
+          var renderAdminFn = (typeof renderAdminList === 'function') ? renderAdminList : (typeof window !== 'undefined' ? window.renderAdminList : null);
+          if (loadAdminFn && renderAdminFn) {
+            loadAdminFn().then(function() {
+              renderAdminFn();
+            }).catch(function() {});
+          }
+        }
       }
     }
 
