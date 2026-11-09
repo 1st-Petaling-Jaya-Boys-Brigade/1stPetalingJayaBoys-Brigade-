@@ -11,10 +11,158 @@
 // ── State ──────────────────────────────────────────────────────────────────
 var announcements = [];
 
-// ── Curated Positive Reaction Allowlist ───────────────────────────
-// Restricts reactions exclusively to positive/affirming emojis to prevent peer shaming
-var SAFE_REACTION_EMOJIS = ['👍', '🫡', '🎉', '❤️', '🔥', '🙏'];
-var REACT_EMOJIS = SAFE_REACTION_EMOJIS;
+// ── Curated WhatsApp Emoji Reaction Allowlist ───────────────────────────
+// The 9 official WhatsApp emojis for member reactions
+var ALL_REACTION_EMOJIS = ['✅', '❌', '🙌', '👍', '🙏', '🔥', '❤️', '🥳', '🎉'];
+var SAFE_REACTION_EMOJIS = ALL_REACTION_EMOJIS;
+var REACT_EMOJIS = ALL_REACTION_EMOJIS;
+
+// Map of official WhatsApp emoji PNG assets (Apple 64x64 style) for cross-platform visual consistency
+var WHATSAPP_EMOJI_MAP = {
+  '✅': 'assets/emojis/2705.png',
+  '❌': 'assets/emojis/274c.png',
+  '🙌': 'assets/emojis/1f64c.png',
+  '👍': 'assets/emojis/1f44d.png',
+  '🙏': 'assets/emojis/1f64f.png',
+  '🔥': 'assets/emojis/1f525.png',
+  '❤️': 'assets/emojis/2764-fe0f.png',
+  '❤': 'assets/emojis/2764-fe0f.png',
+  '🥳': 'assets/emojis/1f973.png',
+  '🎉': 'assets/emojis/1f389.png'
+};
+
+/**
+ * Renders an emoji as a consistent WhatsApp asset image across all operating systems and devices
+ * @param {string} emoji - Unicode emoji
+ * @param {number} [size=18] - Width/height in pixels
+ * @returns {string} HTML img tag or text fallback
+ */
+function renderWhatsappEmoji(emoji, size) {
+  size = size || 18;
+  var path = WHATSAPP_EMOJI_MAP[emoji];
+  if (!path) {
+    return '<span class="wa-emoji-char" style="font-size:' + size + 'px;line-height:1;display:inline-block;vertical-align:middle;">' + emoji + '</span>';
+  }
+  return '<img src="' + path + '" alt="' + emoji + '" class="wa-emoji" width="' + size + '" height="' + size + '" style="width:' + size + 'px;height:' + size + 'px;display:inline-block;vertical-align:middle;object-fit:contain;pointer-events:none;" loading="lazy" />';
+}
+
+/**
+ * Resolves full member directory details (name, rank, platoon, avatar) from a user IC/Email
+ * @param {string} userId - Member IC, email, or name
+ * @returns {Object} { name, email, ic, rank, platoon, photo_url }
+ */
+function resolveReactedMember(userId) {
+  if (!userId) return { name: 'Unknown Member', displayName: 'Unknown Member', rank: 'Member', platoon: 'General Section', photo_url: '' };
+
+  if (typeof resolveMemberDirectoryInfo === 'function') {
+    var info = resolveMemberDirectoryInfo(userId);
+    if (info && info.name) {
+      return {
+        name: info.name,
+        displayName: info.name,
+        email: info.email || '',
+        ic: info.ic || '',
+        rank: info.rank || 'Member',
+        platoon: info.squad || info.platoon || 'General Section',
+        photo_url: info.photo_url || ''
+      };
+    }
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var raw = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          var cleanId = String(userId).toLowerCase().trim();
+          var found = arr.find(function(m) {
+            return m && ((m.ic && String(m.ic).toLowerCase().trim() === cleanId) ||
+                         (m.email && String(m.email).toLowerCase().trim() === cleanId) ||
+                         (m.name && String(m.name).toLowerCase().trim() === cleanId));
+          });
+          if (found) {
+            return {
+              name: found.name,
+              displayName: found.name,
+              email: found.email || '',
+              ic: found.ic || '',
+              rank: found.rank || 'Member',
+              platoon: found.squad || found.section || 'General Section',
+              photo_url: found.photo_url || ''
+            };
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  return {
+    name: userId,
+    displayName: userId,
+    email: userId.includes('@') ? userId : '',
+    ic: userId.includes('@') ? '' : userId,
+    rank: 'Member',
+    platoon: 'General Section',
+    photo_url: ''
+  };
+}
+
+/**
+ * Toggles an emoji chip in the announcement creation/edit form
+ * @param {HTMLElement} btn
+ */
+function toggleAnnReactionChip(btn) {
+  if (!btn) return;
+  btn.classList.toggle('active');
+  if (btn.classList.contains('active')) {
+    btn.style.borderColor = 'var(--gold)';
+    btn.style.background = 'rgba(200, 150, 30, 0.15)';
+    btn.style.opacity = '1';
+    btn.style.borderStyle = 'solid';
+  } else {
+    btn.style.borderColor = 'var(--border-subtle)';
+    btn.style.background = 'var(--bg-card)';
+    btn.style.opacity = '0.45';
+    btn.style.borderStyle = 'dashed';
+  }
+}
+
+/**
+ * Applies a quick preset to the allowed announcement reactions chips
+ * @param {'all'|'poll'|'none'} preset
+ */
+function setAnnReactionPreset(preset) {
+  if (typeof document === 'undefined') return;
+  var chips = document.querySelectorAll('.ann-reaction-chip');
+  if (!chips || !chips.length) return;
+
+  chips.forEach(function(chip) {
+    var em = chip.getAttribute('data-emoji');
+    var shouldActivate = false;
+    if (preset === 'all') {
+      shouldActivate = true;
+    } else if (preset === 'poll') {
+      shouldActivate = (em === '✅' || em === '❌');
+    } else if (preset === 'none' || preset === 'clear') {
+      shouldActivate = false;
+    }
+
+    if (shouldActivate) {
+      chip.classList.add('active');
+      chip.style.borderColor = 'var(--gold)';
+      chip.style.background = 'rgba(200, 150, 30, 0.15)';
+      chip.style.opacity = '1';
+      chip.style.borderStyle = 'solid';
+    } else {
+      chip.classList.remove('active');
+      chip.style.borderColor = 'var(--border-subtle)';
+      chip.style.background = 'var(--bg-card)';
+      chip.style.opacity = '0.45';
+      chip.style.borderStyle = 'dashed';
+    }
+  });
+}
 
 var ANN_EMOJIS = [
   '📢', '📌', '✅', '❌', '⚠️', '🎉', '🏆', '📅', '🕐', '📝', '👥', '🎖️',
@@ -394,22 +542,53 @@ function renderAnnouncements() {
     var reactions = a.reactions || {};
 
     // Build reaction buttons
-    var reactHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">';
-    REACT_EMOJIS.forEach(function(emoji) {
-      var who = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
-      var count = who.length;
-      var mine = currentUserId && who.indexOf(currentUserId) !== -1;
+    var allowed = (a.reactions && Array.isArray(a.reactions._allowed))
+      ? a.reactions._allowed
+      : (Array.isArray(a.allowed_reactions) ? a.allowed_reactions : ALL_REACTION_EMOJIS);
 
-      reactHtml += '<button type="button" data-react="' + realIdx + '" data-emoji="' + emoji + '" '
-        + 'aria-label="React ' + emoji + '" '
-        + 'style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;border:1.5px solid '
-        + (mine ? 'var(--gold)' : 'var(--border-subtle)') + ';background:'
-        + (mine ? 'rgba(200,150,30,0.15)' : 'var(--bg-card-subtle)') + ';cursor:pointer;transition:all 0.15s;">'
-        + '<span style="font-size:16px;">' + emoji + '</span>'
-        + (count > 0 ? '<span style="font-size:12px;font-weight:700;color:' + (mine ? 'var(--gold)' : 'var(--text-secondary)') + ';">' + count + '</span>' : '')
-        + '</button>';
-    });
-    reactHtml += '</div>';
+    var reactHtml = '';
+    if (allowed.length > 0) {
+      reactHtml = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">';
+      allowed.forEach(function(emoji) {
+        var who = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+        var count = who.length;
+        var mine = currentUserId && who.indexOf(currentUserId) !== -1;
+        var whoNames = who.map(function(uid) {
+          var m = resolveReactedMember(uid);
+          return m.name;
+        }).join(', ');
+        var tip = count > 0 ? ('Reacted by: ' + whoNames) : ('React ' + emoji);
+
+        reactHtml += '<button type="button" data-react="' + realIdx + '" data-emoji="' + emoji + '" '
+          + 'aria-label="React ' + emoji + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(tip) : tip) + '" '
+          + 'style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;border:1.5px solid '
+          + (mine ? 'var(--gold)' : 'var(--border-subtle)') + ';background:'
+          + (mine ? 'rgba(200,150,30,0.15)' : 'var(--bg-card-subtle)') + ';cursor:pointer;transition:all 0.15s;">'
+          + renderWhatsappEmoji(emoji, 18)
+          + (count > 0 ? '<span style="font-size:12px;font-weight:700;color:' + (mine ? 'var(--gold)' : 'var(--text-secondary)') + ';">' + count + '</span>' : '')
+          + '</button>';
+      });
+
+      var canViewReactions = (typeof isSuperAdmin === 'function' && isSuperAdmin())
+        || (typeof isAdmin === 'function' && isAdmin())
+        || (typeof isPortalCreator === 'function' && isPortalCreator());
+
+      var totalReactions = 0;
+      Object.keys(reactions).forEach(function(k) {
+        if (k !== '_allowed' && Array.isArray(reactions[k])) totalReactions += reactions[k].length;
+      });
+
+      if (canViewReactions) {
+        reactHtml += '<button type="button" class="ann-view-reactions-btn" onclick="openAnnouncementReactionsModal(' + realIdx + ')" '
+          + 'title="View members who reacted to this announcement" '
+          + 'style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;border:1px solid var(--border-card);background:var(--bg-card-subtle);color:var(--text-secondary);font-size:11.5px;cursor:pointer;font-weight:600;transition:all 0.15s;">'
+          + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+          + '<span>Reactions (' + totalReactions + ')</span>'
+          + '</button>';
+      }
+
+      reactHtml += '</div>';
+    }
 
     var safeTitle = formatAnnouncementMentions((typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || ''));
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
@@ -486,18 +665,31 @@ async function toggleReaction(annIdx, emoji) {
     if (typeof showToast === 'function') {
       showToast('Please log in to react to announcements.', 'warning');
     }
-    return;
+    return false;
   }
 
   var a = announcements[annIdx];
-  if (!a) return;
-  // Enforce curated positive reaction allowlist
-  if (SAFE_REACTION_EMOJIS.indexOf(emoji) === -1) {
+  if (!a) return false;
+  // Enforce curated WhatsApp reaction allowlist
+  if (ALL_REACTION_EMOJIS.indexOf(emoji) === -1 && SAFE_REACTION_EMOJIS.indexOf(emoji) === -1) {
     if (typeof showToast === 'function') {
-      showToast('Only approved positive reactions are permitted.', 'warning');
+      showToast('Only approved reactions are permitted.', 'warning');
     }
-    return;
+    return false;
   }
+
+  // Check announcement specific allowed reactions
+  var allowed = (a.reactions && Array.isArray(a.reactions._allowed))
+    ? a.reactions._allowed
+    : (Array.isArray(a.allowed_reactions) ? a.allowed_reactions : ALL_REACTION_EMOJIS);
+
+  if (allowed.indexOf(emoji) === -1) {
+    if (typeof showToast === 'function') {
+      showToast('This reaction is not enabled for this announcement.', 'warning');
+    }
+    return false;
+  }
+
   if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
   if (!Array.isArray(a.reactions[emoji])) a.reactions[emoji] = [];
 
@@ -523,6 +715,7 @@ async function toggleReaction(annIdx, emoji) {
   } catch (e) {
     console.error('toggleReaction error:', e);
   }
+  return true;
 }
 
 // ── Admin Announcement Management ──────────────────────────────────────────
@@ -547,10 +740,28 @@ function renderAdminAnnList() {
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || '');
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
 
+    var totalReactions = 0;
+    var reactionsSummary = '';
+    if (a.reactions && typeof a.reactions === 'object') {
+      ALL_REACTION_EMOJIS.forEach(function(em) {
+        if (Array.isArray(a.reactions[em]) && a.reactions[em].length > 0) {
+          totalReactions += a.reactions[em].length;
+          reactionsSummary += '<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px;font-size:11px;color:var(--text-secondary);">'
+            + renderWhatsappEmoji(em, 14) + ' ' + a.reactions[em].length
+            + '</span>';
+        }
+      });
+    }
+
     html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid var(--accent);">'
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'
-      + '<div style="flex:1;"><div style="font-family:var(--font-headline);font-size:14px;color:var(--text-primary);font-weight:600;">' + safeTitle + '</div><div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + safeDate + '</div></div>'
-      + '<div style="display:flex;gap:6px;flex-shrink:0;">'
+      + '<div style="flex:1;">'
+        + '<div style="font-family:var(--font-headline);font-size:14px;color:var(--text-primary);font-weight:600;">' + safeTitle + '</div>'
+        + '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + safeDate + '</div>'
+        + (reactionsSummary ? ('<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + reactionsSummary + '</div>') : '')
+      + '</div>'
+      + '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">'
+      + '<button type="button" data-view-reactions="' + i + '" title="View Who Reacted (' + totalReactions + ')" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--gold);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>' + totalReactions + '</span></button>'
       + '<button type="button" data-edit-ann="' + i + '" title="Edit Announcement" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>'
       + '<button type="button" data-del-ann="' + i + '" title="Delete Announcement" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
       + '</div></div>'
@@ -562,6 +773,11 @@ function renderAdminAnnList() {
   container.querySelectorAll('[data-del-ann]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       deleteAnnouncement(parseInt(btn.getAttribute('data-del-ann'), 10));
+    });
+  });
+  container.querySelectorAll('[data-view-reactions]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      openAnnouncementReactionsModal(parseInt(btn.getAttribute('data-view-reactions'), 10));
     });
   });
   container.querySelectorAll('[data-edit-ann]').forEach(function(btn) {
@@ -589,6 +805,31 @@ function openEditAnnouncement(idx) {
   if (btn) {
     btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Changes';
     btn.setAttribute('data-edit-idx', String(idx));
+  }
+
+  // Restore allowed reaction chips state
+  var allowed = (a && a.reactions && Array.isArray(a.reactions._allowed))
+    ? a.reactions._allowed
+    : ((a && Array.isArray(a.allowed_reactions)) ? a.allowed_reactions : ALL_REACTION_EMOJIS);
+
+  if (typeof document !== 'undefined') {
+    var chips = document.querySelectorAll('.ann-reaction-chip');
+    chips.forEach(function(chip) {
+      var em = chip.getAttribute('data-emoji');
+      if (allowed.indexOf(em) !== -1) {
+        chip.classList.add('active');
+        chip.style.borderColor = 'var(--gold)';
+        chip.style.background = 'rgba(200, 150, 30, 0.15)';
+        chip.style.opacity = '1';
+        chip.style.borderStyle = 'solid';
+      } else {
+        chip.classList.remove('active');
+        chip.style.borderColor = 'var(--border-subtle)';
+        chip.style.background = 'var(--bg-card)';
+        chip.style.opacity = '0.45';
+        chip.style.borderStyle = 'dashed';
+      }
+    });
   }
 
   if (ti) ti.scrollIntoView({ behavior: 'smooth' });
@@ -628,6 +869,7 @@ function cancelEditAnnouncement() {
     btn.removeAttribute('data-edit-idx');
   }
   clearAnnouncementInfographic();
+  setAnnReactionPreset('all');
 }
 
 
@@ -737,6 +979,27 @@ async function addAnnouncement() {
   var sanitizedBody = sanitizeAnnouncementHtml(rawBody);
   var dateStr = new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
 
+  // Collect selected allowed reactions
+  var selectedAllowed = [];
+  if (typeof document !== 'undefined') {
+    var activeChips = document.querySelectorAll('.ann-reaction-chip.active');
+    if (activeChips && activeChips.length > 0) {
+      activeChips.forEach(function(c) {
+        var em = c.getAttribute('data-emoji');
+        if (em) selectedAllowed.push(em);
+      });
+    } else {
+      var allChips = document.querySelectorAll('.ann-reaction-chip');
+      if (allChips && allChips.length > 0) {
+        selectedAllowed = []; // Admin specifically cleared all reactions
+      } else {
+        selectedAllowed = ALL_REACTION_EMOJIS.slice();
+      }
+    }
+  } else {
+    selectedAllowed = ALL_REACTION_EMOJIS.slice();
+  }
+
   if (btn) btn.disabled = true;
 
   try {
@@ -774,16 +1037,19 @@ async function addAnnouncement() {
       if (a) {
         a.title = title;
         a.body  = sanitizedBody;
+        a.allowed_reactions = selectedAllowed;
+        if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
+        a.reactions._allowed = selectedAllowed;
         if (infographicUrl) a.image_url = infographicUrl;
         else if (!_stagedAnnouncementImage) a.image_url = null;
 
         if (typeof supa !== 'undefined' && supa.patch && a.id) {
-          var patchPayload = { title: title, body: sanitizedBody };
+          var patchPayload = { title: title, body: sanitizedBody, reactions: a.reactions };
           if (typeof a.image_url !== 'undefined') patchPayload.image_url = a.image_url;
           try {
             await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
           } catch (_) {
-            await supa.patch('bb_announcements?id=eq.' + a.id, { title: title, body: sanitizedBody });
+            await supa.patch('bb_announcements?id=eq.' + a.id, { title: title, body: sanitizedBody, reactions: a.reactions });
           }
         }
         if (infographicUrl && a.id) {
@@ -806,7 +1072,8 @@ async function addAnnouncement() {
         title: title,
         body: sanitizedBody,
         date: dateStr,
-        reactions: {},
+        reactions: { _allowed: selectedAllowed },
+        allowed_reactions: selectedAllowed,
         created_at: new Date().toISOString()
       };
       if (infographicUrl) {
@@ -845,6 +1112,7 @@ async function addAnnouncement() {
     }
 
     clearAnnouncementInfographic();
+    setAnnReactionPreset('all');
     if (titleEl) titleEl.value = '';
     if (bodyEl)  bodyEl.innerHTML = '';
     renderAnnouncements();
@@ -1014,6 +1282,153 @@ if (typeof document !== 'undefined') {
     var editor = document.getElementById('ann-body-input');
     if (editor && editor.contains(e.target)) annSaveRange();
   });
+}
+
+
+/**
+ * Opens a modal displaying all members who have reacted to an announcement
+ * @param {number} annIdx - Index in announcements array
+ * @param {string} [activeTabEmoji='all'] - Optional emoji filter
+ */
+function openAnnouncementReactionsModal(annIdx, activeTabEmoji) {
+  if (typeof document === 'undefined') return;
+  var a = announcements[annIdx];
+  if (!a) return;
+
+  var reactions = a.reactions || {};
+  var totalCount = 0;
+  var emojiCounts = {};
+  var allEntries = [];
+
+  ALL_REACTION_EMOJIS.forEach(function(em) {
+    var who = Array.isArray(reactions[em]) ? reactions[em] : [];
+    if (who.length > 0) {
+      emojiCounts[em] = who.length;
+      totalCount += who.length;
+      who.forEach(function(uid) {
+        allEntries.push({ emoji: em, userId: uid });
+      });
+    }
+  });
+
+  // Also include any other emojis in reactions if present
+  Object.keys(reactions).forEach(function(k) {
+    if (k !== '_allowed' && ALL_REACTION_EMOJIS.indexOf(k) === -1 && Array.isArray(reactions[k]) && reactions[k].length > 0) {
+      emojiCounts[k] = reactions[k].length;
+      totalCount += reactions[k].length;
+      reactions[k].forEach(function(uid) {
+        allEntries.push({ emoji: k, userId: uid });
+      });
+    }
+  });
+
+  var modal = document.querySelector('.ann-reactions-modal-wrap');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'ann-reactions-modal';
+    modal.className = 'ann-reactions-modal-wrap';
+    document.body.appendChild(modal);
+  }
+
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn 0.2s ease;';
+
+  function renderModalBody(selectedTab) {
+    selectedTab = selectedTab || 'all';
+
+    var filteredEntries = (selectedTab === 'all')
+      ? allEntries
+      : allEntries.filter(function(e) { return e.emoji === selectedTab; });
+
+    var tabButtonsHtml = '<button type="button" class="ann-modal-tab-btn ' + (selectedTab === 'all' ? 'active' : '') + '" data-tab="all" style="padding:6px 12px;border-radius:20px;border:1px solid ' + (selectedTab === 'all' ? 'var(--gold)' : 'var(--border-subtle)') + ';background:' + (selectedTab === 'all' ? 'rgba(200,150,30,0.18)' : 'var(--bg-card-subtle)') + ';color:' + (selectedTab === 'all' ? 'var(--gold)' : 'var(--text-secondary)') + ';font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">'
+      + '<span>All</span> <span style="opacity:0.85;font-size:11px;">' + totalCount + '</span></button>';
+
+    Object.keys(emojiCounts).forEach(function(em) {
+      var isTabActive = (selectedTab === em);
+      tabButtonsHtml += '<button type="button" class="ann-modal-tab-btn ' + (isTabActive ? 'active' : '') + '" data-tab="' + em + '" style="padding:6px 12px;border-radius:20px;border:1px solid ' + (isTabActive ? 'var(--gold)' : 'var(--border-subtle)') + ';background:' + (isTabActive ? 'rgba(200,150,30,0.18)' : 'var(--bg-card-subtle)') + ';color:' + (isTabActive ? 'var(--gold)' : 'var(--text-secondary)') + ';font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">'
+        + renderWhatsappEmoji(em, 16) + ' <span>' + emojiCounts[em] + '</span></button>';
+    });
+
+    var rowsHtml = '';
+    if (filteredEntries.length === 0) {
+      rowsHtml = '<div style="text-align:center;padding:36px 16px;color:var(--text-muted);font-size:13px;">'
+        + '<div style="font-size:24px;margin-bottom:8px;">💬</div>'
+        + 'No members have reacted to this announcement yet.'
+        + '</div>';
+    } else {
+      filteredEntries.forEach(function(entry) {
+        var m = resolveReactedMember(entry.userId);
+        var avatarHtml = '';
+        if (typeof getUniversalMemberAvatarHtml === 'function') {
+          avatarHtml = getUniversalMemberAvatarHtml(m.name, m.email, 36);
+        } else {
+          avatarHtml = '<div style="width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + (m.name.charAt(0).toUpperCase()) + '</div>';
+        }
+
+        rowsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:var(--bg-card-subtle);margin-bottom:8px;border:1px solid var(--border-subtle);">'
+          + '<div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">'
+            + '<div style="flex-shrink:0;">' + avatarHtml + '</div>'
+            + '<div style="min-width:0;flex:1;">'
+              + '<div style="font-size:13.5px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(m.name) : m.name) + '</div>'
+              + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">' + (typeof escapeHtml === 'function' ? escapeHtml((m.rank || 'Member') + ' • ' + (m.platoon || 'General Section')) : ((m.rank || 'Member') + ' • ' + (m.platoon || 'General Section'))) + '</div>'
+            + '</div>'
+          + '</div>'
+          + '<div style="flex-shrink:0;margin-left:12px;display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border-subtle);">'
+            + renderWhatsappEmoji(entry.emoji, 20)
+          + '</div>'
+        + '</div>';
+      });
+    }
+
+    var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || 'Announcement') : (a.title || 'Announcement');
+
+    modal.innerHTML = '<div class="ann-reactions-modal-dialog" role="dialog" aria-modal="true" style="background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);border-radius:16px;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;position:relative;">'
+      + '<div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;gap:12px;">'
+        + '<div>'
+          + '<div style="font-size:16px;font-weight:800;color:var(--text-primary);letter-spacing:-0.2px;">Announcement Reactions</div>'
+          + '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeTitle + '</div>'
+        + '</div>'
+        + '<button type="button" class="ann-reactions-close-btn" onclick="closeAnnouncementReactionsModal()" title="Close" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-secondary);width:30px;height:30px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;">&times;</button>'
+      + '</div>'
+      + (totalCount > 0 ? ('<div style="padding:12px 20px;border-bottom:1px solid var(--border-subtle);display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;">' + tabButtonsHtml + '</div>') : '')
+      + '<div style="padding:16px 20px;overflow-y:auto;flex:1;max-height:420px;">'
+        + rowsHtml
+      + '</div>'
+      + '<div style="padding:12px 20px;border-top:1px solid var(--border-subtle);display:flex;justify-content:flex-end;">'
+        + '<button type="button" onclick="closeAnnouncementReactionsModal()" class="portal-btn" style="padding:6px 16px;font-size:12.5px;font-weight:600;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-primary);cursor:pointer;">Close</button>'
+      + '</div>'
+    + '</div>';
+
+    modal.querySelectorAll('.ann-modal-tab-btn').forEach(function(tBtn) {
+      tBtn.addEventListener('click', function() {
+        var tabKey = tBtn.getAttribute('data-tab');
+        renderModalBody(tabKey);
+      });
+    });
+  }
+
+  renderModalBody(activeTabEmoji || 'all');
+
+  modal.onclick = function(e) {
+    if (e.target === modal) {
+      closeAnnouncementReactionsModal();
+    }
+  };
+
+  function onModalKeyDown(e) {
+    if (e.key === 'Escape') {
+      closeAnnouncementReactionsModal();
+      document.removeEventListener('keydown', onModalKeyDown);
+    }
+  }
+  document.addEventListener('keydown', onModalKeyDown);
+}
+
+function closeAnnouncementReactionsModal() {
+  if (typeof document === 'undefined') return;
+  var modal = document.querySelector('.ann-reactions-modal-wrap');
+  if (modal && modal.parentNode) {
+    modal.parentNode.removeChild(modal);
+  }
 }
 
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
@@ -1521,6 +1936,14 @@ if (typeof window !== 'undefined') {
   window.handleAnnouncementMentionInput   = handleAnnouncementMentionInput;
   window.handleAnnouncementMentionKeyDown = handleAnnouncementMentionKeyDown;
   window.selectAnnouncementMentionCandidate = selectAnnouncementMentionCandidate;
+  window.ALL_REACTION_EMOJIS            = ALL_REACTION_EMOJIS;
+  window.WHATSAPP_EMOJI_MAP             = WHATSAPP_EMOJI_MAP;
+  window.renderWhatsappEmoji            = renderWhatsappEmoji;
+  window.resolveReactedMember           = resolveReactedMember;
+  window.toggleAnnReactionChip          = toggleAnnReactionChip;
+  window.setAnnReactionPreset           = setAnnReactionPreset;
+  window.openAnnouncementReactionsModal = openAnnouncementReactionsModal;
+  window.closeAnnouncementReactionsModal= closeAnnouncementReactionsModal;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -1559,6 +1982,14 @@ if (typeof module !== 'undefined' && module.exports) {
     hideAnnouncementMentionDropdown: hideAnnouncementMentionDropdown,
     handleAnnouncementMentionInput: handleAnnouncementMentionInput,
     handleAnnouncementMentionKeyDown: handleAnnouncementMentionKeyDown,
-    selectAnnouncementMentionCandidate: selectAnnouncementMentionCandidate
+    selectAnnouncementMentionCandidate: selectAnnouncementMentionCandidate,
+    ALL_REACTION_EMOJIS: ALL_REACTION_EMOJIS,
+    WHATSAPP_EMOJI_MAP: WHATSAPP_EMOJI_MAP,
+    renderWhatsappEmoji: renderWhatsappEmoji,
+    resolveReactedMember: resolveReactedMember,
+    toggleAnnReactionChip: toggleAnnReactionChip,
+    setAnnReactionPreset: setAnnReactionPreset,
+    openAnnouncementReactionsModal: openAnnouncementReactionsModal,
+    closeAnnouncementReactionsModal: closeAnnouncementReactionsModal
   };
 }

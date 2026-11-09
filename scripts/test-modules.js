@@ -4233,8 +4233,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261109d',
-    'sw.js CACHE_VERSION must be 20261109d'
+    '20261109e',
+    'sw.js CACHE_VERSION must be 20261109e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4265,7 +4265,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109d',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109e',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -5627,7 +5627,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Curated Positive Reaction Controls
     const annMod = typeof announcementsModule !== 'undefined' ? announcementsModule : require('../js/modules/announcements.js');
-    assert.deepStrictEqual(annMod.SAFE_REACTION_EMOJIS, ['👍', '🫡', '🎉', '❤️', '🔥', '🙏'], 'SAFE_REACTION_EMOJIS contains curated positive emojis');
+    assert.deepStrictEqual(annMod.SAFE_REACTION_EMOJIS, ['✅', '❌', '🙌', '👍', '🙏', '🔥', '❤️', '🥳', '🎉'], 'SAFE_REACTION_EMOJIS contains curated positive emojis');
     assert.strictEqual(annMod.SAFE_REACTION_EMOJIS.includes('😂'), false, 'Mocking 😂 emoji is excluded from allowlist');
     assert.strictEqual(annMod.SAFE_REACTION_EMOJIS.includes('😮'), false, '😮 emoji is excluded from allowlist');
 
@@ -5642,8 +5642,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(afterReactionCount, prevReactionCount, 'Unapproved emoji reaction is blocked by allowlist guard');
 
     // Verify positive approved reaction works
-    await annMod.toggleReaction(0, '🫡');
-    assert.ok(annMod.announcements[0]?.reactions?.['🫡']?.includes('test@bbpj1.org'), 'Curated positive emoji reaction (🫡 salute) accepted');
+    await annMod.toggleReaction(0, '✅');
+    assert.ok(annMod.announcements[0]?.reactions?.['✅']?.includes('test@bbpj1.org'), 'Curated emoji reaction (✅ check) accepted');
     console.log('  ✔ Curated positive reaction allowlist strictly enforced on announcements');
 
     // 4. Platoon Leaderboard Roster & Privacy Verification
@@ -6142,6 +6142,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     };
     global.document = global.document || {};
     const origGetEl = global.document.getElementById;
+    const origQS = global.document.querySelector;
     global.document.getElementById = function(id) {
       if (id === 'nav-role-badge' || id === 'nav-profile-btn') return mockBadgeEl;
       return null;
@@ -6173,6 +6174,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(mockBadgeEl.className.includes('role-member'), 'Badge renders role-member class');
     assert.strictEqual(mockTextEl.textContent, 'Member', 'Badge renders Member text label');
     global.document.getElementById = origGetEl;
+    global.document.querySelector = origQS;
     console.log('  ✔ Top navigation active role badge rendering & ARIA status accessibility verified');
 
     // 7. Admin Module Console Gatekeeping & UI Filtering
@@ -7035,7 +7037,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109d'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109e'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8943,12 +8945,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109d', 'Service Worker cache version must be 20261109d');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109e', 'Service Worker cache version must be 20261109e');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261109d and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261109e and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10195,25 +10197,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109d', 'sw.js CACHE_VERSION must be 20261109d');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109d', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109d', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109e', 'sw.js CACHE_VERSION must be 20261109e');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109e', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109e', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261109d cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261109e cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261109d'), 'config.js must use v=20261109d');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109d'), 'forum.js must use v=20261109d');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261109d'), 'variables.css must use v=20261109d');
-    assert.ok(indexRaw.includes('css/base.css?v=20261109d'), 'base.css must use v=20261109d');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109d');
+    assert.ok(indexRaw.includes('js/config.js?v=20261109e'), 'config.js must use v=20261109e');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109e'), 'forum.js must use v=20261109e');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261109e'), 'variables.css must use v=20261109e');
+    assert.ok(indexRaw.includes('css/base.css?v=20261109e'), 'base.css must use v=20261109e');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109e');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -10775,6 +10777,120 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Seasonal Falling Animation (Snow & Leaves) engine and settings controls verified');
 
     // 7. Strict 388 Unique DOM IDs Invariant
+    const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const idSet = new Set();
+    allMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) idSet.add(matchId[1]);
+    });
+    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // ── 49. WhatsApp-Style Reaction Emojis, Per-Announcement Selection & Breakdown View ──
+  {
+    console.log('\nTesting WhatsApp-Style Reaction Emojis, Per-Announcement Selection & Breakdown View...');
+    const annMod = typeof announcementsModule !== 'undefined' ? announcementsModule : require('../js/modules/announcements.js');
+
+    // 1. WhatsApp Emoji Constants & Assets Verification
+    const expectedEmojis = ['✅', '❌', '🙌', '👍', '🙏', '🔥', '❤️', '🥳', '🎉'];
+    assert.deepStrictEqual(annMod.ALL_REACTION_EMOJIS, expectedEmojis, 'ALL_REACTION_EMOJIS must match exact 9 emojis');
+    assert.ok(Object.keys(annMod.WHATSAPP_EMOJI_MAP).length >= 9, 'WHATSAPP_EMOJI_MAP must have all 9 emoji mappings');
+
+    expectedEmojis.forEach(em => {
+      const assetPath = annMod.WHATSAPP_EMOJI_MAP[em];
+      assert.ok(assetPath, `Emoji ${em} must have asset path`);
+      const diskPath = path.resolve(__dirname, '..', assetPath);
+      assert.ok(fs.existsSync(diskPath), `Asset file ${assetPath} for ${em} must exist on disk`);
+      const renderedHtml = annMod.renderWhatsappEmoji(em, 20);
+      assert.ok(renderedHtml.includes('class="wa-emoji"'), `renderWhatsappEmoji for ${em} must include class wa-emoji`);
+      assert.ok(renderedHtml.includes(assetPath), `renderWhatsappEmoji for ${em} must reference asset path`);
+    });
+    console.log('  ✔ All 9 WhatsApp emoji PNG assets present on disk and render valid HTML');
+
+    // 2. Custom Allowed Reactions per Announcement
+    // Reset announcement reactions
+    annMod.announcements[0].reactions = {};
+    annMod.announcements[0].allowed_reactions = ['✅', '❌']; // Only allow check and cross
+
+    global.sessionGet = (k) => (k === 'email' || k === 'ic' ? 'jeshua@bbpj1.org' : (k === 'name' ? 'Jeshua Koh' : null));
+    if (typeof window !== 'undefined') window.sessionGet = global.sessionGet;
+
+    // Disallowed reaction attempt (e.g. fire 🔥)
+    let fireHandled = await annMod.toggleReaction(0, '🔥');
+    assert.strictEqual(fireHandled, false, 'toggleReaction must return false when emoji is not in allowed_reactions');
+    assert.strictEqual(annMod.announcements[0].reactions['🔥'], undefined, 'Disallowed emoji must not be stored');
+
+    // Allowed reaction attempt (✅)
+    let checkHandled = await annMod.toggleReaction(0, '✅');
+    assert.strictEqual(checkHandled, true, 'toggleReaction must succeed when emoji is in allowed_reactions');
+    assert.ok(annMod.announcements[0].reactions['✅'].includes('jeshua@bbpj1.org'), 'Allowed emoji must be stored');
+
+    // Allowed reaction toggle off
+    await annMod.toggleReaction(0, '✅');
+    assert.strictEqual((annMod.announcements[0].reactions['✅'] || []).includes('jeshua@bbpj1.org'), false, 'Toggling again removes reaction');
+    console.log('  ✔ Per-announcement custom allowed reactions strictly enforced');
+
+    // 3. Resolve Member Reaction Identity
+    const resolvedUser = annMod.resolveReactedMember('jeshua@bbpj1.org');
+    assert.ok(resolvedUser && typeof resolvedUser === 'object', 'resolveReactedMember must return member identity object');
+    assert.ok(resolvedUser.displayName, 'resolveReactedMember must return displayName');
+    console.log('  ✔ resolveReactedMember correctly parses identity, avatar, and platoon information');
+
+    // 4. Reactions Viewer Modal
+    // Add multiple reactions to announcement
+    annMod.announcements[0].reactions = {
+      '✅': ['jeshua@bbpj1.org', 'test@bbpj1.org'],
+      '❌': ['member2@bbpj1.org']
+    };
+    annMod.openAnnouncementReactionsModal(0, 'all');
+    const modalEl = document.querySelector('.ann-reactions-modal-wrap');
+    assert.ok(modalEl, 'openAnnouncementReactionsModal must inject modal wrap into DOM');
+    assert.ok(modalEl.innerHTML.includes('Announcement Reactions'), 'Modal must render header title');
+    assert.ok(modalEl.innerHTML.includes('jeshua@bbpj1.org') || modalEl.innerHTML.includes('Jeshua'), 'Modal must render member names');
+
+    // Close modal
+    annMod.closeAnnouncementReactionsModal();
+    const modalAfterClose = document.querySelector('.ann-reactions-modal-wrap');
+    assert.strictEqual(modalAfterClose, null, 'closeAnnouncementReactionsModal must cleanly remove modal from DOM');
+    console.log('  ✔ Admin announcement reactions modal renders detailed breakdown and dismisses cleanly');
+
+    // 5. Admin Allowed Reactions Preset & Chip Toggles
+    if (typeof window !== 'undefined' && document.body) {
+      const chipContainer = document.createElement('div');
+      chipContainer.className = 'ann-allowed-emojis-selector';
+      const b1 = document.createElement('button');
+      b1.className = 'ann-reaction-chip active';
+      b1.setAttribute('data-emoji', '✅');
+      chipContainer.appendChild(b1);
+      const b2 = document.createElement('button');
+      b2.className = 'ann-reaction-chip active';
+      b2.setAttribute('data-emoji', '❌');
+      chipContainer.appendChild(b2);
+      const b3 = document.createElement('button');
+      b3.className = 'ann-reaction-chip';
+      b3.setAttribute('data-emoji', '🔥');
+      chipContainer.appendChild(b3);
+      document.body.appendChild(chipContainer);
+
+      annMod.setAnnReactionPreset('poll');
+      const activeChips = [b1, b2, b3].filter(c => c.classList.contains('active')).map(c => c.getAttribute('data-emoji'));
+      assert.deepStrictEqual(activeChips, ['✅', '❌'], 'setAnnReactionPreset("poll") must activate only ✅ and ❌');
+
+      annMod.setAnnReactionPreset('all');
+      const allActive = [b1, b2, b3].filter(c => c.classList.contains('active')).map(c => c.getAttribute('data-emoji'));
+      assert.strictEqual(allActive.length, 3, 'setAnnReactionPreset("all") must activate all chips');
+
+      annMod.setAnnReactionPreset('none');
+      const noneActive = [b1, b2, b3].filter(c => c.classList.contains('active'));
+      assert.strictEqual(noneActive.length, 0, 'setAnnReactionPreset("none") must deactivate all chips');
+
+      if (chipContainer.parentNode) chipContainer.parentNode.removeChild(chipContainer);
+      console.log('  ✔ Admin announcement reaction chips and presets (All, Poll, Clear) verified');
+    }
+
+    // 6. Strict 388 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();

@@ -6,7 +6,7 @@
  * and company parade schedules using Stale-While-Revalidate and Network-First strategies.
  */
 
-const CACHE_VERSION = '20261109d';
+const CACHE_VERSION = '20261109e';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -43,7 +43,16 @@ const PRECACHE_ASSETS = [
   './js/modules/admin.js',
   './js/modules/forum.js',
   './js/modules/arcade.js',
-  './assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav'
+  './assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav',
+  './assets/emojis/2705.png',
+  './assets/emojis/274c.png',
+  './assets/emojis/1f64c.png',
+  './assets/emojis/1f44d.png',
+  './assets/emojis/1f64f.png',
+  './assets/emojis/1f525.png',
+  './assets/emojis/2764-fe0f.png',
+  './assets/emojis/1f973.png',
+  './assets/emojis/1f389.png'
 ];
 
 // Supabase PostgREST query keys prioritized for offline data caching
