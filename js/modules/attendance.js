@@ -906,11 +906,14 @@ async function renderCompanyLeaderboard() {
   try {
     var client = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
     if (client && typeof client.get === 'function') {
-      var dbMems = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section&order=name.asc');
+      var dbMems = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department&order=name.asc');
       if (Array.isArray(dbMems) && dbMems.length > 0) {
-        registeredMembersList = dbMems;
+        var cleanMems = dbMems.filter(function(m) {
+          return typeof isDeletedOrTestAccount === 'function' ? !isDeletedOrTestAccount(m) : (m && m.department !== 'deleted' && m.rank !== 'Deleted');
+        });
+        registeredMembersList = cleanMems;
         if (typeof localStorage !== 'undefined') {
-          try { localStorage.setItem('bb_members_cache', JSON.stringify(dbMems)); } catch (_) {}
+          try { localStorage.setItem('bb_members_cache', JSON.stringify(cleanMems)); } catch (_) {}
         }
       }
     }
@@ -923,14 +926,18 @@ async function renderCompanyLeaderboard() {
       var rawMems = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
       if (rawMems) {
         var parsedCache = JSON.parse(rawMems);
-        if (Array.isArray(parsedCache)) registeredMembersList = parsedCache;
+        if (Array.isArray(parsedCache)) {
+          registeredMembersList = parsedCache.filter(function(m) {
+            return typeof isDeletedOrTestAccount === 'function' ? !isDeletedOrTestAccount(m) : (m && m.department !== 'deleted' && m.rank !== 'Deleted');
+          });
+        }
       }
     } catch (_) {}
   }
 
   if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
     window._cachedDepartmentMembers.forEach(function(dm) {
-      if (dm && !registeredMembersList.some(function(rm) { return (rm.ic && rm.ic === dm.ic) || (rm.email && rm.email === dm.email); })) {
+      if (dm && (typeof isDeletedOrTestAccount === 'function' ? !isDeletedOrTestAccount(dm) : true) && !registeredMembersList.some(function(rm) { return (rm.ic && rm.ic === dm.ic) || (rm.email && rm.email === dm.email); })) {
         registeredMembersList.push(dm);
       }
     });

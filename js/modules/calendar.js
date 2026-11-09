@@ -133,6 +133,8 @@
     clock: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
     pin: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
     shirt: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>',
+    senior: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="m18 15-6-6-6 6"/><path d="m18 9-6-6-6 6"/></svg>',
+    junior: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
     badge: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
     target: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
     reminder: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:12px;height:12px;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V7a3 3 0 0 0-6 0v3.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>',
@@ -850,10 +852,10 @@
     if (upcoming.srDetails || upcoming.jrDetails) {
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-bottom:16px;">';
       if (upcoming.srDetails) {
-        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.badge + ' Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.srDetails) + '</div></div>';
+        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.senior + ' Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.srDetails) + '</div></div>';
       }
       if (upcoming.jrDetails) {
-        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.target + ' Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.jrDetails) + '</div></div>';
+        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.junior + ' Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.jrDetails) + '</div></div>';
       }
       html += '</div>';
     }
@@ -1301,7 +1303,7 @@
       if (ev && ev.srDetails) {
         srBox.innerHTML = ''
           + '<div class="cal-detail-subbox">'
-            + '<div class="cal-subbox-title">' + CAL_ICONS.badge + ' Senior Section Program &amp; Badges</div>'
+            + '<div class="cal-subbox-title">' + CAL_ICONS.senior + ' Senior Section Program &amp; Badges</div>'
             + '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">'
               + escapeHtml(ev.srDetails)
             + '</div>'
@@ -1318,7 +1320,7 @@
       if (ev && ev.jrDetails) {
         jrBox.innerHTML = ''
           + '<div class="cal-detail-subbox">'
-            + '<div class="cal-subbox-title">' + CAL_ICONS.target + ' Junior Section Program &amp; Badges</div>'
+            + '<div class="cal-subbox-title">' + CAL_ICONS.junior + ' Junior Section Program &amp; Badges</div>'
             + '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">'
               + escapeHtml(ev.jrDetails)
             + '</div>'

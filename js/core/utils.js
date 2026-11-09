@@ -1234,6 +1234,91 @@ function isNameConflict(nameA, nameB) {
   return allShortInLong;
 }
 
+/**
+ * Evaluates whether a member object represents a deleted, archived, probe, or fake test account
+ * that should be excluded from leaderboards, directories, and member lists.
+ * Explicitly preserves valid user testing accounts such as 'Tester Account' (jeshuakoh1601@gmail.com).
+ *
+ * @param {Object} m Member object
+ * @returns {boolean} True if deleted, archived, or a fake/probe test account
+ */
+function isDeletedOrTestAccount(m) {
+  if (!m) return true;
+  var name = String(m.name || '').trim();
+  var ic = String(m.ic || '').trim();
+  var email = String(m.email || '').trim().toLowerCase();
+  var dept = String(m.department || '').trim().toLowerCase();
+  var rank = String(m.rank || '').trim().toLowerCase();
+
+  // 1. Explicitly protect authorized company officer testing accounts
+  if (email === 'jeshuakoh1601@gmail.com' || name === 'Tester Account') {
+    return false;
+  }
+
+  // 2. Department or rank marked deleted
+  if (dept === 'deleted' || dept === 'archived_deleted' || rank === 'deleted') {
+    return true;
+  }
+
+  // 3. IC starts with archived_
+  if (ic.toLowerCase().startsWith('archived_')) {
+    return true;
+  }
+
+  // 4. Blacklisted in local bb_deleted_members
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var delRaw = localStorage.getItem('bb_deleted_members');
+      if (delRaw) {
+        var delList = JSON.parse(delRaw);
+        if (Array.isArray(delList)) {
+          var cleanIc = ic.toLowerCase();
+          var isDel = delList.some(function(item) {
+            var itm = String(item || '').toLowerCase().trim();
+            return itm && (itm === cleanIc || itm === email || (name && itm === name.toLowerCase()));
+          });
+          if (isDel) return true;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 5. Test / probe / dummy / fake account names (e.g. Probe 1, Probe 2, Delete Me Test)
+  var fakeNamePattern = /^(probe(\s*\d+)?|delete\s*me(\s*test)?|dummy(\s*user)?|fake(\s*user)?|temp\s*test)$/i;
+  if (fakeNamePattern.test(name)) {
+    return true;
+  }
+
+  // 6. Test / probe emails (e.g. probe1@..., deleteme@...)
+  var fakeEmailPattern = /^(probe\d*|deleteme)@/i;
+  if (fakeEmailPattern.test(email)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Purges deleted, archived, probe, and test accounts from localStorage member caches
+ */
+function cleanMembersCache() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    ['bb_members_cache', 'bb_all_members'].forEach(function(key) {
+      var raw = localStorage.getItem(key);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          var cleaned = parsed.filter(function(m) {
+            return !isDeletedOrTestAccount(m);
+          });
+          localStorage.setItem(key, JSON.stringify(cleaned));
+        }
+      }
+    });
+  } catch (_) {}
+}
+
 function resolveMemberDirectoryInfo(nameOrId) {
   if (!nameOrId) return null;
   var q = String(nameOrId).trim().toLowerCase();
@@ -1256,7 +1341,7 @@ function resolveMemberDirectoryInfo(nameOrId) {
   // 2. In-memory department members cache
   if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
     var foundDept = window._cachedDepartmentMembers.find(function(m) {
-      if (!m) return false;
+      if (!m || isDeletedOrTestAccount(m)) return false;
       var mn = String(m.name || '').trim().toLowerCase();
       var mic = String(m.ic || '').trim().toLowerCase();
       var memail = String(m.email || '').trim().toLowerCase();
@@ -1274,7 +1359,7 @@ function resolveMemberDirectoryInfo(nameOrId) {
         if (Array.isArray(arr)) {
           // Pass 1: Exact match
           var foundMem = arr.find(function(m) {
-            if (!m) return false;
+            if (!m || isDeletedOrTestAccount(m)) return false;
             var mn = String(m.name || '').trim().toLowerCase();
             var mic = String(m.ic || '').trim().toLowerCase();
             var memail = String(m.email || '').trim().toLowerCase();
@@ -1284,7 +1369,7 @@ function resolveMemberDirectoryInfo(nameOrId) {
 
           // Pass 2: Smart fuzzy name match (e.g. Oliver Ling -> OLIVER LING CHEE SHENG)
           var fuzzyMem = arr.find(function(m) {
-            if (!m || !m.name) return false;
+            if (!m || !m.name || isDeletedOrTestAccount(m)) return false;
             return isNameMatch(m.name, q);
           });
           if (fuzzyMem) return fuzzyMem;
@@ -2590,6 +2675,8 @@ if (typeof window !== 'undefined') {
   window.getMemberAvatarInitial = getMemberAvatarInitial;
   window.getMemberAvatarColor = getMemberAvatarColor;
   window.resolveMemberDirectoryInfo = resolveMemberDirectoryInfo;
+  window.isDeletedOrTestAccount = isDeletedOrTestAccount;
+  window.cleanMembersCache = cleanMembersCache;
   window.isNameMatch = isNameMatch;
   window.isBrightColor = isBrightColor;
   window.isNameConflict = isNameConflict;
@@ -2597,7 +2684,11 @@ if (typeof window !== 'undefined') {
     global.isBrightColor = isBrightColor;
     global.isNameConflict = isNameConflict;
   }
-  if (typeof global !== 'undefined') global.isNameMatch = isNameMatch;
+  if (typeof global !== 'undefined') {
+    global.isNameMatch = isNameMatch;
+    global.isDeletedOrTestAccount = isDeletedOrTestAccount;
+    global.cleanMembersCache = cleanMembersCache;
+  }
   window._memberPfpsMap       = _memberPfpsMap;
   window.loadMemberProfilePictures = loadMemberProfilePictures;
   window.getMemberAvatarUrl   = getMemberAvatarUrl;
@@ -2660,6 +2751,8 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarInitial: getMemberAvatarInitial,
     getMemberAvatarColor: getMemberAvatarColor,
     resolveMemberDirectoryInfo: resolveMemberDirectoryInfo,
+    isDeletedOrTestAccount: isDeletedOrTestAccount,
+    cleanMembersCache: cleanMembersCache,
     isNameMatch: isNameMatch,
     isBrightColor: isBrightColor,
     isNameConflict: isNameConflict,
