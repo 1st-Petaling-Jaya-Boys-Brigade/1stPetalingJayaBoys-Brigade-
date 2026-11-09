@@ -1039,11 +1039,75 @@ function openStoryViewer(highlightIdx, slideIdx) {
   updateStorySlideView();
 }
 
+var _storyRafId = null;
+var _storyPauseStart = 0;
+
+function _cancelStoryTicker() {
+  if (_storyRafId) {
+    if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(_storyRafId);
+    _storyRafId = null;
+  }
+  clearTimeout(_storyTimer);
+}
+
+function _startStoryProgressTick() {
+  _cancelStoryTicker();
+  _storySlideStartTime = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+    ? performance.now()
+    : Date.now();
+  _storyPauseStart = 0;
+  _isStoryPaused = false;
+
+  function tick() {
+    var modal = document.getElementById('story-viewer-modal');
+    if (!modal || modal.style.display !== 'flex') {
+      _cancelStoryTicker();
+      return;
+    }
+
+    if (_isStoryPaused) {
+      if (typeof requestAnimationFrame === 'function') {
+        _storyRafId = requestAnimationFrame(tick);
+      }
+      return;
+    }
+
+    var now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+      ? performance.now()
+      : Date.now();
+    var progress = 0;
+    var videoEl = document.getElementById('story-viewer-video');
+
+    if (videoEl && videoEl.style.display !== 'none' && videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
+      progress = videoEl.currentTime / videoEl.duration;
+      _storySlideDuration = videoEl.duration * 1000;
+    } else {
+      var elapsed = now - _storySlideStartTime;
+      progress = _storySlideDuration > 0 ? (elapsed / _storySlideDuration) : 1;
+    }
+
+    var pct = Math.min(100, Math.max(0, progress * 100));
+    var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
+    if (currentFill) {
+      currentFill.style.transition = 'none';
+      currentFill.style.width = pct + '%';
+    }
+
+    if (progress >= 1.0) {
+      _cancelStoryTicker();
+      nextStorySlide();
+    } else if (typeof requestAnimationFrame === 'function') {
+      _storyRafId = requestAnimationFrame(tick);
+    }
+  }
+
+  if (typeof requestAnimationFrame === 'function') {
+    _storyRafId = requestAnimationFrame(tick);
+  }
+}
+
 /**
- * Updates progress bars, media (photo or video), header metadata, and caption for the active slide
- */
-/**
- * Applies CSS linear transition animation to the active highlight progress bar
+ * Applies progress animation to the active highlight progress bar
  * @param {number} durationMs - Total duration for the bar to fill
  * @param {number} [remainingMs] - Remaining time if resuming from pause
  */
@@ -1051,65 +1115,23 @@ function applyStoryProgressAnimation(durationMs, remainingMs) {
   if (typeof document === 'undefined') return;
   var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
   if (!currentFill) return;
-  var secs = ((remainingMs !== undefined && remainingMs !== null ? remainingMs : durationMs) / 1000);
+  if (durationMs) _storySlideDuration = durationMs;
+  var secs = ((remainingMs !== undefined && remainingMs !== null ? remainingMs : _storySlideDuration) / 1000);
   currentFill.style.transition = 'none';
   currentFill.style.width = '0%';
   if (typeof currentFill.offsetWidth !== 'undefined') {
-    void currentFill.offsetWidth; // Force layout reflow
+    void currentFill.offsetWidth;
   }
   currentFill.style.transition = 'width ' + secs + 's linear';
-  currentFill.style.width = '100%';
+  startStoryTimer(_storySlideDuration);
 }
-
 
 var _driveBlobCache = {};
 var _driveFetching = {};
 
-/**
- * Streams Google Drive video files directly into an HTML5 Blob URL
- * Bypasses Google Drive preview player UI, scrubber bar, and nosniff header restrictions
- * @param {string} fileId
- * @param {HTMLVideoElement} targetVideoEl
- * @returns {Promise<boolean>}
- */
-async function loadDriveVideoBlob(fileId, targetVideoEl) {
-  if (!fileId || typeof fetch === 'undefined') return false;
-  if (_driveBlobCache[fileId]) {
-    if (targetVideoEl && targetVideoEl.src !== _driveBlobCache[fileId]) {
-      targetVideoEl.src = _driveBlobCache[fileId];
-      if (typeof targetVideoEl.play === 'function') {
-        targetVideoEl.play().catch(function() {});
-      }
-    }
-    return true;
-  }
-  if (_driveFetching[fileId]) return false;
-  _driveFetching[fileId] = true;
-
-  try {
-    var url = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(fileId) + '&export=download';
-    var resp = await fetch(url);
-    if (resp.ok) {
-      var rawBlob = await resp.blob();
-      var vidBlob = new Blob([rawBlob], { type: 'video/mp4' });
-      var blobUrl = URL.createObjectURL(vidBlob);
-      _driveBlobCache[fileId] = blobUrl;
-      if (targetVideoEl && targetVideoEl.style.display !== 'none') {
-        var prevTime = targetVideoEl.currentTime || 0;
-        targetVideoEl.src = blobUrl;
-        targetVideoEl.currentTime = prevTime;
-        if (typeof targetVideoEl.play === 'function') {
-          targetVideoEl.play().catch(function() {});
-        }
-      }
-      return true;
-    }
-  } catch (err) {
-    console.warn('loadDriveVideoBlob fetch error:', err);
-  } finally {
-    delete _driveFetching[fileId];
-  }
-  return false;
+async function loadDriveVideoBlob(fileId, _targetVideoEl) {
+  if (!fileId) return false;
+  return true;
 }
 
 function updateStorySlideView() {
@@ -1130,9 +1152,14 @@ function updateStorySlideView() {
   }
 
   var curSlide = curHighlight.items[_currentStorySlideIdx];
-  var rawUrl = curSlide.url || '';
+  var rawUrl = (curSlide.url || '').trim();
   var normUrl = normalizeMediaUrl(rawUrl, curSlide.type);
+  var driveMatch = rawUrl.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]+)/i);
+  var driveFileId = driveMatch ? driveMatch[1] : null;
+
   var isVid = isVideoMedia(normUrl, curSlide.type);
+  if (driveFileId && curSlide.type === 'video') isVid = true;
+  else if (driveFileId && curSlide.type === 'image') isVid = false;
 
   // Set duration based on admin configuration or media type
   var defaultSec = isVid ? 30 : 5;
@@ -1177,17 +1204,15 @@ function updateStorySlideView() {
   var videoEl    = document.getElementById('story-viewer-video');
   var iframeEl   = document.getElementById('story-viewer-iframe');
   var soundBtn   = document.getElementById('story-btn-sound');
-
   var safeMediaUrl = (typeof safeUrl === 'function') ? safeUrl(normUrl, '') : normUrl;
 
-  if (isVid) {
-    var isYoutube = safeMediaUrl.indexOf('youtube') !== -1 || safeMediaUrl.indexOf('youtu.be') !== -1;
-    var isVimeo = safeMediaUrl.indexOf('vimeo') !== -1;
-    var driveMatch = safeMediaUrl.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/i);
-    var driveFileId = driveMatch ? driveMatch[1] : null;
+  var isYoutube = safeMediaUrl.indexOf('youtube') !== -1 || safeMediaUrl.indexOf('youtu.be') !== -1;
+  var isVimeo = safeMediaUrl.indexOf('vimeo') !== -1;
+  var isDriveVideo = isVid && !!driveFileId;
 
-    if (isYoutube || isVimeo) {
-      // Embedded player (YouTube, Vimeo)
+  if (isVid) {
+    if (isYoutube || isVimeo || isDriveVideo) {
+      // Embedded player (YouTube, Vimeo, Google Drive Video)
       var navZones = document.getElementById('story-nav-zones');
       if (navZones) navZones.style.pointerEvents = 'auto';
 
@@ -1203,34 +1228,25 @@ function updateStorySlideView() {
       }
       if (iframeEl) {
         iframeEl.style.display = 'block';
-        var autoplayUrl = safeMediaUrl;
-        if (isYoutube) {
-          if (autoplayUrl.indexOf('controls=') === -1) {
-            autoplayUrl += (autoplayUrl.indexOf('?') === -1 ? '?' : '&') + 'autoplay=1&controls=0&rel=0&playsinline=1&enablejsapi=1' + (_isStoryMuted ? '&mute=1' : '');
-          }
-        } else if (autoplayUrl.indexOf('autoplay=') === -1) {
-          autoplayUrl += (autoplayUrl.indexOf('?') === -1 ? '?' : '&') + 'autoplay=1' + (_isStoryMuted ? '&mute=1' : '');
+        var autoplayUrl = '';
+        if (isDriveVideo) {
+          autoplayUrl = 'https://drive.google.com/file/d/' + driveFileId + '/preview?autoplay=1';
+        } else if (isYoutube) {
+          var yMatch = safeMediaUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
+          var ytId = yMatch ? yMatch[1] : '';
+          autoplayUrl = 'https://www.youtube-nocookie.com/embed/' + ytId + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1' + (_isStoryMuted ? '&mute=1' : '');
+        } else if (isVimeo) {
+          var vMatch = safeMediaUrl.match(/vimeo\.com\/(?:video\/)?([0-9]+)/i);
+          autoplayUrl = 'https://player.vimeo.com/video/' + (vMatch ? vMatch[1] : '') + '?autoplay=1' + (_isStoryMuted ? '&muted=1' : '');
         }
         iframeEl.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
         if (iframeEl.src !== autoplayUrl) {
           iframeEl.src = autoplayUrl;
         }
       }
-      // Linear progress bar based on configured video duration
-      applyStoryProgressAnimation(_storySlideDuration, _storyRemainingTime);
-      startStoryTimer(_storySlideDuration);
+      _startStoryProgressTick();
     } else {
-      // Direct HTML5 Video (MP4, WebM, MOV, or Google Drive byte-range direct video stream)
-      var directVideoUrl = safeMediaUrl;
-      if (driveFileId) {
-        if (_driveBlobCache[driveFileId]) {
-          directVideoUrl = _driveBlobCache[driveFileId];
-        } else {
-          directVideoUrl = 'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(driveFileId) + '&export=download';
-          loadDriveVideoBlob(driveFileId, videoEl);
-        }
-      }
-
+      // Direct HTML5 Video (MP4, WebM, MOV, CDN, Supabase Storage)
       var navZonesVid = document.getElementById('story-nav-zones');
       if (navZonesVid) navZonesVid.style.pointerEvents = 'auto';
       if (imgEl) imgEl.style.display = 'none';
@@ -1246,15 +1262,17 @@ function updateStorySlideView() {
         videoEl.style.display = 'block';
         videoEl.autoplay = true;
         videoEl.playsInline = true;
+        videoEl.setAttribute('playsinline', '');
+        videoEl.setAttribute('webkit-playsinline', '');
         videoEl.controls = false;
         videoEl.muted = _isStoryMuted;
         videoEl.volume = _isStoryMuted ? 0 : 1;
-        if (videoEl.src !== directVideoUrl) {
-          videoEl.src = directVideoUrl;
+        if (videoEl.src !== safeMediaUrl) {
+          videoEl.src = safeMediaUrl;
+          try { videoEl.load(); } catch (_) {}
         }
-        videoEl.currentTime = 0;
+        try { videoEl.currentTime = 0; } catch (_) {}
 
-        // Auto-adapt story duration to video length when metadata is ready
         videoEl.onloadedmetadata = function() {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
             _storySlideDuration = Math.round(videoEl.duration * 1000);
@@ -1262,7 +1280,6 @@ function updateStorySlideView() {
           }
         };
 
-        // Synchronize top segmented progress bar dynamically with video currentTime / duration
         videoEl.ontimeupdate = function() {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
             var pct = Math.min(100, (videoEl.currentTime / videoEl.duration) * 100);
@@ -1274,37 +1291,18 @@ function updateStorySlideView() {
           }
         };
 
-        // When video ends, advance to next slide
         videoEl.onended = function() {
           nextStorySlide();
         };
 
-        // Fallback safety timeout if direct stream fails
         videoEl.onerror = function() {
-          if (driveFileId && _driveFetching[driveFileId]) {
-            // Blob fetch in flight; do not abort to iframe prematurely
-            return;
-          }
-          if (driveFileId && videoEl.src.indexOf('drive.usercontent.google.com') !== -1) {
-            // Fallback to embedded iframe only if direct stream and blob fetch both fail
-            videoEl.style.display = 'none';
-            if (typeof videoEl.pause === 'function') videoEl.pause();
-            if (iframeEl) {
-              iframeEl.style.display = 'block';
-              iframeEl.src = 'https://drive.google.com/file/d/' + driveFileId + '/preview';
-            }
-            applyStoryProgressAnimation(_storySlideDuration, _storyRemainingTime);
-            startStoryTimer(_storySlideDuration);
-          } else {
-            startStoryTimer(_storySlideDuration);
-          }
+          console.warn('Video failed to load:', safeMediaUrl);
         };
 
-        // Attempt playback with sound immediately; fallback to muted if browser blocks unmuted autoplay
         var playPromise = (typeof videoEl.play === 'function') ? videoEl.play() : undefined;
         if (playPromise !== undefined && typeof playPromise.catch === 'function') {
           playPromise.catch(function(err) {
-            console.warn('Browser autoplay policy intervention; continuing muted with unmute option:', err);
+            console.warn('Browser autoplay unmuted restricted; falling back to muted:', err);
             videoEl.muted = true;
             videoEl.volume = 0;
             _isStoryMuted = true;
@@ -1315,11 +1313,10 @@ function updateStorySlideView() {
           });
         }
       }
-      // Safety timer for video stalls (allows generous buffer past duration)
-      startStoryTimer(_storySlideDuration + 3000);
+      _startStoryProgressTick();
     }
   } else {
-    // Standard Photo Slide
+    // Standard Photo Slide (or Google Drive Photo)
     var navZonesPhoto = document.getElementById('story-nav-zones');
     if (navZonesPhoto) navZonesPhoto.style.pointerEvents = 'auto';
     if (videoEl) {
@@ -1334,11 +1331,17 @@ function updateStorySlideView() {
     if (soundBtn) soundBtn.style.display = 'none';
     if (imgEl) {
       imgEl.style.display = 'block';
-      imgEl.src = safeMediaUrl;
+      if (driveFileId) {
+        imgEl.src = 'https://lh3.googleusercontent.com/d/' + driveFileId;
+        imgEl.onerror = function() {
+          imgEl.src = 'https://drive.google.com/thumbnail?id=' + driveFileId + '&sz=w1600';
+        };
+      } else {
+        imgEl.src = safeMediaUrl;
+      }
       imgEl.alt = curSlide.caption || curHighlight.title;
     }
-    applyStoryProgressAnimation(_storySlideDuration, _storyRemainingTime);
-    startStoryTimer(_storySlideDuration);
+    _startStoryProgressTick();
   }
 
   // Preload next slide if available
@@ -1355,16 +1358,13 @@ function updateStorySlideView() {
   var captionEl = document.getElementById('story-viewer-caption');
 
   if (pillEl) {
-    var driveIdMatch = safeMediaUrl.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
-    var driveFileId = driveIdMatch ? driveIdMatch[1] : null;
-
     if (curSlide.location || driveFileId) {
       pillEl.style.display = 'inline-flex';
       var locHtml = curSlide.location
         ? '<span class="story-pill-tag story-pill-loc"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location) + '</span>'
         : '';
       var driveLinkHtml = driveFileId
-        ? '<a href="https://drive.google.com/file/d/' + encodeURIComponent(driveFileId) + '/view" target="_blank" rel="noopener noreferrer" class="story-pill-tag story-pill-link" title="Open full video in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Video &nearr;</a>'
+        ? '<a href="https://drive.google.com/file/d/' + encodeURIComponent(driveFileId) + '/view" target="_blank" rel="noopener noreferrer" class="story-pill-tag story-pill-link" title="Open in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Drive &nearr;</a>'
         : '';
       pillEl.innerHTML = locHtml + driveLinkHtml;
     } else {
@@ -1410,7 +1410,6 @@ function toggleStorySound() {
   updateSoundIcon(_isStoryMuted);
 }
 
-
 function updateSoundIcon(isMuted) {
   var icon = document.getElementById('story-sound-icon');
   var soundBtn = document.getElementById('story-btn-sound');
@@ -1427,33 +1426,15 @@ function updateSoundIcon(isMuted) {
   }
 }
 
-/**
- * Starts the countdown to auto-advance to next slide
- */
 function startStoryTimer(duration) {
-  clearTimeout(_storyTimer);
-  _storyRemainingTime = duration;
-  _storySlideStartTime = Date.now();
-  _isStoryPaused = false;
-
-  var pauseBtn = document.getElementById('story-btn-pause');
-  if (pauseBtn) {
-    pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-    pauseBtn.title = 'Pause Highlight';
-  }
-
-  _storyTimer = setTimeout(function() {
-    nextStorySlide();
-  }, duration);
+  void duration;
+  _cancelStoryTicker();
+  _storySlideDuration = duration || 5000;
+  _startStoryProgressTick();
 }
-
 
 var _lastPauseToggleTime = 0;
 
-/**
- * Renders an animated pulse icon at the center of the story viewer indicating play or pause
- * @param {boolean} isPaused
- */
 function showStoryCenterPulse(isPaused) {
   if (typeof document === 'undefined') return;
   var wrap = document.getElementById('story-media-wrap') || document.querySelector('.story-viewer-card');
@@ -1471,11 +1452,9 @@ function showStoryCenterPulse(isPaused) {
     if (pulse && pulse.parentNode) pulse.parentNode.removeChild(pulse);
   }, 480);
 }
-/**
- * Advances to the next slide or the next highlight collection
- */
+
 function nextStorySlide() {
-  clearTimeout(_storyTimer);
+  _cancelStoryTicker();
   var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
   var curHighlight = activeHighlights[_currentStoryHighlightIdx];
   if (!curHighlight) {
@@ -1485,31 +1464,24 @@ function nextStorySlide() {
 
   if (_currentStorySlideIdx + 1 < curHighlight.items.length) {
     _currentStorySlideIdx++;
-    _storyRemainingTime = _storySlideDuration;
     updateStorySlideView();
   } else {
     // Last slide of this highlight -> advance to next highlight
     if (_currentStoryHighlightIdx + 1 < activeHighlights.length) {
       _currentStoryHighlightIdx++;
       _currentStorySlideIdx = 0;
-      _storyRemainingTime = _storySlideDuration;
       updateStorySlideView();
     } else {
-      // Reached the end of all highlights
       closeStoryViewer();
     }
   }
 }
 
-/**
- * Navigates back to the previous slide or previous highlight collection
- */
 function prevStorySlide() {
-  clearTimeout(_storyTimer);
+  _cancelStoryTicker();
   var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
   if (_currentStorySlideIdx > 0) {
     _currentStorySlideIdx--;
-    _storyRemainingTime = _storySlideDuration;
     updateStorySlideView();
   } else {
     // First slide -> go to previous highlight
@@ -1517,22 +1489,16 @@ function prevStorySlide() {
       _currentStoryHighlightIdx--;
       var prevHighlight = activeHighlights[_currentStoryHighlightIdx];
       _currentStorySlideIdx = prevHighlight.items ? Math.max(0, prevHighlight.items.length - 1) : 0;
-      _storyRemainingTime = _storySlideDuration;
       updateStorySlideView();
     } else {
-      // First slide of first highlight -> restart slide
       _currentStorySlideIdx = 0;
-      _storyRemainingTime = _storySlideDuration;
       updateStorySlideView();
     }
   }
 }
 
-/**
- * Advances to the next highlight collection (Instagram-style horizontal swipe left)
- */
 function nextStoryHighlight() {
-  clearTimeout(_storyTimer);
+  _cancelStoryTicker();
   var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
   if (!activeHighlights.length) {
     closeStoryViewer();
@@ -1541,18 +1507,14 @@ function nextStoryHighlight() {
   if (_currentStoryHighlightIdx + 1 < activeHighlights.length) {
     _currentStoryHighlightIdx++;
     _currentStorySlideIdx = 0;
-    _storyRemainingTime = _storySlideDuration;
     updateStorySlideView();
   } else {
     closeStoryViewer();
   }
 }
 
-/**
- * Returns to the previous highlight collection (Instagram-style horizontal swipe right)
- */
 function prevStoryHighlight() {
-  clearTimeout(_storyTimer);
+  _cancelStoryTicker();
   var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
   if (!activeHighlights.length) {
     closeStoryViewer();
@@ -1561,26 +1523,20 @@ function prevStoryHighlight() {
   if (_currentStoryHighlightIdx > 0) {
     _currentStoryHighlightIdx--;
     _currentStorySlideIdx = 0;
-    _storyRemainingTime = _storySlideDuration;
     updateStorySlideView();
   } else {
     _currentStorySlideIdx = 0;
-    _storyRemainingTime = _storySlideDuration;
     updateStorySlideView();
   }
 }
 
-/**
- * Pauses story slide playback on hold
- */
 function pauseStoryPlayback() {
   if (_isStoryPaused) return;
-  clearTimeout(_storyTimer);
-  var elapsed = Date.now() - _storySlideStartTime;
-  _storyRemainingTime = Math.max(300, _storyRemainingTime - elapsed);
   _isStoryPaused = true;
+  _storyPauseStart = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+    ? performance.now()
+    : Date.now();
 
-  // Pause HTML5 video if playing
   var videoEl = document.getElementById('story-viewer-video');
   if (videoEl && !videoEl.paused) {
     if (typeof videoEl.pause === 'function') videoEl.pause();
@@ -1593,16 +1549,6 @@ function pauseStoryPlayback() {
     } catch (_) {}
   }
 
-  // Pause progress bar animation
-  var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
-  if (currentFill) {
-    if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
-      var computed = window.getComputedStyle(currentFill);
-      currentFill.style.width = computed.width;
-    }
-    currentFill.style.transition = 'none';
-  }
-
   var pauseBtn = document.getElementById('story-btn-pause');
   if (pauseBtn) {
     pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
@@ -1610,14 +1556,18 @@ function pauseStoryPlayback() {
   }
 }
 
-/**
- * Resumes story slide playback on release
- */
 function resumeStoryPlayback() {
   if (!_isStoryPaused) return;
   _isStoryPaused = false;
+  var now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+    ? performance.now()
+    : Date.now();
+  if (_storyPauseStart > 0) {
+    var pausedDuration = now - _storyPauseStart;
+    _storySlideStartTime += pausedDuration;
+    _storyPauseStart = 0;
+  }
 
-  // Resume HTML5 video
   var videoEl = document.getElementById('story-viewer-video');
   if (videoEl && videoEl.style.display !== 'none') {
     if (typeof videoEl.play === 'function') videoEl.play().catch(function() {});
@@ -1629,11 +1579,6 @@ function resumeStoryPlayback() {
         iframeEl.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
       } catch (_) {}
     }
-    var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
-    if (currentFill) {
-      currentFill.style.transition = 'width ' + (_storyRemainingTime / 1000) + 's linear';
-      currentFill.style.width = '100%';
-    }
   }
 
   var pauseBtn = document.getElementById('story-btn-pause');
@@ -1641,13 +1586,8 @@ function resumeStoryPlayback() {
     pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     pauseBtn.title = 'Pause Highlight';
   }
-
-  startStoryTimer(_storyRemainingTime);
 }
 
-/**
- * Toggles play/pause state from header button
- */
 function toggleStoryPause() {
   var now = Date.now();
   if (now - _lastPauseToggleTime < 320) return;
@@ -1662,11 +1602,8 @@ function toggleStoryPause() {
   }
 }
 
-/**
- * Closes the story viewer modal and terminates media playback
- */
 function closeStoryViewer() {
-  clearTimeout(_storyTimer);
+  _cancelStoryTicker();
   _currentStoryHighlightIdx = -1;
   _currentStorySlideIdx = 0;
   _isStoryPaused = false;
@@ -1688,13 +1625,14 @@ function closeStoryViewer() {
       card.style.transition = '';
     }
     var modal = document.getElementById('story-viewer-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.style.display = 'none';
+    }
   }
 }
 
-/**
- * Attaches keyboard navigation (Left/Right/Space/Escape)
- */
+var _storyKeyHandlerAttached = false;
+
 function attachStoryKeyListeners() {
   if (_storyKeyHandlerAttached || typeof document === 'undefined') return;
   _storyKeyHandlerAttached = true;
@@ -1724,6 +1662,9 @@ function attachStoryKeyListeners() {
     } else if (e.key === ' ' || e.code === 'Space') {
       e.preventDefault();
       toggleStoryPause();
+    } else if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      toggleStorySound();
     } else if (e.key === 'Escape') {
       e.preventDefault();
       closeStoryViewer();
@@ -1731,9 +1672,6 @@ function attachStoryKeyListeners() {
   });
 }
 
-/**
- * Attaches touch gestures: swipe left/right between highlights, tap sides for slides, and hold to pause
- */
 var _storyTouchStartX = 0;
 var _storyTouchStartY = 0;
 var _storyTouchStartTime = 0;
@@ -2352,6 +2290,7 @@ if (typeof window !== 'undefined') {
   window.deleteStoryHighlight   = deleteStoryHighlight;
   window.handleSlideTypeChange  = handleSlideTypeChange;
   window.applyStoryProgressAnimation = applyStoryProgressAnimation;
+  window.startStoryTimer        = startStoryTimer;
   window.getStorySlideDuration  = function() { return _storySlideDuration; };
 
   window.loadGallery            = loadGallery;
@@ -2378,6 +2317,7 @@ if (typeof module !== 'undefined' && module.exports) {
     handleSlideUrlInput: handleSlideUrlInput,
     handleSlideTypeChange: handleSlideTypeChange,
     applyStoryProgressAnimation: applyStoryProgressAnimation,
+    startStoryTimer: startStoryTimer,
     getStorySlideDuration: function() { return _storySlideDuration; },
 
     loadStoryHighlights: loadStoryHighlights,

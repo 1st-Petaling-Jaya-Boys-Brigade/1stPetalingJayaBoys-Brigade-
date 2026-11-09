@@ -1385,33 +1385,33 @@ select.form-input,
 .story-viewer-modal {
   position: fixed;
   inset: 0;
-  background: rgba(5, 7, 12, 0.94);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: #000000;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 99999;
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 24px;
   user-select: none;
   -webkit-user-select: none;
   animation: fadeIn 0.2s ease;
-  gap: 24px;
+  gap: 28px;
 }
 
 .story-viewer-card {
   width: 100%;
-  max-width: 420px;
-  height: 90vh;
-  max-height: 780px;
-  border-radius: var(--radius-xl, 20px);
+  max-width: 435px;
+  height: min(88vh, 780px);
+  aspect-ratio: 9/16;
+  border-radius: 16px;
   overflow: hidden;
   position: relative;
-  background: #000;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+  background: #000000;
+  box-shadow: 0 25px 65px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.12);
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: none;
 }
 
 .story-progress-container {
@@ -1625,12 +1625,12 @@ select.form-input,
 
 /* Desktop Exterior Navigation Arrows */
 .story-arrow-btn {
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   display: flex;
@@ -1638,9 +1638,9 @@ select.form-input,
   justify-content: center;
   cursor: pointer;
   z-index: 35;
-  transition: all 0.15s ease;
+  transition: all 0.18s ease;
   pointer-events: auto;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
   flex-shrink: 0;
 }
 

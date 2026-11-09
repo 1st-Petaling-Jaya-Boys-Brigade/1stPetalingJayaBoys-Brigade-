@@ -2063,41 +2063,71 @@ var _adminMembersCache = null;
         }
         if (typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap[trimmedOldName.toLowerCase()]) {
           _memberPfpsMap[trimmedNewName.toLowerCase()] = _memberPfpsMap[trimmedOldName.toLowerCase()];
-        }
+        }      }
 
-        // 4. Update local members cache
-        try {
-          var memCache = JSON.parse(localStorage.getItem('bb_members_cache') || '[]');
-          if (Array.isArray(memCache)) {
-            memCache.forEach(function(m) {
-              if (m.ic === originalIc || m.name === trimmedOldName) {
-                m.name = trimmedNewName;
-                m.rank = rank;
-                m.squad = squad;
-                m.department = department;
-                m.section = att_section;
-                m.att_section = att_section;
-              }
-            });
-            localStorage.setItem('bb_members_cache', JSON.stringify(memCache));
+      // 4. Update local members cache for all field modifications
+      try {
+        var memCache = JSON.parse(localStorage.getItem('bb_members_cache') || '[]');
+        if (Array.isArray(memCache)) {
+          var cacheMatched = false;
+          memCache.forEach(function(m) {
+            if (m.ic === (originalIc || ic) || (trimmedOldName && m.name === trimmedOldName) || (trimmedNewName && m.name === trimmedNewName)) {
+              m.name = trimmedNewName;
+              m.rank = rank;
+              m.squad = squad;
+              m.department = department;
+              m.section = att_section;
+              m.att_section = att_section;
+              cacheMatched = true;
+            }
+          });
+          if (!cacheMatched && !originalIc) {
+            memCache.push({ ic: ic, name: trimmedNewName, rank: rank, squad: squad, department: department, section: att_section, att_section: att_section });
           }
-        } catch (_) {}
-
-        // 5. If this is the currently logged-in user session, update immediately
-        var currentSessIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : '';
-        var currentSessNm = (typeof sessionGet === 'function') ? sessionGet('name') : '';
-        if (currentSessIc === originalIc || (currentSessNm && currentSessNm.toLowerCase() === trimmedOldName.toLowerCase())) {
-          if (typeof sessionSet === 'function') {
-            sessionSet('name', trimmedNewName);
-            sessionSet('rank', rank);
-            sessionSet('section', att_section);
-            sessionSet('department', department);
-          }
-          var sn = document.getElementById('sidebar-user-name');
-          if (sn) sn.textContent = trimmedNewName;
-          var sb = document.getElementById('sidebar-user-badge');
-          if (sb) sb.textContent = rank || 'Member';
+          localStorage.setItem('bb_members_cache', JSON.stringify(memCache));
         }
+      } catch (_) {}
+
+      // 5. If this is the currently logged-in user session, update immediately
+      var currentSessIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : '';
+      var currentSessNm = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      var isMe = (currentSessIc && (currentSessIc === originalIc || currentSessIc === ic)) ||
+                 (currentSessNm && (currentSessNm.toLowerCase() === (trimmedOldName || '').toLowerCase() || currentSessNm.toLowerCase() === trimmedNewName.toLowerCase()));
+
+      if (isMe) {
+        if (typeof sessionSet === 'function') {
+          sessionSet('name', trimmedNewName);
+          sessionSet('rank', rank);
+          sessionSet('section', att_section);
+          sessionSet('department', department);
+          sessionSet('squad', squad);
+        }
+        var sn = document.getElementById('sidebar-user-name');
+        if (sn) sn.textContent = trimmedNewName;
+        var sqBadgeFmt = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad(squad, att_section) : (squad ? squad + ' Sq' : '');
+        var userBadgeText = (rank ? rank + (sqBadgeFmt || att_section ? ' · ' : '') : '') + (sqBadgeFmt || att_section || 'Member');
+        var sb = document.getElementById('sidebar-user-badge');
+        if (sb) sb.textContent = userBadgeText;
+
+        if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {
+          try { RBAC.renderHeaderRoleBadge(); } catch (_) {}
+        }
+        if (typeof checkTasksAccess === 'function') {
+          try { checkTasksAccess(); } catch (_) {}
+        }
+      }
+
+      // 6. Broadcast member update to all clients & devices in real time
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('members', 'update', {
+          ic: memberTargetKey,
+          name: trimmedNewName,
+          rank: rank,
+          squad: squad,
+          department: department,
+          section: att_section,
+          att_section: att_section
+        });
       }
 
       closeEditMember();
