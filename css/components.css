@@ -1551,11 +1551,9 @@ select.form-input,
   display: block;
 }
 
-/* Conceals external player header and bottom progress/control bars */
 .story-media-iframe {
   width: 100%;
-  height: calc(100% + 56px);
-  margin-bottom: -56px;
+  height: 100%;
   border: none;
   background: #000;
   display: block;
