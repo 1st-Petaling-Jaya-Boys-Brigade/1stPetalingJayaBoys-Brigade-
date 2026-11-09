@@ -1086,6 +1086,8 @@ var PortalRealtime = (function() {
   var _reconnectAttempts = 0;
   var _refCounter = 1;
   var _lastEntityTimestamps = {};
+  var _realtimeTabId = 'rt_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
+  var _seenRealtimeMsgIds = new Set();
 
   // 1. Cross-Tab Instant BroadcastChannel (0ms latency on same machine)
   if (typeof BroadcastChannel !== 'undefined') {
@@ -1094,6 +1096,15 @@ var PortalRealtime = (function() {
       _broadcastChannel.onmessage = function(ev) {
         if (!ev || !ev.data) return;
         var msg = ev.data;
+        if (msg.senderId && msg.senderId === _realtimeTabId) return;
+        if (msg.msgId) {
+          if (_seenRealtimeMsgIds.has(msg.msgId)) return;
+          _seenRealtimeMsgIds.add(msg.msgId);
+          if (_seenRealtimeMsgIds.size > 128) {
+            var firstKey = _seenRealtimeMsgIds.keys().next().value;
+            _seenRealtimeMsgIds.delete(firstKey);
+          }
+        }
         if (msg.type === 'PORTAL_REALTIME_CHANGE') {
           triggerEntityUpdate(msg.entity, msg.action, msg.data, true);
         }
@@ -1104,8 +1115,11 @@ var PortalRealtime = (function() {
   function broadcastLocalChange(entity, action, data) {
     if (_broadcastChannel) {
       try {
+        var msgId = _realtimeTabId + ':' + entity + ':' + Date.now() + ':' + (++_refCounter);
         _broadcastChannel.postMessage({
           type: 'PORTAL_REALTIME_CHANGE',
+          senderId: _realtimeTabId,
+          msgId: msgId,
           entity: entity,
           action: action || 'update',
           data: data || null
@@ -1391,11 +1405,11 @@ var PortalRealtime = (function() {
 
       if (isMe) {
         if (data && data.ic) {
-          if (data.name && sessSetFn) sessSetFn('name', data.name);
-          if (data.rank !== undefined && sessSetFn) sessSetFn('rank', data.rank);
-          if (data.squad !== undefined && sessSetFn) sessSetFn('squad', data.squad);
-          if (data.department !== undefined && sessSetFn) sessSetFn('department', data.department);
-          if ((data.att_section || data.section) && sessSetFn) sessSetFn('section', data.att_section || data.section);
+          if (data.name && sessSetFn) sessSetFn('name', data.name, { localOnly: true });
+          if (data.rank !== undefined && sessSetFn) sessSetFn('rank', data.rank, { localOnly: true });
+          if (data.squad !== undefined && sessSetFn) sessSetFn('squad', data.squad, { localOnly: true });
+          if (data.department !== undefined && sessSetFn) sessSetFn('department', data.department, { localOnly: true });
+          if ((data.att_section || data.section) && sessSetFn) sessSetFn('section', data.att_section || data.section, { localOnly: true });
 
           var sn = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-name') : null;
           if (sn && data.name) sn.textContent = data.name;

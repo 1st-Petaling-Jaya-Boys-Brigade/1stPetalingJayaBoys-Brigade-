@@ -6,7 +6,7 @@
 
 var REMEMBER_ME_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
 var _redirectTarget = null;
-  _lastSessionVerifyTime = 0; // Post-login redirect memory
+var _lastSessionVerifyTime = 0; // Post-login redirect memory
 
 /**
  * Checks whether a saved Remember Me session timestamp has exceeded 14 days
@@ -283,7 +283,7 @@ function sessionSet(key, value, options) {
   var existing = _session[key];
   var isPrimitive = typeof value !== 'object' || value === null;
   var isSame = isPrimitive ? (existing === value) : (JSON.stringify(existing) === JSON.stringify(value));
-  if (isSame && key !== 'remember' && key !== 'email') {
+  if (isSame && key !== 'remember') {
     return;
   }
 
@@ -357,11 +357,13 @@ function sessionClear(options) {
     }
   }
   delete _session._session_saved_at;
+  _lastSessionVerifyTime = 0;
   _redirectTarget = null;
   try {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.removeItem('bb_session');
       sessionStorage.removeItem('bb_redirect_target');
+      sessionStorage.removeItem('bb_last_session_verify_ts');
     }
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('bb_session');
@@ -467,7 +469,7 @@ var AuthGuard = {
       // Check if session has expired via Remember Me TTL
       var savedAt = _session && _session._session_saved_at;
       if (savedAt && typeof isRememberMeExpired === 'function' && isRememberMeExpired(savedAt)) {
-        sessionClear();
+        sessionClear({ localOnly: true });
         return false;
       }
 
@@ -488,7 +490,7 @@ var AuthGuard = {
                 if (typeof forceKickDeletedAccount === 'function') {
                   forceKickDeletedAccount();
                 } else {
-                  sessionClear();
+                  sessionClear({ localOnly: true });
                 }
                 return false;
               }
@@ -643,10 +645,19 @@ async function verifyActiveMemberSession(force) {
     } catch (_) {}
   }
 
-  // 2. Cooldown fast-path: If verified recently within TTL and not forced, return true immediately (0ms tab transitions)
+  // 2. Cooldown fast-path: If verified recently within TTL and not forced, return true immediately (0ms tab transitions & duplicated tabs)
   var now = Date.now();
-  if (!force && _lastSessionVerifyTime > 0 && (now - _lastSessionVerifyTime < SESSION_VERIFY_TTL)) {
-    return true;
+  if (!force) {
+    var cachedVerifyTs = 0;
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        cachedVerifyTs = parseInt(sessionStorage.getItem('bb_last_session_verify_ts'), 10) || 0;
+      }
+    } catch (_) {}
+    var effectiveVerifyTs = Math.max(_lastSessionVerifyTime, cachedVerifyTs);
+    if (effectiveVerifyTs > 0 && (now - effectiveVerifyTs < SESSION_VERIFY_TTL)) {
+      return true;
+    }
   }
 
   var lookupId = ic || email;
@@ -717,6 +728,11 @@ async function verifyActiveMemberSession(force) {
     }
 
     _lastSessionVerifyTime = Date.now();
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('bb_last_session_verify_ts', String(_lastSessionVerifyTime));
+      }
+    } catch (_) {}
     return true;
   } catch (err) {
     console.warn('verifyActiveMemberSession check failed (network/offline):', err);
@@ -730,7 +746,7 @@ async function verifyActiveMemberSession(force) {
  */
 function forceKickDeletedAccount() {
   try {
-    if (typeof sessionClear === 'function') sessionClear();
+    if (typeof sessionClear === 'function') sessionClear({ localOnly: true });
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('bb_session');
       localStorage.removeItem('bb_user_profile');
