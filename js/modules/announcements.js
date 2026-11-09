@@ -882,7 +882,7 @@ async function broadcastAnnouncementEmail(ann) {
   if (!ann || !ann.title) return false;
   try {
     var client = typeof supa !== 'undefined' ? supa : null;
-    if (!client) return false;
+    if (!client || typeof client.get !== 'function') return false;
 
     // 1. Fetch active registered members from Supabase
     var members = await client.get('bb_members?select=ic,name,email,department');
@@ -982,19 +982,19 @@ async function addAnnouncement() {
   // Collect selected allowed reactions
   var selectedAllowed = [];
   if (typeof document !== 'undefined') {
-    var activeChips = document.querySelectorAll('.ann-reaction-chip.active');
-    if (activeChips && activeChips.length > 0) {
-      activeChips.forEach(function(c) {
-        var em = c.getAttribute('data-emoji');
-        if (em) selectedAllowed.push(em);
+    var allChips = document.querySelectorAll('.ann-reaction-chip');
+    if (allChips && allChips.length > 0) {
+      allChips.forEach(function(c) {
+        var isAct = (c.classList && typeof c.classList.contains === 'function')
+          ? c.classList.contains('active')
+          : (c.className && c.className.indexOf('active') !== -1);
+        if (isAct) {
+          var em = c.getAttribute('data-emoji');
+          if (em) selectedAllowed.push(em);
+        }
       });
     } else {
-      var allChips = document.querySelectorAll('.ann-reaction-chip');
-      if (allChips && allChips.length > 0) {
-        selectedAllowed = []; // Admin specifically cleared all reactions
-      } else {
-        selectedAllowed = ALL_REACTION_EMOJIS.slice();
-      }
+      selectedAllowed = ALL_REACTION_EMOJIS.slice();
     }
   } else {
     selectedAllowed = ALL_REACTION_EMOJIS.slice();
@@ -1073,7 +1073,6 @@ async function addAnnouncement() {
         body: sanitizedBody,
         date: dateStr,
         reactions: { _allowed: selectedAllowed },
-        allowed_reactions: selectedAllowed,
         created_at: new Date().toISOString()
       };
       if (infographicUrl) {
@@ -1085,15 +1084,18 @@ async function addAnnouncement() {
           var row = await supa.post('bb_announcements', newRecord);
           if (row && row[0]) {
             if (infographicUrl) row[0].image_url = infographicUrl;
+            row[0].allowed_reactions = selectedAllowed;
             announcements.push(row[0]);
             createdAnnId = row[0].id;
           }
         } catch (err) {
-          // Schema fallback if image_url column not yet applied on remote backend
+          // Schema fallback if image_url or custom column not yet applied on remote backend
           delete newRecord.image_url;
+          delete newRecord.allowed_reactions;
           var retryRow = await supa.post('bb_announcements', newRecord);
           if (retryRow && retryRow[0]) {
             retryRow[0].image_url = infographicUrl;
+            retryRow[0].allowed_reactions = selectedAllowed;
             announcements.push(retryRow[0]);
             createdAnnId = retryRow[0].id;
           }
@@ -1914,6 +1916,7 @@ if (typeof window !== 'undefined') {
   window.openEditAnnouncement     = openEditAnnouncement;
   window.cancelEditAnnouncement   = cancelEditAnnouncement;
   window.addAnnouncement          = addAnnouncement;
+  window.saveAnnouncement         = addAnnouncement;
   window.deleteAnnouncement       = deleteAnnouncement;
   window.broadcastAnnouncementEmail = broadcastAnnouncementEmail;
   window.annSaveRange             = annSaveRange;
@@ -1961,6 +1964,7 @@ if (typeof module !== 'undefined' && module.exports) {
     openEditAnnouncement: openEditAnnouncement,
     cancelEditAnnouncement: cancelEditAnnouncement,
     addAnnouncement: addAnnouncement,
+    saveAnnouncement: addAnnouncement,
     deleteAnnouncement: deleteAnnouncement,
     broadcastAnnouncementEmail: broadcastAnnouncementEmail,
     annSaveRange: annSaveRange,

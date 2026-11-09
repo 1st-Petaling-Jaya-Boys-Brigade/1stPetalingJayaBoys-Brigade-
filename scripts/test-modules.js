@@ -4233,8 +4233,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261109f',
-    'sw.js CACHE_VERSION must be 20261109f'
+    '20261109g',
+    'sw.js CACHE_VERSION must be 20261109g'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4265,7 +4265,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109f',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109g',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7037,7 +7037,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109f'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109g'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8945,12 +8945,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109f', 'Service Worker cache version must be 20261109f');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109g', 'Service Worker cache version must be 20261109g');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261109f and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261109g and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10197,25 +10197,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109f', 'sw.js CACHE_VERSION must be 20261109f');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109f', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109f', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109g', 'sw.js CACHE_VERSION must be 20261109g');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109g', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109g', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261109f cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261109g cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261109f'), 'config.js must use v=20261109f');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109f'), 'forum.js must use v=20261109f');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261109f'), 'variables.css must use v=20261109f');
-    assert.ok(indexRaw.includes('css/base.css?v=20261109f'), 'base.css must use v=20261109f');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109f');
+    assert.ok(indexRaw.includes('js/config.js?v=20261109g'), 'config.js must use v=20261109g');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109g'), 'forum.js must use v=20261109g');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261109g'), 'variables.css must use v=20261109g');
+    assert.ok(indexRaw.includes('css/base.css?v=20261109g'), 'base.css must use v=20261109g');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109g');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -11035,6 +11035,127 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 6. Strict 388 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const idSet = new Set();
+    allMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) idSet.add(matchId[1]);
+    });
+    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // ── Testing Announcement Post Fix & Section Copy Updates ──
+  console.log('\nTesting Announcement Post Fix & Section Copy Updates...');
+  {
+    const annMod = require('../js/modules/announcements.js');
+    require('../js/modules/attendance.js');
+    require('../js/modules/forum.js');
+    require('../js/modules/arcade.js');
+
+    // 1. Announcements Save & Post Fix (Zero PGRST204 errors)
+    let postedPayload = null;
+    const origPost = global.supa.post;
+    global.supa.post = async (table, payload) => {
+      if (table === 'bb_announcements') {
+        postedPayload = payload;
+        return [{ id: 'ann-test-save-1', ...payload }];
+      }
+      return origPost(table, payload);
+    };
+
+    let titleInput = document.getElementById('ann-title-input');
+    let bodyInput = document.getElementById('ann-body-input');
+    if (!titleInput) {
+      titleInput = document.createElement('input');
+      titleInput.id = 'ann-title-input';
+      document.body.appendChild(titleInput);
+    }
+    if (!bodyInput) {
+      bodyInput = document.createElement('div');
+      bodyInput.id = 'ann-body-input';
+      document.body.appendChild(bodyInput);
+    }
+
+    const chipBox = document.createElement('div');
+    chipBox.className = 'ann-allowed-emojis-selector';
+    annMod.ALL_REACTION_EMOJIS.forEach(emoji => {
+      const chip = document.createElement('button');
+      chip.className = 'ann-reaction-chip active';
+      chip.setAttribute('data-emoji', emoji);
+      chipBox.appendChild(chip);
+    });
+    document.body.appendChild(chipBox);
+
+    titleInput.value = 'Annual Inspection Parade Briefing';
+    bodyInput.innerHTML = 'Full dress inspection details and timing.';
+    annMod.setAnnReactionPreset('poll');
+
+    await (annMod.saveAnnouncement || annMod.addAnnouncement)();
+    if (chipBox.parentNode) chipBox.parentNode.removeChild(chipBox);
+    assert.ok(postedPayload, 'saveAnnouncement must issue supa.post to bb_announcements');
+    assert.strictEqual(postedPayload.allowed_reactions, undefined, 'allowed_reactions must NOT be sent as a top-level column to prevent PGRST204 schema cache errors');
+    assert.deepStrictEqual(postedPayload.reactions._allowed, ['✅', '❌'], 'Allowed reactions must be safely persisted inside reactions._allowed JSONB structure');
+    global.supa.post = origPost;
+    console.log('  ✔ Announcement saving eliminates PGRST204 column errors while preserving reactions._allowed');
+
+    // 2. Home Hero Copy
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    assert.ok(
+      indexHtml.includes('Welcome to the official 1stPJ Boys\' Brigade Portal, which serves as an all-in-one hub for parade and calendar schedules, badge tracking, uniform store, forms, company announcements and more.'),
+      'Home hero description must match updated copy'
+    );
+    console.log('  ✔ Home hero description verified with all-in-one portal wording');
+
+    // 3. Gallery Page Copy
+    assert.ok(
+      indexHtml.includes('Explore our full company photo and video archives, and highlights from camps, events, enrolments, awards day, band contests, parades and more.'),
+      'Gallery page description must match updated copy'
+    );
+    console.log('  ✔ Gallery description verified with updated highlights list');
+
+    // 4. Leaderboard Copy Updates
+    assert.ok(
+      indexHtml.includes('View your attendance status, uniform points, parade points, band points, and platoon ranking.'),
+      'Leaderboard personal points description must match updated copy'
+    );
+    assert.ok(
+      !indexHtml.includes('Squad standings, parade attendance, and uniform scores synced directly from the Company Master Sheet.'),
+      'Legacy master sheet sync subtitle must be completely removed from Leaderboard'
+    );
+
+    const attJs = fs.readFileSync(path.join(__dirname, '../js/modules/attendance.js'), 'utf8');
+    assert.ok(
+      attJs.includes('Top 3 Leading Squads in Attendance, Inspection, and Squad Points'),
+      'attendance.js must render updated championship podium subtitle'
+    );
+    console.log('  ✔ Leaderboard personal points, championship podium, and master sheet sync removal verified');
+
+    // 5. Resources Page Copy
+    assert.ok(
+      indexHtml.includes('Access official manuals, files, and documents for 1st Petaling Jaya Boys\' Brigade.'),
+      'Resources page description must match updated copy'
+    );
+    console.log('  ✔ Resources description verified with updated manuals, files, and documents wording');
+
+    // 6. Support Forum Page Copy
+    const forumJs = fs.readFileSync(path.join(__dirname, '../js/modules/forum.js'), 'utf8');
+    assert.ok(
+      forumJs.includes('Ask questions about portal tools, or submit technical bug reports directly to the 1st PJ development team and officers.'),
+      'forum.js must render updated support forum description'
+    );
+    console.log('  ✔ Support Forum description verified with portal tools and bug reports wording');
+
+    // 7. 1stPJ Arcade Page Copy
+    const arcadeJs = fs.readFileSync(path.join(__dirname, '../js/modules/arcade.js'), 'utf8');
+    assert.ok(
+      arcadeJs.includes('Play the Daily Wordle and answer BB Trivia to earn Credits and build your daily streak.') &&
+      !arcadeJs.includes('Timed BB Trivia'),
+      'arcade.js must render updated arcade description without "Timed BB Trivia"'
+    );
+    console.log('  ✔ 1stPJ Arcade description verified with Daily Wordle and BB Trivia wording');
+
+    // 8. Strict 388 Unique DOM IDs Invariant
+    const allMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();
     allMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
