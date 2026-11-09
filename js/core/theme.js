@@ -103,13 +103,17 @@
   }
 
   // ── Ambient Seasonal Falling Particles (Snow & Leaves) Engine ─────────────
+  var LEAF_VARIETIES = ['maple', 'oak', 'ginkgo', 'birch'];
+
   var LEAF_PALETTE = [
-    { color: '#e11d48', vein: 'rgba(90, 10, 25, 0.4)' },   // Crimson
-    { color: '#ea580c', vein: 'rgba(120, 35, 5, 0.4)' },   // Orange
-    { color: '#d97706', vein: 'rgba(115, 60, 5, 0.4)' },   // Amber
-    { color: '#ca8a04', vein: 'rgba(105, 70, 5, 0.4)' },   // Golden Ochre
-    { color: '#b45309', vein: 'rgba(85, 35, 5, 0.4)' },    // Russet
-    { color: '#a16207', vein: 'rgba(75, 45, 5, 0.4)' }     // Bronze
+    { color: '#dc2626', vein: 'rgba(90, 10, 10, 0.45)' },   // Crimson
+    { color: '#ea580c', vein: 'rgba(100, 30, 5, 0.45)' },   // Burnt Orange
+    { color: '#f59e0b', vein: 'rgba(120, 60, 5, 0.4)' },    // Warm Amber
+    { color: '#ca8a04', vein: 'rgba(105, 70, 5, 0.4)' },    // Golden Ochre
+    { color: '#b45309', vein: 'rgba(85, 35, 5, 0.45)' },    // Russet
+    { color: '#eab308', vein: 'rgba(115, 75, 5, 0.4)' },    // Goldenrod
+    { color: '#c2410c', vein: 'rgba(90, 25, 5, 0.45)' },    // Flame Orange
+    { color: '#991b1b', vein: 'rgba(70, 10, 10, 0.5)' }     // Deep Wine
   ];
 
   var _particlesState = {
@@ -132,7 +136,9 @@
     try {
       if (typeof localStorage !== 'undefined') {
         var savedEn = localStorage.getItem('bb_ambient_particles_enabled');
-        if (savedEn !== null) enabled = savedEn !== 'false';
+        if (savedEn !== null) {
+          enabled = savedEn !== 'false';
+        }
         var savedMode = localStorage.getItem('bb_ambient_particles_mode');
         if (savedMode === 'snow' || savedMode === 'leaves' || savedMode === 'both') {
           mode = savedMode;
@@ -159,11 +165,13 @@
 
   function createLeafParticle(w, h, randomY) {
     var pal = LEAF_PALETTE[Math.floor(Math.random() * LEAF_PALETTE.length)];
+    var variety = LEAF_VARIETIES[Math.floor(Math.random() * LEAF_VARIETIES.length)];
     return {
       type: 'leaf',
+      variety: variety,
       x: Math.random() * (w || 1000),
       y: randomY ? Math.random() * (h || 800) : -(Math.random() * 30 + 10),
-      size: Math.random() * 9 + 11,
+      size: Math.random() * 9 + 12,
       speedY: Math.random() * 1.3 + 0.8,
       speedX: (Math.random() - 0.5) * 0.8,
       rotation: Math.random() * Math.PI * 2,
@@ -184,8 +192,8 @@
     var h = _particlesState.height || (typeof window !== 'undefined' ? window.innerHeight : 800) || 800;
     var isMobile = w < 768;
 
-    var snowCount = isMobile ? 22 : 44;
-    var leafCount = isMobile ? 10 : 20;
+    var snowCount = isMobile ? 30 : 60;
+    var leafCount = isMobile ? 14 : 28;
 
     _particlesState.snowList = [];
     _particlesState.leafList = [];
@@ -221,15 +229,15 @@
     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     if (isDark) {
       ctx.fillStyle = 'rgba(255, 255, 255, ' + p.opacity + ')';
-      if (p.radius > 2.6) {
+      if (p.radius > 2.2) {
         ctx.shadowBlur = 4;
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.55)';
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
       }
     } else {
-      ctx.fillStyle = 'rgba(120, 160, 210, ' + (p.opacity * 0.95) + ')';
-      if (p.radius > 2.6) {
+      ctx.fillStyle = 'rgba(70, 130, 200, ' + Math.min(1, p.opacity + 0.25) + ')';
+      if (p.radius > 2.2) {
         ctx.shadowBlur = 3;
-        ctx.shadowColor = 'rgba(90, 140, 200, 0.4)';
+        ctx.shadowColor = 'rgba(60, 120, 190, 0.4)';
       }
     }
     ctx.fill();
@@ -244,20 +252,60 @@
     ctx.scale(tilt, 1);
 
     var s = p.size;
-    ctx.beginPath();
-    ctx.moveTo(0, s * 0.5);
-    ctx.bezierCurveTo(s * 0.55, s * 0.25, s * 0.65, -s * 0.2, 0, -s * 0.55);
-    ctx.bezierCurveTo(-s * 0.65, -s * 0.2, -s * 0.55, s * 0.25, 0, s * 0.5);
-    ctx.closePath();
-
     ctx.fillStyle = p.color;
     ctx.globalAlpha = p.opacity;
+
+    ctx.beginPath();
+    if (p.variety === 'maple') {
+      // Maple leaf: 3-5 pointed lobes with stem
+      ctx.moveTo(0, s * 0.55);
+      ctx.lineTo(s * 0.15, s * 0.25);
+      ctx.lineTo(s * 0.45, s * 0.3);
+      ctx.lineTo(s * 0.35, 0);
+      ctx.lineTo(s * 0.6, -s * 0.1);
+      ctx.lineTo(s * 0.3, -s * 0.25);
+      ctx.lineTo(s * 0.35, -s * 0.5);
+      ctx.lineTo(0, -s * 0.75);
+      ctx.lineTo(-s * 0.35, -s * 0.5);
+      ctx.lineTo(-s * 0.3, -s * 0.25);
+      ctx.lineTo(-s * 0.6, -s * 0.1);
+      ctx.lineTo(-s * 0.35, 0);
+      ctx.lineTo(-s * 0.45, s * 0.3);
+      ctx.lineTo(-s * 0.15, s * 0.25);
+      ctx.closePath();
+    } else if (p.variety === 'oak') {
+      // Oak leaf: sinuous scalloped lobes
+      ctx.moveTo(0, s * 0.6);
+      ctx.bezierCurveTo(s * 0.2, s * 0.45, s * 0.4, s * 0.4, s * 0.3, s * 0.2);
+      ctx.bezierCurveTo(s * 0.45, s * 0.15, s * 0.5, -s * 0.05, s * 0.3, -s * 0.2);
+      ctx.bezierCurveTo(s * 0.4, -s * 0.35, s * 0.25, -s * 0.55, 0, -s * 0.65);
+      ctx.bezierCurveTo(-s * 0.25, -s * 0.55, -s * 0.4, -s * 0.35, -s * 0.3, -s * 0.2);
+      ctx.bezierCurveTo(-s * 0.5, -s * 0.05, -s * 0.45, s * 0.15, -s * 0.3, s * 0.2);
+      ctx.bezierCurveTo(-s * 0.4, s * 0.4, -s * 0.2, s * 0.45, 0, s * 0.6);
+      ctx.closePath();
+    } else if (p.variety === 'ginkgo') {
+      // Ginkgo biloba leaf: fan shape with notched crest
+      ctx.moveTo(0, s * 0.6);
+      ctx.lineTo(0, s * 0.2);
+      ctx.bezierCurveTo(s * 0.5, s * 0.1, s * 0.65, -s * 0.25, s * 0.45, -s * 0.55);
+      ctx.bezierCurveTo(s * 0.25, -s * 0.6, s * 0.08, -s * 0.5, 0, -s * 0.42);
+      ctx.bezierCurveTo(-s * 0.08, -s * 0.5, -s * 0.25, -s * 0.6, -s * 0.45, -s * 0.55);
+      ctx.bezierCurveTo(-s * 0.65, -s * 0.25, -s * 0.5, s * 0.1, 0, s * 0.2);
+      ctx.closePath();
+    } else {
+      // Birch leaf: delicate ovate teardrop
+      ctx.moveTo(0, s * 0.55);
+      ctx.bezierCurveTo(s * 0.5, s * 0.3, s * 0.55, -s * 0.15, 0, -s * 0.6);
+      ctx.bezierCurveTo(-s * 0.55, -s * 0.15, -s * 0.5, s * 0.3, 0, s * 0.55);
+      ctx.closePath();
+    }
+
     ctx.fill();
 
-    // Central leaf vein
+    // Vein line
     ctx.beginPath();
-    ctx.moveTo(0, s * 0.45);
-    ctx.lineTo(0, -s * 0.45);
+    ctx.moveTo(0, s * 0.55);
+    ctx.lineTo(0, -s * 0.42);
     ctx.strokeStyle = p.veinColor;
     ctx.lineWidth = 1;
     ctx.stroke();
@@ -336,19 +384,18 @@
     if (mode) _particlesState.mode = mode;
     if (_particlesState.isRunning) return;
 
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        return;
-      }
-    }
-
     if (!_particlesState.canvas && typeof document !== 'undefined' && document.body) {
       initAmbientParticles();
     }
 
     if (_particlesState.canvas) {
+      _particlesState.canvas.classList.add('user-motion-enabled');
       _particlesState.canvas.style.display = 'block';
       _particlesState.canvas.style.opacity = '1';
+    }
+
+    if (_particlesState.snowList.length === 0 || _particlesState.leafList.length === 0) {
+      setupParticlesList();
     }
 
     _particlesState.isRunning = true;
@@ -367,6 +414,7 @@
       _particlesState.ctx.clearRect(0, 0, _particlesState.width, _particlesState.height);
     }
     if (_particlesState.canvas) {
+      _particlesState.canvas.classList.remove('user-motion-enabled');
       _particlesState.canvas.style.display = 'none';
     }
   }
@@ -381,8 +429,17 @@
     } catch (_) {}
 
     if (next) {
+      if (_particlesState.canvas) {
+        _particlesState.canvas.classList.add('user-motion-enabled');
+      }
+      if (_particlesState.snowList.length === 0 || _particlesState.leafList.length === 0) {
+        setupParticlesList();
+      }
       startAmbientParticles();
     } else {
+      if (_particlesState.canvas) {
+        _particlesState.canvas.classList.remove('user-motion-enabled');
+      }
       stopAmbientParticles();
     }
     return next;
@@ -398,6 +455,14 @@
         localStorage.setItem('bb_ambient_particles_mode', mode);
       }
     } catch (_) {}
+
+    if (_particlesState.snowList.length === 0 || _particlesState.leafList.length === 0) {
+      setupParticlesList();
+    }
+
+    if (_particlesState.enabled) {
+      startAmbientParticles();
+    }
   }
 
   function initAmbientParticles() {
@@ -410,6 +475,9 @@
 
     var canvas = document.createElement('canvas');
     canvas.className = 'portal-ambient-canvas';
+    if (savedState.enabled) {
+      canvas.classList.add('user-motion-enabled');
+    }
     canvas.setAttribute('aria-hidden', 'true');
     document.body.appendChild(canvas);
 
@@ -454,7 +522,6 @@
       initAmbientParticles();
     }
   }
-
   // Expose to window
   if (typeof window !== 'undefined') {
     window.themeGet = getPreferredTheme;
