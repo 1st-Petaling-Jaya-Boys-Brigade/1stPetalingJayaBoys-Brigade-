@@ -800,53 +800,22 @@ var DEFAULT_STORY_HIGHLIGHTS = [
         location: 'Music Room'
       }
     ]
-  },
-  {
-    id: 'story-drill',
-    title: 'Drill',
-    cover: 'https://images.unsplash.com/photo-1526478806334-5fd488fcaabc?w=200&h=200&fit=crop&q=80',
-    order: 4,
-    active: true,
-    items: [
-      {
-        id: 'd1',
-        url: 'https://images.unsplash.com/photo-1526478806334-5fd488fcaabc?w=800&h=1200&fit=crop&q=85',
-        type: 'image',
-        caption: 'Ceremonial Squad Drill & Colour Party Rehearsal',
-        date: '08 Aug 2026',
-        location: 'Parade Ground'
-      },
-      {
-        id: 'd2',
-        url: 'https://images.unsplash.com/photo-1508873696983-2df5293cb32f?w=800&h=1200&fit=crop&q=85',
-        type: 'image',
-        caption: 'Junior Section Drill Syllabus & Teamwork Basics',
-        date: '15 Aug 2026',
-        location: 'Sports Court'
-      }
-    ]
-  },
-  {
-    id: 'story-enrolment',
-    title: 'Enrolment',
-    cover: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=200&h=200&fit=crop&q=80',
-    order: 5,
-    active: true,
-    items: [
-      {
-        id: 'e1',
-        url: 'https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&h=1200&fit=crop&q=85',
-        type: 'image',
-        caption: 'Annual Enrolment Service: Dedication of Recruits and Officers',
-        date: '28 Jun 2026',
-        location: 'Trinity Methodist Church PJ'
-      }
-    ]
   }
 ];
 
-// Story highlights runtime state
-var storyHighlights = JSON.parse(JSON.stringify(DEFAULT_STORY_HIGHLIGHTS));
+// Story highlights runtime state (initialized from localStorage cache if present to prevent layout shift)
+var storyHighlights = (function() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_story_highlights');
+      if (cached) {
+        var parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_STORY_HIGHLIGHTS));
+})();
 var _currentStoryHighlightIdx = -1;
 var _currentStorySlideIdx = 0;
 var _storyTimer = null;
@@ -868,7 +837,10 @@ async function loadStoryHighlights() {
       var snapStories = client.getConfigSnapshot('bb_story_highlights');
       if (Array.isArray(snapStories) && snapStories.length) {
         storyHighlights = snapStories;
-        return;
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights)); } catch (_) {}
+        }
+        return storyHighlights;
       }
     }
     if (client && typeof client.get === 'function') {
@@ -908,6 +880,10 @@ async function loadStoryHighlights() {
     storyHighlights = JSON.parse(JSON.stringify(DEFAULT_STORY_HIGHLIGHTS));
   }
 
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights)); } catch (_) {}
+  }
+
   if (typeof window !== 'undefined') {
     window.storyHighlights = storyHighlights;
   }
@@ -931,6 +907,9 @@ async function loadStoryHighlights() {
 async function saveStoryHighlights(newList) {
   if (Array.isArray(newList)) {
     storyHighlights = newList;
+  }
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights)); } catch (_) {}
   }
   if (typeof window !== 'undefined') {
     window.storyHighlights = storyHighlights;

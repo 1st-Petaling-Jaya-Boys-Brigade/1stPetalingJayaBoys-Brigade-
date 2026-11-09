@@ -1216,6 +1216,7 @@ var _adminMembersCache = null;
         _adminMembersCacheTime = now;
       }
       var filtered = members.filter(function(m) {
+        if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return false;
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
         return (m.name || '').toLowerCase().includes(search) || (m.ic || '').includes(search);
@@ -2161,6 +2162,9 @@ var _adminMembersCache = null;
         }
         if (!Array.isArray(delList)) delList = [];
         if (!delList.includes(ic)) delList.push(ic);
+        var archivedIc = 'archived_' + Date.now() + '_' + ic;
+        if (!delList.includes(archivedIc)) delList.push(archivedIc);
+        if (name && !delList.includes(name)) delList.push(name);
         if (typeof localStorage !== 'undefined') {
           try { localStorage.setItem('bb_deleted_members', JSON.stringify(delList)); } catch (_) {}
         }
@@ -2206,11 +2210,31 @@ var _adminMembersCache = null;
       try {
         await client.delete('bb_members?ic=eq.' + encodeURIComponent(ic));
       } catch (delErr) {}
+      try {
+        await client.delete('bb_members?ic=eq.' + encodeURIComponent(archivedIc));
+      } catch (delErr2) {}
 
       // 5. Cascade delete member badges
       try {
         await client.delete('bb_member_badges?ic=eq.' + encodeURIComponent(ic));
       } catch (delBadgeErr) {}
+      try {
+        await client.delete('bb_member_badges?ic=eq.' + encodeURIComponent(archivedIc));
+      } catch (delBadgeErr2) {}
+
+      // Purge in-memory and local caches immediately
+      if (typeof cleanMembersCache === 'function') {
+        try { cleanMembersCache(); } catch (_) {}
+      }
+      if (Array.isArray(_adminMembersCache)) {
+        _adminMembersCache = _adminMembersCache.filter(function(m) {
+          return m && m.ic !== ic && m.ic !== archivedIc && m.name !== name;
+        });
+      }
+      if (_adminMembers && typeof _adminMembers === 'object') {
+        delete _adminMembers[ic];
+        delete _adminMembers[archivedIc];
+      }
 
       // If the deleted account is currently logged in on this browser, revoke access immediately
       var curIc = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
@@ -3003,6 +3027,7 @@ var _adminMembersCache = null;
 
     members = members.filter(function(m) {
       if (!m) return false;
+      if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return false;
       if (m.ic && deletedSet.has(m.ic)) return false;
       return m.department !== 'deleted' && m.department !== 'archived_deleted';
     });

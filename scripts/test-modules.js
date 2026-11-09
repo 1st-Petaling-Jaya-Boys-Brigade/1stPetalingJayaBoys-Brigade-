@@ -1590,6 +1590,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const calEmojiLines = calModuleSource.split('\n').filter(line => calEmojiRegex.test(line));
   assert.strictEqual(calEmojiLines.length, 0, 'Calendar module must contain 0 emojis (100% SVG icons & clean text)');
   console.log('  ✔ Calendar module zero emojis invariant verified (0 emojis found in calendar.js)');
+  assert.ok(calModuleSource.includes('senior:'), 'Calendar must define authentic senior section NCO chevron icon');
+  assert.ok(calModuleSource.includes('junior:'), 'Calendar must define authentic junior section BB achievement star icon');
+  assert.ok(calModuleSource.includes('CAL_ICONS.senior'), 'Senior section must render CAL_ICONS.senior');
+  assert.ok(calModuleSource.includes('CAL_ICONS.junior'), 'Junior section must render CAL_ICONS.junior');
+  console.log('  ✔ Authentic Boys\' Brigade Senior (NCO chevron) and Junior (achievement star) icons verified in calendar');
 
   // Test Day Schedule Modal with Prev/Next Navigation
   calendarModule.openCalendarDayModal('2026-10-03');
@@ -2575,8 +2580,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'DEFAULT_STORY_HIGHLIGHTS must be an array'
   );
   assert.ok(
-    galleryMod.DEFAULT_STORY_HIGHLIGHTS.length >= 5,
-    'Must contain at least 5 default company story highlights'
+    galleryMod.DEFAULT_STORY_HIGHLIGHTS.length >= 3,
+    'Must contain at least 3 authentic company story highlights'
   );
   const campStory = galleryMod.DEFAULT_STORY_HIGHLIGHTS.find(x => x.id === 'story-camps');
   assert.ok(campStory, 'Camps story highlight must exist');
@@ -2592,7 +2597,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 2. Load Story Highlights
   const loadedStories = await galleryMod.loadStoryHighlights();
   assert.ok(
-    Array.isArray(loadedStories) && loadedStories.length >= 5,
+    Array.isArray(loadedStories) && loadedStories.length >= 3,
     'loadStoryHighlights must return array'
   );
   console.log(
@@ -4228,8 +4233,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261109c',
-    'sw.js CACHE_VERSION must be 20261109c'
+    '20261109d',
+    'sw.js CACHE_VERSION must be 20261109d'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4260,7 +4265,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109c',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109d',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6723,7 +6728,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof mockVideoEl.onended, 'function', 'videoEl.onended callback must be registered');
     assert.strictEqual(document.getElementById('story-viewer-title').textContent, 'Brass Band', 'Story viewer is on Brass Band highlight before onended');
     mockVideoEl.onended();
-    assert.strictEqual(document.getElementById('story-viewer-title').textContent, 'Drill', 'videoEl.onended must advance to next highlight');
+    assert.strictEqual(document.getElementById('story-viewer-modal').style.display, 'none', 'videoEl.onended closes story viewer at end of all highlights');
     console.log('  ✔ Top segmented progress bar dynamically synchronizes with video currentTime / duration and auto-advances onended');
 
     // 2. Mobile Tap Navigation Zones (Left 33.333% / Right 66.667%)
@@ -7030,7 +7035,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109c'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109d'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8938,12 +8943,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109c', 'Service Worker cache version must be 20261109c');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109d', 'Service Worker cache version must be 20261109d');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261109c and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261109d and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -9663,6 +9668,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       document.body.appendChild(fakeArcadeContainer);
     }
     arcadeModule.renderArcadeLeaderboardView();
+    streakLeaderboard.forEach((m, idx) => {
+      assert.strictEqual(m.displayRank, idx + 1, 'Member ' + m.name + ' must have numeric displayRank matching position');
+      assert.notStrictEqual(m.displayRank, undefined, 'displayRank must never be undefined');
+    });
+    assert.ok(!streakLeaderboard.some(m => ['Probe 1', 'Probe 2', 'Delete Me Test'].includes(m.name)), 'Probe and test accounts must be excluded from arcade leaderboard');
+    assert.ok(fakeArcadeContainer.innerHTML.includes('#1'), 'Leaderboard view must render #1 badge');
+    assert.ok(!fakeArcadeContainer.innerHTML.includes('#undefined'), 'Leaderboard view must NEVER render #undefined');
+    console.log('  ✔ Leaderboard row ranks display valid numeric badges (#1, #2, etc.) and no #undefined');
     assert.ok(fakeArcadeContainer.innerHTML.includes('leaderboard-podium-wrap'), 'Arcade leaderboard must render podium wrap');
     assert.ok(fakeArcadeContainer.innerHTML.includes('podium-step-1'), 'Arcade leaderboard must render 1st place podium pillar');
     assert.ok(fakeArcadeContainer.innerHTML.includes('podium-step-2'), 'Arcade leaderboard must render 2nd place podium pillar');
@@ -10182,25 +10195,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109c', 'sw.js CACHE_VERSION must be 20261109c');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109c', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109c', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261109d', 'sw.js CACHE_VERSION must be 20261109d');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109d', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109d', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261109c cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261109d cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261109c'), 'config.js must use v=20261109c');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109c'), 'forum.js must use v=20261109c');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261109c'), 'variables.css must use v=20261109c');
-    assert.ok(indexRaw.includes('css/base.css?v=20261109c'), 'base.css must use v=20261109c');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109c');
+    assert.ok(indexRaw.includes('js/config.js?v=20261109d'), 'config.js must use v=20261109d');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109d'), 'forum.js must use v=20261109d');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261109d'), 'variables.css must use v=20261109d');
+    assert.ok(indexRaw.includes('css/base.css?v=20261109d'), 'base.css must use v=20261109d');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109d');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──

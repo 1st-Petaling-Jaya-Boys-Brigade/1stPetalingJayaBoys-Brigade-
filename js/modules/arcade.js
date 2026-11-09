@@ -1910,6 +1910,10 @@
   function getArcadeLeaderboardData(category) {
     category = category || _arcadeLeaderboardCategory || 'streak';
 
+    if (typeof cleanMembersCache === 'function') {
+      try { cleanMembersCache(); } catch (_) {}
+    }
+
     // Roster of verified company members with real database arcade activity
     var baseMembers = [
       { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', rank: 'Sergeant', platoon: 'Hotel Platoon', streak: 4, credits: 75 },
@@ -1918,6 +1922,12 @@
       { name: 'Jason Koh', email: 'jasonkoh2010712@gmail.com', rank: 'Corporal', platoon: 'Papa Platoon', streak: 1, credits: 35 },
       { name: 'Tester Account', email: 'jeshuakoh1601@gmail.com', rank: 'Lieutenant', platoon: 'Officer', streak: 0, credits: 0 }
     ];
+
+    if (typeof isDeletedOrTestAccount === 'function') {
+      baseMembers = baseMembers.filter(function(m) {
+        return !isDeletedOrTestAccount(m);
+      });
+    }
 
     // Check localStorage/sessionStorage for any live-synced arcade stats across members
     if (typeof localStorage !== 'undefined') {
@@ -1946,6 +1956,7 @@
           if (Array.isArray(parsed)) {
             parsed.forEach(function(m) {
               if (!m || !m.name) return;
+              if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return;
               if (m.rank === 'Deleted' || m.department === 'deleted' || m.department === 'archived_deleted') return;
               var existing = baseMembers.find(function(b) {
                 return (b.email && m.email && b.email.toLowerCase().trim() === m.email.toLowerCase().trim()) ||
@@ -2012,6 +2023,7 @@
     // Assign ranking indexes (1-based)
     baseMembers.forEach(function(m, idx) {
       m.rankIndex = idx + 1;
+      m.displayRank = idx + 1;
     });
 
     return baseMembers;

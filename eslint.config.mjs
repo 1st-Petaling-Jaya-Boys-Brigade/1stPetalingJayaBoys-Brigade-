@@ -72,6 +72,8 @@ export default [
         getMemberAvatarColor: 'readonly',
         getMemberAvatarUrl: 'readonly',
         resolveMemberDirectoryInfo: 'readonly',
+        isDeletedOrTestAccount: 'readonly',
+        cleanMembersCache: 'readonly',
         getDeviceSecurityInfo: 'readonly',
         broadcastAnnouncementEmail: 'readonly',
         checkAndNotifyNewDeviceLogin: 'readonly',

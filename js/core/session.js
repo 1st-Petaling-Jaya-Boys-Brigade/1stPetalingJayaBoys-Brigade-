@@ -667,6 +667,9 @@ async function verifyActiveMemberSession(force) {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem('bb_deleted_members', JSON.stringify(delList));
           }
+          if (typeof cleanMembersCache === 'function') {
+            try { cleanMembersCache(); } catch (_) {}
+          }
           var cleanIc = String(ic || '').toLowerCase().trim();
           var cleanEmail = String(email || '').toLowerCase().trim();
           var isDeleted = delList.some(function(item) {
