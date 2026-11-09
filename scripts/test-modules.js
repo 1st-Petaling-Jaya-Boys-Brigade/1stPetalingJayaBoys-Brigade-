@@ -10708,6 +10708,42 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexSource.includes('!isOnboardingCompleted(curUser)'), 'DOMContentLoaded must check onboarding status for restored sessions');
     console.log('  ✔ Registration, Login & Session Restoration onboarding triggers verified');
 
+    // 6c. Seasonal Falling Animation (Snow & Leaves) & Settings Controls
+    const themeMod = require('../js/core/theme.js');
+    assert.strictEqual(typeof themeMod.getAmbientParticlesState, 'function', 'theme.js must export getAmbientParticlesState');
+    assert.strictEqual(typeof themeMod.toggleAmbientParticles, 'function', 'theme.js must export toggleAmbientParticles');
+    assert.strictEqual(typeof themeMod.setAmbientParticlesMode, 'function', 'theme.js must export setAmbientParticlesMode');
+
+    // Test toggle state
+    assert.strictEqual(themeMod.toggleAmbientParticles(false), false, 'toggleAmbientParticles(false) must disable particles');
+    assert.strictEqual(themeMod.getAmbientParticlesState().enabled, false, 'getAmbientParticlesState must reflect disabled state');
+    assert.strictEqual(themeMod.toggleAmbientParticles(true), true, 'toggleAmbientParticles(true) must enable particles');
+    assert.strictEqual(themeMod.getAmbientParticlesState().enabled, true, 'getAmbientParticlesState must reflect enabled state');
+
+    // Test mode configuration
+    themeMod.setAmbientParticlesMode('snow');
+    assert.strictEqual(themeMod.getAmbientParticlesState().mode, 'snow', 'setAmbientParticlesMode(snow) must set mode to snow');
+    themeMod.setAmbientParticlesMode('leaves');
+    assert.strictEqual(themeMod.getAmbientParticlesState().mode, 'leaves', 'setAmbientParticlesMode(leaves) must set mode to leaves');
+    themeMod.setAmbientParticlesMode('both');
+    assert.strictEqual(themeMod.getAmbientParticlesState().mode, 'both', 'setAmbientParticlesMode(both) must set mode to both');
+
+    // Test settings modal integration in member.js
+    assert.ok(memberCode.includes('Seasonal Falling Effects (Snow &amp; Leaves)'), 'member.js must include Seasonal Falling Effects label in settings');
+    assert.ok(memberCode.includes('id="settings-select-particles-mode"'), 'member.js must include settings-select-particles-mode dropdown');
+    assert.ok(memberCode.includes('id="settings-particles-btn"'), 'member.js must include settings-particles-btn button');
+    assert.ok(memberCode.includes('handleSettingsParticlesToggle'), 'member.js must wire handleSettingsParticlesToggle');
+    assert.ok(memberCode.includes('handleSettingsParticlesModeChange'), 'member.js must wire handleSettingsParticlesModeChange');
+    assert.strictEqual(typeof memberMod.handleSettingsParticlesToggle, 'function', 'member.js must export handleSettingsParticlesToggle');
+    assert.strictEqual(typeof memberMod.handleSettingsParticlesModeChange, 'function', 'member.js must export handleSettingsParticlesModeChange');
+
+    // Test CSS styles in components.css
+    const compCssContent = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    assert.ok(compCssContent.includes('.portal-ambient-canvas'), 'components.css must define .portal-ambient-canvas');
+    assert.ok(compCssContent.includes('pointer-events: none'), 'portal-ambient-canvas must have pointer-events: none');
+    assert.ok(compCssContent.includes('@media (prefers-reduced-motion: reduce)'), 'components.css must respect prefers-reduced-motion for ambient canvas');
+    console.log('  ✔ Seasonal Falling Animation (Snow & Leaves) engine and settings controls verified');
+
     // 7. Strict 388 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];

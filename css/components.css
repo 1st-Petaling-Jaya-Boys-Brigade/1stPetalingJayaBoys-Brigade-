@@ -12856,3 +12856,20 @@ body.light-theme .tb-mention-pill,
     display: none;
   }
 }
+
+/* ── Ambient Seasonal Falling Particles (Snow & Leaves) ── */
+.portal-ambient-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-ambient-canvas {
+    display: none !important;
+  }
+}
