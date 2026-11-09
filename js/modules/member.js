@@ -5754,7 +5754,9 @@ var _onboardingState = {
   privacyAccepted: false,
   notifSound: true,
   theme: 'light',
-  defaultView: 'upcoming'
+  defaultView: 'upcoming',
+  particlesEnabled: true,
+  particlesMode: 'both'
 };
 
 /**
@@ -5783,6 +5785,10 @@ function launchOnboardingWizard(options) {
     }
   } catch (_) {}
 
+  var currentParticles = (typeof getAmbientParticlesState === 'function')
+    ? getAmbientParticlesState()
+    : { enabled: true, mode: 'both' };
+
   _onboardingState = {
     step: (options && options.step) || 1,
     isReview: isReview,
@@ -5791,7 +5797,9 @@ function launchOnboardingWizard(options) {
     privacyAccepted: !isNewAccount && (alreadyDone || isReview),
     notifSound: (typeof localStorage !== 'undefined') ? (localStorage.getItem('bb_notif_sound_enabled') !== 'false') : true,
     theme: isDark ? 'dark' : 'light',
-    defaultView: (typeof localStorage !== 'undefined' ? (localStorage.getItem('bb_default_calendar_view') || 'upcoming') : 'upcoming')
+    defaultView: (typeof localStorage !== 'undefined' ? (localStorage.getItem('bb_default_calendar_view') || 'upcoming') : 'upcoming'),
+    particlesEnabled: currentParticles.enabled,
+    particlesMode: currentParticles.mode
   };
 
   var overlay = document.querySelector('.portal-onboarding-overlay');
@@ -6167,6 +6175,8 @@ function renderStep3UploadsHtml() {
 function renderStep4PreferencesHtml() {
   var isDark = _onboardingState.theme === 'dark';
   var view = _onboardingState.defaultView || 'upcoming';
+  var particlesEnabled = _onboardingState.particlesEnabled;
+  var particlesMode = _onboardingState.particlesMode || 'both';
 
   var nowMy = new Date();
   var myTimeStr = '';
@@ -6217,6 +6227,31 @@ function renderStep4PreferencesHtml() {
       + '</div>'
     + '</div>'
     + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
+        + '<div style="flex:1;min-width:200px;">'
+          + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">'
+            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/></svg>'
+            + '<span>Seasonal Falling Effects (Snow &amp; Leaves)</span>'
+          + '</div>'
+          + '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">'
+            + 'Ambient seasonal snowflakes and autumn leaves across your portal background'
+          + '</div>'
+        + '</div>'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+          + '<select id="onboarding-select-particles-mode" class="form-select" onchange="handleOnboardingParticlesModeChange(this.value)" style="font-size:12px;padding:6px 10px;height:auto;min-width:145px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:8px;">'
+            + '<option value="both"' + (particlesMode === 'both' ? ' selected' : '') + '>Snow &amp; Leaves ❄️ 🍂</option>'
+            + '<option value="snow"' + (particlesMode === 'snow' ? ' selected' : '') + '>Snow Only ❄️</option>'
+            + '<option value="leaves"' + (particlesMode === 'leaves' ? ' selected' : '') + '>Leaves Only 🍂</option>'
+          + '</select>'
+          + '<button type="button" class="portal-btn' + (particlesEnabled ? '' : ' portal-btn-primary') + '" onclick="handleOnboardingParticlesToggle()" id="onboarding-particles-btn" style="padding:6px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">'
+            + (particlesEnabled
+                ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
+                : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>')
+          + '</button>'
+        + '</div>'
+      + '</div>'
+    + '</div>'
+    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">'
       + '<label style="font-size:13px;font-weight:700;color:var(--text-primary);display:block;margin-bottom:6px;">Default Calendar View</label>'
       + '<div style="display:flex;gap:12px;flex-wrap:wrap;">'
         + '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">'
@@ -6258,6 +6293,64 @@ function handleOnboardingCalendarViewChange(view) {
   }
 }
 
+function handleOnboardingParticlesToggle() {
+  var currentState = (typeof getAmbientParticlesState === 'function')
+    ? getAmbientParticlesState()
+    : { enabled: true, mode: 'both' };
+  var newState = !currentState.enabled;
+  _onboardingState.particlesEnabled = newState;
+
+  if (typeof toggleAmbientParticles === 'function') {
+    toggleAmbientParticles(newState);
+  } else if (typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {
+    window.toggleAmbientParticles(newState);
+  }
+
+  var btn = document.getElementById('onboarding-particles-btn');
+  if (btn) {
+    btn.className = 'portal-btn' + (newState ? '' : ' portal-btn-primary');
+    btn.innerHTML = newState
+      ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
+      : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>';
+  }
+
+  var settingsBtn = document.getElementById('settings-particles-btn');
+  if (settingsBtn) {
+    settingsBtn.className = 'portal-btn' + (newState ? '' : ' portal-btn-primary');
+    settingsBtn.innerHTML = newState
+      ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
+      : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>';
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(newState ? 'Falling snow & leaves animation enabled.' : 'Falling snow & leaves animation disabled.', 'info', 2500, { silent: true });
+  }
+}
+
+function handleOnboardingParticlesModeChange(mode) {
+  _onboardingState.particlesMode = mode;
+  if (typeof setAmbientParticlesMode === 'function') {
+    setAmbientParticlesMode(mode);
+  } else if (typeof window !== 'undefined' && typeof window.setAmbientParticlesMode === 'function') {
+    window.setAmbientParticlesMode(mode);
+  }
+
+  var onboardingSelect = document.getElementById('onboarding-select-particles-mode');
+  if (onboardingSelect) {
+    onboardingSelect.value = mode;
+  }
+
+  var settingsSelect = document.getElementById('settings-select-particles-mode');
+  if (settingsSelect) {
+    settingsSelect.value = mode;
+  }
+
+  if (typeof showToast === 'function') {
+    var modeLabel = mode === 'snow' ? 'Falling snow only ❄️' : (mode === 'leaves' ? 'Falling leaves only 🍂' : 'Snow & leaves ❄️ 🍂');
+    showToast('Seasonal animation set to: ' + modeLabel, 'info', 2500, { silent: true });
+  }
+}
+
 /**
  * Completes the onboarding wizard, persists user consent and configuration, and enters dashboard.
  */
@@ -6280,7 +6373,9 @@ function completeOnboardingWizard() {
       notifications_enabled: (typeof Notification !== 'undefined') ? (Notification.permission === 'granted') : false,
       notification_sound: _onboardingState.notifSound,
       theme: _onboardingState.theme,
-      default_calendar_view: _onboardingState.defaultView
+      default_calendar_view: _onboardingState.defaultView,
+      seasonal_particles_enabled: _onboardingState.particlesEnabled,
+      seasonal_particles_mode: _onboardingState.particlesMode
     });
   }
 
@@ -6423,6 +6518,8 @@ if (typeof window !== 'undefined') {
   window.handleOnboardingSoundToggle    = handleOnboardingSoundToggle;
   window.handleOnboardingCheckboxChange = handleOnboardingCheckboxChange;
   window.handleOnboardingCalendarViewChange = handleOnboardingCalendarViewChange;
+  window.handleOnboardingParticlesToggle  = handleOnboardingParticlesToggle;
+  window.handleOnboardingParticlesModeChange = handleOnboardingParticlesModeChange;
   window.completeOnboardingWizard       = completeOnboardingWizard;
 }
 
@@ -6531,6 +6628,8 @@ if (typeof module !== 'undefined' && module.exports) {
     handleOnboardingSoundToggle,
     handleOnboardingCheckboxChange,
     handleOnboardingCalendarViewChange,
+    handleOnboardingParticlesToggle,
+    handleOnboardingParticlesModeChange,
     completeOnboardingWizard
 };
 }
