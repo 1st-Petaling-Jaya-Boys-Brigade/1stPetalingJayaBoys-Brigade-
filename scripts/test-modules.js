@@ -11236,6 +11236,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(memberListEl.innerHTML.includes('data-col="member"'), 'renderAdminList includes member column');
     assert.ok(memberListEl.innerHTML.includes('data-col="section"'), 'renderAdminList includes section column');
     assert.ok(memberListEl.innerHTML.includes('data-col="rank"'), 'renderAdminList includes rank column');
+    assert.ok(!memberListEl.innerHTML.includes('sheets-sort-indicator'), 'Member filter button does not contain extra sort indicator text');
+    assert.ok(adminStylesheet.includes('display: inline-flex'), 'admin.css uses inline-flex for sheets-th-content to align button directly next to field label');
 
     // Zero Emojis assertion on toolbar and list
     assert.ok(!memberListEl.innerHTML.includes('📋'), 'Zero emojis in admin toolbar (Table View)');
