@@ -11221,7 +11221,60 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(blkRecords.includes(testReasonEmail), false, 'removeBlockedEmail removes address');
     console.log('  ✔ Admin console full-width, member spreadsheet view, inline editing, and blocked emails management verified');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Google Sheets Column Filters, Zero Emojis & Full-Screen Blocked Emails View
+    console.log('\nTesting Admin Google Sheets Column Filters, Zero Emojis & Full-Screen Blocked Emails...');
+    assert.ok(adminStylesheet.includes('.sheets-filter-btn'), 'admin.css defines sheets-filter-btn');
+    assert.ok(adminStylesheet.includes('.sheets-filter-popover'), 'admin.css defines sheets-filter-popover');
+    assert.ok(adminStylesheet.includes('.blocked-emails-fullview'), 'admin.css defines blocked-emails-fullview');
+    assert.ok(adminStylesheet.includes("[data-theme='light'] .admin-member-email"), 'admin.css defines light theme member email contrast');
+    assert.ok(adminStylesheet.includes("[data-theme='light'] .admin-member-dob"), 'admin.css defines light theme member dob contrast');
+
+    // Render Members Table and verify Google Sheets column headers & zero emojis
+    await adminModule.renderAdminList();
+    memberListEl = document.getElementById('admin-members-list');
+    assert.ok(memberListEl.innerHTML.includes('sheets-filter-btn'), 'renderAdminList generates sheets filter buttons on column headers');
+    assert.ok(memberListEl.innerHTML.includes('data-col="member"'), 'renderAdminList includes member column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="section"'), 'renderAdminList includes section column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="rank"'), 'renderAdminList includes rank column');
+
+    // Zero Emojis assertion on toolbar and list
+    assert.ok(!memberListEl.innerHTML.includes('📋'), 'Zero emojis in admin toolbar (Table View)');
+    assert.ok(!memberListEl.innerHTML.includes('🗂️'), 'Zero emojis in admin toolbar (Cards View)');
+    assert.ok(!memberListEl.innerHTML.includes('🔒'), 'Zero emojis in admin toolbar (View Mode)');
+    assert.ok(!memberListEl.innerHTML.includes('✏️'), 'Zero emojis in admin toolbar (Edit Mode)');
+
+    // Toggle Column Filter Popover
+    assert.strictEqual(typeof adminModule.toggleColumnFilterMenu, 'function', 'toggleColumnFilterMenu must be exported');
+    await adminModule.toggleColumnFilterMenu('section');
+    assert.ok(memberListEl.innerHTML.includes('sheets-filter-popover'), 'toggleColumnFilterMenu renders popover');
+    assert.ok(memberListEl.innerHTML.includes('Filter &amp; Sort: Section') || memberListEl.innerHTML.includes('Filter & Sort: Section'), 'popover displays column title');
+    assert.ok(memberListEl.innerHTML.includes('Sort A → Z') || memberListEl.innerHTML.includes('Sort A \u2192 Z'), 'popover includes sort ascending button');
+
+    // Column Sorting
+    assert.strictEqual(typeof adminModule.setColumnSort, 'function', 'setColumnSort must be exported');
+    await adminModule.setColumnSort('section', 'desc');
+    assert.strictEqual(adminModule.getAdminSortDir(), 'desc', 'Sorting direction toggles to desc');
+
+    // Close popover
+    assert.strictEqual(typeof adminModule.closeColumnFilterMenu, 'function', 'closeColumnFilterMenu must be exported');
+    await adminModule.closeColumnFilterMenu();
+    assert.ok(!memberListEl.innerHTML.includes('sheets-filter-popover'), 'closeColumnFilterMenu dismisses popover');
+
+    // Full-Screen Blocked Emails View
+    assert.strictEqual(typeof adminModule.openBlockedEmailsView, 'function', 'openBlockedEmailsView must be exported');
+    assert.strictEqual(typeof adminModule.backToMembersList, 'function', 'backToMembersList must be exported');
+    await adminModule.openBlockedEmailsView();
+    assert.strictEqual(adminModule.getAdminMembersSubView(), 'blocked_emails', 'Sub-view switches to blocked_emails');
+    assert.ok(memberListEl.innerHTML.includes('blocked-emails-fullview'), 'openBlockedEmailsView renders full-screen view');
+    assert.ok(memberListEl.innerHTML.includes('backToMembersList()'), 'full-screen view includes Back to Members button');
+
+    // Return back to Members List
+    await adminModule.backToMembersList();
+    assert.strictEqual(adminModule.getAdminMembersSubView(), 'members', 'Sub-view returns to members');
+    assert.ok(memberListEl.innerHTML.includes('admin-members-table'), 'backToMembersList restores members database table');
+    console.log('  ✔ Admin Google Sheets column filters, zero emojis & full-screen blocked emails verified');
+
+    // 7. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
