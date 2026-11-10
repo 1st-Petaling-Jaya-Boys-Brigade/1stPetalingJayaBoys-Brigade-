@@ -11852,6 +11852,108 @@ body.light-theme .tb-mention-pill,
   margin-top: 2px;
 }
 
+/* Platoon Color Classes for Podium Avatars */
+.podium-avatar.plt-zulu {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border: 2px solid #10b981 !important;
+  color: #34d399 !important;
+}
+
+.podium-avatar.plt-papa {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border: 2px solid #3b82f6 !important;
+  color: #60a5fa !important;
+}
+
+.podium-avatar.plt-alpha {
+  background: rgba(245, 197, 66, 0.18) !important;
+  border: 2px solid #f5c542 !important;
+  color: #f5c542 !important;
+}
+
+/* Light Theme Styling for Leaderboard Podium */
+[data-theme='light'] .podium-name {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+[data-theme='light'] .podium-avatar {
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme='light'] .podium-avatar.plt-zulu {
+  background: #dcfce7 !important;
+  border: 2.5px solid #16a34a !important;
+  color: #15803d !important;
+}
+
+[data-theme='light'] .podium-avatar.plt-papa {
+  background: #dbeafe !important;
+  border: 2.5px solid #2563eb !important;
+  color: #1d4ed8 !important;
+}
+
+[data-theme='light'] .podium-avatar.plt-alpha {
+  background: #fef3c7 !important;
+  border: 2.5px solid #d97706 !important;
+  color: #b45309 !important;
+}
+
+[data-theme='light'] .podium-rank-badge {
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='light'] .podium-step-1 {
+  background: linear-gradient(180deg, #fef3c7 0%, #fffbeb 100%);
+  border: 2px solid #f59e0b;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.16);
+}
+
+[data-theme='light'] .podium-step-1 .podium-step-num {
+  color: #b45309;
+}
+
+[data-theme='light'] .podium-step-1 .podium-step-val {
+  color: #78350f;
+  font-weight: 800;
+}
+
+[data-theme='light'] .podium-step-2 {
+  background: linear-gradient(180deg, #f1f5f9 0%, #f8fafc 100%);
+  border: 2px solid #94a3b8;
+  box-shadow: 0 4px 14px rgba(100, 116, 139, 0.12);
+}
+
+[data-theme='light'] .podium-step-2 .podium-step-num {
+  color: #334155;
+}
+
+[data-theme='light'] .podium-step-2 .podium-step-val {
+  color: #1e293b;
+  font-weight: 800;
+}
+
+[data-theme='light'] .podium-step-3 {
+  background: linear-gradient(180deg, #ffedd5 0%, #fff7ed 100%);
+  border: 2px solid #fb923c;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.12);
+}
+
+[data-theme='light'] .podium-step-3 .podium-step-num {
+  color: #c2410c;
+}
+
+[data-theme='light'] .podium-step-3 .podium-step-val {
+  color: #9a3412;
+  font-weight: 800;
+}
+
+[data-theme='light'] .podium-step > div:last-child {
+  color: #475569 !important;
+  font-weight: 600;
+}
+
 /* ── Arcade Leaderboard List ─────────────────────────────────────────── */
 .arcade-leaderboard-card {
   background: var(--bg-surface, #111827);

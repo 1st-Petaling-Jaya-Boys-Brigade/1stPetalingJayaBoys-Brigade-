@@ -11052,6 +11052,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 3. Uniform Orders Preparation Summary & Aggregation Test
     const ordersMod = require('../js/modules/orders.js');
     assert.strictEqual(typeof ordersMod.renderOrdersPreparationSummaryHtml, 'function', 'renderOrdersPreparationSummaryHtml must be exported');
+    assert.strictEqual(typeof ordersMod.syncOrderStatusToGoogleSheet, 'function', 'syncOrderStatusToGoogleSheet must be exported');
+    assert.ok(typeof ordersMod.UNIFORM_ORDERS_APPS_SCRIPT_CODE === 'string', 'UNIFORM_ORDERS_APPS_SCRIPT_CODE must be a string');
+    assert.ok(ordersMod.UNIFORM_ORDERS_APPS_SCRIPT_CODE.includes('Order Tracker'), 'Apps script must manage Order Tracker');
+    assert.ok(ordersMod.UNIFORM_ORDERS_APPS_SCRIPT_CODE.includes('Order Archives'), 'Apps script must manage Order Archives');
+    assert.ok(ordersMod.UNIFORM_ORDERS_APPS_SCRIPT_CODE.includes('doPost'), 'Apps script must implement doPost');
+    assert.ok(ordersMod.UNIFORM_ORDERS_APPS_SCRIPT_CODE.includes('update_status'), 'Apps script must handle update_status');
+    assert.ok(ordersMod.UNIFORM_ORDERS_APPS_SCRIPT_CODE.includes('archive_order'), 'Apps script must handle archive_order');
 
     const mockCounts = {
       'Company T-Shirt': 5,
@@ -11061,20 +11068,44 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'Company T-Shirt': { S: 3, M: 2 },
       'Navy Blue Shirt': { L: 2 }
     };
-    const summaryHtml = ordersMod.renderOrdersPreparationSummaryHtml(mockCounts, mockSizes, 7, 120.00, 'November', 3);
-    assert.ok(summaryHtml.includes('Items to Prepare Summary (November)'), 'Summary must render filter label');
-    assert.ok(summaryHtml.includes('Company T-Shirt'), 'Summary must contain Company T-Shirt');
-    assert.ok(summaryHtml.includes('5 to prepare'), 'Summary must show 5 to prepare for Company T-Shirt');
-    assert.ok(summaryHtml.includes('S: 3, M: 2'), 'Summary must render size breakdown for Company T-Shirt');
-    assert.ok(summaryHtml.includes('7 items'), 'Summary must render total items count');
-    assert.ok(summaryHtml.includes('RM 120.00'), 'Summary must render total value');
-    assert.ok(summaryHtml.includes('3 orders'), 'Summary must display order count');
+    const mockSizeValues = {
+      'Company T-Shirt': { S: 30.00, M: 20.00 },
+      'Navy Blue Shirt': { L: 70.00 }
+    };
+
+    // 3a. Card view (No pill box, clean text: Company T-Shirt: 5 items (S: 3 | M: 2))
+    const summaryCardHtml = ordersMod.renderOrdersPreparationSummaryHtml(mockCounts, mockSizes, 7, 120.00, 'November', 3, 'cards', mockSizeValues);
+    assert.ok(summaryCardHtml.includes('Items to Prepare Summary (November)'), 'Summary must render filter label');
+    assert.ok(summaryCardHtml.includes('Company T-Shirt: 5 items'), 'Summary card must show Company T-Shirt: 5 items without pill box');
+    assert.ok(summaryCardHtml.includes('S: 3 | M: 2'), 'Summary card must render size breakdown separated by pipe');
+    assert.ok(!summaryCardHtml.includes('to prepare</span>'), 'Summary card must not contain old pill box badge');
+    assert.ok(summaryCardHtml.includes('7 items'), 'Summary must render total items count');
+    assert.ok(summaryCardHtml.includes('RM 120.00'), 'Summary must render total value');
+    assert.ok(summaryCardHtml.includes('3 orders'), 'Summary must display order count');
+
+    // 3b. Table view (Structured database table with Item | Size | Count | Value)
+    const summaryTableHtml = ordersMod.renderOrdersPreparationSummaryHtml(mockCounts, mockSizes, 7, 120.00, 'November', 3, 'table', mockSizeValues);
+    assert.ok(summaryTableHtml.includes('<table class="orders-spreadsheet-table"'), 'Table view must render spreadsheet table');
+    assert.ok(summaryTableHtml.includes('>Item</th>'), 'Table view must have Item column header');
+    assert.ok(summaryTableHtml.includes('>Size</th>'), 'Table view must have Size column header');
+    assert.ok(summaryTableHtml.includes('>Count</th>'), 'Table view must have Count column header');
+    assert.ok(summaryTableHtml.includes('>Value</th>'), 'Table view must have Value column header');
+    assert.ok(summaryTableHtml.includes('Total Items: 7 items'), 'Table footer must display total items count');
+    assert.ok(summaryTableHtml.includes('Total Value: RM 120.00'), 'Table footer must display total value');
 
     const emptySummaryHtml = ordersMod.renderOrdersPreparationSummaryHtml({}, {}, 0, 0, 'All Months', 0);
     assert.ok(emptySummaryHtml.includes('No uniform items to prepare for this period'), 'Empty summary must handle zero items gracefully');
-    console.log('  ✔ Uniform orders preparation total counter and breakdown verified');
+    console.log('  ✔ Uniform orders preparation total counter, cards view, table view, and auto-sync verified');
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Leaderboard Contrast & CSS Classes
+    const componentsCss = fs.readFileSync('css/components.css', 'utf8');
+    assert.ok(componentsCss.includes('.podium-avatar.plt-zulu'), 'components.css must define plt-zulu class');
+    assert.ok(componentsCss.includes('.podium-avatar.plt-papa'), 'components.css must define plt-papa class');
+    assert.ok(componentsCss.includes('.podium-avatar.plt-alpha'), 'components.css must define plt-alpha class');
+    assert.ok(componentsCss.includes("[data-theme='light'] .podium-name"), 'components.css must define high contrast light theme podium name');
+    console.log('  ✔ Leaderboard light mode contrast tokens and platoon classes verified');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
