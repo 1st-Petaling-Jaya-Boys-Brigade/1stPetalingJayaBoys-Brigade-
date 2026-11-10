@@ -2295,6 +2295,76 @@ function exportAdminOrdersToCsv(ordersToExport) {
   }
 }
 
+/**
+ * Renders the aggregated Items to Prepare summary card at the bottom of uniform orders view
+ * @param {Object} itemCounts - Key-value pair of uniform product name to count
+ * @param {Object} sizeBreakdown - Breakdown of sizes per product
+ * @param {number} totalItems - Sum of all item quantities
+ * @param {number} totalRevenue - Sum of all order prices
+ * @param {string} filterLabel - Current active filter label (e.g. 'November' or 'All Months')
+ * @param {number} orderCount - Number of orders matching current filter
+ * @returns {string} HTML string
+ */
+function renderOrdersPreparationSummaryHtml(itemCounts, sizeBreakdown, totalItems, totalRevenue, filterLabel, orderCount) {
+  var itemEntries = Object.entries(itemCounts || {}).sort(function(a, b) { return b[1] - a[1]; });
+  var chipsHtml = '';
+
+  if (itemEntries.length) {
+    chipsHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">' +
+      itemEntries.map(function(entry) {
+        var name = entry[0];
+        var count = entry[1];
+        var sizes = (sizeBreakdown && sizeBreakdown[name]) ? sizeBreakdown[name] : null;
+        var sizeDetail = '';
+        if (sizes) {
+          var sizeParts = Object.entries(sizes).map(function(s) {
+            return s[0] + ': ' + s[1];
+          });
+          if (sizeParts.length) {
+            sizeDetail = ' <span style="font-weight:400;opacity:0.85;font-size:11px;">(' + (typeof escapeHtml === 'function' ? escapeHtml(sizeParts.join(', ')) : sizeParts.join(', ')) + ')</span>';
+          }
+        }
+        return '<div class="uniform-prep-chip">' +
+          '<span style="font-weight:600;">' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '</span>' +
+          '<span style="background:var(--accent-soft, rgba(217,119,6,0.15));color:var(--brand-gold, #d97706);font-weight:700;font-size:12px;padding:2px 8px;border-radius:12px;border:1px solid var(--accent-border, rgba(217,119,6,0.3));">' +
+          count + ' to prepare' +
+          '</span>' +
+          sizeDetail +
+        '</div>';
+      }).join('') +
+    '</div>';
+  } else {
+    chipsHtml = '<div style="font-size:12px;color:var(--text-muted);margin-top:8px;">No uniform items to prepare for this period.</div>';
+  }
+
+  return '<div class="uniform-preparation-summary-card">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border-subtle);padding-bottom:10px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft, rgba(217,119,6,0.15));border:1px solid var(--accent-border, rgba(217,119,6,0.3));display:flex;align-items:center;justify-content:center;color:var(--brand-gold);">' +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' +
+        '</div>' +
+        '<div>' +
+          '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' +
+            'Items to Prepare Summary (' + (typeof escapeHtml === 'function' ? escapeHtml(filterLabel) : filterLabel) + ')' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;">' +
+            'Aggregated totals across ' + orderCount + ' order' + (orderCount === 1 ? '' : 's') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' +
+        '<div style="font-size:12px;color:var(--text-secondary);">' +
+          'Total Quantity: <strong style="color:var(--text-primary);font-size:14px;">' + totalItems + ' items</strong>' +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);">' +
+          'Total Value: <strong style="color:var(--brand-gold);font-size:14px;">RM ' + (typeof totalRevenue === 'number' ? totalRevenue.toFixed(2) : '0.00') + '</strong>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    chipsHtml +
+  '</div>';
+}
+
 async function renderAdminOrders(forceRefresh) {
   if (typeof document === 'undefined') return;
   var search = ((document.getElementById('admin-order-search') || {}).value || '').toLowerCase();
@@ -2396,9 +2466,50 @@ async function renderAdminOrders(forceRefresh) {
       '</div>' +
       '</div>';
 
+    // Compute total items and per-item preparation summary
+    var itemPreparationCounts = {};
+    var itemSizeBreakdown = {};
+    var totalPreparationItems = 0;
+    var totalOrderRevenue = 0;
+
+    filtered.forEach(function (o) {
+      try {
+        var items = JSON.parse(o.items || '{}');
+        Object.entries(items).forEach(function (kv) {
+          var v = kv[1];
+          var baseKey = kv[0].split('__')[0];
+          var prod = UNIFORM_ITEMS.find(function (i) {
+            return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
+          });
+          var displayName = prod ? prod.name : ((v && v.name) || baseKey);
+          var qty = parseInt(v.qty, 10) || 1;
+          var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
+          totalOrderRevenue += qty * p;
+          totalPreparationItems += qty;
+          itemPreparationCounts[displayName] = (itemPreparationCounts[displayName] || 0) + qty;
+          if (v && v.size) {
+            if (!itemSizeBreakdown[displayName]) itemSizeBreakdown[displayName] = {};
+            itemSizeBreakdown[displayName][v.size] = (itemSizeBreakdown[displayName][v.size] || 0) + qty;
+          }
+        });
+      } catch (_) {}
+    });
+
+    var filterMonthLabel = _adminOrdersMonthFilter !== '' ? monthNames[parseInt(_adminOrdersMonthFilter, 10)] : 'All Months';
+
+    var summaryHtml = renderOrdersPreparationSummaryHtml(
+      itemPreparationCounts,
+      itemSizeBreakdown,
+      totalPreparationItems,
+      totalOrderRevenue,
+      filterMonthLabel,
+      filtered.length
+    );
+
     if (!filtered.length) {
       list.innerHTML = toolbarHtml +
-        '<div style="color:var(--text-muted);text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;">No uniform order records found for the selected month or search filter.</div>';
+        '<div style="color:var(--text-muted);text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;">No uniform order records found for the selected month or search filter.</div>' +
+        summaryHtml;
       attachToolbarEvents(list);
       return;
     }
@@ -2468,6 +2579,16 @@ async function renderAdminOrders(forceRefresh) {
           '</tr>';
       });
 
+      var tfootHtml =
+        '<tfoot>' +
+        '<tr style="font-weight:700;background:var(--bg-card-subtle);border-top:2px solid var(--border-card);">' +
+        '<td colspan="2" style="color:var(--text-primary);padding:10px 12px;">Total Items to Prepare (' + escapeHtml(filterMonthLabel) + '):</td>' +
+        '<td style="color:var(--brand-gold);padding:10px 12px;font-weight:700;">' + totalPreparationItems + ' item' + (totalPreparationItems === 1 ? '' : 's') + '</td>' +
+        '<td style="color:var(--brand-gold);padding:10px 12px;white-space:nowrap;font-weight:700;">RM ' + totalOrderRevenue.toFixed(2) + '</td>' +
+        '<td colspan="3" style="color:var(--text-muted);font-size:11px;padding:10px 12px;">Across ' + filtered.length + ' order' + (filtered.length === 1 ? '' : 's') + '</td>' +
+        '</tr>' +
+        '</tfoot>';
+
       contentHtml =
         '<div tabindex="0" role="region" aria-label="Uniform Orders Table" class="table-wrapper orders-table-wrapper">' +
         '<table class="orders-spreadsheet-table">' +
@@ -2485,6 +2606,7 @@ async function renderAdminOrders(forceRefresh) {
         '<tbody>' +
         rowsHtml +
         '</tbody>' +
+        tfootHtml +
         '</table>' +
         '</div>';
     } else {
@@ -2587,7 +2709,7 @@ async function renderAdminOrders(forceRefresh) {
       contentHtml = cardsHtml;
     }
 
-    list.innerHTML = toolbarHtml + contentHtml;
+    list.innerHTML = toolbarHtml + contentHtml + summaryHtml;
     attachToolbarEvents(list);
 
     // Bind status button clicks
@@ -3038,6 +3160,7 @@ if (typeof window !== 'undefined') {
   window.loadOrdersSheetsArchiveUrl = loadOrdersSheetsArchiveUrl;
   window.saveOrdersSheetsArchiveUrl = saveOrdersSheetsArchiveUrl;
   window.renderAdminProducts = renderAdminProducts;
+  window.renderOrdersPreparationSummaryHtml = renderOrdersPreparationSummaryHtml;
   window.previewProductImg = previewProductImg;
   window.clearProductForm = clearProductForm;
   window.saveProduct = saveProduct;
@@ -3117,6 +3240,7 @@ if (typeof module !== 'undefined' && module.exports) {
     loadOrdersSheetsArchiveUrl: loadOrdersSheetsArchiveUrl,
     saveOrdersSheetsArchiveUrl: saveOrdersSheetsArchiveUrl,
     renderAdminProducts: renderAdminProducts,
+    renderOrdersPreparationSummaryHtml: renderOrdersPreparationSummaryHtml,
     previewProductImg: previewProductImg,
     clearProductForm: clearProductForm,
     saveProduct: saveProduct,
