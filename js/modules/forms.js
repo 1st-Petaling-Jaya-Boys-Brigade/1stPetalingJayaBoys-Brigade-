@@ -76,10 +76,13 @@ async function saveCustomForms() {
   var client = getSupa();
   if (!client) return;
 
+  var payload = JSON.parse(JSON.stringify(_customForms));
+
   if (typeof client.safeConfigUpdate === 'function') {
     try {
-      var updated = await client.safeConfigUpdate('bb_custom_forms', _customForms, {
-        idProp: 'id'
+      var updated = await client.safeConfigUpdate('bb_custom_forms', payload, {
+        idProp: 'id',
+        enableMerge: false
       });
       if (updated && Array.isArray(updated)) {
         _customForms = updated;
@@ -93,12 +96,12 @@ async function saveCustomForms() {
   try {
     await client.req('POST', 'bb_config?on_conflict=key', {
       key: 'bb_custom_forms',
-      value: JSON.stringify(_customForms)
+      value: JSON.stringify(payload)
     });
   } catch (e) {
     try {
       await client.patch('bb_config?key=eq.bb_custom_forms', {
-        value: JSON.stringify(_customForms)
+        value: JSON.stringify(payload)
       });
     } catch (e2) {}
   }
@@ -179,14 +182,23 @@ function isFormAcceptingResponses(form) {
  * @param {string} formId
  */
 async function toggleCustomFormStatus(formId) {
-  var f = _customForms.find(function(x) { return x.id === formId; });
+  var f = _customForms.find(function(x) { return String(x.id) === String(formId); });
   if (!f) return;
-  var nextStatus = (f.status === 'paused') ? 'active' : 'paused';
+  var isCurrentlyPaused = (f.status === 'paused' || f.active === false);
+  var nextStatus = isCurrentlyPaused ? 'active' : 'paused';
   f.status = nextStatus;
   f.active = nextStatus === 'active';
   await saveCustomForms();
   renderAdminForms();
   renderFormsHub();
+  var editIdEl = document.getElementById('fb-edit-id');
+  if (editIdEl && String(editIdEl.value) === String(formId)) {
+    var radio = document.querySelector('input[name="fb-status-radio"][value="' + nextStatus + '"]');
+    if (radio) radio.checked = true;
+    if (typeof updateFormBuilderScheduleBadge === 'function') {
+      updateFormBuilderScheduleBadge(nextStatus);
+    }
+  }
   if (typeof showToast === 'function') {
     showToast(nextStatus === 'paused' ? 'Form responses paused.' : 'Form responses resumed.', 'info');
   }
@@ -483,7 +495,7 @@ function renderBuiltinFormInline(form) {
       '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
       '</div>' +
       '<div class="page-title" style="margin-bottom:6px;">' + escapeHtml(form.name) + '</div>' +
-      '<div style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--font-headline);background:rgba(234,179,8,0.15);color:var(--brand-gold);border:1px solid rgba(234,179,8,0.3);margin-bottom:16px;">' + badgeText.toUpperCase() + '</div>' +
+      '<div style="font-size:15px;color:#ffffff;font-weight:600;margin-bottom:16px;">' + badgeText + '</div>' +
       '<div style="font-size:14px;color:var(--text-secondary);line-height:1.75;max-width:480px;margin:0 auto 24px;white-space:pre-wrap;">' +
       escapeHtml(avail.message) +
       '</div>' +
@@ -904,6 +916,78 @@ function renderFbFields() {
 }
 
 /**
+ * Updates badge and toggle button text in Form Builder Response Availability card
+ * @param {string} [status]
+ */
+function updateFormBuilderScheduleBadge(status) {
+  if (typeof document === 'undefined') return;
+  var badge = document.querySelector('.fb-schedule-badge');
+  var toggleBtn = document.querySelector('.fb-schedule-toggle-btn');
+  if (!badge && !toggleBtn) return;
+
+  var currentStatus = status;
+  if (!currentStatus) {
+    var pausedRadio = document.querySelector('input[name="fb-status-radio"][value="paused"]');
+    currentStatus = pausedRadio && pausedRadio.checked ? 'paused' : 'active';
+  }
+
+  if (badge) {
+    if (currentStatus === 'paused') {
+      badge.textContent = 'PAUSED';
+      badge.style.background = 'rgba(234,179,8,0.15)';
+      badge.style.color = 'var(--brand-gold, #f5c542)';
+      badge.style.border = '1px solid rgba(234,179,8,0.3)';
+    } else {
+      badge.textContent = 'ACTIVE';
+      badge.style.background = 'rgba(34,197,94,0.15)';
+      badge.style.color = '#22c55e';
+      badge.style.border = '1px solid rgba(34,197,94,0.3)';
+    }
+  }
+
+  if (toggleBtn) {
+    toggleBtn.textContent = currentStatus === 'paused' ? 'Resume Responses' : 'Pause Responses';
+  }
+}
+
+/**
+ * Toggles form builder status between Active and Paused from the header button
+ */
+function toggleFormBuilderStatus() {
+  if (typeof document === 'undefined') return;
+  var activeRadio = document.querySelector('input[name="fb-status-radio"][value="active"]');
+  var pausedRadio = document.querySelector('input[name="fb-status-radio"][value="paused"]');
+  var isCurrentlyPaused = pausedRadio && pausedRadio.checked;
+  var nextStatus = isCurrentlyPaused ? 'active' : 'paused';
+
+  if (activeRadio && pausedRadio) {
+    activeRadio.checked = nextStatus === 'active';
+    pausedRadio.checked = nextStatus === 'paused';
+  }
+
+  updateFormBuilderScheduleBadge(nextStatus);
+
+  // If currently editing a saved form, sync its in-memory status immediately
+  var editIdEl = document.getElementById('fb-edit-id');
+  if (editIdEl && editIdEl.value) {
+    var f = _customForms.find(function(x) { return String(x.id) === String(editIdEl.value); });
+    if (f) {
+      f.status = nextStatus;
+      f.active = nextStatus === 'active';
+      saveCustomForms();
+      renderAdminForms();
+    }
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(
+      'Form status set to ' + (nextStatus === 'active' ? 'Active (accepting responses)' : 'Paused (closed to responses)'),
+      nextStatus === 'active' ? 'success' : 'info'
+    );
+  }
+}
+
+/**
  * Resets Admin form builder inputs
  */
 function clearFormBuilder() {
@@ -924,6 +1008,8 @@ function clearFormBuilder() {
   if (closeAtInput) closeAtInput.value = '';
   var pausedMsgInput = document.querySelector('.fb-paused-msg-input');
   if (pausedMsgInput) pausedMsgInput.value = '';
+
+  updateFormBuilderScheduleBadge('active');
 
   var t = document.getElementById('fb-form-title');
   if (t)
@@ -1051,6 +1137,7 @@ function editForm(id) {
 
   var statusRadio = document.querySelector('input[name="fb-status-radio"][value="' + (f.status || (f.active === false ? 'paused' : 'active')) + '"]');
   if (statusRadio) statusRadio.checked = true;
+  updateFormBuilderScheduleBadge(f.status || (f.active === false ? 'paused' : 'active'));
   var openAtInput = document.querySelector('.fb-open-at-input');
   if (openAtInput) openAtInput.value = f.open_at || '';
   var closeAtInput = document.querySelector('.fb-close-at-input');
@@ -1394,6 +1481,8 @@ if (typeof window !== 'undefined') {
   window.renderAdminForms = renderAdminForms;
   window.isFormAcceptingResponses = isFormAcceptingResponses;
   window.toggleCustomFormStatus = toggleCustomFormStatus;
+  window.toggleFormBuilderStatus = toggleFormBuilderStatus;
+  window.updateFormBuilderScheduleBadge = updateFormBuilderScheduleBadge;
   window.renderUniformProductsPreview = renderUniformProductsPreview;
   window.switchFormSubtab = switchFormSubtab;
   window.renderFormResponses = renderFormResponses;
@@ -1427,6 +1516,8 @@ if (typeof module !== 'undefined' && module.exports) {
     renderAdminForms: renderAdminForms,
     isFormAcceptingResponses: isFormAcceptingResponses,
     toggleCustomFormStatus: toggleCustomFormStatus,
+    toggleFormBuilderStatus: toggleFormBuilderStatus,
+    updateFormBuilderScheduleBadge: updateFormBuilderScheduleBadge,
     renderUniformProductsPreview: renderUniformProductsPreview,
     switchFormSubtab: switchFormSubtab,
     renderFormResponses: renderFormResponses

@@ -1927,7 +1927,7 @@ function renderUniformOrderInline() {
       '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
       '</div>' +
       '<div class="page-title" style="margin-bottom:6px;">Uniform Order Form</div>' +
-      '<div style="display:inline-block;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--font-headline);background:rgba(234,179,8,0.15);color:var(--brand-gold);border:1px solid rgba(234,179,8,0.3);margin-bottom:16px;">' + badgeText.toUpperCase() + '</div>' +
+      '<div style="font-size:15px;color:#ffffff;font-weight:600;margin-bottom:16px;">' + badgeText + '</div>' +
       '<div style="font-size:14px;color:var(--text-secondary);line-height:1.75;max-width:480px;margin:0 auto 24px;white-space:pre-wrap;">' +
       (typeof escapeHtml === 'function' ? escapeHtml(avail.message) : avail.message) +
       '</div>' +
