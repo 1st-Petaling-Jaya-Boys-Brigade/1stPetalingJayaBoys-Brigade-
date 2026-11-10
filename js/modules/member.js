@@ -4361,7 +4361,7 @@ async function renderDashboard() {
         var cNavPh  = document.getElementById('nav-avatar-placeholder');
         if (cNavImg) { cNavImg.src = cachedPfp; cNavImg.style.display = 'block'; }
         if (cNavPh)  cNavPh.style.display = 'none';
-        if (typeof sessionSet === 'function') sessionSet('photo_url', cachedPfp);
+        if (typeof sessionSet === 'function') sessionSet('photo_url', cachedPfp, { localOnly: true });
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
         setRemovePfpButtonVisible(true);
       }
@@ -4381,7 +4381,7 @@ async function renderDashboard() {
         var nPh  = document.getElementById('nav-avatar-placeholder');
         if (nImg) { nImg.src = pfpUrl; nImg.style.display = 'block'; }
         if (nPh)  nPh.style.display = 'none';
-        if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
+        if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl, { localOnly: true });
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
         setRemovePfpButtonVisible(true);
       };

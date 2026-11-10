@@ -1085,7 +1085,7 @@ async function renderCompanyLeaderboard() {
         '<div class="podium-name" title="' + safeSquadName + '">' + safeSquadName + '</div>' +
         // 2. EMBLEM / BADGE UNDER SQUAD NAME
         '<div class="podium-avatar-wrap">' +
-          '<div class="podium-avatar" style="width:48px;height:48px;background:' + st.bg + ';border:2px solid ' + st.border + ';color:' + st.color + ';font-size:18px;font-family:var(--font-headline);font-weight:800;">' +
+          '<div class="podium-avatar plt-' + st.plt.toLowerCase() + '" style="width:48px;height:48px;background:' + st.bg + ';border:2px solid ' + st.border + ';color:' + st.color + ';font-size:18px;font-family:var(--font-headline);font-weight:800;">' +
             squadLetter +
           '</div>' +
           '<span class="podium-rank-badge" style="' + rankBadgeStyle + '">#' + stepNum + '</span>' +

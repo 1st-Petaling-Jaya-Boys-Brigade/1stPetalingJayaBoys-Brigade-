@@ -233,72 +233,93 @@
     ctx.fill();
   }
 
+  var _leafCanvasCache = {};
+
+  function getLeafOffscreenCanvas(variety, color, veinColor) {
+    if (typeof document === 'undefined') return null;
+    var key = variety + '_' + color + '_' + veinColor;
+    if (_leafCanvasCache[key]) return _leafCanvasCache[key];
+
+    try {
+      var c = document.createElement('canvas');
+      c.width = 48;
+      c.height = 48;
+      var cx = c.getContext ? c.getContext('2d') : null;
+      if (!cx) return null;
+
+      cx.translate(24, 24);
+      var s = 28;
+      cx.fillStyle = color;
+      cx.beginPath();
+      if (variety === 'maple') {
+        cx.moveTo(0, s * 0.55);
+        cx.lineTo(s * 0.15, s * 0.25);
+        cx.lineTo(s * 0.45, s * 0.3);
+        cx.lineTo(s * 0.35, 0);
+        cx.lineTo(s * 0.6, -s * 0.1);
+        cx.lineTo(s * 0.3, -s * 0.25);
+        cx.lineTo(s * 0.35, -s * 0.5);
+        cx.lineTo(0, -s * 0.75);
+        cx.lineTo(-s * 0.35, -s * 0.5);
+        cx.lineTo(-s * 0.3, -s * 0.25);
+        cx.lineTo(-s * 0.6, -s * 0.1);
+        cx.lineTo(-s * 0.35, 0);
+        cx.lineTo(-s * 0.45, s * 0.3);
+        cx.lineTo(-s * 0.15, s * 0.25);
+        cx.closePath();
+      } else if (variety === 'oak') {
+        cx.moveTo(0, s * 0.6);
+        cx.bezierCurveTo(s * 0.2, s * 0.45, s * 0.4, s * 0.4, s * 0.3, s * 0.2);
+        cx.bezierCurveTo(s * 0.45, s * 0.15, s * 0.5, -s * 0.05, s * 0.3, -s * 0.2);
+        cx.bezierCurveTo(s * 0.4, -s * 0.35, s * 0.25, -s * 0.55, 0, -s * 0.65);
+        cx.bezierCurveTo(-s * 0.25, -s * 0.55, -s * 0.4, -s * 0.35, -s * 0.3, -s * 0.2);
+        cx.bezierCurveTo(-s * 0.5, -s * 0.05, -s * 0.45, s * 0.15, -s * 0.3, s * 0.2);
+        cx.bezierCurveTo(-s * 0.4, s * 0.4, -s * 0.2, s * 0.45, 0, s * 0.6);
+        cx.closePath();
+      } else if (variety === 'ginkgo') {
+        cx.moveTo(0, s * 0.6);
+        cx.lineTo(0, s * 0.2);
+        cx.bezierCurveTo(s * 0.5, s * 0.1, s * 0.65, -s * 0.25, s * 0.45, -s * 0.55);
+        cx.bezierCurveTo(s * 0.25, -s * 0.6, s * 0.08, -s * 0.5, 0, -s * 0.42);
+        cx.bezierCurveTo(-s * 0.08, -s * 0.5, -s * 0.25, -s * 0.6, -s * 0.45, -s * 0.55);
+        cx.bezierCurveTo(-s * 0.65, -s * 0.25, -s * 0.5, s * 0.1, 0, s * 0.2);
+        cx.closePath();
+      } else {
+        cx.moveTo(0, s * 0.55);
+        cx.bezierCurveTo(s * 0.5, s * 0.3, s * 0.55, -s * 0.15, 0, -s * 0.6);
+        cx.bezierCurveTo(-s * 0.55, -s * 0.15, -s * 0.5, s * 0.3, 0, s * 0.55);
+        cx.closePath();
+      }
+      cx.fill();
+
+      // Vein line
+      cx.beginPath();
+      cx.moveTo(0, s * 0.55);
+      cx.lineTo(0, -s * 0.42);
+      cx.strokeStyle = veinColor;
+      cx.lineWidth = 1;
+      cx.stroke();
+
+      _leafCanvasCache[key] = c;
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function drawLeaf(ctx, p) {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(p.rotation);
     var tilt = Math.cos(p.tiltAngle);
     ctx.scale(tilt, 1);
-
-    var s = p.size;
-    ctx.fillStyle = p.color;
     ctx.globalAlpha = p.opacity;
 
-    ctx.beginPath();
-    if (p.variety === 'maple') {
-      // Maple leaf: 3-5 pointed lobes with stem
-      ctx.moveTo(0, s * 0.55);
-      ctx.lineTo(s * 0.15, s * 0.25);
-      ctx.lineTo(s * 0.45, s * 0.3);
-      ctx.lineTo(s * 0.35, 0);
-      ctx.lineTo(s * 0.6, -s * 0.1);
-      ctx.lineTo(s * 0.3, -s * 0.25);
-      ctx.lineTo(s * 0.35, -s * 0.5);
-      ctx.lineTo(0, -s * 0.75);
-      ctx.lineTo(-s * 0.35, -s * 0.5);
-      ctx.lineTo(-s * 0.3, -s * 0.25);
-      ctx.lineTo(-s * 0.6, -s * 0.1);
-      ctx.lineTo(-s * 0.35, 0);
-      ctx.lineTo(-s * 0.45, s * 0.3);
-      ctx.lineTo(-s * 0.15, s * 0.25);
-      ctx.closePath();
-    } else if (p.variety === 'oak') {
-      // Oak leaf: sinuous scalloped lobes
-      ctx.moveTo(0, s * 0.6);
-      ctx.bezierCurveTo(s * 0.2, s * 0.45, s * 0.4, s * 0.4, s * 0.3, s * 0.2);
-      ctx.bezierCurveTo(s * 0.45, s * 0.15, s * 0.5, -s * 0.05, s * 0.3, -s * 0.2);
-      ctx.bezierCurveTo(s * 0.4, -s * 0.35, s * 0.25, -s * 0.55, 0, -s * 0.65);
-      ctx.bezierCurveTo(-s * 0.25, -s * 0.55, -s * 0.4, -s * 0.35, -s * 0.3, -s * 0.2);
-      ctx.bezierCurveTo(-s * 0.5, -s * 0.05, -s * 0.45, s * 0.15, -s * 0.3, s * 0.2);
-      ctx.bezierCurveTo(-s * 0.4, s * 0.4, -s * 0.2, s * 0.45, 0, s * 0.6);
-      ctx.closePath();
-    } else if (p.variety === 'ginkgo') {
-      // Ginkgo biloba leaf: fan shape with notched crest
-      ctx.moveTo(0, s * 0.6);
-      ctx.lineTo(0, s * 0.2);
-      ctx.bezierCurveTo(s * 0.5, s * 0.1, s * 0.65, -s * 0.25, s * 0.45, -s * 0.55);
-      ctx.bezierCurveTo(s * 0.25, -s * 0.6, s * 0.08, -s * 0.5, 0, -s * 0.42);
-      ctx.bezierCurveTo(-s * 0.08, -s * 0.5, -s * 0.25, -s * 0.6, -s * 0.45, -s * 0.55);
-      ctx.bezierCurveTo(-s * 0.65, -s * 0.25, -s * 0.5, s * 0.1, 0, s * 0.2);
-      ctx.closePath();
-    } else {
-      // Birch leaf: delicate ovate teardrop
-      ctx.moveTo(0, s * 0.55);
-      ctx.bezierCurveTo(s * 0.5, s * 0.3, s * 0.55, -s * 0.15, 0, -s * 0.6);
-      ctx.bezierCurveTo(-s * 0.55, -s * 0.15, -s * 0.5, s * 0.3, 0, s * 0.55);
-      ctx.closePath();
+    var cached = getLeafOffscreenCanvas(p.variety, p.color, p.veinColor);
+    if (cached) {
+      var s = p.size;
+      ctx.drawImage(cached, -s / 2, -s / 2, s, s);
     }
-
-    ctx.fill();
-
-    // Vein line
-    ctx.beginPath();
-    ctx.moveTo(0, s * 0.55);
-    ctx.lineTo(0, -s * 0.42);
-    ctx.strokeStyle = p.veinColor;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
     ctx.restore();
   }
 
@@ -510,20 +531,38 @@
         _resizeTimer = setTimeout(resizeParticlesCanvas, 100);
       }, { passive: true });
 
+      var handleTabPause = function() {
+        if (_particlesState.animId) {
+          cancelAnimationFrame(_particlesState.animId);
+          _particlesState.animId = null;
+        }
+      };
+
+      var handleTabResume = function() {
+        if (!_particlesState.isRunning || !_particlesState.enabled) return;
+        if (typeof document !== 'undefined' && document.hidden) return;
+        if (_particlesState.animId) {
+          cancelAnimationFrame(_particlesState.animId);
+          _particlesState.animId = null;
+        }
+        _lastParticleFrameTime = 0;
+        _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+      };
+
       document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
-          if (_particlesState.animId) {
-            cancelAnimationFrame(_particlesState.animId);
-            _particlesState.animId = null;
-          }
-        } else if (_particlesState.isRunning && _particlesState.enabled) {
-          if (_particlesState.animId) {
-            cancelAnimationFrame(_particlesState.animId);
-            _particlesState.animId = null;
-          }
-          _lastParticleFrameTime = 0;
-          _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+          handleTabPause();
+        } else {
+          handleTabResume();
         }
+      });
+
+      window.addEventListener('blur', function() {
+        handleTabPause();
+      });
+
+      window.addEventListener('focus', function() {
+        handleTabResume();
       });
     }
 
