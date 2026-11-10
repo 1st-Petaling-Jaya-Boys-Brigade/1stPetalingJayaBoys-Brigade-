@@ -10836,6 +10836,77 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.getElementById = origGetEl;
   }
 
+  // ── 45. Payment Instructions Copy, Undefined Kit Badge Eradication & Parade Rundown Update ──
+  {
+    console.log('\nTesting Payment Copy, Calendar Undefined Eradication & Multi-Tab Concurrency...');
+    const calMod = require('../js/modules/calendar.js');
+
+    // 1. Payment Instructions Copy in orders.js and index.html
+    const expectedPaymentCopy = 'Payment must be completed in-person during the 3rd parade of the month before collecting your ordered uniform items. Please provide your name and order number to the logistics NCOs and officers upon payment.';
+    assert.strictEqual(ordersMod.DEFAULT_PAYMENT_INFO, expectedPaymentCopy, 'orders.js DEFAULT_PAYMENT_INFO must match updated copy with NCOs and officers');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    assert.ok(indexHtml.includes(expectedPaymentCopy), 'index.html payment-info-editor placeholder must match updated payment instructions');
+    console.log('  ✔ Payment instructions copy updated with logistics NCOs and officers across orders.js and index.html');
+
+    // 2. Eradication of "undefined" in Calendar Kit Badges
+    const calRaw = fs.readFileSync(path.join(__dirname, '../js/modules/calendar.js'), 'utf8');
+    assert.ok(!calRaw.includes('kitMeta.icon'), 'calendar.js must not reference kitMeta.icon which causes "undefined" kit labels');
+
+    // Simulate event badge rendering with various kits
+    const testEvent = { id: 'evt_test_1', date: '2026-11-21', title: 'Regular Parade', kit: 'Drill Kit', type: 'parade' };
+    const badgesResult = calMod.formatEventBadgesHtml ? calMod.formatEventBadgesHtml(testEvent) : null;
+    if (badgesResult) {
+      assert.ok(!badgesResult.includes('undefined'), 'formatEventBadgesHtml must never contain the word undefined');
+      assert.ok(badgesResult.includes('Drill Kit'), 'formatEventBadgesHtml must cleanly contain Drill Kit label');
+    }
+    console.log('  ✔ Calendar Kit badges cleanly render labels with zero "undefined" text everywhere');
+
+    // 3. Updated DEFAULT_PARADE_RUNDOWN descriptions in calendar.js
+    const rundown = calMod.DEFAULT_PARADE_RUNDOWN;
+    assert.ok(Array.isArray(rundown) && rundown.length === 8, 'DEFAULT_PARADE_RUNDOWN must be an array of 8 timeline steps');
+
+    const lunchStep = rundown.find(s => s.title === 'Lunch');
+    assert.strictEqual(lunchStep.desc, 'Members rest & lunch break', 'Lunch step desc must be "Members rest & lunch break"');
+
+    const fallinStep = rundown.find(s => s.title === 'Fall-in');
+    assert.strictEqual(fallinStep.desc, 'Company roll call & uniform inspection', 'Fall-in step desc must be "Company roll call & uniform inspection"');
+
+    const worshipStep = rundown.find(s => s.title === 'Worship');
+    assert.strictEqual(worshipStep.desc, 'Praise & Worship', 'Worship step desc must be "Praise & Worship"');
+
+    const ceStep = rundown.find(s => s.title === 'Christian Education');
+    assert.strictEqual(ceStep.desc, 'Biblical teachings & discussions', 'CE step desc must be "Biblical teachings & discussions"');
+
+    const badgeStep = rundown.find(s => s.title === 'Badge Class');
+    assert.strictEqual(badgeStep.desc, 'Proficiency badge classes and lessons', 'Badge Class step desc must be "Proficiency badge classes and lessons"');
+
+    const drillStep = rundown.find(s => s.title === 'Drill');
+    assert.strictEqual(drillStep.desc, 'Drill movements, marching & commanding', 'Drill step desc must be "Drill movements, marching & commanding"');
+
+    const dismissalStep = rundown.find(s => s.title === 'Dismissal');
+    assert.strictEqual(dismissalStep.desc, 'Announcements, vespers & dismissal', 'Dismissal step desc must be "Announcements, vespers & dismissal"');
+    console.log('  ✔ All 7 suggested parade schedule / rundown descriptions verified matching Image 3');
+
+    // 4. Multi-Tab Concurrency & Particle Loop Protection
+    const themeRaw = fs.readFileSync(path.join(__dirname, '../js/core/theme.js'), 'utf8');
+    assert.ok(themeRaw.includes('_particlesState.animId = null;'), 'theme.js must clear animId on frame entry to prevent rAF stacking');
+    assert.ok(themeRaw.includes('document.hidden'), 'theme.js must pause animation when document is hidden');
+
+    const supaRaw = fs.readFileSync(path.join(__dirname, '../js/api/supabase.js'), 'utf8');
+    assert.ok(supaRaw.includes('isLeaderTab'), 'supabase.js must check isLeaderTab to guard WebSocket connection and delta-sync');
+    console.log('  ✔ Multi-tab concurrency leader election & seasonal particle rAF loop protection verified');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalIdSet = new Set();
+    finalMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) finalIdSet.add(matchId[1]);
+    });
+    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

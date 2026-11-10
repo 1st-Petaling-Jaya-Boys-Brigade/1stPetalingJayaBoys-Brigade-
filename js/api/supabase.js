@@ -1138,6 +1138,17 @@ var PortalRealtime = (function() {
     if (typeof WebSocket === 'undefined') return;
     if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) return;
 
+    // Multi-Tab Coordination: Non-leader tabs receive updates instantly via BroadcastChannel (0ms latency).
+    // Only the elected leader tab maintains an active WebSocket to prevent socket & memory exhaustion.
+    var isLeaderFn = (typeof window !== 'undefined' && typeof window.isLeaderTab === 'function')
+      ? window.isLeaderTab
+      : (typeof global !== 'undefined' && typeof global.isLeaderTab === 'function')
+        ? global.isLeaderTab
+        : null;
+    if (isLeaderFn && !isLeaderFn() && typeof BroadcastChannel !== 'undefined') {
+      return;
+    }
+
     try {
       var sUrl = (typeof SUPA_URL !== 'undefined') ? SUPA_URL : (typeof window !== 'undefined' ? window.SUPA_URL : '');
       var sKey = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : '');
@@ -1237,6 +1248,16 @@ var PortalRealtime = (function() {
   var _deltaSyncBackoff = 25000;
 
   async function checkDeltaSync() {
+    // Multi-Tab Coordination: Non-leader tabs receive updates via BroadcastChannel; leader runs delta poller
+    var isLeaderFn = (typeof window !== 'undefined' && typeof window.isLeaderTab === 'function')
+      ? window.isLeaderTab
+      : (typeof global !== 'undefined' && typeof global.isLeaderTab === 'function')
+        ? global.isLeaderTab
+        : null;
+    if (isLeaderFn && !isLeaderFn() && typeof BroadcastChannel !== 'undefined') {
+      scheduleNextDeltaSync(120000);
+      return;
+    }
     if (typeof document !== 'undefined' && document.hidden) {
       scheduleNextDeltaSync(30000);
       return;

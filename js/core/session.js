@@ -98,6 +98,14 @@ function _setLeaderState(newState) {
     for (var i = 0; i < _leaderListeners.length; i++) {
       try { _leaderListeners[i](_isLeader); } catch (_) {}
     }
+    var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+      ? window.PortalRealtime
+      : (typeof global !== 'undefined' && global.PortalRealtime)
+        ? global.PortalRealtime
+        : null;
+    if (_isLeader && pr && typeof pr.connect === 'function') {
+      try { pr.connect(); } catch (_) {}
+    }
   }
 }
 
@@ -1122,7 +1130,9 @@ function initPresenceTracking() {
     fetchRemoteMemberPresence(true).catch(function() {});
   }
   if (typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
-    sendPresenceHeartbeat('online');
+    if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+      sendPresenceHeartbeat('online');
+    }
   }
 }
 

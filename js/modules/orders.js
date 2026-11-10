@@ -47,7 +47,7 @@ var itemSelectedSizes = {};
 var itemStagedQtys = {};
 var uniformCart = [];
 var DEFAULT_PAYMENT_INFO =
-  'Payment must be completed in-person during the 3rd parade of the month before collecting your ordered uniform items. Please provide your order number to the logistics officer upon payment.';
+  'Payment must be completed in-person during the 3rd parade of the month before collecting your ordered uniform items. Please provide your name and order number to the logistics NCOs and officers upon payment.';
 var _paymentInfo = DEFAULT_PAYMENT_INFO;
 var DEFAULT_UNIFORM_SCHEDULE = {
   status: 'active',
