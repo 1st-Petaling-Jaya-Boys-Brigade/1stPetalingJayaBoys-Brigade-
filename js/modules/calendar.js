@@ -528,13 +528,13 @@
   // ── Standard Default Parade Rundown ────────────────────────────────────────
   var DEFAULT_PARADE_RUNDOWN = [
     { time: '9:30 AM – 11:30 AM', title: 'Band', desc: 'Sectional & full band rehearsal (Brass, Woodwinds, Percussion)', icon: 'band' },
-    { time: '1:30 PM – 2:15 PM', title: 'Lunch', desc: 'Band members rest & lunch break', icon: 'lunch' },
-    { time: '2:15 PM – 2:30 PM', title: 'Fall-in', desc: 'Company roll call, squad muster & uniform inspection', icon: 'fallin' },
-    { time: '2:30 PM – 3:00 PM', title: 'Worship', desc: 'Praise, worship & opening prayer', icon: 'worship' },
-    { time: '3:00 PM – 4:00 PM', title: 'Christian Education', desc: 'Biblical teachings & squad discussions', icon: 'ce' },
-    { time: '4:00 PM – 5:00 PM', title: 'Badge Class', desc: 'Target & proficiency badge curriculum', icon: 'badge' },
-    { time: '5:00 PM – 5:45 PM', title: 'Drill', desc: 'Squad drill movements, foot drill & marching commands', icon: 'drill' },
-    { time: '5:45 PM', title: 'Dismissal', desc: 'Final announcements, vespers & dismissal', icon: 'dismissal' }
+    { time: '1:30 PM – 2:15 PM', title: 'Lunch', desc: 'Members rest & lunch break', icon: 'lunch' },
+    { time: '2:15 PM – 2:30 PM', title: 'Fall-in', desc: 'Company roll call & uniform inspection', icon: 'fallin' },
+    { time: '2:30 PM – 3:00 PM', title: 'Worship', desc: 'Praise & Worship', icon: 'worship' },
+    { time: '3:00 PM – 4:00 PM', title: 'Christian Education', desc: 'Biblical teachings & discussions', icon: 'ce' },
+    { time: '4:00 PM – 5:00 PM', title: 'Badge Class', desc: 'Proficiency badge classes and lessons', icon: 'badge' },
+    { time: '5:00 PM – 5:45 PM', title: 'Drill', desc: 'Drill movements, marching & commanding', icon: 'drill' },
+    { time: '5:45 PM', title: 'Dismissal', desc: 'Announcements, vespers & dismissal', icon: 'dismissal' }
   ];
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1181,7 +1181,7 @@
       var dayNameShort = DAY_SHORT_NAMES[evDateObj.getDay()];
 
       var typeMeta = TYPE_BADGES[ev.type] || { label: 'Event', color: '#eab308', dot: '#eab308', bg: 'rgba(234,179,8,0.15)' };
-      var kitMeta  = KIT_BADGES[ev.kit] || { label: ev.kit, color: 'var(--text-secondary)' };
+      var kitMeta  = KIT_BADGES[ev.kit] || { label: ev.kit, color: 'var(--text-secondary)', bg: 'var(--surface-tint)' };
 
       var isFirstForDate = !renderedDates[ev.date];
       renderedDates[ev.date] = true;
@@ -1201,7 +1201,7 @@
               + '<span class="cal-agenda-dot" style="background:' + typeMeta.dot + ';"></span>'
               + '<div class="cal-agenda-time-text">' + escapeHtml(ev.time || 'All day') + '</div>'
               + '<div class="cal-agenda-title-text">' + escapeHtml(ev.title) + '</div>'
-              + (ev.kit && ev.kit !== 'None' ? ('<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';margin-left:auto;">' + kitMeta.icon + ' ' + escapeHtml(kitMeta.label) + '</span>') : '')
+              + (ev.kit && ev.kit !== 'None' ? ('<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';margin-left:auto;">' + escapeHtml(kitMeta.label) + '</span>') : '')
             + '</div>'
           + '</div>'
         + '</div>';
@@ -1228,7 +1228,7 @@
     var dateObj = new Date(targetDate + 'T00:00:00');
     var fullDateStr = dateObj.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    var kitMeta = (ev && KIT_BADGES[ev.kit]) ? KIT_BADGES[ev.kit] : null;
+    var kitMeta = (ev && KIT_BADGES[ev.kit]) ? KIT_BADGES[ev.kit] : (ev && ev.kit && ev.kit !== 'None' ? { label: ev.kit, color: 'var(--accent)', bg: 'var(--accent-soft)' } : null);
     var typeMeta = (ev && TYPE_BADGES[ev.type]) ? TYPE_BADGES[ev.type] : null;
 
     // Step-Day Navigation Header Title
@@ -1252,7 +1252,7 @@
         badgesHtml += '<span class="cal-pill-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';border:1px solid ' + typeMeta.border + ';">' + escapeHtml(typeMeta.label) + '</span> ';
       }
       if (kitMeta && ev && ev.kit !== 'None') {
-        badgesHtml += '<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + kitMeta.icon + ' ' + escapeHtml(kitMeta.label) + '</span> ';
+        badgesHtml += '<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span> ';
       }
 
       headerBadges.innerHTML = badgesHtml;
@@ -2008,7 +2008,7 @@
 
     html += '</div>'; // end cal-days-grid
 
-    var kitMeta = (primaryEvent && KIT_BADGES[primaryEvent.kit]) ? KIT_BADGES[primaryEvent.kit] : null;
+    var kitMeta = (primaryEvent && KIT_BADGES[primaryEvent.kit]) ? KIT_BADGES[primaryEvent.kit] : (primaryEvent && primaryEvent.kit && primaryEvent.kit !== 'None' ? { label: primaryEvent.kit, color: 'var(--accent)', bg: 'var(--accent-soft)' } : null);
     var typeMeta = (primaryEvent && TYPE_BADGES[primaryEvent.type]) ? TYPE_BADGES[primaryEvent.type] : null;
 
     var previewDateObj = new Date(_selectedDateStr + 'T00:00:00');
@@ -2024,7 +2024,7 @@
         + '</div>'
         + '<div style="display:flex;gap:4px;flex-shrink:0;">'
           + (typeMeta ? ('<span class="cal-pill-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';">' + escapeHtml(typeMeta.label) + '</span>') : '')
-          + (kitMeta ? ('<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + kitMeta.icon + ' ' + escapeHtml(kitMeta.label) + '</span>') : '')
+          + (kitMeta ? ('<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span>') : '')
         + '</div>'
       + '</div>';
 
@@ -2190,8 +2190,13 @@
       handleAdminSaveEvent: handleAdminSaveEvent,
       handleAdminDeleteEvent: handleAdminDeleteEvent,
       KIT_BADGES: KIT_BADGES,
-      TYPE_BADGES: TYPE_BADGES
+      TYPE_BADGES: TYPE_BADGES,
+      DEFAULT_PARADE_RUNDOWN: DEFAULT_PARADE_RUNDOWN
     };
+  }
+
+  if (typeof window !== 'undefined') {
+    window.DEFAULT_PARADE_RUNDOWN = DEFAULT_PARADE_RUNDOWN;
   }
 
 })(typeof window !== 'undefined' ? window : global);

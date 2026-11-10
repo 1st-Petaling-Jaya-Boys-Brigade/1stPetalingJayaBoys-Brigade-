@@ -225,16 +225,12 @@
   }
 
   function drawSnow(ctx, p, isDark) {
-    ctx.save();
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-    if (isDark) {
-      ctx.fillStyle = 'rgba(255, 255, 255, ' + p.opacity + ')';
-    } else {
-      ctx.fillStyle = 'rgba(70, 130, 200, ' + Math.min(1, p.opacity + 0.25) + ')';
-    }
+    ctx.fillStyle = isDark
+      ? 'rgba(255, 255, 255, ' + p.opacity + ')'
+      : 'rgba(70, 130, 200, ' + Math.min(1, p.opacity + 0.25) + ')';
     ctx.fill();
-    ctx.restore();
   }
 
   function drawLeaf(ctx, p) {
@@ -307,17 +303,21 @@
   }
 
   var _lastParticleFrameTime = 0;
-  var PARTICLE_FRAME_INTERVAL_MS = 32; // ~30-31 FPS cap keeps UI responsive and leaves GPU headroom
+  var PARTICLE_FRAME_INTERVAL_MS = 33; // ~30 FPS cap keeps UI responsive and leaves GPU headroom
 
   function renderParticlesFrame(timestamp) {
-    if (!_particlesState.isRunning) return;
+    _particlesState.animId = null;
+    if (!_particlesState.isRunning || !_particlesState.enabled) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
 
     var now = (typeof timestamp === 'number' && timestamp > 0)
       ? timestamp
       : (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
 
     if (_lastParticleFrameTime && (now - _lastParticleFrameTime < PARTICLE_FRAME_INTERVAL_MS)) {
-      _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+      if (!_particlesState.animId && _particlesState.isRunning && _particlesState.enabled) {
+        _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+      }
       return;
     }
     _lastParticleFrameTime = now;
@@ -326,7 +326,9 @@
     var w = _particlesState.width;
     var h = _particlesState.height;
     if (!ctx || !w || !h) {
-      _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+      if (!_particlesState.animId && _particlesState.isRunning && _particlesState.enabled) {
+        _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+      }
       return;
     }
 
@@ -383,12 +385,15 @@
       }
     }
 
-    _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+    if (!_particlesState.animId && _particlesState.isRunning && _particlesState.enabled && (typeof document === 'undefined' || !document.hidden)) {
+      _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+    }
   }
 
   function startAmbientParticles(mode) {
     if (mode) _particlesState.mode = mode;
-    if (_particlesState.isRunning) return;
+    _particlesState.enabled = true;
+    _particlesState.isRunning = true;
 
     if (!_particlesState.canvas && typeof document !== 'undefined' && document.body) {
       initAmbientParticles();
@@ -404,8 +409,13 @@
       setupParticlesList();
     }
 
-    _particlesState.isRunning = true;
-    if (typeof requestAnimationFrame === 'function') {
+    if (_particlesState.animId) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(_particlesState.animId);
+      _particlesState.animId = null;
+    }
+
+    if (typeof requestAnimationFrame === 'function' && (typeof document === 'undefined' || !document.hidden)) {
+      _lastParticleFrameTime = 0;
       _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
     }
   }
@@ -494,17 +504,23 @@
     setupParticlesList();
 
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      var _resizeTimer = null;
       window.addEventListener('resize', function() {
-        resizeParticlesCanvas();
-      });
+        if (_resizeTimer) clearTimeout(_resizeTimer);
+        _resizeTimer = setTimeout(resizeParticlesCanvas, 100);
+      }, { passive: true });
 
       document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
-          if (_particlesState.isRunning && _particlesState.animId) {
+          if (_particlesState.animId) {
             cancelAnimationFrame(_particlesState.animId);
             _particlesState.animId = null;
           }
         } else if (_particlesState.isRunning && _particlesState.enabled) {
+          if (_particlesState.animId) {
+            cancelAnimationFrame(_particlesState.animId);
+            _particlesState.animId = null;
+          }
           _lastParticleFrameTime = 0;
           _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
         }

@@ -4704,28 +4704,28 @@ async function refreshLoggedInUserProfile() {
     }
     if (data && data.length > 0) {
       if ((data[0].created_at || data[0].joined_at) && typeof sessionSet === 'function' && !sessionGet('created_at')) {
-        sessionSet('created_at', data[0].created_at || data[0].joined_at);
+        sessionSet('created_at', data[0].created_at || data[0].joined_at, { localOnly: true });
       }
       var m = data[0];
       if (m.name && sessionGet('name') !== m.name) {
-        sessionSet('name', m.name);
+        sessionSet('name', m.name, { localOnly: true });
         var sn = document.getElementById('sidebar-user-name');
         if (sn) sn.textContent = m.name;
       }
       if (m.rank && sessionGet('rank') !== m.rank) {
-        sessionSet('rank', m.rank);
+        sessionSet('rank', m.rank, { localOnly: true });
         var sb = document.getElementById('sidebar-user-badge');
         if (sb) sb.textContent = m.rank || 'Member';
       }
       if (m.photo_url) {
-        if (sessionGet('photo_url') !== m.photo_url) sessionSet('photo_url', m.photo_url);
+        if (sessionGet('photo_url') !== m.photo_url) sessionSet('photo_url', m.photo_url, { localOnly: true });
         if (typeof _memberPfpsMap !== 'undefined') {
           _memberPfpsMap[id.toLowerCase()] = m.photo_url;
           if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = m.photo_url;
         }
       }
-      if (m.department && sessionGet('department') !== m.department) sessionSet('department', m.department);
-      if ((m.att_section || m.section) && sessionGet('section') !== (m.att_section || m.section)) sessionSet('section', m.att_section || m.section);
+      if (m.department && sessionGet('department') !== m.department) sessionSet('department', m.department, { localOnly: true });
+      if ((m.att_section || m.section) && sessionGet('section') !== (m.att_section || m.section)) sessionSet('section', m.att_section || m.section, { localOnly: true });
     }
   } catch (err) {
     console.warn('refreshLoggedInUserProfile error:', err);

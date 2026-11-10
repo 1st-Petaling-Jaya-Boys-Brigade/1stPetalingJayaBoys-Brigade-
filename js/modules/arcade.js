@@ -517,8 +517,8 @@
         }
       });
       if (typeof sessionSet === 'function') {
-        sessionSet('game_streak', String(stats.streak || 0));
-        sessionSet('game_credits', String(stats.credits || 0));
+        sessionSet('game_streak', String(stats.streak || 0), { localOnly: true });
+        sessionSet('game_credits', String(stats.credits || 0), { localOnly: true });
       }
       updateArcadeHeaderBadge(stats);
 
@@ -616,8 +616,8 @@
         });
 
         if (typeof sessionSet === 'function') {
-          sessionSet('game_streak', String(merged.streak || 0));
-          sessionSet('game_credits', String(merged.credits || 0));
+          sessionSet('game_streak', String(merged.streak || 0), { localOnly: true });
+          sessionSet('game_credits', String(merged.credits || 0), { localOnly: true });
         }
         updateArcadeHeaderBadge(merged);
 
