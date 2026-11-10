@@ -8139,6 +8139,7 @@ body.light-theme .tb-mention-pill,
   transition: all 0.2s ease;
 }
 
+.fb-schedule-badge,
 .uo-schedule-badge {
   display: inline-block;
   padding: 3px 10px;

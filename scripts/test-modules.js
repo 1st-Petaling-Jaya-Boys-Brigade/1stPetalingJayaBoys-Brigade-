@@ -10795,6 +10795,44 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
 
+    // 6. Pause / Resume Toggle in Admin Forms List updates button & badge
+    formsMod._customForms.push({
+      id: 'test_toggle_form',
+      name: 'Test Toggle Form',
+      type: 'builtin',
+      status: 'active',
+      active: true,
+      fields: [{ label: 'Name', type: 'text' }]
+    });
+
+    await formsMod.toggleCustomFormStatus('test_toggle_form');
+    const toggledForm = formsMod._customForms.find(x => x.id === 'test_toggle_form');
+    assert.strictEqual(toggledForm.status, 'paused', 'toggleCustomFormStatus must set status to paused');
+    assert.strictEqual(toggledForm.active, false, 'toggleCustomFormStatus must set active to false');
+
+    await formsMod.toggleCustomFormStatus('test_toggle_form');
+    assert.strictEqual(toggledForm.status, 'active', 'toggleCustomFormStatus must toggle status back to active');
+    assert.strictEqual(toggledForm.active, true, 'toggleCustomFormStatus must toggle active back to true');
+    console.log('  ✔ toggleCustomFormStatus accurately toggles pause and resume states');
+
+    // 7. Paused form subtitle rendered in white without pill box
+    const inlineContainer = { innerHTML: '' };
+    global.document.getElementById = (id) => {
+      if (id === 'inline-form-view') return inlineContainer;
+      return origGetEl ? origGetEl(id) : null;
+    };
+    toggledForm.status = 'paused';
+    toggledForm.active = false;
+    formsMod.renderBuiltinFormInline(toggledForm);
+    assert.ok(inlineContainer.innerHTML.includes('style="font-size:15px;color:#ffffff;font-weight:600;margin-bottom:16px;">Responses Paused</div>'), 'Paused form must render white subtitle without pill box');
+    console.log('  ✔ Paused form renders normal white subtitle "Responses Paused" under form title');
+
+    // 8. Form Builder header has Pause/Resume controls and Uniform Orders Save button says Save
+    assert.ok(indexHtml.includes('fb-schedule-badge'), 'index.html must include fb-schedule-badge in forms builder');
+    assert.ok(indexHtml.includes('fb-schedule-toggle-btn'), 'index.html must include fb-schedule-toggle-btn in forms builder');
+    assert.ok(indexHtml.includes('onclick="saveAdminUniformOrdersSchedule()"') && !indexHtml.includes('Save Availability Schedule'), 'Uniform Orders schedule save button must say Save');
+    console.log('  ✔ Form Builder header Pause/Resume controls and Uniform Orders simple Save button verified');
+
     global.document.getElementById = origGetEl;
   }
 
