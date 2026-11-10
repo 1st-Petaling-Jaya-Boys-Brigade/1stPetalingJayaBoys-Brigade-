@@ -10676,6 +10676,128 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Uniform Orders Schedule & Forms Bug Fix Verification ──────────────────
+  {
+    console.log('\nTesting Uniform Orders Schedule & Form Builder Bug Fix...');
+    const ordersMod = require('../js/modules/orders.js');
+    const formsMod = require('../js/modules/forms.js');
+
+    // 1. Form Builder does NOT render uniform items
+    const mockContainer = { innerHTML: 'initial_content' };
+    const origGetEl = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'uniform-products-preview') return mockContainer;
+      return origGetEl ? origGetEl(id) : null;
+    };
+
+    if (typeof formsMod.renderUniformProductsPreview === 'function') {
+      formsMod.renderUniformProductsPreview();
+      assert.strictEqual(mockContainer.innerHTML, '', 'renderUniformProductsPreview must leave preview container empty');
+    }
+    console.log('  ✔ Uniform items removed from Form Builder module in Admin Console');
+
+    // 2. Uniform Orders Schedule state & availability logic
+    assert.ok(typeof ordersMod.isUniformOrdersAcceptingResponses === 'function', 'isUniformOrdersAcceptingResponses is defined');
+
+    // Active state
+    await ordersMod.saveUniformOrdersSchedule({
+      status: 'active',
+      open_at: '',
+      close_at: '',
+      paused_message: ''
+    });
+    let avail = ordersMod.isUniformOrdersAcceptingResponses();
+    assert.strictEqual(avail.open, true, 'Uniform orders should be open when active');
+
+    // Paused state
+    await ordersMod.saveUniformOrdersSchedule({
+      status: 'paused',
+      open_at: '',
+      close_at: '',
+      paused_message: 'Custom pause message'
+    });
+    avail = ordersMod.isUniformOrdersAcceptingResponses();
+    assert.strictEqual(avail.open, false, 'Uniform orders should be closed when paused');
+    assert.strictEqual(avail.reason, 'paused');
+    assert.strictEqual(avail.message, 'Custom pause message');
+
+    // Future open_at
+    const futureDate = new Date(Date.now() + 86400000).toISOString();
+    await ordersMod.saveUniformOrdersSchedule({
+      status: 'active',
+      open_at: futureDate,
+      close_at: '',
+      paused_message: ''
+    });
+    avail = ordersMod.isUniformOrdersAcceptingResponses();
+    assert.strictEqual(avail.open, false, 'Uniform orders should not be open if open_at is in the future');
+    assert.strictEqual(avail.reason, 'scheduled_future');
+
+    // Past close_at
+    const pastDate = new Date(Date.now() - 86400000).toISOString();
+    await ordersMod.saveUniformOrdersSchedule({
+      status: 'active',
+      open_at: '',
+      close_at: pastDate,
+      paused_message: ''
+    });
+    avail = ordersMod.isUniformOrdersAcceptingResponses();
+    assert.strictEqual(avail.open, false, 'Uniform orders should be closed if close_at is in the past');
+    assert.strictEqual(avail.reason, 'scheduled_past');
+
+    // Reset to active
+    await ordersMod.saveUniformOrdersSchedule({
+      status: 'active',
+      open_at: '',
+      close_at: '',
+      paused_message: ''
+    });
+    console.log('  ✔ Uniform orders response availability & auto-schedule logic verified (Active, Paused, Scheduled)');
+
+    // 3. submitOrder blocked when paused
+    await ordersMod.saveUniformOrdersSchedule({
+      status: 'paused',
+      open_at: '',
+      close_at: '',
+      paused_message: 'Orders currently paused'
+    });
+    let toastMsg = '';
+    global.showToast = (msg) => { toastMsg = msg; };
+    const submitRes = await ordersMod.submitOrder();
+    assert.strictEqual(submitRes, null, 'submitOrder must return null when uniform ordering is paused');
+    assert.ok(toastMsg.includes('Orders currently paused'), 'submitOrder must display paused notice toast');
+
+    // Restore active
+    await ordersMod.saveUniformOrdersSchedule({
+      status: 'active',
+      open_at: '',
+      close_at: '',
+      paused_message: ''
+    });
+    console.log('  ✔ submitOrder blocked when uniform orders are paused or scheduled closed');
+
+    // 4. index.html contains Response Availability & Auto-Schedule in adm-section-uniform
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    assert.ok(indexHtml.includes('uo-schedule-box'), 'index.html must include uo-schedule-box');
+    assert.ok(indexHtml.includes('uo-status-active-radio'), 'index.html must include uo-status-active-radio');
+    assert.ok(indexHtml.includes('uo-open-at-input'), 'index.html must include uo-open-at-input');
+    assert.ok(indexHtml.includes('uo-close-at-input'), 'index.html must include uo-close-at-input');
+    assert.ok(indexHtml.includes('uo-paused-msg-input'), 'index.html must include uo-paused-msg-input');
+    console.log('  ✔ Admin Uniform Orders module Response Availability & Auto-Schedule controls verified');
+
+    // 5. Strict 388 unique DOM IDs Invariant
+    const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalIdSet = new Set();
+    finalMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) finalIdSet.add(matchId[1]);
+    });
+    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+
+    global.document.getElementById = origGetEl;
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

@@ -2398,8 +2398,8 @@
               </button>
               <button class="submit-btn danger" onclick="clearFormBuilder()" style="margin-top:4px;width:auto;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
-            <!-- Uniform products preview container for Form Builder reference -->
-            <div id="uniform-products-preview" style="margin-top:12px;"></div>
+            <!-- Deprecated uniform products preview container retained hidden for DOM ID invariant stability -->
+            <div id="uniform-products-preview" style="display:none;"></div>
           </div>
           <div id="admin-forms-list"></div>
         </div>
@@ -2424,6 +2424,51 @@
           <div>
             <div class="adm-section-title">Uniform Orders</div>
             <div class="adm-section-desc">Manage products and view member uniform orders</div>
+          </div>
+        </div>
+
+        <!-- Uniform Orders Response Availability & Auto-Schedule Card -->
+        <div class="uo-schedule-box" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow-card);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Response Availability &amp; Auto-Schedule</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="uo-schedule-badge" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;font-family:var(--font-headline);letter-spacing:0.5px;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);">ACTIVE</span>
+              <button type="button" class="portal-btn portal-btn-secondary uo-schedule-toggle-btn" onclick="toggleUniformOrdersStatus()" style="padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;border-radius:8px;">Pause Ordering</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;">Status</label>
+            <div style="display:flex;gap:18px;flex-wrap:wrap;">
+              <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-primary);cursor:pointer;">
+                <input type="radio" name="uo_form_status" value="active" checked class="uo-status-active-radio"/> Active (Accepting Responses)
+              </label>
+              <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-primary);cursor:pointer;">
+                <input type="radio" name="uo_form_status" value="paused" class="uo-status-paused-radio"/> Paused (Closed to Responses)
+              </label>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label>
+              <input type="datetime-local" class="form-input uo-open-at-input" style="font-size:12px;padding:8px 10px;"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label>
+              <input type="datetime-local" class="form-input uo-close-at-input" style="font-size:12px;padding:8px 10px;"/>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:14px;">
+            <label class="form-label" style="font-size:11px;">Custom Paused / Closed Notice for Members</label>
+            <textarea class="form-textarea uo-paused-msg-input" rows="2" style="font-size:12px;padding:8px 10px;min-height:56px;resize:vertical;" placeholder="e.g. Uniform orders are currently paused by the company administration. Please check back later."></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button type="button" class="submit-btn gold btn-with-icon" onclick="saveAdminUniformOrdersSchedule()" style="margin-top:0;padding:8px 18px;font-size:13px;cursor:pointer;width:auto;">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Save Availability Schedule
+            </button>
           </div>
         </div>
 

@@ -49,6 +49,18 @@ var uniformCart = [];
 var DEFAULT_PAYMENT_INFO =
   'Payment must be completed in-person during the 3rd parade of the month before collecting your ordered uniform items. Please provide your order number to the logistics officer upon payment.';
 var _paymentInfo = DEFAULT_PAYMENT_INFO;
+var DEFAULT_UNIFORM_SCHEDULE = {
+  status: 'active',
+  open_at: '',
+  close_at: '',
+  paused_message: 'Uniform orders are currently paused by the company administration. Please check back later.'
+};
+var _uniformOrdersSchedule = {
+  status: 'active',
+  open_at: '',
+  close_at: '',
+  paused_message: ''
+};
 var _activeUniformCategory = 'all';
 var _isSubmittingOrder = false;
 var _tngScreenshotFile = null;
@@ -858,6 +870,247 @@ async function savePaymentInfo(text) {
   }
 }
 
+// ── Uniform Orders Schedule & Response Availability ─────────────────────────
+
+/**
+ * Loads uniform orders response availability and auto-schedule config from Supabase bb_config
+ */
+async function loadUniformOrdersSchedule() {
+  var client = getSupa();
+  if (client && typeof client.getConfigSnapshot === 'function') {
+    var snap = client.getConfigSnapshot('bb_uniform_schedule');
+    if (snap) {
+      try {
+        var parsed = typeof snap === 'string' ? JSON.parse(snap) : snap;
+        if (parsed && typeof parsed === 'object') {
+          _uniformOrdersSchedule = Object.assign({}, DEFAULT_UNIFORM_SCHEDULE, parsed);
+          return _uniformOrdersSchedule;
+        }
+      } catch (e) {}
+    }
+  }
+  if (client && client.get) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_uniform_schedule&select=value');
+      if (rows && rows.length && rows[0].value) {
+        var val = rows[0].value;
+        var parsedVal = typeof val === 'string' ? JSON.parse(val) : val;
+        _uniformOrdersSchedule = Object.assign({}, DEFAULT_UNIFORM_SCHEDULE, parsedVal);
+        if (client.recordConfigSnapshot) {
+          client.recordConfigSnapshot('bb_uniform_schedule', _uniformOrdersSchedule);
+        }
+      } else {
+        _uniformOrdersSchedule = Object.assign({}, DEFAULT_UNIFORM_SCHEDULE);
+      }
+    } catch (e) {
+      _uniformOrdersSchedule = Object.assign({}, DEFAULT_UNIFORM_SCHEDULE);
+    }
+  } else {
+    _uniformOrdersSchedule = Object.assign({}, DEFAULT_UNIFORM_SCHEDULE);
+  }
+  return _uniformOrdersSchedule;
+}
+
+/**
+ * Persists uniform orders availability and schedule configuration to Supabase bb_config
+ * @param {object} [scheduleData]
+ */
+async function saveUniformOrdersSchedule(scheduleData) {
+  var client = getSupa();
+  var payload = scheduleData || _uniformOrdersSchedule;
+  var jsonStr = JSON.stringify(payload);
+  _uniformOrdersSchedule = Object.assign({}, payload);
+
+  if (client) {
+    if (typeof client.recordConfigSnapshot === 'function') {
+      client.recordConfigSnapshot('bb_uniform_schedule', _uniformOrdersSchedule);
+    }
+    if (typeof client.safeConfigUpdate === 'function') {
+      try {
+        await client.safeConfigUpdate('bb_uniform_schedule', jsonStr, { enableMerge: false });
+        return;
+      } catch (eSafe) {
+        console.warn('safeConfigUpdate fallback in saveUniformOrdersSchedule:', eSafe);
+      }
+    }
+    try {
+      await client.req('POST', 'bb_config?on_conflict=key', {
+        key: 'bb_uniform_schedule',
+        value: jsonStr
+      });
+    } catch (e) {
+      try {
+        await client.patch('bb_config?key=eq.bb_uniform_schedule', {
+          value: jsonStr
+        });
+      } catch (e2) {}
+    }
+  }
+}
+
+/**
+ * Evaluates whether uniform orders are currently open, paused, or scheduled
+ * @returns {{ open: boolean, reason: string, message: string }}
+ */
+function isUniformOrdersAcceptingResponses() {
+  var s = _uniformOrdersSchedule || DEFAULT_UNIFORM_SCHEDULE;
+  if (s.status === 'paused') {
+    return {
+      open: false,
+      reason: 'paused',
+      message: s.paused_message || 'Uniform orders are currently paused by the company administration. Please check back later.'
+    };
+  }
+  var now = Date.now();
+  if (s.open_at) {
+    var openTime = new Date(s.open_at).getTime();
+    if (!isNaN(openTime) && now < openTime) {
+      var openFormatted = new Date(s.open_at).toLocaleString('en-MY', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+      return {
+        open: false,
+        reason: 'scheduled_future',
+        message: s.paused_message || ('Uniform orders are scheduled to open on ' + openFormatted + '. Please check back then.')
+      };
+    }
+  }
+  if (s.close_at) {
+    var closeTime = new Date(s.close_at).getTime();
+    if (!isNaN(closeTime) && now > closeTime) {
+      return {
+        open: false,
+        reason: 'scheduled_past',
+        message: s.paused_message || 'Uniform orders are now closed. Please check back next term or contact the logistics officer.'
+      };
+    }
+  }
+  return { open: true, reason: 'active', message: '' };
+}
+
+/**
+ * Saves availability schedule from the admin console input controls
+ */
+async function saveAdminUniformOrdersSchedule() {
+  if (typeof document === 'undefined') return;
+  var box = document.querySelector('.uo-schedule-box');
+  if (!box) return;
+
+  var activeRadio = box.querySelector('.uo-status-active-radio');
+  var status = activeRadio && activeRadio.checked ? 'active' : 'paused';
+  var openInput = box.querySelector('.uo-open-at-input');
+  var closeInput = box.querySelector('.uo-close-at-input');
+  var msgInput = box.querySelector('.uo-paused-msg-input');
+
+  var openAt = openInput ? openInput.value.trim() : '';
+  var closeAt = closeInput ? closeInput.value.trim() : '';
+  var pausedMsg = msgInput ? (typeof sanitizeText === 'function' ? sanitizeText(msgInput.value, 500) : msgInput.value.trim()) : '';
+
+  if (openAt && closeAt && new Date(openAt).getTime() >= new Date(closeAt).getTime()) {
+    if (typeof showToast === 'function') {
+      showToast('Auto-Open time must be before Auto-Close time.', 'warning');
+    }
+    return;
+  }
+
+  var updatedSchedule = {
+    status: status,
+    open_at: openAt,
+    close_at: closeAt,
+    paused_message: pausedMsg
+  };
+
+  await saveUniformOrdersSchedule(updatedSchedule);
+  await renderUniformOrdersScheduleControls();
+
+  if (typeof showToast === 'function') {
+    showToast('Uniform orders availability schedule saved!', 'success');
+  }
+}
+
+/**
+ * Toggles uniform ordering status between active and paused immediately
+ */
+async function toggleUniformOrdersStatus() {
+  await loadUniformOrdersSchedule();
+  var newStatus = _uniformOrdersSchedule.status === 'paused' ? 'active' : 'paused';
+  _uniformOrdersSchedule.status = newStatus;
+  await saveUniformOrdersSchedule(_uniformOrdersSchedule);
+  await renderUniformOrdersScheduleControls();
+
+  if (typeof showToast === 'function') {
+    showToast(
+      'Uniform ordering is now ' + (newStatus === 'active' ? 'active (accepting orders)' : 'paused (closed to orders)'),
+      newStatus === 'active' ? 'success' : 'warning'
+    );
+  }
+}
+
+/**
+ * Populates admin schedule controls with current uniform orders schedule
+ */
+async function renderUniformOrdersScheduleControls() {
+  if (typeof document === 'undefined') return;
+  var box = document.querySelector('.uo-schedule-box');
+  if (!box) return;
+
+  await loadUniformOrdersSchedule();
+  var s = _uniformOrdersSchedule || DEFAULT_UNIFORM_SCHEDULE;
+
+  var activeRadio = box.querySelector('.uo-status-active-radio');
+  var pausedRadio = box.querySelector('.uo-status-paused-radio');
+  if (activeRadio && pausedRadio) {
+    activeRadio.checked = s.status !== 'paused';
+    pausedRadio.checked = s.status === 'paused';
+  }
+
+  var openInput = box.querySelector('.uo-open-at-input');
+  var closeInput = box.querySelector('.uo-close-at-input');
+  if (openInput) openInput.value = s.open_at || '';
+  if (closeInput) closeInput.value = s.close_at || '';
+
+  var msgInput = box.querySelector('.uo-paused-msg-input');
+  if (msgInput) msgInput.value = s.paused_message || '';
+
+  var avail = isUniformOrdersAcceptingResponses();
+  var badge = box.querySelector('.uo-schedule-badge');
+  var toggleBtn = box.querySelector('.uo-schedule-toggle-btn');
+
+  if (badge) {
+    if (!avail.open) {
+      if (avail.reason === 'scheduled_future') {
+        badge.textContent = 'SCHEDULED';
+        badge.style.background = 'rgba(234,179,8,0.15)';
+        badge.style.color = 'var(--brand-gold, #f5c542)';
+        badge.style.border = '1px solid rgba(234,179,8,0.3)';
+      } else if (avail.reason === 'scheduled_past') {
+        badge.textContent = 'CLOSED';
+        badge.style.background = 'rgba(239,68,68,0.15)';
+        badge.style.color = '#ef4444';
+        badge.style.border = '1px solid rgba(239,68,68,0.3)';
+      } else {
+        badge.textContent = 'PAUSED';
+        badge.style.background = 'rgba(234,179,8,0.15)';
+        badge.style.color = 'var(--brand-gold, #f5c542)';
+        badge.style.border = '1px solid rgba(234,179,8,0.3)';
+      }
+    } else {
+      badge.textContent = 'ACTIVE';
+      badge.style.background = 'rgba(34,197,94,0.15)';
+      badge.style.color = '#22c55e';
+      badge.style.border = '1px solid rgba(34,197,94,0.3)';
+    }
+  }
+
+  if (toggleBtn) {
+    toggleBtn.textContent = s.status === 'paused' ? 'Resume Ordering' : 'Pause Ordering';
+  }
+}
+
 // ── Order Flow & Member Access ─────────────────────────────────────────────
 
 /**
@@ -1442,6 +1695,16 @@ async function submitOrder() {
     return null;
   }
 
+  var avail = typeof isUniformOrdersAcceptingResponses === 'function'
+    ? isUniformOrdersAcceptingResponses()
+    : { open: true };
+  if (!avail.open) {
+    if (typeof showToast === 'function') {
+      showToast(avail.message || 'Uniform ordering is currently closed.', 'warning');
+    }
+    return null;
+  }
+
   var btn = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
   var ic = typeof sessionGet === 'function' ? sessionGet('ic') || '' : '';
 
@@ -1649,6 +1912,31 @@ function renderUniformOrderInline() {
   var container = document.getElementById('inline-form-view');
   if (!container) return;
 
+  var avail = typeof isUniformOrdersAcceptingResponses === 'function'
+    ? isUniformOrdersAcceptingResponses()
+    : { open: true };
+
+  if (!avail.open) {
+    var badgeText = avail.reason === 'scheduled_future'
+      ? 'Scheduled to Open'
+      : (avail.reason === 'scheduled_past' ? 'Orders Closed' : 'Orders Paused');
+    container.innerHTML =
+      '<div class="dark-card" style="text-align:center;padding:40px 24px;">' +
+      '<button onclick="backToFormsHub()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px;">\u2039 Back to Forms</button>' +
+      '<div style="width:56px;height:56px;border-radius:50%;background:rgba(234,179,8,0.12);color:var(--brand-gold);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">' +
+      '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+      '</div>' +
+      '<div class="page-title" style="margin-bottom:6px;">Uniform Order Form</div>' +
+      '<div style="display:inline-block;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--font-headline);background:rgba(234,179,8,0.15);color:var(--brand-gold);border:1px solid rgba(234,179,8,0.3);margin-bottom:16px;">' + badgeText.toUpperCase() + '</div>' +
+      '<div style="font-size:14px;color:var(--text-secondary);line-height:1.75;max-width:480px;margin:0 auto 24px;white-space:pre-wrap;">' +
+      (typeof escapeHtml === 'function' ? escapeHtml(avail.message) : avail.message) +
+      '</div>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="backToFormsHub()" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:8px 18px;font-size:13px;cursor:pointer;">' +
+      'Return to Forms Hub</button>' +
+      '</div>';
+    return;
+  }
+
   var categories = getUniformCategories(UNIFORM_ITEMS);
   var catTabsHtml = '<div class="uniform-cat-tabs" id="uniform-cat-tabs">';
   Object.keys(categories).forEach(function (catKey) {
@@ -1725,6 +2013,9 @@ function renderUniformOrderInline() {
  */
 function switchUniformSubtab(sub) {
   if (typeof document === 'undefined') return;
+  if (typeof renderUniformOrdersScheduleControls === 'function') {
+    renderUniformOrdersScheduleControls();
+  }
   if (sub === 'payment') loadAndRenderPaymentEditor();
   ['products', 'orders', 'payment'].forEach(function (s) {
     var p = document.getElementById('subpanel-' + s);
@@ -2727,6 +3018,14 @@ if (typeof window !== 'undefined') {
     return _activeUniformCategory;
   };
 
+  window.DEFAULT_UNIFORM_SCHEDULE = DEFAULT_UNIFORM_SCHEDULE;
+  window.loadUniformOrdersSchedule = loadUniformOrdersSchedule;
+  window.saveUniformOrdersSchedule = saveUniformOrdersSchedule;
+  window.saveAdminUniformOrdersSchedule = saveAdminUniformOrdersSchedule;
+  window.toggleUniformOrdersStatus = toggleUniformOrdersStatus;
+  window.isUniformOrdersAcceptingResponses = isUniformOrdersAcceptingResponses;
+  window.renderUniformOrdersScheduleControls = renderUniformOrdersScheduleControls;
+
   window.switchUniformSubtab = switchUniformSubtab;
   window.loadAndRenderPaymentEditor = loadAndRenderPaymentEditor;
   window.adminSavePaymentInfo = adminSavePaymentInfo;
@@ -2797,6 +3096,14 @@ if (typeof module !== 'undefined' && module.exports) {
     get _activeUniformCategory() {
       return _activeUniformCategory;
     },
+
+    DEFAULT_UNIFORM_SCHEDULE: DEFAULT_UNIFORM_SCHEDULE,
+    loadUniformOrdersSchedule: loadUniformOrdersSchedule,
+    saveUniformOrdersSchedule: saveUniformOrdersSchedule,
+    saveAdminUniformOrdersSchedule: saveAdminUniformOrdersSchedule,
+    toggleUniformOrdersStatus: toggleUniformOrdersStatus,
+    isUniformOrdersAcceptingResponses: isUniformOrdersAcceptingResponses,
+    renderUniformOrdersScheduleControls: renderUniformOrdersScheduleControls,
 
     switchUniformSubtab: switchUniformSubtab,
     loadAndRenderPaymentEditor: loadAndRenderPaymentEditor,
