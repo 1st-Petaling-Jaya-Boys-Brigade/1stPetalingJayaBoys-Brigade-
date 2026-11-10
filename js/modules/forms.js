@@ -104,6 +104,94 @@ async function saveCustomForms() {
   }
 }
 
+/**
+ * Evaluates whether a form is currently accepting responses based on its pause status and auto-schedule
+ * @param {Object} form
+ * @returns {{open: boolean, reason: string, message: string}}
+ */
+function isFormAcceptingResponses(form) {
+  if (!form) return { open: true, reason: 'active', message: '' };
+
+  var defaultPausedMsg = form.paused_message && form.paused_message.trim()
+    ? form.paused_message.trim()
+    : 'Responses for this form are currently paused by the company administration. Please check back later.';
+
+  // 1. Explicit pause
+  if (form.status === 'paused' || form.active === false) {
+    return {
+      open: false,
+      reason: 'paused',
+      message: defaultPausedMsg
+    };
+  }
+
+  var now = Date.now();
+
+  // 2. Scheduled opening in future
+  if (form.open_at) {
+    var openTime = new Date(form.open_at).getTime();
+    if (!isNaN(openTime) && now < openTime) {
+      var openFormatted = new Date(form.open_at).toLocaleString('en-MY', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      return {
+        open: false,
+        reason: 'scheduled_future',
+        message: form.paused_message && form.paused_message.trim()
+          ? form.paused_message.trim()
+          : ('This form is scheduled to open on ' + openFormatted + '. Please check back once responses are open.')
+      };
+    }
+  }
+
+  // 3. Scheduled close in past
+  if (form.close_at) {
+    var closeTime = new Date(form.close_at).getTime();
+    if (!isNaN(closeTime) && now > closeTime) {
+      var closeFormatted = new Date(form.close_at).toLocaleString('en-MY', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      return {
+        open: false,
+        reason: 'scheduled_past',
+        message: form.paused_message && form.paused_message.trim()
+          ? form.paused_message.trim()
+          : ('Responses for this form closed on ' + closeFormatted + '.')
+      };
+    }
+  }
+
+  return { open: true, reason: 'active', message: '' };
+}
+
+/**
+ * Toggles pause/resume status for a custom form
+ * @param {string} formId
+ */
+async function toggleCustomFormStatus(formId) {
+  var f = _customForms.find(function(x) { return x.id === formId; });
+  if (!f) return;
+  var nextStatus = (f.status === 'paused') ? 'active' : 'paused';
+  f.status = nextStatus;
+  f.active = nextStatus === 'active';
+  await saveCustomForms();
+  renderAdminForms();
+  renderFormsHub();
+  if (typeof showToast === 'function') {
+    showToast(nextStatus === 'paused' ? 'Form responses paused.' : 'Form responses resumed.', 'info');
+  }
+}
+
 // ── Forms Hub (Member Interface) ───────────────────────────────────────────
 
 /**
@@ -132,11 +220,7 @@ function renderFormsHub() {
       type: 'uniform',
       iconSvg: uniformSvg
     }
-  ].concat(
-    _customForms.filter(function (f) {
-      return f.active !== false;
-    })
-  );
+  ].concat(_customForms);
 
   var list = document.getElementById('forms-list') || hub;
   var searchWrap = document.getElementById('forms-search-wrap');
@@ -170,6 +254,13 @@ function renderFormsHub() {
     var safeType = typeof escapeHtml === 'function' ? escapeHtml(f.type || '') : f.type || '';
     var safeId = typeof escapeHtml === 'function' ? escapeHtml(f.id || '') : f.id || '';
 
+    var avail = (f.id === '__uniform__') ? { open: true } : isFormAcceptingResponses(f);
+    var statusBadge = '';
+    if (!avail.open) {
+      var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled' : (avail.reason === 'scheduled_past' ? 'Closed' : 'Paused');
+      statusBadge = ' <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--brand-gold);border:1px solid rgba(234,179,8,0.3);margin-left:6px;vertical-align:middle;">' + badgeText + '</span>';
+    }
+
     html +=
       '<div class="form-card-hub" data-open-form="' +
       safeId +
@@ -189,6 +280,7 @@ function renderFormsHub() {
       '</div>' +
       '<div style="flex:1;"><div class="form-card-name">' +
       safeName +
+      statusBadge +
       '</div><div class="form-card-desc">' +
       safeDesc +
       '</div></div>' +
@@ -318,7 +410,15 @@ function openFormForMember(formId) {
   });
   if (!form) return;
 
+  var avail = isFormAcceptingResponses(form);
+
   if (form.type === 'link') {
+    if (!avail.open) {
+      if (typeof showToast === 'function') {
+        showToast(avail.message || 'Responses for this form are currently closed.', 'warning');
+      }
+      return;
+    }
     var safeTargetUrl = typeof safeUrl === 'function' ? safeUrl(form.url, '#') : form.url;
     if (typeof window !== 'undefined' && window.open) {
       window.open(safeTargetUrl, '_blank');
@@ -366,6 +466,26 @@ function renderBuiltinFormInline(form) {
   if (typeof document === 'undefined') return;
   var container = document.getElementById('inline-form-view');
   if (!container) return;
+
+  var avail = isFormAcceptingResponses(form);
+  if (!avail.open) {
+    var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled to Open' : (avail.reason === 'scheduled_past' ? 'Responses Closed' : 'Responses Paused');
+    container.innerHTML =
+      '<div class="dark-card" style="text-align:center;padding:36px 24px;">' +
+      '<button onclick="backToFormsHub()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px;">\u2039 Back to Forms</button>' +
+      '<div style="width:52px;height:52px;border-radius:50%;background:rgba(234,179,8,0.12);color:var(--brand-gold);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">' +
+      '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+      '</div>' +
+      '<div class="page-title" style="margin-bottom:6px;">' + escapeHtml(form.name) + '</div>' +
+      '<div style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--font-headline);background:rgba(234,179,8,0.15);color:var(--brand-gold);border:1px solid rgba(234,179,8,0.3);margin-bottom:16px;">' + badgeText.toUpperCase() + '</div>' +
+      '<div style="font-size:14px;color:var(--text-secondary);line-height:1.75;max-width:480px;margin:0 auto 24px;white-space:pre-wrap;">' +
+      escapeHtml(avail.message) +
+      '</div>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="backToFormsHub()" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:8px 18px;font-size:13px;cursor:pointer;">' +
+      'Return to Forms Hub</button>' +
+      '</div>';
+    return;
+  }
 
   // Scope input element IDs to form.id to prevent collision across multiple forms
   var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
@@ -523,6 +643,14 @@ function validateFormAnswers(form, answersMap) {
 async function submitBuiltinForm(form) {
   if (_isSubmittingBuiltinForm) {
     if (typeof showToast === 'function') showToast('Submission is already in progress.', 'warning');
+    return;
+  }
+
+  var avail = isFormAcceptingResponses(form);
+  if (!avail.open) {
+    if (typeof showToast === 'function') {
+      showToast(avail.message || 'Responses for this form are currently paused.', 'warning');
+    }
     return;
   }
 
@@ -823,6 +951,15 @@ function clearFormBuilder() {
     reClearValue('fb-desc');
   }
 
+  var defaultStatus = document.querySelector('input[name="fb-status-radio"][value="active"]');
+  if (defaultStatus) defaultStatus.checked = true;
+  var openAtInput = document.querySelector('.fb-open-at-input');
+  if (openAtInput) openAtInput.value = '';
+  var closeAtInput = document.querySelector('.fb-close-at-input');
+  if (closeAtInput) closeAtInput.value = '';
+  var pausedMsgInput = document.querySelector('.fb-paused-msg-input');
+  if (pausedMsgInput) pausedMsgInput.value = '';
+
   var t = document.getElementById('fb-form-title');
   if (t)
     t.innerHTML =
@@ -859,12 +996,25 @@ function saveForm() {
       return;
     }
 
+    var statusRadio = document.querySelector('input[name="fb-status-radio"]:checked');
+    var formStatus = statusRadio ? statusRadio.value : 'active';
+    var openAtInput = document.querySelector('.fb-open-at-input');
+    var openAt = openAtInput ? openAtInput.value.trim() : '';
+    var closeAtInput = document.querySelector('.fb-close-at-input');
+    var closeAt = closeAtInput ? closeAtInput.value.trim() : '';
+    var pausedMsgInput = document.querySelector('.fb-paused-msg-input');
+    var pausedMsg = pausedMsgInput ? (typeof sanitizeText === 'function' ? sanitizeText(pausedMsgInput.value, 500) : pausedMsgInput.value.trim()) : '';
+
     var formData = {
       id: editId || 'form_' + Date.now(),
       name: name,
       desc: desc,
       type: type,
-      active: true
+      status: formStatus,
+      active: formStatus === 'active',
+      open_at: openAt,
+      close_at: closeAt,
+      paused_message: pausedMsg
     };
 
     if (type === 'link') {
@@ -933,6 +1083,15 @@ function editForm(id) {
   var n = document.getElementById('fb-name');
   if (n) n.value = f.name;
   if (typeof reSetValue === 'function') reSetValue('fb-desc', f.desc || '');
+
+  var statusRadio = document.querySelector('input[name="fb-status-radio"][value="' + (f.status || (f.active === false ? 'paused' : 'active')) + '"]');
+  if (statusRadio) statusRadio.checked = true;
+  var openAtInput = document.querySelector('.fb-open-at-input');
+  if (openAtInput) openAtInput.value = f.open_at || '';
+  var closeAtInput = document.querySelector('.fb-close-at-input');
+  if (closeAtInput) closeAtInput.value = f.close_at || '';
+  var pausedMsgInput = document.querySelector('.fb-paused-msg-input');
+  if (pausedMsgInput) pausedMsgInput.value = f.paused_message || '';
 
   var e = document.getElementById('fb-edit-id');
   if (e) e.value = f.id;
@@ -1006,28 +1165,62 @@ function renderAdminForms() {
   var html = '';
 
   _customForms.forEach(function (f) {
+    var isPaused = f.status === 'paused' || f.active === false;
+    var statusBadge = '';
+    if (isPaused) {
+      statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);margin-left:8px;vertical-align:middle;">PAUSED</span>';
+    } else if (f.open_at || f.close_at) {
+      statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);margin-left:8px;vertical-align:middle;">SCHEDULED</span>';
+    } else {
+      statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);margin-left:8px;vertical-align:middle;">ACTIVE</span>';
+    }
+
+    var scheduleInfo = '';
+    if (f.open_at || f.close_at) {
+      var parts = [];
+      if (f.open_at) parts.push('Opens: ' + new Date(f.open_at).toLocaleDateString('en-MY', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }));
+      if (f.close_at) parts.push('Closes: ' + new Date(f.close_at).toLocaleDateString('en-MY', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }));
+      scheduleInfo = ' · <span style="color:var(--brand-blue);">' + escapeHtml(parts.join(' - ')) + '</span>';
+    }
+
+    var togglePauseBtn = '<button type="button" data-toggle-pause="' + escapeHtml(f.id) + '" title="' + (isPaused ? 'Resume form responses' : 'Pause form responses') + '" style="background:' + (isPaused ? 'rgba(16,185,129,0.15)' : 'rgba(234,179,8,0.15)') + ';border:1px solid ' + (isPaused ? 'rgba(16,185,129,0.3)' : 'rgba(234,179,8,0.3)') + ';color:' + (isPaused ? 'var(--green, #10b981)' : 'var(--brand-gold, #eab308)') + ';padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' +
+      (isPaused
+        ? '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume'
+        : '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause') +
+      '</button>';
+
     html +=
-      '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);display:flex;align-items:center;gap:12px;">' +
+      '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
       '<div style="width:42px;height:42px;border-radius:10px;background:rgba(200,150,30,0.1);display:flex;align-items:center;justify-content:center;color:var(--gold);flex-shrink:0;">' +
       (iconSvgs[f.type] || iconSvgs.builtin) +
       '</div>' +
-      '<div style="flex:1;"><div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);">' +
+      '<div style="flex:1;min-width:180px;"><div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;flex-wrap:wrap;">' +
       escapeHtml(f.name) +
+      statusBadge +
       '</div>' +
-      '<div style="font-size:11px;color:var(--text-secondary);">' +
+      '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' +
       (typeLabel[f.type] || '') +
-      (f.desc ? ' \xb7 ' + escapeHtml(f.desc) : '') +
+      scheduleInfo +
+      (f.desc ? ' · ' + escapeHtml(f.desc) : '') +
       '</div></div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      togglePauseBtn +
       '<button data-edit-form="' +
       escapeHtml(f.id) +
       '" title="Edit Form" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
       '<button data-del-form="' +
       escapeHtml(f.id) +
       '" title="Delete Form" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
+      '</div>' +
       '</div>';
   });
 
   container.innerHTML = html;
+  container.querySelectorAll('[data-toggle-pause]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      toggleCustomFormStatus(btn.getAttribute('data-toggle-pause'));
+    });
+  });
   container.querySelectorAll('[data-edit-form]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       editForm(btn.getAttribute('data-edit-form'));
@@ -1235,6 +1428,8 @@ if (typeof window !== 'undefined') {
   window.editForm = editForm;
   window.deleteForm = deleteForm;
   window.renderAdminForms = renderAdminForms;
+  window.isFormAcceptingResponses = isFormAcceptingResponses;
+  window.toggleCustomFormStatus = toggleCustomFormStatus;
   window.renderUniformProductsPreview = renderUniformProductsPreview;
   window.switchFormSubtab = switchFormSubtab;
   window.renderFormResponses = renderFormResponses;
@@ -1266,6 +1461,8 @@ if (typeof module !== 'undefined' && module.exports) {
     editForm: editForm,
     deleteForm: deleteForm,
     renderAdminForms: renderAdminForms,
+    isFormAcceptingResponses: isFormAcceptingResponses,
+    toggleCustomFormStatus: toggleCustomFormStatus,
     renderUniformProductsPreview: renderUniformProductsPreview,
     switchFormSubtab: switchFormSubtab,
     renderFormResponses: renderFormResponses

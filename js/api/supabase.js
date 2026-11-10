@@ -120,21 +120,18 @@ async function throttledFetch(url, fetchOpts, timeoutMs) {
   const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
   let timeoutId = null;
 
-  if (controller) {
-    if (fetchOpts.signal) {
-      if (fetchOpts.signal.aborted) {
-        const err = new Error('The user aborted a request.');
-        err.name = 'AbortError';
-        throw err;
-      }
+  if (fetchOpts.signal) {
+    if (fetchOpts.signal.aborted) {
+      const err = new Error('The user aborted a request.');
+      err.name = 'AbortError';
+      throw err;
+    }
+    if (controller) {
       fetchOpts.signal.addEventListener('abort', () => controller.abort(), { once: true });
     }
-    timeoutId = setTimeout(() => {
-      controller.abort();
-    }, timeoutMs);
-    fetchOpts.signal = controller.signal;
   }
 
+  // If at concurrency capacity, wait in queue without consuming timeout
   if (_activeRequests >= MAX_CONCURRENT_REQUESTS) {
     await new Promise((resolve, reject) => {
       const queueItem = { resolve, reject };
@@ -150,6 +147,14 @@ async function throttledFetch(url, fetchOpts, timeoutMs) {
       }
       _requestQueue.push(queueItem);
     });
+  }
+
+  // Arm network timeout ONLY once dequeued and actively dispatching
+  if (controller) {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+    fetchOpts.signal = controller.signal;
   }
 
   _activeRequests++;

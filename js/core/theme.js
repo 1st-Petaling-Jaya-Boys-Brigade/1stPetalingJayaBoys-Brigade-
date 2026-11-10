@@ -192,8 +192,8 @@
     var h = _particlesState.height || (typeof window !== 'undefined' ? window.innerHeight : 800) || 800;
     var isMobile = w < 768;
 
-    var snowCount = isMobile ? 30 : 60;
-    var leafCount = isMobile ? 14 : 28;
+    var snowCount = isMobile ? 16 : 30;
+    var leafCount = isMobile ? 8 : 16;
 
     _particlesState.snowList = [];
     _particlesState.leafList = [];
@@ -210,7 +210,8 @@
     if (!_particlesState.canvas) return;
     var w = (typeof window !== 'undefined' ? window.innerWidth : 1024) || 1024;
     var h = (typeof window !== 'undefined' ? window.innerHeight : 768) || 768;
-    var dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    // Cap DPR at 1 for ambient canvas: saves up to 75% GPU fill rate and prevents tab freezing
+    var dpr = 1;
 
     _particlesState.width = w;
     _particlesState.height = h;
@@ -229,16 +230,8 @@
     ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
     if (isDark) {
       ctx.fillStyle = 'rgba(255, 255, 255, ' + p.opacity + ')';
-      if (p.radius > 2.2) {
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
-      }
     } else {
       ctx.fillStyle = 'rgba(70, 130, 200, ' + Math.min(1, p.opacity + 0.25) + ')';
-      if (p.radius > 2.2) {
-        ctx.shadowBlur = 3;
-        ctx.shadowColor = 'rgba(60, 120, 190, 0.4)';
-      }
     }
     ctx.fill();
     ctx.restore();
@@ -313,8 +306,21 @@
     ctx.restore();
   }
 
-  function renderParticlesFrame() {
+  var _lastParticleFrameTime = 0;
+  var PARTICLE_FRAME_INTERVAL_MS = 32; // ~30-31 FPS cap keeps UI responsive and leaves GPU headroom
+
+  function renderParticlesFrame(timestamp) {
     if (!_particlesState.isRunning) return;
+
+    var now = (typeof timestamp === 'number' && timestamp > 0)
+      ? timestamp
+      : (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+
+    if (_lastParticleFrameTime && (now - _lastParticleFrameTime < PARTICLE_FRAME_INTERVAL_MS)) {
+      _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
+      return;
+    }
+    _lastParticleFrameTime = now;
 
     var ctx = _particlesState.ctx;
     var w = _particlesState.width;
@@ -499,6 +505,7 @@
             _particlesState.animId = null;
           }
         } else if (_particlesState.isRunning && _particlesState.enabled) {
+          _lastParticleFrameTime = 0;
           _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
         }
       });
