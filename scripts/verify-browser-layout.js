@@ -1096,14 +1096,17 @@ async function getJson(url) {
       'Badges logged-in panel must be displayed'
     );
     assert.strictEqual(badgesInit.hasTracker, true, 'President tracker container must exist');
-    assert.strictEqual(
-      badgesInit.trackerHtml,
-      '',
-      "President's Award tracker must be removed and deleted"
+    assert.ok(
+      badgesInit.trackerHtml.includes("President's Award Tracker"),
+      "President's Award tracker must render in #presidents-tracker"
+    );
+    assert.ok(
+      badgesInit.trackerHtml.includes('All Compulsory Awards Received'),
+      "President's Award tracker must render criteria checklist"
     );
     assert.strictEqual(badgesInit.hasSearch, true, 'Badge search input must exist');
     console.log(
-      "  ✔ Badges tab and search input render cleanly with President's Award tracker removed"
+      "  ✔ Badges tab renders cleanly with interactive President's Award tracker checklist"
     );
 
     // 17. Test Weekly Parade Schedule & NCO Tasks Kanban Board in Browser
