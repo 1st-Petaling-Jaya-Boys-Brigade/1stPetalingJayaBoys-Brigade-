@@ -47,7 +47,7 @@ var itemSelectedSizes = {};
 var itemStagedQtys = {};
 var uniformCart = [];
 var DEFAULT_PAYMENT_INFO =
-  'Please transfer payment via Touch \'n Go eWallet / DuitNow QR or online bank transfer to 1st Petaling Jaya Boys\' Brigade. Upload your payment screenshot below as proof of payment.';
+  'Payment must be completed in-person during the 3rd parade of the month before collecting your ordered uniform items. Please provide your order number to the logistics officer upon payment.';
 var _paymentInfo = DEFAULT_PAYMENT_INFO;
 var _activeUniformCategory = 'all';
 var _isSubmittingOrder = false;
@@ -1575,7 +1575,7 @@ async function submitOrder() {
     }
 
     if (!client || !client.post) throw new Error('Database client unavailable');
-    await client.post('bb_orders', {
+    var orderRecord = {
       order_number: orderNum,
       ic: ic,
       member_name: memberData.name || ic,
@@ -1586,7 +1586,9 @@ async function submitOrder() {
       status: 'pending',
       created_at: new Date().toISOString(),
       payment_screenshot: finalScreenshot || null
-    });
+    };
+    await client.post('bb_orders', orderRecord);
+    syncOrderToGoogleSheetsArchive(orderRecord);
     _tngScreenshotFile = null;
     uniformCart.length = 0;
 
@@ -1707,14 +1709,6 @@ function renderUniformOrderInline() {
     '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> Payment Instructions</div>' +
     '<div id="payment-info-text" style="font-size:13px;color:var(--text-secondary);line-height:1.75;white-space:pre-wrap;"></div>' +
     '</div>' +
-    '<div style="background:var(--bg-card);border:2px dashed var(--border-card);border-radius:14px;padding:16px;margin-bottom:16px;">' +
-    '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:6px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> TNG Payment Screenshot</div>' +
-    '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Please make payment via TNG and upload your payment screenshot before confirming.</div>' +
-    '<div style="position:relative;border-radius:10px;background:var(--bg-card-subtle);border:1px solid var(--border-card);overflow:hidden;" id="tng-upload-area">' +
-    '<input type="file" id="tng-screenshot-input" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:2;" onchange="previewTngScreenshot(this)"/>' +
-    '<div id="tng-placeholder" style="padding:20px;text-align:center;color:var(--text-secondary);font-size:13px;"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto 6px;display:block;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>Tap to upload screenshot</div>' +
-    '<div id="tng-preview" style="display:none;"><img id="tng-preview-img" style="width:100%;max-height:240px;object-fit:contain;display:block;border-radius:10px;" alt="TNG Screenshot"/><button type="button" onclick="clearTngScreenshot()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.6);border:none;color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:14px;z-index:3;">&#10005;</button></div>' +
-    '</div></div>' +
     '<div class="cf-turnstile-container" data-action="order" style="margin-bottom:14px;min-height:65px;display:flex;justify-content:center;"></div>' +
     '<div style="display:flex;gap:10px;"><button class="submit-btn danger btn-with-icon" style="flex:1;margin-top:0;justify-content:center;" onclick="goBackOrder()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit</button><button class="submit-btn btn-with-icon" style="flex:2;margin-top:0;justify-content:center;" onclick="submitOrder()" id="confirm-btn"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirm &amp; Submit</button></div>' +
     '</div></div>' +
@@ -1773,6 +1767,242 @@ async function adminSavePaymentInfo() {
 var _cachedAdminOrders = null;
 var _cachedAdminOrdersTime = 0;
 var ADMIN_ORDERS_CACHE_TTL = 30000;
+var _adminOrdersViewMode = 'table';
+var _adminOrdersMonthFilter = '';
+var _cachedAdminOrdersList = [];
+var _ordersSheetsArchiveUrl = '';
+
+/**
+ * Loads configured Google Sheets permanent archive webhook URL from Supabase bb_config
+ */
+async function loadOrdersSheetsArchiveUrl() {
+  if (_ordersSheetsArchiveUrl) return _ordersSheetsArchiveUrl;
+  var client = getSupa();
+  if (!client || !client.get) return '';
+  try {
+    var snap = (typeof client.getConfigSnapshot === 'function') ? client.getConfigSnapshot('bb_orders_sheets_url') : null;
+    if (snap && typeof snap === 'string') {
+      _ordersSheetsArchiveUrl = snap;
+      return snap;
+    }
+    var rows = await client.get('bb_config?key=eq.bb_orders_sheets_url&select=value');
+    if (Array.isArray(rows) && rows[0] && rows[0].value) {
+      _ordersSheetsArchiveUrl = String(rows[0].value).trim();
+      if (typeof client.recordConfigSnapshot === 'function') {
+        client.recordConfigSnapshot('bb_orders_sheets_url', _ordersSheetsArchiveUrl);
+      }
+      return _ordersSheetsArchiveUrl;
+    }
+  } catch (e) {
+    console.warn('loadOrdersSheetsArchiveUrl error:', e.message);
+  }
+  return '';
+}
+
+/**
+ * Persists the Google Sheets permanent archive webhook URL to Supabase bb_config
+ * @param {string} url
+ */
+async function saveOrdersSheetsArchiveUrl(url) {
+  var client = getSupa();
+  var cleanUrl = (typeof url === 'string') ? url.trim() : '';
+  _ordersSheetsArchiveUrl = cleanUrl;
+  if (!client) return false;
+  try {
+    if (typeof client.safeConfigUpdate === 'function') {
+      await client.safeConfigUpdate('bb_orders_sheets_url', cleanUrl);
+    } else {
+      await client.post('bb_config', { key: 'bb_orders_sheets_url', value: cleanUrl, updated_at: new Date().toISOString() });
+    }
+    if (typeof client.recordConfigSnapshot === 'function') {
+      client.recordConfigSnapshot('bb_orders_sheets_url', cleanUrl);
+    }
+    return true;
+  } catch (e) {
+    console.warn('saveOrdersSheetsArchiveUrl error:', e.message);
+    return false;
+  }
+}
+
+/**
+ * Asynchronously synchronizes an individual order to the secondary Google Sheets archive
+ * @param {Object} orderRecord
+ */
+async function syncOrderToGoogleSheetsArchive(orderRecord) {
+  try {
+    var url = await loadOrdersSheetsArchiveUrl();
+    if (!url || !/^https?:\/\//i.test(url)) return;
+
+    var payload = {
+      action: 'archive_order',
+      timestamp: new Date().toISOString(),
+      order: orderRecord
+    };
+
+    if (typeof fetch !== 'undefined') {
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(function(err) {
+        console.warn('Google Sheets archive sync fetch warning:', err);
+      });
+    }
+  } catch (err) {
+    console.warn('syncOrderToGoogleSheetsArchive error:', err);
+  }
+}
+
+/**
+ * Prompts admin to configure or change the Google Sheets Webhook URL
+ */
+async function configureAdminOrdersSheetUrl() {
+  var current = await loadOrdersSheetsArchiveUrl();
+  var promptMsg = 'Enter your Google Sheets Webhook URL (Google Apps Script Web App URL) to permanently archive all uniform orders even if deleted from the portal:';
+  var nextUrl = null;
+  if (typeof showPromptModal === 'function') {
+    nextUrl = await showPromptModal(promptMsg, 'Google Sheets Archive Webhook', current || 'https://script.google.com/macros/s/.../exec');
+  } else if (typeof window !== 'undefined' && window.prompt) {
+    nextUrl = window.prompt(promptMsg, current || '');
+  }
+
+  if (nextUrl !== null) {
+    var saved = await saveOrdersSheetsArchiveUrl(nextUrl);
+    if (saved) {
+      if (typeof showToast === 'function') showToast('Google Sheets archive URL saved successfully!', 'success');
+    } else {
+      if (typeof showToast === 'function') showToast('Failed to save archive URL to database.', 'error');
+    }
+  }
+}
+
+/**
+ * Synchronizes all currently loaded uniform orders to the permanent Google Sheet
+ */
+async function syncAdminOrdersToGoogleSheet() {
+  var url = await loadOrdersSheetsArchiveUrl();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    await configureAdminOrdersSheetUrl();
+    url = await loadOrdersSheetsArchiveUrl();
+    if (!url || !/^https?:\/\//i.test(url)) return;
+  }
+
+  if (!_cachedAdminOrdersList || !_cachedAdminOrdersList.length) {
+    if (typeof showToast === 'function') showToast('No orders found to sync.', 'info');
+    return;
+  }
+
+  if (typeof showToast === 'function') showToast('Syncing orders to Google Sheet...', 'info');
+
+  try {
+    var payload = {
+      action: 'sync_all_orders',
+      timestamp: new Date().toISOString(),
+      orders: _cachedAdminOrdersList
+    };
+
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (typeof showToast === 'function') {
+      showToast('✓ Permanent Google Sheet sync sent (' + _cachedAdminOrdersList.length + ' orders)!', 'success');
+    }
+  } catch (err) {
+    console.error('syncAdminOrdersToGoogleSheet error:', err);
+    if (typeof showToast === 'function') {
+      showToast('Sync request completed (cross-origin mode). Check your Google Sheet.', 'info');
+    }
+  }
+}
+
+/**
+ * Exports currently filtered uniform orders to CSV format for Google Sheets or Excel
+ * @param {Array} [ordersToExport]
+ */
+function exportAdminOrdersToCsv(ordersToExport) {
+  var list = ordersToExport || _cachedAdminOrdersList || [];
+  if (!list.length) {
+    if (typeof showToast === 'function') showToast('No order records available to export.', 'warning');
+    return;
+  }
+
+  var headers = [
+    'Order Number',
+    'Member Name',
+    'Rank',
+    'Squad',
+    'Items Ordered',
+    'Total Price (RM)',
+    'Status',
+    'Order Date',
+    'Notes'
+  ];
+
+  var rows = [headers.map(function(h) { return '"' + h.replace(/"/g, '""') + '"'; }).join(',')];
+
+  list.forEach(function (o) {
+    var itemsFormatted = [];
+    var totalPrice = 0;
+    try {
+      var items = JSON.parse(o.items || '{}');
+      Object.entries(items).forEach(function (kv) {
+        var v = kv[1];
+        var baseKey = kv[0].split('__')[0];
+        var prod = UNIFORM_ITEMS.find(function (i) {
+          return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
+        });
+        var displayName = prod ? prod.name : ((v && v.name) || baseKey);
+        var qty = parseInt(v.qty, 10) || 1;
+        var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
+        totalPrice += qty * p;
+        itemsFormatted.push(displayName + ' x' + qty + (v.size ? ' (' + v.size + ')' : ''));
+      });
+    } catch (_) {}
+
+    var dateStr = o.created_at ? new Date(o.created_at).toLocaleDateString('en-MY', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }) : '';
+
+    var colVals = [
+      o.order_number || '',
+      o.member_name || o.ic || '',
+      o.rank || '',
+      o.squad || '',
+      itemsFormatted.join('; '),
+      totalPrice.toFixed(2),
+      (o.status || 'pending').toUpperCase(),
+      dateStr,
+      o.notes || ''
+    ];
+
+    rows.push(colVals.map(function(val) {
+      return '"' + String(val).replace(/"/g, '""') + '"';
+    }).join(','));
+  });
+
+  var csvContent = '\uFEFF' + rows.join('\r\n');
+  var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var monthLabel = _adminOrdersMonthFilter !== '' ? ('_Month_' + (parseInt(_adminOrdersMonthFilter, 10) + 1)) : '_All';
+  a.href = url;
+  a.download = 'BB_Uniform_Orders' + monthLabel + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+
+  if (typeof showToast === 'function') {
+    showToast('✓ Exported ' + list.length + ' orders to CSV for Google Sheets!', 'success');
+  }
+}
 
 async function renderAdminOrders(forceRefresh) {
   if (typeof document === 'undefined') return;
@@ -1801,7 +2031,7 @@ async function renderAdminOrders(forceRefresh) {
     }
 
     // Only show uniform orders (filter out custom form submissions)
-    var filtered = orders.filter(function (o) {
+    var uniformOrders = orders.filter(function (o) {
       try {
         var items = JSON.parse(o.items || '{}');
         return items.form_name === undefined;
@@ -1810,19 +2040,20 @@ async function renderAdminOrders(forceRefresh) {
       }
     });
 
-    filtered = filtered.filter(function (o) {
+    var filtered = uniformOrders.filter(function (o) {
       var matchesSearch =
         (o.order_number || '').toLowerCase().includes(search) ||
         (o.member_name || '').toLowerCase().includes(search);
       var matchesStatus = !statusFilter || (o.status || '').toLowerCase() === statusFilter;
-      return matchesSearch && matchesStatus;
+      var matchesMonth = true;
+      if (_adminOrdersMonthFilter !== '' && o.created_at) {
+        var d = new Date(o.created_at);
+        matchesMonth = String(d.getMonth()) === String(_adminOrdersMonthFilter);
+      }
+      return matchesSearch && matchesStatus && matchesMonth;
     });
 
-    if (!filtered.length) {
-      list.innerHTML =
-        '<div style="color:var(--text-muted);text-align:center;padding:20px;">No submissions found.</div>';
-      return;
-    }
+    _cachedAdminOrdersList = filtered;
 
     var SC = {
       pending: '#eab308',
@@ -1832,110 +2063,243 @@ async function renderAdminOrders(forceRefresh) {
       cancelled: '#ef4444'
     };
     var SL = ['pending', 'processing', 'ready', 'collected', 'cancelled'];
-    var html = '';
+    var monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
 
-    filtered.forEach(function (o) {
-      var itemsDisplay = '';
-      try {
-        var items = JSON.parse(o.items || '{}');
-        Object.entries(items).forEach(function (kv) {
-          var v = kv[1];
-          var baseKey = kv[0].split('__')[0];
-          var prod = UNIFORM_ITEMS.find(function (i) {
-            return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
-          });
-          var displayName = prod ? prod.name : ((v && v.name) || baseKey);
-          var v = kv[1];
-          itemsDisplay +=
-            '<div style="font-size:12px;color:var(--text-secondary);">' +
-            escapeHtml(displayName) +
-            ' \xd7' +
-            escapeHtml(v.qty) +
-            (v.size ? ' (' + escapeHtml(v.size) + ')' : '') +
-            '</div>';
-        });
-      } catch (e) {}
-
-      var status = o.status || 'pending';
-      var sc = SC[status] || '#888';
-      var created = o.created_at
-        ? new Date(o.created_at).toLocaleDateString('en-MY', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-          })
-        : '';
-      var btns = SL.map(function (s) {
-        var active = s === status;
-        return (
-          '<button data-order-num="' +
-          escapeHtml(o.order_number) +
-          '" data-order-status="' +
-          s +
-          '" style="padding:3px 10px;border:1.5px solid ' +
-          (active ? SC[s] : 'var(--border-card)') +
-          ';border-radius:6px;background:' +
-          (active ? SC[s] + '22' : 'transparent') +
-          ';color:' +
-          (active ? SC[s] : 'var(--text-secondary)') +
-          ";font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-headline);\">" +
-          s +
-          '</button>'
-        );
+    // Build the Admin Orders Control Toolbar (View Switcher, Month Filter, CSV Export, Sheets Sync)
+    var monthOptionsHtml = '<option value="">All Months</option>' +
+      monthNames.map(function(m, idx) {
+        return '<option value="' + idx + '"' + (_adminOrdersMonthFilter === String(idx) ? ' selected' : '') + '>' + m + '</option>';
       }).join('');
 
-      var safeScreenshot = o.payment_screenshot
-        ? typeof safeUrl === 'function'
-          ? safeUrl(o.payment_screenshot, '')
-          : o.payment_screenshot
-        : '';
-      var screenshotHtml = safeScreenshot
-        ? '<div style="margin:10px 0;"><div style="font-size:10px;color:var(--text-secondary);font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg> Payment Screenshot</div><img src="' +
-          escapeHtml(safeScreenshot) +
-          '" alt="TNG" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:10px;border:1px solid var(--border-card);cursor:pointer;display:block;" onclick="this.style.maxHeight=this.style.maxHeight===\'none\'?\'160px\':\'none\'"/><div style="font-size:10px;color:var(--text-muted);margin-top:3px;">Tap to expand</div></div>'
-        : '<div style="font-size:11px;color:var(--text-muted);margin:6px 0 10px;font-style:italic;">No payment screenshot</div>';
+    var toolbarHtml =
+      '<div class="admin-orders-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<div style="display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--border-card);background:var(--bg-card-subtle);">' +
+      '<button type="button" class="orders-view-btn' + (_adminOrdersViewMode === 'table' ? ' active-view-btn' : '') + '" data-set-view="table" title="Spreadsheet Table View" style="border:none;border-radius:0;">' +
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Table View' +
+      '</button>' +
+      '<button type="button" class="orders-view-btn' + (_adminOrdersViewMode === 'cards' ? ' active-view-btn' : '') + '" data-set-view="cards" title="Cards View" style="border:none;border-radius:0;">' +
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Cards View' +
+      '</button>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-secondary);"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>' +
+      '<select class="form-select admin-month-select" style="min-width:130px;font-size:12px;padding:6px 10px;height:34px;">' +
+      monthOptionsHtml +
+      '</select>' +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+      '<button type="button" class="portal-btn portal-btn-secondary" data-export-csv title="Export current orders to CSV for Google Sheets / Excel" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;height:34px;">' +
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export to Sheets / CSV' +
+      '</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" data-sync-sheets title="Sync records to permanent Google Sheet" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;height:34px;">' +
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Sync to Google Sheet' +
+      '</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" data-config-sheets title="Configure Permanent Google Sheet Webhook URL" style="display:inline-flex;align-items:center;padding:6px 8px;height:34px;">' +
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+      '</button>' +
+      '</div>' +
+      '</div>';
 
-      html +=
-        '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
-        '<div><div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' +
-        escapeHtml(o.order_number) +
-        '</div>' +
-        '<div style="font-size:11px;color:var(--text-secondary);">' +
-        escapeHtml(o.member_name || o.ic) +
-        ' \xb7 ' +
-        escapeHtml(o.rank || '') +
-        ' \xb7 ' +
-        created +
-        '</div></div>' +
-        '<div style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' +
-        sc +
-        '22;color:' +
-        sc +
-        ';border:1px solid ' +
-        sc +
-        "44;font-family:var(--font-headline);\">" +
-        status.toUpperCase() +
-        '</div></div>' +
-        '<div style="margin-bottom:4px;">' +
-        itemsDisplay +
-        '</div>' +
-        screenshotHtml +
-        (o.notes
-          ? '<div style="font-size:11px;color:var(--text-muted);margin:6px 0;"><strong>Notes:</strong> ' +
-            (typeof sanitizeHtml === 'function' ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) +
-            '</div>'
-          : '') +
-        '<div style="display:flex;gap:5px;flex-wrap:wrap;">' +
-        btns +
-        '<button data-del-sub="' +
-        escapeHtml(o.order_number) +
-        '" title="Delete submission" style="margin-left:auto;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
-        '</div></div>';
-    });
+    if (!filtered.length) {
+      list.innerHTML = toolbarHtml +
+        '<div style="color:var(--text-muted);text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;">No uniform order records found for the selected month or search filter.</div>';
+      attachToolbarEvents(list);
+      return;
+    }
 
-    list.innerHTML = html;
+    var contentHtml = '';
 
+    // ── 1. SPREADSHEET / TABLE VIEW (Default) ─────────────────────────────
+    if (_adminOrdersViewMode === 'table') {
+      var rowsHtml = '';
+      filtered.forEach(function (o) {
+        var itemsDisplay = '';
+        var total = 0;
+        try {
+          var items = JSON.parse(o.items || '{}');
+          var itemParts = [];
+          Object.entries(items).forEach(function (kv) {
+            var v = kv[1];
+            var baseKey = kv[0].split('__')[0];
+            var prod = UNIFORM_ITEMS.find(function (i) {
+              return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
+            });
+            var displayName = prod ? prod.name : ((v && v.name) || baseKey);
+            var qty = parseInt(v.qty, 10) || 1;
+            var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
+            total += qty * p;
+            itemParts.push(escapeHtml(displayName) + ' ×' + escapeHtml(qty) + (v.size ? ' (' + escapeHtml(v.size) + ')' : ''));
+          });
+          itemsDisplay = itemParts.join('<br>');
+        } catch (_) {}
+
+        var status = o.status || 'pending';
+        var sc = SC[status] || '#888';
+        var created = o.created_at
+          ? new Date(o.created_at).toLocaleDateString('en-MY', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric'
+            })
+          : '—';
+
+        var statusSelectOptions = SL.map(function(s) {
+          return '<option value="' + s + '"' + (s === status ? ' selected' : '') + '>' + s.toUpperCase() + '</option>';
+        }).join('');
+
+        rowsHtml +=
+          '<tr>' +
+          '<td style="font-weight:700;font-family:var(--font-headline);color:var(--brand-gold);white-space:nowrap;">' +
+          escapeHtml(o.order_number) +
+          '</td>' +
+          '<td>' +
+          '<div style="font-weight:600;color:var(--text-primary);">' + escapeHtml(o.member_name || o.ic) + '</div>' +
+          '<div style="font-size:11px;color:var(--text-secondary);">' + escapeHtml(o.rank || '') + (o.squad ? ' · ' + escapeHtml(o.squad) + ' Platoon' : '') + '</div>' +
+          '</td>' +
+          '<td style="font-size:12px;line-height:1.6;color:var(--text-secondary);">' + (itemsDisplay || '—') + '</td>' +
+          '<td style="font-weight:700;color:var(--brand-gold);white-space:nowrap;">RM ' + total.toFixed(2) + '</td>' +
+          '<td style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">' + created + '</td>' +
+          '<td>' +
+          '<select data-order-num="' + escapeHtml(o.order_number) + '" class="admin-table-status-select" style="font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid ' + sc + '66;background:' + sc + '22;color:' + sc + ';cursor:pointer;font-family:var(--font-headline);">' +
+          statusSelectOptions +
+          '</select>' +
+          '</td>' +
+          '<td style="text-align:right;white-space:nowrap;">' +
+          '<button data-del-sub="' + escapeHtml(o.order_number) + '" title="Delete this order record" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:var(--red);padding:5px 9px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' +
+          '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete' +
+          '</button>' +
+          '</td>' +
+          '</tr>';
+      });
+
+      contentHtml =
+        '<div tabindex="0" role="region" aria-label="Uniform Orders Table" class="table-wrapper orders-table-wrapper">' +
+        '<table class="orders-spreadsheet-table">' +
+        '<thead>' +
+        '<tr>' +
+        '<th>Order #</th>' +
+        '<th>Member</th>' +
+        '<th>Items Ordered</th>' +
+        '<th>Total</th>' +
+        '<th>Date</th>' +
+        '<th>Status</th>' +
+        '<th style="text-align:right;">Actions</th>' +
+        '</tr>' +
+        '</thead>' +
+        '<tbody>' +
+        rowsHtml +
+        '</tbody>' +
+        '</table>' +
+        '</div>';
+    } else {
+      // ── 2. CARDS VIEW ───────────────────────────────────────────────────
+      var cardsHtml = '';
+      filtered.forEach(function (o) {
+        var itemsDisplay = '';
+        var total = 0;
+        try {
+          var items = JSON.parse(o.items || '{}');
+          Object.entries(items).forEach(function (kv) {
+            var v = kv[1];
+            var baseKey = kv[0].split('__')[0];
+            var prod = UNIFORM_ITEMS.find(function (i) {
+              return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
+            });
+            var displayName = prod ? prod.name : ((v && v.name) || baseKey);
+            var qty = parseInt(v.qty, 10) || 1;
+            var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
+            total += qty * p;
+            itemsDisplay +=
+              '<div style="font-size:12px;color:var(--text-secondary);">' +
+              escapeHtml(displayName) +
+              ' ×' +
+              escapeHtml(qty) +
+              (v.size ? ' (' + escapeHtml(v.size) + ')' : '') +
+              '</div>';
+          });
+        } catch (_) {}
+
+        var status = o.status || 'pending';
+        var sc = SC[status] || '#888';
+        var created = o.created_at
+          ? new Date(o.created_at).toLocaleDateString('en-MY', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric'
+            })
+          : '';
+
+        var btns = SL.map(function (s) {
+          var active = s === status;
+          return (
+            '<button data-order-num="' +
+            escapeHtml(o.order_number) +
+            '" data-order-status="' +
+            s +
+            '" style="padding:3px 10px;border:1.5px solid ' +
+            (active ? SC[s] : 'var(--border-card)') +
+            ';border-radius:6px;background:' +
+            (active ? SC[s] + '22' : 'transparent') +
+            ';color:' +
+            (active ? SC[s] : 'var(--text-secondary)') +
+            ";font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-headline);\">" +
+            s +
+            '</button>'
+          );
+        }).join('');
+
+        cardsHtml +=
+          '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
+          '<div><div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' +
+          escapeHtml(o.order_number) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text-secondary);">' +
+          escapeHtml(o.member_name || o.ic) +
+          ' · ' +
+          escapeHtml(o.rank || '') +
+          ' · ' +
+          created +
+          '</div></div>' +
+          '<div style="text-align:right;">' +
+          '<div style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:' +
+          sc +
+          '22;color:' +
+          sc +
+          ';border:1px solid ' +
+          sc +
+          "44;font-family:var(--font-headline);margin-bottom:4px;\">" +
+          status.toUpperCase() +
+          '</div>' +
+          '<div style="font-size:12px;font-weight:700;color:var(--brand-gold);">RM ' + total.toFixed(2) + '</div>' +
+          '</div></div>' +
+          '<div style="margin-bottom:4px;">' +
+          itemsDisplay +
+          '</div>' +
+          (o.notes
+            ? '<div style="font-size:11px;color:var(--text-muted);margin:6px 0;"><strong>Notes:</strong> ' +
+              (typeof sanitizeHtml === 'function' ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) +
+              '</div>'
+            : '') +
+          '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;">' +
+          btns +
+          '<button data-del-sub="' +
+          escapeHtml(o.order_number) +
+          '" title="Delete submission" style="margin-left:auto;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
+          '</div></div>';
+      });
+      contentHtml = cardsHtml;
+    }
+
+    list.innerHTML = toolbarHtml + contentHtml;
+    attachToolbarEvents(list);
+
+    // Bind status button clicks
     list.querySelectorAll('[data-order-status]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         updateOrderStatus(
@@ -1945,21 +2309,31 @@ async function renderAdminOrders(forceRefresh) {
       });
     });
 
+    // Bind table status select changes
+    list.querySelectorAll('.admin-table-status-select').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        updateOrderStatus(sel.getAttribute('data-order-num'), sel.value);
+      });
+    });
+
+    // Bind delete order buttons
     list.querySelectorAll('[data-del-sub]').forEach(function (btn) {
       btn.addEventListener('click', async function () {
+        var orderNum = btn.getAttribute('data-del-sub');
         var ok =
           typeof showConfirmModal === 'function'
-            ? await showConfirmModal('Delete this submission?', 'Delete Order Submission')
+            ? await showConfirmModal('Delete order ' + orderNum + '? Records synced to Google Sheets will remain intact.', 'Delete Uniform Order')
             : true;
         if (!ok) return;
 
         client
           .delete(
-            'bb_orders?order_number=eq.' + encodeURIComponent(btn.getAttribute('data-del-sub'))
+            'bb_orders?order_number=eq.' + encodeURIComponent(orderNum)
           )
           .then(function () {
-            renderAdminOrders();
-            if (typeof showToast === 'function') showToast('Submission deleted.', 'info');
+            _cachedAdminOrders = null;
+            renderAdminOrders(true);
+            if (typeof showToast === 'function') showToast('Order record deleted from portal.', 'info');
           })
           .catch(function (e) {
             if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
@@ -1976,6 +2350,56 @@ async function renderAdminOrders(forceRefresh) {
       '<button type="button" class="portal-btn portal-btn-secondary" onclick="renderAdminOrders()" style="display:inline-flex;align-items:center;gap:6px;margin:0 auto;padding:6px 14px;font-size:12px;cursor:pointer;">' +
       '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
       'Retry</button></div>';
+  }
+}
+
+/**
+ * Attaches event listeners to the Admin Orders toolbar controls
+ * @param {HTMLElement} container
+ */
+function attachToolbarEvents(container) {
+  if (!container) return;
+
+  // View Mode toggles
+  container.querySelectorAll('[data-set-view]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var view = btn.getAttribute('data-set-view');
+      _adminOrdersViewMode = view;
+      renderAdminOrders();
+    });
+  });
+
+  // Month filter dropdown
+  var monthSelect = container.querySelector('.admin-month-select');
+  if (monthSelect) {
+    monthSelect.addEventListener('change', function() {
+      _adminOrdersMonthFilter = monthSelect.value;
+      renderAdminOrders();
+    });
+  }
+
+  // Export to CSV button
+  var exportBtn = container.querySelector('[data-export-csv]');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', function() {
+      exportAdminOrdersToCsv(_cachedAdminOrdersList);
+    });
+  }
+
+  // Sync to Google Sheet button
+  var syncBtn = container.querySelector('[data-sync-sheets]');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', function() {
+      syncAdminOrdersToGoogleSheet();
+    });
+  }
+
+  // Configure Google Sheet URL button
+  var configBtn = container.querySelector('[data-config-sheets]');
+  if (configBtn) {
+    configBtn.addEventListener('click', function() {
+      configureAdminOrdersSheetUrl();
+    });
   }
 }
 
@@ -2308,6 +2732,12 @@ if (typeof window !== 'undefined') {
   window.adminSavePaymentInfo = adminSavePaymentInfo;
   window.renderAdminOrders = renderAdminOrders;
   window.updateOrderStatus = updateOrderStatus;
+  window.exportAdminOrdersToCsv = exportAdminOrdersToCsv;
+  window.syncAdminOrdersToGoogleSheet = syncAdminOrdersToGoogleSheet;
+  window.configureAdminOrdersSheetUrl = configureAdminOrdersSheetUrl;
+  window.syncOrderToGoogleSheetsArchive = syncOrderToGoogleSheetsArchive;
+  window.loadOrdersSheetsArchiveUrl = loadOrdersSheetsArchiveUrl;
+  window.saveOrdersSheetsArchiveUrl = saveOrdersSheetsArchiveUrl;
   window.renderAdminProducts = renderAdminProducts;
   window.previewProductImg = previewProductImg;
   window.clearProductForm = clearProductForm;
@@ -2373,6 +2803,12 @@ if (typeof module !== 'undefined' && module.exports) {
     adminSavePaymentInfo: adminSavePaymentInfo,
     renderAdminOrders: renderAdminOrders,
     updateOrderStatus: updateOrderStatus,
+    exportAdminOrdersToCsv: exportAdminOrdersToCsv,
+    syncAdminOrdersToGoogleSheet: syncAdminOrdersToGoogleSheet,
+    configureAdminOrdersSheetUrl: configureAdminOrdersSheetUrl,
+    syncOrderToGoogleSheetsArchive: syncOrderToGoogleSheetsArchive,
+    loadOrdersSheetsArchiveUrl: loadOrdersSheetsArchiveUrl,
+    saveOrdersSheetsArchiveUrl: saveOrdersSheetsArchiveUrl,
     renderAdminProducts: renderAdminProducts,
     previewProductImg: previewProductImg,
     clearProductForm: clearProductForm,

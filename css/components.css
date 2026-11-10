@@ -8060,6 +8060,81 @@ body.light-theme .tb-mention-pill,
   gap: 10px;
 }
 
+/* ── Uniform Orders Spreadsheet / Table View ────────────────────────────── */
+.orders-table-wrapper {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  margin-top: 10px;
+}
+
+.orders-spreadsheet-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  text-align: left;
+}
+
+.orders-spreadsheet-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card-subtle);
+  z-index: 2;
+}
+
+.orders-spreadsheet-table th {
+  padding: 12px 14px;
+  font-family: var(--font-headline);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-card);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.orders-spreadsheet-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+  color: var(--text-primary);
+}
+
+.orders-spreadsheet-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme='light'] .orders-spreadsheet-table tr:hover td {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.orders-view-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-headline);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.orders-view-btn.active-view-btn {
+  background: rgba(245, 197, 66, 0.15);
+  border-color: rgba(245, 197, 66, 0.4);
+  color: var(--brand-gold);
+}
+
 .cart-row {
   display: flex;
   align-items: center;

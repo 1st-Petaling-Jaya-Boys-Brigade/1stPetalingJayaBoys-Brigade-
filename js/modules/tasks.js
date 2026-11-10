@@ -3051,8 +3051,6 @@ function renderTaskAttachments(taskId) {
   var html = '';
   attachments.forEach(function(att) {
     var safeName = (typeof escapeHtml === 'function') ? escapeHtml(att.name || 'Attachment') : (att.name || 'Attachment');
-    var rawUrl = att.url || '#';
-    var safeFileUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '#') : rawUrl;
     var ext = (att.name || '').split('.').pop().toLowerCase();
     var iconCls = (ext === 'pdf') ? 'pdf' : ((ext === 'doc' || ext === 'docx') ? 'doc' : ((ext === 'xls' || ext === 'xlsx' || ext === 'csv') ? 'sheet' : ((ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'webp' || ext === 'gif') ? 'img' : 'file')));
     var iconColor = iconCls === 'pdf' ? '#ef4444' : (iconCls === 'doc' ? '#3b82f6' : (iconCls === 'sheet' ? '#10b981' : (iconCls === 'img' ? '#f59e0b' : 'var(--accent)')));
@@ -3061,7 +3059,7 @@ function renderTaskAttachments(taskId) {
 
     html += '<div class="tb-attachment-chip" data-att-id="' + att.id + '">'
       + '<span class="tb-attachment-icon">' + iconSvg + '</span>'
-      + '<a href="' + safeFileUrl + '" target="_blank" rel="noopener noreferrer" class="tb-attachment-link" title="Open and view ' + safeName + '">' + safeName + '</a>'
+      + '<button type="button" class="tb-attachment-link" onclick="openTaskAttachment(\'' + tid + '\', \'' + att.id + '\')" title="Open and view ' + safeName + '" style="background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;">' + safeName + '</button>'
       + (att.size ? ('<span class="tb-attachment-size">' + (typeof escapeHtml === 'function' ? escapeHtml(att.size) : att.size) + '</span>') : '')
       + '<button type="button" class="tb-attachment-delete-btn" onclick="removeTaskAttachment(\'' + tid + '\', \'' + att.id + '\')" title="Remove file" aria-label="Remove attachment">'
       + '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
@@ -3070,6 +3068,72 @@ function renderTaskAttachments(taskId) {
   });
 
   list.innerHTML = html;
+}
+
+/**
+ * Securely opens a task attachment, resolving Supabase storage paths to signed URLs without page reload
+ * @param {string} taskId
+ * @param {string} attachmentId
+ */
+async function openTaskAttachment(taskId, attachmentId) {
+  var tid = taskId || _activeDetailTaskId;
+  if (!tid) return;
+  var attachments = getTaskAttachments(tid);
+  var att = attachments.find(function(a) { return String(a.id) === String(attachmentId); });
+  if (!att) {
+    if (typeof showToast === 'function') showToast('Attachment not found.', 'warning');
+    return;
+  }
+
+  var rawUrl = (att.url || '').trim();
+  var remotePath = (att.path || '').trim();
+
+  // If Supabase client is available, resolve a fresh signed URL for secure private storage
+  if (typeof supa !== 'undefined' && typeof supa.createSignedUrl === 'function') {
+    var pathToSign = remotePath;
+    if (!pathToSign && rawUrl) {
+      var match = rawUrl.match(/\/storage\/v1\/object\/(?:public|authenticated)\/resources\/(.+)$/);
+      if (match && match[1]) {
+        pathToSign = decodeURIComponent(match[1].split('?')[0]);
+      } else if (rawUrl.startsWith('tasks/')) {
+        pathToSign = rawUrl;
+      }
+    }
+    if (pathToSign) {
+      try {
+        var signed = await supa.createSignedUrl('resources', pathToSign, 3600);
+        if (signed && signed.signedUrl) {
+          if (typeof window !== 'undefined' && window.open) {
+            window.open(signed.signedUrl, '_blank', 'noopener,noreferrer');
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('openTaskAttachment signedUrl fallback:', err);
+      }
+    }
+  }
+
+  // Blob or Data URLs
+  if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) {
+    if (typeof window !== 'undefined' && window.open) {
+      window.open(rawUrl, '_blank', 'noopener,noreferrer');
+    }
+    return;
+  }
+
+  // Valid HTTP/HTTPS URLs
+  if (/^https?:\/\//i.test(rawUrl)) {
+    if (typeof window !== 'undefined' && window.open) {
+      window.open(rawUrl, '_blank', 'noopener,noreferrer');
+    }
+    return;
+  }
+
+  // Protect against '#' navigation which duplicates the portal tab
+  if (typeof showToast === 'function') {
+    showToast('Attachment preview is unavailable for this document.', 'warning');
+  }
 }
 
 /**
@@ -3104,11 +3168,12 @@ async function handleTaskAttachmentUpload(event) {
         : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
+    var remotePath = '';
     var fileUrl = '';
     if (typeof supa !== 'undefined' && typeof supa.uploadFile === 'function') {
       try {
         var cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        var remotePath = 'tasks/' + tid + '/' + Date.now() + '_' + cleanFileName;
+        remotePath = 'tasks/' + tid + '/' + Date.now() + '_' + cleanFileName;
         await supa.uploadFile('resources', remotePath, file);
         fileUrl = supa.fileUrl('resources', remotePath);
       } catch (uploadErr) {
@@ -3125,7 +3190,8 @@ async function handleTaskAttachmentUpload(event) {
     var newAtt = {
       id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       name: file.name,
-      url: fileUrl || '#',
+      url: fileUrl || '',
+      path: remotePath || '',
       size: sz,
       uploadedAt: new Date().toISOString()
     };
@@ -5013,6 +5079,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.getTaskAttachments         = getTaskAttachments;
   window.saveTaskAttachments        = saveTaskAttachments;
   window.renderTaskAttachments       = renderTaskAttachments;
+  window.openTaskAttachment         = openTaskAttachment;
   window.removeTaskAttachment       = removeTaskAttachment;
   window.getDepartmentMentionCandidates = getDepartmentMentionCandidates;
   window.handleTaskCommentInput     = handleTaskCommentInput;
@@ -5124,6 +5191,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getTaskAttachments,
     saveTaskAttachments,
     renderTaskAttachments,
+    openTaskAttachment,
     removeTaskAttachment,
     getDepartmentMentionCandidates,
     handleTaskCommentInput,

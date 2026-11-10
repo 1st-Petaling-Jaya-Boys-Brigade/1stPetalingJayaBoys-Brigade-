@@ -2358,6 +2358,38 @@
                 Add Field
               </button>
             </div>
+            <!-- Response Availability & Auto-Schedule Section -->
+            <div class="fb-schedule-box" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:14px;margin-bottom:14px;">
+              <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Response Availability &amp; Auto-Schedule
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label class="form-label" style="font-size:11px;">Status</label>
+                <div style="display:flex;gap:14px;flex-wrap:wrap;">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);cursor:pointer;">
+                    <input type="radio" name="fb-status-radio" value="active" checked style="accent-color:var(--accent);"> Active (Accepting Responses)
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);cursor:pointer;">
+                    <input type="radio" name="fb-status-radio" value="paused" style="accent-color:var(--accent);"> Paused (Closed to Responses)
+                  </label>
+                </div>
+              </div>
+              <div class="form-row" style="display:flex;gap:10px;margin-bottom:10px;">
+                <div class="form-group" style="flex:1;margin-bottom:0;">
+                  <label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label>
+                  <input type="datetime-local" class="form-input fb-open-at-input" style="font-size:12px;padding:8px 10px;"/>
+                </div>
+                <div class="form-group" style="flex:1;margin-bottom:0;">
+                  <label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label>
+                  <input type="datetime-local" class="form-input fb-close-at-input" style="font-size:12px;padding:8px 10px;"/>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:11px;">Custom Paused / Closed Notice for Members</label>
+                <textarea class="form-textarea fb-paused-msg-input" rows="2" style="font-size:12px;padding:8px 10px;min-height:54px;resize:vertical;" placeholder="e.g. Responses for this form are currently paused by the company administration. Please check back later."></textarea>
+              </div>
+            </div>
             <input type="hidden" id="fb-edit-id"/>
             <div style="display:flex;gap:8px;">
               <button class="submit-btn gold btn-with-icon" onclick="saveForm()" style="margin-top:4px;flex:1;">
@@ -2460,8 +2492,8 @@
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
               Payment Instructions
             </div>
-            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">This message is shown to members on the order review page (e.g. TNG number, bank details, QR code info).</div>
-            <textarea id="payment-info-editor" style="width:100%;min-height:140px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;font-family:'Roboto',sans-serif;font-size:13px;line-height:1.75;outline:none;resize:vertical;box-sizing:border-box;" placeholder="e.g. Please transfer to TNG: 012-345 6789 (Ali bin Abu). Send screenshot below."></textarea>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">This message is shown to members on the order review page (e.g. in-person payment schedule &amp; collection details).</div>
+            <textarea id="payment-info-editor" style="width:100%;min-height:140px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;font-family:'Roboto',sans-serif;font-size:13px;line-height:1.75;outline:none;resize:vertical;box-sizing:border-box;" placeholder="e.g. Payment must be completed in-person during the 3rd parade of the month before collecting your ordered uniform items. Please provide your order number to the logistics officer upon payment."></textarea>
             <button onclick="adminSavePaymentInfo()" class="submit-btn gold btn-with-icon" style="margin-top:12px;">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               Save Payment Info

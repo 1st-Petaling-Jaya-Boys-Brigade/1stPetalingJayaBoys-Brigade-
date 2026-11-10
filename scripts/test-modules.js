@@ -1871,7 +1871,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const emptyPaymentInfo = await ordersMod.loadPaymentInfo();
   global.supa.get = prevSupaGet;
   assert.ok(
-    emptyPaymentInfo && emptyPaymentInfo.includes('Touch'),
+    emptyPaymentInfo && (emptyPaymentInfo.includes('3rd parade') || emptyPaymentInfo.includes('Payment must be') || emptyPaymentInfo.includes('Touch')),
     'loadPaymentInfo must return fallback instructions when bb_payment_info is empty'
   );
   assert.strictEqual(
