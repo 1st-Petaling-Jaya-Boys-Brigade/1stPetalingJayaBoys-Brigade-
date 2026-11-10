@@ -164,10 +164,8 @@
 
   function renderColumnHeader(colKey, label, sortKey, filterType, membersList) {
     var isFiltered = !!_adminMemberFilters[colKey] || (colKey === 'member' && !!_adminMemberFilters.nameSearch);
-    var isSorted = (_adminSortBy === (sortKey || colKey));
-    var sortIndicator = isSorted ? (_adminSortDir === 'desc' ? ' \u25BC' : ' \u25B2') : '';
 
-    var btnClass = 'sheets-filter-btn' + (isFiltered ? ' is-filtered' : '') + (isSorted ? ' is-sorted' : '') + (_activeFilterCol === colKey ? ' is-active' : '');
+    var btnClass = 'sheets-filter-btn' + (isFiltered ? ' is-filtered' : '') + (_activeFilterCol === colKey ? ' is-active' : '');
 
     var popoverHtml = '';
     if (_activeFilterCol === colKey) {
@@ -175,13 +173,12 @@
     }
 
     return '<th class="sheets-th" data-col="' + colKey + '">' +
-      '<div class="sheets-th-content">' +
+      '<div class="sheets-th-content" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" title="Filter &amp; Sort ' + label + '">' +
         '<span class="sheets-th-label">' + label + '</span>' +
-        '<button type="button" class="' + btnClass + '" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" title="Filter &amp; Sort ' + label + '">' +
+        '<button type="button" class="' + btnClass + '" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" aria-label="Filter &amp; Sort ' + label + '">' +
           '<svg class="sheets-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
             '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>' +
           '</svg>' +
-          (sortIndicator ? '<span class="sheets-sort-indicator">' + sortIndicator + '</span>' : '') +
         '</button>' +
       '</div>' +
       popoverHtml +
