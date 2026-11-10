@@ -643,7 +643,7 @@ async function verifyActiveMemberSession(force) {
       if (cachedBlk) {
         var localBlkList = JSON.parse(cachedBlk);
         if (Array.isArray(localBlkList) && localBlkList.some(function(item) {
-          var itm = String(item || '').toLowerCase().trim();
+          var itm = (item && typeof item === 'object' && item.email) ? String(item.email).toLowerCase().trim() : String(item || '').toLowerCase().trim();
           return itm && (itm === cleanIc || itm === cleanEmail);
         })) {
           forceKickDeletedAccount();
@@ -706,7 +706,7 @@ async function verifyActiveMemberSession(force) {
             var blkList = JSON.parse(blkCfg[0].value);
             if (Array.isArray(blkList)) {
               var isBlockedSess = blkList.some(function(item) {
-                var itm = String(item || '').toLowerCase().trim();
+                var itm = (item && typeof item === 'object' && item.email) ? String(item.email).toLowerCase().trim() : String(item || '').toLowerCase().trim();
                 return itm && (itm === cleanIc || itm === cleanEmail);
               });
               if (isBlockedSess) {
