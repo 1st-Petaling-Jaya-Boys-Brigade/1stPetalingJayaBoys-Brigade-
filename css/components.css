@@ -214,16 +214,37 @@ select.form-input,
   border-color: var(--border-card) !important;
 }
 
-[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
-[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph),
+[data-theme='light'] [style*='color:#fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.admin-member-avatar-initial):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph):not(#settings-pfp-ph),
+[data-theme='light'] [style*='color: #fff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.admin-member-avatar-initial):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph):not(#settings-pfp-ph),
+[data-theme='light'] [style*='color:#ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.admin-member-avatar-initial):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph):not(#settings-pfp-ph),
+[data-theme='light'] [style*='color: #ffffff']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.admin-member-avatar-initial):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph):not(#settings-pfp-ph),
+[data-theme='light'] [style*='color:white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.admin-member-avatar-initial):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph):not(#settings-pfp-ph),
+[data-theme='light'] [style*='color: white']:not(button):not(.task-card-avatar):not(.forum-avatar-mini):not(.task-assignee-avatar):not(.project-assignee-avatar):not(.tdm-assignee-avatar):not(.creator-outline-avatar):not(.creator-snow-avatar):not(.creator-rgb-avatar):not(.member-avatar-unified):not(.admin-member-avatar):not(.admin-member-avatar-initial):not(.nav-avatar-placeholder):not([class*='avatar']):not(#sidebar-user-avatar-ph):not(#nav-avatar-placeholder):not(#m-pfp-ph):not(#settings-pfp-ph),
 [data-theme='light'] [style*='color:#f0f4ff'],
 [data-theme='light'] [style*='color:#e0e8ff'],
 [data-theme='light'] [style*='color:#dce8ff'] {
   color: var(--text-primary) !important;
+}
+
+/* Preserve white text inside all avatar containers, initials, and placeholder badges in light mode */
+[data-theme='light'] .admin-member-avatar,
+[data-theme='light'] .admin-member-avatar *,
+[data-theme='light'] .admin-member-avatar-initial,
+[data-theme='light'] #settings-pfp-ph,
+[data-theme='light'] #settings-pfp-ph *,
+[data-theme='light'] .member-avatar-unified,
+[data-theme='light'] .member-avatar-unified *,
+[data-theme='light'] .nav-avatar-placeholder,
+[data-theme='light'] .nav-avatar-placeholder *,
+[data-theme='light'] .task-card-avatar,
+[data-theme='light'] .task-card-avatar *,
+[data-theme='light'] .forum-avatar-mini,
+[data-theme='light'] .forum-avatar-mini *,
+[data-theme='light'] [class*='avatar'],
+[data-theme='light'] [class*='avatar'] *,
+[data-theme='light'] #m-pfp-ph,
+[data-theme='light'] #sidebar-user-avatar-ph {
+  color: #ffffff !important;
 }
 
 [data-theme='light'] [style*='color:#8898bb'],
@@ -2948,6 +2969,55 @@ select.form-input,
   background: rgba(245, 158, 11, 0.12);
   color: #f59e0b;
   border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* High-Contrast Light Mode Department Badges (WCAG AA Contrast Compliant) */
+[data-theme='light'] .dept-officers {
+  background: #fef3c7;
+  color: #b45309 !important;
+  border: 1px solid #fde68a;
+}
+
+[data-theme='light'] .dept-media {
+  background: #f3e8ff;
+  color: #7e22ce !important;
+  border: 1px solid #e9d5ff;
+}
+
+[data-theme='light'] .dept-logistics {
+  background: #eff6ff;
+  color: #1d4ed8 !important;
+  border: 1px solid #bfdbfe;
+}
+
+[data-theme='light'] .dept-secretariat {
+  background: #ecfdf5;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0;
+}
+
+[data-theme='light'] .dept-hq {
+  background: #ecfdf5;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0;
+}
+
+[data-theme='light'] .dept-band {
+  background: #ecfeff;
+  color: #0e7490 !important;
+  border: 1px solid #a5f3fc;
+}
+
+[data-theme='light'] .dept-awards {
+  background: #fdf2f8;
+  color: #be185d !important;
+  border: 1px solid #fbcfe8;
+}
+
+[data-theme='light'] .dept-general {
+  background: #f1f5f9;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1;
 }
 
 .ftype-btn {
@@ -9294,9 +9364,15 @@ body.light-theme .tb-mention-pill,
 
 .arcade-tab-btn.active {
   background: var(--accent, #d9a323);
-  color: #0b0f17;
+  color: var(--btn-on-accent, #ffffff) !important;
   border-color: var(--accent, #d9a323);
   font-weight: 700;
+}
+
+[data-theme='light'] .arcade-tab-btn.active {
+  background: var(--accent);
+  color: #ffffff !important;
+  border-color: var(--accent);
 }
 
 /* Wordle Desktop Grid & Fluid Scaling */
@@ -9576,6 +9652,67 @@ body.light-theme .tb-mention-pill,
   background: #1f2937;
   color: #6b7280;
   border-color: #1f2937;
+}
+
+/* Light Mode Wordle Grid & Keyboard Contrast */
+[data-theme='light'] .wordle-tile {
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme='light'] .wordle-tile.filled {
+  border-color: #64748b;
+  color: #0f172a;
+}
+
+[data-theme='light'] .wordle-tile.correct {
+  background: #059669;
+  border-color: #059669;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .wordle-tile.present {
+  background: #d97706;
+  border-color: #d97706;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .wordle-tile.absent {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #64748b !important;
+}
+
+[data-theme='light'] .wordle-key {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme='light'] .wordle-key:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+[data-theme='light'] .wordle-key.correct {
+  background: #059669;
+  border-color: #059669;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .wordle-key.present {
+  background: #d97706;
+  border-color: #d97706;
+  color: #ffffff !important;
+}
+
+[data-theme='light'] .wordle-key.absent {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #94a3b8 !important;
 }
 
 .arcade-result-banner {
@@ -12109,8 +12246,8 @@ body.light-theme .tb-mention-pill,
 }
 
 [data-theme='light'] .settings-readonly-field {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   color: #1e293b;
 }
 
@@ -12120,12 +12257,12 @@ body.light-theme .tb-mention-pill,
 
 [data-theme='light'] .settings-section-card {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border: 1px solid #cbd5e1;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 [data-theme='light'] .settings-row {
-  border-bottom-color: #e2e8f0;
+  border-bottom: 1px solid #cbd5e1;
 }
 
 [data-theme='light'] .settings-row-label {
@@ -12139,13 +12276,13 @@ body.light-theme .tb-mention-pill,
 [data-theme='light'] .projects-table-card,
 [data-theme='light'] .my-tasks-card {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border: 1px solid #cbd5e1;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 [data-theme='light'] .project-row,
 [data-theme='light'] .my-tasks-row {
-  border-bottom-color: #e2e8f0;
+  border-bottom: 1px solid #cbd5e1;
 }
 
 [data-theme='light'] .project-row:hover,
@@ -13017,4 +13154,273 @@ body.light-theme .tb-mention-pill,
   .portal-ambient-canvas:not(.user-motion-enabled) {
     display: none;
   }
+}
+
+/* ── President's Award Tracker ── */
+.presidents-tracker-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg, 16px);
+  padding: 20px 22px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-card);
+  transition: var(--transition-smooth);
+}
+
+.presidents-tracker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.presidents-tracker-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.presidents-tracker-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(245, 197, 66, 0.2), rgba(217, 119, 6, 0.15));
+  border: 1px solid rgba(245, 197, 66, 0.35);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.presidents-tracker-title {
+  font-family: var(--font-headline);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.presidents-tracker-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+.presidents-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-headline);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.presidents-status-pill.eligible {
+  background: #059669;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+}
+
+.presidents-status-pill.in-progress {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+[data-theme='light'] .presidents-status-pill.in-progress {
+  background: #fef3c7;
+  color: #92400e !important;
+  border: 1px solid #fcd34d;
+}
+
+.presidents-progress-section {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.presidents-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-track, rgba(255, 255, 255, 0.1));
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.presidents-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #10b981);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.presidents-progress-fill.complete {
+  background: #10b981;
+}
+
+.presidents-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.presidents-reqs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.presidents-req-card {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: var(--transition-smooth);
+}
+
+.presidents-req-card.met {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+[data-theme='light'] .presidents-req-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+}
+
+[data-theme='light'] .presidents-req-card.met {
+  border-color: #6ee7b7;
+  background: #f0fdf4;
+}
+
+.presidents-req-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.presidents-req-status-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.presidents-req-status-icon.met {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.presidents-req-status-icon.pending {
+  background: var(--surface-track, rgba(255, 255, 255, 0.1));
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+[data-theme='light'] .presidents-req-status-icon.pending {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+}
+
+.presidents-req-info {
+  flex: 1;
+}
+
+.presidents-req-title {
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.presidents-req-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.presidents-sub-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.presidents-sub-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.presidents-sub-chip.met {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+[data-theme='light'] .presidents-sub-chip.met {
+  color: #047857 !important;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.presidents-group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.presidents-group-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.presidents-group-chip.met {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+[data-theme='light'] .presidents-group-chip.met {
+  color: #047857 !important;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
 }

@@ -500,6 +500,289 @@ function evaluateFoundersCriteria(saved, defs) {
   };
 }
 
+// ── BB Malaysia Senior Section Proficiency Badge Group Mapping ────────────────
+var BADGE_GROUP_MAP = {
+  // Group A (Christian Education & Citizenship)
+  bb_citizenship: 'A',
+  bb_international_relations: 'A',
+  bb_social_entrepreneurship: 'A',
+  bb_financial_stewardship: 'A',
+  bb13: 'A',
+
+  // Group B (Community & Skills)
+  bb_communications: 'B',
+  bb9: 'B',
+  bb_computer_knowledge: 'B',
+  bb_environmental_conservation: 'B',
+  bb5: 'B',
+  bb4: 'B',
+  bb_safety: 'B',
+  bb_sustainability: 'B',
+
+  // Group C (Physical & Adventure / Recreation)
+  bb_athletics: 'C',
+  bb10: 'C',
+  bb11: 'C',
+  bb_gymnastics: 'C',
+  bb_life_saving: 'C',
+  bb_nature_awareness: 'C',
+  bb_physical_training: 'C',
+  bb_sports: 'C',
+  bb12: 'C',
+  bb_water_adventure: 'C',
+
+  // Group D (Crafts, Hobbies & Arts)
+  bb_arts: 'D',
+  bb_bandsman: 'D',
+  bb_buglers: 'D',
+  bb_crafts: 'D',
+  bb_drummers: 'D',
+  bb_hobbies: 'D'
+};
+
+/**
+ * Resolves the Award Group ('A', 'B', 'C', 'D' or null) for a given badge definition
+ * @param {Object} b
+ * @returns {string|null}
+ */
+function getBadgeGroup(b) {
+  if (!b) return null;
+  // 1. Explicit group attribute (e.g. { group: 'A' })
+  if (b.group && typeof b.group === 'string' && /^[abcd]$/i.test(b.group.trim())) {
+    return b.group.trim().toUpperCase();
+  }
+  // 2. Category string contains "Group X" (e.g. 'Group A Awards')
+  if (b.cat && typeof b.cat === 'string') {
+    var catMatch = b.cat.match(/group\s*([abcd])\b/i);
+    if (catMatch) return catMatch[1].toUpperCase();
+  }
+  // 3. Known catalog ID map
+  if (b.id && BADGE_GROUP_MAP[b.id]) {
+    return BADGE_GROUP_MAP[b.id];
+  }
+  // 4. Known badge name keywords
+  var nm = (b.name || '').toLowerCase();
+  if (/citizenship|international\s*relations|social\s*entrep|financial\s*stew/i.test(nm)) return 'A';
+  if (/communications|community\s*service|computer|environmental|fire|first\s*aid|safety|sustainability/i.test(nm)) return 'B';
+  if (/athletics|camping|expedition|gymnastics|life\s*saving|nature\s*awareness|physical\s*training|sports|swimming|water\s*adventure/i.test(nm)) return 'C';
+  if (/arts|bandsman|bugler|craft|drummer|hobbies/i.test(nm)) return 'D';
+  return null;
+}
+
+/**
+ * Evaluates President's Award criteria against member badge data
+ * Requirements:
+ * 1. All compulsory awards received:
+ *    - At least 3-year service award (bb_3year_service earned or serviceYears >= 3)
+ *    - Christian Education (Advanced)
+ *    - NCO Proficiency Star (Advanced)
+ *    - Drill (Advanced)
+ *    - Recruitment (Basic)
+ * 2. At least six (6) badges from Group A, B, C and D awards.
+ * 3. At least one (1) badge from each Group (Group A, B, C, D).
+ * 4. At least four (4) of these badges are at Advanced Level.
+ *
+ * @param {Object} saved
+ * @param {Array} [defs]
+ * @returns {Object}
+ */
+function evaluatePresidentsCriteria(saved, defs) {
+  saved = saved || {};
+  defs = defs || DEFAULT_BB_BADGES;
+
+  // 1. Calculate service years (repeatable badges and direct 3-year service badge)
+  var serviceYears = 0;
+  var has3YearBadge = false;
+
+  defs.forEach(function(b) {
+    if (b.repeatable) {
+      var repData = saved[b.id + '_rep'];
+      if (repData && repData.count) {
+        serviceYears += repData.count;
+      } else {
+        var old = safeMigrateEntry(saved[b.id]);
+        if (old.basic || old.advanced) serviceYears++;
+      }
+    }
+    if (b.id === 'bb_3year_service' || (b.name && b.name.toLowerCase().indexOf('three year service') !== -1)) {
+      var sEntry = safeMigrateEntry(saved[b.id]);
+      if (sEntry.basic || sEntry.advanced) {
+        has3YearBadge = true;
+      }
+    }
+  });
+
+  // Also check if saved directly has bb_3year_service
+  if (saved.bb_3year_service) {
+    var raw3yr = safeMigrateEntry(saved.bb_3year_service);
+    if (raw3yr.basic || raw3yr.advanced) has3YearBadge = true;
+  }
+  // Also check generic repeatable keys if defs didn't list them
+  if (saved.bb_long_year_service_rep && saved.bb_long_year_service_rep.count) {
+    serviceYears = Math.max(serviceYears, saved.bb_long_year_service_rep.count);
+  }
+  if (saved.b_svc_rep && saved.b_svc_rep.count) {
+    serviceYears = Math.max(serviceYears, saved.b_svc_rep.count);
+  }
+
+  var serviceRequirementDone = has3YearBadge || serviceYears >= 3;
+
+  // 2. Compulsory Awards Check (5 sub-requirements)
+  function findBadgeByPattern(regex, excludeRepeatable) {
+    return defs.find(function(b) {
+      if (excludeRepeatable && b.repeatable) return false;
+      return regex.test(b.id || '') || regex.test(b.name || '');
+    }) || null;
+  }
+
+  var ceBadge = findBadgeByPattern(/^(bb13$|.*christian\s*education.*)/i, true);
+  var ceEntry = ceBadge ? safeMigrateEntry(saved[ceBadge.id]) : (saved.bb13 ? safeMigrateEntry(saved.bb13) : safeMigrateEntry(null));
+
+  var ncoBadge = findBadgeByPattern(/^(bb8$|.*nco.*)/i, true);
+  var ncoEntry = ncoBadge ? safeMigrateEntry(saved[ncoBadge.id]) : (saved.bb8 ? safeMigrateEntry(saved.bb8) : safeMigrateEntry(null));
+
+  var drillBadge = findBadgeByPattern(/^(bb6$|.*drill.*)/i, true);
+  var drillEntry = drillBadge ? safeMigrateEntry(saved[drillBadge.id]) : (saved.bb6 ? safeMigrateEntry(saved.bb6) : safeMigrateEntry(null));
+
+  var recruitBadge = findBadgeByPattern(/^(bb_recruitment$|.*recruitment.*)/i, true);
+  var recruitEntry = recruitBadge ? safeMigrateEntry(saved[recruitBadge.id]) : (saved.bb_recruitment ? safeMigrateEntry(saved.bb_recruitment) : safeMigrateEntry(null));
+
+  var compResults = [
+    {
+      id: 'comp_service',
+      label: '3-Year Service Award',
+      detail: has3YearBadge ? 'Earned' : (serviceYears + ' / 3 years completed'),
+      done: serviceRequirementDone
+    },
+    {
+      id: 'comp_ce',
+      label: 'Christian Education (Advanced)',
+      detail: ceEntry.advanced ? 'Advanced Earned' : (ceEntry.basic ? 'Basic Only (Needs Advanced)' : 'Not Started'),
+      done: !!ceEntry.advanced
+    },
+    {
+      id: 'comp_nco',
+      label: 'NCO Proficiency Star (Advanced)',
+      detail: ncoEntry.advanced ? 'Advanced Earned' : (ncoEntry.basic ? 'Basic Only (Needs Advanced)' : 'Not Started'),
+      done: !!ncoEntry.advanced
+    },
+    {
+      id: 'comp_drill',
+      label: 'Drill (Advanced)',
+      detail: drillEntry.advanced ? 'Advanced Earned' : (drillEntry.basic ? 'Basic Only (Needs Advanced)' : 'Not Started'),
+      done: !!drillEntry.advanced
+    },
+    {
+      id: 'comp_recruitment',
+      label: 'Recruitment (Basic)',
+      detail: (recruitEntry.basic || recruitEntry.advanced) ? 'Earned' : 'Not Started',
+      done: !!(recruitEntry.basic || recruitEntry.advanced)
+    }
+  ];
+
+  var compDoneCount = compResults.filter(function(r) { return r.done; }).length;
+  var allCompDone = compDoneCount === compResults.length;
+
+  // 3. Group A, B, C, D Badge Evaluation
+  var groupCounts = {
+    A: { label: 'Group A', awarded: 0, advanced: 0, badges: [] },
+    B: { label: 'Group B', awarded: 0, advanced: 0, badges: [] },
+    C: { label: 'Group C', awarded: 0, advanced: 0, badges: [] },
+    D: { label: 'Group D', awarded: 0, advanced: 0, badges: [] }
+  };
+
+  var totalGroupAwarded = 0;
+  var totalGroupAdvanced = 0;
+
+  defs.forEach(function(b) {
+    if (b.repeatable) return;
+    if (b.cat === 'Special Awards' || b.cat === 'Service Awards') return;
+    var group = getBadgeGroup(b);
+    if (!group || !groupCounts[group]) return;
+
+    var entry = safeMigrateEntry(saved[b.id]);
+    var isAwarded = !!(entry.basic || entry.advanced);
+    var isAdv = !!entry.advanced;
+
+    if (isAwarded) {
+      groupCounts[group].awarded++;
+      totalGroupAwarded++;
+      groupCounts[group].badges.push({ badge: b, entry: entry });
+    }
+    if (isAdv) {
+      groupCounts[group].advanced++;
+      totalGroupAdvanced++;
+    }
+  });
+
+  var groupsWithAtLeastOne = ['A', 'B', 'C', 'D'].filter(function(g) {
+    return groupCounts[g].awarded >= 1;
+  }).length;
+  var hasOnePerGroup = groupsWithAtLeastOne === 4;
+
+  // 4. Checklist Requirements Formulation
+  var reqs = [
+    {
+      id: 'compulsory',
+      num: 1,
+      label: 'All Compulsory Awards Received',
+      sublabel: '3-Year Service, CE (Adv), NCO Star (Adv), Drill (Adv), Recruitment (Basic)',
+      detail: compDoneCount + ' / 5 compulsory awards completed',
+      done: allCompDone,
+      pct: Math.round((compDoneCount / 5) * 100),
+      sub: compResults
+    },
+    {
+      id: 'total6',
+      num: 2,
+      label: 'At Least 6 Badges from Groups A, B, C & D',
+      sublabel: 'Earn at least 6 proficiency awards total across all Groups',
+      detail: totalGroupAwarded + ' / 6 badges earned',
+      done: totalGroupAwarded >= 6,
+      pct: Math.min(100, Math.round((totalGroupAwarded / 6) * 100))
+    },
+    {
+      id: 'onepergroup',
+      num: 3,
+      label: 'At Least 1 Badge from Each Group (A, B, C & D)',
+      sublabel: 'Minimum 1 award from each individual group',
+      detail: 'Group A: ' + groupCounts.A.awarded + ' · Group B: ' + groupCounts.B.awarded + ' · Group C: ' + groupCounts.C.awarded + ' · Group D: ' + groupCounts.D.awarded,
+      done: hasOnePerGroup,
+      pct: Math.round((groupsWithAtLeastOne / 4) * 100),
+      groups: groupCounts
+    },
+    {
+      id: 'adv4',
+      num: 4,
+      label: 'At Least 4 Group Badges at Advanced Level',
+      sublabel: 'Achieve advanced stage in at least 4 Group A, B, C, or D badges',
+      detail: totalGroupAdvanced + ' / 4 Advanced badges earned',
+      done: totalGroupAdvanced >= 4,
+      pct: Math.min(100, Math.round((totalGroupAdvanced / 4) * 100))
+    }
+  ];
+
+  var metCount = reqs.filter(function(r) { return r.done; }).length;
+  var allDone = metCount === reqs.length;
+  var overallPct = Math.round((metCount / reqs.length) * 100);
+
+  return {
+    reqs: reqs,
+    compResults: compResults,
+    groupCounts: groupCounts,
+    serviceYears: serviceYears,
+    has3YearBadge: has3YearBadge,
+    totalGroupAwarded: totalGroupAwarded,
+    totalGroupAdvanced: totalGroupAdvanced,
+    allCompDone: allCompDone,
+    hasOnePerGroup: hasOnePerGroup,
+    allDone: allDone,
+    overallEligible: allDone,
+    overallPct: overallPct,
+    metCount: metCount
+  };
+}
+
 /**
  * Loads member badges into view and binds interactive event handlers
  * @param {string} ic
@@ -915,15 +1198,108 @@ function filterBadges(query) {
 }
 
 /**
- * Renders the President's and Founder's Award progress tracker widget
+ * Renders the President's Award progress tracker widget into #presidents-tracker
  * @param {string} ic
  * @param {Object} [preloadedSaved]
  */
-async function renderPresidentsTracker(_ic, _preloadedSaved) {
+async function renderPresidentsTracker(ic, preloadedSaved) {
   var container = (typeof document !== 'undefined') ? document.getElementById('presidents-tracker') : null;
   if (!container) return;
-  container.innerHTML = '';
-  container.style.display = 'none';
+
+  var saved = preloadedSaved || (_memberBadgesCache && _memberBadgesCache[ic]) || null;
+  if (!saved && ic) {
+    var client = getSupaClient();
+    if (client) {
+      try {
+        var brows = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+        if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
+        else saved = {};
+        if (!_memberBadgesCache) _memberBadgesCache = {};
+        _memberBadgesCache[ic] = saved;
+      } catch (e) {
+        saved = {};
+      }
+    }
+  }
+  saved = saved || {};
+  var defs = _badgeDefsCache || DEFAULT_BB_BADGES;
+  var res = evaluatePresidentsCriteria(saved, defs);
+
+  var statusBadgeHtml = res.overallEligible
+    ? '<span class="presidents-status-pill eligible"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Eligible for President\'s Award</span>'
+    : '<span class="presidents-status-pill in-progress"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> In Progress (' + res.metCount + ' / 4 Met)</span>';
+
+  var checkSvg = '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  var pendingSvg = '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+
+  var reqsHtml = res.reqs.map(function(r) {
+    var iconHtml = r.done
+      ? '<div class="presidents-req-status-icon met">' + checkSvg + '</div>'
+      : '<div class="presidents-req-status-icon pending">' + pendingSvg + '</div>';
+
+    var subItemsHtml = '';
+    if (r.id === 'compulsory' && r.sub) {
+      subItemsHtml = '<div class="presidents-sub-list">' + r.sub.map(function(s) {
+        var sCls = s.done ? 'presidents-sub-chip met' : 'presidents-sub-chip';
+        var sIcon = s.done ? checkSvg : pendingSvg;
+        return '<span class="' + sCls + '">' + sIcon + ' ' + (typeof escapeHtml === 'function' ? escapeHtml(s.label) : s.label) + '</span>';
+      }).join('') + '</div>';
+    } else if (r.id === 'onepergroup' && r.groups) {
+      subItemsHtml = '<div class="presidents-group-chips">' + ['A', 'B', 'C', 'D'].map(function(g) {
+        var gInfo = r.groups[g];
+        var isMet = gInfo.awarded >= 1;
+        var gCls = isMet ? 'presidents-group-chip met' : 'presidents-group-chip';
+        var gIcon = isMet ? checkSvg : pendingSvg;
+        return '<span class="' + gCls + '">' + gIcon + ' Group ' + g + ' (' + gInfo.awarded + ')' + '</span>';
+      }).join('') + '</div>';
+    }
+
+    return '<div class="presidents-req-card' + (r.done ? ' met' : '') + '">' +
+      '<div class="presidents-req-header">' +
+        iconHtml +
+        '<div class="presidents-req-info">' +
+          '<div class="presidents-req-title">' + r.num + '. ' + (typeof escapeHtml === 'function' ? escapeHtml(r.label) : r.label) + '</div>' +
+          '<div class="presidents-req-desc">' + (typeof escapeHtml === 'function' ? escapeHtml(r.detail) : r.detail) + '</div>' +
+          subItemsHtml +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  var fillClass = res.overallEligible ? 'presidents-progress-fill complete' : 'presidents-progress-fill';
+
+  container.innerHTML =
+    '<div class="presidents-tracker-card">' +
+      '<div class="presidents-tracker-header">' +
+        '<div class="presidents-tracker-title-wrap">' +
+          '<div class="presidents-tracker-icon">' +
+            '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+              '<circle cx="12" cy="8" r="6"/>' +
+              '<path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>' +
+            '</svg>' +
+          '</div>' +
+          '<div>' +
+            '<div class="presidents-tracker-title">President\'s Award Tracker</div>' +
+            '<div class="presidents-tracker-subtitle">Official Senior Section Award Requirements Checklist</div>' +
+          '</div>' +
+        '</div>' +
+        statusBadgeHtml +
+      '</div>' +
+      '<div class="presidents-progress-section">' +
+        '<div class="presidents-progress-track">' +
+          '<div class="' + fillClass + '" style="width:' + res.overallPct + '%;"></div>' +
+        '</div>' +
+        '<div class="presidents-progress-meta">' +
+          '<span><strong>' + res.metCount + ' of 4</strong> Criteria Completed</span>' +
+          '<span><strong>' + res.overallPct + '%</strong></span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="presidents-reqs-grid">' +
+        reqsHtml +
+      '</div>' +
+    '</div>';
+
+  container.style.display = 'block';
 }
 
 // ── Admin Badge & Requirements Controllers ─────────────────────────────────
@@ -1287,6 +1663,9 @@ if (typeof window !== 'undefined') {
   window.savePresidentsReqs          = savePresidentsReqs;
   window.upsertMemberBadges         = upsertMemberBadges;
   window.evaluateFoundersCriteria   = evaluateFoundersCriteria;
+  window.evaluatePresidentsCriteria = evaluatePresidentsCriteria;
+  window.getBadgeGroup              = getBadgeGroup;
+  window.BADGE_GROUP_MAP            = BADGE_GROUP_MAP;
   window.loadBadges                 = loadBadges;
   window.adjustRepBadge             = adjustRepBadge;
   window.toggleBadge                = toggleBadge;
@@ -1310,6 +1689,7 @@ if (typeof module !== 'undefined' && module.exports) {
     DEFAULT_BB_BADGES,
     DEFAULT_PRESIDENTS_REQS,
     DEFAULT_FOUNDERS_REQS,
+    BADGE_GROUP_MAP,
     PRESIDENTS_REQS,
     _badgeDefsCache,
     _memberBadgesCache,
@@ -1320,6 +1700,8 @@ if (typeof module !== 'undefined' && module.exports) {
     savePresidentsReqs,
     upsertMemberBadges,
     evaluateFoundersCriteria,
+    evaluatePresidentsCriteria,
+    getBadgeGroup,
     loadBadges,
     adjustRepBadge,
     toggleBadge,

@@ -5557,7 +5557,7 @@ function openSettingsModal() {
         + '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">'
           + '<div id="settings-pfp-preview-wrap" style="position:relative;width:64px;height:64px;border-radius:50%;overflow:visible;background:var(--bg-card);flex-shrink:0;">'
             + '<img id="settings-pfp-img" src="' + escapeHtml(userPhoto) + '" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:' + (hasPhoto ? 'block' : 'none') + ';" />'
-            + '<div id="settings-pfp-ph" style="width:100%;height:100%;border-radius:50%;display:' + (hasPhoto ? 'none' : 'flex') + ';align-items:center;justify-content:center;background:' + bgColor + ';color:' + textColor + ';font-weight:700;font-size:22px;overflow:hidden;">' + escapeHtml(initial) + '</div>'
+            + '<div id="settings-pfp-ph" class="admin-member-avatar-initial" style="width:100%;height:100%;border-radius:50%;display:' + (hasPhoto ? 'none' : 'flex') + ';align-items:center;justify-content:center;background:' + bgColor + ';color:' + textColor + ' !important;font-weight:700;font-size:22px;overflow:hidden;">' + escapeHtml(initial) + '</div>'
           + '</div>'
           + '<div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px;">'
             + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'

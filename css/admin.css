@@ -17,6 +17,17 @@
   background: var(--bg-card-hover);
 }
 
+[data-theme='light'] .admin-row {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+[data-theme='light'] .admin-row:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
 .admin-rank-badge {
   background: linear-gradient(135deg, #f5c542, #eab308);
   color: #121418;
@@ -27,6 +38,13 @@
   border-radius: var(--radius-xs);
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+[data-theme='light'] .admin-rank-badge {
+  background: #fef3c7;
+  color: #92400e !important;
+  border: 1px solid #fcd34d;
+  font-weight: 700;
 }
 
 .admin-info {

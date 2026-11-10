@@ -2246,6 +2246,64 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ evaluateFoundersCriteria accurately checks service years, award groups, and compulsory badges'
   );
 
+  // 3B. Evaluation of Automatic President's Award Criteria Checklist
+  assert.strictEqual(
+    typeof badgesMod.evaluatePresidentsCriteria,
+    'function',
+    'evaluatePresidentsCriteria must be exported as a function'
+  );
+
+  // 3B.1. Incomplete record: CE only basic (needs Advanced), no Group D badge, fewer than 6 group badges
+  const presIncomplete = {
+    bb_3year_service: { basic: true },
+    bb13: { basic: true, advanced: false }, // Compulsory CE needs Advanced!
+    bb8: { basic: true, advanced: true },   // NCO Star Adv
+    bb6: { basic: true, advanced: true },   // Drill Adv
+    bb_recruitment: { basic: true },        // Recruitment Basic
+    bb_citizenship: { basic: true, advanced: true }, // Group A
+    bb4: { basic: true, advanced: true },            // Group B
+    bb10: { basic: true, advanced: true }            // Group C (Missing Group D)
+  };
+  const evalPresIncomplete = badgesMod.evaluatePresidentsCriteria(presIncomplete, badgesMod.DEFAULT_BB_BADGES);
+  assert.strictEqual(evalPresIncomplete.allCompDone, false, 'Compulsory must fail if CE is not Advanced');
+  assert.strictEqual(evalPresIncomplete.reqs.find(r => r.id === 'compulsory').done, false);
+  assert.strictEqual(evalPresIncomplete.reqs.find(r => r.id === 'total6').done, false, 'Needs at least 6 group badges');
+  assert.strictEqual(evalPresIncomplete.reqs.find(r => r.id === 'onepergroup').done, false, 'Needs Group D badge');
+  assert.strictEqual(evalPresIncomplete.allDone, false, 'Incomplete record must not qualify for President Award');
+  assert.strictEqual(evalPresIncomplete.overallEligible, false);
+
+  // 3B.2. Complete record fulfilling all 4 official President's Award requirements
+  const presComplete = {
+    bb_3year_service: { basic: true },
+    bb13: { basic: true, advanced: true },           // Compulsory 1: CE Adv (also Group A)
+    bb8: { basic: true, advanced: true },            // Compulsory 2: NCO Star Adv
+    bb6: { basic: true, advanced: true },            // Compulsory 3: Drill Adv
+    bb_recruitment: { basic: true },                 // Compulsory 4: Recruitment Basic
+    // Compulsory 5: bb_3year_service basic: true
+    bb_citizenship: { basic: true, advanced: true }, // Group A Adv (Adv 1)
+    bb4: { basic: true, advanced: true },            // Group B Adv (Adv 2)
+    bb10: { basic: true, advanced: true },           // Group C Adv (Adv 3)
+    bb_arts: { basic: true, advanced: true },        // Group D Adv (Adv 4)
+    bb5: { basic: true, advanced: false },           // Group B Basic
+    bb12: { basic: true, advanced: false }           // Group C Basic
+  };
+  const evalPresComplete = badgesMod.evaluatePresidentsCriteria(presComplete, badgesMod.DEFAULT_BB_BADGES);
+  assert.strictEqual(evalPresComplete.allCompDone, true, 'All 5 compulsory badges must be satisfied');
+  assert.strictEqual(evalPresComplete.reqs.find(r => r.id === 'compulsory').done, true);
+  assert.strictEqual(evalPresComplete.totalGroupAwarded >= 6, true, 'Total group badges must be >= 6');
+  assert.strictEqual(evalPresComplete.reqs.find(r => r.id === 'total6').done, true);
+  assert.strictEqual(evalPresComplete.hasOnePerGroup, true, 'Must have at least 1 badge from Group A, B, C, D');
+  assert.strictEqual(evalPresComplete.reqs.find(r => r.id === 'onepergroup').done, true);
+  assert.strictEqual(evalPresComplete.totalGroupAdvanced >= 4, true, 'Must have at least 4 advanced group badges');
+  assert.strictEqual(evalPresComplete.reqs.find(r => r.id === 'adv4').done, true);
+  assert.strictEqual(evalPresComplete.allDone, true, 'President Award must qualify 100%');
+  assert.strictEqual(evalPresComplete.overallEligible, true);
+  assert.strictEqual(evalPresComplete.metCount, 4, 'All 4 requirements must be met');
+  assert.strictEqual(evalPresComplete.overallPct, 100, 'Overall progress must be 100%');
+  console.log(
+    "  ✔ evaluatePresidentsCriteria accurately verifies 4 requirements (compulsory, 6 total, 1 per group, 4 advanced)"
+  );
+
   // 4. Repeatable Badge Adjustment (Service Years)
   const memberIc = '020202-14-5678';
   await badgesMod.adjustRepBadge('b_svc', memberIc, 1);
@@ -10897,6 +10955,96 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Multi-tab concurrency leader election & seasonal particle rAF loop protection verified');
 
     // 5. Strict 388 Unique DOM IDs Invariant
+    const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalIdSet = new Set();
+    finalMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) finalIdSet.add(matchId[1]);
+    });
+    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // ── 47. Automatic President's Award Tracker & Light Mode Contrast Verification ──
+  {
+    console.log("\nTesting Automatic President's Award Tracker & Light Mode Contrast Polish...");
+
+    // 1. CSS Light Mode Tokens and Selectors
+    const compCss = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    const varCss = fs.readFileSync(path.join(__dirname, '../css/variables.css'), 'utf8');
+    const adminCss = fs.readFileSync(path.join(__dirname, '../css/admin.css'), 'utf8');
+
+    // Light Mode subtle border must be crisp #cbd5e1 (not washed-out #e2e8f0)
+    assert.ok(varCss.includes('--border-subtle: #cbd5e1;'), 'variables.css light mode --border-subtle must be #cbd5e1');
+
+    // Avatar initials white text preservation
+    assert.ok(
+      compCss.includes("[data-theme='light'] .admin-member-avatar-initial") &&
+      compCss.includes("[data-theme='light'] #settings-pfp-ph") &&
+      compCss.includes('color: #ffffff !important;'),
+      'components.css must preserve white text inside all avatar initials in light mode'
+    );
+
+    // Arcade Active Tab Contrast
+    assert.ok(
+      compCss.includes('.arcade-tab-btn.active') &&
+      compCss.includes("[data-theme='light'] .arcade-tab-btn.active"),
+      'components.css must include light mode override for active arcade tab button'
+    );
+
+    // Wordle Tiles & Keyboard Keys in Light Mode
+    assert.ok(compCss.includes("[data-theme='light'] .wordle-tile"), 'components.css must style wordle-tile in light mode');
+    assert.ok(compCss.includes("[data-theme='light'] .wordle-key"), 'components.css must style wordle-key in light mode');
+
+    // Department Pills in Light Mode (WCAG AA)
+    assert.ok(compCss.includes("[data-theme='light'] .dept-officers"), 'components.css must style dept-officers in light mode');
+    assert.ok(compCss.includes("[data-theme='light'] .dept-media"), 'components.css must style dept-media in light mode');
+    assert.ok(compCss.includes("[data-theme='light'] .dept-logistics"), 'components.css must style dept-logistics in light mode');
+    assert.ok(compCss.includes("[data-theme='light'] .dept-secretariat"), 'components.css must style dept-secretariat in light mode');
+    assert.ok(compCss.includes("[data-theme='light'] .dept-hq"), 'components.css must style dept-hq in light mode');
+
+    // Admin Rank Badge in Light Mode
+    assert.ok(adminCss.includes("[data-theme='light'] .admin-rank-badge"), 'admin.css must style admin-rank-badge in light mode');
+    assert.ok(adminCss.includes("[data-theme='light'] .admin-row"), 'admin.css must style admin-row with visible border in light mode');
+
+    // 2. Presidents Tracker DOM Rendering Test
+    const trackerEl = createMockElement('div');
+    trackerEl.id = 'presidents-tracker';
+    trackerEl.style = { display: 'none' };
+    const origGetEl = global.document.getElementById;
+    global.document.getElementById = function(id) {
+      if (id === 'presidents-tracker') return trackerEl;
+      return origGetEl ? origGetEl.call(global.document, id) : null;
+    };
+
+    const badgesModule = require('../js/modules/badges.js');
+    await badgesModule.renderPresidentsTracker('test-ic', {
+      bb_3year_service: { basic: true },
+      bb13: { basic: true, advanced: true },
+      bb8: { basic: true, advanced: true },
+      bb6: { basic: true, advanced: true },
+      bb_recruitment: { basic: true },
+      bb_citizenship: { basic: true, advanced: true },
+      bb4: { basic: true, advanced: true },
+      bb10: { basic: true, advanced: true },
+      bb_arts: { basic: true, advanced: true },
+      bb5: { basic: true, advanced: false },
+      bb12: { basic: true, advanced: false }
+    });
+
+    global.document.getElementById = origGetEl;
+
+    assert.strictEqual(trackerEl.style.display, 'block', 'Tracker container must be visible (display: block)');
+    assert.ok(trackerEl.innerHTML.includes("President's Award Tracker"), 'Tracker must render title');
+    assert.ok(trackerEl.innerHTML.includes('Eligible for President'), 'Tracker must show eligible status pill when met');
+    assert.ok(trackerEl.innerHTML.includes('100%'), 'Tracker must display 100% progress when all criteria met');
+    assert.ok(trackerEl.innerHTML.includes('All Compulsory Awards Received'), 'Tracker must render requirement 1');
+    assert.ok(trackerEl.innerHTML.includes('At Least 6 Badges from Groups A, B, C &amp; D') || trackerEl.innerHTML.includes('At Least 6 Badges from Groups A, B, C & D'), 'Tracker must render requirement 2');
+    assert.ok(trackerEl.innerHTML.includes('At Least 1 Badge from Each Group'), 'Tracker must render requirement 3');
+    assert.ok(trackerEl.innerHTML.includes('At Least 4 Group Badges at Advanced Level'), 'Tracker must render requirement 4');
+    console.log("  ✔ Automatic President's Award Tracker DOM rendered with all 4 criteria, progress bar & status badge");
+
+    // 3. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
