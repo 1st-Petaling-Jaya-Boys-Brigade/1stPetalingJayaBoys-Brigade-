@@ -254,7 +254,13 @@ function renderFormsHub() {
     var safeType = typeof escapeHtml === 'function' ? escapeHtml(f.type || '') : f.type || '';
     var safeId = typeof escapeHtml === 'function' ? escapeHtml(f.id || '') : f.id || '';
 
-    var avail = (f.id === '__uniform__') ? { open: true } : isFormAcceptingResponses(f);
+    var avail =
+      f.id === '__uniform__'
+        ? typeof window !== 'undefined' &&
+          typeof window.isUniformOrdersAcceptingResponses === 'function'
+          ? window.isUniformOrdersAcceptingResponses()
+          : { open: true }
+        : isFormAcceptingResponses(f);
     var statusBadge = '';
     if (!avail.open) {
       var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled' : (avail.reason === 'scheduled_past' ? 'Closed' : 'Paused');
@@ -794,53 +800,12 @@ async function submitBuiltinForm(form) {
 // ── Admin Dynamic Form Builder ─────────────────────────────────────────────
 
 /**
- * Renders uniform products list preview in the Form Builder / Admin Form Hub
+ * Renders uniform products list preview (deprecated - uniform items are managed exclusively in the Uniform Orders module)
  */
 function renderUniformProductsPreview() {
   if (typeof document === 'undefined') return;
   var container = document.getElementById('uniform-products-preview');
-  if (!container) return;
-
-  var items =
-    typeof UNIFORM_ITEMS !== 'undefined' && Array.isArray(UNIFORM_ITEMS)
-      ? UNIFORM_ITEMS
-      : typeof window !== 'undefined' && Array.isArray(window.UNIFORM_ITEMS)
-        ? window.UNIFORM_ITEMS
-        : [];
-
-  if (!items.length) {
-    container.innerHTML =
-      '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No products yet. Go to Products tab to add items.</div>';
-    return;
-  }
-
-  var html = '';
-  items.forEach(function (item) {
-    var priceText = item.price ? 'RM ' + parseFloat(item.price).toFixed(2) : 'TBA';
-    var sizesText = item.sizes && item.sizes.length ? ' · ' + item.sizes.join(', ') : '';
-    var imgHtml = item.image
-      ? '<img src="' +
-        (typeof safeUrl === 'function' ? safeUrl(item.image, '') : item.image) +
-        '" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' +
-        (typeof escapeHtml === 'function' ? escapeHtml(item.name) : item.name) +
-        '"/>'
-      : '<div style="width:40px;height:40px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg></div>';
-
-    html +=
-      '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-subtle);">' +
-      imgHtml +
-      '<div style="flex:1;">' +
-      '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' +
-      (typeof escapeHtml === 'function' ? escapeHtml(item.name) : item.name) +
-      '</div>' +
-      '<div style="font-size:11px;color:var(--text-secondary);">' +
-      priceText +
-      sizesText +
-      '</div>' +
-      '</div></div>';
-  });
-
-  container.innerHTML = html;
+  if (container) container.innerHTML = '';
 }
 
 /**
@@ -1254,7 +1219,6 @@ function switchFormSubtab(sub) {
   });
   if (sub === 'formbuilder') {
     renderAdminForms();
-    renderUniformProductsPreview();
   }
   if (sub === 'formresponses') renderFormResponses();
 }
