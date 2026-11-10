@@ -58,6 +58,126 @@
   var _adminPresenceMap   = {};
   var _adminTaskFilter = 'all';
   var _allAdminTasks   = [];
+  var _adminMembersViewMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_admin_members_view')) || 'table';
+  var _adminMemberEditMode = false;
+  var _adminMemberFilters = {
+    section: '',
+    rank: '',
+    squad: '',
+    dept: '',
+    status: ''
+  };
+
+  function setAdminMembersViewMode(mode) {
+    _adminMembersViewMode = (mode === 'cards') ? 'cards' : 'table';
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem('bb_admin_members_view', _adminMembersViewMode); } catch (_) {}
+    }
+    renderAdminList();
+  }
+
+  function getAdminMembersViewMode() {
+    return _adminMembersViewMode;
+  }
+
+  function toggleAdminMemberEditMode() {
+    _adminMemberEditMode = !_adminMemberEditMode;
+    if (typeof showToast === 'function') {
+      if (_adminMemberEditMode) {
+        showToast('Edit Mode Active: You can edit member details directly in table cells.', 'info');
+      } else {
+        showToast('View Mode (Safe): Direct cell editing disabled.', 'info');
+      }
+    }
+    renderAdminList();
+  }
+
+  function getAdminMemberEditMode() {
+    return _adminMemberEditMode;
+  }
+
+  function setAdminMemberFilter(field, value) {
+    if (_adminMemberFilters && field in _adminMemberFilters) {
+      _adminMemberFilters[field] = value || '';
+    }
+    renderAdminList();
+  }
+
+  function resetAdminMemberFilters() {
+    _adminMemberFilters = {
+      section: '',
+      rank: '',
+      squad: '',
+      dept: '',
+      status: ''
+    };
+    if (typeof document !== 'undefined') {
+      var sInput = document.getElementById('admin-search');
+      if (sInput) sInput.value = '';
+    }
+    renderAdminList();
+  }
+
+  async function updateMemberField(ic, field, value) {
+    if (!ic || !field) return;
+    var client = getSupabaseClient();
+    if (!client) {
+      if (typeof showToast === 'function') showToast('Database client unavailable.', 'error');
+      return;
+    }
+
+    var cleanVal = (value !== undefined && value !== null) ? String(value).trim() : '';
+    var patchObj = {};
+
+    if (field === 'name') {
+      if (!cleanVal) {
+        if (typeof showToast === 'function') showToast('Member name cannot be blank.', 'warning');
+        return;
+      }
+      patchObj.name = cleanVal;
+    } else if (field === 'section') {
+      patchObj.section = cleanVal;
+      patchObj.att_section = cleanVal;
+    } else if (field === 'rank') {
+      patchObj.rank = cleanVal;
+    } else if (field === 'squad') {
+      patchObj.squad = cleanVal;
+    } else if (field === 'department') {
+      patchObj.department = cleanVal.toLowerCase();
+    } else if (field === 'date_of_birth') {
+      patchObj.date_of_birth = cleanVal || null;
+    } else {
+      patchObj[field] = cleanVal;
+    }
+
+    try {
+      if (client.patch) {
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), patchObj);
+      } else if (client.req) {
+        await client.req('PATCH', 'bb_members?ic=eq.' + encodeURIComponent(ic), patchObj);
+      }
+
+      if (_adminMembers && _adminMembers[ic]) {
+        Object.assign(_adminMembers[ic], patchObj);
+      }
+      if (Array.isArray(_adminMembersCache)) {
+        _adminMembersCache.forEach(function(m) {
+          if (m.ic === ic) Object.assign(m, patchObj);
+        });
+      }
+
+      var memName = (_adminMembers && _adminMembers[ic] && _adminMembers[ic].name) || ic;
+      if (typeof showToast === 'function') {
+        showToast('Updated ' + field.replace(/_/g, ' ') + ' for ' + memName, 'success');
+      }
+      renderAdminList();
+    } catch (err) {
+      console.error('updateMemberField error:', err);
+      if (typeof showToast === 'function') {
+        showToast('Failed to update member: ' + (err.message || 'Network error'), 'error');
+      }
+    }
+  }
 
   function getSupabaseClient() {
     if (typeof window !== 'undefined' && window.supa) return window.supa;
@@ -1142,7 +1262,93 @@
     '</span>';
   }
 
-var _adminMembersCache = null;
+  function renderSectionSelectOptions(curSec) {
+    var secs = ['Pre-Junior', 'Junior', 'Senior', 'Officer'];
+    var cur = (curSec || '').trim().toLowerCase();
+    return secs.map(function(s) {
+      var isSel = (s.toLowerCase() === cur) ? ' selected' : '';
+      return '<option value="' + s + '"' + isSel + '>' + s + '</option>';
+    }).join('');
+  }
+
+  function renderRankSelectOptions(curRank) {
+    var ranks = [
+      'Recruit',
+      'Private',
+      'Lance Corporal',
+      'Corporal',
+      'Sergeant',
+      'Staff Sergeant',
+      'Warrant Officer',
+      'Lieutenant',
+      'Captain',
+      'Chaplain',
+      'One Year Service',
+      'Two Year Service',
+      'Three Year Service',
+      'Junior Target',
+      'Junior Bronze',
+      'Junior Silver',
+      'Junior Gold'
+    ];
+    if (curRank && !ranks.includes(curRank)) {
+      ranks.unshift(curRank);
+    }
+    var cur = (curRank || '').trim().toLowerCase();
+    return '<option value="">(No rank)</option>' + ranks.map(function(r) {
+      var isSel = (r.toLowerCase() === cur) ? ' selected' : '';
+      return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(r) : r) + '"' + isSel + '>' + (typeof escapeHtml === 'function' ? escapeHtml(r) : r) + '</option>';
+    }).join('');
+  }
+
+  function renderSquadSelectOptions(curSquad) {
+    var squads = [
+      'Alpha Platoon',
+      'Bravo Platoon',
+      'Charlie Platoon',
+      'Delta Platoon',
+      'Echo Platoon',
+      'Foxtrot Platoon',
+      'Golf Platoon',
+      'Hotel Platoon',
+      'India Platoon',
+      'Zulu Platoon',
+      'Papa Platoon',
+      'Officers',
+      'Squad 1',
+      'Squad 2',
+      'Squad 3',
+      'Squad 4',
+      'Squad 5',
+      'Squad 6'
+    ];
+    if (curSquad && !squads.includes(curSquad)) {
+      squads.unshift(curSquad);
+    }
+    var cur = (curSquad || '').trim().toLowerCase();
+    return '<option value="">(No platoon/squad)</option>' + squads.map(function(sq) {
+      var isSel = (sq.toLowerCase() === cur) ? ' selected' : '';
+      return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(sq) : sq) + '"' + isSel + '>' + (typeof escapeHtml === 'function' ? escapeHtml(sq) : sq) + '</option>';
+    }).join('');
+  }
+
+  function renderDeptSelectOptions(curDept) {
+    var depts = [
+      { id: '', label: 'No Department' },
+      { id: 'secretariat', label: 'Secretariat' },
+      { id: 'logistics', label: 'Logistics' },
+      { id: 'media', label: 'Media' },
+      { id: 'hq', label: 'HQ' },
+      { id: 'officers', label: 'Officers' }
+    ];
+    var cur = (curDept || '').trim().toLowerCase();
+    return depts.map(function(d) {
+      var isSel = (d.id === cur) ? ' selected' : '';
+      return '<option value="' + d.id + '"' + isSel + '>' + d.label + '</option>';
+    }).join('');
+  }
+
+  var _adminMembersCache = null;
   var _adminMembersCacheTime = 0;
   var ADMIN_MEMBERS_CACHE_TTL = 30000;
 
@@ -1219,13 +1425,54 @@ var _adminMembersCache = null;
         if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return false;
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
-        return (m.name || '').toLowerCase().includes(search) || (m.ic || '').includes(search);
-      });
 
-      if (!filtered.length) {
-        list.innerHTML = '<div style="color:#666;text-align:center;padding:20px;">No members found.</div>';
-        return;
-      }
+        // Search text filter
+        if (search) {
+          var sMatches = (m.name || '').toLowerCase().includes(search) ||
+                         (m.ic || '').toLowerCase().includes(search) ||
+                         (m.email || '').toLowerCase().includes(search);
+          if (!sMatches) return false;
+        }
+
+        // Section filter
+        if (_adminMemberFilters.section) {
+          var mSec = (m.section || m.att_section || '').toLowerCase();
+          var fSec = _adminMemberFilters.section.toLowerCase();
+          if (fSec === 'officer' ? mSec !== 'officer' : mSec !== fSec) return false;
+        }
+
+        // Rank filter
+        if (_adminMemberFilters.rank) {
+          if ((m.rank || '').toLowerCase() !== _adminMemberFilters.rank.toLowerCase()) return false;
+        }
+
+        // Squad filter
+        if (_adminMemberFilters.squad) {
+          if ((m.squad || '').toLowerCase() !== _adminMemberFilters.squad.toLowerCase()) return false;
+        }
+
+        // Department filter
+        if (_adminMemberFilters.dept) {
+          var curDept = (m.department || '').toLowerCase();
+          var fDept = _adminMemberFilters.dept.toLowerCase();
+          if (fDept === 'none' || fDept === 'no-dept') {
+            if (curDept && curDept !== 'none') return false;
+          } else {
+            if (curDept !== fDept) return false;
+          }
+        }
+
+        // Status filter
+        if (_adminMemberFilters.status) {
+          var pResolver = (typeof getMemberPresenceStatus === 'function')
+            ? getMemberPresenceStatus
+            : function() { return { status: 'offline' }; };
+          var st = pResolver(m, _adminPresenceMap).status;
+          if (st !== _adminMemberFilters.status.toLowerCase()) return false;
+        }
+
+        return true;
+      });
 
       // Sort
       filtered.sort(function(a, b) {
@@ -1260,6 +1507,20 @@ var _adminMembersCache = null;
           if (rj === -1) rj = 99;
           return ri - rj;
         }
+        if (_adminSortBy === 'section') {
+          var secA = a.section || a.att_section || '';
+          var secB = b.section || b.att_section || '';
+          var sComp = secA.localeCompare(secB);
+          return sComp !== 0 ? sComp : (a.name || '').localeCompare(b.name || '');
+        }
+        if (_adminSortBy === 'dept') {
+          var currentDeptKeyA = (a.department || '').trim().toLowerCase();
+          var currentDeptKeyB = (b.department || '').trim().toLowerCase();
+          var depLabelA = (DEFAULT_DEPT_CONFIG[currentDeptKeyA] && DEFAULT_DEPT_CONFIG[currentDeptKeyA].label) || a.department || 'No Dept';
+          var depLabelB = (DEFAULT_DEPT_CONFIG[currentDeptKeyB] && DEFAULT_DEPT_CONFIG[currentDeptKeyB].label) || b.department || 'No Dept';
+          var dComp = depLabelA.localeCompare(depLabelB);
+          return dComp !== 0 ? dComp : (a.name || '').localeCompare(b.name || '');
+        }
         if (_adminSortBy === 'joined') {
           return (a.joined_at || '').localeCompare(b.joined_at || '');
         }
@@ -1268,105 +1529,308 @@ var _adminMembersCache = null;
 
       _adminMembers = {};
       filtered.forEach(function(m) { _adminMembers[m.ic] = m; });
-      if (!filtered.length) {
-        list.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:12px;">'
-          + '<div style="font-size:24px;margin-bottom:6px;">🔍</div>'
-          + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">No members found</div>'
-          + '<div style="font-size:12px;color:var(--text-muted);">Try adjusting your search query or section filter.</div>'
-          + '</div>';
-        return;
-      }
       if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
       global._adminPresenceMap = _adminPresenceMap;
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem('bb_members_cache', JSON.stringify(filtered)); } catch (_) {}
       }
 
-      // Group headers when sorting by squad
-      var lastSquad = null;
-      var lastDept = null;
+      var isFilteringActive = !!(_adminMemberFilters.section || _adminMemberFilters.rank || _adminMemberFilters.squad || _adminMemberFilters.dept || _adminMemberFilters.status || search);
+
+      var toolbarHtml = '<div class="admin-members-toolbar">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<div style="display:inline-flex;border-radius:8px;border:1px solid var(--border-card);background:var(--bg-card-subtle);padding:2px;">' +
+              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'table\')" style="padding:5px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;' + (_adminMembersViewMode === 'table' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Spreadsheet / Database View">📋 Table View</button>' +
+              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'cards\')" style="padding:5px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;' + (_adminMembersViewMode === 'cards' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Cards View">🗂️ Cards View</button>' +
+            '</div>' +
+            '<button type="button" class="portal-btn" onclick="toggleAdminMemberEditMode()" style="padding:6px 14px;font-size:12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;' + (_adminMemberEditMode ? 'background:#f59e0b;border:1px solid #d97706;color:#ffffff;' : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);') + '">' +
+              (_adminMemberEditMode ? '✏️ Edit Mode Active' : '🔒 View Mode (Safe)') +
+            '</button>' +
+          '</div>' +
+          '<div style="font-size:12px;color:var(--text-secondary);font-weight:600;">' +
+            'Showing <strong style="color:var(--gold);">' + filtered.length + '</strong> of ' + members.length + ' members' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<span style="font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Filter:</span>' +
+          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'section\', this.value)" title="Filter by Section">' +
+            '<option value="">All Sections</option>' +
+            '<option value="Senior"' + (_adminMemberFilters.section.toLowerCase() === 'senior' ? ' selected' : '') + '>Senior</option>' +
+            '<option value="Junior"' + (_adminMemberFilters.section.toLowerCase() === 'junior' ? ' selected' : '') + '>Junior</option>' +
+            '<option value="Pre-Junior"' + (_adminMemberFilters.section.toLowerCase() === 'pre-junior' ? ' selected' : '') + '>Pre-Junior</option>' +
+            '<option value="Officer"' + (_adminMemberFilters.section.toLowerCase() === 'officer' ? ' selected' : '') + '>Officer</option>' +
+          '</select>' +
+          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'rank\', this.value)" title="Filter by Rank">' +
+            '<option value="">All Ranks</option>' +
+            ['Recruit','Private','Lance Corporal','Corporal','Sergeant','Staff Sergeant','Warrant Officer','Lieutenant','Captain'].map(function(rk) {
+              return '<option value="' + rk + '"' + (_adminMemberFilters.rank.toLowerCase() === rk.toLowerCase() ? ' selected' : '') + '>' + rk + '</option>';
+            }).join('') +
+          '</select>' +
+          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'squad\', this.value)" title="Filter by Platoon/Squad">' +
+            '<option value="">All Platoons / Squads</option>' +
+            ['Alpha Platoon','Bravo Platoon','Charlie Platoon','Delta Platoon','Echo Platoon','Foxtrot Platoon','Golf Platoon','Hotel Platoon','India Platoon','Zulu Platoon','Papa Platoon','Officers'].map(function(sq) {
+              return '<option value="' + sq + '"' + (_adminMemberFilters.squad.toLowerCase() === sq.toLowerCase() ? ' selected' : '') + '>' + sq + '</option>';
+            }).join('') +
+          '</select>' +
+          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'dept\', this.value)" title="Filter by Department">' +
+            '<option value="">All Departments</option>' +
+            '<option value="secretariat"' + (_adminMemberFilters.dept === 'secretariat' ? ' selected' : '') + '>Secretariat</option>' +
+            '<option value="logistics"' + (_adminMemberFilters.dept === 'logistics' ? ' selected' : '') + '>Logistics</option>' +
+            '<option value="media"' + (_adminMemberFilters.dept === 'media' ? ' selected' : '') + '>Media</option>' +
+            '<option value="hq"' + (_adminMemberFilters.dept === 'hq' ? ' selected' : '') + '>HQ</option>' +
+            '<option value="officers"' + (_adminMemberFilters.dept === 'officers' ? ' selected' : '') + '>Officers</option>' +
+            '<option value="none"' + (_adminMemberFilters.dept === 'none' ? ' selected' : '') + '>No Department</option>' +
+          '</select>' +
+          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'status\', this.value)" title="Filter by Online Status">' +
+            '<option value="">All Status</option>' +
+            '<option value="online"' + (_adminMemberFilters.status === 'online' ? ' selected' : '') + '>Online</option>' +
+            '<option value="idle"' + (_adminMemberFilters.status === 'idle' ? ' selected' : '') + '>Idle</option>' +
+            '<option value="offline"' + (_adminMemberFilters.status === 'offline' ? ' selected' : '') + '>Offline</option>' +
+          '</select>' +
+          (isFilteringActive ? '<button type="button" class="portal-btn" onclick="resetAdminMemberFilters()" style="background:none;border:1px dashed var(--border-card);color:var(--text-secondary);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:600;">↺ Reset Filters</button>' : '') +
+        '</div>' +
+      '</div>';
+
+      var editBannerHtml = _adminMemberEditMode
+        ? '<div class="admin-edit-mode-banner"><span>✏️ <strong>Edit Mode Active:</strong> You can edit member name, section, rank, platoon/squad, department, and DOB directly in table cells. Changes autosave to the database.</span><button type="button" onclick="toggleAdminMemberEditMode()" style="background:none;border:1px solid currentColor;color:inherit;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Exit Edit Mode</button></div>'
+        : '';
+
+      if (!filtered.length) {
+        list.innerHTML = toolbarHtml + '<div style="color:var(--text-muted);text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:12px;">'
+          + '<div style="font-size:24px;margin-bottom:6px;">🔍</div>'
+          + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">No members found</div>'
+          + '<div style="font-size:12px;color:var(--text-muted);">Try adjusting your search query or section filter.</div>'
+          + '</div>';
+        return;
+      }
+
       var html = '';
 
-      filtered.forEach(function(m) {
-        var age = calcAge(m.date_of_birth);
-        var ageStr = age !== null ? (age + ' years') : '\u2014';
-        var isMinor = (typeof isMinorSection === 'function')
-          ? isMinorSection(m.att_section || m.section, age)
-          : ((age !== null && age <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
+      if (_adminMembersViewMode === 'table') {
+        var tableRowsHtml = '';
+        filtered.forEach(function(m) {
+          var age = calcAge(m.date_of_birth);
+          var ageStr = age !== null ? (age + ' years') : '\u2014';
+          var isMinor = (typeof isMinorSection === 'function')
+            ? isMinorSection(m.att_section || m.section, age)
+            : ((age !== null && age <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
 
-        var consentBadge = '';
-        if (isMinor) {
-          var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
-          if (hasConsent) {
-            consentBadge = ' <span title="Child Safety: Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
+          var consentBadge = '';
+          if (isMinor) {
+            var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
+            if (hasConsent) {
+              consentBadge = ' <span title="Child Safety: Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
+            } else {
+              consentBadge = ' <span title="Child Safety: Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent Pending</span>';
+            }
+            if (m.media_consent === false) {
+              consentBadge += ' <span title="Privacy: Media release private / no public photos" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;vertical-align:middle;margin-left:2px;">No Media</span>';
+            }
+          }
+
+          var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
+          var safeIc   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic) : m.ic;
+          var rawDisplaySquad = (typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No platoon/squad');
+          var safeSquad= (typeof escapeHtml === 'function') ? escapeHtml(rawDisplaySquad) : rawDisplaySquad;
+          var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'No rank') : (m.rank || 'No rank');
+
+          var deptConfig = DEFAULT_DEPT_CONFIG[(m.department || '').toLowerCase()];
+          var deptBadge = '';
+          if (deptConfig) {
+            deptBadge = ' <span class="dept-badge ' + (deptConfig.cls || '') + '" title="Department NCO: Has Projects & Tasks Access" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:10px;background:' + (deptConfig.color ? deptConfig.color + '26' : 'rgba(217,163,35,0.15)') + ';color:' + (deptConfig.color || 'var(--accent)') + ';font-weight:700;letter-spacing:0.3px;border:1px solid ' + (deptConfig.color ? deptConfig.color + '55' : 'rgba(217,163,35,0.3)') + ';vertical-align:middle;">' + ((typeof escapeHtml === 'function') ? escapeHtml(deptConfig.label) : deptConfig.label) + '</span>';
           } else {
-            consentBadge = ' <span title="Child Safety: Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent Pending</span>';
+            deptBadge = ' <span title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
           }
-          if (m.media_consent === false) {
-            consentBadge += ' <span title="Privacy: Media release private / no public photos" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;vertical-align:middle;margin-left:2px;">No Media</span>';
+
+          var pResolver = (typeof getMemberPresenceStatus === 'function')
+            ? getMemberPresenceStatus
+            : function() { return { status: 'offline', label: 'Offline', color: '#6b7280' }; };
+          var pInfo = pResolver(m, _adminPresenceMap);
+          var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 38, pInfo);
+          var presenceBadge = ' <span class="admin-presence-badge" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + pInfo.color + ';vertical-align:middle;" title="' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '"><span style="width:7px;height:7px;border-radius:50%;background:' + pInfo.color + ';display:inline-block;"></span> ' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '</span>';
+
+          if (!_adminMemberEditMode) {
+            tableRowsHtml += '<tr class="admin-table-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;">' +
+              '<td style="min-width:180px;">' +
+                '<div style="display:flex;align-items:center;gap:10px;">' +
+                  avatarHtml +
+                  '<div style="min-width:0;overflow:hidden;">' +
+                    '<div style="font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + '</div>' +
+                    '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
+                  '</div>' +
+                '</div>' +
+              '</td>' +
+              '<td><span class="adm-section-pill" style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:var(--bg-card-subtle);border:1px solid var(--border-card);">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.section || m.att_section || '—') : (m.section || m.att_section || '—')) + '</span></td>' +
+              '<td><div class="admin-rank-badge">' + safeRank + '</div></td>' +
+              '<td><div style="font-weight:600;font-size:12px;">' + safeSquad + '</div></td>' +
+              '<td>' + deptBadge + '</td>' +
+              '<td><div style="font-weight:600;">' + ageStr + '</div><div style="font-size:10px;color:var(--text-muted);">' + (m.date_of_birth || '—') + '</div></td>' +
+              '<td>' + presenceBadge + '</td>' +
+              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">—</span>') + '</td>' +
+              '<td style="text-align:right;white-space:nowrap;">' +
+                '<button type="button" class="portal-btn" onclick="openEditMember(\'' + safeIc + '\')" title="Edit Member Profile" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">Edit</button>' +
+                '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
+                  '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+                '</button>' +
+              '</td>' +
+            '</tr>';
+          } else {
+            tableRowsHtml += '<tr class="admin-table-row admin-table-row-editing">' +
+              '<td style="min-width:180px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                  avatarHtml +
+                  '<div style="flex:1;min-width:0;">' +
+                    '<input type="text" class="admin-inline-input" value="' + safeName + '" onchange="updateMemberField(\'' + safeIc + '\', \'name\', this.value)" title="Edit Name (Autosaves on change)" />' +
+                    '<div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono,monospace);margin-top:2px;overflow:hidden;text-overflow:ellipsis;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
+                  '</div>' +
+                '</div>' +
+              '</td>' +
+              '<td style="min-width:110px;">' +
+                '<select class="admin-inline-select" onchange="updateMemberField(\'' + safeIc + '\', \'section\', this.value)" title="Change Section">' +
+                  renderSectionSelectOptions(m.section || m.att_section) +
+                '</select>' +
+              '</td>' +
+              '<td style="min-width:130px;">' +
+                '<select class="admin-inline-select" onchange="updateMemberField(\'' + safeIc + '\', \'rank\', this.value)" title="Change Rank">' +
+                  renderRankSelectOptions(m.rank) +
+                '</select>' +
+              '</td>' +
+              '<td style="min-width:140px;">' +
+                '<select class="admin-inline-select" onchange="updateMemberField(\'' + safeIc + '\', \'squad\', this.value)" title="Change Platoon/Squad">' +
+                  renderSquadSelectOptions(m.squad) +
+                '</select>' +
+              '</td>' +
+              '<td style="min-width:130px;">' +
+                '<select class="admin-inline-select" onchange="updateMemberField(\'' + safeIc + '\', \'department\', this.value)" title="Change Department NCO Role">' +
+                  renderDeptSelectOptions(m.department) +
+                '</select>' +
+              '</td>' +
+              '<td style="min-width:140px;">' +
+                '<input type="date" class="admin-inline-input" value="' + (m.date_of_birth || '') + '" onchange="updateMemberField(\'' + safeIc + '\', \'date_of_birth\', this.value)" title="Change Date of Birth" />' +
+                '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Age: ' + ageStr + '</div>' +
+              '</td>' +
+              '<td>' + presenceBadge + '</td>' +
+              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">—</span>') + '</td>' +
+              '<td style="text-align:right;white-space:nowrap;">' +
+                '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
+                  '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+                '</button>' +
+              '</td>' +
+            '</tr>';
           }
-        }
+        });
 
-        if (_adminSortBy === 'squad') {
-          var sq = m.squad || 'No Platoon/Squad';
-          if (sq !== lastSquad) {
-            var fmtSquadFn = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad : (typeof global !== 'undefined' && typeof global.formatPlatoonOrSquad === 'function' ? global.formatPlatoonOrSquad : null);
-            var groupHeading = (fmtSquadFn ? fmtSquadFn(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No Platoon/Squad');
-            html += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:10px 4px 4px;">' + groupHeading + '</div>';
-            lastSquad = sq;
+        html = toolbarHtml + editBannerHtml +
+          '<div class="admin-members-table-wrapper">' +
+            '<table class="admin-members-table">' +
+              '<thead>' +
+                '<tr>' +
+                  '<th class="sortable-th" onclick="setAdminSort(\'name\')">Member</th>' +
+                  '<th class="sortable-th" onclick="setAdminSort(\'section\')">Section</th>' +
+                  '<th class="sortable-th" onclick="setAdminSort(\'rank\')">Rank</th>' +
+                  '<th class="sortable-th" onclick="setAdminSort(\'squad\')">Platoon / Squad</th>' +
+                  '<th class="sortable-th" onclick="setAdminSort(\'dept\')">Department</th>' +
+                  '<th class="sortable-th" onclick="setAdminSort(\'age\')">Age / DOB</th>' +
+                  '<th class="sortable-th" onclick="setAdminSort(\'status\')">Status</th>' +
+                  '<th>Consent</th>' +
+                  '<th style="text-align:right;">Actions</th>' +
+                '</tr>' +
+              '</thead>' +
+              '<tbody>' +
+                tableRowsHtml +
+              '</tbody>' +
+            '</table>' +
+          '</div>';
+      } else {
+        // Group headers when sorting by squad in cards view
+        var lastSquad = null;
+        var lastDept = null;
+        var cardRowsHtml = '';
+
+        filtered.forEach(function(m) {
+          var age = calcAge(m.date_of_birth);
+          var ageStr = age !== null ? (age + ' years') : '\u2014';
+          var isMinor = (typeof isMinorSection === 'function')
+            ? isMinorSection(m.att_section || m.section, age)
+            : ((age !== null && age <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
+
+          var consentBadge = '';
+          if (isMinor) {
+            var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
+            if (hasConsent) {
+              consentBadge = ' <span title="Child Safety: Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
+            } else {
+              consentBadge = ' <span title="Child Safety: Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent Pending</span>';
+            }
+            if (m.media_consent === false) {
+              consentBadge += ' <span title="Privacy: Media release private / no public photos" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;vertical-align:middle;margin-left:2px;">No Media</span>';
+            }
           }
-        }
-        if (_adminSortBy === 'dept') {
-          var currentDeptKey = (m.department || '').trim().toLowerCase();
-          var depLabel = (currentDeptKey === 'department nco' || currentDeptKey === 'dept nco') ? 'Department NCO' : ((DEFAULT_DEPT_CONFIG[currentDeptKey] && DEFAULT_DEPT_CONFIG[currentDeptKey].label) || (m.department ? m.department : 'No Department NCO Role (No Tasks Access)'));
-          if (depLabel !== lastDept) {
-            html += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:12px 4px 6px;">' + ((typeof escapeHtml === 'function') ? escapeHtml(depLabel) : depLabel) + '</div>';
-            lastDept = depLabel;
+
+          if (_adminSortBy === 'squad') {
+            var sq = m.squad || 'No Platoon/Squad';
+            if (sq !== lastSquad) {
+              var fmtSquadFn = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad : (typeof global !== 'undefined' && typeof global.formatPlatoonOrSquad === 'function' ? global.formatPlatoonOrSquad : null);
+              var groupHeading = (fmtSquadFn ? fmtSquadFn(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No Platoon/Squad');
+              cardRowsHtml += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:10px 4px 4px;">' + groupHeading + '</div>';
+              lastSquad = sq;
+            }
           }
-        }
+          if (_adminSortBy === 'dept') {
+            var currentDeptKey = (m.department || '').trim().toLowerCase();
+            var depLabel = (currentDeptKey === 'department nco' || currentDeptKey === 'dept nco') ? 'Department NCO' : ((DEFAULT_DEPT_CONFIG[currentDeptKey] && DEFAULT_DEPT_CONFIG[currentDeptKey].label) || (m.department ? m.department : 'No Department NCO Role (No Tasks Access)'));
+            if (depLabel !== lastDept) {
+              cardRowsHtml += '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--gold);letter-spacing:1px;text-transform:uppercase;padding:12px 4px 6px;">' + ((typeof escapeHtml === 'function') ? escapeHtml(depLabel) : depLabel) + '</div>';
+              lastDept = depLabel;
+            }
+          }
 
-        var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
-        var safeIc   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic) : m.ic;
-        var rawDisplaySquad = (typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No platoon/squad');
-        var safeSquad= (typeof escapeHtml === 'function') ? escapeHtml(rawDisplaySquad) : rawDisplaySquad;
-        var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'No rank') : (m.rank || 'No rank');
+          var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
+          var safeIc   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic) : m.ic;
+          var rawDisplaySquad = (typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No platoon/squad');
+          var safeSquad= (typeof escapeHtml === 'function') ? escapeHtml(rawDisplaySquad) : rawDisplaySquad;
+          var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'No rank') : (m.rank || 'No rank');
 
-        var deptConfig = DEFAULT_DEPT_CONFIG[(m.department || '').toLowerCase()];
-        var deptBadge = '';
-        if (deptConfig) {
-          deptBadge = ' <span class="dept-badge ' + (deptConfig.cls || '') + '" title="Department NCO: Has Projects & Tasks Access" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:10px;background:' + (deptConfig.color ? deptConfig.color + '26' : 'rgba(217,163,35,0.15)') + ';color:' + (deptConfig.color || 'var(--accent)') + ';font-weight:700;letter-spacing:0.3px;margin-left:4px;border:1px solid ' + (deptConfig.color ? deptConfig.color + '55' : 'rgba(217,163,35,0.3)') + ';vertical-align:middle;">' + ((typeof escapeHtml === 'function') ? escapeHtml(deptConfig.label) : deptConfig.label) + '</span>';
-        } else {
-          deptBadge = ' <span title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;margin-left:4px;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
-        }
+          var deptConfig = DEFAULT_DEPT_CONFIG[(m.department || '').toLowerCase()];
+          var deptBadge = '';
+          if (deptConfig) {
+            deptBadge = ' <span class="dept-badge ' + (deptConfig.cls || '') + '" title="Department NCO: Has Projects & Tasks Access" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:10px;background:' + (deptConfig.color ? deptConfig.color + '26' : 'rgba(217,163,35,0.15)') + ';color:' + (deptConfig.color || 'var(--accent)') + ';font-weight:700;letter-spacing:0.3px;margin-left:4px;border:1px solid ' + (deptConfig.color ? deptConfig.color + '55' : 'rgba(217,163,35,0.3)') + ';vertical-align:middle;">' + ((typeof escapeHtml === 'function') ? escapeHtml(deptConfig.label) : deptConfig.label) + '</span>';
+          } else {
+            deptBadge = ' <span title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;margin-left:4px;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
+          }
 
-        var pResolver = (typeof getMemberPresenceStatus === 'function')
-          ? getMemberPresenceStatus
-          : function() { return { status: 'offline', label: 'Offline', color: '#6b7280' }; };
-        var pInfo = pResolver(m, _adminPresenceMap);
-        var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 38, pInfo);
-        var presenceBadge = ' <span class="admin-presence-badge" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + pInfo.color + ';vertical-align:middle;margin-left:4px;" title="' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '"><span style="width:7px;height:7px;border-radius:50%;background:' + pInfo.color + ';display:inline-block;"></span> ' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '</span>';
+          var pResolver = (typeof getMemberPresenceStatus === 'function')
+            ? getMemberPresenceStatus
+            : function() { return { status: 'offline', label: 'Offline', color: '#6b7280' }; };
+          var pInfo = pResolver(m, _adminPresenceMap);
+          var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 38, pInfo);
+          var presenceBadge = ' <span class="admin-presence-badge" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + pInfo.color + ';vertical-align:middle;margin-left:4px;" title="' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '"><span style="width:7px;height:7px;border-radius:50%;background:' + pInfo.color + ';display:inline-block;"></span> ' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '</span>';
 
-        html += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:12px;">'
-          + avatarHtml
-          + '<div style="flex:1;min-width:0;">'
-            + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + deptBadge + '</div>'
-            + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + safeSquad + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + ' \xb7 ' + presenceBadge + '</div>'
-          + '</div>'
-          + '<div style="text-align:right;flex-shrink:0;">'
-            + '<div class="admin-rank-badge">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.rank || '\u2014') : (m.rank || '\u2014')) + '</div>'
-            + '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">' + ageStr + '</div>'
-          + '</div>'
-          + '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:7px 10px;margin-left:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'
-            + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
-          + '</button>'
-          + '<div style="color:var(--text-muted);font-size:18px;margin-left:4px;">\u203a</div></div>';
-      });
+          cardRowsHtml += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:12px;">'
+            + avatarHtml
+            + '<div style="flex:1;min-width:0;">'
+              + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + deptBadge + '</div>'
+              + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + safeSquad + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + ' \xb7 ' + presenceBadge + '</div>'
+            + '</div>'
+            + '<div style="text-align:right;flex-shrink:0;">'
+              + '<div class="admin-rank-badge">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.rank || '\u2014') : (m.rank || '\u2014')) + '</div>'
+              + '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">' + ageStr + '</div>'
+            + '</div>'
+            + '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:7px 10px;margin-left:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'
+              + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+            + '</button>'
+            + '<div style="color:var(--text-muted);font-size:18px;margin-left:4px;">\u203a</div></div>';
+        });
+
+        html = toolbarHtml + editBannerHtml + cardRowsHtml;
+      }
 
       list.innerHTML = html;
 
       list.querySelectorAll('[data-edit-ic]').forEach(function(row) {
         row.addEventListener('click', function(e) {
-          if (e.target.closest('.adm-row-del-btn')) return;
+          if (e.target.closest('.adm-row-del-btn') || e.target.closest('input') || e.target.closest('select') || e.target.closest('button')) return;
           openEditMember(row.getAttribute('data-edit-ic'));
         });
       });
@@ -3322,6 +3786,36 @@ var _adminMembersCache = null;
 
   // ── Admin Blocked Emails Management (bb_blocked_emails) ─────────────────
   var _blockedEmails = [];
+  var _blockedEmailsEditMode = false;
+
+  function makeBlockedEmailsArray(items) {
+    var arr = (items || []).map(function(item) {
+      if (item && typeof item === 'object' && item.email) {
+        return {
+          email: String(item.email).toLowerCase().trim(),
+          date: item.date || new Date().toISOString().split('T')[0],
+          reason: item.reason || 'Account restricted by administrator',
+          blocked_by: item.blocked_by || 'Admin'
+        };
+      }
+      return {
+        email: String(item || '').toLowerCase().trim(),
+        date: new Date().toISOString().split('T')[0],
+        reason: 'Account restricted by administrator',
+        blocked_by: 'Admin'
+      };
+    }).filter(function(x) { return !!x.email; });
+
+    arr.includes = function(searchVal) {
+      var clean = String(searchVal || '').toLowerCase().trim();
+      return this.some(function(x) {
+        var em = (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim();
+        return em === clean;
+      });
+    };
+
+    return arr;
+  }
 
   async function loadBlockedEmails() {
     var client = getSupabaseClient();
@@ -3331,7 +3825,7 @@ var _adminMembersCache = null;
         if (res && res.length && res[0].value) {
           var parsed = typeof res[0].value === 'string' ? JSON.parse(res[0].value) : res[0].value;
           if (Array.isArray(parsed)) {
-            _blockedEmails = parsed.map(function(x) { return String(x).toLowerCase().trim(); });
+            _blockedEmails = makeBlockedEmailsArray(parsed);
             try {
               if (typeof localStorage !== 'undefined') {
                 localStorage.setItem('bb_blocked_emails', JSON.stringify(_blockedEmails));
@@ -3350,7 +3844,7 @@ var _adminMembersCache = null;
         var cached = localStorage.getItem('bb_blocked_emails');
         if (cached) {
           var parsedCached = JSON.parse(cached);
-          if (Array.isArray(parsedCached)) _blockedEmails = parsedCached;
+          if (Array.isArray(parsedCached)) _blockedEmails = makeBlockedEmailsArray(parsedCached);
         }
       } catch (_) {}
     }
@@ -3359,7 +3853,7 @@ var _adminMembersCache = null;
   }
 
   async function saveBlockedEmails(list) {
-    _blockedEmails = list.map(function(x) { return String(x).toLowerCase().trim(); }).filter(Boolean);
+    _blockedEmails = makeBlockedEmailsArray(list);
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('bb_blocked_emails', JSON.stringify(_blockedEmails));
@@ -3395,7 +3889,7 @@ var _adminMembersCache = null;
     if (badge) badge.textContent = _blockedEmails.length;
   }
 
-  async function addBlockedEmail(email) {
+  async function addBlockedEmail(email, reason, blockedBy) {
     var em = String(email || '').trim().toLowerCase();
     if (!em || em.indexOf('@') === -1) {
       if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning');
@@ -3410,7 +3904,18 @@ var _adminMembersCache = null;
       if (typeof showToast === 'function') showToast('This email is already in the blocklist.', 'warning');
       return false;
     }
-    _blockedEmails.push(em);
+
+    var currentAdmin = 'Admin';
+    if (typeof getAdminSessionData === 'function') {
+      var s = getAdminSessionData();
+      if (s && (s.name || s.username)) currentAdmin = s.name || s.username;
+    }
+    _blockedEmails.push({
+      email: em,
+      date: new Date().toISOString().split('T')[0],
+      reason: String(reason || '').trim() || 'Account restricted by administrator',
+      blocked_by: blockedBy || currentAdmin
+    });
     await saveBlockedEmails(_blockedEmails);
     if (typeof showToast === 'function') showToast('Email ' + em + ' has been blocked.', 'success');
     renderBlockedEmailsList();
@@ -3420,39 +3925,114 @@ var _adminMembersCache = null;
   async function removeBlockedEmail(email) {
     var em = String(email || '').trim().toLowerCase();
     await loadBlockedEmails();
-    _blockedEmails = _blockedEmails.filter(function(x) { return x !== em; });
+    _blockedEmails = _blockedEmails.filter(function(x) {
+      var itmEmail = (x && typeof x === 'object' && x.email) ? String(x.email).toLowerCase().trim() : String(x || '').toLowerCase().trim();
+      return itmEmail !== em;
+    });
     await saveBlockedEmails(_blockedEmails);
     if (typeof showToast === 'function') showToast('Email ' + em + ' has been unblocked.', 'info');
     renderBlockedEmailsList();
     return true;
   }
 
+  async function updateBlockedEmailReason(email, newReason) {
+    var em = String(email || '').trim().toLowerCase();
+    await loadBlockedEmails();
+    var found = false;
+    _blockedEmails.forEach(function(item) {
+      var itmEmail = (item && typeof item === 'object' && item.email) ? String(item.email).toLowerCase().trim() : String(item || '').toLowerCase().trim();
+      if (itmEmail === em) {
+        item.reason = String(newReason || '').trim() || 'Account restricted by administrator';
+        found = true;
+      }
+    });
+    if (found) {
+      await saveBlockedEmails(_blockedEmails);
+      if (typeof showToast === 'function') showToast('Updated blocking reason for ' + em, 'success');
+      renderBlockedEmailsList();
+    }
+  }
+
+  function toggleBlockedEmailsEditMode() {
+    _blockedEmailsEditMode = !_blockedEmailsEditMode;
+    renderBlockedEmailsList();
+  }
+
+  function getBlockedEmailsListHtml() {
+    if (!_blockedEmails || _blockedEmails.length === 0) {
+      return '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:13px;"><svg class="ui-icon" style="opacity:0.5;margin-bottom:6px;width:28px;height:28px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><div style="font-weight:600;color:var(--text-secondary);">No Blocked Emails</div><div>All registered and prospective email addresses are currently allowed.</div></div>';
+    }
+
+    var rowsHtml = '';
+    _blockedEmails.forEach(function(item) {
+      var em = (item && typeof item === 'object' && item.email) ? item.email : String(item);
+      var safeEm = (typeof escapeHtml === 'function') ? escapeHtml(em) : em;
+      var date = (item && typeof item === 'object' && item.date) ? item.date : '—';
+      var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(date) : date;
+      var reason = (item && typeof item === 'object' && item.reason) ? item.reason : 'Account restricted by administrator';
+      var safeReason = (typeof escapeHtml === 'function') ? escapeHtml(reason) : reason;
+      var blockedBy = (item && typeof item === 'object' && item.blocked_by) ? item.blocked_by : 'Admin';
+      var safeBlockedBy = (typeof escapeHtml === 'function') ? escapeHtml(blockedBy) : blockedBy;
+
+      rowsHtml += '<tr>' +
+        '<td style="font-family:var(--font-mono,monospace);font-weight:600;color:var(--text-primary);">' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,0.15);color:#ef4444;flex-shrink:0;">' +
+              '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+            '</span>' +
+            safeEm +
+          '</div>' +
+        '</td>' +
+        '<td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">' + safeDate + '</td>' +
+        '<td>' +
+          (_blockedEmailsEditMode
+            ? '<input type="text" class="admin-inline-input" value="' + safeReason + '" onchange="updateBlockedEmailReason(\'' + safeEm + '\', this.value)" title="Edit Reason (autosaves)" />'
+            : '<span style="color:var(--text-secondary);">' + safeReason + '</span>') +
+        '</td>' +
+        '<td style="white-space:nowrap;color:var(--text-muted);font-size:12px;">' + safeBlockedBy + '</td>' +
+        '<td style="text-align:right;white-space:nowrap;">' +
+          '<button type="button" onclick="removeBlockedEmail(\'' + safeEm + '\')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Unblock this email address">' +
+            'Unblock' +
+          '</button>' +
+        '</td>' +
+      '</tr>';
+    });
+
+    var toolbar = '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0 12px;flex-wrap:wrap;gap:8px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<button type="button" class="portal-btn" onclick="toggleBlockedEmailsEditMode()" style="padding:5px 12px;font-size:12px;border-radius:6px;cursor:pointer;font-weight:600;' + (_blockedEmailsEditMode ? 'background:#f59e0b;border:1px solid #d97706;color:#ffffff;' : 'background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);') + '">' +
+          (_blockedEmailsEditMode ? '✏️ Edit Reasons Active' : '🔒 View Mode (Safe)') +
+        '</button>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary);">' +
+        '<span class="blocked-emails-count" style="font-weight:700;color:#ef4444;">' + _blockedEmails.length + '</span> address(es) blocked' +
+      '</div>' +
+    '</div>';
+
+    return toolbar +
+      '<div style="overflow-x:auto;border:1px solid var(--border-card);border-radius:10px;background:var(--bg-card);">' +
+        '<table class="blocked-emails-table">' +
+          '<thead>' +
+            '<tr>' +
+              '<th>Email Blocked</th>' +
+              '<th>Date Blocked</th>' +
+              '<th>Reason for Blocking</th>' +
+              '<th>Blocked By</th>' +
+              '<th style="text-align:right;">Actions</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' +
+            rowsHtml +
+          '</tbody>' +
+        '</table>' +
+      '</div>';
+  }
+
   function renderBlockedEmailsList() {
     if (typeof document === 'undefined') return;
     var listContainer = document.querySelector('.blocked-emails-list');
     if (!listContainer) return;
-
-    if (!_blockedEmails || _blockedEmails.length === 0) {
-      listContainer.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);font-size:13px;"><svg class="ui-icon" style="opacity:0.5;margin-bottom:6px;width:28px;height:28px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg><div style="font-weight:600;color:var(--text-secondary);">No Blocked Emails</div><div>All registered and prospective email addresses are currently allowed.</div></div>';
-      return;
-    }
-
-    var html = '';
-    _blockedEmails.forEach(function(em) {
-      var safeEm = (typeof escapeHtml === 'function') ? escapeHtml(em) : em;
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;margin-bottom:8px;font-size:13px;">' +
-        '<div style="display:flex;align-items:center;gap:10px;overflow:hidden;">' +
-          '<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(239,68,68,0.15);color:#ef4444;flex-shrink:0;">' +
-            '<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
-          '</span>' +
-          '<span style="font-family:var(--font-mono,monospace);font-weight:600;color:var(--text-primary);text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">' + safeEm + '</span>' +
-        '</div>' +
-        '<button type="button" onclick="removeBlockedEmail(\'' + safeEm + '\')" style="background:none;border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;" title="Unblock this email address">' +
-          'Unblock' +
-        '</button>' +
-      '</div>';
-    });
-    listContainer.innerHTML = html;
+    listContainer.innerHTML = getBlockedEmailsListHtml();
   }
 
   async function openBlockedEmailsModal() {
@@ -3474,7 +4054,7 @@ var _adminMembersCache = null;
     overlay.setAttribute('aria-label', 'Blocked Emails & Account Restrictions');
 
     overlay.innerHTML =
-      '<div class="modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:16px;max-width:520px;width:100%;box-shadow:var(--shadow-modal,0 20px 40px rgba(0,0,0,0.5));overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">' +
+      '<div class="modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:16px;max-width:820px;width:100%;box-shadow:var(--shadow-modal,0 20px 40px rgba(0,0,0,0.5));overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">' +
         '<div style="padding:18px 22px;border-bottom:1px solid var(--border-card);display:flex;align-items:center;justify-content:space-between;background:var(--bg-card-subtle);">' +
           '<div style="display:flex;align-items:center;gap:10px;">' +
             '<div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,0.15);color:#ef4444;display:flex;align-items:center;justify-content:center;">' +
@@ -3487,11 +4067,16 @@ var _adminMembersCache = null;
           '</div>' +
           '<button type="button" onclick="closeBlockedEmailsModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1;" aria-label="Close dialog">✕</button>' +
         '</div>' +
-        '<div style="padding:18px 22px;display:flex;gap:8px;border-bottom:1px solid var(--border-card);">' +
-          '<input type="email" class="form-input new-blocked-email-input" placeholder="Enter email to block (e.g. spam@test.com)" style="flex:1;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitAddBlockedEmail();}"/>' +
-          '<button type="button" class="submit-btn" onclick="submitAddBlockedEmail()" style="width:auto;margin:0;padding:8px 16px;font-size:13px;background:#b91c1c;color:#ffffff;border:none;white-space:nowrap;font-weight:600;">Block Email</button>' +
+        '<div style="padding:16px 22px;display:flex;gap:8px;border-bottom:1px solid var(--border-card);flex-wrap:wrap;background:var(--bg-card-subtle);">' +
+          '<input type="email" class="form-input new-blocked-email-input" placeholder="Enter email to block (e.g. spam@test.com)" style="flex:1;min-width:200px;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitAddBlockedEmail();}"/>' +
+          '<input type="text" class="form-input new-blocked-reason-input" placeholder="Reason for blocking (e.g. Spam, duplicate account)" style="flex:1.5;min-width:220px;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitAddBlockedEmail();}"/>' +
+          '<button type="button" class="submit-btn" onclick="submitAddBlockedEmail()" style="width:auto;margin:0;padding:8px 18px;font-size:13px;background:#b91c1c;color:#ffffff;border:none;white-space:nowrap;font-weight:600;display:inline-flex;align-items:center;gap:6px;">' +
+            '<svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+            'Block Email' +
+          '</button>' +
         '</div>' +
-        '<div class="blocked-emails-list" style="padding:18px 22px;overflow-y:auto;flex:1;max-height:380px;">' +
+        '<div class="blocked-emails-list" style="padding:18px 22px;overflow-y:auto;flex:1;max-height:420px;">' +
+          getBlockedEmailsListHtml() +
         '</div>' +
         '<div style="padding:12px 22px;background:var(--bg-card-subtle);border-top:1px solid var(--border-card);display:flex;justify-content:flex-end;">' +
           '<button type="button" onclick="closeBlockedEmailsModal()" class="submit-btn" style="width:auto;margin:0;padding:6px 16px;font-size:13px;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);">Done</button>' +
@@ -3516,12 +4101,16 @@ var _adminMembersCache = null;
 
   async function submitAddBlockedEmail() {
     if (typeof document === 'undefined') return;
-    var input = document.querySelector('.new-blocked-email-input');
-    if (!input) return;
-    var ok = await addBlockedEmail(input.value);
+    var emailInput = document.querySelector('.new-blocked-email-input');
+    var reasonInput = document.querySelector('.new-blocked-reason-input');
+    if (!emailInput) return;
+    var em = (emailInput.value || '').trim();
+    var reason = reasonInput ? (reasonInput.value || '').trim() : '';
+    var ok = await addBlockedEmail(em, reason);
     if (ok) {
-      input.value = '';
-      input.focus();
+      emailInput.value = '';
+      if (reasonInput) reasonInput.value = '';
+      emailInput.focus();
     }
   }
 
@@ -3582,9 +4171,18 @@ var _adminMembersCache = null;
     global.saveBlockedEmails         = saveBlockedEmails;
     global.addBlockedEmail           = addBlockedEmail;
     global.removeBlockedEmail        = removeBlockedEmail;
+    global.updateBlockedEmailReason  = updateBlockedEmailReason;
+    global.toggleBlockedEmailsEditMode = toggleBlockedEmailsEditMode;
     global.openBlockedEmailsModal    = openBlockedEmailsModal;
     global.closeBlockedEmailsModal   = closeBlockedEmailsModal;
     global.submitAddBlockedEmail     = submitAddBlockedEmail;
+    global.setAdminMembersViewMode   = setAdminMembersViewMode;
+    global.getAdminMembersViewMode   = getAdminMembersViewMode;
+    global.toggleAdminMemberEditMode = toggleAdminMemberEditMode;
+    global.getAdminMemberEditMode    = getAdminMemberEditMode;
+    global.setAdminMemberFilter      = setAdminMemberFilter;
+    global.resetAdminMemberFilters   = resetAdminMemberFilters;
+    global.updateMemberField         = updateMemberField;
     global.setAdminViewMode          = setAdminViewMode;
     global.getAdminViewMode          = getAdminViewMode;
     global._adminMembers            = _adminMembers;
@@ -3601,7 +4199,7 @@ var _adminMembersCache = null;
       OFFICER_RANKS: typeof OFFICER_RANKS !== 'undefined' ? OFFICER_RANKS : [],
       populateRankOptions: typeof populateRankOptions === 'function' ? populateRankOptions : null,
       getRanksForSection: typeof getRanksForSection === 'function' ? getRanksForSection : null,
-    DEFAULT_DEPT_CONFIG,
+      DEFAULT_DEPT_CONFIG: DEFAULT_DEPT_CONFIG,
       openAdmin: openAdmin,
       getAdminMemberAvatarHtml: getAdminMemberAvatarHtml,
       renderCreatorAvatarOutlinesStudio: renderCreatorAvatarOutlinesStudio,
@@ -3625,7 +4223,14 @@ var _adminMembersCache = null;
       calcAge: calcAge,
       setAdminSort: setAdminSort,
       renderAdminList: renderAdminList,
-    _adminPresenceMap: _adminPresenceMap,
+      setAdminMembersViewMode: setAdminMembersViewMode,
+      getAdminMembersViewMode: getAdminMembersViewMode,
+      toggleAdminMemberEditMode: toggleAdminMemberEditMode,
+      getAdminMemberEditMode: getAdminMemberEditMode,
+      setAdminMemberFilter: setAdminMemberFilter,
+      resetAdminMemberFilters: resetAdminMemberFilters,
+      updateMemberField: updateMemberField,
+      _adminPresenceMap: _adminPresenceMap,
       handleAdminSectionChange: handleAdminSectionChange,
       handleAdminRankChange: handleAdminRankChange,
       populateSquadOptions: typeof populateSquadOptions === 'function' ? populateSquadOptions : (typeof window !== 'undefined' ? window.populateSquadOptions : null),
@@ -3652,8 +4257,11 @@ var _adminMembersCache = null;
       saveBlockedEmails: saveBlockedEmails,
       addBlockedEmail: addBlockedEmail,
       removeBlockedEmail: removeBlockedEmail,
+      updateBlockedEmailReason: updateBlockedEmailReason,
+      toggleBlockedEmailsEditMode: toggleBlockedEmailsEditMode,
       openBlockedEmailsModal: openBlockedEmailsModal,
       closeBlockedEmailsModal: closeBlockedEmailsModal,
+      submitAddBlockedEmail: submitAddBlockedEmail,
       setAdminViewMode: setAdminViewMode,
       getAdminViewMode: getAdminViewMode,
       renderAdminAuditLogs: renderAdminAuditLogs,

@@ -2685,9 +2685,10 @@ function exportAdminOrdersToCsv(ordersToExport) {
     '</Row>';
   });
 
-  // Footer with merged cells across column 1 and 2
+  // Footer row without merging: Column A has items list, Column B is empty, Column C has Total Items, Column D has Total Value
   s2RowsXml += '<Row ss:StyleID="Footer">' +
-    '<Cell ss:MergeAcross="1"><Data ss:Type="String">' + escapeXml(prepMergedList.join(', ')) + '</Data></Cell>' +
+    '<Cell><Data ss:Type="String">' + escapeXml(prepMergedList.join(', ')) + '</Data></Cell>' +
+    '<Cell><Data ss:Type="String"></Data></Cell>' +
     '<Cell><Data ss:Type="String">Total Items: ' + totalPrepItems + ' items</Data></Cell>' +
     '<Cell><Data ss:Type="String">Total Value: RM ' + totalPrepValue.toFixed(2) + '</Data></Cell>' +
   '</Row>';

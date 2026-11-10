@@ -901,7 +901,7 @@ async function registerMember() {
         var blkRows = await supaCli.get('bb_config?key=eq.bb_blocked_emails&select=value');
         if (Array.isArray(blkRows) && blkRows.length > 0 && blkRows[0].value) {
           var blkList = typeof blkRows[0].value === 'string' ? JSON.parse(blkRows[0].value) : blkRows[0].value;
-          if (Array.isArray(blkList) && blkList.map(function(x) { return String(x).toLowerCase().trim(); }).includes(email)) {
+          if (Array.isArray(blkList) && blkList.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(email)) {
             isBlocked = true;
           }
         }
@@ -914,7 +914,7 @@ async function registerMember() {
         var localBlk = localStorage.getItem('bb_blocked_emails');
         if (localBlk) {
           var parsedLocal = JSON.parse(localBlk);
-          if (Array.isArray(parsedLocal) && parsedLocal.map(function(x) { return String(x).toLowerCase().trim(); }).includes(email)) {
+          if (Array.isArray(parsedLocal) && parsedLocal.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(email)) {
             isBlocked = true;
           }
         }
@@ -1670,7 +1670,7 @@ async function loginMember() {
       var blkLoginRows = await clientSupa.get('bb_config?key=eq.bb_blocked_emails&select=value');
       if (Array.isArray(blkLoginRows) && blkLoginRows.length > 0 && blkLoginRows[0].value) {
         var blkLogList = typeof blkLoginRows[0].value === 'string' ? JSON.parse(blkLoginRows[0].value) : blkLoginRows[0].value;
-        if (Array.isArray(blkLogList) && blkLogList.map(function(x) { return String(x).toLowerCase().trim(); }).includes(cleanIdent)) {
+        if (Array.isArray(blkLogList) && blkLogList.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(cleanIdent)) {
           isLoginBlocked = true;
         }
       }
@@ -1681,7 +1681,7 @@ async function loginMember() {
       var localLogBlk = localStorage.getItem('bb_blocked_emails');
       if (localLogBlk) {
         var parsedLogBlk = JSON.parse(localLogBlk);
-        if (Array.isArray(parsedLogBlk) && parsedLogBlk.map(function(x) { return String(x).toLowerCase().trim(); }).includes(cleanIdent)) {
+        if (Array.isArray(parsedLogBlk) && parsedLogBlk.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(cleanIdent)) {
           isLoginBlocked = true;
         }
       }

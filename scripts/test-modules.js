@@ -11105,7 +11105,123 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(componentsCss.includes("[data-theme='light'] .podium-name"), 'components.css must define high contrast light theme podium name');
     console.log('  ✔ Leaderboard light mode contrast tokens and platoon classes verified');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Admin Console Full-Width, Member Spreadsheet Database View & Blocked Emails
+    console.log('\nTesting Admin Full-Width, Member Spreadsheet View & Blocked Emails...');
+    const adminStylesheet = fs.readFileSync('css/admin.css', 'utf8');
+    assert.ok(adminStylesheet.includes('max-width: min(1680px, 98vw) !important'), 'admin.css must expand admin container to fill wide screens');
+    assert.ok(adminStylesheet.includes('.admin-members-table-wrapper'), 'admin.css must define members table wrapper');
+    assert.ok(adminStylesheet.includes('.admin-inline-input'), 'admin.css must define inline spreadsheet inputs');
+    assert.ok(adminStylesheet.includes('.blocked-emails-table'), 'admin.css must define blocked emails database table');
+
+    // Setup dedicated Supabase mock client for admin tests
+    let blockedStorage = [];
+    const testAdminSupa = {
+      get: async (path) => {
+        if (path.includes('bb_members')) {
+          return [
+            { ic: 'test@pjbb.org', name: 'Alexander Tan', rank: 'Sergeant', squad: 'Alpha', section: 'Senior', department: 'hq', date_of_birth: '2008-01-01' }
+          ];
+        }
+        if (path.includes('bb_blocked_emails')) {
+          return [{ value: JSON.stringify(blockedStorage) }];
+        }
+        return [];
+      },
+      patch: async (path, body) => {
+        if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
+          blockedStorage = JSON.parse(body.value);
+        }
+        return [body];
+      },
+      post: async (path, body) => {
+        if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
+          blockedStorage = JSON.parse(body.value);
+        }
+        return [body];
+      },
+      req: async (method, path, body) => {
+        if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
+          blockedStorage = JSON.parse(body.value);
+        }
+        return [body];
+      }
+    };
+    global.supa = testAdminSupa;
+    global.getSupaClient = () => testAdminSupa;
+    if (typeof window !== 'undefined') {
+      window.supa = testAdminSupa;
+      window.getSupaClient = () => testAdminSupa;
+    }
+
+    // Orders Sheet 2 Footer Unmerged Cells Check
+    const ordersJs = fs.readFileSync('js/modules/orders.js', 'utf8');
+    assert.ok(!ordersJs.includes('<Cell ss:MergeAcross="1">'), 'orders.js export must not merge columns A & B on Sheet 2');
+    assert.ok(ordersJs.includes('<Cell><Data ss:Type="String">\' + escapeXml(prepMergedList.join(\', \'))'), 'orders.js exports item list in column A');
+
+    // Admin Member Table View & Controls
+    assert.strictEqual(typeof adminModule.getAdminMembersViewMode, 'function', 'getAdminMembersViewMode must be exported');
+    assert.strictEqual(typeof adminModule.setAdminMembersViewMode, 'function', 'setAdminMembersViewMode must be exported');
+    assert.strictEqual(typeof adminModule.toggleAdminMemberEditMode, 'function', 'toggleAdminMemberEditMode must be exported');
+    assert.strictEqual(typeof adminModule.updateMemberField, 'function', 'updateMemberField must be exported');
+
+    adminModule.setAdminMembersViewMode('table');
+    assert.strictEqual(adminModule.getAdminMembersViewMode(), 'table', 'View mode switches to table');
+    await adminModule.renderAdminList(true);
+    let memberListEl = document.getElementById('admin-members-list');
+    assert.ok(memberListEl.innerHTML.includes('admin-members-table'), 'renderAdminList generates database table in table view mode');
+    assert.ok(memberListEl.innerHTML.includes('admin-members-toolbar'), 'renderAdminList generates toolbar');
+    assert.ok(memberListEl.innerHTML.includes('View Mode (Safe)'), 'renderAdminList defaults to safe view mode');
+
+    // Toggle Edit Mode
+    adminModule.toggleAdminMemberEditMode();
+    assert.strictEqual(adminModule.getAdminMemberEditMode(), true, 'Edit mode active');
+    await adminModule.renderAdminList();
+    assert.ok(memberListEl.innerHTML.includes('admin-table-row-editing'), 'renderAdminList renders editing rows in edit mode');
+    assert.ok(memberListEl.innerHTML.includes('admin-inline-input'), 'renderAdminList renders inline inputs in edit mode');
+    assert.ok(memberListEl.innerHTML.includes('admin-inline-select'), 'renderAdminList renders inline dropdowns in edit mode');
+
+    // Test updateMemberField
+    let patchPath = '', patchBody = null;
+    testAdminSupa.patch = async (path, body) => {
+      patchPath = path;
+      patchBody = body;
+      return [body];
+    };
+    if (typeof window !== 'undefined' && window.supa) {
+      window.supa.patch = testAdminSupa.patch;
+    }
+    await adminModule.updateMemberField('test@pjbb.org', 'rank', 'Sergeant');
+    assert.ok(patchPath.includes('test%40pjbb.org') || patchPath.includes('test@pjbb.org'), 'updateMemberField calls patch on member IC');
+    assert.strictEqual(patchBody.rank, 'Sergeant', 'updateMemberField persists updated rank');
+
+    // Reset back to Safe View Mode
+    adminModule.toggleAdminMemberEditMode();
+    assert.strictEqual(adminModule.getAdminMemberEditMode(), false, 'Edit mode disabled');
+
+    // Blocked Emails Spreadsheet & Reason Editing
+    const testReasonEmail = 'troublemaker@spam.org';
+    await adminModule.addBlockedEmail(testReasonEmail, 'Inappropriate behavior');
+    let blkRecords = await adminModule.loadBlockedEmails();
+    assert.ok(blkRecords.includes(testReasonEmail), 'Blocked emails array includes helper works');
+    const matchedRecord = blkRecords.find(x => (x.email || x) === testReasonEmail);
+    assert.strictEqual(matchedRecord.reason, 'Inappropriate behavior', 'addBlockedEmail saves reason');
+
+    await adminModule.updateBlockedEmailReason(testReasonEmail, 'Updated reason: Suspended for 30 days');
+    blkRecords = await adminModule.loadBlockedEmails();
+    const updatedRecord = blkRecords.find(x => (x.email || x) === testReasonEmail);
+    assert.strictEqual(updatedRecord.reason, 'Updated reason: Suspended for 30 days', 'updateBlockedEmailReason updates reason');
+
+    await adminModule.openBlockedEmailsModal();
+    const modalEl = document.querySelector('.blocked-emails-modal-overlay');
+    assert.ok(modalEl && modalEl.innerHTML.includes('blocked-emails-table'), 'openBlockedEmailsModal renders spreadsheet database table');
+    assert.ok(modalEl.innerHTML.includes('Reason for Blocking'), 'openBlockedEmailsModal includes Reason column');
+
+    await adminModule.removeBlockedEmail(testReasonEmail);
+    blkRecords = await adminModule.loadBlockedEmails();
+    assert.strictEqual(blkRecords.includes(testReasonEmail), false, 'removeBlockedEmail removes address');
+    console.log('  ✔ Admin console full-width, member spreadsheet view, inline editing, and blocked emails management verified');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
