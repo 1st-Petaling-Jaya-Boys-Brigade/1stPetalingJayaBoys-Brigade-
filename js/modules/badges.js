@@ -1268,15 +1268,19 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
 
   var fillClass = res.overallEligible ? 'presidents-progress-fill complete' : 'presidents-progress-fill';
 
+  var presBadgeDef = defs.find(function(b) {
+    return b.id === 'bb3' || (b.name && b.name.toLowerCase().indexOf("president's award") !== -1);
+  });
+  var presIconUrl = (presBadgeDef && presBadgeDef.image)
+    ? (typeof safeUrl === 'function' ? safeUrl(presBadgeDef.image, "assets/BB%20Badges/President's%20Award.png") : presBadgeDef.image)
+    : "assets/BB%20Badges/President's%20Award.png";
+
   container.innerHTML =
     '<div class="presidents-tracker-card">' +
       '<div class="presidents-tracker-header">' +
         '<div class="presidents-tracker-title-wrap">' +
           '<div class="presidents-tracker-icon">' +
-            '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-              '<circle cx="12" cy="8" r="6"/>' +
-              '<path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>' +
-            '</svg>' +
+            '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(presIconUrl) : presIconUrl) + '" alt="President\'s Award" style="width:100%;height:100%;object-fit:contain;display:block;" onerror="this.style.display=\'none\'"/>' +
           '</div>' +
           '<div>' +
             '<div class="presidents-tracker-title">President\'s Award Tracker</div>' +

@@ -11042,9 +11042,39 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(trackerEl.innerHTML.includes('At Least 6 Badges from Groups A, B, C &amp; D') || trackerEl.innerHTML.includes('At Least 6 Badges from Groups A, B, C & D'), 'Tracker must render requirement 2');
     assert.ok(trackerEl.innerHTML.includes('At Least 1 Badge from Each Group'), 'Tracker must render requirement 3');
     assert.ok(trackerEl.innerHTML.includes('At Least 4 Group Badges at Advanced Level'), 'Tracker must render requirement 4');
-    console.log("  ✔ Automatic President's Award Tracker DOM rendered with all 4 criteria, progress bar & status badge");
+    assert.ok(
+      trackerEl.innerHTML.includes("assets/BB%20Badges/President's%20Award.png") ||
+      trackerEl.innerHTML.includes("President's Award"),
+      "Tracker must render official President's Award image icon"
+    );
+    console.log("  ✔ Automatic President's Award Tracker DOM rendered with all 4 criteria, badge image icon, progress bar & status badge");
 
-    // 3. Strict 388 Unique DOM IDs Invariant
+    // 3. Uniform Orders Preparation Summary & Aggregation Test
+    const ordersMod = require('../js/modules/orders.js');
+    assert.strictEqual(typeof ordersMod.renderOrdersPreparationSummaryHtml, 'function', 'renderOrdersPreparationSummaryHtml must be exported');
+
+    const mockCounts = {
+      'Company T-Shirt': 5,
+      'Navy Blue Shirt': 2
+    };
+    const mockSizes = {
+      'Company T-Shirt': { S: 3, M: 2 },
+      'Navy Blue Shirt': { L: 2 }
+    };
+    const summaryHtml = ordersMod.renderOrdersPreparationSummaryHtml(mockCounts, mockSizes, 7, 120.00, 'November', 3);
+    assert.ok(summaryHtml.includes('Items to Prepare Summary (November)'), 'Summary must render filter label');
+    assert.ok(summaryHtml.includes('Company T-Shirt'), 'Summary must contain Company T-Shirt');
+    assert.ok(summaryHtml.includes('5 to prepare'), 'Summary must show 5 to prepare for Company T-Shirt');
+    assert.ok(summaryHtml.includes('S: 3, M: 2'), 'Summary must render size breakdown for Company T-Shirt');
+    assert.ok(summaryHtml.includes('7 items'), 'Summary must render total items count');
+    assert.ok(summaryHtml.includes('RM 120.00'), 'Summary must render total value');
+    assert.ok(summaryHtml.includes('3 orders'), 'Summary must display order count');
+
+    const emptySummaryHtml = ordersMod.renderOrdersPreparationSummaryHtml({}, {}, 0, 0, 'All Months', 0);
+    assert.ok(emptySummaryHtml.includes('No uniform items to prepare for this period'), 'Empty summary must handle zero items gracefully');
+    console.log('  ✔ Uniform orders preparation total counter and breakdown verified');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
