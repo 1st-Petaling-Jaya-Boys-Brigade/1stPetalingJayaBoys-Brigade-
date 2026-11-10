@@ -54,18 +54,23 @@
 
   // ── Internal State ────────────────────────────────────────────────────────
   var _adminSortBy     = 'name';
+  var _adminSortDir    = 'asc'; // 'asc' | 'desc'
   var _adminMembers       = {};
   var _adminPresenceMap   = {};
   var _adminTaskFilter = 'all';
   var _allAdminTasks   = [];
   var _adminMembersViewMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_admin_members_view')) || 'table';
   var _adminMemberEditMode = false;
+  var _adminMembersSubView = 'members'; // 'members' | 'blocked_emails'
+  var _activeFilterCol = null;
   var _adminMemberFilters = {
     section: '',
     rank: '',
     squad: '',
     dept: '',
-    status: ''
+    status: '',
+    consent: '',
+    nameSearch: ''
   };
 
   function setAdminMembersViewMode(mode) {
@@ -73,7 +78,7 @@
     if (typeof localStorage !== 'undefined') {
       try { localStorage.setItem('bb_admin_members_view', _adminMembersViewMode); } catch (_) {}
     }
-    renderAdminList();
+    return renderAdminList();
   }
 
   function getAdminMembersViewMode() {
@@ -89,18 +94,52 @@
         showToast('View Mode (Safe): Direct cell editing disabled.', 'info');
       }
     }
-    renderAdminList();
+    return renderAdminList();
   }
 
   function getAdminMemberEditMode() {
     return _adminMemberEditMode;
   }
 
+  function toggleColumnFilterMenu(col, ev) {
+    if (ev) {
+      if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (typeof ev.preventDefault === 'function') ev.preventDefault();
+    }
+    if (_activeFilterCol === col) {
+      _activeFilterCol = null;
+    } else {
+      _activeFilterCol = col;
+    }
+    return renderAdminList();
+  }
+
+  function closeColumnFilterMenu() {
+    if (_activeFilterCol !== null) {
+      _activeFilterCol = null;
+      return renderAdminList();
+    }
+  }
+
+  function clearColumnFilter(col) {
+    if (col === 'member' || col === 'name') {
+      _adminMemberFilters.nameSearch = '';
+    } else if (col in _adminMemberFilters) {
+      _adminMemberFilters[col] = '';
+    }
+    return closeColumnFilterMenu();
+  }
+
+  function setColumnSort(colKey, dir) {
+    return setAdminSort(colKey, dir);
+  }
+
   function setAdminMemberFilter(field, value) {
     if (_adminMemberFilters && field in _adminMemberFilters) {
       _adminMemberFilters[field] = value || '';
     }
-    renderAdminList();
+    closeColumnFilterMenu();
+    return renderAdminList();
   }
 
   function resetAdminMemberFilters() {
@@ -109,13 +148,316 @@
       rank: '',
       squad: '',
       dept: '',
-      status: ''
+      status: '',
+      consent: '',
+      nameSearch: ''
     };
+    _adminSortBy = 'name';
+    _adminSortDir = 'asc';
+    _activeFilterCol = null;
     if (typeof document !== 'undefined') {
       var sInput = document.getElementById('admin-search');
       if (sInput) sInput.value = '';
     }
-    renderAdminList();
+    return renderAdminList();
+  }
+
+  function renderColumnHeader(colKey, label, sortKey, filterType, membersList) {
+    var isFiltered = !!_adminMemberFilters[colKey] || (colKey === 'member' && !!_adminMemberFilters.nameSearch);
+    var isSorted = (_adminSortBy === (sortKey || colKey));
+    var sortIndicator = isSorted ? (_adminSortDir === 'desc' ? ' \u25BC' : ' \u25B2') : '';
+
+    var btnClass = 'sheets-filter-btn' + (isFiltered ? ' is-filtered' : '') + (isSorted ? ' is-sorted' : '') + (_activeFilterCol === colKey ? ' is-active' : '');
+
+    var popoverHtml = '';
+    if (_activeFilterCol === colKey) {
+      popoverHtml = renderColumnPopover(colKey, label, sortKey || colKey, filterType, membersList);
+    }
+
+    return '<th class="sheets-th" data-col="' + colKey + '">' +
+      '<div class="sheets-th-content">' +
+        '<span class="sheets-th-label">' + label + '</span>' +
+        '<button type="button" class="' + btnClass + '" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" title="Filter &amp; Sort ' + label + '">' +
+          '<svg class="sheets-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>' +
+          '</svg>' +
+          (sortIndicator ? '<span class="sheets-sort-indicator">' + sortIndicator + '</span>' : '') +
+        '</button>' +
+      '</div>' +
+      popoverHtml +
+    '</th>';
+  }
+
+  function renderColumnPopover(colKey, label, sortKey, filterType) {
+    var ascLabel = 'Sort A \u2192 Z';
+    var descLabel = 'Sort Z \u2192 A';
+    if (sortKey === 'age') {
+      ascLabel = 'Sort Youngest to Oldest';
+      descLabel = 'Sort Oldest to Youngest';
+    } else if (sortKey === 'status') {
+      ascLabel = 'Sort Online First';
+      descLabel = 'Sort Offline First';
+    }
+
+    var sortBtns =
+      '<div class="sfp-section">' +
+        '<div class="sfp-section-label">Sort</div>' +
+        '<button type="button" class="sfp-btn' + (_adminSortBy === sortKey && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + sortKey + '\', \'asc\')">' +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h12M3 18h6"/></svg> ' + ascLabel +
+        '</button>' +
+        '<button type="button" class="sfp-btn' + (_adminSortBy === sortKey && _adminSortDir === 'desc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + sortKey + '\', \'desc\')">' +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h18M3 12h12M3 6h6"/></svg> ' + descLabel +
+        '</button>' +
+        (sortKey === 'rank' ? '<button type="button" class="sfp-btn' + (_adminSortBy === 'rank' && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'rank\', \'asc\')"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Sort by BB Rank Order</button>' : '') +
+      '</div>';
+
+    var filterBody = '';
+    if (filterType === 'search') {
+      var curVal = _adminMemberFilters.nameSearch || '';
+      filterBody =
+        '<div class="sfp-section">' +
+          '<div class="sfp-section-label">Filter by Name or ID</div>' +
+          '<div class="sfp-search-box">' +
+            '<input type="text" class="sfp-input" placeholder="Type name or email..." value="' + ((typeof escapeHtml === 'function') ? escapeHtml(curVal) : curVal) + '" oninput="setAdminMemberFilter(\'nameSearch\', this.value)" autofocus />' +
+          '</div>' +
+        '</div>';
+    } else if (filterType === 'options') {
+      var opts = [];
+      if (colKey === 'section') {
+        opts = ['Senior', 'Junior', 'Pre-Junior', 'Officer'];
+      } else if (colKey === 'rank') {
+        opts = ['Captain', 'Lieutenant', 'Staff Sergeant', 'Sergeant', 'Corporal', 'Lance Corporal', 'Private', 'Recruit', 'Pre-Junior', 'Junior'];
+      } else if (colKey === 'squad') {
+        opts = ['Alpha Platoon', 'Bravo Platoon', 'Charlie Platoon', 'Delta Platoon', 'Echo Platoon', 'Foxtrot Platoon', 'Golf Platoon', 'Hotel Platoon', 'India Platoon', 'Zulu Platoon', 'Papa Platoon', 'Officers'];
+      } else if (colKey === 'dept') {
+        opts = [
+          { val: 'hq', label: 'HQ' },
+          { val: 'media', label: 'Media' },
+          { val: 'logistics', label: 'Logistics' },
+          { val: 'secretariat', label: 'Secretariat' },
+          { val: 'officers', label: 'Officers' },
+          { val: 'none', label: 'No Department' }
+        ];
+      } else if (colKey === 'status') {
+        opts = [
+          { val: 'online', label: 'Online' },
+          { val: 'idle', label: 'Idle' },
+          { val: 'offline', label: 'Offline' }
+        ];
+      } else if (colKey === 'consent') {
+        opts = [
+          { val: 'ok', label: 'Consent OK' },
+          { val: 'pending', label: 'Consent Pending' },
+          { val: 'no_media', label: 'No Media' }
+        ];
+      }
+
+      var curFilterVal = _adminMemberFilters[colKey] || '';
+      var listHtml = '<div class="sfp-option' + (!curFilterVal ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'' + colKey + '\', \'\')"><span>(All)</span>' + (!curFilterVal ? '<span>\u2713</span>' : '') + '</div>';
+
+      opts.forEach(function(opt) {
+        var val = typeof opt === 'object' ? opt.val : opt;
+        var lbl = typeof opt === 'object' ? opt.label : opt;
+        var isSel = (curFilterVal.toLowerCase() === val.toLowerCase());
+        listHtml += '<div class="sfp-option' + (isSel ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'' + colKey + '\', \'' + val + '\')">' +
+          '<span>' + lbl + '</span>' +
+          (isSel ? '<span>\u2713</span>' : '') +
+        '</div>';
+      });
+
+      filterBody =
+        '<div class="sfp-section">' +
+          '<div class="sfp-section-label">Filter by Value</div>' +
+          '<div class="sfp-options-list">' + listHtml + '</div>' +
+        '</div>';
+    }
+
+    var isFiltered = !!_adminMemberFilters[colKey] || (colKey === 'member' && !!_adminMemberFilters.nameSearch);
+
+    return '<div class="sheets-filter-popover" onclick="event.stopPropagation();">' +
+      '<div class="sfp-header">' +
+        '<span class="sfp-title">Filter &amp; Sort: ' + label + '</span>' +
+        '<button type="button" class="sfp-close-btn" onclick="closeColumnFilterMenu()" aria-label="Close">\u2715</button>' +
+      '</div>' +
+      sortBtns +
+      '<div class="sfp-divider"></div>' +
+      filterBody +
+      (isFiltered ? '<div class="sfp-footer"><button type="button" class="sfp-clear-btn" onclick="clearColumnFilter(\'' + colKey + '\')">Clear Filter</button></div>' : '') +
+    '</div>';
+  }
+
+  async function openBlockedEmailsView() {
+    _adminMembersSubView = 'blocked_emails';
+    await loadBlockedEmails();
+
+    if (typeof document !== 'undefined') {
+      var secEl = document.getElementById('adm-section-members');
+      if (secEl) {
+        var header = secEl.querySelector('.adm-section-header');
+        if (header) header.style.display = 'none';
+        var searchInput = document.getElementById('admin-search');
+        if (searchInput && searchInput.parentElement) searchInput.parentElement.style.display = 'none';
+        var sortRow = document.getElementById('sort-name') ? document.getElementById('sort-name').parentElement : null;
+        if (sortRow) sortRow.style.display = 'none';
+      }
+    }
+    renderBlockedEmailsFullView();
+  }
+
+  function backToMembersList() {
+    _adminMembersSubView = 'members';
+    if (typeof document !== 'undefined') {
+      var secEl = document.getElementById('adm-section-members');
+      if (secEl) {
+        var header = secEl.querySelector('.adm-section-header');
+        if (header) header.style.display = 'flex';
+        var searchInput = document.getElementById('admin-search');
+        if (searchInput && searchInput.parentElement) searchInput.parentElement.style.display = 'flex';
+        var sortRow = document.getElementById('sort-name') ? document.getElementById('sort-name').parentElement : null;
+        if (sortRow) sortRow.style.display = 'none'; // keep legacy sort row hidden
+      }
+    }
+    return renderAdminList();
+  }
+
+  function renderBlockedEmailsFullView() {
+    if (typeof document === 'undefined') return;
+    var container = document.getElementById('admin-members-list');
+    if (!container) return;
+
+    var searchQ = '';
+    var searchEl = document.getElementById('blocked-emails-search');
+    if (searchEl) searchQ = (searchEl.value || '').trim().toLowerCase();
+
+    var records = (_blockedEmails || []).filter(function(item) {
+      if (!searchQ) return true;
+      var em = (item && typeof item === 'object' && item.email) ? item.email : String(item);
+      var reason = (item && typeof item === 'object' && item.reason) ? item.reason : '';
+      return em.toLowerCase().indexOf(searchQ) !== -1 || reason.toLowerCase().indexOf(searchQ) !== -1;
+    });
+
+    var rowsHtml = '';
+    if (!records.length) {
+      rowsHtml = '<tr><td colspan="5" style="text-align:center;padding:36px 16px;color:var(--text-muted);">' +
+        '<div style="margin-bottom:8px;"><svg class="ui-icon-lg" style="opacity:0.4;width:32px;height:32px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>' +
+        '<div style="font-weight:700;color:var(--text-primary);font-size:14px;margin-bottom:4px;">No Blocked Emails Found</div>' +
+        '<div style="font-size:12px;">All registered and prospective email addresses are currently allowed.</div>' +
+      '</td></tr>';
+    } else {
+      records.forEach(function(item) {
+        var em = (item && typeof item === 'object' && item.email) ? item.email : String(item);
+        var safeEm = (typeof escapeHtml === 'function') ? escapeHtml(em) : em;
+        var date = (item && typeof item === 'object' && item.date) ? item.date : '\u2014';
+        var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(date) : date;
+        var reason = (item && typeof item === 'object' && item.reason) ? item.reason : 'Account restricted by administrator';
+        var safeReason = (typeof escapeHtml === 'function') ? escapeHtml(reason) : reason;
+        var blockedBy = (item && typeof item === 'object' && item.blocked_by) ? item.blocked_by : 'Admin';
+        var safeBlockedBy = (typeof escapeHtml === 'function') ? escapeHtml(blockedBy) : blockedBy;
+
+        rowsHtml += '<tr>' +
+          '<td style="font-family:var(--font-mono,monospace);font-weight:600;color:var(--text-primary);">' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,0.15);color:#ef4444;flex-shrink:0;">' +
+                '<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+              '</span>' +
+              '<span class="admin-member-email">' + safeEm + '</span>' +
+            '</div>' +
+          '</td>' +
+          '<td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;">' + safeDate + '</td>' +
+          '<td>' +
+            (_blockedEmailsEditMode
+              ? '<input type="text" class="admin-inline-input" value="' + safeReason + '" onchange="updateBlockedEmailReason(\'' + safeEm + '\', this.value)" title="Edit Reason (autosaves)" />'
+              : '<span style="color:var(--text-secondary);font-weight:500;">' + safeReason + '</span>') +
+          '</td>' +
+          '<td style="white-space:nowrap;color:var(--text-muted);font-size:12px;">' + safeBlockedBy + '</td>' +
+          '<td style="text-align:right;white-space:nowrap;">' +
+            '<button type="button" onclick="removeBlockedEmail(\'' + safeEm + '\')" class="portal-btn" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;" title="Unblock this email address">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Unblock' +
+            '</button>' +
+          '</td>' +
+        '</tr>';
+      });
+    }
+
+    var editBannerHtml = _blockedEmailsEditMode
+      ? '<div class="admin-edit-mode-banner"><span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <strong>Edit Mode Active:</strong> You can edit blocking reasons directly in table cells. Changes autosave to the database.</span><button type="button" onclick="toggleBlockedEmailsEditMode()" style="background:none;border:1px solid currentColor;color:inherit;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Exit Edit Mode</button></div>'
+      : '';
+
+    container.innerHTML =
+      '<div class="blocked-emails-fullview">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">' +
+          '<div style="display:flex;align-items:center;gap:12px;">' +
+            '<button type="button" class="portal-btn" onclick="backToMembersList()" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);padding:8px 14px;border-radius:10px;cursor:pointer;font-family:var(--font-headline);font-size:13px;font-weight:600;">' +
+              '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>' +
+              'Back to Members' +
+            '</button>' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<div style="width:36px;height:36px;border-radius:10px;background:rgba(239,68,68,0.15);color:#ef4444;display:flex;align-items:center;justify-content:center;">' +
+                '<svg style="width:20px;height:20px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+              '</div>' +
+              '<div>' +
+                '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);">Blocked Emails &amp; Restrictions</div>' +
+                '<div style="font-size:12px;color:var(--text-secondary);">Block email addresses from registering accounts or logging in</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="blocked-emails-add-form">' +
+          '<input type="email" id="fullview-blocked-email-inp" class="form-input" placeholder="Enter email to block (e.g. spam@test.com)" style="flex:1;min-width:200px;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitAddBlockedEmailFullView();}" />' +
+          '<input type="text" id="fullview-blocked-reason-inp" class="form-input" placeholder="Reason for blocking (e.g. Spam, duplicate account)" style="flex:1.5;min-width:220px;font-size:13px;" onkeydown="if(event.key===\'Enter\'){event.preventDefault();submitAddBlockedEmailFullView();}" />' +
+          '<button type="button" class="submit-btn" onclick="submitAddBlockedEmailFullView()" style="width:auto;margin:0;padding:8px 18px;font-size:13px;background:#dc2626;color:#ffffff;border:none;white-space:nowrap;font-weight:600;display:inline-flex;align-items:center;gap:6px;">' +
+            '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+            'Block Email' +
+          '</button>' +
+        '</div>' +
+        '<div class="admin-members-toolbar" style="margin-bottom:12px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;">' +
+              '<input type="text" id="blocked-emails-search" class="form-input" placeholder="Search blocked emails..." value="' + ((typeof escapeHtml === 'function') ? escapeHtml(searchQ) : searchQ) + '" oninput="renderBlockedEmailsFullView()" style="max-width:260px;font-size:12px;padding:6px 10px;" />' +
+              '<button type="button" class="portal-btn" onclick="toggleBlockedEmailsEditMode()" style="padding:6px 14px;font-size:12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;' + (_blockedEmailsEditMode ? 'background:#f59e0b;border:1px solid #d97706;color:#ffffff;' : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);') + '">' +
+                (_blockedEmailsEditMode
+                  ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Reasons Active'
+                  : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> View Mode (Safe)') +
+              '</button>' +
+            '</div>' +
+            '<div style="font-size:12px;color:var(--text-secondary);font-weight:600;">' +
+              'Showing <strong style="color:#ef4444;">' + records.length + '</strong> of ' + (_blockedEmails ? _blockedEmails.length : 0) + ' blocked addresses' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        editBannerHtml +
+        '<div class="admin-members-table-wrapper">' +
+          '<table class="admin-members-table blocked-emails-table">' +
+            '<thead>' +
+              '<tr>' +
+                '<th class="sheets-th"><div class="sheets-th-content"><span class="sheets-th-label">Email Blocked</span></div></th>' +
+                '<th class="sheets-th"><div class="sheets-th-content"><span class="sheets-th-label">Date Blocked</span></div></th>' +
+                '<th class="sheets-th"><div class="sheets-th-content"><span class="sheets-th-label">Reason for Blocking</span></div></th>' +
+                '<th class="sheets-th"><div class="sheets-th-content"><span class="sheets-th-label">Blocked By</span></div></th>' +
+                '<th style="text-align:right;">Actions</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody>' +
+              rowsHtml +
+            '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>';
+  }
+
+  async function submitAddBlockedEmailFullView() {
+    if (typeof document === 'undefined') return;
+    var emailInput = document.getElementById('fullview-blocked-email-inp');
+    var reasonInput = document.getElementById('fullview-blocked-reason-inp');
+    if (!emailInput) return;
+    var em = (emailInput.value || '').trim();
+    var reason = reasonInput ? (reasonInput.value || '').trim() : '';
+    var ok = await addBlockedEmail(em, reason);
+    if (ok) {
+      emailInput.value = '';
+      if (reasonInput) reasonInput.value = '';
+      emailInput.focus();
+    }
   }
 
   async function updateMemberField(ic, field, value) {
@@ -920,6 +1262,9 @@
 
   function backToAdminHome() {
     if (typeof document === 'undefined') return;
+    if (_adminMembersSubView === 'blocked_emails') {
+      backToMembersList();
+    }
     var backBar = document.getElementById('adm-back-bar');
     if (backBar) backBar.style.display = 'none';
 
@@ -1141,7 +1486,14 @@
     return new Date().getFullYear() - d.getFullYear();
   }
 
-  function setAdminSort(by) {
+  function setAdminSort(by, dir) {
+    if (dir) {
+      _adminSortDir = dir;
+    } else if (_adminSortBy === by) {
+      _adminSortDir = (_adminSortDir === 'asc') ? 'desc' : 'asc';
+    } else {
+      _adminSortDir = 'asc';
+    }
     _adminSortBy = by;
     if (typeof document !== 'undefined') {
       ['name', 'age', 'squad', 'rank', 'joined'].forEach(function(s) {
@@ -1149,20 +1501,11 @@
         if (btn) btn.classList.toggle('active-sort', s === by);
       });
       var deptBtn = document.querySelector('.adm-sort-btn[data-sort="dept"]');
-      if (!deptBtn) {
-        var allSortBtns = document.querySelectorAll('.adm-sort-btn');
-        for (var si = 0; si < allSortBtns.length; si++) {
-          if (allSortBtns[si].getAttribute && allSortBtns[si].getAttribute('data-sort') === 'dept') {
-            deptBtn = allSortBtns[si];
-            break;
-          }
-        }
-      }
       if (deptBtn) deptBtn.classList.toggle('active-sort', by === 'dept');
       var statusBtn = document.querySelector('.adm-sort-btn[data-sort="status"]');
       if (statusBtn) statusBtn.classList.toggle('active-sort', by === 'status');
     }
-    renderAdminList();
+    return renderAdminList();
   }
 
   function getAdminMemberAvatarHtml(name, emailOrIc, size, presence) {
@@ -1354,6 +1697,12 @@
 
   async function renderAdminList(forceRefresh) {
     if (typeof document === 'undefined') return;
+
+    if (_adminMembersSubView === 'blocked_emails') {
+      renderBlockedEmailsFullView();
+      return;
+    }
+
     var search = ((document.getElementById('admin-search') || {}).value || '').toLowerCase();
     var list   = document.getElementById('admin-members-list');
     if (!list) return;
@@ -1434,6 +1783,13 @@
           if (!sMatches) return false;
         }
 
+        if (_adminMemberFilters.nameSearch) {
+          var nsMatches = (m.name || '').toLowerCase().includes(_adminMemberFilters.nameSearch.toLowerCase()) ||
+                          (m.ic || '').toLowerCase().includes(_adminMemberFilters.nameSearch.toLowerCase()) ||
+                          (m.email || '').toLowerCase().includes(_adminMemberFilters.nameSearch.toLowerCase());
+          if (!nsMatches) return false;
+        }
+
         // Section filter
         if (_adminMemberFilters.section) {
           var mSec = (m.section || m.att_section || '').toLowerCase();
@@ -1471,20 +1827,35 @@
           if (st !== _adminMemberFilters.status.toLowerCase()) return false;
         }
 
+        // Consent filter
+        if (_adminMemberFilters.consent) {
+          var ageVal = calcAge(m.date_of_birth);
+          var isMinorVal = (typeof isMinorSection === 'function')
+            ? isMinorSection(m.att_section || m.section, ageVal)
+            : ((ageVal !== null && ageVal <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
+          if (_adminMemberFilters.consent === 'ok') {
+            if (!isMinorVal || (!m.parental_consent_signed && !m.parent_name)) return false;
+          } else if (_adminMemberFilters.consent === 'pending') {
+            if (!isMinorVal || (m.parental_consent_signed || m.parent_name)) return false;
+          } else if (_adminMemberFilters.consent === 'no_media') {
+            if (m.media_consent !== false) return false;
+          }
+        }
+
         return true;
       });
 
       // Sort
       filtered.sort(function(a, b) {
+        var comp = 0;
         if (_adminSortBy === 'age') {
           var aa = calcAge(a.date_of_birth);
           var ba = calcAge(b.date_of_birth);
-          if (aa === null && ba === null) return 0;
-          if (aa === null) return 1;
-          if (ba === null) return -1;
-          return aa - ba;
-        }
-        if (_adminSortBy === 'status') {
+          if (aa === null && ba === null) comp = 0;
+          else if (aa === null) comp = 1;
+          else if (ba === null) comp = -1;
+          else comp = aa - ba;
+        } else if (_adminSortBy === 'status') {
           var pOrder = { online: 0, idle: 1, offline: 2 };
           var pResolver = (typeof getMemberPresenceStatus === 'function')
             ? getMemberPresenceStatus
@@ -1493,38 +1864,36 @@
           var stB = pResolver(b, _adminPresenceMap).status;
           var ordA = pOrder[stA] !== undefined ? pOrder[stA] : 2;
           var ordB = pOrder[stB] !== undefined ? pOrder[stB] : 2;
-          if (ordA !== ordB) return ordA - ordB;
-          return (a.name || '').localeCompare(b.name || '');
-        }
-        if (_adminSortBy === 'squad') {
+          if (ordA !== ordB) comp = ordA - ordB;
+          else comp = (a.name || '').localeCompare(b.name || '');
+        } else if (_adminSortBy === 'squad') {
           var sq = (a.squad || '').localeCompare(b.squad || '');
-          return sq !== 0 ? sq : (a.name || '').localeCompare(b.name || '');
-        }
-        if (_adminSortBy === 'rank') {
+          comp = sq !== 0 ? sq : (a.name || '').localeCompare(b.name || '');
+        } else if (_adminSortBy === 'rank') {
           var ri = RANK_ORDER.indexOf(a.rank || '');
           var rj = RANK_ORDER.indexOf(b.rank || '');
           if (ri === -1) ri = 99;
           if (rj === -1) rj = 99;
-          return ri - rj;
-        }
-        if (_adminSortBy === 'section') {
+          comp = ri - rj;
+        } else if (_adminSortBy === 'section') {
           var secA = a.section || a.att_section || '';
           var secB = b.section || b.att_section || '';
           var sComp = secA.localeCompare(secB);
-          return sComp !== 0 ? sComp : (a.name || '').localeCompare(b.name || '');
-        }
-        if (_adminSortBy === 'dept') {
+          comp = sComp !== 0 ? sComp : (a.name || '').localeCompare(b.name || '');
+        } else if (_adminSortBy === 'dept') {
           var currentDeptKeyA = (a.department || '').trim().toLowerCase();
           var currentDeptKeyB = (b.department || '').trim().toLowerCase();
           var depLabelA = (DEFAULT_DEPT_CONFIG[currentDeptKeyA] && DEFAULT_DEPT_CONFIG[currentDeptKeyA].label) || a.department || 'No Dept';
           var depLabelB = (DEFAULT_DEPT_CONFIG[currentDeptKeyB] && DEFAULT_DEPT_CONFIG[currentDeptKeyB].label) || b.department || 'No Dept';
           var dComp = depLabelA.localeCompare(depLabelB);
-          return dComp !== 0 ? dComp : (a.name || '').localeCompare(b.name || '');
+          comp = dComp !== 0 ? dComp : (a.name || '').localeCompare(b.name || '');
+        } else if (_adminSortBy === 'joined') {
+          comp = (a.joined_at || '').localeCompare(b.joined_at || '');
+        } else {
+          comp = (a.name || '').localeCompare(b.name || '');
         }
-        if (_adminSortBy === 'joined') {
-          return (a.joined_at || '').localeCompare(b.joined_at || '');
-        }
-        return (a.name || '').localeCompare(b.name || '');
+
+        return _adminSortDir === 'desc' ? -comp : comp;
       });
 
       _adminMembers = {};
@@ -1535,72 +1904,45 @@
         try { localStorage.setItem('bb_members_cache', JSON.stringify(filtered)); } catch (_) {}
       }
 
-      var isFilteringActive = !!(_adminMemberFilters.section || _adminMemberFilters.rank || _adminMemberFilters.squad || _adminMemberFilters.dept || _adminMemberFilters.status || search);
+      var isFilteringActive = !!(_adminMemberFilters.section || _adminMemberFilters.rank || _adminMemberFilters.squad || _adminMemberFilters.dept || _adminMemberFilters.status || _adminMemberFilters.consent || _adminMemberFilters.nameSearch || search);
 
       var toolbarHtml = '<div class="admin-members-toolbar">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
             '<div style="display:inline-flex;border-radius:8px;border:1px solid var(--border-card);background:var(--bg-card-subtle);padding:2px;">' +
-              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'table\')" style="padding:5px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;' + (_adminMembersViewMode === 'table' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Spreadsheet / Database View">📋 Table View</button>' +
-              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'cards\')" style="padding:5px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;' + (_adminMembersViewMode === 'cards' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Cards View">🗂️ Cards View</button>' +
+              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'table\')" style="padding:6px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;' + (_adminMembersViewMode === 'table' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Spreadsheet / Database View">' +
+                '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg> Table View' +
+              '</button>' +
+              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'cards\')" style="padding:6px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;' + (_adminMembersViewMode === 'cards' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Cards View">' +
+                '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Cards View' +
+              '</button>' +
             '</div>' +
             '<button type="button" class="portal-btn" onclick="toggleAdminMemberEditMode()" style="padding:6px 14px;font-size:12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;' + (_adminMemberEditMode ? 'background:#f59e0b;border:1px solid #d97706;color:#ffffff;' : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);') + '">' +
-              (_adminMemberEditMode ? '✏️ Edit Mode Active' : '🔒 View Mode (Safe)') +
+              (_adminMemberEditMode
+                ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Mode Active'
+                : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> View Mode (Safe)') +
             '</button>' +
+            (isFilteringActive
+              ? '<button type="button" class="portal-btn" onclick="resetAdminMemberFilters()" style="background:var(--bg-card-subtle);border:1px dashed var(--border-card);color:var(--text-secondary);font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:5px;" title="Reset all column filters and search">' +
+                  '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Reset Filters' +
+                '</button>'
+              : '') +
           '</div>' +
           '<div style="font-size:12px;color:var(--text-secondary);font-weight:600;">' +
             'Showing <strong style="color:var(--gold);">' + filtered.length + '</strong> of ' + members.length + ' members' +
           '</div>' +
         '</div>' +
-        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-          '<span style="font-size:11px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Filter:</span>' +
-          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'section\', this.value)" title="Filter by Section">' +
-            '<option value="">All Sections</option>' +
-            '<option value="Senior"' + (_adminMemberFilters.section.toLowerCase() === 'senior' ? ' selected' : '') + '>Senior</option>' +
-            '<option value="Junior"' + (_adminMemberFilters.section.toLowerCase() === 'junior' ? ' selected' : '') + '>Junior</option>' +
-            '<option value="Pre-Junior"' + (_adminMemberFilters.section.toLowerCase() === 'pre-junior' ? ' selected' : '') + '>Pre-Junior</option>' +
-            '<option value="Officer"' + (_adminMemberFilters.section.toLowerCase() === 'officer' ? ' selected' : '') + '>Officer</option>' +
-          '</select>' +
-          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'rank\', this.value)" title="Filter by Rank">' +
-            '<option value="">All Ranks</option>' +
-            ['Recruit','Private','Lance Corporal','Corporal','Sergeant','Staff Sergeant','Warrant Officer','Lieutenant','Captain'].map(function(rk) {
-              return '<option value="' + rk + '"' + (_adminMemberFilters.rank.toLowerCase() === rk.toLowerCase() ? ' selected' : '') + '>' + rk + '</option>';
-            }).join('') +
-          '</select>' +
-          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'squad\', this.value)" title="Filter by Platoon/Squad">' +
-            '<option value="">All Platoons / Squads</option>' +
-            ['Alpha Platoon','Bravo Platoon','Charlie Platoon','Delta Platoon','Echo Platoon','Foxtrot Platoon','Golf Platoon','Hotel Platoon','India Platoon','Zulu Platoon','Papa Platoon','Officers'].map(function(sq) {
-              return '<option value="' + sq + '"' + (_adminMemberFilters.squad.toLowerCase() === sq.toLowerCase() ? ' selected' : '') + '>' + sq + '</option>';
-            }).join('') +
-          '</select>' +
-          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'dept\', this.value)" title="Filter by Department">' +
-            '<option value="">All Departments</option>' +
-            '<option value="secretariat"' + (_adminMemberFilters.dept === 'secretariat' ? ' selected' : '') + '>Secretariat</option>' +
-            '<option value="logistics"' + (_adminMemberFilters.dept === 'logistics' ? ' selected' : '') + '>Logistics</option>' +
-            '<option value="media"' + (_adminMemberFilters.dept === 'media' ? ' selected' : '') + '>Media</option>' +
-            '<option value="hq"' + (_adminMemberFilters.dept === 'hq' ? ' selected' : '') + '>HQ</option>' +
-            '<option value="officers"' + (_adminMemberFilters.dept === 'officers' ? ' selected' : '') + '>Officers</option>' +
-            '<option value="none"' + (_adminMemberFilters.dept === 'none' ? ' selected' : '') + '>No Department</option>' +
-          '</select>' +
-          '<select class="admin-filter-select" onchange="setAdminMemberFilter(\'status\', this.value)" title="Filter by Online Status">' +
-            '<option value="">All Status</option>' +
-            '<option value="online"' + (_adminMemberFilters.status === 'online' ? ' selected' : '') + '>Online</option>' +
-            '<option value="idle"' + (_adminMemberFilters.status === 'idle' ? ' selected' : '') + '>Idle</option>' +
-            '<option value="offline"' + (_adminMemberFilters.status === 'offline' ? ' selected' : '') + '>Offline</option>' +
-          '</select>' +
-          (isFilteringActive ? '<button type="button" class="portal-btn" onclick="resetAdminMemberFilters()" style="background:none;border:1px dashed var(--border-card);color:var(--text-secondary);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:600;">↺ Reset Filters</button>' : '') +
-        '</div>' +
       '</div>';
 
       var editBannerHtml = _adminMemberEditMode
-        ? '<div class="admin-edit-mode-banner"><span>✏️ <strong>Edit Mode Active:</strong> You can edit member name, section, rank, platoon/squad, department, and DOB directly in table cells. Changes autosave to the database.</span><button type="button" onclick="toggleAdminMemberEditMode()" style="background:none;border:1px solid currentColor;color:inherit;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Exit Edit Mode</button></div>'
+        ? '<div class="admin-edit-mode-banner"><span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <strong>Edit Mode Active:</strong> You can edit member name, section, rank, platoon/squad, department, and DOB directly in table cells. Changes autosave to the database.</span><button type="button" onclick="toggleAdminMemberEditMode()" style="background:none;border:1px solid currentColor;color:inherit;padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Exit Edit Mode</button></div>'
         : '';
 
       if (!filtered.length) {
         list.innerHTML = toolbarHtml + '<div style="color:var(--text-muted);text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:12px;">'
-          + '<div style="font-size:24px;margin-bottom:6px;">🔍</div>'
-          + '<div style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">No members found</div>'
-          + '<div style="font-size:12px;color:var(--text-muted);">Try adjusting your search query or section filter.</div>'
+          + '<div style="margin-bottom:8px;"><svg class="ui-icon-lg" style="opacity:0.4;width:32px;height:32px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>'
+          + '<div style="font-weight:700;color:var(--text-primary);margin-bottom:4px;font-size:14px;">No members found</div>'
+          + '<div style="font-size:12px;color:var(--text-muted);">Try adjusting your search query or column filters.</div>'
           + '</div>';
         return;
       }
@@ -1640,7 +1982,7 @@
           if (deptConfig) {
             deptBadge = ' <span class="dept-badge ' + (deptConfig.cls || '') + '" title="Department NCO: Has Projects & Tasks Access" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:10px;background:' + (deptConfig.color ? deptConfig.color + '26' : 'rgba(217,163,35,0.15)') + ';color:' + (deptConfig.color || 'var(--accent)') + ';font-weight:700;letter-spacing:0.3px;border:1px solid ' + (deptConfig.color ? deptConfig.color + '55' : 'rgba(217,163,35,0.3)') + ';vertical-align:middle;">' + ((typeof escapeHtml === 'function') ? escapeHtml(deptConfig.label) : deptConfig.label) + '</span>';
           } else {
-            deptBadge = ' <span title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
+            deptBadge = ' <span class="dept-badge-none" title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
           }
 
           var pResolver = (typeof getMemberPresenceStatus === 'function')
@@ -1657,19 +1999,19 @@
                   avatarHtml +
                   '<div style="min-width:0;overflow:hidden;">' +
                     '<div style="font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + '</div>' +
-                    '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
+                    '<div class="admin-member-email" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
                   '</div>' +
                 '</div>' +
               '</td>' +
-              '<td><span class="adm-section-pill" style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;background:var(--bg-card-subtle);border:1px solid var(--border-card);">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.section || m.att_section || '—') : (m.section || m.att_section || '—')) + '</span></td>' +
+              '<td><span class="adm-section-pill" style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.section || m.att_section || '\u2014') : (m.section || m.att_section || '\u2014')) + '</span></td>' +
               '<td><div class="admin-rank-badge">' + safeRank + '</div></td>' +
-              '<td><div style="font-weight:600;font-size:12px;">' + safeSquad + '</div></td>' +
+              '<td><div style="font-weight:600;font-size:12px;color:var(--text-primary);">' + safeSquad + '</div></td>' +
               '<td>' + deptBadge + '</td>' +
-              '<td><div style="font-weight:600;">' + ageStr + '</div><div style="font-size:10px;color:var(--text-muted);">' + (m.date_of_birth || '—') + '</div></td>' +
+              '<td><div style="font-weight:600;color:var(--text-primary);">' + ageStr + '</div><div class="admin-member-dob" style="font-size:10px;color:var(--text-muted);">' + (m.date_of_birth || '\u2014') + '</div></td>' +
               '<td>' + presenceBadge + '</td>' +
-              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">—</span>') + '</td>' +
+              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') + '</td>' +
               '<td style="text-align:right;white-space:nowrap;">' +
-                '<button type="button" class="portal-btn" onclick="openEditMember(\'' + safeIc + '\')" title="Edit Member Profile" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">Edit</button>' +
+                '<button type="button" class="portal-btn admin-row-edit-btn" onclick="openEditMember(\'' + safeIc + '\')" title="Edit Member Profile" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">Edit</button>' +
                 '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
                   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
                 '</button>' +
@@ -1682,7 +2024,7 @@
                   avatarHtml +
                   '<div style="flex:1;min-width:0;">' +
                     '<input type="text" class="admin-inline-input" value="' + safeName + '" onchange="updateMemberField(\'' + safeIc + '\', \'name\', this.value)" title="Edit Name (Autosaves on change)" />' +
-                    '<div style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono,monospace);margin-top:2px;overflow:hidden;text-overflow:ellipsis;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
+                    '<div class="admin-member-email" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono,monospace);margin-top:2px;overflow:hidden;text-overflow:ellipsis;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
                   '</div>' +
                 '</div>' +
               '</td>' +
@@ -1708,10 +2050,10 @@
               '</td>' +
               '<td style="min-width:140px;">' +
                 '<input type="date" class="admin-inline-input" value="' + (m.date_of_birth || '') + '" onchange="updateMemberField(\'' + safeIc + '\', \'date_of_birth\', this.value)" title="Change Date of Birth" />' +
-                '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">Age: ' + ageStr + '</div>' +
+                '<div class="admin-member-dob" style="font-size:10px;color:var(--text-muted);margin-top:2px;">Age: ' + ageStr + '</div>' +
               '</td>' +
               '<td>' + presenceBadge + '</td>' +
-              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">—</span>') + '</td>' +
+              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') + '</td>' +
               '<td style="text-align:right;white-space:nowrap;">' +
                 '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
                   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
@@ -1726,14 +2068,14 @@
             '<table class="admin-members-table">' +
               '<thead>' +
                 '<tr>' +
-                  '<th class="sortable-th" onclick="setAdminSort(\'name\')">Member</th>' +
-                  '<th class="sortable-th" onclick="setAdminSort(\'section\')">Section</th>' +
-                  '<th class="sortable-th" onclick="setAdminSort(\'rank\')">Rank</th>' +
-                  '<th class="sortable-th" onclick="setAdminSort(\'squad\')">Platoon / Squad</th>' +
-                  '<th class="sortable-th" onclick="setAdminSort(\'dept\')">Department</th>' +
-                  '<th class="sortable-th" onclick="setAdminSort(\'age\')">Age / DOB</th>' +
-                  '<th class="sortable-th" onclick="setAdminSort(\'status\')">Status</th>' +
-                  '<th>Consent</th>' +
+                  renderColumnHeader('member', 'Member', 'name', 'search', filtered) +
+                  renderColumnHeader('section', 'Section', 'section', 'options', filtered) +
+                  renderColumnHeader('rank', 'Rank', 'rank', 'options', filtered) +
+                  renderColumnHeader('squad', 'Platoon / Squad', 'squad', 'options', filtered) +
+                  renderColumnHeader('dept', 'Department', 'dept', 'options', filtered) +
+                  renderColumnHeader('age', 'Age / DOB', 'age', null, filtered) +
+                  renderColumnHeader('status', 'Status', 'status', 'options', filtered) +
+                  renderColumnHeader('consent', 'Consent', null, 'options', filtered) +
                   '<th style="text-align:right;">Actions</th>' +
                 '</tr>' +
               '</thead>' +
@@ -4037,6 +4379,11 @@
 
   async function openBlockedEmailsModal() {
     if (typeof document === 'undefined') return;
+    var secEl = document.getElementById('adm-section-members');
+    if (secEl && secEl.style.display !== 'none') {
+      await openBlockedEmailsView();
+      return;
+    }
     await loadBlockedEmails();
 
     var existingOverlay = document.querySelector('.blocked-emails-modal-overlay');
@@ -4174,8 +4521,19 @@
     global.updateBlockedEmailReason  = updateBlockedEmailReason;
     global.toggleBlockedEmailsEditMode = toggleBlockedEmailsEditMode;
     global.openBlockedEmailsModal    = openBlockedEmailsModal;
+    global.openBlockedEmailsView     = openBlockedEmailsView;
+    global.backToMembersList         = backToMembersList;
     global.closeBlockedEmailsModal   = closeBlockedEmailsModal;
     global.submitAddBlockedEmail     = submitAddBlockedEmail;
+    global.submitAddBlockedEmailFullView = submitAddBlockedEmailFullView;
+    global.renderBlockedEmailsFullView = renderBlockedEmailsFullView;
+    global.toggleColumnFilterMenu    = toggleColumnFilterMenu;
+    global.closeColumnFilterMenu     = closeColumnFilterMenu;
+    global.clearColumnFilter         = clearColumnFilter;
+    global.setColumnSort             = setColumnSort;
+    global.getAdminSortDir           = function() { return _adminSortDir; };
+    global.getAdminMembersSubView    = function() { return _adminMembersSubView; };
+    global.getAdminMemberFilters     = function() { return _adminMemberFilters; };
     global.setAdminMembersViewMode   = setAdminMembersViewMode;
     global.getAdminMembersViewMode   = getAdminMembersViewMode;
     global.toggleAdminMemberEditMode = toggleAdminMemberEditMode;
@@ -4260,8 +4618,19 @@
       updateBlockedEmailReason: updateBlockedEmailReason,
       toggleBlockedEmailsEditMode: toggleBlockedEmailsEditMode,
       openBlockedEmailsModal: openBlockedEmailsModal,
+      openBlockedEmailsView: openBlockedEmailsView,
+      backToMembersList: backToMembersList,
       closeBlockedEmailsModal: closeBlockedEmailsModal,
       submitAddBlockedEmail: submitAddBlockedEmail,
+      submitAddBlockedEmailFullView: submitAddBlockedEmailFullView,
+      renderBlockedEmailsFullView: renderBlockedEmailsFullView,
+      toggleColumnFilterMenu: toggleColumnFilterMenu,
+      closeColumnFilterMenu: closeColumnFilterMenu,
+      clearColumnFilter: clearColumnFilter,
+      setColumnSort: setColumnSort,
+      getAdminSortDir: function() { return _adminSortDir; },
+      getAdminMembersSubView: function() { return _adminMembersSubView; },
+      getAdminMemberFilters: function() { return _adminMemberFilters; },
       setAdminViewMode: setAdminViewMode,
       getAdminViewMode: getAdminViewMode,
       renderAdminAuditLogs: renderAdminAuditLogs,

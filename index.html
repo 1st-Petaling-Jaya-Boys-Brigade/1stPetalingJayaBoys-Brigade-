@@ -2189,12 +2189,12 @@
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Member
           </button>
-          <button type="button" class="submit-btn btn-with-icon btn-blocked-emails" onclick="openBlockedEmailsModal()" style="width:auto;padding:10px 16px;margin-top:0;font-size:13px;white-space:nowrap;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);" title="Manage Blocked Emails">
+          <button type="button" class="submit-btn btn-with-icon btn-blocked-emails" onclick="openBlockedEmailsView()" style="width:auto;padding:10px 16px;margin-top:0;font-size:13px;white-space:nowrap;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);" title="Manage Blocked Emails">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
             Blocked Emails
           </button>
         </div>
-        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+        <div style="display:none;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
           <span style="font-size:11px;color:var(--text-muted);align-self:center;margin-right:2px;font-weight:700;letter-spacing:0.5px;">Sort:</span>
           <button class="adm-sort-btn active-sort" id="sort-name"    onclick="setAdminSort('name')">Name</button>
           <button class="adm-sort-btn"              id="sort-age"     onclick="setAdminSort('age')">Age</button>
