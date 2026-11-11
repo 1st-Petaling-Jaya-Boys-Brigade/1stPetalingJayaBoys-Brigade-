@@ -55,6 +55,7 @@
   // ── Internal State ────────────────────────────────────────────────────────
   var _adminSortBy     = 'name';
   var _adminSortDir    = 'asc'; // 'asc' | 'desc'
+  var _adminSortRules  = [ { key: 'name', dir: 'asc' } ];
   var _adminMembers       = {};
   var _adminPresenceMap   = {};
   var _adminTaskFilter = 'all';
@@ -75,8 +76,45 @@
     dept: '',
     status: '',
     consent: '',
-    nameSearch: ''
+    nameSearch: '',
+    emailSearch: ''
   };
+
+  function persistAdminFiltersAndSort() {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem('bb_admin_member_filters', JSON.stringify(_adminMemberFilters));
+      localStorage.setItem('bb_admin_member_sort_rules', JSON.stringify(_adminSortRules));
+      localStorage.setItem('bb_admin_sort_by', _adminSortBy);
+      localStorage.setItem('bb_admin_sort_dir', _adminSortDir);
+    } catch (_) {}
+  }
+
+  function restoreAdminFiltersAndSort() {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      var savedFilters = localStorage.getItem('bb_admin_member_filters');
+      if (savedFilters) {
+        var parsed = JSON.parse(savedFilters);
+        if (parsed && typeof parsed === 'object') {
+          _adminMemberFilters = Object.assign({
+            section: '', rank: '', squad: '', dept: '', status: '', consent: '', nameSearch: '', emailSearch: ''
+          }, parsed);
+        }
+      }
+      var savedRules = localStorage.getItem('bb_admin_member_sort_rules');
+      if (savedRules) {
+        var parsedRules = JSON.parse(savedRules);
+        if (Array.isArray(parsedRules) && parsedRules.length > 0) {
+          _adminSortRules = parsedRules;
+          _adminSortBy = _adminSortRules[0].key;
+          _adminSortDir = _adminSortRules[0].dir || 'asc';
+        }
+      }
+    } catch (_) {}
+  }
+
+  restoreAdminFiltersAndSort();
 
   function setAdminMembersViewMode(mode) {
     _adminMembersViewMode = (mode === 'cards') ? 'cards' : 'table';
@@ -185,19 +223,98 @@
     return closeColumnFilterMenu();
   }
 
+  function getSortFieldLabel(key) {
+    var map = {
+      name: 'Full Name',
+      email: 'Email',
+      section: 'Section',
+      rank: 'Rank',
+      squad: 'Platoon / Squad',
+      dept: 'Department',
+      age: 'Age',
+      dob: 'DOB',
+      status: 'Status',
+      joined: 'Joined Date'
+    };
+    return map[key] || key;
+  }
+
   function setColumnSort(colKey, dir) {
     return setAdminSort(colKey, dir);
+  }
+
+  function addOrUpdateAdminSortRule(key, dir) {
+    if (!dir) dir = 'asc';
+    var found = false;
+    for (var i = 0; i < _adminSortRules.length; i++) {
+      if (_adminSortRules[i].key === key) {
+        _adminSortRules[i].dir = dir;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      _adminSortRules.push({ key: key, dir: dir });
+    }
+    _adminSortBy = _adminSortRules[0].key;
+    _adminSortDir = _adminSortRules[0].dir;
+    persistAdminFiltersAndSort();
+    renderGlobalPopovers();
+    updateTopControlsUI();
+    return renderAdminList();
+  }
+
+  function removeAdminSortRule(key) {
+    _adminSortRules = _adminSortRules.filter(function(r) { return r.key !== key; });
+    if (_adminSortRules.length > 0) {
+      _adminSortBy = _adminSortRules[0].key;
+      _adminSortDir = _adminSortRules[0].dir;
+    } else {
+      _adminSortBy = 'name';
+      _adminSortDir = 'asc';
+    }
+    persistAdminFiltersAndSort();
+    renderGlobalPopovers();
+    updateTopControlsUI();
+    return renderAdminList();
+  }
+
+  function clearAllAdminSortRules() {
+    _adminSortRules = [];
+    _adminSortBy = 'name';
+    _adminSortDir = 'asc';
+    persistAdminFiltersAndSort();
+    renderGlobalPopovers();
+    updateTopControlsUI();
+    return renderAdminList();
+  }
+
+  function getAdminSortRules() {
+    return _adminSortRules;
   }
 
   function setAdminMemberFilter(field, value) {
     if (_adminMemberFilters && field in _adminMemberFilters) {
       _adminMemberFilters[field] = value || '';
     }
+    persistAdminFiltersAndSort();
     closeColumnFilterMenu();
+    updateTopControlsUI();
+    renderGlobalPopovers();
     return renderAdminList();
   }
 
-  function resetAdminMemberFilters() {
+  function removeAdminMemberFilter(field) {
+    if (_adminMemberFilters && field in _adminMemberFilters) {
+      _adminMemberFilters[field] = '';
+    }
+    persistAdminFiltersAndSort();
+    updateTopControlsUI();
+    renderGlobalPopovers();
+    return renderAdminList();
+  }
+
+  function clearAllAdminMemberFilters() {
     _adminMemberFilters = {
       section: '',
       rank: '',
@@ -208,14 +325,127 @@
       nameSearch: '',
       emailSearch: ''
     };
-    _adminSortBy = 'name';
-    _adminSortDir = 'asc';
     _activeFilterCol = null;
     if (typeof document !== 'undefined') {
       var sInput = document.getElementById('admin-search');
       if (sInput) sInput.value = '';
     }
+    persistAdminFiltersAndSort();
+    updateTopControlsUI();
+    renderGlobalPopovers();
     return renderAdminList();
+  }
+
+  function resetAdminMemberFilters() {
+    return clearAllAdminMemberFilters();
+  }
+
+  function updateTopControlsUI() {
+    if (typeof document === 'undefined') return;
+    var filterBtn = document.querySelector('.adm-top-filter-btn');
+    if (filterBtn) {
+      var count = 0;
+      if (_adminMemberFilters.section) count++;
+      if (_adminMemberFilters.rank) count++;
+      if (_adminMemberFilters.squad) count++;
+      if (_adminMemberFilters.dept) count++;
+      if (_adminMemberFilters.status) count++;
+      if (_adminMemberFilters.consent) count++;
+      if (_adminMemberFilters.nameSearch) count++;
+      if (_adminMemberFilters.emailSearch) count++;
+
+      var existingBadge = filterBtn.querySelector('.adm-filter-count-badge');
+      if (count > 0) {
+        filterBtn.classList.add('is-active');
+        if (existingBadge) {
+          existingBadge.textContent = count;
+        } else {
+          var badge = document.createElement('span');
+          badge.className = 'adm-filter-count-badge';
+          badge.textContent = count;
+          var chevron = filterBtn.querySelector('.adm-chevron-icon');
+          if (chevron) filterBtn.insertBefore(badge, chevron);
+          else filterBtn.appendChild(badge);
+        }
+      } else {
+        filterBtn.classList.remove('is-active');
+        if (existingBadge) existingBadge.remove();
+      }
+    }
+
+    var sortBtn = document.querySelector('.adm-top-sort-btn');
+    if (sortBtn) {
+      var isCustomSort = (_adminSortRules.length > 0 && !(_adminSortRules.length === 1 && _adminSortRules[0].key === 'name' && _adminSortRules[0].dir === 'asc'));
+      var existingDot = sortBtn.querySelector('.adm-sort-active-dot');
+      if (isCustomSort) {
+        sortBtn.classList.add('is-active');
+        if (!existingDot) {
+          var dot = document.createElement('span');
+          dot.className = 'adm-sort-active-dot';
+          var chevronSort = sortBtn.querySelector('.adm-chevron-icon');
+          if (chevronSort) sortBtn.insertBefore(dot, chevronSort);
+          else sortBtn.appendChild(dot);
+        }
+      } else {
+        sortBtn.classList.remove('is-active');
+        if (existingDot) existingDot.remove();
+      }
+    }
+  }
+
+  function compareMembersByField(a, b, key) {
+    if (key === 'age') {
+      var aa = calcAge(a.date_of_birth);
+      var ba = calcAge(b.date_of_birth);
+      if (aa === null && ba === null) return 0;
+      if (aa === null) return 1;
+      if (ba === null) return -1;
+      return aa - ba;
+    }
+    if (key === 'status' || _adminSortBy === 'status') {
+      var vOrd = { verified: 0, processing: 1, rejected: 2, not_verified: 3 };
+      var stA = getMemberVerificationStatus(a);
+      var stB = getMemberVerificationStatus(b);
+      var ordA = vOrd[stA] !== undefined ? vOrd[stA] : 9;
+      var ordB = vOrd[stB] !== undefined ? vOrd[stB] : 9;
+      if (ordA !== ordB) return ordA - ordB;
+      return (a.name || '').localeCompare(b.name || '');
+    }
+    if (key === 'email') {
+      return (a.email || a.ic || '').localeCompare(b.email || b.ic || '');
+    }
+    if (key === 'dob') {
+      return (a.date_of_birth || '').localeCompare(b.date_of_birth || '');
+    }
+    if (key === 'squad') {
+      var sq = (a.squad || '').localeCompare(b.squad || '');
+      return sq !== 0 ? sq : (a.name || '').localeCompare(b.name || '');
+    }
+    if (key === 'rank') {
+      var ri = RANK_ORDER.indexOf(a.rank || '');
+      var rj = RANK_ORDER.indexOf(b.rank || '');
+      if (ri === -1) ri = 99;
+      if (rj === -1) rj = 99;
+      return ri - rj;
+    }
+    if (key === 'section') {
+      var secA = a.section || a.att_section || '';
+      var secB = b.section || b.att_section || '';
+      var sComp = secA.localeCompare(secB);
+      return sComp !== 0 ? sComp : (a.name || '').localeCompare(b.name || '');
+    }
+    if (key === 'dept') {
+      var currentDeptKeyA = (a.department || '').trim().toLowerCase();
+      var currentDeptKeyB = (b.department || '').trim().toLowerCase();
+      var depLabelA = (DEFAULT_DEPT_CONFIG[currentDeptKeyA] && DEFAULT_DEPT_CONFIG[currentDeptKeyA].label) || a.department || 'No Dept';
+      var depLabelB = (DEFAULT_DEPT_CONFIG[currentDeptKeyB] && DEFAULT_DEPT_CONFIG[currentDeptKeyB].label) || b.department || 'No Dept';
+      var dComp = depLabelA.localeCompare(depLabelB);
+      return dComp !== 0 ? dComp : (a.name || '').localeCompare(b.name || '');
+    }
+    if (key === 'joined') {
+      return (a.joined_at || '').localeCompare(b.joined_at || '');
+    }
+    return (a.name || '').localeCompare(b.name || '');
   }
 
   // ── CRM MEMBER TABLE & ROW SELECTION SYSTEM ───────────────────────────────────
@@ -296,10 +526,10 @@
       '<div class="sfp-section">' +
         '<div class="sfp-section-label">Sort</div>' +
         '<button type="button" class="sfp-btn' + (_adminSortBy === sortKey && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + sortKey + '\', \'asc\')">' +
-          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg> \u2191 ' + ascLabel +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg> ' + ascLabel +
         '</button>' +
         '<button type="button" class="sfp-btn' + (_adminSortBy === sortKey && _adminSortDir === 'desc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + sortKey + '\', \'desc\')">' +
-          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M19 12l-7 7-7-7"/></svg> \u2193 ' + descLabel +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M19 12l-7 7-7-7"/></svg> ' + descLabel +
         '</button>' +
         (sortKey === 'rank' ? '<button type="button" class="sfp-btn' + (_adminSortBy === 'rank' && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'rank\', \'asc\')"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Sort by BB Rank Order</button>' : '') +
       '</div>';
@@ -731,75 +961,155 @@
 
     if (_isGlobalFilterOpen) {
       var filterBtn = document.querySelector('.adm-top-filter-btn');
-      var rect = filterBtn ? filterBtn.getBoundingClientRect() : { bottom: 120, left: 200 };
+      var filterRect = filterBtn ? filterBtn.getBoundingClientRect() : { bottom: 120, left: 200 };
+      var isNarrow = (filterRect.left + 520) > (typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+      var activeCount = 0;
+      if (_adminMemberFilters.section) activeCount++;
+      if (_adminMemberFilters.rank) activeCount++;
+      if (_adminMemberFilters.squad) activeCount++;
+      if (_adminMemberFilters.dept) activeCount++;
+      if (_adminMemberFilters.status) activeCount++;
+      if (_adminMemberFilters.consent) activeCount++;
+      if (_adminMemberFilters.nameSearch) activeCount++;
+      if (_adminMemberFilters.emailSearch) activeCount++;
+
+      var activeFiltersHtml = '';
+      if (activeCount > 0) {
+        var chips = [];
+        if (_adminMemberFilters.section) {
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Section</div><span class="adm-active-filter-chip"><span>' + _adminMemberFilters.section + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'section\')">\u2715</button></span></div>');
+        }
+        if (_adminMemberFilters.rank) {
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Rank</div><span class="adm-active-filter-chip"><span>' + _adminMemberFilters.rank + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'rank\')">\u2715</button></span></div>');
+        }
+        if (_adminMemberFilters.squad) {
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Platoon / Squad</div><span class="adm-active-filter-chip"><span>' + _adminMemberFilters.squad + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'squad\')">\u2715</button></span></div>');
+        }
+        if (_adminMemberFilters.dept) {
+          var dLabel = (DEFAULT_DEPT_CONFIG[_adminMemberFilters.dept] ? DEFAULT_DEPT_CONFIG[_adminMemberFilters.dept].label : _adminMemberFilters.dept);
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Department</div><span class="adm-active-filter-chip"><span>' + dLabel + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'dept\')">\u2715</button></span></div>');
+        }
+        if (_adminMemberFilters.status) {
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Status</div><span class="adm-active-filter-chip"><span>' + _adminMemberFilters.status + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'status\')">\u2715</button></span></div>');
+        }
+        if (_adminMemberFilters.consent) {
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Consent</div><span class="adm-active-filter-chip"><span>' + _adminMemberFilters.consent + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'consent\')">\u2715</button></span></div>');
+        }
+        if (_adminMemberFilters.nameSearch) {
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Name Contains</div><span class="adm-active-filter-chip"><span>"' + _adminMemberFilters.nameSearch + '"</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'nameSearch\')">\u2715</button></span></div>');
+        }
+        if (_adminMemberFilters.emailSearch) {
+          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Email Contains</div><span class="adm-active-filter-chip"><span>"' + _adminMemberFilters.emailSearch + '"</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'emailSearch\')">\u2715</button></span></div>');
+        }
+        activeFiltersHtml = '<div class="adm-active-filter-group">' + chips.join('') + '</div>';
+      }
+
+      var squadOptions = ['Alpha Platoon', 'Bravo Platoon', 'Charlie Platoon', 'Delta Platoon', 'Echo Platoon', 'Foxtrot Platoon', 'Golf Platoon', 'Hotel Platoon', 'India Platoon', 'Zulu Platoon', 'Papa Platoon', 'Officers'];
+      var deptOptions = [
+        { key: 'secretariat', label: 'Secretariat' },
+        { key: 'logistics', label: 'Logistics' },
+        { key: 'media', label: 'Media' },
+        { key: 'hq', label: 'HQ' },
+        { key: 'officers', label: 'Officers' },
+        { key: 'none', label: 'No Department' }
+      ];
 
       container.innerHTML =
-        '<div class="adm-global-filter-popover" style="position:fixed;top:' + (rect.bottom + 6) + 'px;left:' + rect.left + 'px;z-index:99999;" onclick="event.stopPropagation();">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-card);">' +
-            '<div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-primary);">' +
-              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
-              '<span>Stackable Filters</span>' +
+        '<div class="adm-global-filter-popover" style="position:fixed;top:' + (filterRect.bottom + 6) + 'px;left:' + filterRect.left + 'px;z-index:99999;width:290px;" onclick="event.stopPropagation();">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-card);">' +
+            '<div style="font-weight:700;font-size:13px;color:var(--text-primary);">' +
+              'Filters <span style="color:#60a5fa;">' + activeCount + ' active</span>' +
             '</div>' +
-            '<button type="button" class="sfp-close-btn" onclick="toggleGlobalFilterPopover(event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">\u2715</button>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              (activeCount > 0 ? '<button type="button" onclick="clearAllAdminMemberFilters()" style="background:none;border:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;padding:0;" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--text-muted)\'">Clear all</button>' : '') +
+              '<button type="button" class="sfp-close-btn" onclick="toggleGlobalFilterPopover(event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;">\u2715</button>' +
+            '</div>' +
           '</div>' +
-          '<div style="display:flex;flex-direction:column;gap:10px;font-size:12px;">' +
-            '<div>' +
-              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Section</label>' +
-              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'section\', this.value)">' +
-                '<option value=""' + (!_adminMemberFilters.section ? ' selected' : '') + '>All Sections</option>' +
-                '<option value="Senior"' + (_adminMemberFilters.section === 'Senior' ? ' selected' : '') + '>Senior</option>' +
-                '<option value="Junior"' + (_adminMemberFilters.section === 'Junior' ? ' selected' : '') + '>Junior</option>' +
-                '<option value="Pre-Junior"' + (_adminMemberFilters.section === 'Pre-Junior' ? ' selected' : '') + '>Pre-Junior</option>' +
-                '<option value="Officer"' + (_adminMemberFilters.section === 'Officer' ? ' selected' : '') + '>Officer</option>' +
-              '</select>' +
-            '</div>' +
-            '<div>' +
-              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Rank</label>' +
-              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'rank\', this.value)">' +
-                '<option value=""' + (!_adminMemberFilters.rank ? ' selected' : '') + '>All Ranks</option>' +
-                RANK_ORDER.map(function(r) { return '<option value="' + r + '"' + (_adminMemberFilters.rank === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') +
-              '</select>' +
-            '</div>' +
-            '<div>' +
-              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Platoon / Squad</label>' +
-              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'squad\', this.value)">' +
-                '<option value=""' + (!_adminMemberFilters.squad ? ' selected' : '') + '>All Platoons / Squads</option>' +
-                ['Alpha Platoon', 'Bravo Platoon', 'Charlie Platoon', 'Delta Platoon', 'Echo Platoon', 'Foxtrot Platoon', 'Golf Platoon', 'Hotel Platoon', 'India Platoon', 'Zulu Platoon', 'Papa Platoon', 'Officers'].map(function(sq) {
-                  return '<option value="' + sq + '"' + (_adminMemberFilters.squad === sq ? ' selected' : '') + '>' + sq + '</option>';
+          activeFiltersHtml +
+          '<div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:0.5px;margin:4px 0 2px 2px;">ADD FILTER</div>' +
+          '<div style="display:flex;flex-direction:column;gap:2px;">' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Section</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '">' +
+                ['Senior', 'Junior', 'Pre-Junior', 'Officer'].map(function(s) {
+                  return '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.section === s ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'section\', \'' + s + '\')"><span>' + s + '</span></button>';
                 }).join('') +
-              '</select>' +
+              '</div>' +
             '</div>' +
-            '<div>' +
-              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Department</label>' +
-              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'dept\', this.value)">' +
-                '<option value=""' + (!_adminMemberFilters.dept ? ' selected' : '') + '>All Departments</option>' +
-                '<option value="secretariat"' + (_adminMemberFilters.dept === 'secretariat' ? ' selected' : '') + '>Secretariat</option>' +
-                '<option value="logistics"' + (_adminMemberFilters.dept === 'logistics' ? ' selected' : '') + '>Logistics</option>' +
-                '<option value="media"' + (_adminMemberFilters.dept === 'media' ? ' selected' : '') + '>Media</option>' +
-                '<option value="hq"' + (_adminMemberFilters.dept === 'hq' ? ' selected' : '') + '>HQ</option>' +
-                '<option value="officers"' + (_adminMemberFilters.dept === 'officers' ? ' selected' : '') + '>Officers</option>' +
-                '<option value="none"' + (_adminMemberFilters.dept === 'none' ? ' selected' : '') + '>No Department</option>' +
-              '</select>' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Rank</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '">' +
+                RANK_ORDER.map(function(r) {
+                  return '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.rank === r ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'rank\', \'' + r + '\')"><span>' + r + '</span></button>';
+                }).join('') +
+              '</div>' +
             '</div>' +
-            '<div>' +
-              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Verification Status</label>' +
-              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'status\', this.value)">' +
-                '<option value=""' + (!_adminMemberFilters.status ? ' selected' : '') + '>All Statuses</option>' +
-                '<option value="verified"' + (_adminMemberFilters.status === 'verified' ? ' selected' : '') + '>Verified (Green)</option>' +
-                '<option value="processing"' + (_adminMemberFilters.status === 'processing' ? ' selected' : '') + '>Processing (Blue)</option>' +
-                '<option value="rejected"' + (_adminMemberFilters.status === 'rejected' ? ' selected' : '') + '>Rejected (Red)</option>' +
-                '<option value="not_verified"' + (_adminMemberFilters.status === 'not_verified' ? ' selected' : '') + '>Not Verified (Grey)</option>' +
-              '</select>' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Platoon / Squad</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '">' +
+                squadOptions.map(function(sq) {
+                  return '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.squad === sq ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'squad\', \'' + sq + '\')"><span>' + sq + '</span></button>';
+                }).join('') +
+              '</div>' +
             '</div>' +
-            '<div style="margin-top:6px;display:flex;gap:6px;">' +
-              '<button type="button" class="portal-btn" onclick="resetAdminMemberFilters();toggleGlobalFilterPopover(event);" style="flex:1;padding:6px 12px;font-size:11px;font-weight:600;border-radius:6px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);cursor:pointer;">Reset All</button>' +
-              '<button type="button" class="portal-btn gold" onclick="toggleGlobalFilterPopover(event);" style="flex:1;padding:6px 12px;font-size:11px;font-weight:700;border-radius:6px;background:var(--gold);color:#000;border:none;cursor:pointer;">Apply</button>' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Department</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '">' +
+                deptOptions.map(function(dp) {
+                  return '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.dept === dp.key ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'dept\', \'' + dp.key + '\')"><span>' + dp.label + '</span></button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Status</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '">' +
+                ['verified', 'processing', 'rejected', 'not_verified'].map(function(st) {
+                  var stLabel = (st === 'verified' ? 'Verified' : (st === 'processing' ? 'Processing' : (st === 'rejected' ? 'Rejected' : 'Not Verified')));
+                  return '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.status === st ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'status\', \'' + st + '\')"><span>' + stLabel + '</span></button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Consent</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '">' +
+                '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.consent === 'ok' ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'consent\', \'ok\')"><span>Parental Consent OK</span></button>' +
+                '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.consent === 'pending' ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'consent\', \'pending\')"><span>Parental Consent Pending</span></button>' +
+                '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.consent === 'no_media' ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'consent\', \'no_media\')"><span>No Media Release</span></button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Full Name</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '" style="padding:8px;">' +
+                '<input type="text" class="form-input" placeholder="Search by name..." value="' + ((typeof escapeHtml === 'function') ? escapeHtml(_adminMemberFilters.nameSearch || '') : (_adminMemberFilters.nameSearch || '')) + '" oninput="setAdminMemberFilter(\'nameSearch\', this.value)" style="font-size:12px;padding:6px 10px;margin:0;width:100%;box-sizing:border-box;" />' +
+              '</div>' +
+            '</div>' +
+            '<div class="adm-menu-item-with-submenu">' +
+              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Email</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
+              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '" style="padding:8px;">' +
+                '<input type="text" class="form-input" placeholder="Search by email..." value="' + ((typeof escapeHtml === 'function') ? escapeHtml(_adminMemberFilters.emailSearch || '') : (_adminMemberFilters.emailSearch || '')) + '" oninput="setAdminMemberFilter(\'emailSearch\', this.value)" style="font-size:12px;padding:6px 10px;margin:0;width:100%;box-sizing:border-box;" />' +
+              '</div>' +
             '</div>' +
           '</div>' +
         '</div>';
     } else if (_isGlobalSortOpen) {
       var sortBtn = document.querySelector('.adm-top-sort-btn');
       var sortRect = sortBtn ? sortBtn.getBoundingClientRect() : { bottom: 120, left: 300 };
+      var isNarrowSort = (sortRect.left + 520) > (typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+      var activeSortsHtml = '';
+      if (_adminSortRules && _adminSortRules.length) {
+        activeSortsHtml = '<div class="adm-active-sort-list">' +
+          _adminSortRules.map(function(r) {
+            var label = getSortFieldLabel(r.key);
+            var dirText = (r.dir === 'desc' ? 'Descending (Z \u2192 A)' : 'Ascending (A \u2192 Z)');
+            return '<div class="adm-active-sort-chip">' +
+              '<span>' + label + ' \u2192 ' + dirText + '</span>' +
+              '<button type="button" class="adm-active-sort-chip-del" onclick="removeAdminSortRule(\'' + r.key + '\')" title="Remove this sort rule">\u2715</button>' +
+            '</div>';
+          }).join('') +
+        '</div>';
+      }
 
       var sortFields = [
         { key: 'name', label: 'Full Name' },
@@ -810,35 +1120,54 @@
         { key: 'dept', label: 'Department' },
         { key: 'age', label: 'Age' },
         { key: 'dob', label: 'DOB' },
-        { key: 'status', label: 'Verification Status' },
-        { key: 'joined', label: 'Joined Date' }
+        { key: 'status', label: 'Status' }
       ];
 
       var sortItemsHtml = sortFields.map(function(f) {
-        var isCur = (_adminSortBy === f.key);
-        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border-radius:6px;background:' + (isCur ? 'var(--bg-card-subtle)' : 'transparent') + ';">' +
-          '<span style="font-size:12px;font-weight:' + (isCur ? '700' : '500') + ';color:' + (isCur ? 'var(--gold)' : 'var(--text-primary)') + ';">' + f.label + '</span>' +
-          '<div style="display:flex;gap:4px;">' +
-            '<button type="button" class="portal-btn' + (isCur && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + f.key + '\', \'asc\');toggleGlobalSortPopover(event);" style="padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer;border:1px solid var(--border-card);background:' + (isCur && _adminSortDir === 'asc' ? 'var(--gold)' : 'transparent') + ';color:' + (isCur && _adminSortDir === 'asc' ? '#000' : 'var(--text-secondary)') + ';" title="Ascending (A \u2192 Z)">' +
-              '\u2191 Sort A \u2192 Z' +
+        var isAsc = false;
+        var isDesc = false;
+        for (var i = 0; i < _adminSortRules.length; i++) {
+          if (_adminSortRules[i].key === f.key) {
+            if (_adminSortRules[i].dir === 'asc') isAsc = true;
+            if (_adminSortRules[i].dir === 'desc') isDesc = true;
+            break;
+          }
+        }
+        return '<div class="adm-menu-item-with-submenu">' +
+          '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')">' +
+            '<span>' + f.label + '</span>' +
+            '<svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' +
+          '</div>' +
+          '<div class="adm-popover-submenu' + (isNarrowSort ? ' open-left' : '') + '">' +
+            '<button type="button" class="adm-submenu-item' + (isAsc ? ' is-selected' : '') + '" onclick="addOrUpdateAdminSortRule(\'' + f.key + '\', \'asc\')">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>' +
+              '<span>Ascending (A \u2192 Z)</span>' +
             '</button>' +
-            '<button type="button" class="portal-btn' + (isCur && _adminSortDir === 'desc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + f.key + '\', \'desc\');toggleGlobalSortPopover(event);" style="padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer;border:1px solid var(--border-card);background:' + (isCur && _adminSortDir === 'desc' ? 'var(--gold)' : 'transparent') + ';color:' + (isCur && _adminSortDir === 'desc' ? '#000' : 'var(--text-secondary)') + ';" title="Descending (Z \u2192 A)">' +
-              '\u2193 Sort Z \u2192 A' +
+            '<button type="button" class="adm-submenu-item' + (isDesc ? ' is-selected' : '') + '" onclick="addOrUpdateAdminSortRule(\'' + f.key + '\', \'desc\')">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>' +
+              '<span>Descending (Z \u2192 A)</span>' +
             '</button>' +
+            (f.key === 'rank'
+              ? '<button type="button" class="adm-submenu-item' + (isAsc ? ' is-selected' : '') + '" onclick="addOrUpdateAdminSortRule(\'rank\', \'asc\')"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span>BB Rank Order</span></button>'
+              : '') +
           '</div>' +
         '</div>';
       }).join('');
 
       container.innerHTML =
         '<div class="adm-global-sort-popover" style="position:fixed;top:' + (sortRect.bottom + 6) + 'px;left:' + sortRect.left + 'px;z-index:99999;width:280px;" onclick="event.stopPropagation();">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-card);">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-card);">' +
             '<div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-primary);">' +
-              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>' +
-              '<span>Sort Users</span>' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg>' +
+              '<span>Sort</span>' +
             '</div>' +
-            '<button type="button" class="sfp-close-btn" onclick="toggleGlobalSortPopover(event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">\u2715</button>' +
+            '<div style="display:flex;align-items:center;gap:8px;">' +
+              (_adminSortRules.length > 0 ? '<button type="button" onclick="clearAllAdminSortRules()" style="background:none;border:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;padding:0;" onmouseover="this.style.color=\'var(--red)\'" onmouseout="this.style.color=\'var(--text-muted)\'">Reset</button>' : '') +
+              '<button type="button" class="sfp-close-btn" onclick="toggleGlobalSortPopover(event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;">\u2715</button>' +
+            '</div>' +
           '</div>' +
-          '<div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;">' +
+          activeSortsHtml +
+          '<div style="display:flex;flex-direction:column;gap:2px;">' +
             sortItemsHtml +
           '</div>' +
         '</div>';
@@ -2078,7 +2407,21 @@
       _adminSortDir = 'asc';
     }
     _adminSortBy = by;
+    var existingIdx = -1;
+    for (var i = 0; i < _adminSortRules.length; i++) {
+      if (_adminSortRules[i].key === by) {
+        existingIdx = i;
+        break;
+      }
+    }
+    if (existingIdx !== -1) {
+      _adminSortRules[existingIdx].dir = _adminSortDir;
+    } else {
+      _adminSortRules = [{ key: by, dir: _adminSortDir }].concat(_adminSortRules.filter(function(r) { return r.key !== by; }));
+    }
+    persistAdminFiltersAndSort();
     closeColumnFilterMenu();
+    updateTopControlsUI();
     if (typeof document !== 'undefined') {
       ['name', 'age', 'squad', 'rank', 'joined'].forEach(function(s) {
         var btn = document.getElementById('sort-' + s);
@@ -2444,56 +2787,22 @@
         return true;
       });
 
-      // Sort
+      // Multi-Level Compound Sort (Image 2)
       filtered.sort(function(a, b) {
-        var comp = 0;
-        if (_adminSortBy === 'age') {
-          var aa = calcAge(a.date_of_birth);
-          var ba = calcAge(b.date_of_birth);
-          if (aa === null && ba === null) comp = 0;
-          else if (aa === null) comp = 1;
-          else if (ba === null) comp = -1;
-          else comp = aa - ba;
-        } else if (_adminSortBy === 'status') {
-          var vOrd = { verified: 0, processing: 1, rejected: 2, not_verified: 3 };
-          var stA = getMemberVerificationStatus(a);
-          var stB = getMemberVerificationStatus(b);
-          var ordA = vOrd[stA] !== undefined ? vOrd[stA] : 9;
-          var ordB = vOrd[stB] !== undefined ? vOrd[stB] : 9;
-          if (ordA !== ordB) comp = ordA - ordB;
-          else comp = (a.name || '').localeCompare(b.name || '');
-        } else if (_adminSortBy === 'email') {
-          comp = (a.email || a.ic || '').localeCompare(b.email || b.ic || '');
-        } else if (_adminSortBy === 'dob') {
-          comp = (a.date_of_birth || '').localeCompare(b.date_of_birth || '');
-        } else if (_adminSortBy === 'squad') {
-          var sq = (a.squad || '').localeCompare(b.squad || '');
-          comp = sq !== 0 ? sq : (a.name || '').localeCompare(b.name || '');
-        } else if (_adminSortBy === 'rank') {
-          var ri = RANK_ORDER.indexOf(a.rank || '');
-          var rj = RANK_ORDER.indexOf(b.rank || '');
-          if (ri === -1) ri = 99;
-          if (rj === -1) rj = 99;
-          comp = ri - rj;
-        } else if (_adminSortBy === 'section') {
-          var secA = a.section || a.att_section || '';
-          var secB = b.section || b.att_section || '';
-          var sComp = secA.localeCompare(secB);
-          comp = sComp !== 0 ? sComp : (a.name || '').localeCompare(b.name || '');
-        } else if (_adminSortBy === 'dept') {
-          var currentDeptKeyA = (a.department || '').trim().toLowerCase();
-          var currentDeptKeyB = (b.department || '').trim().toLowerCase();
-          var depLabelA = (DEFAULT_DEPT_CONFIG[currentDeptKeyA] && DEFAULT_DEPT_CONFIG[currentDeptKeyA].label) || a.department || 'No Dept';
-          var depLabelB = (DEFAULT_DEPT_CONFIG[currentDeptKeyB] && DEFAULT_DEPT_CONFIG[currentDeptKeyB].label) || b.department || 'No Dept';
-          var dComp = depLabelA.localeCompare(depLabelB);
-          comp = dComp !== 0 ? dComp : (a.name || '').localeCompare(b.name || '');
-        } else if (_adminSortBy === 'joined') {
-          comp = (a.joined_at || '').localeCompare(b.joined_at || '');
-        } else {
-          comp = (a.name || '').localeCompare(b.name || '');
+        if (_adminSortRules && _adminSortRules.length) {
+          for (var i = 0; i < _adminSortRules.length; i++) {
+            var rule = _adminSortRules[i];
+            var c = compareMembersByField(a, b, rule.key);
+            if (c !== 0) {
+              return rule.dir === 'desc' ? -c : c;
+            }
+          }
         }
-
-        return _adminSortDir === 'desc' ? -comp : comp;
+        var singleComp = compareMembersByField(a, b, _adminSortBy || 'name');
+        if (singleComp !== 0) {
+          return _adminSortDir === 'desc' ? -singleComp : singleComp;
+        }
+        return (a.name || '').localeCompare(b.name || '');
       });
 
       _adminMembers = {};
@@ -2839,6 +3148,7 @@
       }
 
       list.innerHTML = html;
+      updateTopControlsUI();
 
       list.querySelectorAll('[data-edit-ic]').forEach(function(row) {
         row.addEventListener('click', function(e) {
@@ -3992,6 +4302,7 @@
       });
 
       list.innerHTML = html;
+      updateTopControlsUI();
 
       list.querySelectorAll('[data-tid]').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -5229,7 +5540,13 @@
     global.toggleAdminMemberEditMode = toggleAdminMemberEditMode;
     global.getAdminMemberEditMode    = getAdminMemberEditMode;
     global.setAdminMemberFilter      = setAdminMemberFilter;
+    global.removeAdminMemberFilter   = removeAdminMemberFilter;
+    global.clearAllAdminMemberFilters = clearAllAdminMemberFilters;
     global.resetAdminMemberFilters   = resetAdminMemberFilters;
+    global.addOrUpdateAdminSortRule  = addOrUpdateAdminSortRule;
+    global.removeAdminSortRule       = removeAdminSortRule;
+    global.clearAllAdminSortRules    = clearAllAdminSortRules;
+    global.getAdminSortRules         = getAdminSortRules;
     global.updateMemberField         = updateMemberField;
     global.toggleSelectAllMembers    = toggleSelectAllMembers;
     global.toggleSelectMemberRow     = toggleSelectMemberRow;
@@ -5240,6 +5557,7 @@
     global.toggleGlobalFilterPopover = toggleGlobalFilterPopover;
     global.closeGlobalPopovers        = closeGlobalPopovers;
     global.toggleGlobalSortPopover   = toggleGlobalSortPopover;
+    global.updateTopControlsUI       = updateTopControlsUI;
     global.filterByOverviewCategory  = filterByOverviewCategory;
     global.updateMemberVerificationStatus = updateMemberVerificationStatus;
     global.getMemberVerificationStatus = getMemberVerificationStatus;
@@ -5290,7 +5608,16 @@
       toggleAdminMemberEditMode: toggleAdminMemberEditMode,
       getAdminMemberEditMode: getAdminMemberEditMode,
       setAdminMemberFilter: setAdminMemberFilter,
+      removeAdminMemberFilter: removeAdminMemberFilter,
+      clearAllAdminMemberFilters: clearAllAdminMemberFilters,
       resetAdminMemberFilters: resetAdminMemberFilters,
+      addOrUpdateAdminSortRule: addOrUpdateAdminSortRule,
+      removeAdminSortRule: removeAdminSortRule,
+      clearAllAdminSortRules: clearAllAdminSortRules,
+      getAdminSortRules: getAdminSortRules,
+      updateTopControlsUI: updateTopControlsUI,
+      persistAdminFiltersAndSort: persistAdminFiltersAndSort,
+      restoreAdminFiltersAndSort: restoreAdminFiltersAndSort,
       updateMemberField: updateMemberField,
       toggleSelectAllMembers: toggleSelectAllMembers,
       toggleSelectMemberRow: toggleSelectMemberRow,
