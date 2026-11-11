@@ -11343,12 +11343,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     adminModule.toggleSelectAllMembers(false);
     assert.strictEqual(adminModule.getSelectedMemberIcs().length, 0, 'Deselect all clears selection');
 
-    // Verification Status Dropdown
-    assert.ok(memberListEl.innerHTML.includes('adm-status-select'), 'Table rows contain verification status dropdown');
-    assert.ok(memberListEl.innerHTML.includes('status-verified'), 'Status dropdown renders Verified option');
+    // Verification Status Badge
+    assert.ok(memberListEl.innerHTML.includes('adm-status-badge'), 'Table rows contain verification status badge');
+    assert.ok(memberListEl.innerHTML.includes('status-verified'), 'Status badge renders Verified state');
     assert.strictEqual(typeof adminModule.updateMemberVerificationStatus, 'function', 'updateMemberVerificationStatus exported');
     await adminModule.updateMemberVerificationStatus('test@pjbb.org', 'processing');
     assert.strictEqual(adminModule.getMemberVerificationStatus({ ic: 'test@pjbb.org', verification_status: 'processing' }), 'processing', 'Verification status resolves to processing');
+
+    // Rank Insignia Stripes
+    assert.strictEqual(typeof adminModule.getRankInsigniaSvg, 'function', 'getRankInsigniaSvg exported');
+    assert.ok(adminModule.getRankInsigniaSvg('Lance Corporal').includes('1 stripe'), 'Lance Corporal returns 1 stripe');
+    assert.ok(adminModule.getRankInsigniaSvg('Corporal').includes('2 stripes'), 'Corporal returns 2 stripes');
+    assert.ok(adminModule.getRankInsigniaSvg('Sergeant').includes('3 stripes'), 'Sergeant returns 3 stripes');
+    assert.ok(adminModule.getRankInsigniaSvg('Staff Sergeant').includes('4 stripes'), 'Staff Sergeant returns 4 stripes');
 
     // Top Overview Summary Pills (Image 5)
     summarySlotEl = document.querySelector('.adm-topbar-summary-slot');
