@@ -63,6 +63,11 @@
   var _adminMemberEditMode = false;
   var _adminMembersSubView = 'members'; // 'members' | 'blocked_emails'
   var _activeFilterCol = null;
+  var _selectedMemberIcs = new Set();
+  var _isGlobalFilterOpen = false;
+  var _isGlobalSortOpen = false;
+  var _isBulkActionsMenuOpen = false;
+  var _lastFilteredMembers = [];
   var _adminMemberFilters = {
     section: '',
     rank: '',
@@ -150,7 +155,8 @@
       dept: '',
       status: '',
       consent: '',
-      nameSearch: ''
+      nameSearch: '',
+      emailSearch: ''
     };
     _adminSortBy = 'name';
     _adminSortDir = 'asc';
@@ -162,22 +168,62 @@
     return renderAdminList();
   }
 
-  function renderColumnHeader(colKey, label, sortKey, filterType, membersList) {
-    var isFiltered = !!_adminMemberFilters[colKey] || (colKey === 'member' && !!_adminMemberFilters.nameSearch);
+  // ── CRM MEMBER TABLE & ROW SELECTION SYSTEM ───────────────────────────────────
+  function getColumnHeaderIconSvg(colKey) {
+    switch (colKey) {
+      case 'member':
+      case 'name':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      case 'email':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>';
+      case 'section':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>';
+      case 'rank':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>';
+      case 'squad':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+      case 'dept':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>';
+      case 'age':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+      case 'dob':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+      case 'status':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+      case 'consent':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>';
+      case 'actions':
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+      default:
+        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>';
+    }
+  }
 
-    var btnClass = 'sheets-filter-btn' + (isFiltered ? ' is-filtered' : '') + (_activeFilterCol === colKey ? ' is-active' : '');
+  function renderColumnHeader(colKey, label, iconSvg, sortKey, filterType, membersList) {
+    if (typeof iconSvg === 'string' && !iconSvg.includes('<svg') && !iconSvg.includes('<span')) {
+      membersList = filterType;
+      filterType = sortKey;
+      sortKey = iconSvg;
+      iconSvg = getColumnHeaderIconSvg(colKey);
+    } else if (!iconSvg) {
+      iconSvg = getColumnHeaderIconSvg(colKey);
+    }
+
+    var isFiltered = !!_adminMemberFilters[colKey] || (colKey === 'member' && !!_adminMemberFilters.nameSearch) || (colKey === 'name' && !!_adminMemberFilters.nameSearch) || (colKey === 'email' && !!_adminMemberFilters.emailSearch);
+    var btnClass = 'sheets-filter-btn crm-th-chevron' + (isFiltered ? ' is-filtered' : '') + (_activeFilterCol === colKey ? ' is-active' : '');
 
     var popoverHtml = '';
     if (_activeFilterCol === colKey) {
       popoverHtml = renderColumnPopover(colKey, label, sortKey || colKey, filterType, membersList);
     }
 
-    return '<th class="sheets-th" data-col="' + colKey + '">' +
-      '<div class="sheets-th-content" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" title="Filter &amp; Sort ' + label + '">' +
-        '<span class="sheets-th-label">' + label + '</span>' +
+    return '<th class="sheets-th crm-th" data-col="' + colKey + '">' +
+      '<div class="sheets-th-content crm-th-content" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" title="Filter &amp; Sort ' + label + '">' +
+        (iconSvg ? '<span class="crm-th-icon">' + iconSvg + '</span>' : '') +
+        '<span class="sheets-th-label crm-th-label">' + label + '</span>' +
         '<button type="button" class="' + btnClass + '" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" aria-label="Filter &amp; Sort ' + label + '">' +
-          '<svg class="sheets-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-            '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>' +
+          '<svg class="sheets-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+            '<polyline points="6 9 12 15 18 9"/>' +
           '</svg>' +
         '</button>' +
       '</div>' +
@@ -192,8 +238,8 @@
       ascLabel = 'Sort Youngest to Oldest';
       descLabel = 'Sort Oldest to Youngest';
     } else if (sortKey === 'status') {
-      ascLabel = 'Sort Online First';
-      descLabel = 'Sort Offline First';
+      ascLabel = 'Sort Verified First';
+      descLabel = 'Sort Not Verified First';
     }
 
     var sortBtns =
@@ -210,12 +256,12 @@
 
     var filterBody = '';
     if (filterType === 'search') {
-      var curVal = _adminMemberFilters.nameSearch || '';
+      var curVal = (colKey === 'email') ? (_adminMemberFilters.emailSearch || '') : (_adminMemberFilters.nameSearch || '');
       filterBody =
         '<div class="sfp-section">' +
-          '<div class="sfp-section-label">Filter by Name or ID</div>' +
+          '<div class="sfp-section-label">Filter by ' + label + '</div>' +
           '<div class="sfp-search-box">' +
-            '<input type="text" class="sfp-input" placeholder="Type name or email..." value="' + ((typeof escapeHtml === 'function') ? escapeHtml(curVal) : curVal) + '" oninput="setAdminMemberFilter(\'nameSearch\', this.value)" autofocus />' +
+            '<input type="text" class="sfp-input" placeholder="Type to filter..." value="' + ((typeof escapeHtml === 'function') ? escapeHtml(curVal) : curVal) + '" oninput="setAdminMemberFilter(\'' + (colKey === 'email' ? 'emailSearch' : 'nameSearch') + '\', this.value)" autofocus />' +
           '</div>' +
         '</div>';
     } else if (filterType === 'options') {
@@ -228,18 +274,19 @@
         opts = ['Alpha Platoon', 'Bravo Platoon', 'Charlie Platoon', 'Delta Platoon', 'Echo Platoon', 'Foxtrot Platoon', 'Golf Platoon', 'Hotel Platoon', 'India Platoon', 'Zulu Platoon', 'Papa Platoon', 'Officers'];
       } else if (colKey === 'dept') {
         opts = [
-          { val: 'hq', label: 'HQ' },
-          { val: 'media', label: 'Media' },
-          { val: 'logistics', label: 'Logistics' },
           { val: 'secretariat', label: 'Secretariat' },
+          { val: 'logistics', label: 'Logistics' },
+          { val: 'media', label: 'Media' },
+          { val: 'hq', label: 'HQ' },
           { val: 'officers', label: 'Officers' },
           { val: 'none', label: 'No Department' }
         ];
       } else if (colKey === 'status') {
         opts = [
-          { val: 'online', label: 'Online' },
-          { val: 'idle', label: 'Idle' },
-          { val: 'offline', label: 'Offline' }
+          { val: 'verified', label: 'Verified' },
+          { val: 'processing', label: 'Processing' },
+          { val: 'rejected', label: 'Rejected' },
+          { val: 'not_verified', label: 'Not Verified' }
         ];
       } else if (colKey === 'consent') {
         opts = [
@@ -269,7 +316,7 @@
         '</div>';
     }
 
-    var isFiltered = !!_adminMemberFilters[colKey] || (colKey === 'member' && !!_adminMemberFilters.nameSearch);
+    var isFiltered = !!_adminMemberFilters[colKey] || (colKey === 'member' && !!_adminMemberFilters.nameSearch) || (colKey === 'name' && !!_adminMemberFilters.nameSearch) || (colKey === 'email' && !!_adminMemberFilters.emailSearch);
 
     return '<div class="sheets-filter-popover" onclick="event.stopPropagation();">' +
       '<div class="sfp-header">' +
@@ -281,6 +328,422 @@
       filterBody +
       (isFiltered ? '<div class="sfp-footer"><button type="button" class="sfp-clear-btn" onclick="clearColumnFilter(\'' + colKey + '\')">Clear Filter</button></div>' : '') +
     '</div>';
+  }
+
+  // Verification Status Resolution & Badge Rendering
+  function getMemberVerificationStatus(m) {
+    if (!m) return 'verified';
+    var v = (m.verification_status || m.v_status || '').toLowerCase();
+    if (v === 'verified' || v === 'processing' || v === 'rejected' || v === 'not_verified' || v === 'not verified') {
+      return v === 'not verified' ? 'not_verified' : v;
+    }
+    return 'verified';
+  }
+
+  function renderStatusBadge(statusVal, safeIc) {
+    var st = (statusVal || 'verified').toLowerCase();
+    var cls = 'status-verified';
+    var icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+
+    if (st === 'processing') {
+      cls = 'status-processing';
+      icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+    } else if (st === 'rejected') {
+      cls = 'status-rejected';
+      icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    } else if (st === 'not_verified' || st === 'not verified') {
+      cls = 'status-not-verified';
+      icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    }
+
+    return '<div class="adm-status-badge-wrap" style="position:relative;display:inline-block;">' +
+      '<select class="adm-status-select ' + cls + '" onchange="updateMemberVerificationStatus(\'' + safeIc + '\', this.value)" title="Change Verification Status" style="appearance:none;-webkit-appearance:none;cursor:pointer;padding:3px 22px 3px 22px;border-radius:6px;font-size:11px;font-weight:700;line-height:1.2;font-family:inherit;">' +
+        '<option value="verified"' + (st === 'verified' ? ' selected' : '') + '>Verified</option>' +
+        '<option value="processing"' + (st === 'processing' ? ' selected' : '') + '>Processing</option>' +
+        '<option value="rejected"' + (st === 'rejected' ? ' selected' : '') + '>Rejected</option>' +
+        '<option value="not_verified"' + (st === 'not_verified' ? ' selected' : '') + '>Not Verified</option>' +
+      '</select>' +
+      '<span style="position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center;">' + icon + '</span>' +
+      '<span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center;opacity:0.6;"><svg style="width:9px;height:9px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>' +
+    '</div>';
+  }
+
+  async function updateMemberVerificationStatus(ic, val) {
+    if (!ic) return;
+    var client = getSupabaseClient();
+    var cleanVal = (val || 'verified').toLowerCase();
+
+    if (_adminMembers && _adminMembers[ic]) {
+      _adminMembers[ic].verification_status = cleanVal;
+    }
+    if (Array.isArray(_adminMembersCache)) {
+      _adminMembersCache.forEach(function(m) {
+        if (m.ic === ic) m.verification_status = cleanVal;
+      });
+    }
+
+    if (client) {
+      try {
+        if (client.patch) {
+          await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), { verification_status: cleanVal });
+        } else if (client.req) {
+          await client.req('PATCH', 'bb_members?ic=eq.' + encodeURIComponent(ic), { verification_status: cleanVal });
+        }
+      } catch (e) {
+        console.warn('verification_status column not yet in bb_members schema, storing in bb_config:', e);
+        try {
+          var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
+          var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
+          vMap[ic] = cleanVal;
+          await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
+        } catch (_) {}
+      }
+    }
+
+    if (typeof showToast === 'function') {
+      showToast('Updated status to ' + cleanVal.replace('_', ' '), 'success');
+    }
+    await renderAdminList();
+  }
+
+  // Selection & Bulk Actions
+  function toggleSelectAllMembers(checked) {
+    if (checked) {
+      if (Array.isArray(_lastFilteredMembers)) {
+        _lastFilteredMembers.forEach(function(m) {
+          if (m && m.ic) _selectedMemberIcs.add(m.ic);
+        });
+      }
+    } else {
+      _selectedMemberIcs.clear();
+    }
+    updateSelectionUI();
+  }
+
+  function toggleSelectMemberRow(ic, checked) {
+    if (checked) {
+      _selectedMemberIcs.add(ic);
+    } else {
+      _selectedMemberIcs.delete(ic);
+    }
+    updateSelectionUI();
+  }
+
+  function updateSelectionUI() {
+    if (typeof document === 'undefined') return;
+    var masterChk = document.getElementById('adm-master-chk');
+    var totalFiltered = (_lastFilteredMembers && _lastFilteredMembers.length) || 0;
+    var selCount = _selectedMemberIcs.size;
+
+    if (masterChk) {
+      masterChk.checked = (totalFiltered > 0 && selCount === totalFiltered);
+      masterChk.indeterminate = (selCount > 0 && selCount < totalFiltered);
+    }
+
+    var tableEl = document.querySelector('.admin-members-table');
+    if (tableEl) {
+      tableEl.querySelectorAll('tbody tr').forEach(function(tr) {
+        var rowIc = tr.getAttribute('data-ic');
+        if (!rowIc) {
+          var chk = tr.querySelector('.adm-row-chk');
+          if (chk) rowIc = chk.getAttribute('data-ic');
+        }
+        if (rowIc) {
+          var isSel = _selectedMemberIcs.has(rowIc);
+          if (isSel) tr.classList.add('is-selected');
+          else tr.classList.remove('is-selected');
+          var chkInput = tr.querySelector('.adm-row-chk');
+          if (chkInput) chkInput.checked = isSel;
+        }
+      });
+    }
+
+    renderRowActionsButton();
+  }
+
+  function renderRowActionsButton() {
+    if (typeof document === 'undefined') return;
+    var slot = document.querySelector('.adm-topbar-row-actions-slot');
+    if (!slot) return;
+
+    var selCount = _selectedMemberIcs.size;
+    if (selCount === 0) {
+      slot.innerHTML = '';
+      _isBulkActionsMenuOpen = false;
+      return;
+    }
+
+    slot.innerHTML =
+      '<div class="adm-row-actions-wrap" style="position:relative;display:inline-block;">' +
+        '<button type="button" class="portal-btn adm-row-actions-btn" onclick="toggleBulkActionsMenu(event)" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-primary);font-size:12px;font-weight:700;cursor:pointer;" title="Actions for selected rows">' +
+          '<span>' + selCount + ' Row actions</span>' +
+          '<svg class="ui-icon-xs" style="width:10px;height:10px;opacity:0.8;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>' +
+        '</button>' +
+        (_isBulkActionsMenuOpen
+          ? '<div class="adm-row-actions-menu" onclick="event.stopPropagation();" style="position:absolute;top:calc(100% + 4px);right:0;background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;box-shadow:var(--shadow-elevated);z-index:9999;min-width:180px;padding:6px;display:flex;flex-direction:column;gap:4px;">' +
+              '<button type="button" class="adm-action-item" onclick="bulkBlockSelectedMembers()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:none;background:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;text-align:left;width:100%;">' +
+                '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
+                '<span>Block selected</span>' +
+              '</button>' +
+              '<button type="button" class="adm-action-item" onclick="bulkDeleteSelectedMembers()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:none;background:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;text-align:left;width:100%;">' +
+                '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+                '<span>Delete selected</span>' +
+              '</button>' +
+            '</div>'
+          : '') +
+      '</div>';
+  }
+
+  function toggleBulkActionsMenu(ev) {
+    if (ev) {
+      if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (typeof ev.preventDefault === 'function') ev.preventDefault();
+    }
+    _isBulkActionsMenuOpen = !_isBulkActionsMenuOpen;
+    renderRowActionsButton();
+  }
+
+  async function bulkBlockSelectedMembers() {
+    var count = _selectedMemberIcs.size;
+    if (count === 0) return;
+    _isBulkActionsMenuOpen = false;
+    renderRowActionsButton();
+
+    var confirmed = false;
+    if (typeof showConfirmModal === 'function') {
+      confirmed = await showConfirmModal('Block ' + count + ' Selected Accounts?', 'Are you sure you want to block ' + count + ' selected member account(s) from accessing the portal?');
+    } else {
+      confirmed = true;
+    }
+    if (!confirmed) return;
+
+    var blockedCount = 0;
+    var ics = Array.from(_selectedMemberIcs);
+    for (var i = 0; i < ics.length; i++) {
+      var ic = ics[i];
+      var mem = (_adminMembers && _adminMembers[ic]) || { ic: ic, email: ic };
+      var em = mem.email || mem.ic;
+      if (em) {
+        await addBlockedEmail(em, 'Bulk blocked by administrator');
+        blockedCount++;
+      }
+    }
+    _selectedMemberIcs.clear();
+    if (typeof showToast === 'function') {
+      showToast('Successfully blocked ' + blockedCount + ' account(s).', 'success');
+    }
+    return renderAdminList(true);
+  }
+
+  async function bulkDeleteSelectedMembers() {
+    var count = _selectedMemberIcs.size;
+    if (count === 0) return;
+    _isBulkActionsMenuOpen = false;
+    renderRowActionsButton();
+
+    var confirmed = false;
+    if (typeof showConfirmModal === 'function') {
+      confirmed = await showConfirmModal('Delete ' + count + ' Selected Accounts?', 'Are you sure you want to permanently delete ' + count + ' selected account(s)? This action cannot be undone.');
+    } else {
+      confirmed = true;
+    }
+    if (!confirmed) return;
+
+    var deletedCount = 0;
+    var client = getSupabaseClient();
+    var ics = Array.from(_selectedMemberIcs);
+    for (var i = 0; i < ics.length; i++) {
+      var ic = ics[i];
+      try {
+        if (client) {
+          if (client.delete) {
+            await client.delete('bb_members?ic=eq.' + encodeURIComponent(ic));
+          } else if (client.req) {
+            await client.req('DELETE', 'bb_members?ic=eq.' + encodeURIComponent(ic));
+          }
+        }
+        deletedCount++;
+      } catch (err) {
+        console.error('bulkDeleteSelectedMembers item error:', err);
+      }
+    }
+    _selectedMemberIcs.clear();
+    if (typeof showToast === 'function') {
+      showToast('Successfully deleted ' + deletedCount + ' account(s).', 'success');
+    }
+    return renderAdminList(true);
+  }
+
+  // Global Stackable Filters & Sort Popovers
+  function toggleGlobalFilterPopover(ev) {
+    if (ev) {
+      if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (typeof ev.preventDefault === 'function') ev.preventDefault();
+    }
+    _isGlobalSortOpen = false;
+    _isGlobalFilterOpen = !_isGlobalFilterOpen;
+    renderGlobalPopovers();
+  }
+
+  function toggleGlobalSortPopover(ev) {
+    if (ev) {
+      if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
+      if (typeof ev.preventDefault === 'function') ev.preventDefault();
+    }
+    _isGlobalFilterOpen = false;
+    _isGlobalSortOpen = !_isGlobalSortOpen;
+    renderGlobalPopovers();
+  }
+
+  function closeGlobalPopovers() {
+    if (_isGlobalFilterOpen || _isGlobalSortOpen || _isBulkActionsMenuOpen) {
+      _isGlobalFilterOpen = false;
+      _isGlobalSortOpen = false;
+      _isBulkActionsMenuOpen = false;
+      renderGlobalPopovers();
+    }
+  }
+
+  function renderGlobalPopovers() {
+    if (typeof document === 'undefined') return;
+    var container = document.getElementById('adm-global-popover-portal');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'adm-global-popover-portal';
+      document.body.appendChild(container);
+    }
+
+    if (!_isGlobalFilterOpen && !_isGlobalSortOpen) {
+      container.innerHTML = '';
+      return;
+    }
+
+    if (_isGlobalFilterOpen) {
+      var filterBtn = document.querySelector('.adm-top-filter-btn');
+      var rect = filterBtn ? filterBtn.getBoundingClientRect() : { bottom: 120, left: 200 };
+
+      container.innerHTML =
+        '<div class="adm-global-filter-popover" style="position:fixed;top:' + (rect.bottom + 6) + 'px;left:' + rect.left + 'px;z-index:99999;" onclick="event.stopPropagation();">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-card);">' +
+            '<div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-primary);">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
+              '<span>Stackable Filters</span>' +
+            '</div>' +
+            '<button type="button" class="sfp-close-btn" onclick="toggleGlobalFilterPopover(event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">\u2715</button>' +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:10px;font-size:12px;">' +
+            '<div>' +
+              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Section</label>' +
+              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'section\', this.value)">' +
+                '<option value=""' + (!_adminMemberFilters.section ? ' selected' : '') + '>All Sections</option>' +
+                '<option value="Senior"' + (_adminMemberFilters.section === 'Senior' ? ' selected' : '') + '>Senior</option>' +
+                '<option value="Junior"' + (_adminMemberFilters.section === 'Junior' ? ' selected' : '') + '>Junior</option>' +
+                '<option value="Pre-Junior"' + (_adminMemberFilters.section === 'Pre-Junior' ? ' selected' : '') + '>Pre-Junior</option>' +
+                '<option value="Officer"' + (_adminMemberFilters.section === 'Officer' ? ' selected' : '') + '>Officer</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Rank</label>' +
+              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'rank\', this.value)">' +
+                '<option value=""' + (!_adminMemberFilters.rank ? ' selected' : '') + '>All Ranks</option>' +
+                RANK_ORDER.map(function(r) { return '<option value="' + r + '"' + (_adminMemberFilters.rank === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Platoon / Squad</label>' +
+              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'squad\', this.value)">' +
+                '<option value=""' + (!_adminMemberFilters.squad ? ' selected' : '') + '>All Platoons / Squads</option>' +
+                ['Alpha Platoon', 'Bravo Platoon', 'Charlie Platoon', 'Delta Platoon', 'Echo Platoon', 'Foxtrot Platoon', 'Golf Platoon', 'Hotel Platoon', 'India Platoon', 'Zulu Platoon', 'Papa Platoon', 'Officers'].map(function(sq) {
+                  return '<option value="' + sq + '"' + (_adminMemberFilters.squad === sq ? ' selected' : '') + '>' + sq + '</option>';
+                }).join('') +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Department</label>' +
+              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'dept\', this.value)">' +
+                '<option value=""' + (!_adminMemberFilters.dept ? ' selected' : '') + '>All Departments</option>' +
+                '<option value="secretariat"' + (_adminMemberFilters.dept === 'secretariat' ? ' selected' : '') + '>Secretariat</option>' +
+                '<option value="logistics"' + (_adminMemberFilters.dept === 'logistics' ? ' selected' : '') + '>Logistics</option>' +
+                '<option value="media"' + (_adminMemberFilters.dept === 'media' ? ' selected' : '') + '>Media</option>' +
+                '<option value="hq"' + (_adminMemberFilters.dept === 'hq' ? ' selected' : '') + '>HQ</option>' +
+                '<option value="officers"' + (_adminMemberFilters.dept === 'officers' ? ' selected' : '') + '>Officers</option>' +
+                '<option value="none"' + (_adminMemberFilters.dept === 'none' ? ' selected' : '') + '>No Department</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:4px;">Verification Status</label>' +
+              '<select class="form-select admin-filter-select" style="width:100%;font-size:12px;padding:6px 10px;" onchange="setAdminMemberFilter(\'status\', this.value)">' +
+                '<option value=""' + (!_adminMemberFilters.status ? ' selected' : '') + '>All Statuses</option>' +
+                '<option value="verified"' + (_adminMemberFilters.status === 'verified' ? ' selected' : '') + '>Verified (Green)</option>' +
+                '<option value="processing"' + (_adminMemberFilters.status === 'processing' ? ' selected' : '') + '>Processing (Blue)</option>' +
+                '<option value="rejected"' + (_adminMemberFilters.status === 'rejected' ? ' selected' : '') + '>Rejected (Red)</option>' +
+                '<option value="not_verified"' + (_adminMemberFilters.status === 'not_verified' ? ' selected' : '') + '>Not Verified (Grey)</option>' +
+              '</select>' +
+            '</div>' +
+            '<div style="margin-top:6px;display:flex;gap:6px;">' +
+              '<button type="button" class="portal-btn" onclick="resetAdminMemberFilters();toggleGlobalFilterPopover(event);" style="flex:1;padding:6px 12px;font-size:11px;font-weight:600;border-radius:6px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);cursor:pointer;">Reset All</button>' +
+              '<button type="button" class="portal-btn gold" onclick="toggleGlobalFilterPopover(event);" style="flex:1;padding:6px 12px;font-size:11px;font-weight:700;border-radius:6px;background:var(--gold);color:#000;border:none;cursor:pointer;">Apply</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+    } else if (_isGlobalSortOpen) {
+      var sortBtn = document.querySelector('.adm-top-sort-btn');
+      var sortRect = sortBtn ? sortBtn.getBoundingClientRect() : { bottom: 120, left: 300 };
+
+      var sortFields = [
+        { key: 'name', label: 'Full Name' },
+        { key: 'email', label: 'Email' },
+        { key: 'section', label: 'Section' },
+        { key: 'rank', label: 'Rank' },
+        { key: 'squad', label: 'Platoon / Squad' },
+        { key: 'dept', label: 'Department' },
+        { key: 'age', label: 'Age' },
+        { key: 'dob', label: 'DOB' },
+        { key: 'status', label: 'Verification Status' },
+        { key: 'joined', label: 'Joined Date' }
+      ];
+
+      var sortItemsHtml = sortFields.map(function(f) {
+        var isCur = (_adminSortBy === f.key);
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border-radius:6px;background:' + (isCur ? 'var(--bg-card-subtle)' : 'transparent') + ';">' +
+          '<span style="font-size:12px;font-weight:' + (isCur ? '700' : '500') + ';color:' + (isCur ? 'var(--gold)' : 'var(--text-primary)') + ';">' + f.label + '</span>' +
+          '<div style="display:flex;gap:4px;">' +
+            '<button type="button" class="portal-btn' + (isCur && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + f.key + '\', \'asc\');toggleGlobalSortPopover(event);" style="padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer;border:1px solid var(--border-card);background:' + (isCur && _adminSortDir === 'asc' ? 'var(--gold)' : 'transparent') + ';color:' + (isCur && _adminSortDir === 'asc' ? '#000' : 'var(--text-secondary)') + ';" title="Ascending (A \u2192 Z)">' +
+              '\u2191 A-Z' +
+            '</button>' +
+            '<button type="button" class="portal-btn' + (isCur && _adminSortDir === 'desc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + f.key + '\', \'desc\');toggleGlobalSortPopover(event);" style="padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer;border:1px solid var(--border-card);background:' + (isCur && _adminSortDir === 'desc' ? 'var(--gold)' : 'transparent') + ';color:' + (isCur && _adminSortDir === 'desc' ? '#000' : 'var(--text-secondary)') + ';" title="Descending (Z \u2192 A)">' +
+              '\u2193 Z-A' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      container.innerHTML =
+        '<div class="adm-global-sort-popover" style="position:fixed;top:' + (sortRect.bottom + 6) + 'px;left:' + sortRect.left + 'px;z-index:99999;width:280px;" onclick="event.stopPropagation();">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-card);">' +
+            '<div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text-primary);">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>' +
+              '<span>Sort Users</span>' +
+            '</div>' +
+            '<button type="button" class="sfp-close-btn" onclick="toggleGlobalSortPopover(event)" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;">\u2715</button>' +
+          '</div>' +
+          '<div style="display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;">' +
+            sortItemsHtml +
+          '</div>' +
+        '</div>';
+    }
+  }
+
+  function filterByOverviewCategory(cat) {
+    if (cat === 'all') {
+      _adminMemberFilters.section = '';
+      _adminMemberFilters.status = '';
+    } else if (cat === 'verified') {
+      _adminMemberFilters.status = 'verified';
+    } else if (cat === 'Pre-Junior' || cat === 'Junior' || cat === 'Senior') {
+      _adminMemberFilters.section = cat;
+    }
+    return renderAdminList();
   }
 
   async function openBlockedEmailsView() {
@@ -1767,11 +2230,15 @@
         _adminMembersCache = members;
         _adminMembersCacheTime = now;
       }
-      var filtered = members.filter(function(m) {
+      // Active non-deleted members calculation (Fixes '5 of 28' count discrepancy)
+      var activeMembers = members.filter(function(m) {
         if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return false;
         if (deletedSet.has(m.ic)) return false;
         if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
+        return true;
+      });
 
+      var filtered = activeMembers.filter(function(m) {
         // Search text filter
         if (search) {
           var sMatches = (m.name || '').toLowerCase().includes(search) ||
@@ -1785,6 +2252,11 @@
                           (m.ic || '').toLowerCase().includes(_adminMemberFilters.nameSearch.toLowerCase()) ||
                           (m.email || '').toLowerCase().includes(_adminMemberFilters.nameSearch.toLowerCase());
           if (!nsMatches) return false;
+        }
+
+        if (_adminMemberFilters.emailSearch) {
+          var emMatches = (m.email || m.ic || '').toLowerCase().includes(_adminMemberFilters.emailSearch.toLowerCase());
+          if (!emMatches) return false;
         }
 
         // Section filter
@@ -1815,13 +2287,16 @@
           }
         }
 
-        // Status filter
+        // Status filter (Verification Status)
         if (_adminMemberFilters.status) {
-          var pResolver = (typeof getMemberPresenceStatus === 'function')
-            ? getMemberPresenceStatus
-            : function() { return { status: 'offline' }; };
-          var st = pResolver(m, _adminPresenceMap).status;
-          if (st !== _adminMemberFilters.status.toLowerCase()) return false;
+          var vSt = getMemberVerificationStatus(m);
+          if (vSt !== _adminMemberFilters.status.toLowerCase()) {
+            var pResolver = (typeof getMemberPresenceStatus === 'function')
+              ? getMemberPresenceStatus
+              : function() { return { status: 'offline' }; };
+            var st = pResolver(m, _adminPresenceMap).status;
+            if (st !== _adminMemberFilters.status.toLowerCase()) return false;
+          }
         }
 
         // Consent filter
@@ -1853,16 +2328,17 @@
           else if (ba === null) comp = -1;
           else comp = aa - ba;
         } else if (_adminSortBy === 'status') {
-          var pOrder = { online: 0, idle: 1, offline: 2 };
-          var pResolver = (typeof getMemberPresenceStatus === 'function')
-            ? getMemberPresenceStatus
-            : function() { return { status: 'offline' }; };
-          var stA = pResolver(a, _adminPresenceMap).status;
-          var stB = pResolver(b, _adminPresenceMap).status;
-          var ordA = pOrder[stA] !== undefined ? pOrder[stA] : 2;
-          var ordB = pOrder[stB] !== undefined ? pOrder[stB] : 2;
+          var vOrd = { verified: 0, processing: 1, rejected: 2, not_verified: 3 };
+          var stA = getMemberVerificationStatus(a);
+          var stB = getMemberVerificationStatus(b);
+          var ordA = vOrd[stA] !== undefined ? vOrd[stA] : 9;
+          var ordB = vOrd[stB] !== undefined ? vOrd[stB] : 9;
           if (ordA !== ordB) comp = ordA - ordB;
           else comp = (a.name || '').localeCompare(b.name || '');
+        } else if (_adminSortBy === 'email') {
+          comp = (a.email || a.ic || '').localeCompare(b.email || b.ic || '');
+        } else if (_adminSortBy === 'dob') {
+          comp = (a.date_of_birth || '').localeCompare(b.date_of_birth || '');
         } else if (_adminSortBy === 'squad') {
           var sq = (a.squad || '').localeCompare(b.squad || '');
           comp = sq !== 0 ? sq : (a.name || '').localeCompare(b.name || '');
@@ -1901,7 +2377,57 @@
         try { localStorage.setItem('bb_members_cache', JSON.stringify(filtered)); } catch (_) {}
       }
 
-      var isFilteringActive = !!(_adminMemberFilters.section || _adminMemberFilters.rank || _adminMemberFilters.squad || _adminMemberFilters.dept || _adminMemberFilters.status || _adminMemberFilters.consent || _adminMemberFilters.nameSearch || search);
+      _lastFilteredMembers = filtered;
+
+      // ── TOP OVERVIEW STATS PILLS (IMAGE 5) ──
+      var totalUsers = activeMembers.length;
+      var verifiedUsers = activeMembers.filter(function(m) {
+        return getMemberVerificationStatus(m) === 'verified';
+      }).length;
+      var preJuniorUsers = activeMembers.filter(function(m) {
+        var s = (m.section || m.att_section || '').toLowerCase();
+        return s === 'pre-junior';
+      }).length;
+      var juniorUsers = activeMembers.filter(function(m) {
+        var s = (m.section || m.att_section || '').toLowerCase();
+        return s === 'junior';
+      }).length;
+      var seniorUsers = activeMembers.filter(function(m) {
+        var s = (m.section || m.att_section || '').toLowerCase();
+        return s === 'senior';
+      }).length;
+
+      var summarySlot = document.querySelector('.adm-topbar-summary-slot');
+      if (summarySlot) {
+        summarySlot.innerHTML =
+          '<div class="adm-overview-pills" style="display:inline-flex;align-items:center;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:3px 6px;gap:2px;">' +
+            '<span class="adm-overview-pill" title="Total Users: ' + totalUsers + '" onclick="filterByOverviewCategory(\'all\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;padding:2px 6px;border-radius:6px;">' +
+              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+              '<span>' + totalUsers + '</span>' +
+            '</span>' +
+            '<span class="adm-overview-pill" title="Verified Users: ' + verifiedUsers + '" onclick="filterByOverviewCategory(\'verified\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#22c55e;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
+              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>' +
+              '<span>' + verifiedUsers + '</span>' +
+            '</span>' +
+            '<span class="adm-overview-pill" title="Pre-Junior Users: ' + preJuniorUsers + '" onclick="filterByOverviewCategory(\'Pre-Junior\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#0ea5e9;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
+              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg>' +
+              '<span>' + preJuniorUsers + '</span>' +
+            '</span>' +
+            '<span class="adm-overview-pill" title="Junior Users: ' + juniorUsers + '" onclick="filterByOverviewCategory(\'Junior\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#eab308;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
+              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+              '<span>' + juniorUsers + '</span>' +
+            '</span>' +
+            '<span class="adm-overview-pill" title="Senior Users: ' + seniorUsers + '" onclick="filterByOverviewCategory(\'Senior\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#a855f7;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
+              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>' +
+              '<span>' + seniorUsers + '</span>' +
+            '</span>' +
+          '</div>';
+      }
+
+      // Update Selection UI & Row Actions Button Slot
+      updateSelectionUI();
+
+      var isFilteringActive = !!(_adminMemberFilters.section || _adminMemberFilters.rank || _adminMemberFilters.squad || _adminMemberFilters.dept || _adminMemberFilters.status || _adminMemberFilters.consent || _adminMemberFilters.nameSearch || _adminMemberFilters.emailSearch || search);
 
       var toolbarHtml = '<div class="admin-members-toolbar">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
@@ -1914,11 +2440,6 @@
                 '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Cards View' +
               '</button>' +
             '</div>' +
-            '<button type="button" class="portal-btn" onclick="toggleAdminMemberEditMode()" style="padding:6px 14px;font-size:12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:700;' + (_adminMemberEditMode ? 'background:#f59e0b;border:1px solid #d97706;color:#ffffff;' : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);') + '">' +
-              (_adminMemberEditMode
-                ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit Mode Active'
-                : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> View Mode (Safe)') +
-            '</button>' +
             (isFilteringActive
               ? '<button type="button" class="portal-btn" onclick="resetAdminMemberFilters()" style="background:var(--bg-card-subtle);border:1px dashed var(--border-card);color:var(--text-secondary);font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:5px;" title="Reset all column filters and search">' +
                   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Reset Filters' +
@@ -1926,7 +2447,7 @@
               : '') +
           '</div>' +
           '<div style="font-size:12px;color:var(--text-secondary);font-weight:600;">' +
-            'Showing <strong style="color:var(--gold);">' + filtered.length + '</strong> of ' + members.length + ' members' +
+            'Showing <strong style="color:var(--gold);">' + filtered.length + '</strong> of ' + activeMembers.length + ' users' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -1948,9 +2469,12 @@
 
       if (_adminMembersViewMode === 'table') {
         var tableRowsHtml = '';
-        filtered.forEach(function(m) {
+        var isAllSelected = (filtered.length > 0 && _selectedMemberIcs.size === filtered.length);
+
+        filtered.forEach(function(m, idx) {
           var age = calcAge(m.date_of_birth);
           var ageStr = age !== null ? (age + ' years') : '\u2014';
+          var dobStr = m.date_of_birth ? m.date_of_birth.slice(0, 10) : '\u2014';
           var isMinor = (typeof isMinorSection === 'function')
             ? isMinorSection(m.att_section || m.section, age)
             : ((age !== null && age <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
@@ -1959,63 +2483,93 @@
           if (isMinor) {
             var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
             if (hasConsent) {
-              consentBadge = ' <span title="Child Safety: Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
+              consentBadge = '<span title="Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;"><svg class="ui-icon-xs" style="width:10px;height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
             } else {
-              consentBadge = ' <span title="Child Safety: Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent Pending</span>';
+              consentBadge = '<span title="Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;"><svg class="ui-icon-xs" style="width:10px;height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Pending</span>';
             }
             if (m.media_consent === false) {
-              consentBadge += ' <span title="Privacy: Media release private / no public photos" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;vertical-align:middle;margin-left:2px;">No Media</span>';
+              consentBadge += ' <span title="No Public Media" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;margin-left:2px;">No Media</span>';
             }
           }
 
-          var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : m.name;
+          var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name || '\u2014') : (m.name || '\u2014');
           var safeIc   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic) : m.ic;
+          var safeEmail= (typeof escapeHtml === 'function') ? escapeHtml(m.email || m.ic || '\u2014') : (m.email || m.ic || '\u2014');
           var rawDisplaySquad = (typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : '') || (((m.section || m.att_section || '').toLowerCase() === 'officer') ? 'Officer' : 'No platoon/squad');
           var safeSquad= (typeof escapeHtml === 'function') ? escapeHtml(rawDisplaySquad) : rawDisplaySquad;
           var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'No rank') : (m.rank || 'No rank');
+          var safeSection = (typeof escapeHtml === 'function') ? escapeHtml(m.section || m.att_section || '\u2014') : (m.section || m.att_section || '\u2014');
 
-          var deptConfig = DEFAULT_DEPT_CONFIG[(m.department || '').toLowerCase()];
+          var deptKey = (m.department || '').trim().toLowerCase();
           var deptBadge = '';
-          if (deptConfig) {
-            deptBadge = ' <span class="dept-badge ' + (deptConfig.cls || '') + '" title="Department NCO: Has Projects & Tasks Access" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 7px;border-radius:10px;background:' + (deptConfig.color ? deptConfig.color + '26' : 'rgba(217,163,35,0.15)') + ';color:' + (deptConfig.color || 'var(--accent)') + ';font-weight:700;letter-spacing:0.3px;border:1px solid ' + (deptConfig.color ? deptConfig.color + '55' : 'rgba(217,163,35,0.3)') + ';vertical-align:middle;">' + ((typeof escapeHtml === 'function') ? escapeHtml(deptConfig.label) : deptConfig.label) + '</span>';
+          if (deptKey && deptKey !== 'none' && DEFAULT_DEPT_CONFIG[deptKey]) {
+            var conf = DEFAULT_DEPT_CONFIG[deptKey];
+            deptBadge = '<span class="dept-badge ' + conf.cls + '">' + conf.label + '</span>';
           } else {
-            deptBadge = ' <span class="dept-badge-none" title="No Department: Cannot access Projects & Tasks" style="display:inline-flex;align-items:center;font-size:10px;padding:2px 6px;border-radius:10px;background:var(--bg-card-subtle);color:var(--text-muted);font-weight:600;border:1px solid var(--border-subtle);vertical-align:middle;">No Dept</span>';
+            deptBadge = '<span class="dept-badge-none">\u2014</span>';
           }
 
           var pResolver = (typeof getMemberPresenceStatus === 'function')
             ? getMemberPresenceStatus
             : function() { return { status: 'offline', label: 'Offline', color: '#6b7280' }; };
           var pInfo = pResolver(m, _adminPresenceMap);
-          var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 38, pInfo);
-          var presenceBadge = ' <span class="admin-presence-badge" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:' + pInfo.color + ';vertical-align:middle;" title="' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '"><span style="width:7px;height:7px;border-radius:50%;background:' + pInfo.color + ';display:inline-block;"></span> ' + ((typeof escapeHtml === 'function') ? escapeHtml(pInfo.label) : pInfo.label) + '</span>';
+          var avatarHtml = getAdminMemberAvatarHtml(m.name, m.email || m.ic, 28, pInfo);
+          var vStatus = getMemberVerificationStatus(m);
+          var isSel = _selectedMemberIcs.has(m.ic);
 
           if (!_adminMemberEditMode) {
-            tableRowsHtml += '<tr class="admin-table-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;">' +
-              '<td style="min-width:180px;">' +
-                '<div style="display:flex;align-items:center;gap:10px;">' +
-                  avatarHtml +
-                  '<div style="min-width:0;overflow:hidden;">' +
-                    '<div style="font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + '</div>' +
-                    '<div class="admin-member-email" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
-                  '</div>' +
+            tableRowsHtml += '<tr class="admin-table-row' + (isSel ? ' is-selected' : '') + '" data-ic="' + safeIc + '" data-edit-ic="' + safeIc + '" style="cursor:pointer;">' +
+              '<td class="crm-cell-num" style="width:52px;min-width:52px;text-align:center;">' +
+                '<span class="crm-row-index">' + (idx + 1) + '</span>' +
+                '<div class="crm-row-hover-actions">' +
+                  '<input type="checkbox" class="adm-row-chk" data-ic="' + safeIc + '" onchange="toggleSelectMemberRow(\'' + safeIc + '\', this.checked)" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation();" />' +
+                  '<button type="button" class="adm-row-pencil-btn" onclick="event.stopPropagation();openEditMember(\'' + safeIc + '\');" title="Edit ' + safeName + ' in Side Drawer">' +
+                    '<svg class="ui-icon-xs" style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+                  '</button>' +
                 '</div>' +
               '</td>' +
-              '<td><span class="adm-section-pill" style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.section || m.att_section || '\u2014') : (m.section || m.att_section || '\u2014')) + '</span></td>' +
-              '<td><div class="admin-rank-badge">' + safeRank + '</div></td>' +
-              '<td><div style="font-weight:600;font-size:12px;color:var(--text-primary);">' + safeSquad + '</div></td>' +
-              '<td>' + deptBadge + '</td>' +
-              '<td><div style="font-weight:600;color:var(--text-primary);">' + ageStr + '</div><div class="admin-member-dob" style="font-size:10px;color:var(--text-muted);">' + (m.date_of_birth || '\u2014') + '</div></td>' +
-              '<td>' + presenceBadge + '</td>' +
-              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') + '</td>' +
-              '<td style="text-align:right;white-space:nowrap;">' +
-                '<button type="button" class="portal-btn admin-row-edit-btn" onclick="openEditMember(\'' + safeIc + '\')" title="Edit Member Profile" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;margin-right:4px;">Edit</button>' +
-                '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
+              '<td style="white-space:nowrap;">' +
+                '<div style="display:flex;align-items:center;gap:10px;">' +
+                  avatarHtml +
+                  '<span style="font-weight:600;color:var(--text-primary);">' + safeName + '</span>' +
+                '</div>' +
+              '</td>' +
+              '<td style="white-space:nowrap;">' +
+                '<span class="admin-member-email" style="font-family:var(--font-mono, monospace);font-size:12px;">' + safeEmail + '</span>' +
+              '</td>' +
+              '<td style="white-space:nowrap;font-weight:600;color:var(--text-secondary);">' +
+                safeSection +
+              '</td>' +
+              '<td style="white-space:nowrap;">' +
+                '<div class="admin-rank-badge">' + safeRank + '</div>' +
+              '</td>' +
+              '<td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;font-weight:500;">' +
+                safeSquad +
+              '</td>' +
+              '<td style="white-space:nowrap;">' +
+                deptBadge +
+              '</td>' +
+              '<td style="white-space:nowrap;font-weight:600;color:var(--text-primary);font-size:12px;">' +
+                ageStr +
+              '</td>' +
+              '<td style="white-space:nowrap;font-family:var(--font-mono, monospace);font-size:12px;color:var(--text-secondary);" class="admin-member-dob">' +
+                dobStr +
+              '</td>' +
+              '<td style="white-space:nowrap;" onclick="event.stopPropagation();">' +
+                renderStatusBadge(vStatus, safeIc) +
+              '</td>' +
+              '<td style="white-space:nowrap;">' +
+                (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') +
+              '</td>' +
+              '<td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">' +
+                '<button type="button" class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
                   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
                 '</button>' +
               '</td>' +
             '</tr>';
           } else {
             tableRowsHtml += '<tr class="admin-table-row admin-table-row-editing">' +
+              '<td class="crm-cell-num"><span class="crm-row-index">' + (idx + 1) + '</span></td>' +
               '<td style="min-width:180px;">' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                   avatarHtml +
@@ -2024,6 +2578,9 @@
                     '<div class="admin-member-email" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono,monospace);margin-top:2px;overflow:hidden;text-overflow:ellipsis;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
                   '</div>' +
                 '</div>' +
+              '</td>' +
+              '<td style="min-width:140px;">' +
+                '<input type="text" class="admin-inline-input" value="' + safeEmail + '" onchange="updateMemberField(\'' + safeIc + '\', \'email\', this.value)" title="Edit Email" />' +
               '</td>' +
               '<td style="min-width:110px;">' +
                 '<select class="admin-inline-select" onchange="updateMemberField(\'' + safeIc + '\', \'section\', this.value)" title="Change Section">' +
@@ -2045,11 +2602,11 @@
                   renderDeptSelectOptions(m.department) +
                 '</select>' +
               '</td>' +
+              '<td style="min-width:80px;"><span style="font-size:12px;font-weight:600;">' + ageStr + '</span></td>' +
               '<td style="min-width:140px;">' +
-                '<input type="date" class="admin-inline-input" value="' + (m.date_of_birth || '') + '" onchange="updateMemberField(\'' + safeIc + '\', \'date_of_birth\', this.value)" title="Change Date of Birth" />' +
-                '<div class="admin-member-dob" style="font-size:10px;color:var(--text-muted);margin-top:2px;">Age: ' + ageStr + '</div>' +
+                '<input type="date" class="admin-inline-input" value="' + (m.date_of_birth ? m.date_of_birth.slice(0, 10) : '') + '" onchange="updateMemberField(\'' + safeIc + '\', \'date_of_birth\', this.value)" title="Change Date of Birth" />' +
               '</td>' +
-              '<td>' + presenceBadge + '</td>' +
+              '<td>' + renderStatusBadge(vStatus, safeIc) + '</td>' +
               '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') + '</td>' +
               '<td style="text-align:right;white-space:nowrap;">' +
                 '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
@@ -2065,15 +2622,20 @@
             '<table class="admin-members-table">' +
               '<thead>' +
                 '<tr>' +
-                  renderColumnHeader('member', 'Member', 'name', 'search', filtered) +
-                  renderColumnHeader('section', 'Section', 'section', 'options', filtered) +
-                  renderColumnHeader('rank', 'Rank', 'rank', 'options', filtered) +
-                  renderColumnHeader('squad', 'Platoon / Squad', 'squad', 'options', filtered) +
-                  renderColumnHeader('dept', 'Department', 'dept', 'options', filtered) +
-                  renderColumnHeader('age', 'Age / DOB', 'age', null, filtered) +
-                  renderColumnHeader('status', 'Status', 'status', 'options', filtered) +
-                  renderColumnHeader('consent', 'Consent', null, 'options', filtered) +
-                  '<th style="text-align:right;">Actions</th>' +
+                  '<th class="sheets-th crm-th crm-th-num" style="width:52px;min-width:52px;text-align:center;">' +
+                    '<input type="checkbox" id="adm-master-chk" class="adm-master-chk" onchange="toggleSelectAllMembers(this.checked)" title="Select all users" ' + (isAllSelected ? 'checked' : '') + ' />' +
+                  '</th>' +
+                  renderColumnHeader('member', 'Full Name', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>', 'name', 'search', filtered) +
+                  renderColumnHeader('email', 'Email', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>', 'email', 'search', filtered) +
+                  renderColumnHeader('section', 'Section', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>', 'section', 'options', filtered) +
+                  renderColumnHeader('rank', 'Rank', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>', 'rank', 'options', filtered) +
+                  renderColumnHeader('squad', 'Platoon / Squad', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', 'squad', 'options', filtered) +
+                  renderColumnHeader('dept', 'Department', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', 'dept', 'options', filtered) +
+                  renderColumnHeader('age', 'Age', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', 'age', null, filtered) +
+                  renderColumnHeader('dob', 'DOB', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', 'dob', null, filtered) +
+                  renderColumnHeader('status', 'Status', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'status', 'options', filtered) +
+                  renderColumnHeader('consent', 'Consent', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>', null, 'options', filtered) +
+                  '<th class="sheets-th crm-th" style="text-align:right;"><div class="sheets-th-content crm-th-content" style="justify-content:flex-end;"><span class="crm-th-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="sheets-th-label crm-th-label">Actions</span></div></th>' +
                 '</tr>' +
               '</thead>' +
               '<tbody>' +
@@ -2528,7 +3090,7 @@
     if (icEl) icEl.readOnly = true;
 
     var ti = document.getElementById('em-modal-title');
-    if (ti) ti.textContent = '\u270f\ufe0f Edit Member';
+    if (ti) ti.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> <span>Edit Member</span>';
 
     var db = document.getElementById('em-delete-btn');
     if (db) db.style.display = 'inline-flex';
@@ -4538,6 +5100,18 @@
     global.setAdminMemberFilter      = setAdminMemberFilter;
     global.resetAdminMemberFilters   = resetAdminMemberFilters;
     global.updateMemberField         = updateMemberField;
+    global.toggleSelectAllMembers    = toggleSelectAllMembers;
+    global.toggleSelectMemberRow     = toggleSelectMemberRow;
+    global.toggleBulkActionsMenu     = toggleBulkActionsMenu;
+    global.bulkBlockSelectedMembers  = bulkBlockSelectedMembers;
+    global.bulkDeleteSelectedMembers = bulkDeleteSelectedMembers;
+    global.getSelectedMemberIcs      = function() { return Array.from(_selectedMemberIcs); };
+    global.toggleGlobalFilterPopover = toggleGlobalFilterPopover;
+    global.closeGlobalPopovers        = closeGlobalPopovers;
+    global.toggleGlobalSortPopover   = toggleGlobalSortPopover;
+    global.filterByOverviewCategory  = filterByOverviewCategory;
+    global.updateMemberVerificationStatus = updateMemberVerificationStatus;
+    global.getMemberVerificationStatus = getMemberVerificationStatus;
     global.setAdminViewMode          = setAdminViewMode;
     global.getAdminViewMode          = getAdminViewMode;
     global._adminMembers            = _adminMembers;
@@ -4585,6 +5159,18 @@
       setAdminMemberFilter: setAdminMemberFilter,
       resetAdminMemberFilters: resetAdminMemberFilters,
       updateMemberField: updateMemberField,
+      toggleSelectAllMembers: toggleSelectAllMembers,
+      toggleSelectMemberRow: toggleSelectMemberRow,
+      toggleBulkActionsMenu: toggleBulkActionsMenu,
+      bulkBlockSelectedMembers: bulkBlockSelectedMembers,
+      bulkDeleteSelectedMembers: bulkDeleteSelectedMembers,
+      getSelectedMemberIcs: function() { return Array.from(_selectedMemberIcs); },
+      toggleGlobalFilterPopover: toggleGlobalFilterPopover,
+      closeGlobalPopovers: closeGlobalPopovers,
+      toggleGlobalSortPopover: toggleGlobalSortPopover,
+      filterByOverviewCategory: filterByOverviewCategory,
+      updateMemberVerificationStatus: updateMemberVerificationStatus,
+      getMemberVerificationStatus: getMemberVerificationStatus,
       _adminPresenceMap: _adminPresenceMap,
       handleAdminSectionChange: handleAdminSectionChange,
       handleAdminRankChange: handleAdminRankChange,
