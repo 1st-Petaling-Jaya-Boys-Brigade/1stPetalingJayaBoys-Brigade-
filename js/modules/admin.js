@@ -106,23 +106,73 @@
     return _adminMemberEditMode;
   }
 
+  var COLUMN_CONFIGS = {
+    member:  { label: 'Full Name',       sortKey: 'name',    filterType: 'search' },
+    email:   { label: 'Email',           sortKey: 'email',   filterType: 'search' },
+    section: { label: 'Section',         sortKey: 'section', filterType: 'options' },
+    rank:    { label: 'Rank',            sortKey: 'rank',    filterType: 'options' },
+    squad:   { label: 'Platoon / Squad', sortKey: 'squad',   filterType: 'options' },
+    dept:    { label: 'Department',      sortKey: 'dept',    filterType: 'options' },
+    age:     { label: 'Age',             sortKey: 'age',     filterType: null },
+    dob:     { label: 'DOB',             sortKey: 'dob',     filterType: null },
+    status:  { label: 'Status',          sortKey: 'status',  filterType: 'options' },
+    consent: { label: 'Consent',         sortKey: null,      filterType: 'options' }
+  };
+
   function toggleColumnFilterMenu(col, ev) {
     if (ev) {
       if (typeof ev.stopPropagation === 'function') ev.stopPropagation();
       if (typeof ev.preventDefault === 'function') ev.preventDefault();
     }
-    if (_activeFilterCol === col) {
-      _activeFilterCol = null;
-    } else {
-      _activeFilterCol = col;
+    if (typeof document === 'undefined') return;
+
+    var wasOpen = (_activeFilterCol === col);
+    closeColumnFilterMenu();
+
+    if (wasOpen) {
+      return;
     }
-    return renderAdminList();
+
+    _activeFilterCol = col;
+    var targetTh = document.querySelector('.sheets-th[data-col="' + col + '"]');
+    if (!targetTh) {
+      return renderAdminList();
+    }
+
+    var btn = targetTh.querySelector('.sheets-filter-btn');
+    if (btn) btn.classList.add('is-active');
+    targetTh.classList.add('is-active');
+
+    var conf = COLUMN_CONFIGS[col] || { label: col, sortKey: col, filterType: null };
+    var popHtml = renderColumnPopover(col, conf.label, conf.sortKey, conf.filterType);
+
+    var temp = document.createElement('div');
+    temp.innerHTML = popHtml;
+    var popEl = temp.firstElementChild;
+    if (popEl) {
+      targetTh.appendChild(popEl);
+      var inp = popEl.querySelector('.sfp-input');
+      if (inp) {
+        setTimeout(function() { inp.focus(); }, 40);
+      }
+    }
   }
 
   function closeColumnFilterMenu() {
-    if (_activeFilterCol !== null) {
-      _activeFilterCol = null;
-      return renderAdminList();
+    _activeFilterCol = null;
+    if (typeof document !== 'undefined') {
+      var activePopovers = document.querySelectorAll('.sheets-filter-popover');
+      if (activePopovers && activePopovers.length) {
+        activePopovers.forEach(function(p) { p.remove(); });
+      }
+      var activeThs = document.querySelectorAll('.sheets-th.is-active, .sheets-filter-btn.is-active');
+      if (activeThs && activeThs.length) {
+        activeThs.forEach(function(el) { el.classList.remove('is-active'); });
+      }
+      var list = document.getElementById('admin-members-list');
+      if (list && list.innerHTML && list.innerHTML.includes('sheets-filter-popover') && (!activePopovers || !activePopovers.length)) {
+        return renderAdminList();
+      }
     }
   }
 
@@ -634,7 +684,35 @@
       _isGlobalSortOpen = false;
       _isBulkActionsMenuOpen = false;
       renderGlobalPopovers();
+      renderRowActionsButton();
     }
+  }
+
+  // Global Outside Click & Escape Handlers to dismiss popovers
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', function(e) {
+      if (!e.target) return;
+      if (!e.target.closest('.sheets-filter-popover') &&
+          !e.target.closest('.adm-global-filter-popover') &&
+          !e.target.closest('.adm-global-sort-popover') &&
+          !e.target.closest('.adm-row-actions-wrap') &&
+          !e.target.closest('.sheets-th-content') &&
+          !e.target.closest('.sheets-filter-btn') &&
+          !e.target.closest('.adm-top-filter-btn') &&
+          !e.target.closest('.adm-top-sort-btn')) {
+        closeColumnFilterMenu();
+        closeGlobalPopovers();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' || e.keyCode === 27) {
+        if (_activeFilterCol || _isGlobalFilterOpen || _isGlobalSortOpen || _isBulkActionsMenuOpen) {
+          closeColumnFilterMenu();
+          closeGlobalPopovers();
+        }
+      }
+    });
   }
 
   function renderGlobalPopovers() {
@@ -780,6 +858,8 @@
   }
 
   async function openBlockedEmailsView() {
+    closeColumnFilterMenu();
+    closeGlobalPopovers();
     _adminMembersSubView = 'blocked_emails';
     await loadBlockedEmails();
 
@@ -798,6 +878,8 @@
   }
 
   function backToMembersList() {
+    closeColumnFilterMenu();
+    closeGlobalPopovers();
     _adminMembersSubView = 'members';
     if (typeof document !== 'undefined') {
       var secEl = document.getElementById('adm-section-members');
@@ -1470,6 +1552,8 @@
 
   function closeAdmin(skipHistory) {
     if (typeof document === 'undefined') return;
+    closeColumnFilterMenu();
+    closeGlobalPopovers();
     var overlay = document.getElementById('admin-overlay');
     if (overlay) overlay.style.display = 'none';
     if (document.body) document.body.style.overflow = '';
@@ -1500,6 +1584,8 @@
   }
 
   function logoutAdmin() {
+    closeColumnFilterMenu();
+    closeGlobalPopovers();
     var currentOfficer = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'admin';
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
@@ -1755,6 +1841,8 @@
 
   function backToAdminHome() {
     if (typeof document === 'undefined') return;
+    closeColumnFilterMenu();
+    closeGlobalPopovers();
     if (_adminMembersSubView === 'blocked_emails') {
       backToMembersList();
     }
@@ -1828,6 +1916,8 @@
 
   function switchAdminSection(section) {
     if (typeof document === 'undefined') return;
+    closeColumnFilterMenu();
+    closeGlobalPopovers();
 
     var toolbar = document.querySelector('.adm-toolbar-row');
     if (toolbar) toolbar.style.display = 'none';
@@ -1988,6 +2078,7 @@
       _adminSortDir = 'asc';
     }
     _adminSortBy = by;
+    closeColumnFilterMenu();
     if (typeof document !== 'undefined') {
       ['name', 'age', 'squad', 'rank', 'joined'].forEach(function(s) {
         var btn = document.getElementById('sort-' + s);
@@ -2200,7 +2291,10 @@
     var list   = document.getElementById('admin-members-list');
     if (!list) return;
 
-    list.innerHTML = (typeof renderSkeletonTable === 'function') ? renderSkeletonTable(6, 6) : '<div class="skeleton-shimmer" style="height:180px;border-radius:8px;"></div>';
+    var hasTableInDom = !!list.querySelector('.admin-members-table');
+    if (!hasTableInDom && !_adminMembersCache) {
+      list.innerHTML = (typeof renderSkeletonTable === 'function') ? renderSkeletonTable(6, 6) : '<div class="skeleton-shimmer" style="height:180px;border-radius:8px;"></div>';
+    }
 
     var client = getSupabaseClient();
     if (!client || !client.get) {
@@ -2589,11 +2683,6 @@
               '<td style="white-space:nowrap;">' +
                 (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') +
               '</td>' +
-              '<td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">' +
-                '<button type="button" class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
-                  '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
-                '</button>' +
-              '</td>' +
             '</tr>';
           } else {
             tableRowsHtml += '<tr class="admin-table-row admin-table-row-editing">' +
@@ -2636,11 +2725,6 @@
               '</td>' +
               '<td>' + renderStatusBadge(vStatus) + '</td>' +
               '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') + '</td>' +
-              '<td style="text-align:right;white-space:nowrap;">' +
-                '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
-                  '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
-                '</button>' +
-              '</td>' +
             '</tr>';
           }
         });
@@ -2663,7 +2747,6 @@
                   renderColumnHeader('dob', 'DOB', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', 'dob', null, filtered) +
                   renderColumnHeader('status', 'Status', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'status', 'options', filtered) +
                   renderColumnHeader('consent', 'Consent', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>', null, 'options', filtered) +
-                  '<th class="sheets-th crm-th" style="text-align:right;"><div class="sheets-th-content crm-th-content" style="justify-content:flex-end;"><span class="crm-th-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="sheets-th-label crm-th-label">Actions</span></div></th>' +
                 '</tr>' +
               '</thead>' +
               '<tbody>' +
