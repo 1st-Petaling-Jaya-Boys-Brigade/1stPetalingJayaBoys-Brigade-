@@ -11376,6 +11376,49 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof adminModule.toggleGlobalSortPopover, 'function', 'toggleGlobalSortPopover exported');
     console.log('  ✔ CRM member table redesign, row selection, slide drawer & status governance verified');
 
+    // 9. Multi-Level Compound Sorting, Persistence & Enlarged Header Buttons (Images 1, 2, 3)
+    console.log('\nTesting Multi-Level Compound Sorting, Filter Persistence & UX Polish...');
+    assert.ok(adminStylesheet.includes('width: 26px') && adminStylesheet.includes('height: 26px'), 'admin.css defines enlarged 26px sheets-filter-btn');
+    assert.ok(adminStylesheet.includes('width: 15px') && adminStylesheet.includes('height: 15px'), 'admin.css defines enlarged 15px sheets-filter-icon');
+    assert.ok(adminStylesheet.includes('.adm-filter-count-badge'), 'admin.css defines adm-filter-count-badge');
+    assert.ok(adminStylesheet.includes('.adm-sort-active-dot'), 'admin.css defines adm-sort-active-dot');
+    assert.ok(adminStylesheet.includes('.adm-popover-submenu'), 'admin.css defines adm-popover-submenu flyout');
+
+    // Multi-level sort compound rules
+    assert.strictEqual(typeof adminModule.addOrUpdateAdminSortRule, 'function', 'addOrUpdateAdminSortRule exported');
+    assert.strictEqual(typeof adminModule.removeAdminSortRule, 'function', 'removeAdminSortRule exported');
+    assert.strictEqual(typeof adminModule.clearAllAdminSortRules, 'function', 'clearAllAdminSortRules exported');
+
+    await adminModule.clearAllAdminSortRules();
+    await adminModule.addOrUpdateAdminSortRule('name', 'asc');
+    await adminModule.addOrUpdateAdminSortRule('email', 'asc');
+    let sortRules = adminModule.getAdminSortRules();
+    assert.strictEqual(sortRules.length, 2, 'Two compound sort rules active');
+    assert.strictEqual(sortRules[0].key, 'name', 'Primary sort is name');
+    assert.strictEqual(sortRules[1].key, 'email', 'Secondary sort is email');
+
+    await adminModule.removeAdminSortRule('name');
+    sortRules = adminModule.getAdminSortRules();
+    assert.strictEqual(sortRules.length, 1, 'Only secondary sort remains after primary removed');
+    assert.strictEqual(sortRules[0].key, 'email', 'Email is now primary sort');
+
+    // Filter & Sort persistence in localStorage
+    adminModule.setAdminMemberFilter('section', 'Senior');
+    const savedFilterStr = global.localStorage.getItem('bb_admin_member_filters');
+    assert.ok(savedFilterStr && savedFilterStr.includes('Senior'), 'Active filter persisted to localStorage');
+    const savedSortStr = global.localStorage.getItem('bb_admin_member_sort_rules');
+    assert.ok(savedSortStr && savedSortStr.includes('email'), 'Active sort rules persisted to localStorage');
+
+    // Restoration
+    await adminModule.clearAllAdminMemberFilters();
+    await adminModule.clearAllAdminSortRules();
+    global.localStorage.setItem('bb_admin_member_filters', JSON.stringify({ section: 'Junior' }));
+    global.localStorage.setItem('bb_admin_member_sort_rules', JSON.stringify([{ key: 'dept', dir: 'asc' }]));
+    adminModule.restoreAdminFiltersAndSort();
+    sortRules = adminModule.getAdminSortRules();
+    assert.strictEqual(sortRules[0].key, 'dept', 'restoreAdminFiltersAndSort restored sort rules');
+    console.log('  ✔ Multi-level compound sorting, localStorage persistence & flyout menus verified');
+
     // 8. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
