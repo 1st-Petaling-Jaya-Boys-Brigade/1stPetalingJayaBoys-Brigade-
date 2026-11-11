@@ -2183,27 +2183,23 @@
             <div class="adm-section-desc">Add, edit, assign rank, platoon/squad and department</div>
           </div>
         </div>
-        <div class="adm-topbar-controls" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+        <div class="adm-topbar-controls" style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
           <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:260px;flex-wrap:wrap;">
-            <input class="form-input" id="admin-search" type="text" placeholder="Search users..." oninput="renderAdminList()" style="min-width:180px;max-width:240px;font-size:13px;padding:8px 12px;margin:0;"/>
-            <button type="button" class="portal-btn adm-top-filter-btn" onclick="toggleGlobalFilterPopover(event)" style="padding:7px 12px;font-size:12px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:600;" title="Filter Users">
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <input class="form-input" id="admin-search" type="text" placeholder="Search users..." oninput="renderAdminList()" style="min-width:180px;max-width:240px;font-size:13px;padding:9px 13px;margin:0;"/>
+            <button type="button" class="portal-btn adm-top-filter-btn" onclick="toggleGlobalFilterPopover(event)" style="padding:9px 16px;font-size:13px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-weight:600;" title="Filter Users">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
               <span>Filters</span>
-              <svg class="ui-icon-xs" style="width:10px;height:10px;opacity:0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg class="adm-chevron-icon" style="width:14px;height:14px;opacity:0.9;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <button type="button" class="portal-btn adm-top-sort-btn" onclick="toggleGlobalSortPopover(event)" style="padding:7px 12px;font-size:12px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-weight:600;" title="Sort Users">
-              <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"/></svg>
+            <button type="button" class="portal-btn adm-top-sort-btn" onclick="toggleGlobalSortPopover(event)" style="padding:9px 16px;font-size:13px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-weight:600;" title="Sort Users">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4M7 4L3 8M7 4L11 8M17 8V20M17 20L21 16M17 20L13 16"/></svg>
               <span>Sort</span>
-              <svg class="ui-icon-xs" style="width:10px;height:10px;opacity:0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg class="adm-chevron-icon" style="width:14px;height:14px;opacity:0.9;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           </div>
           <div class="adm-topbar-summary-slot" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"></div>
           <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
             <div class="adm-topbar-row-actions-slot"></div>
-            <button class="submit-btn gold btn-with-icon" onclick="openAddMember()" style="width:auto;padding:8px 14px;margin-top:0;font-size:13px;white-space:nowrap;">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add Member
-            </button>
             <button type="button" class="submit-btn btn-with-icon btn-blocked-emails" onclick="openBlockedEmailsView()" style="width:auto;padding:8px 14px;margin-top:0;font-size:13px;white-space:nowrap;background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);" title="Manage Blocked Emails">
               <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
               Blocked Emails
@@ -2232,9 +2228,8 @@
               </div>
               <button type="button" onclick="closeEditMember()" aria-label="Close edit member modal" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);padding:6px 14px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
-            <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="em-name" type="text"/></div>
-            <div class="form-group"><label class="form-label">Account Email / Member ID</label><input class="form-input" id="em-ic" type="text"/></div>
-            <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="em-dob" type="date"/></div>
+            <div class="form-group"><label class="form-label" for="em-name">Full Name</label><input class="form-input" id="em-name" type="text" placeholder="Full name"/></div>
+            <div class="form-group"><label class="form-label" for="em-ic">Account Email / Member ID</label><input class="form-input" id="em-ic" type="text" placeholder="member@pjbb.org"/></div>
             <div class="form-group">
               <label class="form-label" for="em-section">Section</label>
               <select class="form-select" id="em-section" onchange="handleAdminSectionChange()">
@@ -2245,19 +2240,17 @@
                 <option value="Pre-Junior" style="display:none;">Pre-Junior</option>
               </select>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label" for="em-rank">Rank</label>
-                <select class="form-select" id="em-rank" onchange="handleAdminRankChange()">
-                  <option value="">Select section first...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="em-squad">Platoon/Squad</label>
-                <select class="form-select" id="em-squad">
-                  <option value="">Select section first...</option>
-                </select>
-              </div>
+            <div class="form-group">
+              <label class="form-label" for="em-rank">Rank</label>
+              <select class="form-select" id="em-rank" onchange="handleAdminRankChange()">
+                <option value="">Select section first...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="em-squad">Platoon/Squad</label>
+              <select class="form-select" id="em-squad">
+                <option value="">Select section first...</option>
+              </select>
             </div>
             <div class="form-group">
               <label class="form-label" for="em-dept" style="display:flex;align-items:center;justify-content:space-between;">
@@ -2275,6 +2268,16 @@
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.4;">
                 Assigning a department role grants this member access to the Projects &amp; Tasks tab. Members and NCOs without a department role cannot access it.
               </div>
+            </div>
+            <div class="form-group"><label class="form-label" for="em-dob">Date of Birth</label><input class="form-input" id="em-dob" type="date"/></div>
+            <div class="form-group">
+              <label class="form-label">Verification Status</label>
+              <select class="form-select em-status-select">
+                <option value="verified">Verified (Approved)</option>
+                <option value="processing">Processing (Under Review)</option>
+                <option value="rejected">Rejected (Action Required)</option>
+                <option value="not_verified">Not Verified (Pending Submission)</option>
+              </select>
             </div>
                         <!-- Child Safety & Parental Consent (COPPA/PDPA) -->
             <div id="em-child-safety-box" style="margin-top:14px;padding:12px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;margin-bottom:14px;">

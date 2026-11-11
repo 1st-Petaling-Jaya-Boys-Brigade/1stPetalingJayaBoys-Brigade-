@@ -246,10 +246,10 @@
       '<div class="sfp-section">' +
         '<div class="sfp-section-label">Sort</div>' +
         '<button type="button" class="sfp-btn' + (_adminSortBy === sortKey && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + sortKey + '\', \'asc\')">' +
-          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h12M3 18h6"/></svg> ' + ascLabel +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg> \u2191 ' + ascLabel +
         '</button>' +
         '<button type="button" class="sfp-btn' + (_adminSortBy === sortKey && _adminSortDir === 'desc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + sortKey + '\', \'desc\')">' +
-          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h18M3 12h12M3 6h6"/></svg> ' + descLabel +
+          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M19 12l-7 7-7-7"/></svg> \u2193 ' + descLabel +
         '</button>' +
         (sortKey === 'rank' ? '<button type="button" class="sfp-btn' + (_adminSortBy === 'rank' && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'rank\', \'asc\')"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> Sort by BB Rank Order</button>' : '') +
       '</div>';
@@ -330,7 +330,38 @@
     '</div>';
   }
 
-  // Verification Status Resolution & Badge Rendering
+  // Rank Insignia SVG Stripes (1, 2, 3, 4 stripes ˅)
+  function getRankInsigniaSvg(rank) {
+    var r = (rank || '').trim().toLowerCase();
+    // Lance Corporal: 1 stripe ˅
+    if (r === 'lance corporal' || r === 'lcpl' || r === 'l/cpl') {
+      return '<svg class="rank-stripe-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;color:var(--gold,#f5c542);" title="1 stripe (Lance Corporal)"><path d="M3 6l5 5 5-5"/></svg>';
+    }
+    // Corporal: 2 stripe ˅ on top of ˅
+    if (r === 'corporal' || r === 'cpl') {
+      return '<svg class="rank-stripe-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;color:var(--gold,#f5c542);" title="2 stripes (Corporal)"><path d="M3 4l5 4 5-4"/><path d="M3 9l5 4 5-4"/></svg>';
+    }
+    // Sergeant: 3 stripe ˅ on top of ˅
+    if (r === 'sergeant' || r === 'sgt') {
+      return '<svg class="rank-stripe-icon" viewBox="0 0 16 16" width="14" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;color:var(--gold,#f5c542);" title="3 stripes (Sergeant)"><path d="M3 3l5 3.5 5-3.5"/><path d="M3 7l5 3.5 5-3.5"/><path d="M3 11l5 3.5 5-3.5"/></svg>';
+    }
+    // Staff Sergeant: 4 stripe ˅ on top of ˅
+    if (r === 'staff sergeant' || r === 's/sgt' || r === 'ssgt') {
+      return '<svg class="rank-stripe-icon" viewBox="0 0 16 18" width="14" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;color:var(--gold,#f5c542);" title="4 stripes (Staff Sergeant)"><path d="M3 2l5 3 5-3"/><path d="M3 6l5 3 5-3"/><path d="M3 10l5 3 5-3"/><path d="M3 14l5 3 5-3"/></svg>';
+    }
+    // Warrant Officer / Officer ranks (Lieutenant, Captain, Chaplain, etc.)
+    if (r.includes('warrant') || r.includes('officer') || r.includes('lieutenant') || r.includes('captain') || r.includes('chaplain')) {
+      return '<svg class="rank-stripe-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;color:var(--gold,#f5c542);" title="Officer Star"><polygon points="8 2 10 6 14 7 11 10 12 14 8 12 4 14 5 10 2 7 6 6 8 2"/></svg>';
+    }
+    // Junior Leader ranks
+    if (r.includes('junior leader')) {
+      return '<svg class="rank-stripe-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;color:var(--gold,#f5c542);" title="Junior Leader Chevron"><path d="M3 7l5 5 5-5"/></svg>';
+    }
+    // Recruit / Private / others
+    return '<svg class="rank-stripe-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px;color:var(--text-muted);" title="Rank Pip"><circle cx="8" cy="8" r="3" fill="currentColor"/></svg>';
+  }
+
+  // Verification Status Resolution & Badge Rendering (No Dropdown in Table)
   function getMemberVerificationStatus(m) {
     if (!m) return 'verified';
     var v = (m.verification_status || m.v_status || '').toLowerCase();
@@ -340,32 +371,34 @@
     return 'verified';
   }
 
-  function renderStatusBadge(statusVal, safeIc) {
-    var st = (statusVal || 'verified').toLowerCase();
+  function renderStatusBadge(statusVal) {
+    var rawSt = (statusVal || 'verified').toLowerCase().replace(/\s+/g, '_');
+    var st = rawSt;
+    if (st === 'pending' || st === 'in_progress') st = 'processing';
+    if (st === 'unverified' || st === 'none' || !st) st = 'not_verified';
+
     var cls = 'status-verified';
-    var icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+    var label = 'Verified';
+    var icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
     if (st === 'processing') {
       cls = 'status-processing';
-      icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+      label = 'Processing';
+      icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
     } else if (st === 'rejected') {
       cls = 'status-rejected';
-      icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-    } else if (st === 'not_verified' || st === 'not verified') {
+      label = 'Rejected';
+      icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    } else if (st === 'not_verified') {
       cls = 'status-not-verified';
-      icon = '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+      label = 'Not Verified';
+      icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
     }
 
-    return '<div class="adm-status-badge-wrap" style="position:relative;display:inline-block;">' +
-      '<select class="adm-status-select ' + cls + '" onchange="updateMemberVerificationStatus(\'' + safeIc + '\', this.value)" title="Change Verification Status" style="appearance:none;-webkit-appearance:none;cursor:pointer;padding:3px 22px 3px 22px;border-radius:6px;font-size:11px;font-weight:700;line-height:1.2;font-family:inherit;">' +
-        '<option value="verified"' + (st === 'verified' ? ' selected' : '') + '>Verified</option>' +
-        '<option value="processing"' + (st === 'processing' ? ' selected' : '') + '>Processing</option>' +
-        '<option value="rejected"' + (st === 'rejected' ? ' selected' : '') + '>Rejected</option>' +
-        '<option value="not_verified"' + (st === 'not_verified' ? ' selected' : '') + '>Not Verified</option>' +
-      '</select>' +
-      '<span style="position:absolute;left:7px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center;">' + icon + '</span>' +
-      '<span style="position:absolute;right:6px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center;opacity:0.6;"><svg style="width:9px;height:9px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>' +
-    '</div>';
+    return '<span class="adm-status-badge ' + cls + '">' +
+      icon +
+      '<span>' + label + '</span>' +
+    '</span>';
   }
 
   async function updateMemberVerificationStatus(ic, val) {
@@ -709,10 +742,10 @@
           '<span style="font-size:12px;font-weight:' + (isCur ? '700' : '500') + ';color:' + (isCur ? 'var(--gold)' : 'var(--text-primary)') + ';">' + f.label + '</span>' +
           '<div style="display:flex;gap:4px;">' +
             '<button type="button" class="portal-btn' + (isCur && _adminSortDir === 'asc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + f.key + '\', \'asc\');toggleGlobalSortPopover(event);" style="padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer;border:1px solid var(--border-card);background:' + (isCur && _adminSortDir === 'asc' ? 'var(--gold)' : 'transparent') + ';color:' + (isCur && _adminSortDir === 'asc' ? '#000' : 'var(--text-secondary)') + ';" title="Ascending (A \u2192 Z)">' +
-              '\u2191 A-Z' +
+              '\u2191 Sort A \u2192 Z' +
             '</button>' +
             '<button type="button" class="portal-btn' + (isCur && _adminSortDir === 'desc' ? ' is-active' : '') + '" onclick="setAdminSort(\'' + f.key + '\', \'desc\');toggleGlobalSortPopover(event);" style="padding:3px 8px;font-size:11px;border-radius:4px;cursor:pointer;border:1px solid var(--border-card);background:' + (isCur && _adminSortDir === 'desc' ? 'var(--gold)' : 'transparent') + ';color:' + (isCur && _adminSortDir === 'desc' ? '#000' : 'var(--text-secondary)') + ';" title="Descending (Z \u2192 A)">' +
-              '\u2193 Z-A' +
+              '\u2193 Sort Z \u2192 A' +
             '</button>' +
           '</div>' +
         '</div>';
@@ -2400,25 +2433,25 @@
       var summarySlot = document.querySelector('.adm-topbar-summary-slot');
       if (summarySlot) {
         summarySlot.innerHTML =
-          '<div class="adm-overview-pills" style="display:inline-flex;align-items:center;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:3px 6px;gap:2px;">' +
-            '<span class="adm-overview-pill" title="Total Users: ' + totalUsers + '" onclick="filterByOverviewCategory(\'all\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--text-primary);cursor:pointer;padding:2px 6px;border-radius:6px;">' +
-              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+          '<div class="adm-overview-pills">' +
+            '<span class="adm-overview-pill" title="Total Users: ' + totalUsers + '" onclick="filterByOverviewCategory(\'all\')">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
               '<span>' + totalUsers + '</span>' +
             '</span>' +
-            '<span class="adm-overview-pill" title="Verified Users: ' + verifiedUsers + '" onclick="filterByOverviewCategory(\'verified\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#22c55e;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
-              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>' +
+            '<span class="adm-overview-pill" title="Verified Users: ' + verifiedUsers + '" onclick="filterByOverviewCategory(\'verified\')">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>' +
               '<span>' + verifiedUsers + '</span>' +
             '</span>' +
-            '<span class="adm-overview-pill" title="Pre-Junior Users: ' + preJuniorUsers + '" onclick="filterByOverviewCategory(\'Pre-Junior\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#0ea5e9;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
-              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg>' +
+            '<span class="adm-overview-pill" title="Pre-Junior Users: ' + preJuniorUsers + '" onclick="filterByOverviewCategory(\'Pre-Junior\')">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg>' +
               '<span>' + preJuniorUsers + '</span>' +
             '</span>' +
-            '<span class="adm-overview-pill" title="Junior Users: ' + juniorUsers + '" onclick="filterByOverviewCategory(\'Junior\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#eab308;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
-              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+            '<span class="adm-overview-pill" title="Junior Users: ' + juniorUsers + '" onclick="filterByOverviewCategory(\'Junior\')">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
               '<span>' + juniorUsers + '</span>' +
             '</span>' +
-            '<span class="adm-overview-pill" title="Senior Users: ' + seniorUsers + '" onclick="filterByOverviewCategory(\'Senior\')" style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#a855f7;cursor:pointer;padding:2px 6px;border-radius:6px;">' +
-              '<svg class="ui-icon-xs" style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>' +
+            '<span class="adm-overview-pill" title="Senior Users: ' + seniorUsers + '" onclick="filterByOverviewCategory(\'Senior\')">' +
+              '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>' +
               '<span>' + seniorUsers + '</span>' +
             '</span>' +
           '</div>';
@@ -2432,14 +2465,6 @@
       var toolbarHtml = '<div class="admin-members-toolbar">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
           '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
-            '<div style="display:inline-flex;border-radius:8px;border:1px solid var(--border-card);background:var(--bg-card-subtle);padding:2px;">' +
-              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'table\')" style="padding:6px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;' + (_adminMembersViewMode === 'table' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Spreadsheet / Database View">' +
-                '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg> Table View' +
-              '</button>' +
-              '<button type="button" class="portal-btn" onclick="setAdminMembersViewMode(\'cards\')" style="padding:6px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:6px;' + (_adminMembersViewMode === 'cards' ? 'background:var(--gold,#f5c542);color:#000;' : 'background:transparent;color:var(--text-secondary);') + '" title="Cards View">' +
-                '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Cards View' +
-              '</button>' +
-            '</div>' +
             (isFilteringActive
               ? '<button type="button" class="portal-btn" onclick="resetAdminMemberFilters()" style="background:var(--bg-card-subtle);border:1px dashed var(--border-card);color:var(--text-secondary);font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:5px;" title="Reset all column filters and search">' +
                   '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Reset Filters' +
@@ -2540,8 +2565,11 @@
               '<td style="white-space:nowrap;font-weight:600;color:var(--text-secondary);">' +
                 safeSection +
               '</td>' +
-              '<td style="white-space:nowrap;">' +
-                '<div class="admin-rank-badge">' + safeRank + '</div>' +
+              '<td style="white-space:nowrap;font-size:14px;font-family:\'Inter\',sans-serif;">' +
+                '<span class="crm-rank-text" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:14px;color:var(--text-primary);white-space:nowrap;">' +
+                  getRankInsigniaSvg(m.rank) +
+                  '<span>' + safeRank + '</span>' +
+                '</span>' +
               '</td>' +
               '<td style="white-space:nowrap;color:var(--text-secondary);font-size:12px;font-weight:500;">' +
                 safeSquad +
@@ -2556,7 +2584,7 @@
                 dobStr +
               '</td>' +
               '<td style="white-space:nowrap;" onclick="event.stopPropagation();">' +
-                renderStatusBadge(vStatus, safeIc) +
+                renderStatusBadge(vStatus) +
               '</td>' +
               '<td style="white-space:nowrap;">' +
                 (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') +
@@ -2606,7 +2634,7 @@
               '<td style="min-width:140px;">' +
                 '<input type="date" class="admin-inline-input" value="' + (m.date_of_birth ? m.date_of_birth.slice(0, 10) : '') + '" onchange="updateMemberField(\'' + safeIc + '\', \'date_of_birth\', this.value)" title="Change Date of Birth" />' +
               '</td>' +
-              '<td>' + renderStatusBadge(vStatus, safeIc) + '</td>' +
+              '<td>' + renderStatusBadge(vStatus) + '</td>' +
               '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') + '</td>' +
               '<td style="text-align:right;white-space:nowrap;">' +
                 '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">' +
@@ -3051,6 +3079,10 @@
 
     set('em-joined',       m.joined_at ? m.joined_at.slice(0, 10) : '');
     set('em-dob',          m.date_of_birth ? m.date_of_birth.slice(0, 10) : '');
+    var emStatusSel = document.querySelector('#edit-member-modal .em-status-select');
+    if (emStatusSel) {
+      emStatusSel.value = getMemberVerificationStatus(m);
+    }
     set('em-original-ic',  m.ic);
     set('em-parent-name',  m.parent_name || '');
     set('em-parent-contact', m.parent_contact || '');
@@ -3171,6 +3203,10 @@
 
     var mConsentCb    = document.getElementById('em-media-consent');
     var media_consent = mConsentCb ? !!mConsentCb.checked : false;
+
+    var emStatusSel   = document.querySelector('#edit-member-modal .em-status-select');
+    var rawStatus     = emStatusSel ? emStatusSel.value : 'verified';
+    var verification_status = (rawStatus || 'verified').toLowerCase();
 
     if (!name) {
       if (typeof showToast === 'function') showToast('Name cannot be empty.', 'warning');
@@ -3311,7 +3347,8 @@
           squad: squad,
           department: department,
           section: att_section || null,
-          att_section: att_section || null
+          att_section: att_section || null,
+          verification_status: verification_status
         };
         if (joined_at)     updates.joined_at     = joined_at;
         if (date_of_birth) updates.date_of_birth = date_of_birth;
@@ -3335,6 +3372,13 @@
           if (joined_at)     baseUpdates.joined_at     = joined_at;
           if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
           await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
+
+          try {
+            var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
+            var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
+            vMap[originalIc || ic] = verification_status;
+            await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
+          } catch (_) {}
         }
         if (typeof logAuditEvent === 'function') {
           logAuditEvent({
@@ -3377,6 +3421,8 @@
         _adminMembers[memberTargetKey].parent_contact = parent_contact;
         _adminMembers[memberTargetKey].parental_consent_signed = parental_consent_signed;
         _adminMembers[memberTargetKey].media_consent = media_consent;
+        _adminMembers[memberTargetKey].verification_status = verification_status;
+        _adminMembers[memberTargetKey].v_status = verification_status;
       }
 
       var trimmedOldName = (oldName || '').trim();
@@ -3443,6 +3489,8 @@
               m.department = department;
               m.section = att_section;
               m.att_section = att_section;
+              m.verification_status = verification_status;
+              m.v_status = verification_status;
               cacheMatched = true;
             }
           });
@@ -5112,6 +5160,8 @@
     global.filterByOverviewCategory  = filterByOverviewCategory;
     global.updateMemberVerificationStatus = updateMemberVerificationStatus;
     global.getMemberVerificationStatus = getMemberVerificationStatus;
+    global.getRankInsigniaSvg        = getRankInsigniaSvg;
+    global.renderStatusBadge         = renderStatusBadge;
     global.setAdminViewMode          = setAdminViewMode;
     global.getAdminViewMode          = getAdminViewMode;
     global._adminMembers            = _adminMembers;
@@ -5171,6 +5221,8 @@
       filterByOverviewCategory: filterByOverviewCategory,
       updateMemberVerificationStatus: updateMemberVerificationStatus,
       getMemberVerificationStatus: getMemberVerificationStatus,
+      getRankInsigniaSvg: getRankInsigniaSvg,
+      renderStatusBadge: renderStatusBadge,
       _adminPresenceMap: _adminPresenceMap,
       handleAdminSectionChange: handleAdminSectionChange,
       handleAdminRankChange: handleAdminRankChange,
