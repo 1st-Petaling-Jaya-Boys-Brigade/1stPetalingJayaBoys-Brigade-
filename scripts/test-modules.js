@@ -11170,7 +11170,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     let memberListEl = document.getElementById('admin-members-list');
     assert.ok(memberListEl.innerHTML.includes('admin-members-table'), 'renderAdminList generates database table in table view mode');
     assert.ok(memberListEl.innerHTML.includes('admin-members-toolbar'), 'renderAdminList generates toolbar');
-    assert.ok(memberListEl.innerHTML.includes('View Mode (Safe)'), 'renderAdminList defaults to safe view mode');
+    assert.ok(memberListEl.innerHTML.includes('crm-cell-num'), 'renderAdminList renders CRM numbering and selection column');
+    assert.ok(memberListEl.innerHTML.includes('adm-row-chk'), 'renderAdminList includes row checkboxes');
+    assert.ok(memberListEl.innerHTML.includes('adm-row-pencil-btn'), 'renderAdminList includes row edit pencil buttons');
 
     // Toggle Edit Mode
     adminModule.toggleAdminMemberEditMode();
@@ -11276,7 +11278,98 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(memberListEl.innerHTML.includes('admin-members-table'), 'backToMembersList restores members database table');
     console.log('  ✔ Admin Google Sheets column filters, zero emojis & full-screen blocked emails verified');
 
-    // 7. Strict 388 Unique DOM IDs Invariant
+    // 7. CRM Member Table Redesign, Row Selection, Slide Drawer & Status Governance
+    console.log('\nTesting CRM Member Table Redesign, Row Selection, Slide Drawer & Status Governance...');
+    let actionsSlotEl = document.querySelector('.adm-topbar-row-actions-slot');
+    if (!actionsSlotEl) {
+      actionsSlotEl = global.document.createElement('div');
+      actionsSlotEl.className = 'adm-topbar-row-actions-slot';
+      global.document.body.appendChild(actionsSlotEl);
+    }
+    let summarySlotEl = document.querySelector('.adm-topbar-summary-slot');
+    if (!summarySlotEl) {
+      summarySlotEl = global.document.createElement('div');
+      summarySlotEl.className = 'adm-topbar-summary-slot';
+      global.document.body.appendChild(summarySlotEl);
+    }
+    await adminModule.renderAdminList();
+    memberListEl = document.getElementById('admin-members-list');
+
+    // CRM Table Columns & Header Structure
+    assert.ok(memberListEl.innerHTML.includes('crm-th-num'), 'Table header includes numbering checkbox column');
+    assert.ok(memberListEl.innerHTML.includes('id="adm-master-chk"'), 'Table header includes master checkbox');
+    assert.ok(memberListEl.innerHTML.includes('data-col="member"'), 'Table includes Full Name column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="email"'), 'Table includes split Email column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="section"'), 'Table includes Section column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="rank"'), 'Table includes Rank column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="squad"'), 'Table includes Platoon / Squad column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="dept"'), 'Table includes Department column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="age"'), 'Table includes split Age column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="dob"'), 'Table includes split DOB column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="status"'), 'Table includes Status column');
+    assert.ok(memberListEl.innerHTML.includes('data-col="consent"'), 'Table includes Consent column');
+    assert.ok(memberListEl.innerHTML.includes('crm-th-chevron'), 'Table header includes downward dropdown chevron for sorting and filtering');
+
+    // Section plain text & Department rounded rectangle badges
+    assert.ok(!memberListEl.innerHTML.includes('adm-section-pill'), 'Section field displays plain text without pill box');
+    assert.ok(adminStylesheet.includes('.dept-badge.dept-secretariat'), 'admin.css defines secretariat blue badge');
+    assert.ok(adminStylesheet.includes('.dept-badge.dept-logistics'), 'admin.css defines logistics bluish green badge');
+    assert.ok(adminStylesheet.includes('.dept-badge.dept-media'), 'admin.css defines media reddish purple badge');
+    assert.ok(adminStylesheet.includes('.dept-badge.dept-hq'), 'admin.css defines hq yellow badge');
+    assert.ok(adminStylesheet.includes('.dept-badge.dept-officers'), 'admin.css defines officers orange badge');
+
+    // Leftmost column numbering & hover actions
+    assert.ok(memberListEl.innerHTML.includes('crm-cell-num'), 'Row includes leftmost numbering cell');
+    assert.ok(memberListEl.innerHTML.includes('crm-row-index'), 'Row includes row index display');
+    assert.ok(memberListEl.innerHTML.includes('crm-row-hover-actions'), 'Row includes hover actions container');
+    assert.ok(memberListEl.innerHTML.includes('adm-row-chk'), 'Row includes selection checkbox');
+    assert.ok(memberListEl.innerHTML.includes('adm-row-pencil-btn'), 'Row includes edit pencil button');
+
+    // Row Selection & Bulk Actions Button
+    assert.strictEqual(typeof adminModule.toggleSelectMemberRow, 'function', 'toggleSelectMemberRow exported');
+    assert.strictEqual(typeof adminModule.toggleSelectAllMembers, 'function', 'toggleSelectAllMembers exported');
+    assert.strictEqual(typeof adminModule.getSelectedMemberIcs, 'function', 'getSelectedMemberIcs exported');
+    assert.strictEqual(typeof adminModule.toggleBulkActionsMenu, 'function', 'toggleBulkActionsMenu exported');
+    assert.strictEqual(typeof adminModule.bulkBlockSelectedMembers, 'function', 'bulkBlockSelectedMembers exported');
+    assert.strictEqual(typeof adminModule.bulkDeleteSelectedMembers, 'function', 'bulkDeleteSelectedMembers exported');
+
+    adminModule.toggleSelectMemberRow('test@pjbb.org', true);
+    assert.strictEqual(adminModule.getSelectedMemberIcs().includes('test@pjbb.org'), true, 'Member row selected');
+    actionsSlotEl = document.querySelector('.adm-topbar-row-actions-slot');
+    assert.ok(actionsSlotEl && actionsSlotEl.innerHTML.includes('Row actions'), 'Row actions button appears when row is selected');
+
+    adminModule.toggleSelectAllMembers(true);
+    assert.ok(adminModule.getSelectedMemberIcs().length > 0, 'Select all selects visible members');
+    adminModule.toggleSelectAllMembers(false);
+    assert.strictEqual(adminModule.getSelectedMemberIcs().length, 0, 'Deselect all clears selection');
+
+    // Verification Status Dropdown
+    assert.ok(memberListEl.innerHTML.includes('adm-status-select'), 'Table rows contain verification status dropdown');
+    assert.ok(memberListEl.innerHTML.includes('status-verified'), 'Status dropdown renders Verified option');
+    assert.strictEqual(typeof adminModule.updateMemberVerificationStatus, 'function', 'updateMemberVerificationStatus exported');
+    await adminModule.updateMemberVerificationStatus('test@pjbb.org', 'processing');
+    assert.strictEqual(adminModule.getMemberVerificationStatus({ ic: 'test@pjbb.org', verification_status: 'processing' }), 'processing', 'Verification status resolves to processing');
+
+    // Top Overview Summary Pills (Image 5)
+    summarySlotEl = document.querySelector('.adm-topbar-summary-slot');
+    assert.ok(summarySlotEl && summarySlotEl.innerHTML.includes('adm-overview-pills'), 'Overview stats pills rendered in top bar');
+    assert.strictEqual(typeof adminModule.filterByOverviewCategory, 'function', 'filterByOverviewCategory exported');
+
+    // User Counter Text
+    assert.ok(memberListEl.innerHTML.includes('Showing') && memberListEl.innerHTML.includes('users'), 'Table displays "Showing X of Y users"');
+
+    // Slide-over Right Drawer Modal
+    const indexHtml = fs.readFileSync('index.html', 'utf8');
+    assert.ok(indexHtml.includes('adm-member-drawer-modal'), 'index.html defines edit member modal slide drawer class');
+    assert.ok(indexHtml.includes('adm-member-drawer-card'), 'index.html defines edit member modal drawer card container');
+    assert.ok(adminStylesheet.includes('@keyframes admDrawerSlideIn'), 'admin.css defines drawer slide-in animation');
+
+    // Global Filter and Sort popovers
+    assert.strictEqual(typeof adminModule.toggleGlobalFilterPopover, 'function', 'toggleGlobalFilterPopover exported');
+    assert.strictEqual(typeof adminModule.toggleGlobalSortPopover, 'function', 'toggleGlobalSortPopover exported');
+    console.log('  ✔ CRM member table redesign, row selection, slide drawer & status governance verified');
+
+    // 8. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
