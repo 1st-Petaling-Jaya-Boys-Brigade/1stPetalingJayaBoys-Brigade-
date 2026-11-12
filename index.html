@@ -1069,6 +1069,15 @@
         <div id="member-orders-list"><div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">Loading orders...</div></div>
       </div>
 
+      <!-- My Form Responses -->
+      <div class="dark-card member-form-responses-card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Form Responses</div>
+          <button onclick="loadMemberOrders()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:6px 12px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh</button>
+        </div>
+        <div class="member-form-responses-list"><div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">Loading form responses...</div></div>
+      </div>
+
       <div style="display:flex;gap:10px;margin-bottom:0;flex-wrap:wrap;">
         <button class="submit-btn danger" style="margin-bottom:0;flex:1;min-width:140px;" onclick="logoutMember()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg> Logout</button>
         <button type="button" class="btn-signout-everywhere submit-btn" style="margin-bottom:0;flex:1;min-width:180px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-secondary);" onclick="signOutEverywhere()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg> Sign Out Everywhere</button>
@@ -2408,53 +2417,59 @@
           </div>
         </div>
 
-        <!-- Uniform Orders Response Availability & Auto-Schedule Card -->
-        <div class="uo-schedule-box" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow-card);">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-            <div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span>Response Availability &amp; Auto-Schedule</span>
+        <!-- Uniform Orders Response Availability & Auto-Schedule Modal Overlay -->
+        <div class="uo-schedule-modal-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+          <div class="uo-schedule-box" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:16px;padding:22px;max-width:540px;width:100%;box-shadow:var(--shadow-modal);position:relative;max-height:90vh;overflow-y:auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+              <div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Response Availability &amp; Auto-Schedule</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="uo-schedule-badge" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;font-family:var(--font-headline);letter-spacing:0.5px;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);">ACTIVE</span>
+                <button type="button" class="portal-btn portal-btn-secondary uo-schedule-toggle-btn" onclick="toggleUniformOrdersStatus()" style="padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;border-radius:8px;">Pause Ordering</button>
+                <button type="button" onclick="closeUniformScheduleModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:6px;" aria-label="Close">
+                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="uo-schedule-badge" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;font-family:var(--font-headline);letter-spacing:0.5px;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);">ACTIVE</span>
-              <button type="button" class="portal-btn portal-btn-secondary uo-schedule-toggle-btn" onclick="toggleUniformOrdersStatus()" style="padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;border-radius:8px;">Pause Ordering</button>
+            <div class="form-group" style="margin-bottom:12px;">
+              <label class="form-label" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;">Status</label>
+              <div style="display:flex;gap:18px;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-primary);cursor:pointer;">
+                  <input type="radio" name="uo_form_status" value="active" checked class="uo-status-active-radio"/> Active (Accepting Responses)
+                </label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-primary);cursor:pointer;">
+                  <input type="radio" name="uo_form_status" value="paused" class="uo-status-paused-radio"/> Paused (Closed to Responses)
+                </label>
+              </div>
             </div>
-          </div>
-          <div class="form-group" style="margin-bottom:12px;">
-            <label class="form-label" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px;">Status</label>
-            <div style="display:flex;gap:18px;flex-wrap:wrap;">
-              <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-primary);cursor:pointer;">
-                <input type="radio" name="uo_form_status" value="active" checked class="uo-status-active-radio"/> Active (Accepting Responses)
-              </label>
-              <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-primary);cursor:pointer;">
-                <input type="radio" name="uo_form_status" value="paused" class="uo-status-paused-radio"/> Paused (Closed to Responses)
-              </label>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label>
+                <input type="datetime-local" class="form-input uo-open-at-input" style="font-size:12px;padding:8px 10px;"/>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label>
+                <input type="datetime-local" class="form-input uo-close-at-input" style="font-size:12px;padding:8px 10px;"/>
+              </div>
             </div>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px;">
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label>
-              <input type="datetime-local" class="form-input uo-open-at-input" style="font-size:12px;padding:8px 10px;"/>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label class="form-label" style="font-size:11px;">Custom Paused / Closed Notice for Members</label>
+              <textarea class="form-textarea uo-paused-msg-input" rows="2" style="font-size:12px;padding:8px 10px;min-height:56px;resize:vertical;" placeholder="e.g. Uniform orders are currently paused by the company administration. Please check back later."></textarea>
             </div>
-            <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label>
-              <input type="datetime-local" class="form-input uo-close-at-input" style="font-size:12px;padding:8px 10px;"/>
+            <div style="display:flex;justify-content:flex-end;gap:8px;">
+              <button type="button" class="portal-btn portal-btn-secondary" onclick="closeUniformScheduleModal()" style="padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+              <button type="button" class="submit-btn gold btn-with-icon" onclick="saveAdminUniformOrdersSchedule()" style="margin-top:0;padding:8px 18px;font-size:13px;cursor:pointer;width:auto;">
+                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save
+              </button>
             </div>
-          </div>
-          <div class="form-group" style="margin-bottom:14px;">
-            <label class="form-label" style="font-size:11px;">Custom Paused / Closed Notice for Members</label>
-            <textarea class="form-textarea uo-paused-msg-input" rows="2" style="font-size:12px;padding:8px 10px;min-height:56px;resize:vertical;" placeholder="e.g. Uniform orders are currently paused by the company administration. Please check back later."></textarea>
-          </div>
-          <div style="display:flex;justify-content:flex-end;">
-            <button type="button" class="submit-btn gold btn-with-icon" onclick="saveAdminUniformOrdersSchedule()" style="margin-top:0;padding:8px 18px;font-size:13px;cursor:pointer;width:auto;">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Save
-            </button>
           </div>
         </div>
 
-        <!-- Sub-tabs: products | orders -->
-        <div style="display:flex;gap:6px;margin-bottom:18px;background:var(--bg-card);border-radius:10px;padding:5px;border:1px solid var(--border-card);">
+        <!-- Sub-tabs: products | orders | schedule -->
+        <div style="display:flex;gap:6px;margin-bottom:18px;background:var(--bg-card);border-radius:10px;padding:5px;border:1px solid var(--border-card);align-items:center;flex-wrap:wrap;">
           <button class="adm-subtab active-subtab" id="subtab-products" onclick="switchUniformSubtab('products')">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
             Products
@@ -2463,52 +2478,98 @@
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
             Orders
           </button>
+          <button type="button" class="adm-subtab uo-schedule-modal-trigger-btn" onclick="openUniformScheduleModal()" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
+            <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Response Availability &amp; Auto-Schedule
+          </button>
         </div>
 
         <!-- Products sub-panel -->
         <div id="subpanel-products">
-          <div style="background:var(--bg-card);border-radius:14px;padding:18px;margin-bottom:14px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">
-            <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;" id="prod-form-title">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>Add New Product</span>
+          <!-- Products Toolbar: View Switcher (Grid vs List) -->
+          <div class="adm-products-toolbar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              <span>Catalog Products</span>
+              <span class="adm-products-count-badge" style="font-size:11px;padding:2px 8px;border-radius:12px;background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);"></span>
             </div>
-            <div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="prod-name" type="text" placeholder="e.g. BB Uniform Shirt"/></div>
-            <div class="form-row">
-              <div class="form-group"><label class="form-label">Price (RM)</label><input class="form-input" id="prod-price" type="number" step="0.50" min="0" placeholder="0.00"/></div>
-              <div class="form-group"><label class="form-label">Size Options</label><input class="form-input" id="prod-sizes" type="text" placeholder="S, M, L, XL or 28, 30, 32"/></div>
-            </div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:-10px;margin-bottom:12px;">Separate sizes with commas. Leave blank if no size needed.</div>
-            <div class="form-group" style="margin-top:4px;">
-              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;">
-                <input type="checkbox" id="prod-nco-only" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;"/>
-                <div>
-                  <div style="font-size:13px;color:var(--text-primary);font-weight:600;">NCO Only</div>
-                  <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Restrict to Lance Corporal and above. Recruits and Privates cannot see this item.</div>
-                </div>
-              </label>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Product Image</label>
-              <div style="border:2px dashed var(--border-card);border-radius:10px;padding:16px;text-align:center;position:relative;cursor:pointer;background:var(--bg-card-subtle);" id="prod-img-drop">
-                <input type="file" id="prod-img-file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="previewProductImg(this)"/>
-                <div id="prod-img-preview" style="display:none;"><img id="prod-img-prev-img" style="max-height:90px;max-width:100%;border-radius:8px;display:block;margin:0 auto;" alt="preview"/></div>
-                <div id="prod-img-placeholder" style="color:var(--text-secondary);font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;">
-                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                  Click to upload image
-                </div>
-              </div>
-              <input type="hidden" id="prod-img-data"/>
-            </div>
-            <input type="hidden" id="prod-edit-key"/>
-            <div style="display:flex;gap:8px;">
-              <button class="submit-btn gold btn-with-icon" onclick="saveProduct()" style="margin-top:4px;flex:1;">
-                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Save Product
+            <div style="display:flex;align-items:center;gap:6px;background:var(--bg-card);border-radius:10px;padding:3px;border:1px solid var(--border-card);">
+              <button type="button" class="adm-view-btn adm-view-grid active" onclick="setAdminProductsViewMode('grid')" title="Grid View" style="padding:6px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:7px;cursor:pointer;border:none;">
+                <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Grid View
               </button>
-              <button class="submit-btn danger" onclick="clearProductForm()" style="margin-top:4px;width:auto;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              <button type="button" class="adm-view-btn adm-view-list" onclick="setAdminProductsViewMode('list')" title="List View" style="padding:6px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:7px;cursor:pointer;border:none;">
+                <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                List View
+              </button>
             </div>
           </div>
+
+          <!-- Products container (renders Grid or List with Drag-and-Drop) -->
           <div id="admin-products-list"></div>
+
+          <!-- Add New Product Button Below Products -->
+          <div style="margin-top:14px;margin-bottom:14px;">
+            <button type="button" class="submit-btn gold btn-with-icon" onclick="openProductModal()" style="width:100%;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-headline);font-size:14px;font-weight:700;border-radius:12px;cursor:pointer;">
+              <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Add New Product</span>
+            </button>
+          </div>
+
+          <!-- Add / Edit Product Pop-up Modal Overlay -->
+          <div class="adm-product-modal-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+            <div style="background:var(--bg-card);border-radius:16px;padding:22px;border:1px solid var(--border-card);box-shadow:var(--shadow-modal);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;position:relative;">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:8px;" id="prod-form-title">
+                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>Add New Product</span>
+                </div>
+                <button type="button" onclick="closeProductModal()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:6px;" aria-label="Close">
+                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div class="form-group"><label class="form-label">Product Name</label><input class="form-input" id="prod-name" type="text" placeholder="e.g. BB Uniform Shirt"/></div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label">Price (RM)</label><input class="form-input" id="prod-price" type="number" step="0.50" min="0" placeholder="0.00"/></div>
+                <div class="form-group"><label class="form-label">Size Options</label><input class="form-input" id="prod-sizes" type="text" placeholder="S, M, L, XL or 28, 30, 32"/></div>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:-10px;margin-bottom:12px;">Separate sizes with commas. Leave blank if no size needed.</div>
+              <div class="form-group" style="margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;">
+                  <input type="checkbox" id="prod-nco-only" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;"/>
+                  <div>
+                    <div style="font-size:13px;color:var(--text-primary);font-weight:600;">NCO Only</div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Restrict to Lance Corporal and above. Recruits and Privates cannot see this item.</div>
+                  </div>
+                </label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Product Image</label>
+                <div style="border:2px dashed var(--border-card);border-radius:10px;padding:16px;text-align:center;position:relative;cursor:pointer;background:var(--bg-card-subtle);" id="prod-img-drop">
+                  <input type="file" id="prod-img-file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="previewProductImg(this)"/>
+                  <div id="prod-img-preview" style="display:none;"><img id="prod-img-prev-img" style="max-height:90px;max-width:100%;border-radius:8px;display:block;margin:0 auto;" alt="preview"/></div>
+                  <div id="prod-img-placeholder" style="color:var(--text-secondary);font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    Click to upload image
+                  </div>
+                </div>
+                <input type="hidden" id="prod-img-data"/>
+              </div>
+              <input type="hidden" id="prod-edit-key"/>
+              <div style="display:flex;gap:8px;margin-top:16px;align-items:center;">
+                <button type="button" class="submit-btn danger prod-modal-del-btn" onclick="deleteCurrentProduct()" style="display:none;margin-top:0;padding:10px 16px;width:auto;display:inline-flex;align-items:center;gap:6px;">
+                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  <span>Delete</span>
+                </button>
+                <div style="flex:1;"></div>
+                <button type="button" class="portal-btn portal-btn-secondary" onclick="closeProductModal()" style="padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">Cancel</button>
+                <button type="button" class="submit-btn gold btn-with-icon" onclick="saveProduct()" style="margin-top:0;width:auto;padding:10px 20px;">
+                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span class="prod-modal-save-label">Save Product</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Uniform orders sub-panel -->

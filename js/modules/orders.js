@@ -1027,6 +1027,10 @@ async function saveAdminUniformOrdersSchedule() {
   await saveUniformOrdersSchedule(updatedSchedule);
   await renderUniformOrdersScheduleControls();
 
+  if (typeof closeUniformScheduleModal === 'function') {
+    closeUniformScheduleModal();
+  }
+
   if (typeof showToast === 'function') {
     showToast('Uniform orders availability schedule saved!', 'success');
   }
@@ -3358,74 +3362,304 @@ async function updateOrderStatus(orderNum, status) {
   }
 }
 
+var _adminProductsViewMode = 'grid';
+var _draggedProdIndex = null;
+
 /**
- * Renders uniform products list in the Admin management panel
+ * Toggles Admin uniform products view mode between 'grid' and 'list'
+ * @param {'grid'|'list'} mode
+ */
+function setAdminProductsViewMode(mode) {
+  _adminProductsViewMode = mode === 'list' ? 'list' : 'grid';
+  if (typeof document !== 'undefined') {
+    var gridBtn = document.querySelector('.adm-view-grid');
+    var listBtn = document.querySelector('.adm-view-list');
+    if (gridBtn) gridBtn.classList.toggle('active', _adminProductsViewMode === 'grid');
+    if (listBtn) listBtn.classList.toggle('active', _adminProductsViewMode === 'list');
+  }
+  renderAdminProducts();
+}
+
+/**
+ * Renders uniform products list in the Admin management panel (Grid View or List View with Drag & Drop)
  */
 function renderAdminProducts() {
   if (typeof document === 'undefined') return;
   var list = document.getElementById('admin-products-list');
   if (!list) return;
 
+  var countBadge = document.querySelector('.adm-products-count-badge');
+  if (countBadge) {
+    countBadge.textContent = UNIFORM_ITEMS.length + (UNIFORM_ITEMS.length === 1 ? ' item' : ' items');
+  }
+
   if (!UNIFORM_ITEMS.length) {
     list.innerHTML =
-      '<div style="color:var(--text-secondary);text-align:center;padding:20px;font-size:13px;">No products yet. Add one above.</div>';
+      '<div style="color:var(--text-secondary);text-align:center;padding:32px;font-size:13px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;">No products yet. Click "Add New Product" below to add one.</div>';
     return;
   }
 
   var html = '';
-  UNIFORM_ITEMS.forEach(function (item) {
-    var safeProdImg = item.image
-      ? typeof safeUrl === 'function'
-        ? safeUrl(item.image, '')
-        : item.image
-      : '';
-    var imgHtml = safeProdImg
-      ? '<img src="' +
-        escapeHtml(safeProdImg) +
-        '" style="width:50px;height:50px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' +
+
+  if (_adminProductsViewMode === 'grid') {
+    html += '<div class="uniform-product-grid admin-product-grid">';
+    UNIFORM_ITEMS.forEach(function (item, idx) {
+      var sizes = getItemSizes(item);
+      var sizeButtons = '';
+      sizes.forEach(function (s) {
+        sizeButtons += '<span class="size-pill" style="pointer-events:none;">' + escapeHtml(s) + '</span>';
+      });
+
+      var safeProdImg = item.image
+        ? (typeof safeUrl === 'function' ? safeUrl(item.image, '') : item.image)
+        : '';
+      var imgHtml = safeProdImg
+        ? '<img src="' + escapeHtml(safeProdImg) + '" alt="' + escapeHtml(item.name) + '" loading="lazy"/>'
+        : getItemIcon(item);
+
+      var priceNum = parseFloat(item.price) || prices[item.key] || 0;
+      var priceLabel = priceNum ? 'RM ' + priceNum.toFixed(2) : 'RM TBA';
+      var cat = getItemCategory(item);
+      var catLabel =
+        cat === 'apparel'
+          ? 'Apparel'
+          : cat === 'accessories'
+            ? 'Accessories'
+            : cat === 'insignia'
+              ? 'Insignia'
+              : cat.charAt(0).toUpperCase() + cat.slice(1);
+
+      var ncoBadge = item.ncoOnly
+        ? '<span class="product-card-badge nco">NCO Only</span>'
+        : '<span class="product-card-badge cat">' + escapeHtml(catLabel) + '</span>';
+
+      var sizeWrap = sizes.length
+        ? '<div class="product-size-section" style="display:block;margin-top:8px;">' +
+          '<div class="size-pills-label" style="font-size:11px;">Sizes:</div>' +
+          '<div class="size-pills-row" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">' +
+          sizeButtons +
+          '</div></div>'
+        : '';
+
+      html +=
+        '<div class="uniform-product-card admin-drag-item" draggable="true" data-prod-key="' +
+        escapeHtml(item.key) +
+        '" data-prod-index="' +
+        idx +
+        '" title="Drag and drop to change product position">' +
+        '<button type="button" class="adm-prod-edit-btn" data-edit-prod="' +
+        escapeHtml(item.key) +
+        '" title="Edit ' +
         escapeHtml(item.name) +
-        '"/>'
-      : '<div style="width:50px;height:50px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></div>';
+        '">' +
+        '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>' +
+        '</button>' +
+        '<div class="product-card-media">' +
+        ncoBadge +
+        imgHtml +
+        '</div>' +
+        '<div class="product-card-body">' +
+        '<div class="product-card-cat-label">' +
+        escapeHtml(catLabel) +
+        '</div>' +
+        '<div class="product-card-name uniform-name">' +
+        escapeHtml(item.name) +
+        '</div>' +
+        '<div class="product-card-price uniform-price">' +
+        priceLabel +
+        '</div>' +
+        sizeWrap +
+        '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+  } else {
+    // List View
+    html += '<div class="admin-products-list-view">';
+    UNIFORM_ITEMS.forEach(function (item, idx) {
+      var safeProdImg = item.image
+        ? (typeof safeUrl === 'function' ? safeUrl(item.image, '') : item.image)
+        : '';
+      var imgHtml = safeProdImg
+        ? '<img src="' +
+          escapeHtml(safeProdImg) +
+          '" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="' +
+          escapeHtml(item.name) +
+          '"/>'
+        : '<div style="width:48px;height:48px;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></div>';
 
-    var ncoBadge = item.ncoOnly
-      ? ' <span style="font-size:9px;font-weight:700;background:rgba(245,197,66,0.2);color:var(--brand-gold);border:1px solid rgba(245,197,66,0.4);padding:2px 7px;border-radius:20px;letter-spacing:1px;">NCO ONLY</span>'
-      : '';
+      var ncoBadge = item.ncoOnly
+        ? ' <span style="font-size:9px;font-weight:700;background:rgba(245,197,66,0.2);color:var(--brand-gold);border:1px solid rgba(245,197,66,0.4);padding:2px 7px;border-radius:20px;letter-spacing:0.5px;">NCO ONLY</span>'
+        : '';
 
-    html +=
-      '<div style="background:var(--bg-card);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;border:1px solid var(--border-card);">' +
-      imgHtml +
-      '<div style="flex:1;">' +
-      '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' +
-      escapeHtml(item.name) +
-      ncoBadge +
-      '</div>' +
-      '<div style="font-size:11px;color:var(--text-secondary);">RM ' +
-      (item.price ? parseFloat(item.price).toFixed(2) : 'TBA') +
-      (item.sizes && item.sizes.length
-        ? ' &middot; ' + item.sizes.map(escapeHtml).join(', ')
-        : '') +
-      '</div>' +
-      '</div>' +
-      '<button data-edit-prod="' +
-      escapeHtml(item.key) +
-      '" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;">Edit</button>' +
-      '<button data-del-prod="' +
-      escapeHtml(item.key) +
-      '" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px;">Del</button>' +
-      '</div>';
-  });
+      html +=
+        '<div class="admin-product-row admin-drag-item" draggable="true" data-prod-key="' +
+        escapeHtml(item.key) +
+        '" data-prod-index="' +
+        idx +
+        '" title="Drag and drop to change product position">' +
+        '<div class="adm-drag-handle" title="Drag to reorder"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></div>' +
+        imgHtml +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:13.5px;color:var(--text-primary);font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        escapeHtml(item.name) +
+        ncoBadge +
+        '</div>' +
+        '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">RM ' +
+        (item.price ? parseFloat(item.price).toFixed(2) : 'TBA') +
+        (item.sizes && item.sizes.length
+          ? ' &middot; ' + item.sizes.map(escapeHtml).join(', ')
+          : '') +
+        '</div>' +
+        '</div>' +
+        '<button type="button" class="adm-prod-edit-btn" data-edit-prod="' +
+        escapeHtml(item.key) +
+        '" title="Edit ' +
+        escapeHtml(item.name) +
+        '">' +
+        '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>' +
+        '</button>' +
+        '</div>';
+    });
+    html += '</div>';
+  }
 
   list.innerHTML = html;
+
+  // Bind drag & drop reordering
+  var dragItems = list.querySelectorAll('.admin-drag-item');
+  dragItems.forEach(function (card) {
+    if (!card || typeof card.addEventListener !== 'function') return;
+
+    card.addEventListener('dragstart', function (e) {
+      _draggedProdIndex = parseInt(card.getAttribute('data-prod-index'), 10);
+      card.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(_draggedProdIndex));
+      }
+    });
+
+    card.addEventListener('dragend', function () {
+      card.classList.remove('dragging');
+      dragItems.forEach(function (c) { c.classList.remove('drag-over'); });
+      _draggedProdIndex = null;
+    });
+
+    card.addEventListener('dragover', function (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      if (!card.classList.contains('dragging')) {
+        card.classList.add('drag-over');
+      }
+    });
+
+    card.addEventListener('dragleave', function () {
+      card.classList.remove('drag-over');
+    });
+
+    card.addEventListener('drop', function (e) {
+      if (e.preventDefault) e.preventDefault();
+      card.classList.remove('drag-over');
+      var targetIndex = parseInt(card.getAttribute('data-prod-index'), 10);
+      var sourceIndex = _draggedProdIndex;
+      if (sourceIndex === null || isNaN(sourceIndex)) {
+        var dt = e.dataTransfer ? e.dataTransfer.getData('text/plain') : '';
+        sourceIndex = parseInt(dt, 10);
+      }
+      if (!isNaN(sourceIndex) && !isNaN(targetIndex) && sourceIndex !== targetIndex) {
+        reorderUniformProducts(sourceIndex, targetIndex);
+      }
+    });
+  });
+
+  // Bind edit buttons
   list.querySelectorAll('[data-edit-prod]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      editProduct(btn.getAttribute('data-edit-prod'));
-    });
+    if (btn && typeof btn.addEventListener === 'function') {
+      btn.addEventListener('click', function (e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        editProduct(btn.getAttribute('data-edit-prod'));
+      });
+    }
   });
-  list.querySelectorAll('[data-del-prod]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      deleteProduct(btn.getAttribute('data-del-prod'));
-    });
-  });
+}
+
+/**
+ * Reorders product positions in the catalog and syncs across views and storage
+ * @param {number} fromIndex
+ * @param {number} toIndex
+ */
+function reorderUniformProducts(fromIndex, toIndex) {
+  if (
+    fromIndex < 0 ||
+    fromIndex >= UNIFORM_ITEMS.length ||
+    toIndex < 0 ||
+    toIndex >= UNIFORM_ITEMS.length ||
+    fromIndex === toIndex
+  ) {
+    return;
+  }
+
+  var movedItem = UNIFORM_ITEMS.splice(fromIndex, 1)[0];
+  UNIFORM_ITEMS.splice(toIndex, 0, movedItem);
+
+  saveUniformItems();
+  loadPrices();
+  renderAdminProducts();
+  renderOrderItems();
+  if (typeof showToast === 'function') {
+    showToast('Product order updated!', 'success');
+  }
+}
+
+/**
+ * Opens pop-up modal to add a new product
+ */
+function openProductModal() {
+  if (typeof document === 'undefined') return;
+  clearProductForm();
+  var delBtn = document.querySelector('.prod-modal-del-btn');
+  if (delBtn) delBtn.style.display = 'none';
+
+  var ft = document.getElementById('prod-form-title');
+  if (ft) {
+    ft.innerHTML =
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add New Product</span>';
+  }
+
+  var saveLabel = document.querySelector('.prod-modal-save-label');
+  if (saveLabel) saveLabel.textContent = 'Save Product';
+
+  var overlay = document.querySelector('.adm-product-modal-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+/**
+ * Closes product creation/edit pop-up modal
+ */
+function closeProductModal() {
+  if (typeof document === 'undefined') return;
+  var overlay = document.querySelector('.adm-product-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
+  clearProductForm();
+}
+
+/**
+ * Opens uniform orders response availability & auto-schedule modal
+ */
+function openUniformScheduleModal() {
+  if (typeof document === 'undefined') return;
+  var overlay = document.querySelector('.uo-schedule-modal-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+/**
+ * Closes uniform orders response availability & auto-schedule modal
+ */
+function closeUniformScheduleModal() {
+  if (typeof document === 'undefined') return;
+  var overlay = document.querySelector('.uo-schedule-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 /**
@@ -3469,7 +3703,14 @@ function clearProductForm() {
   var ph = document.getElementById('prod-img-placeholder');
   if (ph) ph.style.display = 'block';
   var ft = document.getElementById('prod-form-title');
-  if (ft) ft.textContent = '\u2795 Add New Product';
+  if (ft) {
+    ft.innerHTML =
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add New Product</span>';
+  }
+  var delBtn = document.querySelector('.prod-modal-del-btn');
+  if (delBtn) delBtn.style.display = 'none';
+  var saveLabel = document.querySelector('.prod-modal-save-label');
+  if (saveLabel) saveLabel.textContent = 'Save Product';
 }
 
 /**
@@ -3526,7 +3767,7 @@ function saveProduct() {
     saveUniformItems();
     loadPrices();
     renderOrderItems();
-    clearProductForm();
+    closeProductModal();
     renderAdminProducts();
 
     if (typeof showToast === 'function') showToast('Product saved successfully!', 'success');
@@ -3536,7 +3777,7 @@ function saveProduct() {
 }
 
 /**
- * Loads a product into Admin form for editing
+ * Loads a product into Admin pop-up modal for editing
  * @param {string} key
  */
 function editProduct(key) {
@@ -3556,7 +3797,12 @@ function editProduct(key) {
   set('prod-edit-key', key);
 
   var ft = document.getElementById('prod-form-title');
-  if (ft) ft.textContent = '\u270f\ufe0f Edit: ' + item.name;
+  if (ft) {
+    ft.innerHTML =
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg><span>Edit: ' +
+      escapeHtml(item.name) +
+      '</span>';
+  }
   var nc = document.getElementById('prod-nco-only');
   if (nc) nc.checked = !!item.ncoOnly;
 
@@ -3568,10 +3814,36 @@ function editProduct(key) {
     if (pv) pv.style.display = 'block';
     var ph = document.getElementById('prod-img-placeholder');
     if (ph) ph.style.display = 'none';
+  } else {
+    set('prod-img-data', '');
+    var pi2 = document.getElementById('prod-img-prev-img');
+    if (pi2) pi2.src = '';
+    var pv2 = document.getElementById('prod-img-preview');
+    if (pv2) pv2.style.display = 'none';
+    var ph2 = document.getElementById('prod-img-placeholder');
+    if (ph2) ph2.style.display = 'block';
   }
 
-  var pn = document.getElementById('prod-name');
-  if (pn && pn.scrollIntoView) pn.scrollIntoView({ behavior: 'smooth' });
+  var delBtn = document.querySelector('.prod-modal-del-btn');
+  if (delBtn) delBtn.style.display = 'inline-flex';
+
+  var saveLabel = document.querySelector('.prod-modal-save-label');
+  if (saveLabel) saveLabel.textContent = 'Update Product';
+
+  var overlay = document.querySelector('.adm-product-modal-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+/**
+ * Deletes the product currently open in the edit modal
+ */
+async function deleteCurrentProduct() {
+  if (typeof document === 'undefined') return;
+  var keyEl = document.getElementById('prod-edit-key');
+  var key = keyEl ? keyEl.value.trim() : '';
+  if (!key) return;
+  await deleteProduct(key);
+  closeProductModal();
 }
 
 /**
@@ -3680,6 +3952,13 @@ if (typeof window !== 'undefined') {
   window.saveProduct = saveProduct;
   window.editProduct = editProduct;
   window.deleteProduct = deleteProduct;
+  window.setAdminProductsViewMode = setAdminProductsViewMode;
+  window.reorderUniformProducts = reorderUniformProducts;
+  window.openProductModal = openProductModal;
+  window.closeProductModal = closeProductModal;
+  window.openUniformScheduleModal = openUniformScheduleModal;
+  window.closeUniformScheduleModal = closeUniformScheduleModal;
+  window.deleteCurrentProduct = deleteCurrentProduct;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -3761,6 +4040,13 @@ if (typeof module !== 'undefined' && module.exports) {
     clearProductForm: clearProductForm,
     saveProduct: saveProduct,
     editProduct: editProduct,
-    deleteProduct: deleteProduct
+    deleteProduct: deleteProduct,
+    setAdminProductsViewMode: setAdminProductsViewMode,
+    reorderUniformProducts: reorderUniformProducts,
+    openProductModal: openProductModal,
+    closeProductModal: closeProductModal,
+    openUniformScheduleModal: openUniformScheduleModal,
+    closeUniformScheduleModal: closeUniformScheduleModal,
+    deleteCurrentProduct: deleteCurrentProduct
   };
 }
