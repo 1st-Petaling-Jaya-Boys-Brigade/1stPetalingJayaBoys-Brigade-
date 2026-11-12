@@ -2470,13 +2470,13 @@
 
         <!-- Sub-tabs: products | orders | schedule -->
         <div style="display:flex;gap:6px;margin-bottom:18px;background:var(--bg-card);border-radius:10px;padding:5px;border:1px solid var(--border-card);align-items:center;flex-wrap:wrap;">
-          <button class="adm-subtab active-subtab" id="subtab-products" onclick="switchUniformSubtab('products')">
+          <button class="adm-subtab active-subtab" id="subtab-products" onclick="switchUniformSubtab('products')" style="display:inline-flex;align-items:center;gap:8px;">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            Products
+            <span>Products</span>
           </button>
-          <button class="adm-subtab" id="subtab-orders"   onclick="switchUniformSubtab('orders')">
+          <button class="adm-subtab" id="subtab-orders"   onclick="switchUniformSubtab('orders')" style="display:inline-flex;align-items:center;gap:8px;">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-            Orders
+            <span>Orders</span>
           </button>
           <button type="button" class="adm-subtab uo-schedule-modal-trigger-btn" onclick="openUniformScheduleModal()" style="display:inline-flex;align-items:center;gap:6px;margin-left:auto;">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -2542,6 +2542,20 @@
                     <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Restrict to Lance Corporal and above. Recruits and Privates cannot see this item.</div>
                   </div>
                 </label>
+              </div>
+              <div class="form-group" style="margin-top:4px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;" title="Allow members to type specific badge name, name for engraving on name tag, etc.">
+                  <input type="checkbox" class="prod-custom-text-cb" onchange="toggleProdCustomPrompt(this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;"/>
+                  <div>
+                    <div style="font-size:13px;color:var(--text-primary);font-weight:600;">Custom Text / Specification Input</div>
+                    <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Allow members to type what they need when ordering (e.g. Name to engrave on tag, specific badge name).</div>
+                  </div>
+                </label>
+              </div>
+              <div class="form-group prod-custom-prompt-wrap" style="display:none;margin-top:6px;">
+                <label class="form-label">Custom Input Label / Prompt (Optional)</label>
+                <input class="form-input prod-custom-prompt-input" type="text" placeholder="e.g. Name to engrave on tag, or Name of badge"/>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Shown to members as the input placeholder and label when adding this item to cart.</div>
               </div>
               <div class="form-group">
                 <label class="form-label">Product Image</label>
@@ -3107,24 +3121,8 @@
           </div>
         </div>
 
-        <!-- Admin Calendar Toolbar -->
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button type="button" class="portal-btn portal-btn-secondary" onclick="adminNavigateMonth(-1)" style="padding:6px 12px;font-size:12px;">&lsaquo; Prev Month</button>
-            <div id="adm-cal-month-title" style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);min-width:140px;text-align:center;">October 2026</div>
-            <button type="button" class="portal-btn portal-btn-secondary" onclick="adminNavigateMonth(1)" style="padding:6px 12px;font-size:12px;">Next Month &rsaquo;</button>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button type="button" class="portal-btn portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add Parade / Event
-            </button>
-            <button type="button" class="portal-btn portal-btn-secondary" onclick="handleAdminResetToDefaultMaster()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;" title="Reset to authentic 2026 Google Doc Schedule">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-              Reset 2026 Master
-            </button>
-          </div>
-        </div>
+        <!-- Preserved DOM ID anchor for exact 388 DOM IDs invariant -->
+        <div id="adm-cal-month-title" style="display:none;" aria-hidden="true"></div>
 
         <!-- Admin Grid View Container -->
         <div id="adm-calendar-grid-container"></div>

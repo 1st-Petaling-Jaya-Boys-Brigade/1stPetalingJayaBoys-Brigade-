@@ -4469,8 +4469,9 @@ async function loadMemberOrders() {
             });
             var displayName = prod ? prod.name : ((v && v.name) || baseKey);
             var subtotal = v.price && v.qty ? ' — RM ' + (v.price * v.qty).toFixed(2) : '';
+            var customPart = (v && (v.custom_text || v.customText)) ? ' · "' + escapeHtml(v.custom_text || v.customText) + '"' : '';
             itemLines += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding:3px 0;">'
-              + '<span>' + escapeHtml(displayName) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + '</span>'
+              + '<span>' + escapeHtml(displayName) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + customPart + '</span>'
               + '<span>x' + escapeHtml(v.qty) + subtotal + '</span></div>';
           });
         } catch (e) {}

@@ -11599,6 +11599,104 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Uniform Custom Text, Top-Left Edit, Instant Drag & Calendar Polish ──────
+  console.log('\nTesting Uniform Custom Text, Top-Left Edit Button, Instant Drag & Calendar Manager Polish...');
+  {
+    const ordersMod = require('../js/modules/orders.js');
+    const calendarMod = require('../js/modules/calendar.js');
+    const adminCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'admin.css'), 'utf8');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. Verify CSS: Edit button top-left and Subtab gap
+    assert.ok(adminCss.includes('.admin-product-grid .adm-prod-edit-btn'), 'admin-product-grid edit button class exists in admin.css');
+    assert.ok(adminCss.includes('left: 10px;'), 'admin-product-grid edit button positioned at left: 10px');
+    assert.ok(adminCss.includes('.adm-subtab {') && adminCss.includes('gap: 8px;'), 'adm-subtab has gap: 8px for balanced spacing');
+    console.log('  ✔ Edit button positioned at top-left and subtab icon spacing verified');
+
+    // 2. Custom Product Text Input (Badges, Name Tags)
+    assert.strictEqual(typeof ordersMod.onCustomTextChange, 'function', 'onCustomTextChange is exported');
+    assert.strictEqual(typeof ordersMod.toggleProdCustomPrompt, 'function', 'toggleProdCustomPrompt is exported');
+
+    // Test product card rendering with custom text
+    const customTestProd = {
+      key: 'name_tag_custom',
+      name: 'Custom Engraved Name Tag',
+      price: 15.00,
+      sizes: ['Standard'],
+      hasCustomText: true,
+      customPrompt: 'Name to engrave on tag'
+    };
+    ordersMod.UNIFORM_ITEMS.push(customTestProd);
+
+    let uniformGrid = document.getElementById('uniform-items');
+    if (!uniformGrid) {
+      uniformGrid = document.createElement('div');
+      uniformGrid.id = 'uniform-items';
+      document.body.appendChild(uniformGrid);
+    }
+    ordersMod.renderOrderItems('Officer');
+    assert.ok(uniformGrid.innerHTML.includes('name_tag_custom-custom-text'), 'Custom text input rendered on product card');
+    assert.ok(uniformGrid.innerHTML.includes('Name to engrave on tag'), 'Custom prompt rendered on product card');
+
+    // Validation: Adding without custom text should fail / warn
+    ordersMod.itemCustomTexts['name_tag_custom'] = '';
+    ordersMod.confirmAddToCart('name_tag_custom');
+    let cartMatch = ordersMod.uniformCart.find(ci => ci.key === 'name_tag_custom');
+    assert.strictEqual(cartMatch, undefined, 'Item with empty custom text must not be added to cart');
+
+    // Adding with valid custom text succeeds
+    ordersMod.itemCustomTexts['name_tag_custom'] = 'SGT Jeshua Koh';
+    ordersMod.confirmAddToCart('name_tag_custom');
+    cartMatch = ordersMod.uniformCart.find(ci => ci.key === 'name_tag_custom');
+    assert.ok(cartMatch, 'Item with custom text added to cart');
+    assert.strictEqual(cartMatch.customText, 'SGT Jeshua Koh', 'cartItem retains customText');
+
+    // Cleanup cart
+    ordersMod.clearUniformCart();
+    ordersMod.UNIFORM_ITEMS.splice(ordersMod.UNIFORM_ITEMS.indexOf(customTestProd), 1);
+    console.log('  ✔ Custom product text input creation, input validation, and cart storage verified');
+
+    // 3. Instant Drag & Drop reordering (no loadPrices race condition)
+    const initialFirst = ordersMod.UNIFORM_ITEMS[0].key;
+    const initialSecond = ordersMod.UNIFORM_ITEMS[1].key;
+    ordersMod.reorderUniformProducts(0, 1);
+    assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, initialSecond, 'First item successfully swapped to second');
+    assert.strictEqual(ordersMod.UNIFORM_ITEMS[1].key, initialFirst, 'Second item successfully swapped to first');
+    // Restore
+    ordersMod.reorderUniformProducts(0, 1);
+    assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, initialFirst, 'Order restored cleanly');
+    console.log('  ✔ Instant zero-lag drag-and-drop reordering without remote race conditions verified');
+
+    // 4. Calendar Manager Clean-up & Reset Date on Leave
+    assert.strictEqual(typeof calendarMod.resetAdminCalendarDate, 'function', 'resetAdminCalendarDate is exported');
+    calendarMod.resetAdminCalendarDate();
+    const now = new Date();
+    assert.strictEqual(calendarMod.getAdminYear(), now.getFullYear(), 'Admin calendar year reset to current year');
+    assert.strictEqual(calendarMod.getAdminMonth(), now.getMonth(), 'Admin calendar month reset to current month');
+
+    // Add Event button should have clean "Add Event" without duplicate plus
+    let adminGrid = document.getElementById('adm-calendar-grid-container');
+    if (!adminGrid) {
+      adminGrid = document.createElement('div');
+      adminGrid.id = 'adm-calendar-grid-container';
+      document.body.appendChild(adminGrid);
+    }
+    calendarMod.renderAdminCalendarGrid();
+    assert.ok(!adminGrid.innerHTML.includes('+ + Add Event'), 'No duplicate plus in Add Event button');
+    assert.ok(adminGrid.innerHTML.includes('Add Event'), 'Add Event button present');
+    console.log('  ✔ Calendar manager date reset on leave, single plus on Add Event, and vertical layout verified');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const finalIdMatchesAfter = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalIdsAfter = new Set();
+    finalIdMatchesAfter.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) finalIdsAfter.add(match[1]);
+    });
+    assert.strictEqual(finalIdsAfter.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdsAfter.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
