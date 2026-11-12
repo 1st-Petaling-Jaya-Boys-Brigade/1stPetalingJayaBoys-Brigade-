@@ -381,6 +381,7 @@ function renderGallery() {
   var noPhotos      = document.getElementById('no-photos');
   var noPhotosHome  = document.getElementById('no-photos-home');
   var countBadge    = document.getElementById('gallery-media-count-badge');
+  var isHomeGridVisible = homeGrid && (!homeGrid.closest || !homeGrid.closest('[style*="display:none"]'));
 
   renderStoryHighlightsReel();
   renderAdminStoryHighlights();
@@ -398,16 +399,16 @@ function renderGallery() {
   }
 
   if (!galleryImages.length) {
-    if (grid)         grid.innerHTML = '';
-    if (homeGrid)     homeGrid.innerHTML = '';
-    if (adminGrid)    adminGrid.innerHTML = '';
-    if (noPhotos)     noPhotos.style.display = 'block';
-    if (noPhotosHome) noPhotosHome.style.display = 'block';
+    if (grid)              grid.innerHTML = '';
+    if (isHomeGridVisible) homeGrid.innerHTML = '';
+    if (adminGrid)         adminGrid.innerHTML = '';
+    if (noPhotos)          noPhotos.style.display = 'block';
+    if (isHomeGridVisible && noPhotosHome) noPhotosHome.style.display = 'block';
     return;
   }
 
-  if (noPhotos)     noPhotos.style.display = filtered.length ? 'none' : 'block';
-  if (noPhotosHome) noPhotosHome.style.display = 'none';
+  if (noPhotos)                          noPhotos.style.display = filtered.length ? 'none' : 'block';
+  if (isHomeGridVisible && noPhotosHome) noPhotosHome.style.display = 'none';
 
   var pubHtml = '';
   var homeHtml = '';
@@ -432,7 +433,7 @@ function renderGallery() {
       + '</div>';
 
     // Home teaser: limit to first 6 items
-    if (i < 6) {
+    if (homeGrid && i < 6) {
       homeHtml += '<div class="gallery-img-wrap" data-home-idx="' + i + '" style="cursor:pointer;" title="Click to preview">'
         + videoBadgeHtml
         + '<img src="' + safeUrlStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'" />'
@@ -457,7 +458,7 @@ function renderGallery() {
     });
   }
 
-  if (homeGrid) {
+  if (isHomeGridVisible) {
     homeGrid.innerHTML = homeHtml;
     homeGrid.querySelectorAll('[data-home-idx]').forEach(function(el) {
       el.addEventListener('click', function() {
@@ -1017,12 +1018,13 @@ async function saveStoryHighlights(newList) {
  */
 function renderStoryHighlightsReel() {
   if (typeof document === 'undefined') return;
-  var containers = document.querySelectorAll('.story-highlights-reel, #story-highlights-reel, #gallery-story-highlights-reel');
+  var containers = document.querySelectorAll('#gallery-story-highlights-reel, .story-highlights-reel');
   if (!containers || !containers.length) return;
 
   var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
 
   containers.forEach(function(container) {
+    if (container.id === 'story-highlights-reel') return;
     if (!activeHighlights.length) {
       container.style.display = 'none';
       return;
