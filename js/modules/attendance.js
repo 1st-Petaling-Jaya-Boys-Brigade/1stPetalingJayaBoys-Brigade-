@@ -1202,13 +1202,13 @@ async function renderCompanyLeaderboard() {
       '<div class="podium-step podium-step-' + stepNum + '">' +
         '<div class="podium-step-num">#' + stepNum + '</div>' +
         '<div class="podium-step-val">' + (sq.points || 0) + ' pts</div>' +
-        '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:3px;letter-spacing:0.3px;">' + st.plt + ' Platoon</div>' +
+        '<div class="podium-step-sub">' + st.plt + ' Platoon</div>' +
       '</div>' +
     '</div>';
   }
 
   html +=
-    '<div class="card squad-podium-card" style="padding:22px 16px;margin-bottom:20px;width:100%;box-sizing:border-box;">' +
+    '<div class="card squad-podium-card" style="margin-bottom:20px;width:100%;box-sizing:border-box;">' +
       '<div style="text-align:center;margin-bottom:12px;">' +
         '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Squad Championship Podium</div>' +
         '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Top 3 Leading Squads in Attendance, Inspection, and Squad Points</div>' +

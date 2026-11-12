@@ -2078,7 +2078,7 @@
         '<div class="podium-step podium-step-' + stepNum + '">' +
           '<div class="podium-step-num">#' + stepNum + '</div>' +
           '<div class="podium-step-val">' + val + ' ' + metricUnit + '</div>' +
-          (safeRank ? '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-top:3px;letter-spacing:0.3px;">' + safeRank + '</div>' : '') +
+          (safeRank ? '<div class="podium-step-sub">' + safeRank + '</div>' : '') +
         '</div>' +
       '</div>';
     }
@@ -2149,7 +2149,7 @@
         '</div>' +
 
         // Leaderboard Podium
-        '<div class="card" style="padding:22px 16px;width:100%;box-sizing:border-box;">' +
+        '<div class="card leaderboard-podium-card" style="width:100%;box-sizing:border-box;">' +
           '<div style="text-align:center;margin-bottom:12px;">' +
             '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Top 3 Champions &mdash; ' + metricTitle + '</div>' +
             '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Official 1st Petaling Jaya Company Honor Roll</div>' +

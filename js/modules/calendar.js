@@ -723,9 +723,9 @@
         // ── Date Navigation & Action Subbar ──
         + '<div class="cal-nav-toolbar">'
           + '<div class="cal-nav-controls">'
-            + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calJumpToday()" style="font-weight:600;padding:5px 12px;">Today</button>'
-            + '<button type="button" class="cal-nav-arrow" onclick="calNavigate(-1)" title="Previous">&lsaquo;</button>'
-            + '<button type="button" class="cal-nav-arrow" onclick="calNavigate(1)" title="Next">&rsaquo;</button>'
+            + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calJumpToday()" style="font-weight:600;padding:5px 12px;flex-shrink:0;">Today</button>'
+            + '<button type="button" class="cal-nav-arrow" onclick="calNavigate(-1)" title="Previous" style="flex-shrink:0;">&lsaquo;</button>'
+            + '<button type="button" class="cal-nav-arrow" onclick="calNavigate(1)" title="Next" style="flex-shrink:0;">&rsaquo;</button>'
             + '<div class="cal-current-range-heading">' + escapeHtml(dateTitle) + '</div>'
           + '</div>'
 
@@ -1037,9 +1037,11 @@
     var html = '<div class="cal-month-table-wrapper">';
 
     // Weekday Header
+    var todayDayOfWeek = new Date().getDay();
     html += '<div class="cal-month-head-row">';
-    DAY_SHORT_NAMES.forEach(function(d) {
-      html += '<div class="cal-month-head-cell">' + d + '</div>';
+    DAY_SHORT_NAMES.forEach(function(d, idx) {
+      var isDayToday = (idx === todayDayOfWeek);
+      html += '<div class="cal-month-head-cell' + (isDayToday ? ' cal-month-head-today' : '') + '">' + d + '</div>';
     });
     html += '</div>';
 

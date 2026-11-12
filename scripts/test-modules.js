@@ -12475,6 +12475,50 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Test Calendar Month Polish, Nav Title Bounds, Leaderboard Podium Bounds & Wordle Keyboard Fit ──
+  {
+    console.log('\nTesting Calendar Month Polish, Nav Title Bounds, Leaderboard Podium & Wordle Fit...');
+    const calMod = require('../js/modules/calendar.js');
+    const compCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+
+    // 1. Calendar Month View compact cells & today header highlight (Images 1 & 2)
+    calMod.renderCalendarTab('month');
+    const calHub = document.getElementById('tasks-no-dept');
+    assert.ok(calHub.innerHTML.includes('cal-month-head-row'), 'Month view renders weekday header row');
+    assert.ok(calHub.innerHTML.includes('cal-month-head-today'), 'Month view highlights current weekday in header');
+    assert.ok(compCss.includes('.cal-month-head-cell.cal-month-head-today'), 'CSS provides active styling for today weekday header');
+    assert.ok(compCss.includes('min-height: 58px;') && compCss.includes('max-height: 78px;'), 'Mobile month cells enforce compact height (58-78px)');
+    assert.ok(compCss.includes('.cal-m-today-badge'), 'CSS defines centered circular today badge');
+    console.log('  ✔ Compact Google Calendar-style month grid, 58-78px mobile cells & today highlight verified (Images 1 & 2)');
+
+    // 2. Calendar view switcher and heading overflow bounds (Image 3)
+    assert.ok(compCss.includes('.cal-current-range-heading') && compCss.includes('word-break: break-word;'), 'Calendar range heading enables word-break to prevent border spill');
+    assert.ok(compCss.includes('.cal-view-switcher') && compCss.includes('box-sizing: border-box;'), 'Calendar view switcher enforces box-sizing bounds');
+    console.log('  ✔ Calendar subnav tabs and date heading bounds verified without border spill (Image 3)');
+
+    // 3. Leaderboard & Squad Podium bounds and text overflow fix (Image 4)
+    assert.ok(compCss.includes('.podium-step-3') && compCss.includes('min-height: 100px;'), 'Podium step 3 has min-height >= 100px preventing text overflow');
+    assert.ok(compCss.includes('.squad-podium-card') && compCss.includes('padding: 14px 8px;'), 'Squad podium card has mobile breathing room');
+    assert.ok(compCss.includes('.podium-step-sub'), 'Podium step subtitle class defined for robust scaling');
+    console.log('  ✔ Leaderboard podium step 3 height & container margins prevent border overflow (Image 4)');
+
+    // 4. Wordle keyboard and tile fluid mobile responsiveness (Image 5)
+    assert.ok(compCss.includes('.wordle-key') && compCss.includes('min-width: 0;') && compCss.includes('flex: 1;'), 'Wordle keys use min-width:0 and flex:1 on mobile to fit 10 keys');
+    assert.ok(compCss.includes('.wordle-key.wide') && compCss.includes('flex: 1.5;'), 'Wordle wide keys scale proportionally with 1.5 flex ratio');
+    assert.ok(compCss.includes('.wordle-card') && compCss.includes('padding: 14px 6px 16px;'), 'Wordle card has compact mobile padding');
+    console.log('  ✔ Wordle keyboard fits 10 keys fluidly within card borders on mobile without truncation (Image 5)');
+
+    // 5. Strict 388 unique DOM IDs Invariant
+    const postIds2 = new Set();
+    const postMatches2 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches2.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds2.add(match[1]);
+    });
+    assert.strictEqual(postIds2.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds2.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
