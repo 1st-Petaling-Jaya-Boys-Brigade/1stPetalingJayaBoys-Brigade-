@@ -12048,6 +12048,68 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 55. Attendance Status Cards Redesign, Progress Bar Removal & Points Layout (Image 1) ──
+  console.log('\nTesting Attendance Status Cards Redesign, Progress Bar Removal & Points Layout...');
+  {
+    const attMod = require('../js/modules/attendance.js');
+    const sampleRecord = {
+      name: 'Jeshua Koh',
+      platoon: 'Hotel',
+      squad: 'HQ',
+      isBandMember: true,
+      bandSection: 'Bugle',
+      paradeAttendance: { percentage: 85, presentCount: 17, totalParades: 20 },
+      bandAttendance: { percentage: 65, presentCount: 13, totalSessions: 20 },
+      points: { uniform: 126, uniformAvg: 4.2, paradeAtt: 60, bandAtt: 42, total: 222 }
+    };
+
+    const cardHtml = attMod.renderAttendanceBreakdownHTML(sampleRecord, {}, {}, new Date().toISOString());
+
+    // 1. Progress Bar completely removed
+    assert.ok(!cardHtml.includes('height:5px'), 'Progress bar element (height:5px) completely removed from attendance rate cards');
+    assert.ok(!cardHtml.includes('surface-track'), 'Track element (surface-track) completely removed from attendance rate cards');
+
+    // 2. Status icon rendered above status words
+    assert.strictEqual(typeof attMod.getTierStatusVisual, 'function', 'getTierStatusVisual exported as a function');
+    const goodVisual = attMod.getTierStatusVisual({ tier: 'good' });
+    const atRiskVisual = attMod.getTierStatusVisual({ tier: 'at_risk' });
+    const perfectVisual = attMod.getTierStatusVisual({ tier: 'perfect' });
+
+    assert.ok(goodVisual.iconHtml.includes('<polyline points="20 6 9 17 4 12"/>'), 'Good tier status icon includes checkmark SVG');
+    assert.ok(atRiskVisual.iconHtml.includes('fill="#f97316"'), 'At risk tier status icon includes orange warning triangle SVG');
+    assert.ok(perfectVisual.iconHtml.includes('<polygon points="12 2 15.09 8.26'), 'Perfect tier status icon includes gold star polygon SVG');
+    assert.ok(cardHtml.includes('Good') && cardHtml.includes('text-transform:uppercase'), 'Card renders Good status with uppercase transformation');
+    assert.ok(cardHtml.includes('At Risk') && cardHtml.includes('text-transform:uppercase'), 'Card renders At Risk status with uppercase transformation');
+
+    // 3. Points Breakdown: Glowing gold Total Points box on left + 3 columns on right
+    assert.ok(cardHtml.includes('222 Total Points'), 'Points Breakdown displays Total Points');
+    assert.ok(cardHtml.includes('border:1.5px solid rgba(245,197,66,0.5)'), 'Total Points card features gold glowing border');
+    assert.ok(cardHtml.includes('Uniform Points'), 'Points Breakdown displays Uniform Points header');
+    assert.ok(cardHtml.includes('Parade Points'), 'Points Breakdown displays Parade Points header');
+    assert.ok(cardHtml.includes('Band Points'), 'Points Breakdown displays Band Points header');
+    assert.ok(cardHtml.includes('M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'), 'Uniform Points includes blue shield icon SVG');
+    assert.ok(cardHtml.includes('M9 18V5l12-2v13'), 'Band Points includes music note icon SVG');
+
+    // 4. Platoon Standing: Hotel platoon renders amber border and Non-Competing badge
+    assert.ok(cardHtml.includes('HQ NCOs (Hotel)'), 'Platoon Standing displays HQ NCOs (Hotel)');
+    assert.ok(cardHtml.includes('Non-Competing'), 'Platoon Standing renders Non-Competing badge');
+    assert.ok(cardHtml.includes('border:1.5px solid rgba(245,158,11,0.5)'), 'Hotel Platoon card features amber border');
+
+    console.log('  ✔ Attendance status progress bar removed and status icon positioned above status label');
+    console.log('  ✔ Points Breakdown formatted with glowing gold Total Points box and 3 icon metrics');
+    console.log('  ✔ Hotel Platoon standing card rendered with amber border and Non-Competing badge');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const idMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const ids = new Set();
+    idMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) ids.add(match[1]);
+    });
+    assert.strictEqual(ids.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${ids.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
