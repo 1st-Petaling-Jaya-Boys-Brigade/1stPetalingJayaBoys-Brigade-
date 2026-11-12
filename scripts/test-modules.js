@@ -11378,11 +11378,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 9. Multi-Level Compound Sorting, Persistence & Enlarged Header Buttons (Images 1, 2, 3)
     console.log('\nTesting Multi-Level Compound Sorting, Filter Persistence & UX Polish...');
-    assert.ok(adminStylesheet.includes('width: 26px') && adminStylesheet.includes('height: 26px'), 'admin.css defines enlarged 26px sheets-filter-btn');
-    assert.ok(adminStylesheet.includes('width: 15px') && adminStylesheet.includes('height: 15px'), 'admin.css defines enlarged 15px sheets-filter-icon');
+    assert.ok(adminStylesheet.includes('margin-left: auto') && adminStylesheet.includes('pointer-events: none'), 'admin.css defines right-aligned chevron icon indicator with pointer-events: none');
+    assert.ok(adminStylesheet.includes('width: 18px') && adminStylesheet.includes('height: 18px'), 'admin.css defines prominent 18px sheets-filter-icon');
     assert.ok(adminStylesheet.includes('.adm-filter-count-badge'), 'admin.css defines adm-filter-count-badge');
     assert.ok(adminStylesheet.includes('.adm-sort-active-dot'), 'admin.css defines adm-sort-active-dot');
     assert.ok(adminStylesheet.includes('.adm-popover-submenu'), 'admin.css defines adm-popover-submenu flyout');
+    assert.ok(adminStylesheet.includes('.adm-top-filter-btn') && adminStylesheet.includes("'Inter'"), 'admin.css defines Inter font for top action buttons');
+    assert.ok(memberListEl.innerHTML.includes('onclick="toggleColumnFilterMenu(\'member\''), 'Clicking anywhere on field header opens filter/sort menu');
+    assert.ok(memberListEl.innerHTML.includes('sheets-th-left') && memberListEl.innerHTML.includes('sheets-filter-icon'), 'Header contains left group and right-aligned chevron icon');
 
     // Multi-level sort compound rules
     assert.strictEqual(typeof adminModule.addOrUpdateAdminSortRule, 'function', 'addOrUpdateAdminSortRule exported');

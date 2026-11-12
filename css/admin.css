@@ -566,15 +566,28 @@
   position: relative !important;
   user-select: none;
   vertical-align: middle;
+  cursor: pointer !important;
 }
 
 .sheets-th-content {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  gap: 8px;
   cursor: pointer;
   vertical-align: middle;
+}
+
+.sheets-th-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sheets-th-label {
@@ -587,41 +600,49 @@
 }
 
 .sheets-filter-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  background: transparent;
-  border: 1px solid transparent;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   color: var(--text-muted);
+  opacity: 0.7;
   cursor: pointer;
-  padding: 0;
-  transition: var(--transition-smooth, all 0.15s ease);
-  flex-shrink: 0;
+  padding: 0 !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  flex-shrink: 0 !important;
+  pointer-events: none;
+  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
 }
 
 .sheets-th-content:hover .sheets-filter-btn,
-.sheets-filter-btn:hover {
-  background: var(--bg-card-subtle, rgba(255, 255, 255, 0.08));
-  border-color: var(--border-card);
-  color: var(--text-primary);
+.sheets-th:hover .sheets-filter-btn,
+.crm-th:hover .sheets-filter-btn {
+  opacity: 1 !important;
+  color: var(--text-primary) !important;
+  transform: translateY(1px);
 }
 
 .sheets-filter-btn.is-active,
-.sheets-filter-btn.is-filtered {
-  background: rgba(245, 197, 66, 0.18) !important;
-  border-color: var(--gold, #f5c542) !important;
+.sheets-filter-btn.is-filtered,
+.sheets-th.is-active .sheets-filter-btn,
+.sheets-th.is-filtered .sheets-filter-btn {
+  opacity: 1 !important;
   color: var(--gold, #f5c542) !important;
 }
 
 .sheets-filter-icon {
-  width: 15px;
-  height: 15px;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
   stroke: currentColor;
-  stroke-width: 2.2;
+  stroke-width: 2.5;
   transition: transform 0.15s ease;
 }
 
@@ -826,24 +847,33 @@
   font-weight: 700;
 }
 
-[data-theme='light'] .sheets-filter-btn {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #475569;
+[data-theme='light'] .sheets-filter-btn,
+[data-theme='light'] .crm-th-chevron {
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  opacity: 0.7;
 }
 
 [data-theme='light'] .sheets-th-content:hover .sheets-filter-btn,
-[data-theme='light'] .sheets-filter-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #94a3b8;
+[data-theme='light'] .sheets-th:hover .sheets-filter-btn,
+[data-theme='light'] .crm-th:hover .sheets-filter-btn,
+[data-theme='light'] .sheets-th-content:hover .crm-th-chevron,
+[data-theme='light'] .crm-th:hover .crm-th-chevron {
+  background: transparent !important;
+  color: #0f172a !important;
+  opacity: 1 !important;
 }
 
 [data-theme='light'] .sheets-filter-btn.is-active,
-[data-theme='light'] .sheets-filter-btn.is-filtered {
-  background: #fef3c7 !important;
-  border-color: #f59e0b !important;
+[data-theme='light'] .sheets-filter-btn.is-filtered,
+[data-theme='light'] .sheets-th.is-active .sheets-filter-btn,
+[data-theme='light'] .sheets-th.is-active .crm-th-chevron,
+[data-theme='light'] .sheets-th.is-filtered .sheets-filter-btn,
+[data-theme='light'] .sheets-th.is-filtered .crm-th-chevron {
+  background: transparent !important;
   color: #b45309 !important;
+  opacity: 1 !important;
 }
 
 [data-theme='light'] .sheets-filter-popover {
@@ -1212,13 +1242,26 @@
 
 /* ── CRM COLUMN HEADER WITH LEFT ICON & CHEVRON ── */
 .crm-th-content {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  gap: 8px;
   cursor: pointer;
+  user-select: none;
   vertical-align: middle;
   transition: color 0.15s ease;
+}
+
+.crm-th-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .crm-th-content:hover {
@@ -1247,20 +1290,29 @@
 }
 
 .crm-th-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 10px;
-  height: 10px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-left: auto !important;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
   color: var(--text-muted);
-  opacity: 0.6;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-  margin-left: 2px;
+  opacity: 0.7;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  pointer-events: none;
+  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
 }
 
-.crm-th-content:hover .crm-th-chevron {
-  opacity: 1;
+.crm-th-content:hover .crm-th-chevron,
+.crm-th:hover .crm-th-chevron {
+  opacity: 1 !important;
   color: currentColor;
+  transform: translateY(1px);
 }
 
 /* ── NUMBERING & ROW SELECTION / QUICK EDIT ── */
@@ -1677,6 +1729,16 @@
   background: #3b82f6;
   display: inline-block;
   box-shadow: 0 0 6px rgba(59, 130, 246, 0.8);
+}
+
+.adm-top-filter-btn,
+.adm-top-sort-btn {
+  font-family: 'Inter', var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif) !important;
+}
+
+.adm-top-filter-btn *,
+.adm-top-sort-btn * {
+  font-family: 'Inter', var(--font-body, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif) !important;
 }
 
 .adm-top-filter-btn.is-active,

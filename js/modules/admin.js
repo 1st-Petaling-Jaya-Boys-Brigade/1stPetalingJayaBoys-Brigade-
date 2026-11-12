@@ -497,15 +497,17 @@
       popoverHtml = renderColumnPopover(colKey, label, sortKey || colKey, filterType, membersList);
     }
 
-    return '<th class="sheets-th crm-th" data-col="' + colKey + '">' +
-      '<div class="sheets-th-content crm-th-content" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" title="Filter &amp; Sort ' + label + '">' +
-        (iconSvg ? '<span class="crm-th-icon">' + iconSvg + '</span>' : '') +
-        '<span class="sheets-th-label crm-th-label">' + label + '</span>' +
-        '<button type="button" class="' + btnClass + '" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" aria-label="Filter &amp; Sort ' + label + '">' +
-          '<svg class="sheets-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+    return '<th class="sheets-th crm-th" data-col="' + colKey + '" onclick="toggleColumnFilterMenu(\'' + colKey + '\', event)" title="Filter &amp; Sort ' + label + '">' +
+      '<div class="sheets-th-content crm-th-content">' +
+        '<div class="sheets-th-left crm-th-left">' +
+          (iconSvg ? '<span class="crm-th-icon">' + iconSvg + '</span>' : '') +
+          '<span class="sheets-th-label crm-th-label">' + label + '</span>' +
+        '</div>' +
+        '<span class="' + btnClass + '" aria-hidden="true">' +
+          '<svg class="sheets-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
             '<polyline points="6 9 12 15 18 9"/>' +
           '</svg>' +
-        '</button>' +
+        '</span>' +
       '</div>' +
       popoverHtml +
     '</th>';
@@ -926,6 +928,7 @@
           !e.target.closest('.adm-global-filter-popover') &&
           !e.target.closest('.adm-global-sort-popover') &&
           !e.target.closest('.adm-row-actions-wrap') &&
+          !e.target.closest('.sheets-th') &&
           !e.target.closest('.sheets-th-content') &&
           !e.target.closest('.sheets-filter-btn') &&
           !e.target.closest('.adm-top-filter-btn') &&
