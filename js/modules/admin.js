@@ -1884,6 +1884,7 @@
 
   function closeAdmin(skipHistory) {
     if (typeof document === 'undefined') return;
+    if (typeof resetAdminCalendarDate === 'function') resetAdminCalendarDate();
     closeColumnFilterMenu();
     closeGlobalPopovers();
     var overlay = document.getElementById('admin-overlay');
@@ -2173,6 +2174,7 @@
 
   function backToAdminHome() {
     if (typeof document === 'undefined') return;
+    if (typeof resetAdminCalendarDate === 'function') resetAdminCalendarDate();
     closeColumnFilterMenu();
     closeGlobalPopovers();
     if (_adminMembersSubView === 'blocked_emails') {
@@ -2354,7 +2356,10 @@
     }
 
     if (section === 'calendar') {
+      if (typeof resetAdminCalendarDate === 'function') resetAdminCalendarDate();
       if (typeof renderAdminCalendarGrid === 'function') renderAdminCalendarGrid();
+    } else {
+      if (typeof resetAdminCalendarDate === 'function') resetAdminCalendarDate();
     }
 
     if (section === 'roles') {

@@ -1490,6 +1490,13 @@
     renderAdminCalendarGrid();
   }
 
+  function resetAdminCalendarDate() {
+    _calendarDate = new Date();
+    _adminMonth = _calendarDate.getMonth();
+    _adminYear  = _calendarDate.getFullYear();
+    _adminUpcomingEventIndex = null;
+  }
+
   // ── SPREADSHEET TABLE SCHEDULE EDITOR ──────────────────────────────────────
   function createAdminScheduleRowHtml(item) {
     item = item || {};
@@ -1683,7 +1690,7 @@
             + '<div class="cal-current-range-heading">' + escapeHtml(dateTitle) + '</div>'
           + '</div>'
           + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<button type="button" class="portal-btn portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> + Add Event</button>'
+            + '<button type="button" class="portal-btn portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Event</button>'
             + '<button type="button" class="portal-btn portal-btn-secondary" onclick="handleAdminResetToDefaultMaster()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;" title="Reset to authentic 2026 Google Doc Schedule"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Reset Master</button>'
           + '</div>'
         + '</div>'
@@ -2134,6 +2141,9 @@
   window.adminSwitchCalendarView      = adminSwitchCalendarView;
   window.adminCalNavigate             = adminCalNavigate;
   window.adminCalJumpToday            = adminCalJumpToday;
+  window.resetAdminCalendarDate       = resetAdminCalendarDate;
+  window.getAdminYear                 = function() { return _adminYear; };
+  window.getAdminMonth                = function() { return _adminMonth; };
   window.adminCalJumpToEventIndex     = adminCalJumpToEventIndex;
     window.adminNavigateMonth           = adminNavigateMonth;
     window.openAdminEventModal          = openAdminEventModal;
@@ -2183,6 +2193,10 @@
       calJumpToday: calJumpToday,
       calJumpToEventIndex: calJumpToEventIndex,
       adminCalJumpToEventIndex: adminCalJumpToEventIndex,
+      resetAdminCalendarDate: resetAdminCalendarDate,
+      renderAdminCalendarGrid: renderAdminCalendarGrid,
+      getAdminYear: function() { return _adminYear; },
+      getAdminMonth: function() { return _adminMonth; },
       getSortedCompanyEvents: getSortedCompanyEvents,
       getClosestUpcomingEventIndex: getClosestUpcomingEventIndex,
       openAdminEventModal: openAdminEventModal,
