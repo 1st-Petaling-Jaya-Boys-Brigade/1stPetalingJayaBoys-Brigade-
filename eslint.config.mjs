@@ -235,6 +235,7 @@ export default [
         resetAdminCalendarDate: 'readonly',
         onCustomTextChange: 'readonly',
         toggleProdCustomPrompt: 'readonly',
+        handleFormFileUpload: 'readonly',
         syncToSheets: 'readonly',
         syncAttendanceToSheets: 'readonly',
         isMinorSection: 'readonly',
