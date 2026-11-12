@@ -6713,8 +6713,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const memberHubHtml = attMod.renderAttendanceBreakdownHTML(sampleRecord, {}, {}, new Date().toISOString());
     assert.ok(memberHubHtml.includes('Excellent'), 'Member Hub renders Excellent tier for 92% parade attendance');
     assert.ok(memberHubHtml.includes('Perfect'), 'Member Hub renders Perfect tier for 100% band attendance');
-    assert.ok(memberHubHtml.includes('One Year Service Qualified'), 'Member Hub highlights One Year Service qualification status');
-    assert.ok(memberHubHtml.includes('80% Req.'), 'Member Hub indicates 80% minimum requirement badge');
+    assert.ok(memberHubHtml.includes('One Year Service &check;'), 'Member Hub highlights One Year Service checkmark qualification');
+    assert.ok(memberHubHtml.includes('aria-label="Attendance requirements info"'), 'Member Hub renders white circular info icon');
+    assert.ok(!memberHubHtml.includes('80% Req.'), '80% Req. text badge removed in favor of info icon');
+    assert.ok(!memberHubHtml.includes('One Year Service Qualified'), 'Redundant One Year Service Qualified pill box removed');
 
     // Low attendance record in Member Hub
     const lowAttRecord = {
@@ -6727,8 +6729,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     };
     const lowMemberHubHtml = attMod.renderAttendanceBreakdownHTML(lowAttRecord, {}, {}, new Date().toISOString());
     assert.ok(lowMemberHubHtml.includes('At Risk'), 'Member Hub renders At Risk tier for 65% attendance');
-    assert.ok(lowMemberHubHtml.includes('One Year Service Pending'), 'Member Hub indicates One Year Service Pending status for <80%');
-    console.log('  ✔ Member Hub attendance card renders confidential achievement tiers and milestone qualification status');
+    assert.ok(lowMemberHubHtml.includes('One Year Service &bull;'), 'Member Hub indicates One Year Service Pending status via bullet for <80%');
+    assert.ok(!lowMemberHubHtml.includes('One Year Service Pending'), 'One Year Service Pending pill box removed');
+    console.log('  ✔ Member Hub attendance card renders clean white circular info icon and eliminates redundant qualification pill box');
 
     // 4. Squad Leaderboard View Squad Members Tier Badges & Confidentiality
     let leaderboardContainer = document.getElementById('company-platoon-leaderboard');
@@ -11992,6 +11995,56 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       if (match) finalCheckIds.add(match[1]);
     });
     assert.strictEqual(finalCheckIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalCheckIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Test Suite: Attendance Cards White Info Icon & Qualification Pill Box Removal
+  // ══════════════════════════════════════════════════════════════════════════════
+  {
+    console.log('\nTesting Attendance Cards White Info Icon & Qualification Pill Box Removal...');
+    const attMod = require('../js/modules/attendance.js');
+
+    const sampleMember = {
+      name: 'Jeshua Koh',
+      platoon: 'Hotel',
+      squad: 'HQ',
+      isBandMember: true,
+      bandSection: 'Bugle',
+      paradeAttendance: { percentage: 88, presentCount: 22, totalParades: 25 },
+      bandAttendance: { percentage: 75, presentCount: 15, totalSessions: 20 },
+      points: { uniform: 50, uniformAvg: 6.0, paradeAtt: 44, bandAtt: 30, total: 124 }
+    };
+
+    const attendanceCardHtml = attMod.renderAttendanceBreakdownHTML(sampleMember, {}, {}, new Date().toISOString());
+
+    // 1. Info icon must be white with circle around no color
+    assert.ok(attendanceCardHtml.includes('color:#ffffff;cursor:help;'), 'Info icon wrapper is styled in white with pointer cursor');
+    assert.ok(attendanceCardHtml.includes('<circle cx="12" cy="12" r="10"/>'), 'Info icon includes SVG circle stroke with no background fill');
+    assert.ok(attendanceCardHtml.includes('aria-label="Attendance requirements info"'), 'Parade info icon includes accessible aria label');
+    assert.ok(attendanceCardHtml.includes('aria-label="Band attendance requirements info"'), 'Band info icon includes accessible aria label');
+
+    // 2. 80% Req. text badge must be completely removed
+    assert.ok(!attendanceCardHtml.includes('80% Req.'), '80% Req. text badge completely removed from attendance rate cards');
+    assert.ok(!attendanceCardHtml.includes('80% Req. ℹ️'), 'Emoji and text requirement badge eliminated');
+
+    // 3. One Year Service Qualified pill box removed; bottom checkmark/bullet line preserved
+    assert.ok(!attendanceCardHtml.includes('One Year Service Qualified'), 'One Year Service Qualified pill box removed from card header (Image 1)');
+    assert.ok(!attendanceCardHtml.includes('One Year Service Pending'), 'One Year Service Pending pill box removed from card header');
+    assert.ok(attendanceCardHtml.includes('One Year Service &check;'), 'One Year Service checkmark indicator preserved at bottom');
+    assert.ok(attendanceCardHtml.includes('One Year Service &bull;'), 'One Year Service bullet indicator preserved at bottom for <80% band');
+
+    console.log('  ✔ 80% Req. replaced with clean white circular info icon (Image 1)');
+    console.log('  ✔ Qualification pill box eliminated while retaining green One Year Service tick line');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const attIdMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const attIds = new Set();
+    attIdMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) attIds.add(match[1]);
+    });
+    assert.strictEqual(attIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${attIds.size})`);
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
