@@ -537,7 +537,7 @@ select.form-input,
 
 .mic-details-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -549,22 +549,54 @@ select.form-input,
   padding: 8px 10px;
   text-align: center;
   transition: var(--transition-smooth);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .mic-detail-chip .chip-label {
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   color: var(--accent);
   text-transform: none;
+  white-space: nowrap;
 }
 
 .mic-detail-chip .chip-value {
   font-family: var(--font-headline);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--text-primary);
   margin-top: 2px;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+@media (max-width: 600px) {
+  .mic-details-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .mic-detail-chip:nth-child(4) {
+    grid-column: span 1;
+  }
+  .mic-detail-chip:nth-child(5) {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 380px) {
+  .mic-detail-chip {
+    padding: 6px 4px;
+  }
+  .mic-detail-chip .chip-label {
+    font-size: 8.5px;
+    letter-spacing: 0.8px;
+  }
+  .mic-detail-chip .chip-value {
+    font-size: 12px;
+  }
 }
 
 .mic-divider {
@@ -652,18 +684,47 @@ select.form-input,
   color: inherit;
 }
 
-/* Multi-Column Responsive Product Card Grid (2-col mobile, 3-col tablet, 4-6 col desktop) */
+/* Multi-Column Responsive Product Card Grid (1-row horizontal swipe on mobile, 3-col tablet, 4-6 col desktop) */
 .uniform-product-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
   gap: 12px;
   margin-top: 6px;
   margin-bottom: 24px;
+  padding: 4px 2px 14px 2px;
+  scrollbar-width: thin;
+}
+.uniform-product-grid::-webkit-scrollbar {
+  height: 6px;
+}
+.uniform-product-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.uniform-product-grid .uniform-product-card {
+  flex: 0 0 220px;
+  width: 220px;
+  max-width: 80vw;
+  scroll-snap-align: start;
 }
 @media (min-width: 640px) {
   .uniform-product-grid {
+    display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
+    overflow-x: visible;
+    scroll-snap-type: none;
+    padding: 0;
+  }
+  .uniform-product-grid .uniform-product-card {
+    flex: initial;
+    width: auto;
+    max-width: none;
+    scroll-snap-align: none;
   }
 }
 @media (min-width: 1024px) {
@@ -677,6 +738,25 @@ select.form-input,
     grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
     gap: 14px;
   }
+}
+
+/* List view for vertical scrolling on mobile & all screens */
+.uniform-product-grid.list-view,
+.uniform-product-list {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  overflow-x: visible !important;
+  scroll-snap-type: none !important;
+  gap: 10px !important;
+  padding: 0 !important;
+}
+.uniform-product-grid.list-view .uniform-product-card,
+.uniform-product-list .uniform-product-card {
+  flex: initial !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  scroll-snap-align: none !important;
 }
 
 /* Product Card */
@@ -936,9 +1016,11 @@ select.form-input,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: nowrap;
   gap: 12px;
   box-shadow: var(--shadow-elevated);
   transition: var(--transition-smooth);
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {
@@ -949,7 +1031,10 @@ select.form-input,
 .checkout-bar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
 }
 .checkout-summary-badge {
   display: flex;
@@ -963,11 +1048,15 @@ select.form-input,
   padding: 6px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .checkout-total-wrap {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .checkout-total-label {
   font-size: 11px;
@@ -975,6 +1064,7 @@ select.form-input,
   text-transform: none;
   letter-spacing: 0.75px;
   font-weight: 600;
+  white-space: nowrap;
 }
 .checkout-total-val {
   font-family: var(--font-headline);
@@ -982,6 +1072,7 @@ select.form-input,
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 .checkout-cta-btn {
   display: inline-flex;
@@ -1003,6 +1094,7 @@ select.form-input,
   text-transform: none;
   letter-spacing: 0.5px;
   white-space: nowrap;
+  flex-shrink: 0;
   touch-action: manipulation;
 }
 
@@ -1024,19 +1116,155 @@ select.form-input,
 }
 @media (max-width: 480px) {
   .sticky-checkout-bar {
-    padding: 10px 14px;
-    gap: 8px;
+    padding: 8px 10px;
+    gap: 6px;
+    bottom: calc(76px + var(--safe-area-bottom));
+  }
+  .checkout-bar-left {
+    gap: 6px;
   }
   .checkout-summary-badge {
-    padding: 4px 8px;
+    padding: 5px 8px;
     font-size: 11px;
+    gap: 4px;
+  }
+  .checkout-summary-badge svg {
+    width: 14px;
+    height: 14px;
+  }
+  .checkout-total-wrap {
+    gap: 4px;
+  }
+  .checkout-total-label {
+    font-size: 10px;
   }
   .checkout-total-val {
-    font-size: 17px;
+    font-size: 14.5px;
   }
   .checkout-cta-btn {
-    padding: 8px 14px;
+    padding: 8px 12px;
     font-size: 12px;
+    gap: 4px;
+  }
+  .checkout-cta-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+@media (max-width: 360px) {
+  .sticky-checkout-bar {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  .checkout-bar-left {
+    gap: 4px;
+  }
+  .checkout-summary-badge {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  .checkout-total-val {
+    font-size: 13.5px;
+  }
+  .checkout-cta-btn {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+}
+
+/* Circular Modal Close Buttons Protection & Geometry Enforcement */
+.portal-modal-close,
+.story-btn-icon,
+.portal-modal-card button[onclick*="close"][style*="border-radius:50%"],
+.portal-modal-card button[onclick*="close"][style*="border-radius: 50%"],
+.portal-modal-card button[onclick*="Close"][style*="border-radius:50%"],
+.portal-modal-card button[onclick*="Close"][style*="border-radius: 50%"] {
+  aspect-ratio: 1 / 1 !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
+}
+
+/* Modal Responsive Mobile Scaling */
+@media (max-width: 480px) {
+  .portal-modal-card {
+    padding: 16px 14px !important;
+    border-radius: 16px !important;
+  }
+  #cdm-event-name {
+    font-size: clamp(17px, 5vw, 22px) !important;
+  }
+}
+
+/* ── Points Breakdown Responsive Grid & Metric Columns ── */
+.points-breakdown-subgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  align-items: stretch;
+}
+.points-metric-col {
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+.points-metric-col:not(:first-child) {
+  border-left: 1px solid var(--border-subtle);
+}
+.points-metric-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.points-metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.points-metric-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .points-metric-col {
+    padding: 6px 6px;
+  }
+  .points-metric-label {
+    font-size: 9px;
+    letter-spacing: 0.2px;
+  }
+  .points-metric-icon {
+    width: 20px;
+    height: 20px;
+  }
+  .points-metric-icon svg {
+    width: 11px;
+    height: 11px;
+  }
+}
+@media (max-width: 360px) {
+  .points-metric-col {
+    padding: 4px 3px;
+  }
+  .points-metric-label {
+    font-size: 8px;
+  }
+  .points-metric-icon {
+    width: 18px;
+    height: 18px;
   }
 }
 

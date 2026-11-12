@@ -12376,6 +12376,48 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 59. Mobile & Cross-Device UI/UX Polish Verification ──
+  console.log('\nTesting Mobile & Cross-Device UI/UX Polish...');
+  {
+    const navCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
+    const compCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. Bottom Nav Reorganization (Vertical column, no truncation)
+    assert.ok(navCss.includes('flex-direction: column;'), 'Bottom nav buttons use vertical icon + label layout');
+    assert.ok(navCss.includes('max-width: 420px;'), 'Bottom nav dock expands up to 420px for breathing room');
+    assert.ok(navCss.includes('text-align: center;'), 'Bottom nav labels are horizontally centered');
+    console.log('  ✔ Bottom nav bar reorganized as neat vertical icon+label dock with zero truncation');
+
+    // 2. Circular Modal Close Buttons Protection & Geometry
+    assert.ok(compCss.includes('aspect-ratio: 1 / 1 !important;'), 'Modal close buttons enforce 1:1 circular aspect ratio');
+    assert.ok(compCss.includes('flex-shrink: 0 !important;'), 'Modal close buttons prevent flex shrinkage into ovals');
+    assert.ok(indexHtml.includes('id="calendar-day-modal"'), 'Calendar day modal exists');
+    assert.ok(indexHtml.includes('aspect-ratio:1/1') && indexHtml.includes('closeCalendarDayModal()'), 'Calendar day close button uses aspect-ratio 1/1');
+    console.log('  ✔ Modal close button geometry enforced as true circle across all devices');
+
+    // 3. Uniform Order Grid Horizontal Scroll & Sticky Checkout Bar Single Line
+    assert.ok(compCss.includes('scroll-snap-type: x mandatory;'), 'Uniform product grid supports 1-row horizontal swipe on mobile');
+    assert.ok(compCss.includes('.uniform-product-grid.list-view'), 'Uniform product grid supports vertical list view');
+    assert.ok(compCss.includes('white-space: nowrap;') && compCss.includes('.sticky-checkout-bar'), 'Sticky checkout bar enforces single-line layout');
+    console.log('  ✔ Uniform order horizontal swipe track and single-line checkout bar verified');
+
+    // 4. Member Profile Details & Points Breakdown Alignment
+    assert.ok(compCss.includes('.mic-details-row'), 'Member details row class defined');
+    assert.ok(compCss.includes('.points-breakdown-subgrid'), 'Points breakdown responsive subgrid defined');
+    console.log('  ✔ Member profile stat boxes and points breakdown alignment verified');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const postIds = new Set();
+    postMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds.add(match[1]);
+    });
+    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

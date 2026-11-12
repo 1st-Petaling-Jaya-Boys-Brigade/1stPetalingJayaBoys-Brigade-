@@ -395,20 +395,20 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
   if (isHotel) {
     standingCardHtml = 
       '<div style="background:var(--bg-card-subtle);border:1.5px solid rgba(245,158,11,0.5);border-radius:12px;padding:14px 16px;margin-bottom:6px;box-shadow:0 0 12px rgba(245,158,11,0.06);">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
-          '<div>' +
+        '<div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap;">' +
             '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:7px;">' +
               '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
               'HQ NCOs (Hotel)' +
             '</div>' +
-            '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' +
-              'Total individual performance: <strong>' + points.total + ' pts</strong>. Hotel Platoon (HQ NCOs) is non-competing on the company squad leaderboard.' +
-            '</div>' +
+            '<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.4);color:var(--accent, #f59e0b);padding:4px 10px;border-radius:20px;font-family:var(--font-headline);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;flex-shrink:0;">' +
+              '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+              'Non-Competing' +
+            '</span>' +
           '</div>' +
-          '<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.4);color:var(--accent, #f59e0b);padding:4px 10px;border-radius:20px;font-family:var(--font-headline);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">' +
-            '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
-            'Non-Competing' +
-          '</span>' +
+          '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;">' +
+            'Total individual performance: <strong>' + points.total + ' pts</strong>. Hotel Platoon (HQ NCOs) is non-competing on the company squad leaderboard.' +
+          '</div>' +
         '</div>' +
       '</div>';
   } else {
@@ -465,18 +465,18 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Parade Attendance</span>' +
           '<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' + escapeAttHtml(pTier.tooltipText) + '" aria-label="Attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>' +
         '</div>' +
-        '<div style="display:flex;align-items:center;gap:18px;">' +
-          '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:105px;">' +
+        '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
+          '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
             pVisual.iconHtml +
             '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:' + pVisual.color + ';letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
               escapeAttHtml(pTier.label) +
             '</div>' +
           '</div>' +
-          '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;">' +
-            '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;">' +
+          '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
+            '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;word-break:normal;">' +
               escapeAttHtml(pTier.description) +
             '</div>' +
-            '<div style="font-size:11px;font-weight:600;color:' + (pTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') + ';cursor:help;" title="' + escapeAttHtml(pTier.tooltipText) + '">' +
+            '<div style="font-size:11px;font-weight:600;color:' + (pTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') + ';cursor:help;white-space:nowrap;" title="' + escapeAttHtml(pTier.tooltipText) + '">' +
               'One Year Service ' + (pTier.qualifiesForOneYearService ? '&check;' : '&bull;') +
             '</div>' +
           '</div>' +
@@ -490,35 +490,35 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           (isBandMember ? ('<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '" aria-label="Band attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>') : '') +
         '</div>' +
         (isBandMember ? (
-          '<div style="display:flex;align-items:center;gap:18px;">' +
-            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:105px;">' +
+          '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
               bVisual.iconHtml +
               '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:' + bVisual.color + ';letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
                 escapeAttHtml(bTier.label) +
               '</div>' +
             '</div>' +
-            '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;">' +
-              '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;">' +
+            '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
+              '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;word-break:normal;">' +
                 escapeAttHtml(bTier.description) +
               '</div>' +
-              '<div style="font-size:11px;font-weight:600;color:' + (bTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') + ';cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '">' +
+              '<div style="font-size:11px;font-weight:600;color:' + (bTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') + ';cursor:help;white-space:nowrap;" title="' + escapeAttHtml(bTier.tooltipText) + '">' +
                 'One Year Service ' + (bTier.qualifiesForOneYearService ? '&check;' : '&bull;') +
               '</div>' +
             '</div>' +
           '</div>'
         ) : (
-          '<div style="display:flex;align-items:center;gap:18px;">' +
-            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:105px;">' +
+          '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
+            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
               bVisual.iconHtml +
               '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--text-muted);letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
                 'Non-Band' +
               '</div>' +
             '</div>' +
-            '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;">' +
-              '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.45;">' +
+            '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
+              '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.45;word-break:normal;">' +
                 'Not enrolled in Company Band.' +
               '</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);">' +
+              '<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">' +
                 'Band attendance N/A' +
               '</div>' +
             '</div>' +
@@ -541,11 +541,11 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         '<!-- Right: 3 Column Metrics with Dividers -->' +
         '<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:0;align-items:stretch;">' +
           '<!-- Uniform Points -->' +
-          '<div style="padding:6px 14px;display:flex;flex-direction:column;justify-content:center;gap:6px;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-              '<span style="font-size:10.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Uniform Points</span>' +
-              '<div style="width:24px;height:24px;border-radius:6px;background:rgba(59,130,246,0.18);color:#3b82f6;display:flex;align-items:center;justify-content:center;" title="Uniform Points">' +
-                '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+          '<div style="padding:6px 8px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
+              '<span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Uniform Points</span>' +
+              '<div style="width:22px;height:22px;min-width:22px;border-radius:6px;background:rgba(59,130,246,0.18);color:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Uniform Points">' +
+                '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
               '</div>' +
             '</div>' +
             '<div style="font-family:var(--font-headline);font-size:26px;font-weight:800;color:var(--blue, #3b82f6);line-height:1.1;">' +
@@ -554,11 +554,11 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           '</div>' +
 
           '<!-- Parade Points -->' +
-          '<div style="padding:6px 14px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-              '<span style="font-size:10.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Parade Points</span>' +
-              '<div style="width:24px;height:24px;border-radius:6px;background:rgba(16,185,129,0.18);color:#10b981;display:flex;align-items:center;justify-content:center;" title="Parade Points">' +
-                '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+          '<div style="padding:6px 8px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
+              '<span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Parade Points</span>' +
+              '<div style="width:22px;height:22px;min-width:22px;border-radius:6px;background:rgba(16,185,129,0.18);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Parade Points">' +
+                '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
               '</div>' +
             '</div>' +
             '<div style="font-family:var(--font-headline);font-size:26px;font-weight:800;color:var(--green, #10b981);line-height:1.1;">' +
@@ -567,11 +567,11 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
           '</div>' +
 
           '<!-- Band Points -->' +
-          '<div style="padding:6px 14px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;">' +
-              '<span style="font-size:10.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Band Points</span>' +
-              '<div style="width:24px;height:24px;border-radius:6px;background:rgba(245,197,66,0.18);color:#f5c542;display:flex;align-items:center;justify-content:center;" title="Band Points">' +
-                '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
+          '<div style="padding:6px 8px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
+              '<span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Band Points</span>' +
+              '<div style="width:22px;height:22px;min-width:22px;border-radius:6px;background:rgba(245,197,66,0.18);color:#f5c542;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Band Points">' +
+                '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
               '</div>' +
             '</div>' +
             '<div style="font-family:var(--font-headline);font-size:26px;font-weight:800;color:var(--accent, #f5c542);line-height:1.1;">' +
