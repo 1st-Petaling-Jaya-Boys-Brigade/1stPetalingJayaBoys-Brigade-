@@ -830,17 +830,17 @@
         ? (' onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="cursor:pointer;"')
         : '';
       html += ''
-        + '<div' + rowClick + ' style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;gap:12px;flex-wrap:wrap;">'
-          + '<div style="display:flex;align-items:center;gap:12px;">'
-            + '<div style="width:36px;height:36px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">'
-              + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+        + '<div' + rowClick + ' style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;gap:10px;box-sizing:border-box;">'
+          + '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">'
+            + '<div style="width:32px;height:32px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">'
+              + '<svg class="ui-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
             + '</div>'
-            + '<div>'
-              + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);letter-spacing:0.5px;">' + escapeHtml(step.title) + '</div>'
-              + '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(step.desc || step.notes || '') + '</div>'
+            + '<div style="min-width:0;flex:1;">'
+              + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px;word-break:break-word;line-height:1.25;">' + escapeHtml(step.title) + '</div>'
+              + (step.desc || step.notes ? ('<div style="font-size:11.5px;color:var(--text-secondary);word-break:break-word;line-height:1.3;margin-top:2px;">' + escapeHtml(step.desc || step.notes) + '</div>') : '')
             + '</div>'
           + '</div>'
-          + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:5px 12px;border-radius:20px;letter-spacing:0.5px;white-space:nowrap;">'
+          + '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:4px 10px;border-radius:16px;letter-spacing:0.3px;white-space:nowrap;flex-shrink:0;">'
             + escapeHtml(step.time)
           + '</div>'
         + '</div>';
@@ -850,19 +850,19 @@
 
     // Senior and Junior Syllabi
     if (upcoming.srDetails || upcoming.jrDetails) {
-      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px;margin-bottom:16px;">';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 240px), 1fr));gap:12px;margin-bottom:16px;box-sizing:border-box;">';
       if (upcoming.srDetails) {
-        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.senior + ' Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.srDetails) + '</div></div>';
+        html += '<div class="cal-detail-subbox" style="margin-bottom:0;min-width:0;box-sizing:border-box;word-break:break-word;"><div class="cal-subbox-title">' + CAL_ICONS.senior + ' Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;word-break:break-word;">' + escapeHtml(upcoming.srDetails) + '</div></div>';
       }
       if (upcoming.jrDetails) {
-        html += '<div class="cal-detail-subbox"><div class="cal-subbox-title">' + CAL_ICONS.junior + ' Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;">' + escapeHtml(upcoming.jrDetails) + '</div></div>';
+        html += '<div class="cal-detail-subbox" style="margin-bottom:0;min-width:0;box-sizing:border-box;word-break:break-word;"><div class="cal-subbox-title">' + CAL_ICONS.junior + ' Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;word-break:break-word;">' + escapeHtml(upcoming.jrDetails) + '</div></div>';
       }
       html += '</div>';
     }
 
     // Remark (only shown if remark exists; UOD text removed per request)
     if (upcoming.notes && upcoming.notes.trim()) {
-      html += '<div class="cal-remark-box" style="margin-bottom:16px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;">'
+      html += '<div class="cal-remark-box" style="margin-bottom:16px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;box-sizing:border-box;word-break:break-word;">'
         + '<svg class="ui-icon" style="flex-shrink:0;color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
         + '<span><strong>Remark:</strong> ' + escapeHtml(upcoming.notes.trim()) + '</span>'
         + '</div>';
@@ -946,7 +946,7 @@
     var currentDayIndex = weekDays.findIndex(function(d) { return d.isToday; });
     if (currentDayIndex !== -1 && nowHour >= 8 && nowHour <= 21) {
       var topPercent = ((nowHour - 8) / (21 - 8 + 1)) * 100;
-      html += '<div class="cal-week-now-indicator" style="top:' + topPercent.toFixed(2) + '%;" title="Current Time: ' + nowTimeStr + '"><div class="cal-now-dot"></div><div class="cal-now-line"></div></div>';
+      html += '<div class="cal-week-now-indicator" style="top:' + topPercent.toFixed(2) + '%;left:calc(var(--cal-time-col-w, 38px) + (100% - var(--cal-time-col-w, 38px)) * ' + (currentDayIndex / 7).toFixed(4) + ');width:calc((100% - var(--cal-time-col-w, 38px)) / 7);" title="Current Time: ' + nowTimeStr + '"><div class="cal-now-dot"></div><div class="cal-now-line"></div></div>';
     }
 
     hours.forEach(function(h) {
@@ -1015,7 +1015,7 @@
             + '<div class="cal-week-event-card" style="border-left:3px solid ' + item.color + ';" onclick="event.stopPropagation();' + clickFn + '(\'' + day.dateKey + '\', \'' + (item.ev ? item.ev.id : '') + '\')">'
               + '<div class="cal-we-title">' + escapeHtml(item.title) + '</div>'
               + '<div class="cal-we-time">' + escapeHtml(item.time) + '</div>'
-              + (item.desc ? ('<div style="font-size:10px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(item.desc) + '</div>') : '')
+              + (item.desc ? ('<div class="cal-we-desc">' + escapeHtml(item.desc) + '</div>') : '')
             + '</div>';
         });
         html += '</div>';

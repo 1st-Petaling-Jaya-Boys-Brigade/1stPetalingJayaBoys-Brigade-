@@ -541,40 +541,40 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
         '<!-- Right: 3 Column Metrics with Dividers -->' +
         '<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:0;align-items:stretch;">' +
           '<!-- Uniform Points -->' +
-          '<div style="padding:6px 8px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
-              '<span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Uniform Points</span>' +
-              '<div style="width:22px;height:22px;min-width:22px;border-radius:6px;background:rgba(59,130,246,0.18);color:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Uniform Points">' +
-                '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+          '<div style="padding:6px 6px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
+              '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Uniform Points</span>' +
+              '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(59,130,246,0.18);color:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Uniform Points">' +
+                '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
               '</div>' +
             '</div>' +
-            '<div style="font-family:var(--font-headline);font-size:26px;font-weight:800;color:var(--blue, #3b82f6);line-height:1.1;">' +
+            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--blue, #3b82f6);line-height:1.1;">' +
               points.uniform +
             '</div>' +
           '</div>' +
 
           '<!-- Parade Points -->' +
-          '<div style="padding:6px 8px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
-              '<span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Parade Points</span>' +
-              '<div style="width:22px;height:22px;min-width:22px;border-radius:6px;background:rgba(16,185,129,0.18);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Parade Points">' +
-                '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+          '<div style="padding:6px 6px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
+              '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Parade Points</span>' +
+              '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(16,185,129,0.18);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Parade Points">' +
+                '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
               '</div>' +
             '</div>' +
-            '<div style="font-family:var(--font-headline);font-size:26px;font-weight:800;color:var(--green, #10b981);line-height:1.1;">' +
+            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--green, #10b981);line-height:1.1;">' +
               points.paradeAtt +
             '</div>' +
           '</div>' +
 
           '<!-- Band Points -->' +
-          '<div style="padding:6px 8px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
-            '<div style="display:flex;align-items:center;justify-content:space-between;gap:4px;">' +
-              '<span style="font-size:10px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Band Points</span>' +
-              '<div style="width:22px;height:22px;min-width:22px;border-radius:6px;background:rgba(245,197,66,0.18);color:#f5c542;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Band Points">' +
-                '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
+          '<div style="padding:6px 6px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
+              '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Band Points</span>' +
+              '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(245,197,66,0.18);color:#f5c542;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Band Points">' +
+                '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
               '</div>' +
             '</div>' +
-            '<div style="font-family:var(--font-headline);font-size:26px;font-weight:800;color:var(--accent, #f5c542);line-height:1.1;">' +
+            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--accent, #f5c542);line-height:1.1;">' +
               points.bandAtt +
             '</div>' +
           '</div>' +
