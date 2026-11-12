@@ -4578,6 +4578,8 @@ function viewMemberFormResponse(response) {
       if (typeof a === 'string' && a.startsWith('data:image/')) {
         valHtml = '<div style="background:#ffffff;padding:8px 12px;border-radius:8px;border:1px solid var(--border-card);display:inline-block;margin-top:6px;"><img src="' +
           a + '" style="max-height:120px;max-width:100%;display:block;" alt="Signature"/></div>';
+      } else if (typeof a === 'string' && a.startsWith('data:')) {
+        valHtml = '<div style="margin-top:6px;"><a href="' + escapeHtml(a) + '" download="uploaded-attachment" class="portal-btn portal-btn-secondary" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:12px;text-decoration:none;color:var(--text-primary);"><svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Attachment</a></div>';
       } else if (a === null || a === undefined || a === '') {
         valHtml = '<span style="color:var(--text-muted);font-style:italic;">No response provided</span>';
       } else {
