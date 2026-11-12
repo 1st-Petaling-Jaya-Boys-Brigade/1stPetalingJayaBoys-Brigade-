@@ -727,22 +727,22 @@
 /* ── FLOATING MOBILE DOCK NAVIGATION (Image 2 style) ── */
 .bottom-nav {
   position: fixed;
-  bottom: max(20px, calc(14px + var(--safe-area-bottom)));
+  bottom: max(18px, calc(12px + var(--safe-area-bottom)));
   left: 50%;
   transform: translateX(-50%);
   z-index: 190;
   background: var(--bg-dock);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-pill);
-  padding: 6px 8px;
+  padding: 5px 8px;
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   box-shadow: var(--shadow-dock);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(100% - max(32px, calc(var(--safe-area-left) + var(--safe-area-right) + 32px)));
-  max-width: 390px;
+  width: calc(100% - max(24px, calc(var(--safe-area-left) + var(--safe-area-right) + 24px)));
+  max-width: 420px;
   box-sizing: border-box;
   transition:
     transform 0.25s ease,
@@ -754,7 +754,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  gap: 4px;
+  gap: 2px;
 }
 
 .bnav-btn {
@@ -762,39 +762,42 @@
   border: none;
   color: var(--dock-btn-color, #94a3b8);
   cursor: pointer;
-  padding: 8px 6px;
-  min-height: var(--min-touch-target);
-  border-radius: var(--radius-pill);
+  padding: 6px 3px;
+  min-height: 48px;
+  border-radius: 14px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 3px;
   transition: var(--transition-smooth);
   font-family: var(--font-body);
   user-select: none;
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   white-space: nowrap;
   touch-action: manipulation;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .bnav-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .bnav-btn .bnav-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   line-height: 1;
   flex-shrink: 0;
 }
 
 .bnav-btn .bnav-icon svg {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   stroke: currentColor;
   stroke-width: 2;
   fill: none;
@@ -803,10 +806,13 @@
 }
 
 .bnav-btn .bnav-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   white-space: nowrap;
+  line-height: 1.15;
+  text-align: center;
+  overflow: visible;
 }
 
 .bnav-btn:hover {
@@ -818,6 +824,7 @@
 .bnav-btn.active {
   background: var(--dock-active-bg, #ffffff) !important;
   color: var(--dock-active-color, #111827) !important;
+  border-radius: 14px;
   box-shadow: var(--dock-active-shadow, 0 4px 14px rgba(0, 0, 0, 0.25));
 }
 
@@ -830,23 +837,23 @@
   stroke: var(--dock-active-color, #111827) !important;
 }
 
-@media (max-width: 360px) {
+@media (max-width: 380px) {
   .bottom-nav {
     width: calc(100% - 16px);
-    padding: 4px 6px;
+    padding: 4px 5px;
     bottom: max(14px, calc(8px + var(--safe-area-bottom)));
   }
   .bnav-btn {
-    padding: 6px 4px;
-    min-height: var(--min-touch-target);
-    gap: 3px;
+    padding: 5px 2px;
+    min-height: 46px;
+    gap: 2px;
   }
   .bnav-btn .bnav-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 17px;
+    height: 17px;
   }
   .bnav-btn .bnav-label {
-    font-size: 10px;
+    font-size: 9.5px;
   }
 }
 
