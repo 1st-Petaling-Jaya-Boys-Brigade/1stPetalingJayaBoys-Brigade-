@@ -11697,6 +11697,132 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Form Submission PGRST204 Eradication & Member Responses Cleanup ─────────
+  console.log('\nTesting Form Submission PGRST204 Eradication, File Upload & Member Responses Cleanup...');
+  {
+    const formsMod = require('../js/modules/forms.js');
+    const memberMod = require('../js/modules/member.js');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. Verify submitBuiltinForm payload eliminates payment_method and non-existent columns
+    let postedPayload = null;
+    let postTable = null;
+    const testSupa = {
+      post: async (table, data) => {
+        postTable = table;
+        postedPayload = data;
+        return { ok: true };
+      }
+    };
+    const origSupa = global.supa;
+    global.supa = testSupa;
+    if (typeof window !== 'undefined') window.supa = testSupa;
+
+    const testForm = {
+      id: 'form_camp_pgrst_test',
+      name: 'Camp 2026 Test Form',
+      desc: 'Testing clean payload submission',
+      status: 'active',
+      items: [
+        { id: 'q1', kind: 'question', title: 'Full Name', type: 'text', required: true },
+        { id: 'q2', kind: 'question', title: 'Health Declaration', type: 'file_upload', required: false }
+      ]
+    };
+
+    const hostDiv = document.createElement('div');
+    hostDiv.id = 'inline-form-view';
+    document.body.appendChild(hostDiv);
+    formsMod.renderBuiltinFormInline(testForm, hostDiv);
+
+    // Verify file_upload renders proper file input and Choose File button, not text input
+    assert.ok(hostDiv.innerHTML.includes('type="file"'), 'File upload renders input type="file"');
+    assert.ok(hostDiv.innerHTML.includes('Choose File'), 'File upload renders Choose File button');
+    assert.ok(!hostDiv.innerHTML.includes('type="file_upload"'), 'type="file_upload" invalid HTML input eliminated');
+
+    // Fill answer and submit
+    document.getElementById('bff-form_camp_pgrst_test-0').value = 'Lance Corporal John Doe';
+
+    await formsMod.submitBuiltinForm(testForm);
+
+    assert.strictEqual(postTable, 'bb_orders', 'Submits to bb_orders table');
+    assert.ok(postedPayload, 'Payload posted successfully');
+    assert.ok(postedPayload.order_number.startsWith('FORM-'), 'order_number prefixed with FORM-');
+    assert.strictEqual(postedPayload.payment_method, undefined, 'payment_method column completely removed (PGRST204 fix)');
+    assert.strictEqual(postedPayload.payment_proof, undefined, 'payment_proof column completely removed');
+    assert.strictEqual(postedPayload.total, undefined, 'total column completely removed');
+    assert.strictEqual(typeof formsMod.handleFormFileUpload, 'function', 'handleFormFileUpload is exported');
+    console.log('  ✔ submitBuiltinForm eliminates payment_method column preventing PGRST204 schema cache errors');
+    console.log('  ✔ File upload question renders native file picker and Choose File button');
+
+    // Restore supa
+    global.supa = origSupa;
+    if (typeof window !== 'undefined') window.supa = origSupa;
+
+    // 2. Member Form Responses list rendering (No Ref ID, No Pending status)
+    let memberOrdersContainer = document.getElementById('member-orders-list');
+    if (!memberOrdersContainer) {
+      memberOrdersContainer = document.createElement('div');
+      memberOrdersContainer.id = 'member-orders-list';
+      document.body.appendChild(memberOrdersContainer);
+    }
+    let memberFormsContainer = document.querySelector('.member-form-responses-list');
+    if (!memberFormsContainer) {
+      memberFormsContainer = document.createElement('div');
+      memberFormsContainer.className = 'member-form-responses-list';
+      document.body.appendChild(memberFormsContainer);
+    }
+
+    // Mock supa get to return 1 uniform order and 1 form response
+    const mockOrdersSupa = {
+      get: async () => [
+        {
+          order_number: 'BB-ORD12345',
+          created_at: '2026-11-12T08:00:00Z',
+          status: 'pending',
+          items: JSON.stringify({ company_t: { qty: 1, price: 10 } })
+        },
+        {
+          order_number: 'FORM-MWD2SZ25',
+          created_at: '2026-11-12T10:00:00Z',
+          status: 'submitted',
+          items: JSON.stringify({
+            form_id: 'test_form_2',
+            form_name: 'Test form 2.0',
+            answers: { Name: 'Jeshua Koh' }
+          })
+        }
+      ]
+    };
+    global.supa = mockOrdersSupa;
+    if (typeof window !== 'undefined') window.supa = mockOrdersSupa;
+
+    await memberMod.loadMemberOrders('TEST_IC');
+
+    // In member-form-responses:
+    // MUST contain: Test form 2.0, date submitted, "Click to view your submitted answers"
+    // MUST NOT contain: Ref: FORM-MWD2SZ25, or status pill (Pending/Submitted)
+    const formsContent = memberFormsContainer.innerHTML;
+    assert.ok(formsContent.includes('Test form 2.0'), 'Form title rendered');
+    assert.ok(formsContent.includes('Click to view your submitted answers'), 'Click to view submitted answers CTA rendered');
+    assert.ok(!formsContent.includes('Ref: FORM-MWD2SZ25'), 'Ref ID completely removed from form responses card (Image 2)');
+    assert.ok(!formsContent.includes('Ref:'), 'Ref: label completely removed from form responses card');
+    assert.ok(!formsContent.includes('>Pending<') && !formsContent.includes('>Submitted<'), 'Status badge completely removed from form responses card (Image 2)');
+    console.log('  ✔ Member Form Responses card cleanly displays Title, Date, and CTA without Ref ID or Status pill');
+
+    global.supa = origSupa;
+    if (typeof window !== 'undefined') window.supa = origSupa;
+
+    // 3. Strict 388 Unique DOM IDs Invariant
+    const finalIdMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalIds = new Set();
+    finalIdMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) finalIds.add(match[1]);
+    });
+    assert.strictEqual(finalIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

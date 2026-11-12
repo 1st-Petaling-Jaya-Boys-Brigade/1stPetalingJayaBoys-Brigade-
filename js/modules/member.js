@@ -4510,18 +4510,12 @@ async function loadMemberOrders() {
           } catch (_) {}
 
           var formTitle = items.form_name || r.notes || r.order_number;
-          var status = r.status || 'submitted';
-          var sc = SC[status] || '#34d399';
-          var sl = SL[status] || (status.charAt(0).toUpperCase() + status.slice(1));
           var created = r.created_at ? new Date(r.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 
           formsHtml += '<div class="member-response-item" data-resp-id="' + escapeHtml(r.order_number) + '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.15s ease;">'
-            + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;">'
-            + '<div>'
+            + '<div style="margin-bottom:6px;">'
             + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(formTitle) + '</div>'
-            + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Ref: ' + escapeHtml(r.order_number) + (created ? ' &middot; ' + created : '') + '</div>'
-            + '</div>'
-            + '<div style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);">' + sl + '</div>'
+            + (created ? '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + escapeHtml(created) + '</div>' : '')
             + '</div>'
             + '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle);font-size:12px;color:var(--accent);">'
             + '<span>Click to view your submitted answers</span>'
@@ -4605,7 +4599,7 @@ function viewMemberFormResponse(response) {
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid var(--border-card);padding-bottom:14px;">' +
       '<div>' +
         '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);">' + escapeHtml(formTitle) + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Ref: ' + escapeHtml(response.order_number) + (created ? ' &middot; ' + created : '') + '</div>' +
+        (created ? '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Submitted on ' + escapeHtml(created) + '</div>' : '') +
       '</div>' +
       '<button type="button" class="btn-resp-modal-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:6px;" aria-label="Close">' +
         '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +

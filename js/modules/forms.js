@@ -400,6 +400,34 @@ function showSignatureEnlargedModal(dataUrl, signerName) {
   });
 }
 
+/**
+ * Handles respondent file uploads inside built-in forms
+ * @param {string} fieldId
+ * @param {HTMLInputElement} input
+ */
+function handleFormFileUpload(fieldId, input) {
+  if (typeof document === 'undefined' || !input || !input.files || !input.files[0]) return;
+  var file = input.files[0];
+  var labelEl = document.getElementById(fieldId + '-filename');
+  var hiddenInp = document.getElementById(fieldId);
+  var sizeText = file.size > 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.round(file.size / 1024) + ' KB';
+  if (labelEl) labelEl.textContent = file.name + ' (' + sizeText + ')';
+
+  if (file.size > 10 * 1024 * 1024) {
+    if (typeof showToast === 'function') showToast('File exceeds 10MB limit.', 'error');
+    input.value = '';
+    if (labelEl) labelEl.textContent = 'No file chosen';
+    if (hiddenInp) hiddenInp.value = '';
+    return;
+  }
+
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    if (hiddenInp) hiddenInp.value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 // ── Forms Hub (Member Interface) ───────────────────────────────────────────
 
 /**
@@ -817,6 +845,15 @@ function renderBuiltinFormInline(form, customContainer, options) {
         inp = '<input class="form-input" type="date" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
       } else if (f.type === 'time') {
         inp = '<input class="form-input" type="time" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
+      } else if (f.type === 'file_upload' || f.type === 'file') {
+        inp = '<div class="form-file-upload-wrap" style="margin-top:8px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;">' +
+          '<label class="portal-btn portal-btn-secondary" style="margin:0;cursor:pointer;padding:8px 16px;font-size:12px;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">' +
+          '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> <span>Choose File</span>' +
+          '<input type="file" id="' + fieldId + '-file" class="form-file-input" style="display:none;" onchange="handleFormFileUpload(\'' + fieldId + '\', this)"/>' +
+          '</label>' +
+          '<span id="' + fieldId + '-filename" style="font-size:12px;color:var(--text-secondary);font-style:italic;">No file chosen</span>' +
+          '<input type="hidden" id="' + fieldId + '" value=""' + reqAttr + '/>' +
+          '</div>';
       } else if (f.type === 'signature') {
         inp = '<div class="form-signature-wrapper" id="sig-wrap-' + fieldId + '" style="margin-top:8px;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
@@ -1145,7 +1182,8 @@ async function submitBuiltinForm(form) {
       val = el.value.trim();
     }
     rawAnswers[label] = val;
-    var sanitizedVal = (f.type === 'signature')
+    var isDataUrl = typeof val === 'string' && val.indexOf('data:') === 0;
+    var sanitizedVal = (f.type === 'signature' || f.type === 'file_upload' || f.type === 'file' || isDataUrl)
       ? val
       : (typeof sanitizeInput === 'function' ? sanitizeInput(val, (f.type === 'textarea' || f.type === 'paragraph') ? 2000 : 300) : val);
     cleanAnswers[label] = sanitizedVal;
@@ -1218,11 +1256,8 @@ async function submitBuiltinForm(form) {
       form_name: form.name,
       answers: cleanAnswers
     }),
-    total: 0,
-    status: 'submitted',
     notes: form.id,
-    payment_method: 'form_submission',
-    payment_proof: '',
+    status: 'submitted',
     created_at: new Date().toISOString()
   };
 
@@ -3221,6 +3256,7 @@ if (typeof window !== 'undefined') {
   window.convertGfItemsToFields = convertGfItemsToFields;
   window.attachSignatureCanvas = attachSignatureCanvas;
   window.showSignatureEnlargedModal = showSignatureEnlargedModal;
+  window.handleFormFileUpload = handleFormFileUpload;
   window.openCreateFormFlow = openCreateFormFlow;
   window.openFormEditor = openFormEditor;
   window.closeFormEditor = closeFormEditor;
@@ -3290,6 +3326,7 @@ if (typeof module !== 'undefined' && module.exports) {
     convertGfItemsToFields: convertGfItemsToFields,
     attachSignatureCanvas: attachSignatureCanvas,
     showSignatureEnlargedModal: showSignatureEnlargedModal,
+    handleFormFileUpload: handleFormFileUpload,
     openCreateFormFlow: openCreateFormFlow,
     openFormEditor: openFormEditor,
     closeFormEditor: closeFormEditor,
