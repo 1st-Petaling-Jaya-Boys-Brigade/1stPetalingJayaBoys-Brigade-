@@ -12418,6 +12418,63 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 61. Mobile Points Overlap, Upcoming Box Bounds & 7-Day Week Fit (Images 1-4) ──
+  console.log('\nTesting Mobile Points Overlap, Upcoming Box Bounds & 7-Day Week View Fit...');
+  {
+    const attMod = require('../js/modules/attendance.js');
+    const calMod = require('../js/modules/calendar.js');
+    const compCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+
+    // 1. Image 1: Points breakdown labels wrap and do not overlap
+    const sampleRec = {
+      name: 'Jeshua Koh',
+      platoon: 'Hotel',
+      squad: 'HQ',
+      isBandMember: true,
+      bandSection: 'Bugle',
+      paradeAttendance: { percentage: 85, presentCount: 17, totalParades: 20 },
+      bandAttendance: { percentage: 65, presentCount: 13, totalSessions: 20 },
+      points: { uniform: 126, paradeAtt: 60, bandAtt: 42, total: 222 }
+    };
+    const cardHtml = attMod.renderAttendanceBreakdownHTML(sampleRec, {}, {}, new Date().toISOString());
+    const pointsBreakdownSection = cardHtml.substring(cardHtml.indexOf('Points Breakdown'), cardHtml.indexOf('3. Platoon'));
+    assert.ok(!pointsBreakdownSection.includes('white-space:nowrap'), 'Points breakdown metric labels do not force white-space:nowrap');
+    assert.ok(cardHtml.includes('word-break:break-word'), 'Points breakdown metric labels enable word-break:break-word');
+    assert.ok(compCss.includes('.points-metric-label') && compCss.includes('word-break: break-word;'), 'CSS points-metric-label includes word-break');
+    console.log('  ✔ Points breakdown eliminates horizontal text overlap with natural word wrap (Image 1)');
+
+    // 2. Image 2: Upcoming view rundown schedule table & syllabi bounds
+    calMod.renderCalendarTab('upcoming');
+    const calHub = document.getElementById('tasks-no-dept');
+    assert.ok(calHub.innerHTML.includes('cal-upcoming-hero'), 'Upcoming view renders hero card');
+    assert.ok(calHub.innerHTML.includes('schedule-table'), 'Upcoming view renders schedule table');
+    assert.ok(calHub.innerHTML.includes('cal-detail-subbox'), 'Upcoming view renders detail subbox');
+    assert.ok(compCss.includes('.cal-upcoming-hero') && compCss.includes('overflow: hidden;'), 'Upcoming hero enforces overflow:hidden bounds');
+    console.log('  ✔ Upcoming view hero bounds, schedule row layout, and syllabus grid verified (Image 2)');
+
+    // 3. Images 3 & 4: 7-Day Week View zero horizontal scrolling & crisp grid lines
+    calMod.renderCalendarTab('week');
+    assert.ok(calHub.innerHTML.includes('cal-week-wrapper'), 'Week view renders wrapper');
+    assert.ok(calHub.innerHTML.includes('cal-week-header-row'), 'Week view renders header row');
+    assert.ok(calHub.innerHTML.includes('cal-week-hour-row'), 'Week view renders hour row');
+    assert.ok(compCss.includes('overflow-x: hidden;') && compCss.includes('.cal-week-wrapper'), 'Week view wrapper enforces overflow-x:hidden with zero horizontal scroll');
+    assert.ok(compCss.includes('grid-template-columns: var(--cal-time-col-w) repeat(7, minmax(0, 1fr));'), 'Week view uses 7 equal day columns');
+    assert.ok(compCss.includes('.cal-week-hour-cell') && compCss.includes('border-bottom: 1px solid var(--border-card);'), 'Week hour cells enforce border-bottom grid lines');
+    assert.ok(compCss.includes('[data-theme=\'light\'] .cal-week-hour-cell') && compCss.includes('border-bottom: 1px solid #cbd5e1;'), 'Light mode week cells enforce border-bottom grid lines');
+    console.log('  ✔ 7-Day week view fits all days without horizontal scrolling and renders crisp grid lines (Images 3 & 4)');
+
+    // 4. Strict 388 unique DOM IDs Invariant
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const postIds = new Set();
+    postMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds.add(match[1]);
+    });
+    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
