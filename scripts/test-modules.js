@@ -11433,6 +11433,66 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 51. Member Form Responses Separation, Admin Products Drag & Drop and Modals ──
+  {
+    console.log('\nTesting Member Form Responses Separation, Admin Products Drag & Drop and Modals...');
+    const memberMod = require('../js/modules/member.js');
+    const ordersMod = require('../js/modules/orders.js');
+
+    // 1. Member Form Responses Modal functions exist and export
+    assert.strictEqual(typeof memberMod.viewMemberFormResponse, 'function', 'viewMemberFormResponse must be exported function');
+    assert.strictEqual(typeof memberMod.closeMemberResponseModal, 'function', 'closeMemberResponseModal must be exported function');
+    console.log('  ✔ viewMemberFormResponse and closeMemberResponseModal exported and verified');
+
+    // 2. Admin Products View Switching & Drag-and-Drop Reordering
+    assert.strictEqual(typeof ordersMod.setAdminProductsViewMode, 'function', 'setAdminProductsViewMode must be exported function');
+    assert.strictEqual(typeof ordersMod.reorderUniformProducts, 'function', 'reorderUniformProducts must be exported function');
+
+    ordersMod.setAdminProductsViewMode('list');
+    ordersMod.setAdminProductsViewMode('grid');
+
+    const origItemsLen = ordersMod.UNIFORM_ITEMS.length;
+    if (origItemsLen >= 2) {
+      const firstItem = ordersMod.UNIFORM_ITEMS[0];
+      const secondItem = ordersMod.UNIFORM_ITEMS[1];
+      ordersMod.reorderUniformProducts(1, 0);
+      assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, secondItem.key, 'Second item moved to first slot via drag & drop reorder');
+      assert.strictEqual(ordersMod.UNIFORM_ITEMS[1].key, firstItem.key, 'First item shifted to second slot');
+      // Restore
+      ordersMod.reorderUniformProducts(0, 1);
+      assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, firstItem.key, 'Item order restored');
+    }
+    console.log('  ✔ Admin product view modes and drag-and-drop reordering synced and verified');
+
+    // 3. Admin Product Modal & Delete Controls
+    assert.strictEqual(typeof ordersMod.openProductModal, 'function', 'openProductModal must be exported function');
+    assert.strictEqual(typeof ordersMod.closeProductModal, 'function', 'closeProductModal must be exported function');
+    assert.strictEqual(typeof ordersMod.deleteCurrentProduct, 'function', 'deleteCurrentProduct must be exported function');
+    assert.strictEqual(typeof ordersMod.openUniformScheduleModal, 'function', 'openUniformScheduleModal must be exported function');
+    assert.strictEqual(typeof ordersMod.closeUniformScheduleModal, 'function', 'closeUniformScheduleModal must be exported function');
+    console.log('  ✔ Admin product modal, delete controls and uniform schedule modal verified');
+
+    // 4. index.html DOM structural verification
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    assert.ok(indexHtml.includes('member-form-responses-card'), 'index.html must include member-form-responses-card');
+    assert.ok(indexHtml.includes('member-form-responses-list'), 'index.html must include member-form-responses-list');
+    assert.ok(indexHtml.includes('uo-schedule-modal-overlay'), 'index.html must include uo-schedule-modal-overlay');
+    assert.ok(indexHtml.includes('adm-product-modal-overlay'), 'index.html must include adm-product-modal-overlay');
+    assert.ok(indexHtml.includes('adm-products-toolbar'), 'index.html must include adm-products-toolbar');
+    assert.ok(indexHtml.includes('onclick="openProductModal()"'), 'index.html must include openProductModal button below products');
+    assert.ok(indexHtml.includes('onclick="openUniformScheduleModal()"'), 'index.html must include openUniformScheduleModal button next to Orders');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalIdSet = new Set();
+    finalMatches.forEach(m => {
+      const matchId = m.match(/\sid=["']([^"']+)["']/);
+      if (matchId) finalIdSet.add(matchId[1]);
+    });
+    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

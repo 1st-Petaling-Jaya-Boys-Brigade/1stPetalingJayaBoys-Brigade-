@@ -4408,34 +4408,59 @@ async function renderDashboard() {
 async function loadMemberOrders() {
   var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   var container = document.getElementById('member-orders-list');
+  var formsContainer = (typeof document !== 'undefined') ? document.querySelector('.member-form-responses-list') : null;
   if (!id || !container) return;
 
   container.innerHTML = (typeof renderSkeletonCard === 'function') ? renderSkeletonCard(3, 'order') : '<div class="skeleton-shimmer" style="height:140px;border-radius:12px;"></div>';
+  if (formsContainer) {
+    formsContainer.innerHTML = (typeof renderSkeletonCard === 'function') ? renderSkeletonCard(2, 'order') : '<div class="skeleton-shimmer" style="height:100px;border-radius:12px;"></div>';
+  }
+
   try {
     var client = getSupa();
     var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');
-    if (!orders || !orders.length) {
-      container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No orders yet.</div>';
-      return;
-    }
+    if (!orders) orders = [];
 
-    var SC = { pending: '#e8b830', processing: '#42a5f5', ready: '#66bb6a', collected: '#888', cancelled: '#ef5350' };
-    var SL = { pending: 'Pending', processing: 'Processing', ready: 'Ready for Collection', collected: 'Collected', cancelled: 'Cancelled' };
+    var SC = { pending: '#e8b830', processing: '#42a5f5', ready: '#66bb6a', collected: '#888', cancelled: '#ef5350', submitted: '#34d399', approved: '#60a5fa', rejected: '#ef5350' };
+    var SL = { pending: 'Pending', processing: 'Processing', ready: 'Ready for Collection', collected: 'Collected', cancelled: 'Cancelled', submitted: 'Submitted', approved: 'Approved', rejected: 'Rejected' };
     var itemsList = window.UNIFORM_ITEMS || [];
-    var html = '';
+
+    // Separate actual uniform orders from custom form submissions
+    var uniformOrders = [];
+    var formResponses = [];
 
     orders.forEach(function(o) {
-      var status  = o.status || 'pending';
-      var sc      = SC[status] || '#888';
-      var sl      = SL[status] || status;
-      var created = o.created_at ? new Date(o.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      var num = o.order_number || '';
+      var isForm = num.startsWith('FORM-') || o.payment_method === 'form_submission';
+      if (!isForm && o.items) {
+        try {
+          var parsed = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
+          if (parsed && (parsed.form_name || parsed.form_id || parsed.answers)) {
+            isForm = true;
+          }
+        } catch (_) {}
+      }
+      if (isForm) {
+        formResponses.push(o);
+      } else {
+        uniformOrders.push(o);
+      }
+    });
 
-      var itemLines = '';
-      try {
-        var items = JSON.parse(o.items || '{}');
-        if (items.form_name) {
-          itemLines = '<div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(items.form_name) + '</div>';
-        } else {
+    // 1. Render Uniform Orders
+    if (!uniformOrders.length) {
+      container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No uniform orders yet.</div>';
+    } else {
+      var html = '';
+      uniformOrders.forEach(function(o) {
+        var status  = o.status || 'pending';
+        var sc      = SC[status] || '#888';
+        var sl      = SL[status] || status;
+        var created = o.created_at ? new Date(o.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+        var itemLines = '';
+        try {
+          var items = JSON.parse(o.items || '{}');
           Object.entries(items).forEach(function(kv) {
             var v = kv[1];
             var baseKey = kv[0].split('__')[0];
@@ -4448,31 +4473,168 @@ async function loadMemberOrders() {
               + '<span>' + escapeHtml(displayName) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + '</span>'
               + '<span>x' + escapeHtml(v.qty) + subtotal + '</span></div>';
           });
-        }
-      } catch (e) {}
+        } catch (e) {}
 
-      var validatedSs = o.payment_screenshot ? ((typeof safeUrl === 'function') ? safeUrl(o.payment_screenshot, '') : o.payment_screenshot) : '';
-      var ssHtml = validatedSs
-        ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--green);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Payment screenshot uploaded</div>'
-        : '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--accent);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg> No payment screenshot</div>';
+        var validatedSs = o.payment_screenshot ? ((typeof safeUrl === 'function') ? safeUrl(o.payment_screenshot, '') : o.payment_screenshot) : '';
+        var ssHtml = validatedSs
+          ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--green);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Payment screenshot uploaded</div>'
+          : '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--accent);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg> No payment screenshot</div>';
 
-      html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">'
-        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
-        + '<div>'
-        + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
-        + '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + created + '</div>'
-        + '</div>'
-        + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);text-align:center;">' + sl + '</div>'
-        + '</div>'
-        + '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' + itemLines + '</div>'
-        + ssHtml
-        + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) + '</div>' : '')
-        + '</div>';
-    });
-    container.innerHTML = html;
+        html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">'
+          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
+          + '<div>'
+          + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
+          + '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + created + '</div>'
+          + '</div>'
+          + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);text-align:center;">' + sl + '</div>'
+          + '</div>'
+          + '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' + itemLines + '</div>'
+          + ssHtml
+          + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) + '</div>' : '')
+          + '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    // 2. Render Member Form Responses
+    if (formsContainer) {
+      if (!formResponses.length) {
+        formsContainer.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No form responses yet.</div>';
+      } else {
+        var formsHtml = '';
+        formResponses.forEach(function(r) {
+          var items = {};
+          try {
+            items = typeof r.items === 'string' ? JSON.parse(r.items) : (r.items || {});
+          } catch (_) {}
+
+          var formTitle = items.form_name || r.notes || r.order_number;
+          var status = r.status || 'submitted';
+          var sc = SC[status] || '#34d399';
+          var sl = SL[status] || (status.charAt(0).toUpperCase() + status.slice(1));
+          var created = r.created_at ? new Date(r.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+          formsHtml += '<div class="member-response-item" data-resp-id="' + escapeHtml(r.order_number) + '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.15s ease;">'
+            + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;">'
+            + '<div>'
+            + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(formTitle) + '</div>'
+            + '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Ref: ' + escapeHtml(r.order_number) + (created ? ' &middot; ' + created : '') + '</div>'
+            + '</div>'
+            + '<div style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);">' + sl + '</div>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle);font-size:12px;color:var(--accent);">'
+            + '<span>Click to view your submitted answers</span>'
+            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>'
+            + '</div>'
+            + '</div>';
+        });
+
+        formsContainer.innerHTML = formsHtml;
+
+        formsContainer.querySelectorAll('[data-resp-id]').forEach(function(card) {
+          if (card && typeof card.addEventListener === 'function') {
+            card.addEventListener('click', function() {
+              var ref = card.getAttribute('data-resp-id');
+              var found = formResponses.find(function(x) { return x.order_number === ref; });
+              if (found) viewMemberFormResponse(found);
+            });
+          }
+        });
+      }
+    }
   } catch (e) {
     container.innerHTML = '<div style="color:#f66;font-size:13px;text-align:center;padding:16px;">Failed to load orders.</div>';
+    if (formsContainer) {
+      formsContainer.innerHTML = '<div style="color:#f66;font-size:13px;text-align:center;padding:16px;">Failed to load form responses.</div>';
+    }
   }
+}
+
+/**
+ * Displays submitted form answers modal for member review
+ * @param {Object} response
+ */
+function viewMemberFormResponse(response) {
+  if (typeof document === 'undefined' || !response) return;
+
+  var existing = document.querySelector('.member-response-modal-overlay');
+  if (existing) existing.remove();
+
+  var items = {};
+  try {
+    items = typeof response.items === 'string' ? JSON.parse(response.items) : (response.items || {});
+  } catch (_) {}
+
+  var formTitle = items.form_name || response.notes || response.order_number;
+  var answers = items.answers || {};
+  var created = response.created_at
+    ? new Date(response.created_at).toLocaleString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '';
+
+  var qaHtml = '';
+  var entries = Object.entries(answers);
+  if (!entries.length) {
+    qaHtml = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:24px;">No submitted answers recorded for this entry.</div>';
+  } else {
+    entries.forEach(function(entry) {
+      var q = entry[0];
+      var a = entry[1];
+      var valHtml = '';
+      if (typeof a === 'string' && a.startsWith('data:image/')) {
+        valHtml = '<div style="background:#ffffff;padding:8px 12px;border-radius:8px;border:1px solid var(--border-card);display:inline-block;margin-top:6px;"><img src="' +
+          a + '" style="max-height:120px;max-width:100%;display:block;" alt="Signature"/></div>';
+      } else if (a === null || a === undefined || a === '') {
+        valHtml = '<span style="color:var(--text-muted);font-style:italic;">No response provided</span>';
+      } else {
+        valHtml = escapeHtml(String(a));
+      }
+
+      qaHtml += '<div class="member-qa-item">' +
+        '<div class="member-qa-label">' + escapeHtml(q) + '</div>' +
+        '<div class="member-qa-val">' + valHtml + '</div>' +
+        '</div>';
+    });
+  }
+
+  var overlay = document.createElement('div');
+  overlay.className = 'member-response-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+  overlay.innerHTML = '<div class="member-response-modal-card">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid var(--border-card);padding-bottom:14px;">' +
+      '<div>' +
+        '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);">' + escapeHtml(formTitle) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Ref: ' + escapeHtml(response.order_number) + (created ? ' &middot; ' + created : '') + '</div>' +
+      '</div>' +
+      '<button type="button" class="btn-resp-modal-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:6px;" aria-label="Close">' +
+        '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+      '</button>' +
+    '</div>' +
+    '<div style="max-height:60vh;overflow-y:auto;padding-right:4px;">' +
+      qaHtml +
+    '</div>' +
+    '<div style="display:flex;justify-content:flex-end;margin-top:18px;border-top:1px solid var(--border-card);padding-top:14px;">' +
+      '<button type="button" class="portal-btn portal-btn-secondary btn-resp-modal-close" style="padding:8px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">Close</button>' +
+    '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelectorAll('.btn-resp-modal-close').forEach(function(b) {
+    if (b && typeof b.addEventListener === 'function') {
+      b.addEventListener('click', function() { overlay.remove(); });
+    }
+  });
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+function closeMemberResponseModal() {
+  if (typeof document === 'undefined') return;
+  var existing = document.querySelector('.member-response-modal-overlay');
+  if (existing) existing.remove();
 }
 
 function logoutMember() {
@@ -6441,6 +6603,8 @@ if (typeof window !== 'undefined') {
   window.refreshLoggedInUserProfile   = refreshLoggedInUserProfile;
   window.renderDashboard              = renderDashboard;
   window.loadMemberOrders             = loadMemberOrders;
+  window.viewMemberFormResponse       = viewMemberFormResponse;
+  window.closeMemberResponseModal     = closeMemberResponseModal;
   window.logoutMember                 = logoutMember;
   window.uploadPfp                    = uploadPfp;
   window.loadSecurityQuestion         = loadSecurityQuestion;
@@ -6568,6 +6732,8 @@ if (typeof module !== 'undefined' && module.exports) {
     refreshLoggedInUserProfile,
     renderDashboard,
     loadMemberOrders,
+    viewMemberFormResponse,
+    closeMemberResponseModal,
     logoutMember,
     uploadPfp,
     loadSecurityQuestion,
