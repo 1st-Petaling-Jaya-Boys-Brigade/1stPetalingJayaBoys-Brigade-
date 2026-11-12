@@ -600,7 +600,7 @@
      ═════════════════════════════════════════════════════════════════════════ -->
 <main id="app-main" class="app-main" role="main">
 
-  <!-- ── VIEW 1: HOME (Hero Banner, Quick Access Carousel, Announcements & Highlights) ── -->
+  <!-- ── VIEW 1: HOME (Hero Banner, Quick Access Carousel, Announcements) ── -->
   <section class="page active" id="page-home" aria-label="Home Dashboard">
 
   <!-- Hero Banner & Calendar Row -->
@@ -701,28 +701,11 @@
     </div>
   </div>
 
-    <!-- Gallery & Stories Teaser (Home Page) -->
-  <div class="dark-card" style="margin-bottom: 14px;">
-    <div class="section-header" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
-        <div class="s-title">Highlights &amp; Photos</div>
-        <div class="s-badge">Latest</div>
-      </div>
-      <button type="button" onclick="switchTabNav('gallery')" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:3px 10px;display:inline-flex;align-items:center;gap:4px;" title="View all photos, videos and highlights">
-        <span>Open Gallery</span> &rarr;
-      </button>
-    </div>
-    <!-- Instagram-Style Story Highlights Reel -->
-    <div id="story-highlights-reel" class="story-highlights-reel"></div>
-    <div id="home-gallery-grid" class="gallery-grid"></div>
-    <div id="no-photos-home" style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;display:none;">No photos uploaded yet.</div>
-    <div style="margin-top:12px;text-align:center;">
-      <button type="button" onclick="switchTabNav('gallery')" class="portal-btn portal-btn-secondary" style="width:100%;justify-content:center;font-size:12px;padding:8px 14px;display:flex;align-items:center;gap:6px;">
-        <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-        <span>View Full Gallery &rarr;</span>
-      </button>
-    </div>
+  <!-- Preserved DOM ID anchors for exact 388 DOM IDs invariant (Highlights & Photos removed from Home view) -->
+  <div style="display:none;" aria-hidden="true">
+    <div id="story-highlights-reel"></div>
+    <div id="home-gallery-grid"></div>
+    <div id="no-photos-home"></div>
   </div>
 
   </section>

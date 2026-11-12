@@ -801,7 +801,7 @@ async function getJson(url) {
           await loadStoryHighlights();
         }
         if (typeof renderStoryHighlightsReel === 'function') { renderStoryHighlightsReel(); }
-        const reel = document.getElementById('story-highlights-reel');
+        const reel = document.getElementById('gallery-story-highlights-reel') || document.getElementById('story-highlights-reel');
         const items = reel ? reel.querySelectorAll('.story-highlight-item') : [];
         const viewerModal = document.getElementById('story-viewer-modal');
         const adminList = document.getElementById('admin-story-highlights-list');

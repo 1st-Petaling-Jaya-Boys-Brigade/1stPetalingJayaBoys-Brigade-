@@ -12337,6 +12337,45 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 58. Highlights & Photos Exclusively in Gallery Tab (Removed from Homepage) ──
+  console.log('\nTesting Highlights & Photos Exclusively in Gallery Tab...');
+  {
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. Verify Highlights & Photos card removed from Homepage
+    assert.ok(!indexHtml.includes('Highlights &amp; Photos'), 'Highlights & Photos teaser header removed from index.html');
+    assert.ok(!indexHtml.includes('View Full Gallery &rarr;'), 'View Full Gallery CTA button removed from index.html');
+    assert.ok(!indexHtml.includes('title="View all photos, videos and highlights"'), 'Open Gallery button in home teaser removed');
+
+    // Verify #page-home content boundary
+    const homeSectionMatch = indexHtml.match(/<section class="page active" id="page-home"[^>]*>([\s\S]*?)<\/section>/);
+    assert.ok(homeSectionMatch, '#page-home section must exist');
+    const homeContent = homeSectionMatch[1];
+    assert.ok(homeContent.includes('id="announcements-list"'), 'Announcements remain on homepage');
+    assert.ok(!homeContent.includes('class="gallery-grid"'), 'Gallery grid removed from visible homepage');
+    assert.ok(!homeContent.includes('class="story-highlights-reel"'), 'Story highlights reel removed from visible homepage');
+
+    // 2. Verify Gallery Tab retains full media and highlights features
+    const gallerySectionMatch = indexHtml.match(/<section class="page" id="page-gallery"[^>]*>([\s\S]*?)<\/section>/);
+    assert.ok(gallerySectionMatch, '#page-gallery section must exist');
+    const galleryContent = gallerySectionMatch[1];
+    assert.ok(galleryContent.includes('id="gallery-story-highlights-reel"'), 'Gallery page retains story highlights reel');
+    assert.ok(galleryContent.includes('id="gallery-grid"'), 'Gallery page retains main gallery grid');
+    assert.ok(galleryContent.includes('id="gallery-filter-bar"'), 'Gallery page retains media filter pills');
+    assert.ok(galleryContent.includes('id="no-photos"'), 'Gallery page retains empty state container');
+    console.log('  ✔ Highlights and Photos completely removed from homepage and exclusive to Gallery tab');
+
+    // 3. Strict 388 Unique DOM IDs Invariant
+    const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const postIds = new Set();
+    postMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds.add(match[1]);
+    });
+    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
