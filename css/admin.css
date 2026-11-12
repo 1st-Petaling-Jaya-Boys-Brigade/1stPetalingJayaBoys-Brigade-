@@ -2332,9 +2332,10 @@
 }
 
 .gf-tab-btn.is-active {
-  background: #6366f1;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
   color: #ffffff !important;
   font-weight: 700;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
 
 /* Header Card (Google Forms Style) */
@@ -2348,87 +2349,101 @@
 
 .gf-form-header-stripe {
   height: 10px;
-  background: linear-gradient(90deg, #6366f1, #a855f7);
+  background: linear-gradient(90deg, #f59e0b 0%, #eab308 50%, #f5c542 100%);
 }
 
 .gf-form-header-body {
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .gf-title-input {
   font-family: var(--font-headline, 'Inter', sans-serif);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  background: transparent;
-  border: none;
-  border-bottom: 1.5px solid transparent;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
   color: var(--text-primary);
   width: 100%;
-  padding: 4px 0;
+  padding: 12px 16px;
   outline: none;
-  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .gf-title-input:focus {
-  border-bottom-color: #818cf8;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
 }
 
 .gf-desc-input {
   font-family: var(--font-body, 'Inter', sans-serif);
   font-size: 14px;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
+  line-height: 1.5;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
   color: var(--text-secondary);
   width: 100%;
-  padding: 4px 0;
+  padding: 12px 16px;
   outline: none;
   resize: vertical;
-  min-height: 48px;
-  transition: border-color 0.15s ease;
+  min-height: 56px;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .gf-desc-input:focus {
-  border-bottom-color: #818cf8;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
 }
 
 /* Questions Container & Side Toolbar layout */
-.gf-body-layout {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
+.gf-cards-layout {
   position: relative;
+  width: 100%;
+  padding-right: 56px;
+  box-sizing: border-box;
+}
+
+.gf-cards-column {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .gf-questions-list {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
 .gf-side-toolbar {
-  position: sticky;
-  top: 90px;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 44px;
   display: flex;
   flex-direction: column;
   gap: 6px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  flex-shrink: 0;
-  z-index: 10;
+  z-index: 20;
+  transition: top 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
 }
 
 .gf-side-tool-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 8px;
   background: transparent;
   border: none;
@@ -2442,8 +2457,25 @@
 
 .gf-side-tool-btn:hover {
   background: var(--bg-card-subtle);
-  color: #818cf8;
+  color: #f59e0b;
   transform: scale(1.08);
+}
+
+@media (max-width: 768px) {
+  .gf-cards-layout {
+    padding-right: 0;
+    padding-bottom: 70px;
+  }
+  .gf-side-toolbar {
+    position: fixed;
+    right: 16px;
+    bottom: 20px;
+    top: auto !important;
+    flex-direction: row;
+    width: auto;
+    border-radius: 30px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
 }
 
 /* Question Cards */
@@ -2457,8 +2489,11 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.gf-question-card.is-active {
-  border-left: 5px solid #818cf8;
+.gf-question-card.is-active,
+.gf-section-card.is-active,
+.gf-title-desc-card.is-active,
+.gf-image-card.is-active {
+  border-left: 5px solid #f59e0b;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
@@ -2494,7 +2529,8 @@
 }
 
 .gf-q-title-input:focus {
-  border-color: #818cf8;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
 }
 
 .gf-type-selector {
@@ -2525,7 +2561,7 @@
 }
 
 .gf-opt-bullet {
-  color: var(--text-muted);
+  color: #f59e0b;
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -2546,7 +2582,7 @@
 }
 
 .gf-opt-input:focus {
-  border-bottom-color: #818cf8;
+  border-bottom-color: #f59e0b;
 }
 
 .gf-opt-del-btn {
@@ -2575,7 +2611,7 @@
 .gf-add-opt-link {
   background: none;
   border: none;
-  color: #818cf8;
+  color: #f59e0b;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -2657,7 +2693,7 @@
 }
 
 .gf-toggle-switch input:checked + .gf-toggle-slider {
-  background-color: #6366f1;
+  background-color: #f59e0b;
 }
 
 .gf-toggle-switch input:checked + .gf-toggle-slider:before {
@@ -2684,6 +2720,77 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Image Card (Google Forms Style) */
+.gf-image-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gf-image-content-box {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+/* Form Preview Overlay */
+.gf-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+  background: var(--bg-page, #0b1120);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 48px;
+  box-sizing: border-box;
+}
+
+.gf-preview-topbar {
+  max-width: 740px;
+  width: 100%;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-card);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gf-preview-mount-wrap {
+  max-width: 740px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Multi-Section Form Pages & Bottom-Left Button Layout */
+.form-section-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-nav-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-card);
+  flex-wrap: wrap;
 }
 
 /* Signature Canvas & Mockup */
@@ -2841,6 +2948,7 @@
 [data-theme='light'] .gf-side-toolbar,
 [data-theme='light'] .gf-section-card,
 [data-theme='light'] .gf-title-desc-card,
+[data-theme='light'] .gf-image-card,
 [data-theme='light'] .gf-responses-header,
 [data-theme='light'] .gf-responses-table-wrap,
 [data-theme='light'] .gf-individual-nav,
@@ -2849,8 +2957,11 @@
   border-color: #cbd5e1;
 }
 
+[data-theme='light'] .gf-title-input,
+[data-theme='light'] .gf-desc-input,
 [data-theme='light'] .gf-q-title-input,
 [data-theme='light'] .gf-type-selector,
+[data-theme='light'] .gf-image-content-box,
 [data-theme='light'] .gf-signature-mockup {
   background: #f8fafc;
   border-color: #cbd5e1;

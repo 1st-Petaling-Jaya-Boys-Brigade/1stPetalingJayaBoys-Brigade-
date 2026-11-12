@@ -310,6 +310,7 @@ function attachSignatureCanvas(canvasEl, inputEl, clearBtn) {
   function startDrawing(e) {
     isDrawing = true;
     hasDrawn = true;
+    canvasEl._hasDrawn = true;
     var pos = getPos(e);
     ctx.beginPath();
     ctx.moveTo(pos.x, pos.y);
@@ -353,6 +354,7 @@ function attachSignatureCanvas(canvasEl, inputEl, clearBtn) {
       e.preventDefault();
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
       hasDrawn = false;
+      canvasEl._hasDrawn = false;
       inputEl.value = '';
     });
   }
@@ -656,17 +658,21 @@ function backToFormsHub() {
 }
 
 /**
- * Renders built-in form fields dynamically inside #inline-form-view
- * Supports questions, signatures, sections, and title blocks.
+ * Renders built-in form inside container with progressive multi-section pagination,
+ * bottom-left Next / Back / Submit buttons, responsive signatures and preview support.
  * @param {Object} form
+ * @param {HTMLElement} [customContainer]
+ * @param {Object} [options]
  */
-function renderBuiltinFormInline(form) {
+function renderBuiltinFormInline(form, customContainer, options) {
   if (typeof document === 'undefined') return;
-  var container = document.getElementById('inline-form-view');
+  var container = customContainer || document.getElementById('inline-form-view') || document.getElementById('builtin-form-view');
   if (!container) return;
 
+  var isPreview = Boolean(options && options.isPreview);
+
   var avail = isFormAcceptingResponses(form);
-  if (!avail.open) {
+  if (!avail.open && !isPreview) {
     var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled to Open' : (avail.reason === 'scheduled_past' ? 'Responses Closed' : 'Responses Paused');
     container.innerHTML =
       '<div class="dark-card" style="text-align:center;padding:36px 24px;">' +
@@ -686,114 +692,192 @@ function renderBuiltinFormInline(form) {
   }
 
   var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
-  var fieldsHtml = '';
   var items = (form.items && form.items.length) ? form.items : (form.fields || []);
   var sigPadsToInit = [];
 
-  items.forEach(function (f, i) {
+  // Group items into progressive section pages
+  var sectionPages = [];
+  var curPage = {
+    title: '',
+    desc: '',
+    items: []
+  };
+
+  items.forEach(function (f, idx) {
     if (f.kind === 'section') {
-      fieldsHtml +=
-        '<div style="background:var(--bg-card-subtle);border-left:4px solid var(--accent, #6366f1);border-radius:8px;padding:14px 18px;margin:22px 0 14px;">' +
-        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeHtml(f.title || 'Section') + '</div>' +
-        (f.desc ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + escapeHtml(f.desc) + '</div>' : '') +
-        '</div>';
-      return;
-    }
-    if (f.kind === 'title_desc') {
-      fieldsHtml +=
-        '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:14px 18px;margin:16px 0;">' +
-        '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' + escapeHtml(f.title || '') + '</div>' +
-        (f.desc ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + escapeHtml(f.desc) + '</div>' : '') +
-        '</div>';
-      return;
-    }
-
-    var fieldId = 'bff-' + formKey + '-' + i;
-    var req = f.required ? ' <span style="color:var(--red);">*</span>' : '';
-    var label = f.title || f.label || ('Question ' + (i + 1));
-    var inp = '';
-
-    if (f.type === 'textarea' || f.type === 'paragraph') {
-      inp = '<textarea class="form-textarea" id="' + fieldId + '" placeholder="Your answer..." style="margin-top:6px;"></textarea>';
-    } else if (f.type === 'select' || f.type === 'dropdown') {
-      var opts = '<option value="">Select an option...</option>';
-      var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
-      optArr.forEach(function (o) {
-        var t = String(o).trim();
-        if (t) opts += '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
-      });
-      inp = '<select class="form-select" id="' + fieldId + '" style="margin-top:6px;">' + opts + '</select>';
-    } else if (f.type === 'multiple_choice' || f.type === 'radio') {
-      var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
-      var radiosHtml = '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
-      optArr.forEach(function (o) {
-        var t = String(o).trim();
-        if (!t) return;
-        radiosHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
-          '<input type="radio" name="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:var(--accent,#6366f1);cursor:pointer;"/> ' +
-          '<span>' + escapeHtml(t) + '</span>' +
-          '</label>';
-      });
-      radiosHtml += '</div>';
-      radiosHtml += '<input type="hidden" id="' + fieldId + '" value=""/>';
-      inp = radiosHtml;
-    } else if (f.type === 'checkboxes') {
-      var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
-      var cbsHtml = '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
-      optArr.forEach(function (o) {
-        var t = String(o).trim();
-        if (!t) return;
-        cbsHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
-          '<input type="checkbox" data-cb-group="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:var(--accent,#6366f1);cursor:pointer;"/> ' +
-          '<span>' + escapeHtml(t) + '</span>' +
-          '</label>';
-      });
-      cbsHtml += '</div>';
-      cbsHtml += '<input type="hidden" id="' + fieldId + '" value=""/>';
-      inp = cbsHtml;
-    } else if (f.type === 'date') {
-      inp = '<input class="form-input" type="date" id="' + fieldId + '" style="margin-top:6px;"/>';
-    } else if (f.type === 'time') {
-      inp = '<input class="form-input" type="time" id="' + fieldId + '" style="margin-top:6px;"/>';
-    } else if (f.type === 'signature') {
-      inp = '<div class="form-signature-wrapper" id="sig-wrap-' + fieldId + '" style="margin-top:8px;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-          '<span style="font-size:12px;color:#64748b;display:inline-flex;align-items:center;gap:6px;">' +
-            '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg> ' +
-            'Draw signature inside the box' +
-          '</span>' +
-          '<button type="button" class="btn-sig-clear" data-sig-clear="' + fieldId + '" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;padding:2px 8px;border-radius:4px;">Clear</button>' +
-        '</div>' +
-        '<canvas id="canvas-' + fieldId + '" class="form-sig-canvas" width="460" height="140" style="background:#ffffff;border:1.5px dashed #cbd5e1;border-radius:8px;width:100%;max-width:500px;height:140px;cursor:crosshair;touch-action:none;display:block;"></canvas>' +
-        '<input type="hidden" id="' + fieldId + '" name="' + escapeHtml(label) + '"/>' +
-      '</div>';
-      sigPadsToInit.push({ fieldId: fieldId });
+      if (curPage.items.length > 0 || curPage.title || curPage.desc || sectionPages.length > 0) {
+        sectionPages.push(curPage);
+      }
+      curPage = {
+        title: f.title || 'Untitled Section',
+        desc: f.desc || '',
+        items: []
+      };
     } else {
-      inp = '<input class="form-input" type="' + (f.type || 'text') + '" id="' + fieldId + '" placeholder="Your answer..." style="margin-top:6px;"/>';
+      curPage.items.push({ field: f, index: idx });
+    }
+  });
+  sectionPages.push(curPage);
+
+  var totalPages = sectionPages.length;
+  var pagesHtml = '';
+
+  sectionPages.forEach(function (page, pIdx) {
+    var pFieldsHtml = '';
+
+    // Page indicator (if multiple sections)
+    var pageBadge = totalPages > 1
+      ? '<div style="font-size:12px;font-weight:700;color:var(--brand-gold, #f59e0b);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Section ' + (pIdx + 1) + ' of ' + totalPages + '</div>'
+      : '';
+
+    // Section Header (for section breaks)
+    var sectionHeaderHtml = '';
+    if (pIdx > 0 && page.title) {
+      sectionHeaderHtml =
+        '<div style="background:var(--bg-card-subtle);border-left:4px solid #f59e0b;border-radius:8px;padding:14px 18px;margin-bottom:18px;">' +
+        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeHtml(page.title) + '</div>' +
+        (page.desc ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + escapeHtml(page.desc) + '</div>' : '') +
+        '</div>';
     }
 
-    fieldsHtml +=
-      '<div class="form-group"><label class="form-label">' +
-      escapeHtml(label) +
-      req +
-      '</label>' +
-      inp +
+    page.items.forEach(function (entry) {
+      var f = entry.field;
+      var i = entry.index;
+
+      if (f.kind === 'title_desc') {
+        pFieldsHtml +=
+          '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:14px 18px;margin:16px 0;">' +
+          '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' + escapeHtml(f.title || '') + '</div>' +
+          (f.desc ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + escapeHtml(f.desc) + '</div>' : '') +
+          '</div>';
+        return;
+      }
+
+      if (f.kind === 'image') {
+        if (f.url) {
+          pFieldsHtml +=
+            '<div class="form-image-block" style="margin:16px 0;text-align:center;">' +
+            (f.title ? '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:8px;text-align:left;">' + escapeHtml(f.title) + '</div>' : '') +
+            '<img src="' + escapeHtml(f.url) + '" alt="' + escapeHtml(f.title || 'Form image') + '" style="max-width:100%;max-height:360px;border-radius:10px;border:1px solid var(--border-card);object-fit:contain;box-shadow:0 2px 10px rgba(0,0,0,0.15);"/>' +
+            '</div>';
+        } else if (f.title) {
+          pFieldsHtml +=
+            '<div class="form-image-block" style="margin:14px 0;">' +
+            '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' + escapeHtml(f.title) + '</div>' +
+            '</div>';
+        }
+        return;
+      }
+
+      var fieldId = 'bff-' + formKey + '-' + i;
+      var req = f.required ? ' <span style="color:var(--red);">*</span>' : '';
+      var label = f.title || f.label || ('Question ' + (i + 1));
+      var inp = '';
+      var reqAttr = f.required ? ' data-required="true" data-label="' + escapeHtml(label) + '" ' : '';
+
+      if (f.type === 'textarea' || f.type === 'paragraph') {
+        inp = '<textarea class="form-textarea" id="' + fieldId + '" placeholder="Your answer..." style="margin-top:6px;"' + reqAttr + '></textarea>';
+      } else if (f.type === 'select' || f.type === 'dropdown') {
+        var opts = '<option value="">Select an option...</option>';
+        var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
+        optArr.forEach(function (o) {
+          var t = String(o).trim();
+          if (t) opts += '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
+        });
+        inp = '<select class="form-select" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '>' + opts + '</select>';
+      } else if (f.type === 'multiple_choice' || f.type === 'radio') {
+        var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
+        var radiosHtml = '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
+        optArr.forEach(function (o) {
+          var t = String(o).trim();
+          if (!t) return;
+          radiosHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
+            '<input type="radio" name="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"' + reqAttr + '/> ' +
+            '<span>' + escapeHtml(t) + '</span>' +
+            '</label>';
+        });
+        radiosHtml += '</div>';
+        radiosHtml += '<input type="hidden" id="' + fieldId + '" value=""/>';
+        inp = radiosHtml;
+      } else if (f.type === 'checkboxes') {
+        var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
+        var cbsHtml = '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
+        optArr.forEach(function (o) {
+          var t = String(o).trim();
+          if (!t) return;
+          cbsHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
+            '<input type="checkbox" data-cb-group="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"/> ' +
+            '<span>' + escapeHtml(t) + '</span>' +
+            '</label>';
+        });
+        cbsHtml += '</div>';
+        cbsHtml += '<input type="hidden" id="' + fieldId + '" value=""/>';
+        inp = cbsHtml;
+      } else if (f.type === 'date') {
+        inp = '<input class="form-input" type="date" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
+      } else if (f.type === 'time') {
+        inp = '<input class="form-input" type="time" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
+      } else if (f.type === 'signature') {
+        inp = '<div class="form-signature-wrapper" id="sig-wrap-' + fieldId + '" style="margin-top:8px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+            '<span style="font-size:12px;color:#64748b;display:inline-flex;align-items:center;gap:6px;">' +
+              '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg> ' +
+              'Draw signature inside the box' +
+            '</span>' +
+            '<button type="button" class="btn-sig-clear" data-sig-clear="' + fieldId + '" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;padding:2px 8px;border-radius:4px;">Clear</button>' +
+          '</div>' +
+          '<canvas id="canvas-' + fieldId + '" class="form-sig-canvas" width="460" height="140" style="background:#ffffff;border:1.5px dashed #cbd5e1;border-radius:8px;width:100%;max-width:500px;height:140px;cursor:crosshair;touch-action:none;display:block;"' + reqAttr + ' data-field-id="' + fieldId + '"></canvas>' +
+          '<input type="hidden" id="' + fieldId + '" name="' + escapeHtml(label) + '"/>' +
+        '</div>';
+        sigPadsToInit.push({ fieldId: fieldId });
+      } else {
+        inp = '<input class="form-input" type="' + (f.type || 'text') + '" id="' + fieldId + '" placeholder="Your answer..." style="margin-top:6px;"' + reqAttr + '/>';
+      }
+
+      pFieldsHtml +=
+        '<div class="form-group"><label class="form-label">' +
+        escapeHtml(label) +
+        req +
+        '</label>' +
+        inp +
+        '</div>';
+    });
+
+    // Navigation buttons row positioned on the bottom left corner:
+    // When on the last page/section: Back button first, then Submit button to the right of Back.
+    var navButtonsHtml = '<div class="form-nav-btn-row">';
+    if (pIdx > 0) {
+      navButtonsHtml += '<button type="button" class="portal-btn portal-btn-secondary btn-form-back" data-goto-page="' + (pIdx - 1) + '" style="padding:10px 22px;border-radius:10px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg> Back</button>';
+    }
+    if (pIdx < totalPages - 1) {
+      navButtonsHtml += '<button type="button" class="submit-btn gold btn-form-next" data-goto-page="' + (pIdx + 1) + '" style="width:auto;margin:0;padding:10px 26px;border-radius:10px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">Next <svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>';
+    } else {
+      navButtonsHtml += '<button type="button" class="submit-btn gold btn-with-icon" data-submit-form="' + escapeHtml(form.id) + '" style="width:auto;margin:0;padding:10px 28px;border-radius:10px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;cursor:pointer;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Submit</button>';
+    }
+    navButtonsHtml += '</div>';
+
+    pagesHtml +=
+      '<div class="form-section-page" data-page-index="' + pIdx + '" style="' + (pIdx === 0 ? '' : 'display:none;') + '">' +
+      pageBadge +
+      sectionHeaderHtml +
+      pFieldsHtml +
+      navButtonsHtml +
       '</div>';
   });
 
+  var backBtnHtml = !isPreview
+    ? '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>'
+    : '';
+
   container.innerHTML =
     '<div class="dark-card">' +
-    '<button onclick="backToFormsHub()" style="display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:16px;">\u2039 Back to Forms</button>' +
+    backBtnHtml +
     '<div class="page-title">' +
     escapeHtml(form.name) +
     '</div>' +
     (form.desc ? '<div class="page-desc">' + escapeHtml(form.desc) + '</div>' : '') +
     '<hr class="divider"/>' +
-    fieldsHtml +
-    '<div class="cf-turnstile-container" data-action="form" style="margin-bottom:14px;min-height:65px;display:flex;justify-content:center;"></div>' +
-    '<button class="submit-btn gold btn-with-icon" data-submit-form="' +
-    form.id +
-    '" style="justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Submit</button>' +
+    pagesHtml +
     '<div class="success-box" id="builtin-success" style="display:none;"><div class="s-icon"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="s-title">Submitted!</div><div class="s-msg">Your form has been received.</div></div>' +
     '</div>';
 
@@ -806,15 +890,105 @@ function renderBuiltinFormInline(form) {
     }
   });
 
-  if (typeof renderTurnstileWidget === 'function') {
-    setTimeout(function () {
-      renderTurnstileWidget(container.querySelector('.cf-turnstile-container'), 'form');
-    }, 50);
-  }
+  // Wire Next section button
+  container.querySelectorAll('.btn-form-next').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var targetIdx = parseInt(btn.getAttribute('data-goto-page'), 10);
+      var currentVisiblePage = container.querySelector('.form-section-page:not([style*="display: none"]):not([style*="display:none"])') || container.querySelector('.form-section-page[data-page-index="0"]');
 
+      // Validate required inputs on current page before advancing
+      if (currentVisiblePage) {
+        var missingLabel = null;
+
+        var reqInputs = currentVisiblePage.querySelectorAll('input[data-required="true"], textarea[data-required="true"], select[data-required="true"]');
+        for (var k = 0; k < reqInputs.length; k++) {
+          var inpEl = reqInputs[k];
+          if (inpEl.type === 'radio') continue;
+          if (!inpEl.value || !inpEl.value.trim()) {
+            missingLabel = inpEl.getAttribute('data-label') || 'This field';
+            inpEl.focus();
+            break;
+          }
+        }
+
+        if (!missingLabel) {
+          var radioGroups = {};
+          currentVisiblePage.querySelectorAll('input[type="radio"][data-required="true"]').forEach(function (r) {
+            radioGroups[r.name] = r.getAttribute('data-label') || 'This question';
+          });
+          var rNames = Object.keys(radioGroups);
+          for (var rIdx = 0; rIdx < rNames.length; rIdx++) {
+            var rName = rNames[rIdx];
+            var checked = currentVisiblePage.querySelector('input[name="' + rName + '"]:checked');
+            if (!checked) {
+              missingLabel = radioGroups[rName];
+              break;
+            }
+          }
+        }
+
+        if (!missingLabel) {
+          var reqCanvases = currentVisiblePage.querySelectorAll('canvas[data-required="true"]');
+          for (var sIdx = 0; sIdx < reqCanvases.length; sIdx++) {
+            var sCanvas = reqCanvases[sIdx];
+            var fId = sCanvas.getAttribute('data-field-id');
+            var hInp = fId ? currentVisiblePage.querySelector('#' + fId) : null;
+            var hasVal = (hInp && hInp.value && hInp.value.indexOf('data:image') !== -1) || sCanvas._hasDrawn;
+            if (!hasVal) {
+              missingLabel = sCanvas.getAttribute('data-label') || 'Signature';
+              break;
+            }
+          }
+        }
+
+        if (missingLabel) {
+          if (typeof showToast === 'function') {
+            showToast('Please answer required question: ' + missingLabel, 'warning');
+          }
+          return;
+        }
+      }
+
+      container.querySelectorAll('.form-section-page').forEach(function (p) {
+        p.style.display = 'none';
+      });
+      var targetPage = container.querySelector('.form-section-page[data-page-index="' + targetIdx + '"]');
+      if (targetPage) {
+        targetPage.style.display = 'block';
+        if (container.scrollIntoView) {
+          container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    });
+  });
+
+  // Wire Back section button
+  container.querySelectorAll('.btn-form-back').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var targetIdx = parseInt(btn.getAttribute('data-goto-page'), 10);
+      container.querySelectorAll('.form-section-page').forEach(function (p) {
+        p.style.display = 'none';
+      });
+      var targetPage = container.querySelector('.form-section-page[data-page-index="' + targetIdx + '"]');
+      if (targetPage) {
+        targetPage.style.display = 'block';
+        if (container.scrollIntoView) {
+          container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    });
+  });
+
+  // Wire Submit button
   var submitBtn = container.querySelector('[data-submit-form]');
   if (submitBtn) {
     submitBtn.addEventListener('click', function () {
+      if (isPreview) {
+        if (typeof showToast === 'function') {
+          showToast('This is a preview mode. Submissions are disabled.', 'warning');
+        }
+        return;
+      }
       submitBuiltinForm(form);
     });
   }
@@ -839,7 +1013,7 @@ function validateFormAnswers(form, answersMap) {
 
   for (var i = 0; i < items.length; i++) {
     var f = items[i];
-    if (f.kind === 'section' || f.kind === 'title_desc') continue;
+    if (f.kind === 'section' || f.kind === 'title_desc' || f.kind === 'image') continue;
     var label = f.label || f.title || ('Question ' + (i + 1));
     var val = answers[label] !== undefined ? String(answers[label]).trim() : '';
     var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : '';
@@ -938,7 +1112,7 @@ async function submitBuiltinForm(form) {
   var cleanAnswers = {};
 
   items.forEach(function (f, i) {
-    if (f.kind === 'section' || f.kind === 'title_desc') return;
+    if (f.kind === 'section' || f.kind === 'title_desc' || f.kind === 'image') return;
     var label = f.label || f.title || ('Question ' + (i + 1));
     var scopedId = 'bff-' + formKey + '-' + i;
     var el = typeof document !== 'undefined'
@@ -953,6 +1127,20 @@ async function submitBuiltinForm(form) {
       var vals = [];
       checkedBoxes.forEach(function (cb) { vals.push(cb.value); });
       val = vals.join(', ');
+    } else if (f.type === 'signature') {
+      if (el && el.value && el.value.indexOf('data:image') !== -1) {
+        val = el.value.trim();
+      } else {
+        var sigCanvas = typeof document !== 'undefined'
+          ? (document.getElementById('canvas-' + scopedId) || document.getElementById('canvas-bff-' + i))
+          : null;
+        if (sigCanvas && typeof sigCanvas.toDataURL === 'function' && sigCanvas._hasDrawn) {
+          try {
+            val = sigCanvas.toDataURL('image/png');
+            if (el) el.value = val;
+          } catch (e) {}
+        }
+      }
     } else if (el) {
       val = el.value.trim();
     }
@@ -968,7 +1156,7 @@ async function submitBuiltinForm(form) {
 
   // Update DOM field border styling
   items.forEach(function (f, i) {
-    if (f.kind === 'section' || f.kind === 'title_desc') return;
+    if (f.kind === 'section' || f.kind === 'title_desc' || f.kind === 'image') return;
     var label = f.label || f.title || ('Question ' + (i + 1));
     var scopedId = 'bff-' + formKey + '-' + i;
     var el = typeof document !== 'undefined'
@@ -987,29 +1175,6 @@ async function submitBuiltinForm(form) {
     if (typeof showToast === 'function')
       showToast(validation.error || 'Please fill in all required fields.', 'warning');
     return;
-  }
-
-  // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('form')
-    : '';
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
-    if (typeof showToast === 'function') {
-      showToast('Please complete the security check before submitting.', 'warning');
-    }
-    return;
-  }
-  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
-    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'form');
-    if (!captchaResult || !captchaResult.success) {
-      if (typeof resetTurnstileWidget === 'function') {
-        resetTurnstileWidget('form');
-      }
-      if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
-      }
-      return;
-    }
   }
 
   _isSubmittingBuiltinForm = true;
@@ -1085,9 +1250,6 @@ async function submitBuiltinForm(form) {
     }
   } finally {
     _isSubmittingBuiltinForm = false;
-    if (typeof resetTurnstileWidget === 'function') {
-      resetTurnstileWidget('form');
-    }
   }
 }
 
@@ -1820,6 +1982,9 @@ function renderGfEditor() {
     '<button type="button" class="gf-tab-btn ' + (_gfActiveTab === 'settings' ? 'is-active' : '') + '" onclick="switchGfTab(\'settings\')">Settings</button>' +
     '</div>' +
     '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<button type="button" class="portal-btn portal-btn-secondary btn-with-icon" onclick="previewGfForm()" style="padding:8px 16px;font-size:13px;cursor:pointer;">' +
+    '<svg class="ui-icon-xs" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Preview' +
+    '</button>' +
     '<button type="button" class="submit-btn gold btn-with-icon" onclick="saveGfCurrentForm()" style="padding:8px 18px;font-size:13px;">' +
     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Save Form' +
     '</button>' +
@@ -1871,6 +2036,68 @@ async function saveGfCurrentForm() {
 
   if (typeof showToast === 'function') {
     showToast('Form "' + _gfCurrentForm.name + '" saved successfully!', 'success');
+  }
+}
+
+/**
+ * Opens form in interactive Preview Mode for admins to inspect and test navigation
+ * Does NOT allow submitting, does NOT save test input values, and discards all changes on exit.
+ */
+function previewGfForm() {
+  if (typeof document === 'undefined' || !_gfCurrentForm) return;
+
+  // Sync title and description inputs if modified in DOM
+  var titleEl = document.querySelector('.gf-title-input');
+  var descEl = document.querySelector('.gf-desc-input');
+  if (titleEl) _gfCurrentForm.name = titleEl.value.trim() || 'Untitled form';
+  if (descEl) _gfCurrentForm.desc = descEl.value.trim() || '';
+
+  closeGfPreview();
+
+  var overlay = document.createElement('div');
+  overlay.className = 'gf-preview-overlay';
+  overlay.id = 'gf-preview-overlay';
+
+  overlay.innerHTML =
+    '<div class="gf-preview-topbar">' +
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<span style="font-weight:700;font-size:16px;color:var(--text-primary);display:inline-flex;align-items:center;gap:8px;">' +
+    '<svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Form Preview' +
+    '</span>' +
+    '<span style="background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid rgba(245,158,11,0.35);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;letter-spacing:0.5px;">PREVIEW MODE</span>' +
+    '</div>' +
+    '<button type="button" class="portal-btn portal-btn-secondary" onclick="closeGfPreview()" style="padding:8px 16px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">' +
+    '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Back to Editor' +
+    '</button>' +
+    '</div>' +
+    '<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 18px;margin:0 auto 20px;max-width:740px;width:100%;box-sizing:border-box;display:flex;align-items:center;gap:10px;font-size:13px;color:#fcd34d;">' +
+    '<svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12.01" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg>' +
+    'This is how respondents will see your form. You can navigate sections and test inputs, but form submissions are disabled and preview inputs are not saved.' +
+    '</div>' +
+    '<div class="gf-preview-mount-wrap" id="gf-preview-mount"></div>';
+
+  document.body.appendChild(overlay);
+
+  var mountEl = document.getElementById('gf-preview-mount');
+  if (mountEl) {
+    // Clone form to guarantee zero mutation of editor state
+    var formClone = JSON.parse(JSON.stringify(_gfCurrentForm));
+    renderBuiltinFormInline(formClone, mountEl, { isPreview: true });
+  }
+}
+
+/**
+ * Dismisses Form Preview overlay and discards all preview inputs
+ */
+function closeGfPreview() {
+  if (typeof document === 'undefined') return;
+  var existing = document.getElementById('gf-preview-overlay');
+  if (existing) {
+    if (typeof existing.remove === 'function') {
+      existing.remove();
+    } else if (existing.parentNode && typeof existing.parentNode.removeChild === 'function') {
+      existing.parentNode.removeChild(existing);
+    }
   }
 }
 
@@ -1957,6 +2184,29 @@ function addGfTitleDesc(afterId) {
 }
 
 /**
+ * Appends an Image block
+ * @param {string} [afterId]
+ */
+function addGfImage(afterId) {
+  if (!_gfCurrentForm || !_gfCurrentForm.items) return;
+  var newItem = {
+    id: 'img_' + Date.now().toString(36),
+    kind: 'image',
+    title: '',
+    url: ''
+  };
+  if (afterId) {
+    var idx = _gfCurrentForm.items.findIndex(function(x) { return x.id === afterId; });
+    if (idx >= 0) _gfCurrentForm.items.splice(idx + 1, 0, newItem);
+    else _gfCurrentForm.items.push(newItem);
+  } else {
+    _gfCurrentForm.items.push(newItem);
+  }
+  _gfActiveItemId = newItem.id;
+  renderGfEditor();
+}
+
+/**
  * Appends a Section break card
  * @param {string} [afterId]
  */
@@ -1980,6 +2230,35 @@ function addGfSection(afterId) {
 }
 
 /**
+ * Aligns floating side toolbar to currently active card
+ */
+function updateGfToolbarPosition() {
+  if (typeof document === 'undefined') return;
+  var toolbar = document.getElementById('gf-side-toolbar');
+  if (!toolbar) return;
+  var layout = document.querySelector('.gf-cards-layout');
+  if (!layout) return;
+
+  var activeCard = null;
+  if (_gfActiveItemId) {
+    activeCard = layout.querySelector('[data-item-id="' + _gfActiveItemId + '"]');
+  }
+  if (!activeCard) {
+    var allCards = layout.querySelectorAll('.gf-question-card, .gf-section-card, .gf-title-desc-card, .gf-image-card');
+    if (allCards.length > 0) activeCard = allCards[allCards.length - 1];
+    else activeCard = layout.querySelector('.gf-form-header-card');
+  }
+
+  if (activeCard) {
+    var lRect = layout.getBoundingClientRect();
+    var aRect = activeCard.getBoundingClientRect();
+    var topOffset = aRect.top - lRect.top;
+    if (topOffset < 0) topOffset = 0;
+    toolbar.style.top = topOffset + 'px';
+  }
+}
+
+/**
  * Renders the Questions tab of the Google Forms Builder
  */
 function renderGfQuestionsTab() {
@@ -1991,12 +2270,12 @@ function renderGfQuestionsTab() {
   var currentSectionNum = 1;
 
   var headerCardHtml =
-    '<div class="gf-form-header-card">' +
+    '<div class="gf-form-header-card gf-card-item" data-item-id="header">' +
     '<div class="gf-form-header-stripe"></div>' +
     '<div class="gf-form-header-body">' +
     '<input type="text" class="gf-title-input" placeholder="Untitled form" value="' + escapeHtml(_gfCurrentForm.name || '') + '"/>' +
     '<textarea class="gf-desc-input" rows="1" placeholder="Form description">' + escapeHtml(_gfCurrentForm.desc || '') + '</textarea>' +
-    '<div style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:6px;border-top:1px solid var(--border-card);padding-top:10px;margin-top:2px;">' +
+    '<div style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.22);border-radius:8px;padding:10px 14px;margin-top:2px;">' +
     '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
     'This form automatically collects respondent information upon submission.' +
     '</div>' +
@@ -2011,7 +2290,7 @@ function renderGfQuestionsTab() {
     if (it.kind === 'section') {
       currentSectionNum++;
       questionsListHtml +=
-        '<div class="gf-section-card" data-item-id="' + escapeHtml(it.id) + '">' +
+        '<div class="gf-section-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<span style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;">Section ' + currentSectionNum + ' of ' + totalSections + '</span>' +
         '<button type="button" class="gf-icon-btn" data-act="del" title="Delete section"><svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
@@ -2024,13 +2303,44 @@ function renderGfQuestionsTab() {
 
     if (it.kind === 'title_desc') {
       questionsListHtml +=
-        '<div class="gf-title-desc-card" data-item-id="' + escapeHtml(it.id) + '">' +
+        '<div class="gf-title-desc-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<span style="font-size:11px;font-weight:700;color:#818cf8;text-transform:uppercase;letter-spacing:0.5px;">Title & Description</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.5px;">Title & Description</span>' +
         '<button type="button" class="gf-icon-btn" data-act="del" title="Delete block"><svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
         '</div>' +
         '<input type="text" class="gf-q-title-input" placeholder="Untitled Title" value="' + escapeHtml(it.title || '') + '" data-bind="title" style="font-size:15px;font-weight:700;"/>' +
         '<input type="text" class="form-input" placeholder="Description" value="' + escapeHtml(it.desc || '') + '" data-bind="desc" style="font-size:13px;"/>' +
+        '</div>';
+      return;
+    }
+
+    if (it.kind === 'image') {
+      questionsListHtml +=
+        '<div class="gf-image-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
+        '<div class="gf-drag-handle">' +
+        '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<span style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.5px;display:inline-flex;align-items:center;gap:6px;">' +
+        '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Image' +
+        '</span>' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        '<button type="button" class="gf-icon-btn" data-act="dup" title="Duplicate"><svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>' +
+        '<button type="button" class="gf-icon-btn" data-act="del" title="Delete block"><svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+        '</div>' +
+        '</div>' +
+        '<input type="text" class="gf-q-title-input" placeholder="Image Title (optional)" value="' + escapeHtml(it.title || '') + '" data-bind="title"/>' +
+        '<div class="gf-image-content-box">' +
+        (it.url ? '<div style="margin-bottom:12px;text-align:center;"><img src="' + escapeHtml(it.url) + '" alt="' + escapeHtml(it.title || 'Image Preview') + '" style="max-height:220px;max-width:100%;border-radius:8px;border:1px solid var(--border-card);object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,0.2);"/></div>' : '') +
+        '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
+        '<input type="text" class="form-input" placeholder="Image URL (https://...) or upload below" value="' + escapeHtml(it.url || '') + '" data-bind="url" style="flex:1;min-width:180px;font-size:13px;"/>' +
+        '<label class="portal-btn portal-btn-secondary" style="margin:0;cursor:pointer;padding:8px 14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">' +
+        '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Upload Image' +
+        '<input type="file" accept="image/*" class="gf-image-file-input" style="display:none;"/>' +
+        '</label>' +
+        (it.url ? '<button type="button" class="portal-btn portal-btn-secondary" data-act="clear-img" style="padding:8px 12px;font-size:12px;color:var(--red);">Clear</button>' : '') +
+        '</div>' +
+        '</div>' +
         '</div>';
       return;
     }
@@ -2071,7 +2381,7 @@ function renderGfQuestionsTab() {
     } else if (qType === 'signature') {
       bodyHtml =
         '<div class="gf-signature-mockup">' +
-        '<div style="width:36px;height:36px;border-radius:50%;background:rgba(99,102,241,0.12);color:#818cf8;display:flex;align-items:center;justify-content:center;">' +
+        '<div style="width:36px;height:36px;border-radius:50%;background:rgba(245,158,11,0.12);color:#f59e0b;display:flex;align-items:center;justify-content:center;">' +
         '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>' +
         '</div>' +
         '<div style="font-weight:700;color:var(--text-primary);font-size:14px;">Signature Canvas</div>' +
@@ -2080,7 +2390,7 @@ function renderGfQuestionsTab() {
     }
 
     questionsListHtml +=
-      '<div class="gf-question-card ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
+      '<div class="gf-question-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
       '<div class="gf-drag-handle">' +
       '<svg width="20" height="12" viewBox="0 0 20 12" fill="currentColor"><circle cx="7" cy="3" r="1.5"/><circle cx="13" cy="3" r="1.5"/><circle cx="7" cy="9" r="1.5"/><circle cx="13" cy="9" r="1.5"/></svg>' +
       '</div>' +
@@ -2117,13 +2427,21 @@ function renderGfQuestionsTab() {
   questionsListHtml += '</div>';
 
   var sideToolbarHtml =
-    '<div class="gf-side-toolbar">' +
+    '<div class="gf-side-toolbar" id="gf-side-toolbar">' +
     '<button type="button" class="gf-side-tool-btn" data-tool="add-q" title="Add question"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></button>' +
     '<button type="button" class="gf-side-tool-btn" data-tool="add-td" title="Add title & description"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></button>' +
+    '<button type="button" class="gf-side-tool-btn" data-tool="add-img" title="Add image"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>' +
     '<button type="button" class="gf-side-tool-btn" data-tool="add-sec" title="Add section"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="18" height="7" rx="1"/></svg></button>' +
     '</div>';
 
-  container.innerHTML = headerCardHtml + '<div class="gf-body-layout">' + questionsListHtml + sideToolbarHtml + '</div>';
+  container.innerHTML =
+    '<div class="gf-cards-layout">' +
+    '<div class="gf-cards-column">' +
+    headerCardHtml +
+    questionsListHtml +
+    '</div>' +
+    sideToolbarHtml +
+    '</div>';
 
   // Wire header inputs
   var titleInput = container.querySelector('.gf-title-input');
@@ -2141,6 +2459,7 @@ function renderGfQuestionsTab() {
       var tool = btn.getAttribute('data-tool');
       if (tool === 'add-q') addGfQuestion(_gfActiveItemId);
       if (tool === 'add-td') addGfTitleDesc(_gfActiveItemId);
+      if (tool === 'add-img') addGfImage(_gfActiveItemId);
       if (tool === 'add-sec') addGfSection(_gfActiveItemId);
     });
   });
@@ -2154,7 +2473,11 @@ function renderGfQuestionsTab() {
     card.addEventListener('click', function(e) {
       if (_gfActiveItemId !== itemId && !e.target.closest('button')) {
         _gfActiveItemId = itemId;
-        renderGfEditor();
+        container.querySelectorAll('.gf-card-item').forEach(function(c) {
+          if (c.getAttribute('data-item-id') === itemId) c.classList.add('is-active');
+          else c.classList.remove('is-active');
+        });
+        updateGfToolbarPosition();
       }
     });
 
@@ -2166,6 +2489,38 @@ function renderGfQuestionsTab() {
     var descInp = card.querySelector('[data-bind="desc"]');
     if (descInp) {
       descInp.addEventListener('input', function() { it.desc = descInp.value; });
+    }
+
+    var urlInp = card.querySelector('[data-bind="url"]');
+    if (urlInp) {
+      urlInp.addEventListener('input', function() { it.url = urlInp.value.trim(); });
+    }
+
+    var imgFileInp = card.querySelector('.gf-image-file-input');
+    if (imgFileInp) {
+      imgFileInp.addEventListener('change', function(e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          if (typeof showToast === 'function') showToast('Image file exceeds 5MB limit.', 'error');
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function(evt) {
+          it.url = evt.target.result;
+          renderGfEditor();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    var clearImgBtn = card.querySelector('[data-act="clear-img"]');
+    if (clearImgBtn) {
+      clearImgBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        it.url = '';
+        renderGfEditor();
+      });
     }
 
     var typeSel = card.querySelector('[data-bind="type"]');
@@ -2241,6 +2596,9 @@ function renderGfQuestionsTab() {
       });
     }
   });
+
+  updateGfToolbarPosition();
+  setTimeout(updateGfToolbarPosition, 50);
 }
 
 // ── Google Forms Responses Tab (Table View & Individual View) ──────────────
@@ -2875,7 +3233,11 @@ if (typeof window !== 'undefined') {
   window.duplicateGfItem = duplicateGfItem;
   window.deleteGfItem = deleteGfItem;
   window.addGfTitleDesc = addGfTitleDesc;
+  window.addGfImage = addGfImage;
   window.addGfSection = addGfSection;
+  window.updateGfToolbarPosition = updateGfToolbarPosition;
+  window.previewGfForm = previewGfForm;
+  window.closeGfPreview = closeGfPreview;
   window.renderGfQuestionsTab = renderGfQuestionsTab;
   window.loadGfResponses = loadGfResponses;
   window.renderGfResponsesTab = renderGfResponsesTab;
@@ -2889,12 +3251,12 @@ if (typeof module !== 'undefined' && module.exports) {
     _customForms: _customForms,
     _currentFormType: _currentFormType,
     _fbFields: _fbFields,
-    _gfCurrentForm: _gfCurrentForm,
-    _gfActiveTab: _gfActiveTab,
-    _gfActiveItemId: _gfActiveItemId,
-    _gfResponsesViewMode: _gfResponsesViewMode,
-    _gfIndividualIndex: _gfIndividualIndex,
-    _gfResponsesList: _gfResponsesList,
+    get _gfCurrentForm() { return _gfCurrentForm; },
+    get _gfActiveTab() { return _gfActiveTab; },
+    get _gfActiveItemId() { return _gfActiveItemId; },
+    get _gfResponsesViewMode() { return _gfResponsesViewMode; },
+    get _gfIndividualIndex() { return _gfIndividualIndex; },
+    get _gfResponsesList() { return _gfResponsesList; },
 
     loadCustomForms: loadCustomForms,
     saveCustomForms: saveCustomForms,
@@ -2940,7 +3302,11 @@ if (typeof module !== 'undefined' && module.exports) {
     duplicateGfItem: duplicateGfItem,
     deleteGfItem: deleteGfItem,
     addGfTitleDesc: addGfTitleDesc,
+    addGfImage: addGfImage,
     addGfSection: addGfSection,
+    updateGfToolbarPosition: updateGfToolbarPosition,
+    previewGfForm: previewGfForm,
+    closeGfPreview: closeGfPreview,
     renderGfQuestionsTab: renderGfQuestionsTab,
     loadGfResponses: loadGfResponses,
     renderGfResponsesTab: renderGfResponsesTab,
