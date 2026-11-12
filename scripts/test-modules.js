@@ -12110,6 +12110,92 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 56. Form Response Table Split, Wide-Screen Layout & Topbar Alignment (Images 1-5) ──
+  console.log('\nTesting Form Response Table Split, Wide-Screen Layout & Topbar Alignment...');
+  {
+    const formsMod = require('../js/modules/forms.js');
+    const adminCss = fs.readFileSync(path.join(__dirname, '../css/admin.css'), 'utf8');
+
+    // 1. Image 1: Distinct split/line/break inbetween auto-filled fields and questions
+    assert.ok(adminCss.includes('.gf-col-autofill-last'), 'admin.css defines .gf-col-autofill-last divider class');
+    assert.ok(adminCss.includes('border-right: 3px solid'), 'admin.css specifies bold 3px vertical split border for last autofill column');
+    assert.ok(adminCss.includes('.gf-autofill-tag'), 'admin.css defines .gf-autofill-tag header badge');
+
+    // Test responses table HTML output
+    formsMod._gfCurrentForm = {
+      id: 'test_split_form',
+      name: 'Test Form 3.0',
+      type: 'builtin',
+      status: 'active',
+      items: [
+        { id: 'q1', kind: 'question', title: 'test mcq', type: 'radio', options: ['Option 1', 'Option 2'] },
+        { id: 'q2', kind: 'question', title: 'test short answer', type: 'text' }
+      ]
+    };
+    const mockResponses = [
+      {
+        order_number: 'RESP-001',
+        member_name: 'Jeshua Koh',
+        rank: 'Sergeant',
+        squad: 'Hotel',
+        created_at: new Date().toISOString(),
+        items: JSON.stringify({ answers: { 'test mcq': 'Option 2', 'test short answer': 'testing short answer pass' } })
+      }
+    ];
+    window._mockGfResponses = mockResponses;
+    window._gfResponsesViewMode = 'table';
+
+    const tabContainer = document.createElement('div');
+    tabContainer.id = 'gf-tab-container';
+    document.body.appendChild(tabContainer);
+
+    await formsMod.renderGfResponsesTab();
+    const responsesHtml = tabContainer.innerHTML;
+
+    assert.ok(responsesHtml.includes('gf-col-autofill-last'), 'Rank / Platoon th & td include gf-col-autofill-last class');
+    assert.ok(responsesHtml.includes('gf-autofill-tag'), 'Rank / Platoon header includes Auto tag badge');
+    assert.ok(responsesHtml.includes('Respondent'), 'Auto-filled Respondent column rendered');
+    assert.ok(responsesHtml.includes('Date'), 'Auto-filled Date column rendered');
+    assert.ok(responsesHtml.includes('test mcq'), 'Form question column rendered after auto-fill split');
+    console.log('  ✔ Distinct split line and Auto badge clearly separate auto-filled fields in responses table (Image 1)');
+
+    // 2. Images 2-5: Wide-Screen horizontal layout filling empty spaces
+    assert.ok(adminCss.includes('.gf-builder-container {') && adminCss.includes('width: 100%;') && adminCss.includes('max-width: 100%;'), 'Form builder container uses 100% width filling horizontal spaces');
+    assert.ok(!adminCss.includes('max-width: 820px'), '820px rigid max-width restriction eliminated from .gf-builder-container');
+
+    // 3. Image 5: Topbar Preview & Save Form buttons aligned properly
+    assert.ok(adminCss.includes('.gf-topbar-left') && adminCss.includes('.gf-topbar-center') && adminCss.includes('.gf-topbar-right'), 'Topbar defines 3-part flex alignment (left, centered tabs, right actions)');
+    assert.ok(adminCss.includes('.gf-btn-preview') && adminCss.includes('.gf-btn-save'), 'Preview and Save Form buttons have dedicated alignment classes');
+    assert.ok(adminCss.includes('height: 38px !important;'), 'Preview and Save Form buttons have unified 38px height and vertical centering');
+
+    let editorMount = document.querySelector('.adm-form-editor-mount');
+    if (!editorMount) {
+      editorMount = document.createElement('div');
+      editorMount.className = 'adm-form-editor-mount';
+      document.body.appendChild(editorMount);
+    }
+
+    formsMod.renderGfEditor();
+    const editorHtml = editorMount.innerHTML;
+
+    assert.ok(editorHtml.includes('gf-topbar-left'), 'Editor topbar renders gf-topbar-left container');
+    assert.ok(editorHtml.includes('gf-topbar-center'), 'Editor topbar renders centered gf-topbar-center for Questions/Responses/Settings');
+    assert.ok(editorHtml.includes('gf-topbar-right'), 'Editor topbar renders gf-topbar-right container');
+    assert.ok(editorHtml.includes('gf-btn-preview'), 'Preview button styled with gf-btn-preview');
+    assert.ok(editorHtml.includes('gf-btn-save'), 'Save Form button styled with gf-btn-save');
+    console.log('  ✔ Wide-screen layout fills horizontal space and aligns Preview & Save Form buttons (Images 2-5)');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const postIds = new Set();
+    postMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds.add(match[1]);
+    });
+    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
