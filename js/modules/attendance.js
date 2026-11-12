@@ -403,11 +403,10 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
           '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Parade Attendance</span>' +
-          '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:' + pTier.bg + ';color:' + pTier.color + ';border:1px solid ' + pTier.border + ';cursor:help;" title="' + escapeAttHtml(pTier.tooltipText) + '">80% Req. ℹ️</span>' +
+          '<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' + escapeAttHtml(pTier.tooltipText) + '" aria-label="Attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>' +
         '</div>' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
           '<span style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:' + pTier.color + ';">' + escapeAttHtml(pTier.label) + '</span>' +
-          '<span class="att-tier-pill tier-' + pTier.tier.replace('_', '-') + '" title="' + escapeAttHtml(pTier.tooltipText) + '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + pTier.bg + ';color:' + pTier.color + ';border:1px solid ' + pTier.border + ';cursor:help;" aria-label="Attendance tier: ' + escapeAttHtml(pTier.label) + '">' + (pTier.qualifiesForOneYearService ? 'One Year Service Qualified' : 'One Year Service Pending') + '</span>' +
         '</div>' +
         '<div style="margin-top:8px;height:5px;background:var(--surface-track);border-radius:3px;overflow:hidden;" title="' + escapeAttHtml(pTier.tooltipText) + '">' +
           '<div style="height:100%;width:' + Math.min(100, Math.max(0, parade.percentage || 0)) + '%;background:' + pTier.color + ';border-radius:3px;"></div>' +
@@ -422,7 +421,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;position:relative;overflow:hidden;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
           '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Band Attendance</span>' +
-          (isBandMember ? ('<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:' + bTier.bg + ';color:' + bTier.color + ';border:1px solid ' + bTier.border + ';cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '">80% Req. ℹ️</span>') : '') +
+          (isBandMember ? ('<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '" aria-label="Band attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>') : '') +
         '</div>' +
         (isBandMember ? (
           '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">' +
