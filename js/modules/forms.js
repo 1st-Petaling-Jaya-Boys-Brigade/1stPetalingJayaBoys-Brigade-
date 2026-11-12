@@ -270,6 +270,81 @@ function convertGfItemsToFields(items) {
   return fields;
 }
 
+/**
+ * Detects if a form option is an "Other..." option
+ * @param {string} val
+ * @returns {boolean}
+ */
+function isOtherOption(val) {
+  if (!val) return false;
+  var s = String(val).trim().toLowerCase();
+  return s === 'other...' || s === 'other…' || s === 'other' || s.indexOf('other:') === 0 || s === '__other__';
+}
+
+/**
+ * Handles focus on the "Other" short answer text input, auto-checking the corresponding radio or checkbox
+ * @param {string} fieldId
+ * @param {string} type 'radio' | 'checkbox'
+ */
+function onGfOtherInputFocus(fieldId, type) {
+  if (typeof document === 'undefined') return;
+  var otherInp = document.getElementById(fieldId + '-other-text');
+  if (otherInp) otherInp.style.borderColor = '';
+  if (type === 'checkbox') {
+    var cb = document.querySelector('input[data-cb-group="' + fieldId + '"][value="__other__"]');
+    if (cb && !cb.checked) cb.checked = true;
+  } else {
+    var radio = document.querySelector('input[name="' + fieldId + '"][value="__other__"]');
+    if (radio && !radio.checked) radio.checked = true;
+  }
+}
+
+/**
+ * Handles input changes on the "Other" short answer text input
+ * @param {string} fieldId
+ * @param {string} type 'radio' | 'checkbox'
+ * @param {string} val
+ */
+function onGfOtherInputChange(fieldId, type, val) {
+  if (typeof document === 'undefined') return;
+  var otherInp = document.getElementById(fieldId + '-other-text');
+  if (otherInp) otherInp.style.borderColor = '';
+  if (type === 'checkbox') {
+    var cb = document.querySelector('input[data-cb-group="' + fieldId + '"][value="__other__"]');
+    if (cb && val && val.trim().length > 0) cb.checked = true;
+  } else {
+    var radio = document.querySelector('input[name="' + fieldId + '"][value="__other__"]');
+    if (radio && !radio.checked) radio.checked = true;
+  }
+}
+
+/**
+ * Focuses the Other text input when the Other radio is selected
+ * @param {string} fieldId
+ */
+function onGfOtherRadioChange(fieldId) {
+  if (typeof document === 'undefined') return;
+  var otherInp = document.getElementById(fieldId + '-other-text');
+  if (otherInp) {
+    try { otherInp.focus(); } catch (_) {}
+  }
+}
+
+/**
+ * Focuses the Other text input when the Other checkbox is checked
+ * @param {string} fieldId
+ * @param {boolean} isChecked
+ */
+function onGfOtherCheckboxChange(fieldId, isChecked) {
+  if (typeof document === 'undefined') return;
+  if (isChecked) {
+    var otherInp = document.getElementById(fieldId + '-other-text');
+    if (otherInp) {
+      try { otherInp.focus(); } catch (_) {}
+    }
+  }
+}
+
 // ── Interactive Signature Canvas & Modal ────────────────────────────────────
 
 /**
@@ -819,10 +894,19 @@ function renderBuiltinFormInline(form, customContainer, options) {
         optArr.forEach(function (o) {
           var t = String(o).trim();
           if (!t) return;
-          radiosHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
-            '<input type="radio" name="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"' + reqAttr + '/> ' +
-            '<span>' + escapeHtml(t) + '</span>' +
-            '</label>';
+          if (isOtherOption(t)) {
+            radiosHtml +=
+              '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;flex-wrap:wrap;">' +
+              '<input type="radio" name="' + fieldId + '" value="__other__" class="gf-other-radio" style="accent-color:#f59e0b;cursor:pointer;" onchange="onGfOtherRadioChange(\'' + fieldId + '\')"' + reqAttr + '/> ' +
+              '<span>Other:</span>' +
+              '<input type="text" class="form-input form-input-sm gf-other-input" id="' + fieldId + '-other-text" data-field-id="' + fieldId + '" placeholder="Your answer" style="margin:0;padding:6px 12px;font-size:12px;height:auto;flex:1;min-width:180px;max-width:340px;border-radius:6px;" onfocus="onGfOtherInputFocus(\'' + fieldId + '\', \'radio\')" oninput="onGfOtherInputChange(\'' + fieldId + '\', \'radio\', this.value)"/>' +
+              '</label>';
+          } else {
+            radiosHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
+              '<input type="radio" name="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"' + reqAttr + '/> ' +
+              '<span>' + escapeHtml(t) + '</span>' +
+              '</label>';
+          }
         });
         radiosHtml += '</div>';
         radiosHtml += '<input type="hidden" id="' + fieldId + '" value=""/>';
@@ -833,10 +917,19 @@ function renderBuiltinFormInline(form, customContainer, options) {
         optArr.forEach(function (o) {
           var t = String(o).trim();
           if (!t) return;
-          cbsHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
-            '<input type="checkbox" data-cb-group="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"/> ' +
-            '<span>' + escapeHtml(t) + '</span>' +
-            '</label>';
+          if (isOtherOption(t)) {
+            cbsHtml +=
+              '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;flex-wrap:wrap;">' +
+              '<input type="checkbox" data-cb-group="' + fieldId + '" value="__other__" class="gf-other-cb" style="accent-color:#f59e0b;cursor:pointer;" onchange="onGfOtherCheckboxChange(\'' + fieldId + '\', this.checked)"/> ' +
+              '<span>Other:</span>' +
+              '<input type="text" class="form-input form-input-sm gf-other-input" id="' + fieldId + '-other-text" data-field-id="' + fieldId + '" placeholder="Your answer" style="margin:0;padding:6px 12px;font-size:12px;height:auto;flex:1;min-width:180px;max-width:340px;border-radius:6px;" onfocus="onGfOtherInputFocus(\'' + fieldId + '\', \'checkbox\')" oninput="onGfOtherInputChange(\'' + fieldId + '\', \'checkbox\', this.value)"/>' +
+              '</label>';
+          } else {
+            cbsHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
+              '<input type="checkbox" data-cb-group="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"/> ' +
+              '<span>' + escapeHtml(t) + '</span>' +
+              '</label>';
+          }
         });
         cbsHtml += '</div>';
         cbsHtml += '<input type="hidden" id="' + fieldId + '" value=""/>';
@@ -1158,11 +1251,29 @@ async function submitBuiltinForm(form) {
     var val = '';
     if (f.type === 'multiple_choice' || f.type === 'radio') {
       var checkedRadio = typeof document !== 'undefined' ? document.querySelector('input[name="' + scopedId + '"]:checked') : null;
-      val = checkedRadio ? checkedRadio.value : '';
+      if (checkedRadio) {
+        if (checkedRadio.value === '__other__') {
+          var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
+          var otherVal = otherInp ? otherInp.value.trim() : '';
+          val = otherVal ? ('Other: ' + otherVal) : (f.required ? '' : 'Other');
+        } else {
+          val = checkedRadio.value;
+        }
+      } else {
+        val = '';
+      }
     } else if (f.type === 'checkboxes') {
       var checkedBoxes = typeof document !== 'undefined' ? document.querySelectorAll('input[data-cb-group="' + scopedId + '"]:checked') : [];
       var vals = [];
-      checkedBoxes.forEach(function (cb) { vals.push(cb.value); });
+      checkedBoxes.forEach(function (cb) {
+        if (cb.value === '__other__') {
+          var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
+          var otherVal = otherInp ? otherInp.value.trim() : '';
+          vals.push(otherVal ? ('Other: ' + otherVal) : 'Other');
+        } else {
+          vals.push(cb.value);
+        }
+      });
       val = vals.join(', ');
     } else if (f.type === 'signature') {
       if (el && el.value && el.value.indexOf('data:image') !== -1) {
@@ -1205,6 +1316,16 @@ async function submitBuiltinForm(form) {
         el.style.borderColor = '#f66';
       } else {
         el.style.borderColor = '';
+      }
+    }
+    var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
+    if (otherInp) {
+      var chkRadio = typeof document !== 'undefined' ? document.querySelector('input[name="' + scopedId + '"]:checked') : null;
+      var isOtherRad = chkRadio && chkRadio.value === '__other__';
+      if (validation.errors[label] && isOtherRad && !otherInp.value.trim()) {
+        otherInp.style.borderColor = '#f66';
+      } else {
+        otherInp.style.borderColor = '';
       }
     }
   });
@@ -2387,20 +2508,31 @@ function renderGfQuestionsTab() {
     if (qType === 'multiple_choice' || qType === 'checkboxes' || qType === 'dropdown') {
       var bullet = qType === 'multiple_choice' ? '○' : (qType === 'checkboxes' ? '□' : '▾');
       var options = Array.isArray(it.options) && it.options.length ? it.options : ['Option 1'];
+      var hasOther = options.some(isOtherOption);
       bodyHtml += '<div class="gf-options-list">';
       options.forEach(function(opt, optIdx) {
-        bodyHtml +=
-          '<div class="gf-option-row">' +
-          '<span class="gf-opt-bullet">' + bullet + '</span>' +
-          '<input type="text" class="gf-opt-input" value="' + escapeHtml(opt) + '" data-opt-idx="' + optIdx + '"/>' +
-          (options.length > 1 ? '<button type="button" class="gf-opt-del-btn" data-del-opt="' + optIdx + '" title="Remove option">&times;</button>' : '') +
-          '</div>';
+        var isOther = isOtherOption(opt);
+        if (isOther && qType !== 'dropdown') {
+          bodyHtml +=
+            '<div class="gf-option-row gf-option-row-other" style="display:flex;align-items:center;gap:8px;">' +
+            '<span class="gf-opt-bullet">' + bullet + '</span>' +
+            '<span style="font-size:13px;color:var(--text-secondary);flex:1;padding:6px 0;">Other... <span style="font-size:11px;color:var(--text-muted);font-style:italic;">(respondents can type a short answer)</span></span>' +
+            '<button type="button" class="gf-opt-del-btn" data-del-opt="' + optIdx + '" title="Remove Other option">&times;</button>' +
+            '</div>';
+        } else {
+          bodyHtml +=
+            '<div class="gf-option-row">' +
+            '<span class="gf-opt-bullet">' + bullet + '</span>' +
+            '<input type="text" class="gf-opt-input" value="' + escapeHtml(opt) + '" data-opt-idx="' + optIdx + '"/>' +
+            (options.length > 1 ? '<button type="button" class="gf-opt-del-btn" data-del-opt="' + optIdx + '" title="Remove option">&times;</button>' : '') +
+            '</div>';
+        }
       });
       bodyHtml +=
         '<div class="gf-add-opt-row">' +
         '<span class="gf-opt-bullet" style="opacity:0.5;">' + bullet + '</span>' +
         '<button type="button" class="gf-add-opt-link" data-act="add-opt">+ Add option</button>' +
-        (qType !== 'dropdown' ? ' <span style="font-size:12px;color:var(--text-muted);">or</span> <button type="button" class="gf-add-opt-link" data-act="add-other">add "Other"</button>' : '') +
+        (qType !== 'dropdown' && !hasOther ? ' <span style="font-size:12px;color:var(--text-muted);">or</span> <button type="button" class="gf-add-opt-link" data-act="add-other">add "Other"</button>' : '') +
         '</div>' +
         '</div>';
     } else if (qType === 'short_answer' || qType === 'text') {
@@ -2610,7 +2742,9 @@ function renderGfQuestionsTab() {
       addOtherBtn.addEventListener('click', function(e) {
         e.stopPropagation();
         if (!Array.isArray(it.options)) it.options = [];
-        it.options.push('Other...');
+        if (!it.options.some(isOtherOption)) {
+          it.options.push('Other...');
+        }
         renderGfEditor();
       });
     }
@@ -2681,7 +2815,7 @@ function downloadFormResponsesCsv(form, responses) {
   var questions = [];
   var items = form.items && form.items.length ? form.items : (form.fields || []);
   items.forEach(function(it) {
-    if (it.kind !== 'section' && it.kind !== 'title_desc') {
+    if (it.kind !== 'section' && it.kind !== 'title_desc' && it.kind !== 'image') {
       var qName = it.title || it.label || 'Question';
       questions.push(qName);
       headers.push('"' + qName.replace(/"/g, '""') + '"');
@@ -2768,7 +2902,7 @@ async function renderGfResponsesTab() {
   var questions = [];
   var items = _gfCurrentForm.items && _gfCurrentForm.items.length ? _gfCurrentForm.items : (_gfCurrentForm.fields || []);
   items.forEach(function(it) {
-    if (it.kind !== 'section' && it.kind !== 'title_desc') {
+    if (it.kind !== 'section' && it.kind !== 'title_desc' && it.kind !== 'image') {
       questions.push({
         label: it.title || it.label || 'Question',
         type: it.type || 'text'
@@ -3279,6 +3413,11 @@ if (typeof window !== 'undefined') {
   window.renderGfResponsesTab = renderGfResponsesTab;
   window.downloadFormResponsesCsv = downloadFormResponsesCsv;
   window.renderGfSettingsTab = renderGfSettingsTab;
+  window.isOtherOption = isOtherOption;
+  window.onGfOtherInputFocus = onGfOtherInputFocus;
+  window.onGfOtherInputChange = onGfOtherInputChange;
+  window.onGfOtherRadioChange = onGfOtherRadioChange;
+  window.onGfOtherCheckboxChange = onGfOtherCheckboxChange;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -3348,6 +3487,11 @@ if (typeof module !== 'undefined' && module.exports) {
     loadGfResponses: loadGfResponses,
     renderGfResponsesTab: renderGfResponsesTab,
     downloadFormResponsesCsv: downloadFormResponsesCsv,
-    renderGfSettingsTab: renderGfSettingsTab
+    renderGfSettingsTab: renderGfSettingsTab,
+    isOtherOption: isOtherOption,
+    onGfOtherInputFocus: onGfOtherInputFocus,
+    onGfOtherInputChange: onGfOtherInputChange,
+    onGfOtherRadioChange: onGfOtherRadioChange,
+    onGfOtherCheckboxChange: onGfOtherCheckboxChange
   };
 }

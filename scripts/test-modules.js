@@ -11823,6 +11823,178 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Test Suite: Uniform Custom Text Clean Styling & Forms Other Option Short Answer Input
+  // ══════════════════════════════════════════════════════════════════════════════
+  {
+    console.log('\nTesting Uniform Custom Text Clean Styling & Forms Other Option Short Answer Input...');
+
+    // 1. Uniform Custom Text Specification: Edit icon removed, clean Select Size style preserved
+    const customTestItem = {
+      key: 'test_engraved_tag',
+      name: 'Custom Name Tag',
+      price: 15.00,
+      sizes: [],
+      hasCustomText: true,
+      customPrompt: 'Name to engrave on Name Tag'
+    };
+    ordersMod.UNIFORM_ITEMS.push(customTestItem);
+
+    let uniformGrid = document.getElementById('uniform-items');
+    if (!uniformGrid) {
+      uniformGrid = document.createElement('div');
+      uniformGrid.id = 'uniform-items';
+      document.body.appendChild(uniformGrid);
+    }
+    ordersMod.renderOrderItems('Officer');
+
+    assert.ok(uniformGrid.innerHTML.includes('test_engraved_tag-custom-text-wrap'), 'Custom text wrapper rendered for custom product');
+    assert.ok(uniformGrid.innerHTML.includes('Name to engrave on Name Tag'), 'Prompt label rendered cleanly');
+    assert.ok(uniformGrid.innerHTML.includes('size-pills-label'), 'size-pills-label class preserved matching Select Size');
+    assert.ok(!uniformGrid.innerHTML.includes('test_engraved_tag-custom-text-wrap" style="display:block;margin-top:8px;"><div class="size-pills-label" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;"><svg'), 'Edit icon SVG completely removed from custom text label (Image 1)');
+
+    // Clean up test item
+    ordersMod.UNIFORM_ITEMS.splice(ordersMod.UNIFORM_ITEMS.indexOf(customTestItem), 1);
+    console.log('  ✔ Edit icon removed from uniform custom text specification input label (Image 1)');
+
+    // 2. Forms "Other..." Option Detection Helper
+    assert.strictEqual(typeof formsMod.isOtherOption, 'function', 'isOtherOption helper is exported');
+    assert.strictEqual(formsMod.isOtherOption('Other...'), true, 'Detects "Other..."');
+    assert.strictEqual(formsMod.isOtherOption('Other'), true, 'Detects "Other"');
+    assert.strictEqual(formsMod.isOtherOption('other…'), true, 'Detects unicode ellipsis "other…"');
+    assert.strictEqual(formsMod.isOtherOption('__other__'), true, 'Detects "__other__"');
+    assert.strictEqual(formsMod.isOtherOption('Other: Custom'), true, 'Detects "Other: Custom"');
+    assert.strictEqual(formsMod.isOtherOption('Option 1'), false, 'Normal option returns false');
+    assert.strictEqual(formsMod.isOtherOption(''), false, 'Empty option returns false');
+    console.log('  ✔ isOtherOption robustly identifies variations of Other options');
+
+    // 3. Member View / Form Rendering: Other option renders radio + short answer input
+    const formWithOther = {
+      id: 'form_test_other_opt',
+      name: 'Test Form with Other',
+      status: 'active',
+      items: [
+        {
+          id: 'q1',
+          kind: 'question',
+          title: 'Favorite Instrument',
+          type: 'multiple_choice',
+          required: true,
+          options: ['Trumpet', 'Trombone', 'Other...']
+        },
+        {
+          id: 'q2',
+          kind: 'question',
+          title: 'Dietary Preferences',
+          type: 'checkboxes',
+          required: false,
+          options: ['Vegetarian', 'Halal', 'Other...']
+        }
+      ]
+    };
+
+    const formHost = document.createElement('div');
+    formHost.id = 'builtin-form-view';
+    document.body.appendChild(formHost);
+    formsMod.renderBuiltinFormInline(formWithOther, formHost);
+
+    // Verify Radio Other... rendering
+    assert.ok(formHost.innerHTML.includes('class="gf-other-radio"'), 'Other radio button rendered with gf-other-radio class');
+    assert.ok(formHost.innerHTML.includes('value="__other__"'), 'Other radio value is __other__');
+    assert.ok(formHost.innerHTML.includes('id="bff-form_test_other_opt-0-other-text"'), 'Short answer text input rendered beside Other: label (Image 2)');
+    assert.ok(formHost.innerHTML.includes('placeholder="Your answer"'), 'Placeholder is "Your answer"');
+
+    // Verify Checkbox Other... rendering
+    assert.ok(formHost.innerHTML.includes('class="gf-other-cb"'), 'Other checkbox rendered with gf-other-cb class');
+    assert.ok(formHost.innerHTML.includes('data-cb-group="bff-form_test_other_opt-1"'), 'Other checkbox grouped properly');
+    assert.ok(formHost.innerHTML.includes('id="bff-form_test_other_opt-1-other-text"'), 'Short answer text input rendered beside Checkbox Other: label');
+
+    // 4. Interactive Focus & Input Handlers
+    const mockOtherRadio = document.createElement('input');
+    mockOtherRadio.type = 'radio';
+    mockOtherRadio.setAttribute('name', 'test_interactive_radio');
+    mockOtherRadio.setAttribute('value', '__other__');
+    mockOtherRadio.value = '__other__';
+    mockOtherRadio.checked = false;
+    document.body.appendChild(mockOtherRadio);
+
+    formsMod.onGfOtherInputFocus('test_interactive_radio', 'radio');
+    assert.strictEqual(mockOtherRadio.checked, true, 'onGfOtherInputFocus auto-selects radio');
+
+    mockOtherRadio.checked = false;
+    formsMod.onGfOtherInputChange('test_interactive_radio', 'radio', 'Violin');
+    assert.strictEqual(mockOtherRadio.checked, true, 'onGfOtherInputChange auto-selects radio when typing');
+
+    const mockOtherCb = document.createElement('input');
+    mockOtherCb.type = 'checkbox';
+    mockOtherCb.setAttribute('data-cb-group', 'test_interactive_cb');
+    mockOtherCb.setAttribute('value', '__other__');
+    mockOtherCb.value = '__other__';
+    mockOtherCb.checked = false;
+    document.body.appendChild(mockOtherCb);
+
+    formsMod.onGfOtherInputChange('test_interactive_cb', 'checkbox', 'Gluten Free');
+    assert.strictEqual(mockOtherCb.checked, true, 'onGfOtherInputChange auto-checks checkbox when typing');
+    console.log('  ✔ Member view renders Other short answer input and auto-selects options on interaction');
+
+    // 5. Submission collects typed answer as "Other: <user_input>"
+    const testFormSub = {
+      id: 'form_other_sub_test',
+      name: 'Other Submission Test',
+      status: 'active',
+      items: [
+        {
+          id: 'q1',
+          kind: 'question',
+          title: 'Specialty',
+          type: 'multiple_choice',
+          required: true,
+          options: ['Brass', 'Percussion', 'Other...']
+        }
+      ]
+    };
+    const radioEl = document.createElement('input');
+    radioEl.type = 'radio';
+    radioEl.setAttribute('name', 'bff-form_other_sub_test-0');
+    radioEl.setAttribute('value', '__other__');
+    radioEl.value = '__other__';
+    radioEl.checked = true;
+    document.body.appendChild(radioEl);
+
+    const otherInpEl = document.getElementById('bff-form_other_sub_test-0-other-text');
+    otherInpEl.value = 'Bagpipes';
+
+    let submittedData = null;
+    const mockPostSupa = {
+      post: async (tbl, data) => {
+        submittedData = data;
+        return { ok: true };
+      }
+    };
+    const savedSupa = global.supa;
+    global.supa = mockPostSupa;
+    if (typeof window !== 'undefined') window.supa = mockPostSupa;
+
+    await formsMod.submitBuiltinForm(testFormSub);
+    assert.ok(submittedData, 'Payload submitted successfully');
+    const answersObj = JSON.parse(submittedData.items).answers;
+    assert.strictEqual(answersObj['Specialty'], 'Other: Bagpipes', 'Submitted answer includes "Other: Bagpipes"');
+    console.log('  ✔ submitBuiltinForm correctly submits typed short answer for Other option');
+
+    global.supa = savedSupa;
+    if (typeof window !== 'undefined') window.supa = savedSupa;
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const finalCheckMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalCheckIds = new Set();
+    finalCheckMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) finalCheckIds.add(match[1]);
+    });
+    assert.strictEqual(finalCheckIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalCheckIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
