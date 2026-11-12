@@ -12110,16 +12110,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
-  // ── 56. Form Response Table Split, Wide-Screen Layout & Topbar Alignment (Images 1-5) ──
+  // ── 56. Form Response Table Split, Wide-Screen Layout & Topbar Alignment (Images 1-2) ──
   console.log('\nTesting Form Response Table Split, Wide-Screen Layout & Topbar Alignment...');
   {
     const formsMod = require('../js/modules/forms.js');
+    const attMod = require('../js/modules/attendance.js');
     const adminCss = fs.readFileSync(path.join(__dirname, '../css/admin.css'), 'utf8');
 
-    // 1. Image 1: Distinct split/line/break inbetween auto-filled fields and questions
+    // 1. Image 2: Simple normal thin grid line split (1.5px border-card), NO yellow line, NO AUTO tag, NO Rank/Platoon
     assert.ok(adminCss.includes('.gf-col-autofill-last'), 'admin.css defines .gf-col-autofill-last divider class');
-    assert.ok(adminCss.includes('border-right: 3px solid'), 'admin.css specifies bold 3px vertical split border for last autofill column');
-    assert.ok(adminCss.includes('.gf-autofill-tag'), 'admin.css defines .gf-autofill-tag header badge');
+    assert.ok(adminCss.includes('border-right: 1.5px solid var(--border-card'), 'admin.css specifies normal 1.5px grid line split for last autofill column');
+    assert.ok(!adminCss.includes('border-right: 3px solid'), '3px yellow border line eliminated from admin.css');
+    assert.ok(!adminCss.includes('.gf-autofill-tag'), 'AUTO tag badge class eliminated from admin.css');
+    assert.ok(!adminCss.includes('th.gf-col-autofill {'), 'Special tinted background eliminated so autofill columns match standard field colors');
 
     // Test responses table HTML output
     formsMod._gfCurrentForm = {
@@ -12145,25 +12148,48 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     window._mockGfResponses = mockResponses;
     window._gfResponsesViewMode = 'table';
 
-    const tabContainer = document.createElement('div');
-    tabContainer.id = 'gf-tab-container';
-    document.body.appendChild(tabContainer);
+    let tabContainer = document.getElementById('gf-tab-container');
+    if (!tabContainer) {
+      tabContainer = document.createElement('div');
+      tabContainer.id = 'gf-tab-container';
+      document.body.appendChild(tabContainer);
+    }
 
     await formsMod.renderGfResponsesTab();
     const responsesHtml = tabContainer.innerHTML;
 
-    assert.ok(responsesHtml.includes('gf-col-autofill-last'), 'Rank / Platoon th & td include gf-col-autofill-last class');
-    assert.ok(responsesHtml.includes('gf-autofill-tag'), 'Rank / Platoon header includes Auto tag badge');
     assert.ok(responsesHtml.includes('Respondent'), 'Auto-filled Respondent column rendered');
     assert.ok(responsesHtml.includes('Date'), 'Auto-filled Date column rendered');
+    assert.ok(responsesHtml.includes('gf-col-autofill gf-col-autofill-last">Respondent</th>'), 'Respondent th has gf-col-autofill-last class');
+    assert.ok(responsesHtml.includes('gf-col-autofill gf-col-autofill-last" style="font-weight:600;">Jeshua Koh</td>'), 'Respondent td has gf-col-autofill-last class');
+    assert.ok(!responsesHtml.includes('Rank / Platoon'), 'Rank / Platoon column eliminated from autofill fields');
+    assert.ok(!responsesHtml.includes('gf-autofill-tag'), 'AUTO badge completely eliminated from responses HTML');
     assert.ok(responsesHtml.includes('test mcq'), 'Form question column rendered after auto-fill split');
-    console.log('  ✔ Distinct split line and Auto badge clearly separate auto-filled fields in responses table (Image 1)');
+    console.log('  ✔ Normal grid line split, auto fields color parity, and Rank/Platoon/AUTO removal verified (Image 2)');
 
-    // 2. Images 2-5: Wide-Screen horizontal layout filling empty spaces
-    assert.ok(adminCss.includes('.gf-builder-container {') && adminCss.includes('width: 100%;') && adminCss.includes('max-width: 100%;'), 'Form builder container uses 100% width filling horizontal spaces');
-    assert.ok(!adminCss.includes('max-width: 820px'), '820px rigid max-width restriction eliminated from .gf-builder-container');
+    // 2. Wide-Screen layout only for responses table view; reverted to 820px for builder & settings (Image 1)
+    assert.ok(adminCss.includes('.gf-builder-container {') && adminCss.includes('max-width: 820px;'), 'Form builder container maintains centered 820px max-width default');
+    assert.ok(adminCss.includes('.gf-builder-container.gf-builder-container-wide {') && adminCss.includes('width: 100%;') && adminCss.includes('max-width: 100%;'), 'Dedicated wide-screen modifier class for responses table view');
+    assert.ok(adminCss.includes('.gf-editor-topbar.gf-topbar-wide {') && adminCss.includes('max-width: 100%;'), 'Dedicated wide topbar modifier for responses table view');
 
-    // 3. Image 5: Topbar Preview & Save Form buttons aligned properly
+    // 3. Member Tab: Uniform Points without average
+    const sampleRecord = {
+      name: 'Jeshua Koh',
+      platoon: 'Hotel',
+      squad: 'HQ',
+      isBandMember: true,
+      bandSection: 'Bugle',
+      paradeAttendance: { percentage: 85, presentCount: 17, totalParades: 20 },
+      bandAttendance: { percentage: 65, presentCount: 13, totalSessions: 20 },
+      points: { uniform: 126, uniformAvg: 4.2, paradeAtt: 60, bandAtt: 42, total: 222 }
+    };
+    const cardHtml = attMod.renderAttendanceBreakdownHTML(sampleRecord, {}, {}, new Date().toISOString());
+    assert.ok(cardHtml.includes('126'), 'Attendance breakdown renders uniform points total');
+    assert.ok(!cardHtml.includes('Avg 4.2 / 6'), 'Average under uniform points completely removed');
+    assert.ok(!cardHtml.includes('Avg '), 'Zero average strings rendered under uniform points');
+    console.log('  ✔ Average removed under uniform points in Member tab, showing points only');
+
+    // 4. Image 5: Topbar Preview & Save Form buttons aligned properly
     assert.ok(adminCss.includes('.gf-topbar-left') && adminCss.includes('.gf-topbar-center') && adminCss.includes('.gf-topbar-right'), 'Topbar defines 3-part flex alignment (left, centered tabs, right actions)');
     assert.ok(adminCss.includes('.gf-btn-preview') && adminCss.includes('.gf-btn-save'), 'Preview and Save Form buttons have dedicated alignment classes');
     assert.ok(adminCss.includes('height: 38px !important;'), 'Preview and Save Form buttons have unified 38px height and vertical centering');
@@ -12175,6 +12201,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       document.body.appendChild(editorMount);
     }
 
+    // Clean up any detached tab container so editorMount has the canonical #gf-tab-container
+    const oldContainer = document.getElementById('gf-tab-container');
+    if (oldContainer && oldContainer.parentNode) {
+      oldContainer.parentNode.removeChild(oldContainer);
+    }
+
+    formsMod._gfActiveTab = 'questions';
     formsMod.renderGfEditor();
     const editorHtml = editorMount.innerHTML;
 
@@ -12183,9 +12216,20 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(editorHtml.includes('gf-topbar-right'), 'Editor topbar renders gf-topbar-right container');
     assert.ok(editorHtml.includes('gf-btn-preview'), 'Preview button styled with gf-btn-preview');
     assert.ok(editorHtml.includes('gf-btn-save'), 'Save Form button styled with gf-btn-save');
-    console.log('  ✔ Wide-screen layout fills horizontal space and aligns Preview & Save Form buttons (Images 2-5)');
+    assert.ok(!editorHtml.includes('gf-builder-container-wide'), 'Questions tab does NOT have wide container class');
+    assert.ok(!editorHtml.includes('gf-topbar-wide'), 'Questions tab does NOT have wide topbar class');
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // Switch to responses table
+    formsMod._gfActiveTab = 'responses';
+    formsMod._gfResponsesViewMode = 'table';
+    formsMod.renderGfEditor();
+    const tableEditorHtml = editorMount.innerHTML;
+    assert.ok(tableEditorHtml.includes('gf-builder-container-wide'), 'Responses table view has wide container class');
+    assert.ok(tableEditorHtml.includes('gf-topbar-wide'), 'Responses table view has wide topbar class');
+
+    console.log('  ✔ Wide-screen layout restricted to responses table view; default 820px preserved for other tabs (Image 1)');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
     const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const postIds = new Set();
     postMatches.forEach(m => {

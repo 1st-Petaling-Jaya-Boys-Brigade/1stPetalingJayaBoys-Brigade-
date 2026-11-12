@@ -1961,22 +1961,20 @@ function openExternalLinkFormEditor(form) {
   var isPaused = currentForm.status === 'paused' || currentForm.active === false;
 
   mount.innerHTML =
-    '<div style="width:100%;max-width:100%;margin:0;display:flex;flex-direction:column;gap:16px;box-sizing:border-box;">' +
+    '<div style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
     '<button type="button" class="gf-back-btn" onclick="closeFormEditor()"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg> Back to Forms</button>' +
     '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-secondary);">' + (isEditing ? 'Edit External Form' : 'New External Form') + '</div>' +
     '</div>' +
-    '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:14px;padding:22px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:16px;width:100%;box-sizing:border-box;">' +
+    '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:14px;padding:22px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:16px;">' +
     '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:10px;">' +
     '<div style="width:36px;height:36px;border-radius:8px;background:rgba(59,130,246,0.15);color:#3b82f6;display:flex;align-items:center;justify-content:center;">' +
     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>' +
     '</div>' +
     '<span>' + (isEditing ? 'Edit: ' + escapeHtml(currentForm.name) : 'External Link (Google Form / URL)') + '</span>' +
     '</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:14px;">' +
     '<div class="form-group"><label class="form-label">Form Name <span style="color:var(--red);">*</span></label><input type="text" id="ext-form-name" class="form-input" placeholder="e.g. Annual Camp 2026 Registration" value="' + escapeHtml(currentForm.name) + '"/></div>' +
     '<div class="form-group"><label class="form-label">Form URL (Google Form, etc.) <span style="color:var(--red);">*</span></label><input type="url" id="ext-form-url" class="form-input" placeholder="https://forms.google.com/..." value="' + escapeHtml(currentForm.url || '') + '"/></div>' +
-    '</div>' +
     '<div class="form-group"><label class="form-label">Description (Optional)</label><textarea id="ext-form-desc" class="form-textarea" rows="2" placeholder="Brief info about this form...">' + escapeHtml(currentForm.desc || '') + '</textarea></div>' +
     '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:16px;">' +
     '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:6px;">' +
@@ -1986,7 +1984,7 @@ function openExternalLinkFormEditor(form) {
     '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="ext-status" value="active" ' + (!isPaused ? 'checked' : '') + ' style="accent-color:var(--accent);"/> Active (Accepting Responses)</label>' +
     '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="ext-status" value="paused" ' + (isPaused ? 'checked' : '') + ' style="accent-color:var(--accent);"/> Paused (Closed)</label>' +
     '</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;margin-bottom:10px;">' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">' +
     '<div><label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label><input type="datetime-local" id="ext-open-at" class="form-input" value="' + escapeHtml(currentForm.open_at || '') + '" style="font-size:12px;padding:8px 10px;"/></div>' +
     '<div><label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label><input type="datetime-local" id="ext-close-at" class="form-input" value="' + escapeHtml(currentForm.close_at || '') + '" style="font-size:12px;padding:8px 10px;"/></div>' +
     '</div>' +
@@ -2129,8 +2127,12 @@ function renderGfEditor() {
   var mount = document.querySelector('.adm-form-editor-mount');
   if (!mount || !_gfCurrentForm) return;
 
+  var isResponsesTable = (_gfActiveTab === 'responses' && _gfResponsesViewMode === 'table');
+  var topbarWideClass = isResponsesTable ? ' gf-topbar-wide' : '';
+  var containerWideClass = isResponsesTable ? ' gf-builder-container-wide' : '';
+
   var topbarHtml =
-    '<div class="gf-editor-topbar">' +
+    '<div class="gf-editor-topbar' + topbarWideClass + '">' +
     '<div class="gf-topbar-left">' +
     '<button type="button" class="gf-back-btn" onclick="closeFormEditor()">' +
     '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg> Back to Forms' +
@@ -2153,7 +2155,7 @@ function renderGfEditor() {
     '</div>' +
     '</div>';
 
-  var bodyHtml = '<div class="gf-builder-container" id="gf-tab-container"></div>';
+  var bodyHtml = '<div class="gf-builder-container' + containerWideClass + '" id="gf-tab-container"></div>';
   mount.innerHTML = topbarHtml + bodyHtml;
 
   if (_gfActiveTab === 'questions') {
@@ -2867,6 +2869,15 @@ async function renderGfResponsesTab() {
   var container = document.getElementById('gf-tab-container');
   if (!container || !_gfCurrentForm) return;
 
+  var topbar = document.querySelector('.gf-editor-topbar');
+  if (_gfResponsesViewMode === 'table') {
+    container.classList.add('gf-builder-container-wide');
+    if (topbar) topbar.classList.add('gf-topbar-wide');
+  } else {
+    container.classList.remove('gf-builder-container-wide');
+    if (topbar) topbar.classList.remove('gf-topbar-wide');
+  }
+
   container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:14px;">Loading responses...</div>';
 
   _gfResponsesList = await loadGfResponses();
@@ -2924,8 +2935,7 @@ async function renderGfResponsesTab() {
     var tableHeaders =
       '<th class="gf-col-autofill">#</th>' +
       '<th class="gf-col-autofill">Date</th>' +
-      '<th class="gf-col-autofill">Respondent</th>' +
-      '<th class="gf-col-autofill gf-col-autofill-last">Rank / Platoon <span class="gf-autofill-tag">Auto</span></th>';
+      '<th class="gf-col-autofill gf-col-autofill-last">Respondent</th>';
 
     questions.forEach(function(q) {
       tableHeaders += '<th>' + escapeHtml(q.label) + '</th>';
@@ -2944,8 +2954,7 @@ async function renderGfResponsesTab() {
       tableRows += '<tr>' +
         '<td class="gf-col-autofill" style="color:var(--text-muted);">' + (rIdx + 1) + '</td>' +
         '<td class="gf-col-autofill" style="white-space:nowrap;font-size:12px;">' + escapeHtml(formattedDate) + '</td>' +
-        '<td class="gf-col-autofill" style="font-weight:600;">' + escapeHtml(r.member_name || r.ic || 'Guest') + '</td>' +
-        '<td class="gf-col-autofill gf-col-autofill-last" style="font-size:12px;color:var(--text-secondary);">' + escapeHtml((r.rank ? r.rank + ' · ' : '') + (r.squad ? r.squad + ' Platoon' : '')) + '</td>';
+        '<td class="gf-col-autofill gf-col-autofill-last" style="font-weight:600;">' + escapeHtml(r.member_name || r.ic || 'Guest') + '</td>';
 
       questions.forEach(function(q) {
         var val = answers[q.label] || '';
