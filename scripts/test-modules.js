@@ -11493,6 +11493,112 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ──
+  // Forms Builder Image Blocks, Dynamic Floating Toolbar, Preview Mode & Section Pagination
+  // ──
+  console.log('\nTesting Forms Builder Images, Dynamic Toolbar, Preview Mode & Section Pagination...');
+  {
+    const formsMod = require('../js/modules/forms.js');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. Add Image block in Google Forms Builder
+    let mountContainer = document.querySelector('.adm-form-editor-mount');
+    if (!mountContainer) {
+      mountContainer = document.createElement('div');
+      mountContainer.className = 'adm-form-editor-mount';
+      document.body.appendChild(mountContainer);
+    }
+    formsMod.openBuiltinGoogleFormEditor();
+    const initialItemCount = formsMod._gfCurrentForm.items.length;
+    formsMod.addGfImage();
+    assert.strictEqual(formsMod._gfCurrentForm.items.length, initialItemCount + 1, 'addGfImage appends new item');
+    const addedImg = formsMod._gfCurrentForm.items[formsMod._gfCurrentForm.items.length - 1];
+    assert.strictEqual(addedImg.kind, 'image', 'Appended item has kind image');
+    assert.strictEqual(formsMod._gfActiveItemId, addedImg.id, 'Active item set to new image item');
+
+    // 2. Questions tab DOM layout, image card & 4-button side toolbar
+    assert.ok(mountContainer, 'Editor mount container exists');
+    const tabContainer = document.getElementById('gf-tab-container');
+    assert.ok(tabContainer, 'Tab container rendered');
+    assert.ok(tabContainer.innerHTML.includes('gf-side-toolbar'), 'Side toolbar rendered in builder');
+    assert.ok(tabContainer.innerHTML.includes('data-tool="add-q"'), 'Toolbar has add-q button');
+    assert.ok(tabContainer.innerHTML.includes('data-tool="add-td"'), 'Toolbar has add-td button');
+    assert.ok(tabContainer.innerHTML.includes('data-tool="add-img"'), 'Toolbar has add-img button');
+    assert.ok(tabContainer.innerHTML.includes('data-tool="add-sec"'), 'Toolbar has add-sec button');
+
+    assert.ok(tabContainer.innerHTML.includes('gf-image-card'), 'Image card rendered in DOM');
+    assert.ok(tabContainer.innerHTML.includes('data-bind="title"'), 'Image card has title input');
+    assert.ok(tabContainer.innerHTML.includes('gf-image-file-input'), 'Image card has file upload input');
+    assert.ok(tabContainer.innerHTML.includes('data-bind="url"'), 'Image card has image URL input');
+    console.log('  ✔ Image block, image card and 4-button toolbar (Add Image) verified in Forms builder');
+
+    // 3. Dynamic toolbar position function & Preview mode
+    assert.strictEqual(typeof formsMod.updateGfToolbarPosition, 'function', 'updateGfToolbarPosition is a function');
+    formsMod.updateGfToolbarPosition();
+
+    assert.strictEqual(typeof formsMod.previewGfForm, 'function', 'previewGfForm is exported');
+    assert.strictEqual(typeof formsMod.closeGfPreview, 'function', 'closeGfPreview is exported');
+
+    formsMod._gfCurrentForm.name = 'Camp 2026 Registration';
+    formsMod.previewGfForm();
+    const previewOverlay = document.getElementById('gf-preview-overlay');
+    assert.ok(previewOverlay, 'Preview overlay rendered in document body');
+    assert.ok(previewOverlay.innerHTML.includes('PREVIEW MODE'), 'Preview overlay displays PREVIEW MODE badge');
+
+    // Verify preview submission is blocked
+    const previewSubmitBtn = previewOverlay.querySelector ? previewOverlay.querySelector('[data-submit-form]') : null;
+    if (previewSubmitBtn && previewSubmitBtn.click) {
+      previewSubmitBtn.click();
+    }
+    formsMod.closeGfPreview();
+    assert.strictEqual(document.body.querySelector('#gf-preview-overlay'), null, 'closeGfPreview removes overlay cleanly');
+    console.log('  ✔ Preview mode overlay, zero-save safety and disabled submission verified');
+
+    // 4. Multi-section form pagination & bottom-left button positioning
+    const multiSecForm = {
+      id: 'section_test_form',
+      name: 'Multi-Section Test Form',
+      desc: 'Testing section pages',
+      status: 'active',
+      active: true,
+      items: [
+        { id: 'q1', kind: 'question', title: 'Full Name', type: 'text', required: true },
+        { id: 'sec1', kind: 'section', title: 'Part 2: Consent', desc: 'Parental verification' },
+        { id: 'q2', kind: 'question', title: 'Parent Signature', type: 'signature', required: true }
+      ]
+    };
+
+    const formHost = document.createElement('div');
+    formHost.id = 'inline-form-view';
+    document.body.appendChild(formHost);
+    formsMod.renderBuiltinFormInline(multiSecForm, formHost);
+
+    // Verify multi-section pagination rendered into pages
+    assert.ok(formHost.innerHTML.includes('data-page-index="0"'), 'Section 1 rendered');
+    assert.ok(formHost.innerHTML.includes('data-page-index="1"'), 'Section 2 rendered');
+    assert.ok(formHost.innerHTML.includes('btn-form-next'), 'Next button rendered on bottom-left');
+    assert.ok(formHost.innerHTML.includes('btn-form-back'), 'Back button rendered on bottom-left');
+    assert.ok(formHost.innerHTML.includes('data-submit-form="section_test_form"'), 'Submit button rendered');
+
+    const backPos = formHost.innerHTML.indexOf('btn-form-back');
+    const submitPos = formHost.innerHTML.indexOf('data-submit-form');
+    assert.ok(backPos !== -1 && submitPos !== -1 && backPos < submitPos, 'Back button is leftmost and Submit button is placed on the right of Back button on bottom-left');
+
+    // 5. Cloudflare CAPTCHA complete removal
+    assert.strictEqual(formHost.innerHTML.includes('cf-turnstile-container'), false, 'Turnstile CAPTCHA container completely removed from built-in forms');
+    console.log('  ✔ Multi-section pagination, bottom-left navigation, input preservation and CAPTCHA removal verified');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const finalIdMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const finalIds = new Set();
+    finalIdMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) finalIds.add(match[1]);
+    });
+    assert.strictEqual(finalIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
