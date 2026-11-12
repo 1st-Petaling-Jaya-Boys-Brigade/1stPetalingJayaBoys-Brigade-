@@ -485,6 +485,7 @@ function handleFormFileUpload(fieldId, input) {
   var file = input.files[0];
   var labelEl = document.getElementById(fieldId + '-filename');
   var hiddenInp = document.getElementById(fieldId);
+  var removeBtn = document.getElementById(fieldId + '-remove');
   var sizeText = file.size > 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.round(file.size / 1024) + ' KB';
   if (labelEl) labelEl.textContent = file.name + ' (' + sizeText + ')';
 
@@ -493,14 +494,33 @@ function handleFormFileUpload(fieldId, input) {
     input.value = '';
     if (labelEl) labelEl.textContent = 'No file chosen';
     if (hiddenInp) hiddenInp.value = '';
+    if (removeBtn) removeBtn.style.display = 'none';
     return;
   }
+
+  if (removeBtn) removeBtn.style.display = 'inline-flex';
 
   var reader = new FileReader();
   reader.onload = function (e) {
     if (hiddenInp) hiddenInp.value = e.target.result;
   };
   reader.readAsDataURL(file);
+}
+
+/**
+ * Removes uploaded file from built-in form response and resets input
+ * @param {string} fieldId
+ */
+function removeFormFileUpload(fieldId) {
+  if (typeof document === 'undefined') return;
+  var fileInp = document.getElementById(fieldId + '-file');
+  var labelEl = document.getElementById(fieldId + '-filename');
+  var hiddenInp = document.getElementById(fieldId);
+  var removeBtn = document.getElementById(fieldId + '-remove');
+  if (fileInp) fileInp.value = '';
+  if (labelEl) labelEl.textContent = 'No file chosen';
+  if (hiddenInp) hiddenInp.value = '';
+  if (removeBtn) removeBtn.style.display = 'none';
 }
 
 // ── Forms Hub (Member Interface) ───────────────────────────────────────────
@@ -945,6 +965,9 @@ function renderBuiltinFormInline(form, customContainer, options) {
           '<input type="file" id="' + fieldId + '-file" class="form-file-input" style="display:none;" onchange="handleFormFileUpload(\'' + fieldId + '\', this)"/>' +
           '</label>' +
           '<span id="' + fieldId + '-filename" style="font-size:12px;color:var(--text-secondary);font-style:italic;">No file chosen</span>' +
+          '<button type="button" id="' + fieldId + '-remove" class="form-file-remove-btn" onclick="removeFormFileUpload(\'' + fieldId + '\')" style="display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red, #ef4444);padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;align-items:center;gap:5px;" title="Remove uploaded file">' +
+          '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> <span>Remove</span>' +
+          '</button>' +
           '<input type="hidden" id="' + fieldId + '" value=""' + reqAttr + '/>' +
           '</div>';
       } else if (f.type === 'signature') {
@@ -3035,6 +3058,11 @@ async function renderGfResponsesTab() {
           '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg> Digitally signed by respondent' +
           '</div>' +
           '</div>';
+      } else if ((q.type === 'file_upload' || q.type === 'file') && ans && String(ans).startsWith('data:')) {
+        valHtml =
+          '<div style="margin-top:8px;">' +
+          '<a href="' + escapeHtml(ans) + '" download="uploaded-attachment" class="portal-btn portal-btn-secondary" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:12px;text-decoration:none;color:var(--text-primary);"><svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Uploaded File</a>' +
+          '</div>';
       } else {
         valHtml =
           '<div style="font-size:14px;color:var(--text-primary);background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:10px 14px;margin-top:6px;">' +
@@ -3414,6 +3442,7 @@ if (typeof window !== 'undefined') {
   window.attachSignatureCanvas = attachSignatureCanvas;
   window.showSignatureEnlargedModal = showSignatureEnlargedModal;
   window.handleFormFileUpload = handleFormFileUpload;
+  window.removeFormFileUpload = removeFormFileUpload;
   window.openCreateFormFlow = openCreateFormFlow;
   window.openFormEditor = openFormEditor;
   window.closeFormEditor = closeFormEditor;
@@ -3495,6 +3524,7 @@ if (typeof module !== 'undefined' && module.exports) {
     attachSignatureCanvas: attachSignatureCanvas,
     showSignatureEnlargedModal: showSignatureEnlargedModal,
     handleFormFileUpload: handleFormFileUpload,
+    removeFormFileUpload: removeFormFileUpload,
     openCreateFormFlow: openCreateFormFlow,
     openFormEditor: openFormEditor,
     closeFormEditor: closeFormEditor,

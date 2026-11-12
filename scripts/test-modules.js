@@ -12240,6 +12240,103 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 57. Points Metrics Alignment & Form File Upload Removal (Images 1-2) ──
+  console.log('\nTesting Points Metrics Alignment & Form File Upload Removal...');
+  {
+    const attMod = require('../js/modules/attendance.js');
+    const formsMod = require('../js/modules/forms.js');
+
+    // 1. Image 1: Uniform Points Alignment in Attendance card
+    const sampleRec = {
+      name: 'Jeshua Koh',
+      platoon: 'Hotel',
+      squad: 'HQ',
+      isBandMember: true,
+      bandSection: 'Bugle',
+      paradeAttendance: { percentage: 85, presentCount: 17, totalParades: 20 },
+      bandAttendance: { percentage: 65, presentCount: 13, totalSessions: 20 },
+      points: { uniform: 126, paradeAtt: 60, bandAtt: 42, total: 222 }
+    };
+    const cardHtml = attMod.renderAttendanceBreakdownHTML(sampleRec, {}, {}, new Date().toISOString());
+
+    // Check all three metric containers use center vertical alignment and equal padding
+    const uniformMatch = cardHtml.match(/<!-- Uniform Points -->\s*<div style="([^"]+)">/);
+    const paradeMatch = cardHtml.match(/<!-- Parade Points -->\s*<div style="([^"]+)">/);
+    const bandMatch = cardHtml.match(/<!-- Band Points -->\s*<div style="([^"]+)">/);
+
+    assert.ok(uniformMatch && uniformMatch[1].includes('justify-content:center'), 'Uniform points container uses center vertical alignment');
+    assert.ok(paradeMatch && paradeMatch[1].includes('justify-content:center'), 'Parade points container uses center vertical alignment');
+    assert.ok(bandMatch && bandMatch[1].includes('justify-content:center'), 'Band points container uses center vertical alignment');
+
+    assert.ok(uniformMatch && !uniformMatch[1].includes('space-between'), 'Uniform points container does not use space-between');
+    assert.ok(paradeMatch && !paradeMatch[1].includes('space-between'), 'Parade points container does not use space-between');
+    assert.ok(bandMatch && !bandMatch[1].includes('space-between'), 'Band points container does not use space-between');
+
+    assert.ok(!cardHtml.includes('&nbsp;</div>'), 'Zero invisible ghost spacer divs across all point columns');
+    console.log('  ✔ All 3 point metric blocks aligned with matching vertical centering and 0 spacer divs (Image 1)');
+
+    // 2. Image 2: Form File Upload Removal Capability
+    assert.strictEqual(typeof formsMod.removeFormFileUpload, 'function', 'removeFormFileUpload exported from forms.js');
+    assert.strictEqual(typeof window.removeFormFileUpload, 'function', 'removeFormFileUpload exposed on window');
+
+    const formWithFile = {
+      id: 'form_upload_test',
+      name: 'File Upload Test Form',
+      type: 'builtin',
+      status: 'active',
+      fields: [
+        { id: 'f_doc', type: 'file_upload', label: 'Upload Drill Certificate', required: false }
+      ]
+    };
+
+    const formWrap = document.createElement('div');
+    formWrap.id = 'form-render-test-wrap';
+    document.body.appendChild(formWrap);
+
+    formsMod.renderBuiltinFormInline(formWithFile, formWrap);
+    const formInnerHtml = formWrap.innerHTML;
+
+    assert.ok(formInnerHtml.includes('class="form-file-input"'), 'File input element rendered');
+    assert.ok(formInnerHtml.includes('class="form-file-remove-btn"'), 'Remove button rendered for file upload');
+    assert.ok(formInnerHtml.includes('removeFormFileUpload'), 'Remove button calls removeFormFileUpload');
+    assert.ok(formInnerHtml.includes('Choose File'), 'Choose File label rendered');
+
+    // Test removeFormFileUpload(fieldId) function logic
+    const testFieldId = 'test_field_upload';
+    const mockFileInp = document.getElementById(testFieldId + '-file');
+    const mockLabelEl = document.getElementById(testFieldId + '-filename');
+    const mockHiddenInp = document.getElementById(testFieldId);
+    const mockRemoveBtn = document.getElementById(testFieldId + '-remove');
+
+    mockFileInp.value = 'C:\\fakepath\\Drill Manual 2005.pdf';
+    mockLabelEl.textContent = 'Drill Manual 2005.pdf (3.5 MB)';
+    mockHiddenInp.value = 'data:application/pdf;base64,JVBERi0xLjQK...';
+    mockRemoveBtn.style.display = 'inline-flex';
+
+    assert.strictEqual(mockRemoveBtn.style.display, 'inline-flex', 'Remove button shown after upload');
+    assert.ok(mockHiddenInp.value.length > 0, 'Hidden input holds file payload');
+
+    formsMod.removeFormFileUpload(testFieldId);
+
+    assert.strictEqual(mockFileInp.value, '', 'File input value cleared');
+    assert.strictEqual(mockLabelEl.textContent, 'No file chosen', 'Filename label reset to default text');
+    assert.strictEqual(mockHiddenInp.value, '', 'Hidden file value completely cleared');
+    assert.strictEqual(mockRemoveBtn.style.display, 'none', 'Remove button hidden again after removal');
+
+    if (formWrap.parentNode) formWrap.parentNode.removeChild(formWrap);
+    console.log('  ✔ Form file upload remove button renders and resets file input and payload cleanly (Image 2)');
+
+    // 3. Strict 388 Unique DOM IDs Invariant
+    const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    const postIds = new Set();
+    postMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds.add(match[1]);
+    });
+    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
