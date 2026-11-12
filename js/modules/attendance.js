@@ -388,16 +388,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
   }
 
 
-  // Uniform avg string
-  var uniformAvgHtml = '';
-  if (points.uniformAvg !== undefined && points.uniformAvg !== null && !isNaN(points.uniformAvg) && points.uniformAvg > 0) {
-    uniformAvgHtml = '<div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">Avg ' + points.uniformAvg + ' / 6</div>';
-  } else if (points.paradeAtt > 0 && points.uniform > 0) {
-    var est = Math.round((points.uniform / (points.paradeAtt / 2)) * 10) / 10;
-    if (est > 0 && est <= 6) {
-      uniformAvgHtml = '<div style="font-size:10px;color:var(--text-secondary);margin-top:2px;">Avg ' + est + ' / 6</div>';
-    }
-  }
+  // Uniform avg string removed per design request to show only uniform points
 
   // Platoon / Squad Standing Card HTML
   var standingCardHtml = '';
@@ -560,7 +551,6 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
             '<div style="font-family:var(--font-headline);font-size:26px;font-weight:800;color:var(--blue, #3b82f6);line-height:1.1;">' +
               points.uniform +
             '</div>' +
-            (uniformAvgHtml || '<div style="font-size:10px;color:transparent;user-select:none;">&nbsp;</div>') +
           '</div>' +
 
           '<!-- Parade Points -->' +
