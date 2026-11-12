@@ -2332,8 +2332,8 @@
           </div>
         </div>
 
-        <!-- Sub-tabs: builder | responses -->
-        <div style="display:flex;gap:6px;margin-bottom:18px;background:var(--bg-card);border-radius:10px;padding:5px;border:1px solid var(--border-card);">
+        <!-- Sub-tabs: builder | responses (hidden from view while preserving DOM IDs) -->
+        <div style="display:none;gap:6px;margin-bottom:18px;background:var(--bg-card);border-radius:10px;padding:5px;border:1px solid var(--border-card);">
           <button class="adm-subtab active-subtab" id="subtab-formbuilder" onclick="switchFormSubtab('formbuilder')">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Manage Forms
@@ -2344,92 +2344,48 @@
           </button>
         </div>
 
-        <!-- Form builder sub-panel -->
-        <div id="subpanel-formbuilder">
-          <div style="background:var(--bg-card);border-radius:14px;padding:18px;margin-bottom:14px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">
-            <div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;" id="fb-form-title">
-              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>Add New Form</span>
-            </div>
-            <div class="form-group"><label class="form-label">Form Name</label><input class="form-input" id="fb-name" type="text" placeholder="e.g. Annual Camp Registration"/></div>
-            <div class="form-group"><label class="form-label">Description (optional)</label><div id="fb-desc-container"></div></div>
-            <div class="form-group">
-              <label class="form-label">Form Type</label>
-              <div style="display:flex;gap:8px;">
-                <button id="ftype-link"    onclick="setFormType('link')"    class="ftype-btn ftype-active" style="flex:1;">
-                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                  External Link<br><span style="font-size:10px;font-weight:400;opacity:0.7;">Google Form / URL</span>
-                </button>
-                <button id="ftype-builtin" onclick="setFormType('builtin')" class="ftype-btn"              style="flex:1;">
-                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                  Built-in Form<br><span style="font-size:10px;font-weight:400;opacity:0.7;">Created here</span>
-                </button>
-              </div>
-            </div>
-            <div id="fb-link-fields">
-              <div class="form-group"><label class="form-label">Form URL</label><input class="form-input" id="fb-url" type="url" placeholder="https://forms.google.com/..."/></div>
-            </div>
-            <div id="fb-builtin-fields" style="display:none;">
-              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Add fields — members fill these in when they submit.</div>
-              <div id="fb-fields-list"></div>
-              <button onclick="addFormField()" style="width:100%;padding:10px;background:rgba(200,150,30,0.1);border:1px dashed rgba(200,150,30,0.3);border-radius:10px;color:var(--gold);font-family:var(--font-headline);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;">
-                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Field
-              </button>
-            </div>
-            <!-- Response Availability & Auto-Schedule Section -->
-            <div class="fb-schedule-box" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:14px;margin-bottom:14px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-                <div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
-                  <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <span>Response Availability &amp; Auto-Schedule</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <span class="fb-schedule-badge" style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;font-family:var(--font-headline);letter-spacing:0.5px;background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);">ACTIVE</span>
-                  <button type="button" class="portal-btn portal-btn-secondary fb-schedule-toggle-btn" onclick="toggleFormBuilderStatus()" style="padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;border-radius:8px;">Pause Responses</button>
-                </div>
-              </div>
-              <div class="form-group" style="margin-bottom:10px;">
-                <label class="form-label" style="font-size:11px;">Status</label>
-                <div style="display:flex;gap:14px;flex-wrap:wrap;">
-                  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);cursor:pointer;">
-                    <input type="radio" name="fb-status-radio" value="active" checked style="accent-color:var(--accent);"> Active (Accepting Responses)
-                  </label>
-                  <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-primary);cursor:pointer;">
-                    <input type="radio" name="fb-status-radio" value="paused" style="accent-color:var(--accent);"> Paused (Closed to Responses)
-                  </label>
-                </div>
-              </div>
-              <div class="form-row" style="display:flex;gap:10px;margin-bottom:10px;">
-                <div class="form-group" style="flex:1;margin-bottom:0;">
-                  <label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label>
-                  <input type="datetime-local" class="form-input fb-open-at-input" style="font-size:12px;padding:8px 10px;"/>
-                </div>
-                <div class="form-group" style="flex:1;margin-bottom:0;">
-                  <label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label>
-                  <input type="datetime-local" class="form-input fb-close-at-input" style="font-size:12px;padding:8px 10px;"/>
-                </div>
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <label class="form-label" style="font-size:11px;">Custom Paused / Closed Notice for Members</label>
-                <textarea class="form-textarea fb-paused-msg-input" rows="2" style="font-size:12px;padding:8px 10px;min-height:54px;resize:vertical;" placeholder="e.g. Responses for this form are currently paused by the company administration. Please check back later."></textarea>
-              </div>
-            </div>
-            <input type="hidden" id="fb-edit-id"/>
-            <div style="display:flex;gap:8px;">
-              <button class="submit-btn gold btn-with-icon" onclick="saveForm()" style="margin-top:4px;flex:1;">
-                <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Save Form
-              </button>
-              <button class="submit-btn danger" onclick="clearFormBuilder()" style="margin-top:4px;width:auto;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
-            <!-- Deprecated uniform products preview container retained hidden for DOM ID invariant stability -->
-            <div id="uniform-products-preview" style="display:none;"></div>
-          </div>
+        <!-- Main Forms List View (Existing forms moved to the top, Create New Form card below) -->
+        <div class="adm-forms-main-view">
           <div id="admin-forms-list"></div>
+          <div class="adm-create-form-card" onclick="openCreateFormFlow()" role="button" tabindex="0" title="Create New Form">
+            <div class="adm-create-form-icon">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </div>
+            <div class="adm-create-form-text">
+              <div class="adm-create-form-title">Create New Form</div>
+              <div class="adm-create-form-desc">Add a new external Google Form link or build an interactive form with sections &amp; signatures</div>
+            </div>
+          </div>
         </div>
 
-        <!-- Form responses sub-panel -->
+        <!-- Form builder sub-panel (Opens only when editing or creating a form) -->
+        <div id="subpanel-formbuilder" style="display:none;">
+          <div class="adm-form-editor-mount"></div>
+
+          <!-- Hidden container preserving all required DOM IDs for zero regression -->
+          <div style="display:none;" aria-hidden="true">
+            <div id="fb-form-title"><span>Add New Form</span></div>
+            <input class="form-input" id="fb-name" type="text" />
+            <div id="fb-desc-container"></div>
+            <button id="ftype-link" onclick="setFormType('link')">External Link</button>
+            <button id="ftype-builtin" onclick="setFormType('builtin')">Built-in Form</button>
+            <div id="fb-link-fields"><input class="form-input" id="fb-url" type="url" /></div>
+            <div id="fb-builtin-fields"><div id="fb-fields-list"></div></div>
+            <input type="hidden" id="fb-edit-id" />
+            <div class="fb-schedule-box">
+              <span class="fb-schedule-badge">ACTIVE</span>
+              <button type="button" class="fb-schedule-toggle-btn" onclick="toggleFormBuilderStatus()">Pause Responses</button>
+              <input type="radio" name="fb-status-radio" value="active" checked />
+              <input type="radio" name="fb-status-radio" value="paused" />
+              <input type="datetime-local" class="fb-open-at-input" />
+              <input type="datetime-local" class="fb-close-at-input" />
+              <textarea class="fb-paused-msg-input"></textarea>
+            </div>
+            <div id="uniform-products-preview"></div>
+          </div>
+        </div>
+
+        <!-- Form responses sub-panel (Preserved for backwards compatibility) -->
         <div id="subpanel-formresponses" style="display:none;">
           <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
             <select id="form-responses-filter" onchange="renderFormResponses()" style="background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:10px;padding:10px 12px;font-family:'Roboto',sans-serif;font-size:13px;flex:1;">
