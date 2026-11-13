@@ -723,7 +723,9 @@
         } else if (client.patch) {
           await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
         }
-      } catch (_) {}
+      } catch (errSync) {
+        console.error('Failed to sync verification status to bb_config:', errSync);
+      }
     }
 
     if (typeof showToast === 'function') {
