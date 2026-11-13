@@ -309,6 +309,33 @@ async function syncAnnouncementPinConfig(annId, isPinned) {
   } catch (_) {}
 }
 
+async function syncAnnouncementAllowedReactionsConfig(annId, allowedList) {
+  if (!annId) return;
+  try {
+    var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+    if (client && typeof client.get === 'function') {
+      var map = {};
+      if (typeof client.safeConfigGet === 'function') {
+        map = await client.safeConfigGet('bb_announcements_allowed_reactions', {});
+      } else {
+        var rows = await client.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value');
+        if (rows && rows.length && rows[0].value) {
+          map = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        }
+      }
+      if (!map || typeof map !== 'object') map = {};
+      if (Array.isArray(allowedList)) {
+        map[annId] = allowedList;
+      } else {
+        delete map[annId];
+      }
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', { key: 'bb_announcements_allowed_reactions', value: JSON.stringify(map) }, 'key');
+      }
+    }
+  } catch (_) {}
+}
+
 async function handleAnnouncementImageError(imgEl, optUrl) {
   if (!imgEl || imgEl._hasRetried) return;
   imgEl._hasRetried = true;
@@ -499,15 +526,19 @@ async function loadAnnouncements() {
     if (typeof supa !== 'undefined' && supa.get) {
       var annImageMap = {};
       var annPinnedMap = {};
+      var annAllowedMap = {};
       var cfgPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
         ? supa.safeConfigGet('bb_announcements_images', {})
         : supa.get('bb_config?key=eq.bb_announcements_images&select=value');
       var pinPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
         ? supa.safeConfigGet('bb_announcements_pinned', {})
         : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value');
+      var allowedPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
+        ? supa.safeConfigGet('bb_announcements_allowed_reactions', {})
+        : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value');
       var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*');
 
-      var results = await Promise.allSettled([cfgPromise, pinPromise, annPromise]);
+      var results = await Promise.allSettled([cfgPromise, pinPromise, allowedPromise, annPromise]);
       if (results[0].status === 'fulfilled' && results[0].value) {
         var cfgVal = results[0].value;
         if (Array.isArray(cfgVal) && cfgVal.length && cfgVal[0].value) {
@@ -528,9 +559,19 @@ async function loadAnnouncements() {
           annPinnedMap = pinVal;
         }
       }
+      if (results[2].status === 'fulfilled' && results[2].value) {
+        var allowedVal = results[2].value;
+        if (Array.isArray(allowedVal) && allowedVal.length && allowedVal[0].value) {
+          try {
+            annAllowedMap = typeof allowedVal[0].value === 'string' ? JSON.parse(allowedVal[0].value) : allowedVal[0].value;
+          } catch (_) {}
+        } else if (typeof allowedVal === 'object') {
+          annAllowedMap = allowedVal;
+        }
+      }
 
-      var rows = (results[2].status === 'fulfilled' && Array.isArray(results[2].value)) ? results[2].value : null;
-      if (results[2].status !== 'fulfilled' && announcements.length === 0) {
+      var rows = (results[3].status === 'fulfilled' && Array.isArray(results[3].value)) ? results[3].value : null;
+      if (results[3].status !== 'fulfilled' && announcements.length === 0) {
         // Network or server timeout: preserve cached or fallback data
         announcements = JSON.parse(JSON.stringify(DEFAULT_ANNOUNCEMENTS));
       }
@@ -538,8 +579,41 @@ async function loadAnnouncements() {
         announcements.length = 0;
         for (var rIdx = 0; rIdx < rows.length; rIdx++) {
           var r = rows[rIdx];
+          if (typeof r.reactions === 'string') {
+            try {
+              r.reactions = JSON.parse(r.reactions);
+            } catch (_) {
+              r.reactions = {};
+            }
+          }
           if (!r.reactions || typeof r.reactions !== 'object') r.reactions = {};
+
+          if (typeof r.allowed_reactions === 'string') {
+            try {
+              r.allowed_reactions = JSON.parse(r.allowed_reactions);
+            } catch (_) {
+              r.allowed_reactions = null;
+            }
+          }
+
           r.is_pinned = !!(r.is_pinned || r.pinned || (annPinnedMap && r.id && annPinnedMap[r.id]));
+
+          // Resilient allowed reactions recovery: bb_config map -> column -> reactions._allowed
+          var resolvedAllowed = null;
+          if (annAllowedMap && r.id && Array.isArray(annAllowedMap[r.id])) {
+            resolvedAllowed = annAllowedMap[r.id];
+          } else if (Array.isArray(r.allowed_reactions)) {
+            resolvedAllowed = r.allowed_reactions;
+          } else if (r.reactions && Array.isArray(r.reactions._allowed)) {
+            resolvedAllowed = r.reactions._allowed;
+          }
+
+          if (Array.isArray(resolvedAllowed)) {
+            r.allowed_reactions = resolvedAllowed.slice();
+            if (!r.reactions || typeof r.reactions !== 'object') r.reactions = {};
+            r.reactions._allowed = resolvedAllowed.slice();
+          }
+
           // Resilient 3-tier infographic recovery: column -> bb_config map -> embedded body marker
           var cfgImg = (annImageMap && r.id && annImageMap[r.id]) ? annImageMap[r.id] : null;
           var bodyMatch = (r.body || '').match(/data-infographic-url=["']([^"']+)["']/i) || (r.body || '').match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
@@ -657,9 +731,11 @@ function renderAnnouncements() {
     var reactions = a.reactions || {};
 
     // Build reaction buttons
-    var allowed = (a.reactions && Array.isArray(a.reactions._allowed))
-      ? a.reactions._allowed
-      : (Array.isArray(a.allowed_reactions) ? a.allowed_reactions : ALL_REACTION_EMOJIS);
+    var allowed = (a && Array.isArray(a.allowed_reactions))
+      ? a.allowed_reactions
+      : ((a && a.reactions && Array.isArray(a.reactions._allowed))
+        ? a.reactions._allowed
+        : ALL_REACTION_EMOJIS);
 
     var reactHtml = '';
     if (allowed.length > 0) {
@@ -799,9 +875,11 @@ async function toggleReaction(annIdx, emoji) {
   }
 
   // Check announcement specific allowed reactions
-  var allowed = (a.reactions && Array.isArray(a.reactions._allowed))
-    ? a.reactions._allowed
-    : (Array.isArray(a.allowed_reactions) ? a.allowed_reactions : ALL_REACTION_EMOJIS);
+  var allowed = (a && Array.isArray(a.allowed_reactions))
+    ? a.allowed_reactions
+    : ((a && a.reactions && Array.isArray(a.reactions._allowed))
+      ? a.reactions._allowed
+      : ALL_REACTION_EMOJIS);
 
   if (allowed.indexOf(emoji) === -1) {
     if (typeof showToast === 'function') {
@@ -811,6 +889,9 @@ async function toggleReaction(annIdx, emoji) {
   }
 
   if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
+  if (Array.isArray(a.allowed_reactions) && !a.reactions._allowed) {
+    a.reactions._allowed = a.allowed_reactions.slice();
+  }
   if (!Array.isArray(a.reactions[emoji])) a.reactions[emoji] = [];
 
   var who = a.reactions[emoji];
@@ -823,6 +904,11 @@ async function toggleReaction(annIdx, emoji) {
 
   // Optimistic UI update
   renderAnnouncements();
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
+    }
+  } catch (_) {}
 
   // Persist to Supabase
   try {
@@ -904,7 +990,7 @@ function renderAdminAnnList() {
       + '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">'
       + '<button type="button" data-pin-ann="' + i + '" title="' + (isPinned ? 'Unpin announcement' : 'Pin announcement to top') + '" style="' + pinBtnStyle + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg><span>' + (isPinned ? 'Pinned' : 'Pin') + '</span></button>'
       + '<button type="button" data-view-reactions="' + i + '" title="View Who Reacted (' + totalReactions + ')" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--gold);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>' + totalReactions + '</span></button>'
-      + '<button type="button" data-edit-ann="' + i + '" title="Edit Announcement" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>'
+      + '<button type="button" data-edit-ann="' + i + '"' + (a.id ? ' data-ann-id="' + (typeof escapeHtml === 'function' ? escapeHtml(String(a.id)) : String(a.id)) + '"' : '') + ' title="Edit Announcement" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>'
       + '<button type="button" data-del-ann="' + i + '" title="Delete Announcement" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
       + '</div></div>'
       + '</div>';
@@ -929,7 +1015,9 @@ function renderAdminAnnList() {
   });
   container.querySelectorAll('[data-edit-ann]').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      openEditAnnouncement(parseInt(btn.getAttribute('data-edit-ann'), 10));
+      var annId = btn.getAttribute('data-ann-id');
+      var idx = parseInt(btn.getAttribute('data-edit-ann'), 10);
+      openEditAnnouncement(annId || idx);
     });
   });
 }
@@ -973,11 +1061,21 @@ async function togglePinAnnouncement(idx) {
 
 /**
  * Loads an announcement into the admin form for editing
- * @param {number} idx
+ * @param {number|string} idxOrId
  */
-function openEditAnnouncement(idx) {
-  var a = announcements[idx];
+function openEditAnnouncement(idxOrId) {
+  var a = null;
+  if (typeof idxOrId === 'number' && announcements[idxOrId]) {
+    a = announcements[idxOrId];
+  } else if (typeof idxOrId === 'string') {
+    a = announcements.find(function(item) { return item && String(item.id) === String(idxOrId); });
+    if (!a && !isNaN(parseInt(idxOrId, 10)) && announcements[parseInt(idxOrId, 10)]) {
+      a = announcements[parseInt(idxOrId, 10)];
+    }
+  }
   if (!a) return;
+  var realIdx = announcements.indexOf(a);
+  if (realIdx === -1 && typeof idxOrId === 'number') realIdx = idxOrId;
 
   var ti = document.getElementById('ann-title-input');
   if (ti) ti.value = a.title || '';
@@ -993,13 +1091,18 @@ function openEditAnnouncement(idx) {
   var btn = document.getElementById('ann-post-btn');
   if (btn) {
     btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Changes';
-    btn.setAttribute('data-edit-idx', String(idx));
+    btn.setAttribute('data-edit-idx', String(realIdx));
+    if (a.id) {
+      btn.setAttribute('data-edit-id', String(a.id));
+    } else {
+      btn.removeAttribute('data-edit-id');
+    }
   }
 
   // Restore allowed reaction chips state
-  var allowed = (a && a.reactions && Array.isArray(a.reactions._allowed))
-    ? a.reactions._allowed
-    : ((a && Array.isArray(a.allowed_reactions)) ? a.allowed_reactions : ALL_REACTION_EMOJIS);
+  var allowed = (a && Array.isArray(a.allowed_reactions))
+    ? a.allowed_reactions
+    : ((a && a.reactions && Array.isArray(a.reactions._allowed)) ? a.reactions._allowed : ALL_REACTION_EMOJIS);
 
   if (typeof document !== 'undefined') {
     var chips = document.querySelectorAll('.ann-reaction-chip');
@@ -1059,6 +1162,7 @@ function cancelEditAnnouncement() {
   if (btn) {
     btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
     btn.removeAttribute('data-edit-idx');
+    btn.removeAttribute('data-edit-id');
   }
   clearAnnouncementInfographic();
   setAnnReactionPreset('all');
@@ -1159,7 +1263,8 @@ async function addAnnouncement() {
   var rawTitle = (titleEl ? titleEl.value : '').trim();
   var title    = (typeof sanitizeInput === 'function') ? sanitizeInput(rawTitle, 200) : rawTitle;
   var rawBody  = (bodyEl ? bodyEl.innerHTML : '').trim();
-  var editIdx = btn ? parseInt(btn.getAttribute('data-edit-idx') || '-1', 10) : -1;
+  var editId   = btn ? btn.getAttribute('data-edit-id') : null;
+  var editIdx  = btn ? parseInt(btn.getAttribute('data-edit-idx') || '-1', 10) : -1;
 
   if (!title || !rawBody || rawBody === '<br>' || rawBody === '<div><br></div>') {
     if (typeof showToast === 'function') {
@@ -1227,40 +1332,59 @@ async function addAnnouncement() {
     var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
     var isPinned = pinCheck ? !!pinCheck.checked : false;
 
-    if (editIdx >= 0) {
-      var a = announcements[editIdx];
-      if (a) {
-        a.title = title;
-        a.body  = sanitizedBody;
-        a.is_pinned = isPinned;
-        a.allowed_reactions = selectedAllowed;
-        if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
-        a.reactions._allowed = selectedAllowed;
-        if (infographicUrl) a.image_url = infographicUrl;
-        else if (!_stagedAnnouncementImage) a.image_url = null;
+    var targetAnn = null;
+    if (editId) {
+      targetAnn = announcements.find(function(item) { return item && String(item.id) === String(editId); });
+    }
+    if (!targetAnn && editIdx >= 0 && editIdx < announcements.length) {
+      targetAnn = announcements[editIdx];
+    }
 
-        if (typeof supa !== 'undefined' && supa.patch && a.id) {
-          var patchPayload = { title: title, body: sanitizedBody, reactions: a.reactions, is_pinned: isPinned };
-          if (typeof a.image_url !== 'undefined') patchPayload.image_url = a.image_url;
+    if (targetAnn) {
+      var a = targetAnn;
+      a.title = title;
+      a.body  = sanitizedBody;
+      a.is_pinned = isPinned;
+      a.allowed_reactions = selectedAllowed.slice();
+      if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
+      a.reactions._allowed = selectedAllowed.slice();
+      if (infographicUrl) a.image_url = infographicUrl;
+      else if (!_stagedAnnouncementImage) a.image_url = null;
+
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
+        }
+      } catch (_) {}
+
+      if (typeof supa !== 'undefined' && supa.patch && a.id) {
+        var patchPayload = {
+          title: title,
+          body: sanitizedBody,
+          reactions: a.reactions,
+          is_pinned: isPinned
+        };
+        if (typeof a.image_url !== 'undefined') patchPayload.image_url = a.image_url;
+        try {
+          await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
+        } catch (_) {
           try {
+            delete patchPayload.is_pinned;
             await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
-          } catch (_) {
-            try {
-              delete patchPayload.is_pinned;
-              await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
-            } catch (_) {}
-          }
+          } catch (_) {}
         }
-        if (a.id) {
-          syncAnnouncementPinConfig(a.id, isPinned);
-        }
-        if (infographicUrl && a.id) {
-          syncAnnouncementImageConfig(a.id, infographicUrl);
-        }
+      }
+      if (a.id) {
+        await syncAnnouncementPinConfig(a.id, isPinned);
+        await syncAnnouncementAllowedReactionsConfig(a.id, selectedAllowed);
+      }
+      if (infographicUrl && a.id) {
+        await syncAnnouncementImageConfig(a.id, infographicUrl);
       }
       if (btn) {
         btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
         btn.removeAttribute('data-edit-idx');
+        btn.removeAttribute('data-edit-id');
       }
       var broadcastCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
       if (broadcastCheck ? broadcastCheck.checked : false) {
@@ -1307,8 +1431,9 @@ async function addAnnouncement() {
           }
         }
         if (createdAnnId) {
-          if (infographicUrl) syncAnnouncementImageConfig(createdAnnId, infographicUrl);
-          if (isPinned) syncAnnouncementPinConfig(createdAnnId, isPinned);
+          if (infographicUrl) await syncAnnouncementImageConfig(createdAnnId, infographicUrl);
+          if (isPinned) await syncAnnouncementPinConfig(createdAnnId, isPinned);
+          await syncAnnouncementAllowedReactionsConfig(createdAnnId, selectedAllowed);
         }
       }
       var broadcastCheckNew = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
@@ -1374,6 +1499,7 @@ async function deleteAnnouncement(idx) {
   try {
     if (a && a.id) {
       syncAnnouncementPinConfig(a.id, false);
+      syncAnnouncementAllowedReactionsConfig(a.id, null);
     }
     if (typeof supa !== 'undefined' && supa.delete && a && a.id) {
       await supa.delete('bb_announcements?id=eq.' + a.id);
@@ -2158,6 +2284,8 @@ if (typeof window !== 'undefined') {
   window.setAnnReactionPreset           = setAnnReactionPreset;
   window.togglePinAnnouncement          = togglePinAnnouncement;
   window.syncAnnouncementPinConfig      = syncAnnouncementPinConfig;
+  window.syncAnnouncementImageConfig    = syncAnnouncementImageConfig;
+  window.syncAnnouncementAllowedReactionsConfig = syncAnnouncementAllowedReactionsConfig;
   window.openAnnouncementReactionsModal = openAnnouncementReactionsModal;
   window.closeAnnouncementReactionsModal= closeAnnouncementReactionsModal;
 }
@@ -2209,6 +2337,8 @@ if (typeof module !== 'undefined' && module.exports) {
     setAnnReactionPreset: setAnnReactionPreset,
     togglePinAnnouncement: togglePinAnnouncement,
     syncAnnouncementPinConfig: syncAnnouncementPinConfig,
+    syncAnnouncementImageConfig: syncAnnouncementImageConfig,
+    syncAnnouncementAllowedReactionsConfig: syncAnnouncementAllowedReactionsConfig,
     openAnnouncementReactionsModal: openAnnouncementReactionsModal,
     closeAnnouncementReactionsModal: closeAnnouncementReactionsModal
   };
