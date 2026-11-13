@@ -282,6 +282,33 @@ async function syncAnnouncementImageConfig(annId, imgUrl) {
   } catch (_) {}
 }
 
+async function syncAnnouncementPinConfig(annId, isPinned) {
+  if (!annId) return;
+  try {
+    var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+    if (client && typeof client.get === 'function') {
+      var map = {};
+      if (typeof client.safeConfigGet === 'function') {
+        map = await client.safeConfigGet('bb_announcements_pinned', {});
+      } else {
+        var rows = await client.get('bb_config?key=eq.bb_announcements_pinned&select=value');
+        if (rows && rows.length && rows[0].value) {
+          map = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        }
+      }
+      if (!map || typeof map !== 'object') map = {};
+      if (isPinned) {
+        map[annId] = true;
+      } else {
+        delete map[annId];
+      }
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', { key: 'bb_announcements_pinned', value: JSON.stringify(map) }, 'key');
+      }
+    }
+  } catch (_) {}
+}
+
 async function handleAnnouncementImageError(imgEl, optUrl) {
   if (!imgEl || imgEl._hasRetried) return;
   imgEl._hasRetried = true;
@@ -471,12 +498,16 @@ async function loadAnnouncements() {
   var fetchFn = async function() {
     if (typeof supa !== 'undefined' && supa.get) {
       var annImageMap = {};
+      var annPinnedMap = {};
       var cfgPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
         ? supa.safeConfigGet('bb_announcements_images', {})
         : supa.get('bb_config?key=eq.bb_announcements_images&select=value');
+      var pinPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
+        ? supa.safeConfigGet('bb_announcements_pinned', {})
+        : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value');
       var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*');
 
-      var results = await Promise.allSettled([cfgPromise, annPromise]);
+      var results = await Promise.allSettled([cfgPromise, pinPromise, annPromise]);
       if (results[0].status === 'fulfilled' && results[0].value) {
         var cfgVal = results[0].value;
         if (Array.isArray(cfgVal) && cfgVal.length && cfgVal[0].value) {
@@ -487,9 +518,19 @@ async function loadAnnouncements() {
           annImageMap = cfgVal;
         }
       }
+      if (results[1].status === 'fulfilled' && results[1].value) {
+        var pinVal = results[1].value;
+        if (Array.isArray(pinVal) && pinVal.length && pinVal[0].value) {
+          try {
+            annPinnedMap = typeof pinVal[0].value === 'string' ? JSON.parse(pinVal[0].value) : pinVal[0].value;
+          } catch (_) {}
+        } else if (typeof pinVal === 'object') {
+          annPinnedMap = pinVal;
+        }
+      }
 
-      var rows = (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) ? results[1].value : null;
-      if (results[1].status !== 'fulfilled' && announcements.length === 0) {
+      var rows = (results[2].status === 'fulfilled' && Array.isArray(results[2].value)) ? results[2].value : null;
+      if (results[2].status !== 'fulfilled' && announcements.length === 0) {
         // Network or server timeout: preserve cached or fallback data
         announcements = JSON.parse(JSON.stringify(DEFAULT_ANNOUNCEMENTS));
       }
@@ -498,6 +539,7 @@ async function loadAnnouncements() {
         for (var rIdx = 0; rIdx < rows.length; rIdx++) {
           var r = rows[rIdx];
           if (!r.reactions || typeof r.reactions !== 'object') r.reactions = {};
+          r.is_pinned = !!(r.is_pinned || r.pinned || (annPinnedMap && r.id && annPinnedMap[r.id]));
           // Resilient 3-tier infographic recovery: column -> bb_config map -> embedded body marker
           var cfgImg = (annImageMap && r.id && annImageMap[r.id]) ? annImageMap[r.id] : null;
           var bodyMatch = (r.body || '').match(/data-infographic-url=["']([^"']+)["']/i) || (r.body || '').match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
@@ -528,7 +570,7 @@ async function loadAnnouncements() {
             localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
           }
         } catch (_) {}
-      } else if (results[1].status === 'fulfilled' && rows && rows.length === 0) {
+      } else if (results[2].status === 'fulfilled' && rows && rows.length === 0) {
         // Explicit empty announcements confirmed by server
         announcements.length = 0;
         try {
@@ -592,9 +634,24 @@ function renderAnnouncements() {
     currentUserId = sessionGet('ic') || sessionGet('email') || '';
   }
 
+  var indexedItems = announcements.map(function(item, idx) {
+    return { item: item, realIdx: idx };
+  });
+
+  indexedItems.sort(function(a, b) {
+    var aPinned = !!(a.item.is_pinned || a.item.pinned);
+    var bPinned = !!(b.item.is_pinned || b.item.pinned);
+    if (aPinned !== bPinned) {
+      return aPinned ? -1 : 1;
+    }
+    return b.realIdx - a.realIdx;
+  });
+
   var html = '';
-  announcements.slice().reverse().forEach(function(a, ri) {
-    var realIdx = announcements.length - 1 - ri;
+  indexedItems.forEach(function(entry) {
+    var a = entry.item;
+    var realIdx = entry.realIdx;
+    var isPinned = !!(a.is_pinned || a.pinned);
     var sanitizedBody = sanitizeAnnouncementHtml(a.body || '');
     var formattedBody = formatAnnouncementMentions(sanitizedBody);
     var reactions = a.reactions || {};
@@ -672,7 +729,12 @@ function renderAnnouncements() {
       }
     }
 
-    html += '<div class="announcement-item" id="ann-item-' + realIdx + '">'
+    var pinnedBadgeHtml = isPinned
+      ? '<div class="ann-pinned-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg><span>Pinned Announcement</span></div>'
+      : '';
+
+    html += '<div class="announcement-item' + (isPinned ? ' is-pinned' : '') + '" id="ann-item-' + realIdx + '">'
+      + pinnedBadgeHtml
       + '<div class="ann-date">' + safeDate + '</div>'
       + '<div class="ann-title">' + safeTitle + '</div>'
       + infographicHtml
@@ -790,11 +852,25 @@ function renderAdminAnnList() {
     return;
   }
 
-  var html = '<div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;letter-spacing:1px;">EXISTING ANNOUNCEMENTS</div>';
-  var rev = announcements.slice().reverse();
+  var html = '<div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;letter-spacing:1px;">EXISTING ANNOUNCEMENTS (' + announcements.length + ')</div>';
 
-  rev.forEach(function(a, ri) {
-    var i = announcements.length - 1 - ri;
+  var indexedItems = announcements.map(function(item, idx) {
+    return { item: item, realIdx: idx };
+  });
+
+  indexedItems.sort(function(a, b) {
+    var aPinned = !!(a.item.is_pinned || a.item.pinned);
+    var bPinned = !!(b.item.is_pinned || b.item.pinned);
+    if (aPinned !== bPinned) {
+      return aPinned ? -1 : 1;
+    }
+    return b.realIdx - a.realIdx;
+  });
+
+  indexedItems.forEach(function(entry) {
+    var a = entry.item;
+    var i = entry.realIdx;
+    var isPinned = !!(a.is_pinned || a.pinned);
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || '');
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
 
@@ -811,14 +887,22 @@ function renderAdminAnnList() {
       });
     }
 
-    html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid var(--accent);">'
+    var pinBtnStyle = isPinned
+      ? 'background:rgba(234,179,8,0.18);border:1px solid rgba(234,179,8,0.5);color:var(--accent);padding:4px 9px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:4px;'
+      : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);padding:4px 9px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;';
+
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3.5px solid ' + (isPinned ? 'var(--accent)' : 'var(--border-card)') + ';">'
       + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'
-      + '<div style="flex:1;">'
-        + '<div style="font-family:var(--font-headline);font-size:14px;color:var(--text-primary);font-weight:600;">' + safeTitle + '</div>'
+      + '<div style="flex:1;min-width:0;">'
+        + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">'
+          + (isPinned ? '<span style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(234,179,8,0.15);padding:2px 7px;border-radius:10px;border:1px solid rgba(234,179,8,0.3);letter-spacing:0.3px;">PINNED</span>' : '')
+          + '<span style="font-family:var(--font-headline);font-size:14px;color:var(--text-primary);font-weight:600;">' + safeTitle + '</span>'
+        + '</div>'
         + '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + safeDate + '</div>'
         + (reactionsSummary ? ('<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + reactionsSummary + '</div>') : '')
       + '</div>'
-      + '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">'
+      + '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">'
+      + '<button type="button" data-pin-ann="' + i + '" title="' + (isPinned ? 'Unpin announcement' : 'Pin announcement to top') + '" style="' + pinBtnStyle + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg><span>' + (isPinned ? 'Pinned' : 'Pin') + '</span></button>'
       + '<button type="button" data-view-reactions="' + i + '" title="View Who Reacted (' + totalReactions + ')" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--gold);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>' + totalReactions + '</span></button>'
       + '<button type="button" data-edit-ann="' + i + '" title="Edit Announcement" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>'
       + '<button type="button" data-del-ann="' + i + '" title="Delete Announcement" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
@@ -828,6 +912,11 @@ function renderAdminAnnList() {
 
   container.innerHTML = html;
 
+  container.querySelectorAll('[data-pin-ann]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      togglePinAnnouncement(parseInt(btn.getAttribute('data-pin-ann'), 10));
+    });
+  });
   container.querySelectorAll('[data-del-ann]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       deleteAnnouncement(parseInt(btn.getAttribute('data-del-ann'), 10));
@@ -846,6 +935,43 @@ function renderAdminAnnList() {
 }
 
 /**
+ * Toggles pinned state of an announcement directly
+ * @param {number} idx
+ */
+async function togglePinAnnouncement(idx) {
+  var a = announcements[idx];
+  if (!a) return;
+  a.is_pinned = !a.is_pinned;
+  var newPinnedState = !!a.is_pinned;
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
+    }
+  } catch (_) {}
+
+  renderAnnouncements();
+  renderAdminAnnList();
+
+  if (a.id) {
+    await syncAnnouncementPinConfig(a.id, newPinnedState);
+    if (typeof supa !== 'undefined' && supa.patch) {
+      try {
+        await supa.patch('bb_announcements?id=eq.' + a.id, { is_pinned: newPinnedState });
+      } catch (_) {}
+    }
+  }
+
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    window.PortalRealtime.broadcast('announcements', 'pin');
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(newPinnedState ? '📌 Announcement pinned to top of feed!' : 'Announcement unpinned.', 'info');
+  }
+}
+
+/**
  * Loads an announcement into the admin form for editing
  * @param {number} idx
  */
@@ -858,6 +984,11 @@ function openEditAnnouncement(idx) {
 
   var bi = document.getElementById('ann-body-input');
   if (bi) bi.innerHTML = a.body || '';
+
+  var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
+  if (pinCheck) {
+    pinCheck.checked = !!(a.is_pinned || a.pinned);
+  }
 
   var btn = document.getElementById('ann-post-btn');
   if (btn) {
@@ -890,7 +1021,7 @@ function openEditAnnouncement(idx) {
     });
   }
 
-  if (ti) ti.scrollIntoView({ behavior: 'smooth' });
+  if (ti && typeof ti.scrollIntoView === 'function') ti.scrollIntoView({ behavior: 'smooth' });
   var existingImg = a.image_url;
   if (!existingImg && a.body) {
     var editMatch = a.body.match(/data-infographic-url=["']([^"']+)["']/i) || a.body.match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
@@ -920,6 +1051,9 @@ function cancelEditAnnouncement() {
 
   var bi = document.getElementById('ann-body-input');
   if (bi) bi.innerHTML = '';
+
+  var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
+  if (pinCheck) pinCheck.checked = false;
 
   var btn = document.getElementById('ann-post-btn');
   if (btn) {
@@ -1090,11 +1224,15 @@ async function addAnnouncement() {
       sanitizedBody = sanitizedBody.replace(/<img[^>]*class=["'][^"']*ann-embedded-infographic[^"']*["'][^>]*>/gi, '');
     }
 
+    var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
+    var isPinned = pinCheck ? !!pinCheck.checked : false;
+
     if (editIdx >= 0) {
       var a = announcements[editIdx];
       if (a) {
         a.title = title;
         a.body  = sanitizedBody;
+        a.is_pinned = isPinned;
         a.allowed_reactions = selectedAllowed;
         if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
         a.reactions._allowed = selectedAllowed;
@@ -1102,13 +1240,19 @@ async function addAnnouncement() {
         else if (!_stagedAnnouncementImage) a.image_url = null;
 
         if (typeof supa !== 'undefined' && supa.patch && a.id) {
-          var patchPayload = { title: title, body: sanitizedBody, reactions: a.reactions };
+          var patchPayload = { title: title, body: sanitizedBody, reactions: a.reactions, is_pinned: isPinned };
           if (typeof a.image_url !== 'undefined') patchPayload.image_url = a.image_url;
           try {
             await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
           } catch (_) {
-            await supa.patch('bb_announcements?id=eq.' + a.id, { title: title, body: sanitizedBody, reactions: a.reactions });
+            try {
+              delete patchPayload.is_pinned;
+              await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
+            } catch (_) {}
           }
+        }
+        if (a.id) {
+          syncAnnouncementPinConfig(a.id, isPinned);
         }
         if (infographicUrl && a.id) {
           syncAnnouncementImageConfig(a.id, infographicUrl);
@@ -1130,6 +1274,7 @@ async function addAnnouncement() {
         title: title,
         body: sanitizedBody,
         date: dateStr,
+        is_pinned: isPinned,
         reactions: { _allowed: selectedAllowed },
         created_at: new Date().toISOString()
       };
@@ -1143,6 +1288,7 @@ async function addAnnouncement() {
           if (row && row[0]) {
             if (infographicUrl) row[0].image_url = infographicUrl;
             row[0].allowed_reactions = selectedAllowed;
+            row[0].is_pinned = isPinned;
             announcements.push(row[0]);
             createdAnnId = row[0].id;
           }
@@ -1150,16 +1296,19 @@ async function addAnnouncement() {
           // Schema fallback if image_url or custom column not yet applied on remote backend
           delete newRecord.image_url;
           delete newRecord.allowed_reactions;
+          delete newRecord.is_pinned;
           var retryRow = await supa.post('bb_announcements', newRecord);
           if (retryRow && retryRow[0]) {
             retryRow[0].image_url = infographicUrl;
             retryRow[0].allowed_reactions = selectedAllowed;
+            retryRow[0].is_pinned = isPinned;
             announcements.push(retryRow[0]);
             createdAnnId = retryRow[0].id;
           }
         }
-        if (infographicUrl && createdAnnId) {
-          syncAnnouncementImageConfig(createdAnnId, infographicUrl);
+        if (createdAnnId) {
+          if (infographicUrl) syncAnnouncementImageConfig(createdAnnId, infographicUrl);
+          if (isPinned) syncAnnouncementPinConfig(createdAnnId, isPinned);
         }
       }
       var broadcastCheckNew = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
@@ -1175,6 +1324,7 @@ async function addAnnouncement() {
     setAnnReactionPreset('all');
     if (titleEl) titleEl.value = '';
     if (bodyEl)  bodyEl.innerHTML = '';
+    if (pinCheck) pinCheck.checked = false;
     renderAnnouncements();
     renderAdminAnnList();
     if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
@@ -1222,6 +1372,9 @@ async function deleteAnnouncement(idx) {
   renderAdminAnnList();
 
   try {
+    if (a && a.id) {
+      syncAnnouncementPinConfig(a.id, false);
+    }
     if (typeof supa !== 'undefined' && supa.delete && a && a.id) {
       await supa.delete('bb_announcements?id=eq.' + a.id);
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
@@ -2003,6 +2156,8 @@ if (typeof window !== 'undefined') {
   window.resolveReactedMember           = resolveReactedMember;
   window.toggleAnnReactionChip          = toggleAnnReactionChip;
   window.setAnnReactionPreset           = setAnnReactionPreset;
+  window.togglePinAnnouncement          = togglePinAnnouncement;
+  window.syncAnnouncementPinConfig      = syncAnnouncementPinConfig;
   window.openAnnouncementReactionsModal = openAnnouncementReactionsModal;
   window.closeAnnouncementReactionsModal= closeAnnouncementReactionsModal;
 }
@@ -2052,6 +2207,8 @@ if (typeof module !== 'undefined' && module.exports) {
     resolveReactedMember: resolveReactedMember,
     toggleAnnReactionChip: toggleAnnReactionChip,
     setAnnReactionPreset: setAnnReactionPreset,
+    togglePinAnnouncement: togglePinAnnouncement,
+    syncAnnouncementPinConfig: syncAnnouncementPinConfig,
     openAnnouncementReactionsModal: openAnnouncementReactionsModal,
     closeAnnouncementReactionsModal: closeAnnouncementReactionsModal
   };

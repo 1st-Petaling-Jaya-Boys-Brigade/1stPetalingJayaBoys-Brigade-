@@ -628,13 +628,29 @@ function fallbackCopyText(text) {
 }
 
 // ── Admin Management Panel ──────────────────────────────────────────────────
+function getResourceIconSvg(type) {
+  var t = (type || 'PDF').toUpperCase();
+  if (t === 'DOC') {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>';
+  }
+  if (t === 'DRIVE') {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+  }
+  if (t === 'LINK') {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+  }
+  return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+}
+
 /**
  * Renders the Admin Panel Resources section
  */
 function renderAdminResourcesPanel() {
   if (typeof document === 'undefined') return;
-  var container = document.getElementById('adm-resources-list');
-  if (!container) return;
+  var mainView = document.querySelector('.adm-resources-main-view');
+  var formCard = document.getElementById('adm-res-form-card');
+  if (mainView) mainView.style.display = 'block';
+  if (formCard) formCard.style.display = 'none';
   renderAdminResourcesList();
 }
 
@@ -646,12 +662,17 @@ function renderAdminResourcesList() {
   var container = document.getElementById('adm-resources-list');
   if (!container) return;
 
+  var headerLabel = document.querySelector('.adm-resources-header-label');
+  if (headerLabel) {
+    headerLabel.textContent = 'EXISTING COMPANY RESOURCES (' + resources.length + ')';
+  }
+
   if (!resources.length) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:24px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:10px;">No company resources uploaded yet. Use the form above to add PDF documents or link Google Drive files.</div>';
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:24px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:10px;margin-bottom:12px;">No company resources uploaded yet. Click "+ Upload / Add New Resource" below to get started.</div>';
     return;
   }
 
-  var html = '<div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:10px;letter-spacing:1px;">EXISTING COMPANY RESOURCES (' + resources.length + ')</div>';
+  var html = '';
 
   resources.forEach(function(r) {
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(r.title || '') : r.title;
@@ -662,37 +683,78 @@ function renderAdminResourcesList() {
     var validAdminUrl = (typeof safeUrl === 'function') ? safeUrl(rawAdminUrl, '#') : rawAdminUrl;
     var safeAdminUrl = (typeof escapeHtml === 'function') ? escapeHtml(validAdminUrl) : validAdminUrl;
 
-    html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;">'
-      + '<div style="flex:1;min-width:0;">'
-        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">'
-          + '<span style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeTitle + '</span>'
-          + '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg-card-subtle);color:var(--text-secondary);">' + safeType + '</span>'
-          + '<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:rgba(200,150,30,0.15);color:var(--accent);">' + safeVis.toUpperCase() + '</span>'
-        + '</div>'
-        + '<div style="font-size:11px;color:var(--text-secondary);">' + safeCat + ' &bull; <a href="' + safeAdminUrl + '" target="_blank" rel="noopener noreferrer" style="color:var(--brand-blue);text-decoration:none;">Open link &rarr;</a></div>'
+    var iconSvg = getResourceIconSvg(safeType);
+
+    html += '<div class="adm-resource-card" data-open-res-card="' + r.id + '" role="button" tabindex="0" title="Click to edit or delete ' + safeTitle + '">'
+      + '<div style="width:40px;height:40px;border-radius:10px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;color:var(--brand-blue);flex-shrink:0;">'
+        + iconSvg
       + '</div>'
-      + '<div style="display:flex;gap:6px;flex-shrink:0;">'
-        + '<button type="button" data-edit-res="' + r.id + '" title="Edit Resource" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;">Edit</button>'
-        + '<button type="button" data-del-res="' + r.id + '" title="Delete Resource" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:5px 8px;border-radius:6px;cursor:pointer;font-size:11px;">&times;</button>'
+      + '<div style="flex:1;min-width:0;">'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">'
+          + '<span style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeTitle + '</span>'
+          + '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">' + safeType + '</span>'
+          + '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(200,150,30,0.15);color:var(--accent);border:1px solid rgba(200,150,30,0.3);">' + safeVis.toUpperCase() + '</span>'
+        + '</div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);">' + safeCat + ' &bull; <a href="' + safeAdminUrl + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:var(--brand-blue);text-decoration:none;">Open document &rarr;</a></div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;color:var(--text-muted);font-size:18px;margin-left:auto;flex-shrink:0;">'
+        + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
       + '</div>'
       + '</div>';
   });
 
   container.innerHTML = html;
 
-  container.querySelectorAll('[data-edit-res]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = btn.getAttribute('data-edit-res');
+  container.querySelectorAll('[data-open-res-card]').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var id = card.getAttribute('data-open-res-card');
       openEditResource(id);
     });
   });
+}
 
-  container.querySelectorAll('[data-del-res]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = btn.getAttribute('data-del-res');
-      deleteResource(id);
-    });
-  });
+/**
+ * Opens form to create a new resource (matches forms module flow)
+ */
+function openCreateResourceFlow() {
+  cancelEditResource();
+  var mainView  = (typeof document !== 'undefined') ? document.querySelector('.adm-resources-main-view') : null;
+  var formCard  = (typeof document !== 'undefined') ? document.getElementById('adm-res-form-card') : null;
+  var headingEl = (typeof document !== 'undefined') ? document.querySelector('.adm-res-form-heading') : null;
+  var delBtn    = (typeof document !== 'undefined') ? document.querySelector('.adm-res-delete-btn') : null;
+  var titleInp  = (typeof document !== 'undefined') ? document.getElementById('adm-res-title') : null;
+
+  if (headingEl) headingEl.textContent = 'Add / Upload Company Document';
+  if (delBtn) delBtn.style.display = 'none';
+  if (mainView) mainView.style.display = 'none';
+  if (formCard) {
+    formCard.style.display = 'block';
+    if (formCard.scrollIntoView) formCard.scrollIntoView({ behavior: 'smooth' });
+  }
+  if (titleInp && typeof titleInp.focus === 'function') titleInp.focus();
+}
+
+/**
+ * Closes resource editor and returns to main list view
+ */
+function closeResourceEditor() {
+  cancelEditResource();
+  var mainView = (typeof document !== 'undefined') ? document.querySelector('.adm-resources-main-view') : null;
+  var formCard = (typeof document !== 'undefined') ? document.getElementById('adm-res-form-card') : null;
+  if (formCard) formCard.style.display = 'none';
+  if (mainView) mainView.style.display = 'block';
+  renderAdminResourcesList();
+}
+
+/**
+ * Handles deleting currently edited resource from inside form
+ */
+async function handleAdminDeleteCurrentResource() {
+  var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
+  var editId = submitBtn ? submitBtn.getAttribute('data-edit-id') : null;
+  if (!editId) return;
+  await deleteResource(editId);
+  closeResourceEditor();
 }
 
 /**
@@ -711,6 +773,10 @@ function openEditResource(id) {
   var visInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-vis') : null;
   var statusEl  = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
   var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
+  var delBtn    = (typeof document !== 'undefined') ? document.querySelector('.adm-res-delete-btn') : null;
+  var headingEl = (typeof document !== 'undefined') ? document.querySelector('.adm-res-form-heading') : null;
+  var mainView  = (typeof document !== 'undefined') ? document.querySelector('.adm-resources-main-view') : null;
+  var formCard  = (typeof document !== 'undefined') ? document.getElementById('adm-res-form-card') : null;
 
   if (titleInp) titleInp.value = item.title || '';
   if (descInp)  descInp.value  = item.description || '';
@@ -731,9 +797,21 @@ function openEditResource(id) {
     submitBtn.setAttribute('data-edit-id', id);
   }
 
-  var formCard = (typeof document !== 'undefined') ? document.getElementById('adm-res-form-card') : null;
-  if (formCard && formCard.scrollIntoView) {
-    formCard.scrollIntoView({ behavior: 'smooth' });
+  if (delBtn) {
+    delBtn.style.display = 'inline-flex';
+    delBtn.setAttribute('data-delete-id', id);
+  }
+
+  if (headingEl) {
+    headingEl.textContent = 'Edit Company Document';
+  }
+
+  if (mainView) mainView.style.display = 'none';
+  if (formCard) {
+    formCard.style.display = 'block';
+    if (formCard.scrollIntoView) {
+      formCard.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 }
 
@@ -747,6 +825,8 @@ function cancelEditResource() {
   var fileInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-file') : null;
   var statusEl  = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
   var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
+  var delBtn    = (typeof document !== 'undefined') ? document.querySelector('.adm-res-delete-btn') : null;
+  var headingEl = (typeof document !== 'undefined') ? document.querySelector('.adm-res-form-heading') : null;
 
   if (titleInp) titleInp.value = '';
   if (descInp)  descInp.value  = '';
@@ -754,6 +834,9 @@ function cancelEditResource() {
   if (fileInp)  fileInp.value  = '';
   if (statusEl) statusEl.innerHTML = '';
   _lastUploadedFileSize = '';
+
+  if (delBtn) delBtn.style.display = 'none';
+  if (headingEl) headingEl.textContent = 'Add / Upload Company Document';
 
   if (submitBtn) {
     submitBtn.textContent = 'Upload Document';
@@ -938,7 +1021,7 @@ async function addOrUpdateResource() {
       if (typeof showToast === 'function') showToast('✓ Document uploaded and published successfully!', 'success');
     }
 
-    cancelEditResource();
+    closeResourceEditor();
   } catch (e) {
     console.error('addOrUpdateResource error:', e);
     // Rollback optimistic in-memory mutation
@@ -1161,6 +1244,9 @@ if (typeof window !== 'undefined') {
   window.renderAdminResourcesPanel = renderAdminResourcesPanel;
   window.renderAdminResourcesList  = renderAdminResourcesList;
   window.openEditResource          = openEditResource;
+  window.openCreateResourceFlow    = openCreateResourceFlow;
+  window.closeResourceEditor       = closeResourceEditor;
+  window.handleAdminDeleteCurrentResource = handleAdminDeleteCurrentResource;
   window.cancelEditResource        = cancelEditResource;
   window.addOrUpdateResource       = addOrUpdateResource;
   window.handleResourceFileSelect  = handleResourceFileSelect;
@@ -1191,6 +1277,9 @@ if (typeof module !== 'undefined' && module.exports) {
     renderAdminResourcesPanel: renderAdminResourcesPanel,
     renderAdminResourcesList: renderAdminResourcesList,
     openEditResource: openEditResource,
+    openCreateResourceFlow: openCreateResourceFlow,
+    closeResourceEditor: closeResourceEditor,
+    handleAdminDeleteCurrentResource: handleAdminDeleteCurrentResource,
     cancelEditResource: cancelEditResource,
     addOrUpdateResource: addOrUpdateResource,
     handleResourceFileSelect: handleResourceFileSelect,
