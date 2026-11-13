@@ -1944,6 +1944,18 @@ function getAnnouncementMentionCandidates(query) {
   return candidates;
 }
 
+function _safeMentionToken(str) {
+  if (!str) return '';
+  if (typeof escapeHtml === 'function') return escapeHtml(str);
+  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function') return window.escapeHtml(str);
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Wraps @mentions in announcement text with styled mention badges
  * @param {string} text
@@ -1996,23 +2008,27 @@ function formatAnnouncementMentions(text) {
     var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
     var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
     out = out.replace(rx, function(match, prefix, matchedName) {
-      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
+      var safe = _safeMentionToken(matchedName);
+      return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
     });
   });
 
   // Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
   out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+    var safe = _safeMentionToken(mName);
+    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
   });
 
   // Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
   out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+    var safe = _safeMentionToken(mName);
+    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
   });
 
   // Fallback for single-word mentions (e.g. @group)
   out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+    var safe = _safeMentionToken(mName);
+    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
   });
 
   return out;

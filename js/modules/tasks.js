@@ -3147,8 +3147,16 @@ async function openTaskAttachment(taskId, attachmentId) {
     }
   }
 
-  // Blob or Data URLs
-  if (rawUrl.startsWith('blob:') || rawUrl.startsWith('data:')) {
+  // Blob URLs
+  if (rawUrl.startsWith('blob:')) {
+    if (typeof window !== 'undefined' && window.open) {
+      window.open(rawUrl, '_blank', 'noopener,noreferrer');
+    }
+    return;
+  }
+
+  // Safe raster image / PDF data URLs
+  if (/^data:(image\/(png|jpeg|jpg|gif|webp)|application\/pdf);base64,/i.test(rawUrl)) {
     if (typeof window !== 'undefined' && window.open) {
       window.open(rawUrl, '_blank', 'noopener,noreferrer');
     }
@@ -3186,10 +3194,19 @@ async function handleTaskAttachmentUpload(event) {
     var file = files[i];
     if (!file || !file.name) continue;
 
-    // Security check: prohibit SVG files to prevent stored XSS
-    if (/\.svg$/i.test(file.name)) {
+    // Security validation: enforce extension/MIME blocklist and byte-level magic header inspection
+    if (typeof validateFileSecurity === 'function') {
+      try {
+        await validateFileSecurity(file, { allowPdf: true, allowImages: true, allowDocs: true, bucket: 'resources' });
+      } catch (secErr) {
+        if (typeof showToast === 'function') {
+          showToast(secErr.message || 'File upload blocked by security policy.', 'warning');
+        }
+        continue;
+      }
+    } else if (/\.(svg|html|htm|xhtml|js|mjs|ts|php|sh|bat|cmd|exe|dll|vbs|wsf)$/i.test(file.name)) {
       if (typeof showToast === 'function') {
-        showToast('SVG file uploads are blocked for security.', 'warning');
+        showToast('This file type is blocked for security.', 'warning');
       }
       continue;
     }
@@ -3608,6 +3625,18 @@ function getAllMentionCandidateNames() {
   return unique;
 }
 
+function _safeCommentMentionToken(str) {
+  if (!str) return '';
+  if (typeof escapeHtml === 'function') return escapeHtml(str);
+  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function') return window.escapeHtml(str);
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Wraps @mentions in styled mention badges matching full member & group names
  * @param {string} text
@@ -3624,23 +3653,27 @@ function formatCommentMentions(text) {
     var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
     var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
     out = out.replace(rx, function(match, prefix, matchedName) {
-      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
+      var safe = _safeCommentMentionToken(matchedName);
+      return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
     });
   });
 
   // 2. Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
   out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+    var safe = _safeCommentMentionToken(mName);
+    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
   });
 
   // 3. Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
   out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+    var safe = _safeCommentMentionToken(mName);
+    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
   });
 
   // 4. Fallback for any other single-word @mentions not in directory
   out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
+    var safe = _safeCommentMentionToken(mName);
+    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
   });
 
   return out;
