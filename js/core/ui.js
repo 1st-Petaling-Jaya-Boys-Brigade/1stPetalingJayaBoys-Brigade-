@@ -713,6 +713,9 @@
     if (!modal) {
       modal = document.createElement('div');
       modal.className = 'ann-zoom-modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-label', 'Announcement Infographic Preview');
       modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;animation:fadeIn 0.2s ease-out;';
       modal.innerHTML = '<div class="ann-zoom-card" style="position:relative;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;align-items:center;">'
         + '<button type="button" class="ann-zoom-close-btn" style="position:absolute;top:-40px;right:0;background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" title="Close (Esc)">&times;</button>'
@@ -1553,6 +1556,123 @@
     }, true);
   }
 
+  function _resolveGlobalFn(fnName) {
+    if (typeof window !== 'undefined' && typeof window[fnName] === 'function') return window[fnName];
+    if (typeof global !== 'undefined' && typeof global[fnName] === 'function') return global[fnName];
+    return null;
+  }
+
+  /**
+   * Unified global modal Escape key dismissal handler
+   * Follows WAI-ARIA Dialog recommendations: closes topmost visible dialog/modal on Escape
+   */
+  function handleGlobalModalEscape(e) {
+    if (!e || (e.key !== 'Escape' && e.keyCode !== 27)) return;
+    if (typeof document === 'undefined') return;
+
+    // 1. Zoom Modal
+    var zoomModal = document.querySelector('.ann-zoom-modal');
+    if (zoomModal && zoomModal.style.display !== 'none') {
+      closeAnnouncementZoomModal();
+      return;
+    }
+
+    // 2. Lightbox Modal
+    var lbModal = document.getElementById('gallery-lightbox-modal');
+    if (lbModal) {
+      var closeLb = _resolveGlobalFn('closeGalleryLightbox');
+      if (closeLb) { closeLb(); return; }
+    }
+
+    // 3. Story Viewer Modal
+    var storyModal = document.getElementById('story-viewer-modal');
+    if (storyModal && storyModal.style.display !== 'none') {
+      var closeSv = _resolveGlobalFn('closeStoryViewer');
+      if (closeSv) { closeSv(); return; }
+    }
+
+    // 4. Calendar Day Modal
+    var calDayModal = document.getElementById('calendar-day-modal');
+    if (calDayModal && calDayModal.style.display !== 'none') {
+      var closeCdm = _resolveGlobalFn('closeCalendarDayModal');
+      if (closeCdm) { closeCdm(); return; }
+    }
+
+    // 5. Admin Event Edit Modal
+    var admEventModal = document.getElementById('adm-event-edit-modal');
+    if (admEventModal && admEventModal.style.display !== 'none') {
+      var closeAem = _resolveGlobalFn('closeAdminEventModal') || _resolveGlobalFn('closeEventEditModal');
+      if (closeAem) { closeAem(); return; }
+    }
+
+    // 6. Admin Story Modal
+    var admStoryModal = document.getElementById('adm-story-modal');
+    if (admStoryModal && admStoryModal.style.display !== 'none') {
+      var closeAsm = _resolveGlobalFn('closeAdminStoryModal');
+      if (closeAsm) { closeAsm(); return; }
+    }
+
+    // 7. Uniform Orders Schedule Modal
+    var uoModal = document.querySelector('.uo-schedule-modal-overlay');
+    if (uoModal && uoModal.style.display !== 'none') {
+      var closeUo = _resolveGlobalFn('closeUniformOrdersScheduleModal');
+      if (closeUo) { closeUo(); return; }
+    }
+
+    // 8. Admin Product Modal
+    var prodModal = document.querySelector('.adm-product-modal-overlay');
+    if (prodModal && prodModal.style.display !== 'none') {
+      var closeProd = _resolveGlobalFn('closeProductModal');
+      if (closeProd) { closeProd(); return; }
+    }
+
+    // 9. Edit Member Modal
+    var editMemModal = document.getElementById('edit-member-modal');
+    if (editMemModal && editMemModal.classList.contains('active')) {
+      var closeEm = _resolveGlobalFn('closeEditMemberModal');
+      if (closeEm) { closeEm(); return; }
+    }
+
+    // 10. Child Safety Modal
+    var csModal = document.getElementById('child-safety-modal');
+    if (csModal && csModal.style.display !== 'none') {
+      var closeCs = _resolveGlobalFn('closeChildSafetyModal');
+      if (closeCs) { closeCs(); return; }
+    }
+
+    // 11. Task Detail Modal
+    var detailModal = document.getElementById('task-detail-modal');
+    if (detailModal && detailModal.style.display !== 'none') {
+      var closeTd = _resolveGlobalFn('closeTaskDetail');
+      if (closeTd) { closeTd(); return; }
+    }
+
+    // 12. Create Task Modal
+    var createModal = document.querySelector('.task-create-modal');
+    if (createModal && createModal.style.display !== 'none') {
+      var closeCt = _resolveGlobalFn('closeCreateTaskModal');
+      if (closeCt) { closeCt(); return; }
+    }
+
+    // 13. Global Search Palette
+    var searchModal = document.getElementById('global-search-modal');
+    if (searchModal && searchModal.style.display !== 'none') {
+      var closeGs = _resolveGlobalFn('closeGlobalSearch');
+      if (closeGs) { closeGs(); return; }
+    }
+
+    // 14. Table Context Menu
+    var ctxMenu = document.getElementById('tb-context-menu');
+    if (ctxMenu && ctxMenu.style.display !== 'none') {
+      closeTableContextMenu();
+      return;
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('keydown', handleGlobalModalEscape, false);
+  }
+
   // Expose to window / global
   if (typeof global !== 'undefined') {
     global.showToast = showToast;
@@ -1584,6 +1704,7 @@
     global.requestNotificationPermission = requestNotificationPermission;
     global.testNotificationPopup = testNotificationPopup;
     global.triggerNewPortalNotifications = triggerNewPortalNotifications;
+    global.handleGlobalModalEscape = handleGlobalModalEscape;
   }
 
   // CommonJS export for Node testing
@@ -1617,7 +1738,8 @@
       triggerPortalSystemNotification: triggerPortalSystemNotification,
       requestNotificationPermission: requestNotificationPermission,
       testNotificationPopup: testNotificationPopup,
-      triggerNewPortalNotifications: triggerNewPortalNotifications
+      triggerNewPortalNotifications: triggerNewPortalNotifications,
+      handleGlobalModalEscape: handleGlobalModalEscape
     };
   }
 })(typeof window !== 'undefined' ? window : this);

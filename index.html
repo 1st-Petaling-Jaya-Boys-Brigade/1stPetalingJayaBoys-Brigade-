@@ -804,7 +804,7 @@
           <label class="form-label" for="login-pass">Password</label>
           <div style="position:relative;">
             <input class="form-input" id="login-pass" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" style="padding-right:44px;"/>
-            <button type="button" onclick="togglePassVis('login-pass','login-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="login-eye"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button type="button" onclick="togglePassVis('login-pass','login-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="login-eye" aria-label="Toggle password visibility" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer;">
@@ -850,14 +850,14 @@
             <label class="form-label" for="forgot-newpass">New Password</label>
             <div style="position:relative;">
               <input class="form-input" id="forgot-newpass" name="new-password" type="password" placeholder="New password (min 6 chars)" autocomplete="new-password" style="padding-right:44px;"/>
-              <button type="button" onclick="togglePassVis('forgot-newpass','f-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="f-eye"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button type="button" onclick="togglePassVis('forgot-newpass','f-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="f-eye" aria-label="Toggle password visibility" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
           <div class="form-group">
             <label class="form-label" for="forgot-newpass2">Confirm New Password</label>
             <div style="position:relative;">
               <input class="form-input" id="forgot-newpass2" name="confirm-new-password" type="password" placeholder="Repeat password" autocomplete="new-password" style="padding-right:44px;"/>
-              <button type="button" onclick="togglePassVis('forgot-newpass2','f-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="f-eye2"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+              <button type="button" onclick="togglePassVis('forgot-newpass2','f-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="f-eye2" aria-label="Toggle password visibility" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
             </div>
           </div>
           <button type="button" class="submit-btn gold" id="btn-verify-reset" onclick="verifyResetCodeAndSetPassword()"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Set New Password</button>
@@ -955,14 +955,14 @@
           <label class="form-label" for="reg-pass">Password</label>
           <div style="position:relative;">
             <input class="form-input" id="reg-pass" name="new-password" type="password" placeholder="Create password (min 6 chars)" autocomplete="new-password" style="padding-right:44px;"/>
-            <button type="button" onclick="togglePassVis('reg-pass','reg-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="reg-eye"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button type="button" onclick="togglePassVis('reg-pass','reg-eye')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="reg-eye" aria-label="Toggle password visibility" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-pass2">Confirm Password</label>
           <div style="position:relative;">
             <input class="form-input" id="reg-pass2" name="confirm-password" type="password" placeholder="Repeat password" autocomplete="new-password" style="padding-right:44px;"/>
-            <button type="button" onclick="togglePassVis('reg-pass2','reg-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="reg-eye2"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button type="button" onclick="togglePassVis('reg-pass2','reg-eye2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;" id="reg-eye2" aria-label="Toggle password visibility" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;cursor:pointer;">
@@ -1651,7 +1651,7 @@
       <div class="task-create-modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:24px 28px;width:100%;max-width:620px;box-shadow:var(--shadow-modal);max-height:calc(100vh - 40px);overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
           <div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">Create Task Brief</div>
-          <button type="button" onclick="closeCreateTaskModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 10px;border-radius:8px;cursor:pointer;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          <button type="button" onclick="closeCreateTaskModal()" aria-label="Close Create Task Brief" title="Close (Esc)" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-muted);padding:6px 10px;border-radius:8px;cursor:pointer;"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </div>
         <form class="task-create-form" onsubmit="handleCreateTaskSubmit(event)" style="display:flex;flex-direction:column;gap:14px;">
           <div>
@@ -2673,7 +2673,7 @@
                 <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 Save Task
               </button>
-              <button class="submit-btn danger" onclick="clearTaskForm()" style="margin-top:0;width:auto;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              <button class="submit-btn danger" onclick="clearTaskForm()" aria-label="Clear Task Form" title="Clear Task Form" style="margin-top:0;width:auto;padding:12px 18px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             </div>
           </div>
         </div>
