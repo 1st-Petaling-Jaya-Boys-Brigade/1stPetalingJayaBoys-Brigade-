@@ -12730,6 +12730,49 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 63. Mobile UI Polish: Calendar Schedule Wrapping, Subnav Tabs, Arcade Grid & Attendance Label ──
+  {
+    console.log('\nTesting Mobile UI Polish: Calendar Schedule Wrapping, Subnav Tabs, Arcade Grid & Attendance Label...');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const compCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const calJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'calendar.js'), 'utf8');
+    const arcadeJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'arcade.js'), 'utf8');
+
+    // 1. Admin Module Title: Attendance (Image 1)
+    assert.ok(indexHtml.includes('<div class="adm-sec-title">Attendance</div>'), 'Admin module title must be updated to Attendance');
+    assert.ok(!indexHtml.includes('Attendance &amp; Roles'), 'Admin module title must not contain Attendance & Roles');
+    console.log('  ✔ Admin module title updated to Attendance without altering DOM IDs (Image 1)');
+
+    // 2. Calendar Schedule Rundown Responsive Layout & Non-Hyphenating Word Break (Image 3)
+    assert.ok(compCss.includes('.cal-rundown-item'), 'components.css must define .cal-rundown-item');
+    assert.ok(compCss.includes('.cal-rundown-title'), 'components.css must define .cal-rundown-title');
+    assert.ok(compCss.includes('word-break: normal;') && compCss.includes('hyphens: none;'), 'cal-rundown-title must enforce normal word breaking and disable mid-word hyphens');
+    assert.ok(calJs.includes('cal-rundown-item') && calJs.includes('cal-rundown-title'), 'calendar.js must render schedule rows with cal-rundown classes');
+    assert.ok(calJs.includes('cal-noparade-banner'), 'calendar.js must render clean banner for No Parade dates');
+    console.log('  ✔ Calendar schedule table eliminates awkward word breaks (e.g. No / Para / de) with responsive rundown classes (Image 3)');
+
+    // 3. Calendar Subnav View Switcher Mobile Truncation Fix (Image 3)
+    assert.ok(compCss.includes('@media (max-width: 600px)') && compCss.includes('.cal-view-tab'), 'components.css must configure mobile cal-view-tab padding');
+    assert.ok(compCss.includes('@media (max-width: 360px)'), 'components.css must support ultra-compact mobile viewports');
+    console.log('  ✔ Calendar subnav tabs eliminate truncation (Upcoming never truncated to Upcom...)');
+
+    // 4. Arcade Rewards & Streaks Mobile Grid Bounds (Image 2)
+    assert.ok(!arcadeJs.includes('minmax(380px, 1fr)'), 'arcade.js must not enforce rigid 380px grid columns that overflow mobile screens');
+    assert.ok(arcadeJs.includes('minmax(min(100%, 280px), 1fr)'), 'arcade.js must use responsive minmax with min(100%, 280px)');
+    assert.ok(arcadeJs.includes('minmax(min(100%, 220px), 1fr)'), 'arcade.js must use responsive minmax with min(100%, 220px)');
+    console.log('  ✔ Arcade rewards and streaks cards fluidly adapt to mobile screens without edge clipping (Image 2)');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIds = new Set();
+    const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds.add(match[1]);
+    });
+    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

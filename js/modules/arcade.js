@@ -1830,52 +1830,52 @@
     var stats = getArcadeStats();
 
     container.innerHTML =
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;margin-bottom:20px;width:100%;">' +
-        '<div class="card" style="display:flex;align-items:center;gap:16px;padding:20px;">' +
-          '<div style="width:52px;height:52px;border-radius:12px;background:rgba(249,115,22,0.15);color:#f97316;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr));gap:clamp(10px, 2.5vw, 16px);margin-bottom:20px;width:100%;box-sizing:border-box;">' +
+        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
+          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(249,115,22,0.15);color:#f97316;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
           '</div>' +
-          '<div>' +
+          '<div style="min-width:0;flex:1;">' +
             '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Current Daily Streak</div>' +
-            '<div style="font-size:26px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.streak || 0) + ' <span style="font-size:14px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
+            '<div style="font-size:24px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.streak || 0) + ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
           '</div>' +
         '</div>' +
 
-        '<div class="card" style="display:flex;align-items:center;gap:16px;padding:20px;">' +
-          '<div style="width:52px;height:52px;border-radius:12px;background:rgba(217,163,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>' +
+        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
+          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(217,163,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>' +
           '</div>' +
-          '<div>' +
+          '<div style="min-width:0;flex:1;">' +
             '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Earned Credits</div>' +
-            '<div style="font-size:26px;font-weight:800;color:var(--gold);margin-top:2px;">' + (stats.credits || 0) + '</div>' +
+            '<div style="font-size:24px;font-weight:800;color:var(--gold);margin-top:2px;">' + (stats.credits || 0) + '</div>' +
           '</div>' +
         '</div>' +
 
-        '<div class="card" style="display:flex;align-items:center;gap:16px;padding:20px;">' +
-          '<div style="width:52px;height:52px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
+        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
+          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
           '</div>' +
-          '<div>' +
+          '<div style="min-width:0;flex:1;">' +
             '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">All-Time Best Streak</div>' +
-            '<div style="font-size:26px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.bestStreak || 0) + ' <span style="font-size:14px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
+            '<div style="font-size:24px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.bestStreak || 0) + ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
           '</div>' +
         '</div>' +
       '</div>' +
 
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(380px, 1fr));gap:16px;width:100%;">' +
-        '<div class="card" style="padding:22px;">' +
-          '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;">How Daily Streaks Work</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 280px), 1fr));gap:clamp(12px, 3vw, 16px);width:100%;box-sizing:border-box;">' +
+        '<div class="card" style="padding:clamp(14px, 4vw, 22px);box-sizing:border-box;word-break:break-word;overflow:hidden;min-width:0;">' +
+          '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">How Daily Streaks Work</div>' +
           '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
             '<p style="margin-bottom:8px;"><strong>Consecutive Participation:</strong> Play either Daily Wordle or BB Trivia each calendar day to maintain and increment your streak. If you miss a calendar day, the streak resets to 0.</p>' +
             '<p style="margin:0;">Building long streaks will be displayed on profile and 1stPJ Arcade leaderboard</p>' +
           '</div>' +
         '</div>' +
 
-        '<div class="card" style="padding:22px;">' +
-          '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;">Credit Earning Rates &amp; Spending</div>' +
+        '<div class="card" style="padding:clamp(14px, 4vw, 22px);box-sizing:border-box;word-break:break-word;overflow:hidden;min-width:0;">' +
+          '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Credit Earning Rates &amp; Spending</div>' +
           '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
-            '<ul style="margin:6px 0 12px 20px;">' +
-              '<li><strong>Daily Wordle:</strong> +15 Credits for successfully solving today\'s 5-letter word puzzle.</li>' +
+            '<ul style="margin:6px 0 12px 0;padding-left:18px;">' +
+              '<li style="margin-bottom:4px;"><strong>Daily Wordle:</strong> +15 Credits for successfully solving today\'s 5-letter word puzzle.</li>' +
               '<li><strong>BB Trivia:</strong> +5 Credits for every correct multiple-choice answer (up to +25 Credits per 5-question round).</li>' +
             '</ul>' +
             '<p style="margin:0;">Spend your earned credits in the <strong>Cosmetic Shop</strong>.</p>' +

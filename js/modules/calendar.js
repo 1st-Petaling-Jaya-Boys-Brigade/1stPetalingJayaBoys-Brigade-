@@ -822,29 +822,45 @@
     // Rundown Table / Timeline
     html += ''
       + '<div class="cal-hero-section-title">Parade Rundown &amp; Activity Schedule ' + (isAdminView ? '<span style="font-size:12px;color:var(--accent);font-weight:600;">(Click any row to edit)</span>' : '') + '</div>'
-      + '<div class="schedule-table" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">';
+      + '<div class="schedule-table">';
 
-    var activeRundown = (upcoming && Array.isArray(upcoming.schedule) && upcoming.schedule.length > 0) ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
-    activeRundown.forEach(function(step) {
-      var rowClick = isAdminView
-        ? (' onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="cursor:pointer;"')
-        : '';
+    var isNoParadeEvent = upcoming && (upcoming.type === 'noparade' || (upcoming.title && upcoming.title.toLowerCase().includes('no parade')));
+    var hasCustomSchedule = upcoming && Array.isArray(upcoming.schedule) && upcoming.schedule.length > 0;
+
+    if (isNoParadeEvent && !hasCustomSchedule) {
       html += ''
-        + '<div' + rowClick + ' style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;gap:10px;box-sizing:border-box;">'
-          + '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">'
-            + '<div style="width:32px;height:32px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;">'
-              + '<svg class="ui-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
-            + '</div>'
-            + '<div style="min-width:0;flex:1;">'
-              + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px;word-break:break-word;line-height:1.25;">' + escapeHtml(step.title) + '</div>'
-              + (step.desc || step.notes ? ('<div style="font-size:11.5px;color:var(--text-secondary);word-break:break-word;line-height:1.3;margin-top:2px;">' + escapeHtml(step.desc || step.notes) + '</div>') : '')
-            + '</div>'
+        + '<div class="cal-noparade-banner" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;box-sizing:border-box;">'
+          + '<div style="width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,0.12);color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+            + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
           + '</div>'
-          + '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--accent);background:var(--bg-card);border:1px solid var(--border-card);padding:4px 10px;border-radius:16px;letter-spacing:0.3px;white-space:nowrap;flex-shrink:0;">'
-            + escapeHtml(step.time)
+          + '<div>'
+            + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px;">No Regular Parade Scheduled</div>'
+            + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">There is no standard company parade or uniform inspection for this date.</div>'
           + '</div>'
         + '</div>';
-    });
+    } else {
+      var activeRundown = hasCustomSchedule ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
+      activeRundown.forEach(function(step) {
+        var rowClick = isAdminView
+          ? (' onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="cursor:pointer;"')
+          : '';
+        html += ''
+          + '<div class="cal-rundown-item"' + rowClick + '>'
+            + '<div class="cal-rundown-info">'
+              + '<div class="cal-rundown-icon">'
+                + '<svg class="ui-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+              + '</div>'
+              + '<div style="min-width:0;flex:1;">'
+                + '<div class="cal-rundown-title">' + escapeHtml(step.title) + '</div>'
+                + (step.desc || step.notes ? ('<div class="cal-rundown-desc">' + escapeHtml(step.desc || step.notes) + '</div>') : '')
+              + '</div>'
+            + '</div>'
+            + '<div class="cal-rundown-time">'
+              + escapeHtml(step.time)
+            + '</div>'
+          + '</div>';
+      });
+    }
 
     html += '</div>'; // end schedule-table
 
@@ -1582,7 +1598,7 @@
     var initialRows = [];
     if (ev && Array.isArray(ev.schedule) && ev.schedule.length > 0) {
       initialRows = ev.schedule;
-    } else if (ev && (ev.type === 'parade' || (ev.title && ev.title.toLowerCase().includes('parade')))) {
+    } else if (ev && ev.type !== 'noparade' && (ev.type === 'parade' || (ev.title && ev.title.toLowerCase().includes('parade')))) {
       initialRows = DEFAULT_PARADE_RUNDOWN;
     } else if (ev) {
       initialRows = [{ time: ev.time || '2:15 PM – 6:00 PM', title: ev.title || 'Event Activity', desc: ev.notes || '', notes: ev.kit || '' }];
