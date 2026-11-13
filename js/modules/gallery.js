@@ -114,6 +114,37 @@ function isVideoMedia(url, type) {
 }
 
 /**
+ * Resolves a reliable image thumbnail URL for any media type (Drive photo/video, YouTube, direct media)
+ * Ensures Google Drive photos and videos display identical rich thumbnails across all grids & lightboxes.
+ * @param {string} rawUrl
+ * @param {string} [type] - 'image' or 'video'
+ * @returns {string} Thumbnail image URL
+ */
+function getGalleryThumbnailUrl(rawUrl, type) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  var url = rawUrl.trim();
+
+  // 1. Google Drive Links (Photos & Videos both have high-res image thumbnails on lh3.googleusercontent.com)
+  var driveMatch = url.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/i);
+  if (driveMatch && driveMatch[1]) {
+    return 'https://lh3.googleusercontent.com/d/' + driveMatch[1];
+  }
+
+  // 2. YouTube Links
+  var ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
+  if (ytMatch && ytMatch[1]) {
+    return 'https://img.youtube.com/vi/' + ytMatch[1] + '/hqdefault.jpg';
+  }
+
+  // 3. Direct Images
+  if (type === 'image' || !isVideoMedia(url, type)) {
+    return normalizeMediaUrl(url, 'image');
+  }
+
+  return url;
+}
+
+/**
  * Compresses an image File or Blob before uploading to Supabase Storage
  * Limits dimensions (default 1920px) and quality (default 0.82) to avoid storage exhaustion.
  * @param {File|Blob} file
@@ -419,8 +450,9 @@ function renderGallery() {
     var id     = (typeof item === 'object' && item && item.id) ? item.id : '';
     var isVid  = isVideoMedia(rawUrl, item.type);
 
-    var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '') : rawUrl;
-    var safeUrlStr   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
+    var thumbUrl = getGalleryThumbnailUrl(rawUrl, item.type);
+    var validatedThumb = (typeof safeUrl === 'function') ? safeUrl(thumbUrl, '') : thumbUrl;
+    var safeThumbStr   = (typeof escapeHtml === 'function') ? escapeHtml(validatedThumb) : validatedThumb;
 
     var videoBadgeHtml = isVid
       ? '<span class="gallery-video-badge"><svg viewBox="0 0 24 24" fill="currentColor" style="width:10px;height:10px;"><polygon points="5 3 19 12 5 21 5 3"/></svg> Video</span>'
@@ -429,21 +461,21 @@ function renderGallery() {
     // Public grid item with clickable lightbox preview
     pubHtml += '<div class="gallery-img-wrap" data-lightbox-idx="' + i + '" style="cursor:pointer;" title="Click to view ' + (isVid ? 'video' : 'photo') + '">'
       + videoBadgeHtml
-      + '<img src="' + safeUrlStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'" />'
+      + '<img src="' + safeThumbStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
       + '</div>';
 
     // Home teaser: limit to first 6 items
     if (homeGrid && i < 6) {
       homeHtml += '<div class="gallery-img-wrap" data-home-idx="' + i + '" style="cursor:pointer;" title="Click to preview">'
         + videoBadgeHtml
-        + '<img src="' + safeUrlStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'" />'
+        + '<img src="' + safeThumbStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
         + '</div>';
     }
 
     // Admin grid item with delete button
     admHtml += '<div class="gallery-img-wrap">'
       + videoBadgeHtml
-      + '<img src="' + safeUrlStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.parentElement.style.display=\'none\'" />'
+      + '<img src="' + safeThumbStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
       + '<button type="button" class="del-btn" data-gi="' + i + '" data-gid="' + id + '" title="Delete Media" aria-label="Delete Media">&times;</button>'
       + '</div>';
   });
@@ -685,7 +717,7 @@ function openGalleryLightbox(idx) {
     var rawUrl = (typeof item === 'string') ? item : item.url;
     var normUrl = normalizeMediaUrl(rawUrl, item.type);
     var isVid = isVideoMedia(normUrl, item.type);
-    var thumbUrl = isVid ? (rawUrl.indexOf('youtube') !== -1 ? rawUrl : 'assets/logo.png') : normUrl;
+    var thumbUrl = getGalleryThumbnailUrl(rawUrl, item.type);
     var validatedThumb = (typeof safeUrl === 'function') ? safeUrl(thumbUrl, '') : thumbUrl;
     var safeThumb = (typeof escapeHtml === 'function') ? escapeHtml(validatedThumb) : validatedThumb;
 
@@ -901,6 +933,124 @@ async function handleGalleryUpload(input) {
   input.value = ''; // Reset input to allow selecting identical file name again
 }
 
+/**
+ * Ingests a Google Drive link, YouTube video, or direct web media link as a photo or video
+ * Supports both DOM-driven interaction from the Admin Console and programmatic invocation.
+ * @param {string} [explicitUrl]
+ * @param {string} [explicitType]
+ * @returns {Promise<object|null>}
+ */
+async function addGalleryMediaByUrl(explicitUrl, explicitType) {
+  var inputEl = (typeof document !== 'undefined') ? document.querySelector('.gallery-drive-url-input') : null;
+  var typeSelect = (typeof document !== 'undefined') ? document.querySelector('.gallery-drive-type-select') : null;
+  var btn = (typeof document !== 'undefined') ? document.querySelector('.gallery-add-link-btn') : null;
+
+  var rawUrl = (explicitUrl && typeof explicitUrl === 'string') ? explicitUrl.trim() : (inputEl ? inputEl.value.trim() : '');
+  if (!rawUrl) {
+    if (typeof showToast === 'function') {
+      showToast('Please enter a Google Drive link or media URL.', 'warning');
+    }
+    return null;
+  }
+
+  // Security check: validate protocol
+  if (!/^https?:\/\//i.test(rawUrl)) {
+    if (typeof showToast === 'function') {
+      showToast('Please enter a valid URL starting with http:// or https://', 'warning');
+    }
+    return null;
+  }
+
+  // Determine media type
+  var selectedType = explicitType || (typeSelect ? typeSelect.value : 'auto');
+  var mediaType = 'image';
+  if (selectedType === 'video') {
+    mediaType = 'video';
+  } else if (selectedType === 'image') {
+    mediaType = 'image';
+  } else {
+    // Auto-detect based on URL
+    if (isVideoMedia(rawUrl)) {
+      mediaType = 'video';
+    } else {
+      mediaType = 'image';
+    }
+  }
+
+  var createdItem = null;
+  var executeAdd = async function() {
+    var client = getSupa();
+    var row = null;
+    if (client && client.post) {
+      try {
+        row = await client.post('bb_gallery', {
+          url: rawUrl,
+          type: mediaType,
+          created_at: new Date().toISOString()
+        });
+      } catch (errPostType) {
+        row = await client.post('bb_gallery', {
+          url: rawUrl,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
+    var id = (row && row[0] && row[0].id) ? row[0].id : ('gdrive-' + Date.now());
+    createdItem = { id: id, url: rawUrl, type: mediaType };
+    galleryImages.push(createdItem);
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_gallery_cache', JSON.stringify(galleryImages));
+      }
+    } catch (_) {}
+
+    renderGallery();
+
+    if (inputEl) inputEl.value = '';
+    if (typeSelect) typeSelect.value = 'auto';
+
+    if (typeof showToast === 'function') {
+      var typeLabel = mediaType === 'video' ? 'video' : 'photo';
+      showToast('Google Drive / Media link ' + typeLabel + ' added successfully!', 'success');
+    }
+
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'gallery.add_link',
+        targetType: 'gallery',
+        targetId: String(id),
+        actorRole: 'officer_admin',
+        details: { url: rawUrl, type: mediaType }
+      });
+    }
+
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('gallery_update', { action: 'add', id: id, url: rawUrl, type: mediaType });
+    }
+  };
+
+  if (typeof withSmartButtonLock === 'function' && btn) {
+    await withSmartButtonLock(btn, executeAdd);
+  } else {
+    if (btn && btn.disabled) return null;
+    if (btn) btn.disabled = true;
+    try {
+      await executeAdd();
+    } catch (err) {
+      console.error('addGalleryMediaByUrl error:', err);
+      if (typeof showToast === 'function') {
+        showToast('Failed to add media link: ' + (err.message || 'Unknown error'), 'error');
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  return createdItem;
+}
+
 // ── Delete Operations ──────────────────────────────────────────────────────
 /**
  * Deletes a gallery media item from Supabase database and storage bucket
@@ -933,7 +1083,17 @@ async function deleteGalleryImage(idx, rowId) {
       if (rowId && client.delete) {
         await client.delete('bb_gallery?id=eq.' + rowId);
       }
-      if (url && client.deleteFile) {
+      var isExternal = url && (
+        url.indexOf('drive.google.com') !== -1 ||
+        url.indexOf('docs.google.com') !== -1 ||
+        url.indexOf('googleusercontent.com') !== -1 ||
+        url.indexOf('youtube.com') !== -1 ||
+        url.indexOf('youtu.be') !== -1 ||
+        url.indexOf('vimeo.com') !== -1 ||
+        url.indexOf('unsplash.com') !== -1 ||
+        url.indexOf('commondatastorage.googleapis.com') !== -1
+      );
+      if (url && !isExternal && client.deleteFile) {
         var fname = url.split('/').pop();
         if (fname) {
           await client.deleteFile('gallery', fname);
@@ -2675,13 +2835,15 @@ if (typeof window !== 'undefined') {
   window.handleGalleryUpload    = handleGalleryUpload;
   window.deleteGalleryImage     = deleteGalleryImage;
   window.initGalleryDropZone    = initGalleryDropZone;
+  window.getGalleryThumbnailUrl = getGalleryThumbnailUrl;
+  window.addGalleryMediaByUrl   = addGalleryMediaByUrl;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     DEFAULT_GALLERY_IMAGES: DEFAULT_GALLERY_IMAGES,
-  galleryImages: galleryImages,
+    galleryImages: galleryImages,
     DEFAULT_STORY_HIGHLIGHTS: DEFAULT_STORY_HIGHLIGHTS,
     normalizeMediaUrl: normalizeMediaUrl,
     isVideoMedia: isVideoMedia,
@@ -2730,7 +2892,9 @@ if (typeof module !== 'undefined' && module.exports) {
     uploadGalleryFiles: uploadGalleryFiles,
     handleGalleryUpload: handleGalleryUpload,
     deleteGalleryImage: deleteGalleryImage,
-    initGalleryDropZone: initGalleryDropZone
+    initGalleryDropZone: initGalleryDropZone,
+    getGalleryThumbnailUrl: getGalleryThumbnailUrl,
+    addGalleryMediaByUrl: addGalleryMediaByUrl
   };
 
   Object.defineProperty(module.exports, '_storySlideDuration', { get: function() { return _storySlideDuration; }, configurable: true });

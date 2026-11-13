@@ -2973,10 +2973,25 @@
           <div style="font-size:11px;color:var(--accent);font-weight:600;margin-top:2px;">All formats supported (MP4, MOV, WEBM, JPG, PNG, WebP)</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Multiple files supported</div>
         </div>
-                <div style="margin-bottom:14px;padding:10px 14px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.25);border-radius:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-secondary);">
-          <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#3b82f6;flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <div>
-            <strong>Storage Best Practice:</strong> Photos and short clips (&lt; 20 MB) can be uploaded directly to Supabase. For high-resolution or long videos (&gt; 20 MB), upload to <strong>Google Drive</strong> (set share to <em>"Anyone with the link can view"</em>) or <strong>YouTube Unlisted</strong> to preserve free-tier storage quota.
+        <!-- Google Drive Link or Media URL Ingestion Card -->
+        <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
+              <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span>Add from Google Drive or Media Link</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);">Paste Google Drive, YouTube, or direct media link</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="url" class="form-input gallery-drive-url-input" placeholder="https://drive.google.com/file/d/... or YouTube / web URL" onkeydown="if(event.key==='Enter') addGalleryMediaByUrl()" style="flex:1;min-width:240px;font-size:13px;padding:8px 12px;" />
+            <select class="form-select gallery-drive-type-select" style="width:auto;min-width:115px;font-size:13px;padding:8px 10px;">
+              <option value="auto">Auto-Detect</option>
+              <option value="image">Photo</option>
+              <option value="video">Video</option>
+            </select>
+            <button type="button" class="portal-btn portal-btn-primary gallery-add-link-btn" onclick="addGalleryMediaByUrl()" style="font-size:12px;padding:8px 16px;white-space:nowrap;">
+              + Add Media
+            </button>
           </div>
         </div>
         <div id="admin-gallery-grid" class="gallery-grid"></div>
