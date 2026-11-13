@@ -13566,6 +13566,109 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 70: Security Posture, RBAC Gatekeeping, Input Sanitization & Integrity
+  // =========================================================================
+  {
+    console.log('\n--- Suite 70: Security Posture & Vulnerability Hardening ---');
+
+    global.sessionStorage = {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+      clear: () => {}
+    };
+
+    // 1. Unauthenticated Route Protection (AuthGuard)
+    const sessionMod = require('../js/core/session.js');
+    assert.ok(sessionMod.AuthGuard, 'session.js must export AuthGuard');
+    assert.strictEqual(typeof sessionMod.AuthGuard.canActivate, 'function', 'canActivate must be a function');
+
+    // Without session, protected routes must return false
+    sessionMod.sessionClear();
+    ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'].forEach(route => {
+      assert.strictEqual(sessionMod.AuthGuard.canActivate(route), false, `Unauthenticated access to protected route #${route} must be blocked`);
+    });
+    // Public routes must return true
+    assert.strictEqual(sessionMod.AuthGuard.canActivate('member'), true, 'Public route member must be permitted');
+    assert.strictEqual(sessionMod.AuthGuard.canActivate('admin'), true, 'Public route admin must be permitted');
+    console.log('  ✔ AuthGuard strictly blocks unauthenticated access to all private portal routes');
+
+    // 2. Mention Pill XSS Injection Hardening (Announcements)
+    const annMod = require('../js/modules/announcements.js');
+    assert.ok(typeof annMod.formatAnnouncementMentions === 'function', 'formatAnnouncementMentions must be a function');
+    global.sessionGet = (k) => k === 'name' ? 'Malicious<script>' : null;
+    const annSanitized = annMod.formatAnnouncementMentions('Notice from @Malicious<script> to @all');
+    assert.ok(!annSanitized.includes('<script>'), 'formatAnnouncementMentions must escape HTML script tags in mentions');
+    assert.ok(annSanitized.includes('&lt;script&gt;'), 'formatAnnouncementMentions must convert script tags to entities');
+    console.log('  ✔ Announcement mentions engine safely HTML-escapes malicious XSS payloads');
+
+    // 3. Mention Pill XSS Injection Hardening (Tasks)
+    const tasksMod = require('../js/modules/tasks.js');
+    assert.ok(typeof tasksMod.formatCommentMentions === 'function', 'formatCommentMentions must be a function');
+    const taskSanitized = tasksMod.formatCommentMentions('Task assigned to @Malicious<script> by @admin');
+    assert.ok(!taskSanitized.includes('<script>'), 'formatCommentMentions must escape HTML script tags in mentions');
+    assert.ok(taskSanitized.includes('&lt;script&gt;'), 'formatCommentMentions must convert script tags to entities');
+    console.log('  ✔ Task comment mentions engine safely HTML-escapes malicious XSS payloads');
+
+    // 4. File Upload Security Validation (Blocks SVG, HTML, Executables)
+    const utilsMod = require('../js/core/utils.js');
+    assert.ok(typeof utilsMod.validateFileSecurity === 'function', 'validateFileSecurity must be exported');
+
+    let svgBlocked = false;
+    try {
+      await utilsMod.validateFileSecurity({ name: 'malicious.svg', type: 'image/svg+xml' });
+    } catch (e) {
+      svgBlocked = true;
+    }
+    assert.strictEqual(svgBlocked, true, 'validateFileSecurity must reject .svg files');
+
+    let htmlBlocked = false;
+    try {
+      await utilsMod.validateFileSecurity({ name: 'exploit.html', type: 'text/html' });
+    } catch (e) {
+      htmlBlocked = true;
+    }
+    assert.strictEqual(htmlBlocked, true, 'validateFileSecurity must reject .html files');
+
+    let exeBlocked = false;
+    try {
+      await utilsMod.validateFileSecurity({ name: 'payload.exe', type: 'application/x-msdownload' });
+    } catch (e) {
+      exeBlocked = true;
+    }
+    assert.strictEqual(exeBlocked, true, 'validateFileSecurity must reject .exe files');
+
+    // Safe images must be accepted
+    let jpgPassed = false;
+    try {
+      const dummyJpg = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46]);
+      await utilsMod.validateFileSecurity(dummyJpg, { name: 'photo.jpg', type: 'image/jpeg' });
+      jpgPassed = true;
+    } catch (e) {
+      jpgPassed = false;
+    }
+    assert.strictEqual(jpgPassed, true, 'validateFileSecurity must accept safe JPEG binary');
+    console.log('  ✔ validateFileSecurity strictly blocks SVG, HTML, and executables while permitting safe media');
+
+    // 5. Safe URL Handling
+    assert.ok(typeof utilsMod.safeUrl === 'function', 'safeUrl must be exported');
+    assert.strictEqual(utilsMod.safeUrl('javascript:alert(1)'), '#', 'safeUrl must reject javascript: URI');
+    assert.strictEqual(utilsMod.safeUrl('data:text/html,<script>alert(1)</script>'), '#', 'safeUrl must reject data:text/html URI');
+    assert.strictEqual(utilsMod.safeUrl('https://example.com/safe'), 'https://example.com/safe', 'safeUrl must allow https: URI');
+    console.log('  ✔ safeUrl neutralizes javascript: and arbitrary data: protocols');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const postIdsSec = new Set();
+    const postMatchesSec = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSec.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSec.add(match[1]);
+    });
+    assert.strictEqual(postIdsSec.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSec.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
