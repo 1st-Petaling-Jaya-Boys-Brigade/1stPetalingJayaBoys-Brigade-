@@ -1385,7 +1385,8 @@ async function finalizeMemberRegistration(data) {
     password: data.passwordHash,
     security_question: null,
     security_answer: null,
-    joined_at: new Date().toISOString()
+    joined_at: new Date().toISOString(),
+    verification_status: 'not_verified'
   };
 
   if (data.isMinor) {
@@ -1473,6 +1474,21 @@ async function finalizeMemberRegistration(data) {
       }
     }
   } catch (cleanDelErr) {}
+
+  // Durable default verification status tracking for new accounts (Not Verified by default)
+  try {
+    var vCfg = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
+    var vMap = (vCfg && vCfg.length && vCfg[0].value)
+      ? (typeof vCfg[0].value === 'string' ? JSON.parse(vCfg[0].value) : vCfg[0].value)
+      : {};
+    vMap[data.ic] = 'not_verified';
+    if (data.email) vMap[data.email] = 'not_verified';
+    if (client.upsert) {
+      await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMap) }, 'key');
+    } else if (client.patch) {
+      await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
+    }
+  } catch (_) {}
 
   // Store parental consent audit in bb_config if minor
   if (data.isMinor) {
