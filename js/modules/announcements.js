@@ -1184,11 +1184,18 @@ function cancelEditAnnouncement() {
 
 /**
  * Broadcasts an announcement notification email to all active registered members via Google Apps Script Mailer.
- * @param {{ title: string, body: string, date: string }} ann
+ * NOTE: Announcement email broadcasting is intentionally disabled to reserve mailer quota strictly for
+ * OTP verification codes, account registration, and password resets.
+ * Pass `{ force: true }` in `ann` if administrative override is explicitly required.
+ * @param {{ title: string, body: string, date: string, force?: boolean }} ann
  * @returns {Promise<boolean>}
  */
 async function broadcastAnnouncementEmail(ann) {
   if (!ann || !ann.title) return false;
+  // Intentionally disabled: mailer is reserved strictly for OTP, registration, and password reset.
+  if (!ann.force) {
+    return false;
+  }
   try {
     var client = typeof supa !== 'undefined' ? supa : null;
     if (!client || typeof client.get !== 'function') return false;
@@ -1407,10 +1414,6 @@ async function addAnnouncement() {
         btn.removeAttribute('data-edit-idx');
         btn.removeAttribute('data-edit-id');
       }
-      var broadcastCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
-      if (broadcastCheck ? broadcastCheck.checked : false) {
-        broadcastAnnouncementEmail({ title: '[Update] ' + title, body: sanitizedBody, date: dateStr });
-      }
       if (typeof showToast === 'function') {
         showToast('Announcement updated successfully!', 'success');
       }
@@ -1464,10 +1467,6 @@ async function addAnnouncement() {
             }
           } catch (_) {}
         }
-      }
-      var broadcastCheckNew = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
-      if (broadcastCheckNew ? broadcastCheckNew.checked : true) {
-        broadcastAnnouncementEmail({ title: title, body: sanitizedBody, date: dateStr });
       }
       if (typeof showToast === 'function') {
         showToast('Announcement posted successfully!', 'success');

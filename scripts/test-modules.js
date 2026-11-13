@@ -5467,10 +5467,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     };
 
     dispatchedAlerts = [];
-    await annMod.broadcastAnnouncementEmail({
+    // Verify default call does NOT dispatch email (quota reserved strictly for OTP, registration, password reset)
+    const disabledRes = await annMod.broadcastAnnouncementEmail({
       title: 'Company Parade Briefing',
       body: '<p>Important briefing for all squads.</p>',
       date: '1 NOV 2026'
+    });
+    assert.strictEqual(disabledRes, false, 'Announcement email broadcast must be disabled by default');
+    assert.strictEqual(dispatchedAlerts.length, 0, 'Disabled announcement email must dispatch 0 emails');
+
+    // Verify forced administrative call dispatches if override enabled
+    await annMod.broadcastAnnouncementEmail({
+      title: 'Company Parade Briefing',
+      body: '<p>Important briefing for all squads.</p>',
+      date: '1 NOV 2026',
+      force: true
     });
 
     assert.strictEqual(dispatchedAlerts.length, 1, 'Announcement must dispatch broadcast email');
@@ -13207,6 +13218,109 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       if (match) postIds6.add(match[1]);
     });
     assert.strictEqual(postIds6.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds6.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // =========================================================================
+  // 67. NO EMAIL BROADCAST ON POSTING / UPDATING ANNOUNCEMENTS
+  // =========================================================================
+  {
+    console.log('\nTesting No Email Broadcast on Posting / Updating Announcements...');
+
+    const annMod = require('../js/modules/announcements.js');
+    const origFetch = global.fetch;
+    const origDoc = global.document;
+    const origSupa = global.supa;
+
+    let dispatchedEmails = [];
+    global.fetch = async (url) => {
+      dispatchedEmails.push(url);
+      return { ok: true, json: async () => ({ success: true }) };
+    };
+
+    // 1. Verify announcement composer in index.html has no email broadcast checkbox
+    assert.strictEqual(indexHtml.includes('class="ann-email-broadcast-check"'), false, 'index.html must not contain ann-email-broadcast-check');
+    assert.strictEqual(indexHtml.includes('Email announcement update to all registered members'), false, 'index.html must not contain announcement email checkbox copy');
+    console.log('  ✔ Announcement composer removes email broadcast checkbox to prevent accidental mass emails');
+
+    // 2. Verify addAnnouncement does NOT send email on creating new announcement
+    let titleVal = 'Parade Alert';
+    let bodyHtmlVal = '<p>No email will be sent for this notice.</p>';
+    const mockPostBtn = {
+      innerHTML: '',
+      disabled: false,
+      attrs: {},
+      getAttribute: (k) => mockPostBtn.attrs[k] || null,
+      setAttribute: (k, v) => { mockPostBtn.attrs[k] = v; },
+      removeAttribute: (k) => { delete mockPostBtn.attrs[k]; }
+    };
+
+    global.document = {
+      getElementById: (id) => {
+        if (id === 'ann-title-input') return { value: titleVal };
+        if (id === 'ann-body-input') return { innerHTML: bodyHtmlVal };
+        if (id === 'ann-post-btn') return mockPostBtn;
+        if (id === 'announcements-list') return { innerHTML: '', querySelectorAll: () => [] };
+        if (id === 'admin-ann-list') return { innerHTML: '', querySelectorAll: () => [] };
+        return null;
+      },
+      querySelector: (sel) => {
+        if (sel === '.ann-pinned-check') return { checked: false };
+        if (sel === '.ann-email-broadcast-check') return null;
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    global.supa = {
+      post: async (table, record) => {
+        record.id = 'ann-no-mail-test-' + Date.now();
+        return [record];
+      },
+      upsert: async () => [{ success: true }],
+      get: async () => []
+    };
+
+    dispatchedEmails = [];
+    await annMod.addAnnouncement();
+    assert.strictEqual(dispatchedEmails.length, 0, 'Posting new announcement must dispatch 0 emails');
+    console.log('  ✔ addAnnouncement creates new announcement with 0 emails dispatched');
+
+    // 3. Verify addAnnouncement does NOT send email on updating existing announcement
+    mockPostBtn.setAttribute('data-edit-id', 'ann-no-mail-test');
+    mockPostBtn.setAttribute('data-edit-idx', '0');
+    titleVal = 'Updated Parade Alert';
+    bodyHtmlVal = '<p>Updated content without emailing.</p>';
+
+    dispatchedEmails = [];
+    await annMod.addAnnouncement();
+    assert.strictEqual(dispatchedEmails.length, 0, 'Updating existing announcement must dispatch 0 emails');
+    console.log('  ✔ addAnnouncement updates announcement with 0 emails dispatched');
+
+    // 4. Verify broadcastAnnouncementEmail is disabled by default
+    dispatchedEmails = [];
+    const broadcastRes = await annMod.broadcastAnnouncementEmail({
+      title: 'Test Broadcast',
+      body: '<p>Testing default disabled state.</p>',
+      date: '13 NOV 2026'
+    });
+    assert.strictEqual(broadcastRes, false, 'broadcastAnnouncementEmail must return false by default');
+    assert.strictEqual(dispatchedEmails.length, 0, 'broadcastAnnouncementEmail must not trigger network requests by default');
+    console.log('  ✔ broadcastAnnouncementEmail safely disabled by default to protect mailer quota for OTP & registration');
+
+    // Restore globals
+    global.fetch = origFetch;
+    global.document = origDoc;
+    global.supa = origSupa;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIds7 = new Set();
+    const postMatches7 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches7.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds7.add(match[1]);
+    });
+    assert.strictEqual(postIds7.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds7.size})`);
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
