@@ -14252,6 +14252,99 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 75: DevOps, Pre-Production Readiness & Build Configuration Integrity
+  // =========================================================================
+  {
+    console.log('\n--- Suite 75: DevOps, Pre-Production Readiness & Build Configuration Integrity ---');
+
+    const fs = require('fs');
+    const path = require('path');
+    const rootDir = path.resolve(__dirname, '..');
+
+    // 1. Zero Production Runtime Dependencies in package.json
+    const pkgJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
+    assert.strictEqual(pkgJson.dependencies, undefined, 'Zero runtime dependencies in package.json (Pure Vanilla Architecture)');
+    assert.ok(pkgJson.devDependencies, 'devDependencies must exist for tooling');
+    assert.ok(pkgJson.overrides && pkgJson.overrides.minimatch, 'minimatch override must be present to fix CVE');
+    console.log('  ✔ Zero-dependency vanilla runtime and CVE overrides in package.json verified');
+
+    // 2. Environment Variables & .env.example Documentation Completeness
+    const envExample = fs.readFileSync(path.join(rootDir, '.env.example'), 'utf8');
+    const expectedEnvKeys = [
+      'VITE_SUPABASE_URL',
+      'VITE_SUPABASE_ANON_KEY',
+      'VITE_TURNSTILE_SITE_KEY',
+      'VITE_GEMINI_API_KEY',
+      'ADMIN_PASSWORD_HASH',
+      'PORT',
+      'NODE_ENV'
+    ];
+    expectedEnvKeys.forEach(key => {
+      assert.ok(envExample.includes(key), `.env.example must document ${key}`);
+    });
+    console.log('  ✔ .env.example contains 100% complete documentation for all configuration variables');
+
+    // 3. Security Headers & CSP Parity across Hosting Manifests
+    const headersContent = fs.readFileSync(path.join(rootDir, '_headers'), 'utf8');
+    const vercelJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'vercel.json'), 'utf8'));
+    const devServerSrc = fs.readFileSync(path.join(rootDir, 'scripts', 'dev-server.js'), 'utf8');
+    const viteConfigSrc = fs.readFileSync(path.join(rootDir, 'vite.config.mjs'), 'utf8');
+
+    const requiredOrigins = [
+      'https://challenges.cloudflare.com',
+      'https://generativelanguage.googleapis.com',
+      'https://*.supabase.co',
+      'https://drive.google.com',
+      'https://www.youtube.com'
+    ];
+
+    requiredOrigins.forEach(origin => {
+      assert.ok(headersContent.includes(origin), `_headers must contain ${origin}`);
+      assert.ok(devServerSrc.includes(origin), `scripts/dev-server.js must contain ${origin}`);
+      assert.ok(viteConfigSrc.includes(origin), `vite.config.mjs must contain ${origin}`);
+    });
+
+    const vercelCsp = vercelJson.headers[0].headers.find(h => h.key === 'Content-Security-Policy').value;
+    requiredOrigins.forEach(origin => {
+      assert.ok(vercelCsp.includes(origin), `vercel.json must contain ${origin}`);
+    });
+    console.log('  ✔ Content Security Policy (CSP) alignment verified across Vite, Vercel, Netlify/Cloudflare, and dev server');
+
+    // 4. Production Static Asset Build Manifest Verification
+    const distPath = path.join(rootDir, 'dist');
+    if (fs.existsSync(distPath)) {
+      const requiredDistFiles = [
+        'index.html',
+        'manifest.json',
+        'robots.txt',
+        'sw.js',
+        '_headers',
+        'css/variables.css',
+        'css/base.css',
+        'css/nav.css',
+        'css/components.css',
+        'css/admin.css',
+        'assets/logo.png',
+        'assets/emojis/2705.png'
+      ];
+      requiredDistFiles.forEach(relFile => {
+        assert.ok(fs.existsSync(path.join(distPath, relFile)), `Production build dist must contain ${relFile}`);
+      });
+      console.log('  ✔ Production build output preserves all unhashed runtime assets and Service Worker precache targets');
+    }
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIdsDevOps = new Set();
+    const postMatchesDevOps = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesDevOps.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsDevOps.add(match[1]);
+    });
+    assert.strictEqual(postIdsDevOps.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsDevOps.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

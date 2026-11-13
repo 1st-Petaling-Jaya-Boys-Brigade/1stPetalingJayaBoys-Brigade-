@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,19 +32,23 @@ function copyStaticAssetsPlugin() {
       const outDir = path.resolve('dist');
       // 1. Copy js/ directory
       copyDirRecursive(path.resolve('js'), path.join(outDir, 'js'));
-      // 2. Copy sw.js
+      // 2. Copy css/ directory
+      copyDirRecursive(path.resolve('css'), path.join(outDir, 'css'));
+      // 3. Copy assets/ directory (preserves unhashed runtime paths like assets/emojis and assets/logo.png)
+      copyDirRecursive(path.resolve('assets'), path.join(outDir, 'assets'));
+      // 4. Copy sw.js
       if (fs.existsSync('sw.js')) {
         fs.copyFileSync('sw.js', path.join(outDir, 'sw.js'));
       }
-      // 3. Copy manifest.json
+      // 5. Copy manifest.json
       if (fs.existsSync('manifest.json')) {
         fs.copyFileSync('manifest.json', path.join(outDir, 'manifest.json'));
       }
-      // 4. Copy robots.txt
+      // 6. Copy robots.txt
       if (fs.existsSync('robots.txt')) {
         fs.copyFileSync('robots.txt', path.join(outDir, 'robots.txt'));
       }
-      // 5. Copy _headers
+      // 7. Copy _headers
       if (fs.existsSync('_headers')) {
         fs.copyFileSync('_headers', path.join(outDir, '_headers'));
       }
@@ -52,7 +56,29 @@ function copyStaticAssetsPlugin() {
   };
 }
 
-export default defineConfig({
+function envInjectionPlugin(mode) {
+  return {
+    name: 'inject-window-env',
+    transformIndexHtml(html) {
+      const env = loadEnv(mode || 'production', process.cwd(), '');
+      const clientEnv = {
+        VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+        VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
+        VITE_TURNSTILE_SITE_KEY: env.VITE_TURNSTILE_SITE_KEY || process.env.VITE_TURNSTILE_SITE_KEY || '',
+        VITE_GEMINI_API_KEY: env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '',
+        ADMIN_PASSWORD_HASH: env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD_HASH || ''
+      };
+      const nonNullEnv = Object.fromEntries(
+        Object.entries(clientEnv).filter(([_, v]) => typeof v === 'string' && v.trim().length > 0)
+      );
+      if (Object.keys(nonNullEnv).length === 0) return html;
+      const injection = `<script>window.__ENV__ = Object.assign(window.__ENV__ || {}, ${JSON.stringify(nonNullEnv)});</script>`;
+      return html.replace('</head>', `  ${injection}\n</head>`);
+    }
+  };
+}
+
+export default defineConfig(({ mode }) => ({
   root: '.',
   publicDir: 'assets',
   server: {
@@ -67,6 +93,7 @@ export default defineConfig({
     headers: securityHeaders
   },
   plugins: [
+    envInjectionPlugin(mode),
     copyStaticAssetsPlugin()
   ],
   build: {
@@ -74,4 +101,4 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false
   }
-});
+}));
