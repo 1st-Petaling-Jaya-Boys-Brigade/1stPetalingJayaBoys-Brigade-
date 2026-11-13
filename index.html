@@ -3963,6 +3963,7 @@ window.addEventListener('focus', function() {
   if (typeof verifyActiveMemberSession === 'function' && typeof sessionGet === 'function' && sessionGet('ic')) {
     verifyActiveMemberSession().catch(function() {});
   }
+  if (typeof PortalRealtime !== 'undefined' && typeof PortalRealtime.checkDeltaSync === 'function') PortalRealtime.checkDeltaSync();
 });
 
 // ── Init ───────────────────────────────────────────────────────────────────

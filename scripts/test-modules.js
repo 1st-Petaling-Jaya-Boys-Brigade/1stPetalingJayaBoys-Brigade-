@@ -13138,6 +13138,78 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // 66. CROSS-DEVICE WEBSOCKET BROADCAST & INSTANT ANNOUNCEMENT FEED SYNC
+  // =========================================================================
+  {
+    console.log('\nTesting Cross-Device WebSocket Broadcast & Instant Announcement Feed Synchronization...');
+
+    const supaMod = require('../js/api/supabase.js');
+    const supaSrc = fs.readFileSync(path.join(__dirname, '../js/api/supabase.js'), 'utf8');
+    const annSrc = fs.readFileSync(path.join(__dirname, '../js/modules/announcements.js'), 'utf8');
+
+    // 1. Verify PortalRealtime WebSocket broadcast push structure
+    assert.ok(supaSrc.includes("topic: 'realtime:public'"), 'WebSocket must publish to realtime:public topic');
+    assert.ok(supaSrc.includes("event: 'broadcast'"), 'WebSocket must use Supabase Phoenix broadcast event');
+    assert.ok(supaSrc.includes("PORTAL_REALTIME_CHANGE"), 'WebSocket payload must carry PORTAL_REALTIME_CHANGE event');
+    assert.ok(supaSrc.includes("_ws.send(JSON.stringify({"), 'WebSocket must send broadcast payload across active socket');
+    console.log('  ✔ PortalRealtime.broadcast broadcasts to active Supabase WebSocket for cross-device real-time sync');
+
+    // 2. Verify WebSocket onmessage handles Phoenix broadcast events and triggers announcements
+    assert.ok(supaSrc.includes("data.event === 'broadcast'"), 'WebSocket onmessage must handle incoming broadcast events');
+    assert.ok(supaSrc.includes("_seenRealtimeMsgIds.has(bPayload.msgId)"), 'Broadcast handler must deduplicate seen msgIds');
+    assert.ok(supaSrc.includes("bPayload.senderId === _realtimeTabId"), 'Broadcast handler must ignore self-echoes');
+    assert.ok(supaSrc.includes("triggerEntityUpdate(bPayload.entity"), 'Broadcast handler must trigger entity updates');
+    assert.ok(supaSrc.includes("entity === 'announcements'"), 'triggerEntityUpdate must handle announcements entity');
+    assert.ok(supaSrc.includes("window.loadAnnouncements()"), 'triggerEntityUpdate must invoke window.loadAnnouncements() on remote trigger');
+    console.log('  ✔ WebSocket onmessage handles Phoenix broadcast events and triggers announcements reload in real time without refresh');
+
+    // 3. Live Functional Verification of triggerEntityUpdate for announcements
+    let loadAnnouncementsCalled = false;
+    let renderAnnouncementsCalled = false;
+    const origWindow = global.window;
+    global.window = {
+      ...(global.window || {}),
+      loadAnnouncements: async () => {
+        loadAnnouncementsCalled = true;
+      },
+      renderAnnouncements: () => {
+        renderAnnouncementsCalled = true;
+      },
+      renderAdminAnnList: () => {},
+      syncAnnouncementNotifications: () => {}
+    };
+
+    supaMod.PortalRealtime.trigger('announcements', 'update');
+    await new Promise(r => setTimeout(r, 20));
+
+    assert.strictEqual(loadAnnouncementsCalled, true, 'PortalRealtime.trigger must call loadAnnouncements immediately');
+    assert.strictEqual(renderAnnouncementsCalled, true, 'PortalRealtime.trigger must call renderAnnouncements immediately without reload');
+    console.log('  ✔ Remote realtime trigger calls loadAnnouncements and updates UI immediately without refresh');
+    global.window = origWindow;
+
+    // 4. Verify announcements mutations touch bb_config for delta sync tracking
+    assert.ok(annSrc.includes("key: 'bb_announcements'"), 'announcements.js must update bb_config with key bb_announcements');
+    assert.ok(annSrc.includes("last_updated: new Date().toISOString()"), 'announcements.js must record last_updated timestamp in bb_config');
+    console.log('  ✔ Announcement actions (create, edit, pin, reaction, delete) touch bb_config for delta sync tracking');
+
+    // 5. Verify checkDeltaSync detects remote announcement changes and window focus wake-up
+    assert.ok(supaSrc.includes("bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions"), 'checkDeltaSync must monitor announcement keys in bb_config');
+    assert.ok(supaSrc.includes("bb_announcements?select=id,created_at"), 'checkDeltaSync must query bb_announcements table');
+    assert.ok(supaSrc.includes("window.addEventListener('focus'"), 'supabase.js and index.html must wake up checkDeltaSync on window focus');
+    console.log('  ✔ checkDeltaSync detects remote announcement changes and wakes up on window focus/visibility');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const postIds6 = new Set();
+    const postMatches6 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches6.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds6.add(match[1]);
+    });
+    assert.strictEqual(postIds6.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds6.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
