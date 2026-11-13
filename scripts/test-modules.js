@@ -13482,6 +13482,90 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Testing Google Drive Photos & Videos Support & Storage Best Practice Removal ──
+  {
+    console.log('\nTesting Google Drive Photos & Videos Support & Storage Best Practice Removal...');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+
+    // 1. Storage Best Practice banner removal & Ingestion card verification
+    assert.ok(
+      !indexHtml.includes('Storage Best Practice: Photos and short clips'),
+      'Storage Best Practice callout box must be removed from index.html'
+    );
+    assert.ok(
+      indexHtml.includes('gallery-drive-url-input'),
+      'Google Drive media URL input must exist in index.html'
+    );
+    assert.ok(
+      indexHtml.includes('gallery-drive-type-select'),
+      'Google Drive media type select dropdown must exist in index.html'
+    );
+    assert.ok(
+      indexHtml.includes('gallery-add-link-btn'),
+      'Add media button must exist in index.html'
+    );
+    console.log('  ✔ Storage Best Practice callout removed & Google Drive media ingestion card verified');
+
+    // 2. getGalleryThumbnailUrl resolution across photos, videos, and YouTube
+    const galleryMod = require('../js/modules/gallery.js');
+    const drivePhotoUrl = 'https://drive.google.com/file/d/1PhotoDrive123/view?usp=sharing';
+    const driveVideoUrl = 'https://drive.google.com/file/d/1VideoDrive456/view';
+    const ytVideoUrl = 'https://www.youtube.com/watch?v=abcdef12345';
+    const directPhotoUrl = 'https://example.com/storage/photo.jpg';
+
+    const photoThumb = galleryMod.getGalleryThumbnailUrl(drivePhotoUrl, 'image');
+    assert.strictEqual(photoThumb, 'https://lh3.googleusercontent.com/d/1PhotoDrive123', 'Drive photo must resolve to lh3 thumbnail stream');
+
+    const videoThumb = galleryMod.getGalleryThumbnailUrl(driveVideoUrl, 'video');
+    assert.strictEqual(videoThumb, 'https://lh3.googleusercontent.com/d/1VideoDrive456', 'Drive video must resolve to lh3 thumbnail stream');
+
+    const ytThumb = galleryMod.getGalleryThumbnailUrl(ytVideoUrl, 'video');
+    assert.strictEqual(ytThumb, 'https://img.youtube.com/vi/abcdef12345/hqdefault.jpg', 'YouTube video must resolve to HQ default thumbnail');
+
+    const directThumb = galleryMod.getGalleryThumbnailUrl(directPhotoUrl, 'image');
+    assert.strictEqual(directThumb, directPhotoUrl, 'Direct image URL must return as-is');
+    console.log('  ✔ getGalleryThumbnailUrl derives rich thumbnails for Drive photos, Drive videos, and YouTube');
+
+    // 3. addGalleryMediaByUrl ingestion and persistence
+    const prevCount = galleryMod.galleryImages.length;
+    const addedDrivePhoto = await galleryMod.addGalleryMediaByUrl(drivePhotoUrl, 'image');
+    assert.ok(addedDrivePhoto, 'addGalleryMediaByUrl must succeed');
+    assert.strictEqual(addedDrivePhoto.type, 'image', 'Media type must be recorded as image');
+    assert.strictEqual(addedDrivePhoto.url, drivePhotoUrl, 'Media url must be preserved');
+    assert.strictEqual(galleryMod.galleryImages.length, prevCount + 1, 'Array length must increment');
+
+    const addedDriveVideo = await galleryMod.addGalleryMediaByUrl(driveVideoUrl, 'video');
+    assert.ok(addedDriveVideo, 'addGalleryMediaByUrl video must succeed');
+    assert.strictEqual(addedDriveVideo.type, 'video', 'Media type must be recorded as video');
+    assert.strictEqual(galleryMod.galleryImages.length, prevCount + 2, 'Array length must increment by 2');
+    console.log('  ✔ addGalleryMediaByUrl persists Google Drive photos and videos with explicit types');
+
+    // 4. Safe deletion of external / Google Drive media without storage bucket errors
+    let deleteFileInvoked = false;
+    let deleteDbInvoked = false;
+    global.supa = {
+      delete: async () => { deleteDbInvoked = true; },
+      deleteFile: async () => { deleteFileInvoked = true; },
+      fileUrl: () => 'https://example.com'
+    };
+    const driveIdx = galleryMod.galleryImages.findIndex(x => x.url === drivePhotoUrl);
+    assert.ok(driveIdx !== -1, 'Drive item must exist in galleryImages');
+    await galleryMod.deleteGalleryImage(driveIdx, 'drive-test-id');
+    assert.strictEqual(deleteDbInvoked, true, 'Database row must be deleted');
+    assert.strictEqual(deleteFileInvoked, false, 'deleteFile must NOT be invoked for external Google Drive links');
+    console.log('  ✔ deleteGalleryImage safely bypasses Supabase storage deletion for Google Drive links');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIds9 = new Set();
+    const postMatches9 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches9.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds9.add(match[1]);
+    });
+    assert.strictEqual(postIds9.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds9.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
