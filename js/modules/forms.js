@@ -1729,6 +1729,16 @@ function saveForm() {
     renderAdminForms();
     renderFormsHub();
 
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: idx >= 0 ? 'forms.update' : 'forms.create',
+        targetType: 'form',
+        targetId: formData.id,
+        actorRole: 'officer_admin',
+        details: { name: formData.name, type: formData.type }
+      });
+    }
+
     if (typeof showToast === 'function') showToast('Form saved successfully!', 'success');
   } finally {
     _isSavingCustomForm = false;
@@ -1765,6 +1775,17 @@ async function deleteForm(id) {
   await saveCustomForms();
   renderAdminForms();
   renderFormsHub();
+
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'forms.delete',
+      targetType: 'form',
+      targetId: id,
+      actorRole: 'officer_admin',
+      details: { name: f.name }
+    });
+  }
+
   if (typeof showToast === 'function') showToast('Form deleted.', 'info');
 }
 
@@ -2883,6 +2904,16 @@ function downloadFormResponsesCsv(form, responses) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'forms.export_csv',
+      targetType: 'form',
+      targetId: form.id || 'custom_form',
+      actorRole: 'officer_admin',
+      details: { form_name: form.name || 'Untitled Form', responses_count: responses.length }
+    });
+  }
 }
 
 /**

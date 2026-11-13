@@ -728,6 +728,16 @@
       }
     }
 
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'member.verification_update',
+        targetType: 'member',
+        targetId: ic,
+        actorRole: 'officer_admin',
+        details: { verification_status: cleanVal }
+      });
+    }
+
     if (typeof showToast === 'function') {
       showToast('Updated status to ' + cleanVal.replace('_', ' '), 'success');
     }
@@ -857,6 +867,15 @@
       }
     }
     _selectedMemberIcs.clear();
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'member.bulk_block',
+        targetType: 'member',
+        targetId: 'multiple',
+        actorRole: 'officer_admin',
+        details: { count: blockedCount, member_ids: ics }
+      });
+    }
     if (typeof showToast === 'function') {
       showToast('Successfully blocked ' + blockedCount + ' account(s).', 'success');
     }
@@ -890,7 +909,8 @@
           }
           return true;
         } catch (err) {
-          console.error('bulkDeleteSelectedMembers item error for ' + ic + ':', err);
+          var maskedId = (ic ? String(ic).replace(/\d(?=\d{4})/g, '*') : 'member');
+          console.error('bulkDeleteSelectedMembers item error for ' + maskedId + ':', err);
           return false;
         }
       });
@@ -898,6 +918,15 @@
       deletedCount = results.filter(Boolean).length;
     }
     _selectedMemberIcs.clear();
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'member.bulk_delete',
+        targetType: 'member',
+        targetId: 'multiple',
+        actorRole: 'officer_admin',
+        details: { count: deletedCount, member_ids: ics }
+      });
+    }
     if (typeof showToast === 'function') {
       showToast('Successfully deleted ' + deletedCount + ' account(s).', 'success');
     }
@@ -5362,6 +5391,15 @@
       blocked_by: blockedBy || currentAdmin
     });
     await saveBlockedEmails(_blockedEmails);
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'admin.block_email',
+        targetType: 'account',
+        targetId: em,
+        actorRole: 'officer_admin',
+        details: { reason: String(reason || '').trim(), blocked_by: blockedBy || currentAdmin }
+      });
+    }
     if (typeof showToast === 'function') showToast('Email ' + em + ' has been blocked.', 'success');
     renderBlockedEmailsList();
     return true;
@@ -5375,6 +5413,14 @@
       return itmEmail !== em;
     });
     await saveBlockedEmails(_blockedEmails);
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'admin.unblock_email',
+        targetType: 'account',
+        targetId: em,
+        actorRole: 'officer_admin'
+      });
+    }
     if (typeof showToast === 'function') showToast('Email ' + em + ' has been unblocked.', 'info');
     renderBlockedEmailsList();
     return true;
@@ -5393,6 +5439,15 @@
     });
     if (found) {
       await saveBlockedEmails(_blockedEmails);
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'admin.update_block_reason',
+          targetType: 'account',
+          targetId: em,
+          actorRole: 'officer_admin',
+          details: { reason: String(newReason || '').trim() }
+        });
+      }
       if (typeof showToast === 'function') showToast('Updated blocking reason for ' + em, 'success');
       renderBlockedEmailsList();
     }

@@ -231,6 +231,15 @@
           updated_at: new Date().toISOString()
         });
       }
+      if (typeof logAuditEvent === 'function') {
+        logAuditEvent({
+          action: 'calendar.update',
+          targetType: 'calendar',
+          targetId: 'bb_company_calendar',
+          actorRole: 'officer_admin',
+          details: { event_count: eventsArray.length }
+        });
+      }
     } catch (e) {
       console.warn('saveCalendarEvents error:', e);
       return false;

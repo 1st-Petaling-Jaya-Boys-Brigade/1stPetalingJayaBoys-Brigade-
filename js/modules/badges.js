@@ -479,6 +479,16 @@ async function deleteBadgeDef(id) {
   var updatedDefs = currentDefs.filter(function(b) { return b.id !== id; });
   await saveBadgeDefs(updatedDefs);
 
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'badge.def_delete',
+      targetType: 'badge_def',
+      targetId: id,
+      actorRole: 'officer_admin',
+      details: { name: badge.name }
+    });
+  }
+
   // Clean up President's Award requirements if referenced
   try {
     var reqs = await getPresidentsReqs();
@@ -1409,6 +1419,18 @@ async function saveBadges() {
     _memberBadgesCache[ic] = saved;
     await upsertMemberBadges(ic, saved);
     renderPresidentsTracker(ic, saved);
+
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'badge.member_update',
+        targetType: 'member_badges',
+        targetId: ic,
+        actorId: ic,
+        actorRole: (typeof sessionGet === 'function' ? sessionGet('role') : '') || 'member',
+        details: { badges_count: Object.keys(saved).length }
+      });
+    }
+
     if (typeof showToast === 'function') {
       showToast('Badges saved successfully!', 'success');
     }

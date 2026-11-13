@@ -2835,6 +2835,16 @@ function exportAdminOrdersToCsv(ordersToExport) {
   document.body.removeChild(a);
   setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
 
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'order.export_csv',
+      targetType: 'order',
+      targetId: 'multiple',
+      actorRole: 'officer_admin',
+      details: { count: list.length, filter_month: filterMonthLabel }
+    });
+  }
+
   if (typeof showToast === 'function') {
     showToast('✓ Exported 2-sheet workbook (Items Ordered & Items to Prepare) for Google Sheets / Excel!', 'success');
   }
@@ -3883,6 +3893,16 @@ function saveProduct() {
     closeProductModal();
     renderAdminProducts();
 
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: idx >= 0 ? 'order.product_update' : 'order.product_create',
+        targetType: 'uniform_product',
+        targetId: key,
+        actorRole: 'officer_admin',
+        details: { name: name, price: price, ncoOnly: ncoOnly }
+      });
+    }
+
     if (typeof showToast === 'function') showToast('Product saved successfully!', 'success');
   } finally {
     _isSavingProduct = false;
@@ -3991,6 +4011,17 @@ async function deleteProduct(key) {
   loadPrices();
   renderOrderItems();
   renderAdminProducts();
+
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'order.product_delete',
+      targetType: 'uniform_product',
+      targetId: key,
+      actorRole: 'officer_admin',
+      details: { name: item ? item.name : key }
+    });
+  }
+
   if (typeof showToast === 'function') showToast('Product deleted.', 'info');
 }
 

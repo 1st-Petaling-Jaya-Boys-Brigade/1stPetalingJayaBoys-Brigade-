@@ -962,6 +962,16 @@ async function triggerMasterSheetFetch() {
     }
     _masterAttendanceCache = null;
     await renderAdminMasterSheetPanel();
+
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'sheets.manual_sync',
+        targetType: 'attendance',
+        targetId: 'master_attendance',
+        actorRole: 'officer_admin'
+      });
+    }
+
     if (typeof showToast === 'function') {
       showToast('Master Sheet data synced successfully.', 'success');
     }

@@ -1969,6 +1969,60 @@ var AUTH_LOCKOUT_MAX_ATTEMPTS = 5;
 var AUTH_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes lockout
 
 /**
+ * Recursively deep-redacts sensitive fields (passwords, tokens, codes, secrets, OTPs, hashes, credentials, cookies)
+ * and masks Malaysian IC/NRIC numbers and phone numbers in audit metadata.
+ *
+ * @param {*} val - Any value to sanitize
+ * @param {number} [depth=0] - Recursion depth limit
+ * @returns {*} Sanitized privacy-safe value
+ */
+function sanitizeAuditDetails(val, depth) {
+  var d = typeof depth === 'number' ? depth : 0;
+  if (d > 8 || val === null || val === undefined) return val;
+
+  if (typeof val === 'string') {
+    // Redact if string looks like a JWT or Bearer token
+    if (/^Bearer\s+[A-Za-z0-9\-._~+/]+=*/i.test(val) || /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}/.test(val)) {
+      return '[REDACTED_TOKEN]';
+    }
+    return val;
+  }
+
+  if (typeof val !== 'object') return val;
+
+  if (Array.isArray(val)) {
+    return val.map(function(item) {
+      return sanitizeAuditDetails(item, d + 1);
+    });
+  }
+
+  var redactPattern = /password|pass|token|code|secret|hash|otp|pin|credential|cookie|jwt|bearer|auth|nric/i;
+  var safeObj = {};
+  for (var k in val) {
+    if (Object.prototype.hasOwnProperty.call(val, k)) {
+      if (redactPattern.test(k)) {
+        safeObj[k] = '[REDACTED]';
+      } else if (typeof val[k] === 'object' && val[k] !== null) {
+        safeObj[k] = sanitizeAuditDetails(val[k], d + 1);
+      } else if (typeof val[k] === 'string') {
+        if (/^(ic|mykad|phone|contact|parent_contact)$/i.test(k)) {
+          // Mask IC/phone (preserve last 4 characters)
+          var str = val[k].trim();
+          safeObj[k] = str.length > 4 ? (str.slice(0, -4).replace(/[0-9a-zA-Z]/g, '*') + str.slice(-4)) : '****';
+        } else if (/^Bearer\s+[A-Za-z0-9\-._~+/]+=*/i.test(val[k]) || /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}/.test(val[k])) {
+          safeObj[k] = '[REDACTED_TOKEN]';
+        } else {
+          safeObj[k] = val[k];
+        }
+      } else {
+        safeObj[k] = val[k];
+      }
+    }
+  }
+  return safeObj;
+}
+
+/**
  * Appends an audit log entry recording Officer, NCO, or system mutation.
  * Attempts to persist to PostgreSQL bb_audit_logs via rpc_log_audit_event.
  * Falls back gracefully to in-memory audit ledger.
@@ -1990,20 +2044,8 @@ async function logAuditEvent(params) {
   var targetId = params.targetId ? String(params.targetId).trim() : null;
   var details = params.details || {};
 
-  // Automated privacy redaction: prevent passwords, tokens, API keys, or OTPs from entering logs
-  var safeDetails = {};
-  if (details && typeof details === 'object') {
-    var redactPattern = /password|token|code|secret|hash|otp|pin|credential/i;
-    for (var k in details) {
-      if (Object.prototype.hasOwnProperty.call(details, k)) {
-        if (redactPattern.test(k)) {
-          safeDetails[k] = '[REDACTED]';
-        } else {
-          safeDetails[k] = details[k];
-        }
-      }
-    }
-  }
+  // Automated privacy deep-redaction: prevent passwords, tokens, API keys, or OTPs from entering logs
+  var safeDetails = sanitizeAuditDetails(details);
 
   var actorId = params.actorId;
   if (!actorId) {
@@ -2062,7 +2104,7 @@ async function logAuditEvent(params) {
         p_action: action,
         p_target_type: targetType,
         p_target_id: targetId,
-        p_details: details
+        p_details: safeDetails
       });
       if (rpcRes && rpcRes.success) {
         return { success: true, log_id: rpcRes.log_id || entryId, entry: entry };
@@ -2702,6 +2744,7 @@ if (typeof window !== 'undefined') {
   window.getSafeMemberDemerits  = getSafeMemberDemerits;
   window.getAttendanceAchievementTier = getAttendanceAchievementTier;
   window.logAuditEvent          = logAuditEvent;
+  window.sanitizeAuditDetails   = sanitizeAuditDetails;
   window.getAuditLogs           = getAuditLogs;
   window.checkAuthLockout       = checkAuthLockout;
   window.recordAuthAttempt      = recordAuthAttempt;
@@ -2770,6 +2813,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getSafeMemberDemerits: getSafeMemberDemerits,
     getAttendanceAchievementTier: getAttendanceAchievementTier,
     logAuditEvent: logAuditEvent,
+    sanitizeAuditDetails: sanitizeAuditDetails,
     getAuditLogs: getAuditLogs,
     checkAuthLockout: checkAuthLockout,
     recordAuthAttempt: recordAuthAttempt,
