@@ -880,20 +880,22 @@
     var deletedCount = 0;
     var client = getSupabaseClient();
     var ics = Array.from(_selectedMemberIcs);
-    for (var i = 0; i < ics.length; i++) {
-      var ic = ics[i];
-      try {
-        if (client) {
+    if (client && ics.length) {
+      var deletePromises = ics.map(async function(ic) {
+        try {
           if (client.delete) {
             await client.delete('bb_members?ic=eq.' + encodeURIComponent(ic));
           } else if (client.req) {
             await client.req('DELETE', 'bb_members?ic=eq.' + encodeURIComponent(ic));
           }
+          return true;
+        } catch (err) {
+          console.error('bulkDeleteSelectedMembers item error for ' + ic + ':', err);
+          return false;
         }
-        deletedCount++;
-      } catch (err) {
-        console.error('bulkDeleteSelectedMembers item error:', err);
-      }
+      });
+      var results = await Promise.all(deletePromises);
+      deletedCount = results.filter(Boolean).length;
     }
     _selectedMemberIcs.clear();
     if (typeof showToast === 'function') {

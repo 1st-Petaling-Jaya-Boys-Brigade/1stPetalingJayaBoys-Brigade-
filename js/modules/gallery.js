@@ -341,7 +341,7 @@ async function loadGallery() {
     if (client && client.req) {
       var rows = null;
       try {
-        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url');
+        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url,type');
       } catch (errGet) {
         rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=*');
       }
@@ -1379,11 +1379,10 @@ async function saveStoryHighlights(newList) {
           }, 'key');
         } catch (e1) {}
       }
-      if (typeof client.post === 'function') {
+      if (typeof client.post === 'function' && storyHighlights.length) {
         try {
-          for (var i = 0; i < storyHighlights.length; i++) {
-            var sh = storyHighlights[i];
-            await client.upsert('bb_stories', {
+          await Promise.all(storyHighlights.map(function(sh, i) {
+            return client.upsert('bb_stories', {
               id: sh.id,
               title: sh.title,
               cover: sh.cover,
@@ -1391,7 +1390,7 @@ async function saveStoryHighlights(newList) {
               display_order: sh.order || (i + 1),
               active: sh.active !== false
             }, 'id');
-          }
+          }));
         } catch (e2) {}
       }
     }
