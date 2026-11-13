@@ -2558,13 +2558,27 @@ function saveTaskComments(taskId, comments) {
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId });
   var client = getSupaClient();
   if (client) {
-    client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }, {
-      headers: { 'Prefer': 'resolution=merge-duplicates' }
-    }).catch(function() {
-      client.patch('bb_config?key=eq.bb_task_comments_' + taskId, { value: JSON.stringify(comments) }).catch(function() {
-        client.post('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
+    if (typeof client.req === 'function') {
+      client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }, {
+        headers: { 'Prefer': 'resolution=merge-duplicates' }
+      }).catch(function() {
+        if (typeof client.patch === 'function') {
+          client.patch('bb_config?key=eq.bb_task_comments_' + taskId, { value: JSON.stringify(comments) }).catch(function() {
+            if (typeof client.post === 'function') {
+              client.post('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
+            }
+          });
+        }
       });
-    });
+    } else if (typeof client.upsert === 'function') {
+      client.upsert('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
+    } else if (typeof client.patch === 'function') {
+      client.patch('bb_config?key=eq.bb_task_comments_' + taskId, { value: JSON.stringify(comments) }).catch(function() {
+        if (typeof client.post === 'function') {
+          client.post('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
+        }
+      });
+    }
   }
 }
 
@@ -2942,16 +2956,28 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   return false;
 }
 
+var _isSubmittingComment = false;
+
 /**
  * Handles comment submit on task brief (Image 5)
  */
 function handleTaskCommentSubmit(input) {
-  if (!input || !input.value.trim()) return;
+  if (!input || !input.value.trim() || _isSubmittingComment) return;
   var commentText = input.value.trim();
+  if (commentText.length > 2000) {
+    if (typeof showToast === 'function') {
+      showToast('Comment is too long (maximum 2,000 characters).', 'warning');
+    }
+    return;
+  }
+  _isSubmittingComment = true;
   input.value = '';
 
-  var tid = _activeDetailTaskId;
-  if (!tid) return;
+  var tid = (input && input.dataset && input.dataset.taskId) || (typeof window !== 'undefined' && window._activeDetailTaskId) || (typeof global !== 'undefined' && global._activeDetailTaskId) || _activeDetailTaskId;
+  if (!tid) {
+    _isSubmittingComment = false;
+    return;
+  }
 
   var authorName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
   var authorEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
@@ -2981,6 +3007,10 @@ function handleTaskCommentSubmit(input) {
   if (typeof showToast === 'function') {
     showToast('Comment posted successfully!', 'success', 1500);
   }
+
+  setTimeout(function() {
+    _isSubmittingComment = false;
+  }, 350);
 }
 
 /**

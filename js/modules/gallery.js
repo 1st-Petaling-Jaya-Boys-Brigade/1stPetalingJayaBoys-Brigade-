@@ -1114,8 +1114,11 @@ async function deleteGalleryImage(idx, rowId) {
     }
   } catch (e) {
     console.error('deleteGalleryImage error:', e);
+    // Rollback optimistic removal
+    galleryImages.splice(idx, 0, item);
+    renderGallery();
     if (typeof showToast === 'function') {
-      showToast('Failed to delete media from storage.', 'error');
+      showToast('Failed to delete media: ' + (e.message || 'Database error') + '. Restored.', 'error');
     }
   }
 }

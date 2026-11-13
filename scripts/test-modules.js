@@ -13669,6 +13669,79 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 71: State Architecture, Network Resilience & Error Recovery
+  // =========================================================================
+  {
+    console.log('\n--- Suite 71: State Architecture, Network Resilience & Error Recovery ---');
+
+    // 1. Double-Submission & Rapid Re-entrancy Lock in Task Comments
+    const tasksMod = require('../js/modules/tasks.js');
+    assert.strictEqual(typeof tasksMod.handleTaskCommentSubmit, 'function', 'handleTaskCommentSubmit must be exported');
+    global._activeDetailTaskId = 'resilience-task-1';
+    window._activeDetailTaskId = 'resilience-task-1';
+    const fakeInput = { value: 'First rapid comment', dataset: { taskId: 'resilience-task-1' } };
+    tasksMod.handleTaskCommentSubmit(fakeInput);
+    const commentsAfterFirst = tasksMod.getTaskComments('resilience-task-1');
+    assert.ok(commentsAfterFirst.length > 0, 'Comment must be recorded');
+    const prevCount = commentsAfterFirst.length;
+
+    // Simulate immediate rapid re-entrant submission before timeout
+    fakeInput.value = 'Second rapid double-click';
+    tasksMod.handleTaskCommentSubmit(fakeInput);
+    const commentsAfterSecond = tasksMod.getTaskComments('resilience-task-1');
+    assert.strictEqual(commentsAfterSecond.length, prevCount, 'Rapid double-click comment must be debounced/locked');
+    console.log('  ✔ Task comment submission enforces re-entrancy lock and debounces rapid double-clicks');
+
+    // 2. Optimistic Update Rollback on Failed Gallery Media Deletion
+    const galleryMod = require('../js/modules/gallery.js');
+    assert.strictEqual(typeof galleryMod.deleteGalleryImage, 'function', 'deleteGalleryImage must be exported');
+    const dummyImage = { url: 'https://example.com/resilience-photo.jpg', type: 'image' };
+    galleryMod.galleryImages.push(dummyImage);
+    const targetIdx = galleryMod.galleryImages.indexOf(dummyImage);
+    assert.ok(targetIdx !== -1, 'Dummy image must be present in gallery');
+
+    // Mock failing Supabase delete operation (simulating network error / 500)
+    const failingGallerySupa = {
+      delete: async () => { throw new Error('Simulated network timeout 504 Gateway Timeout'); },
+      deleteFile: async () => {}
+    };
+    global.supa = failingGallerySupa;
+    window.supa = failingGallerySupa;
+    global.showConfirmModal = async () => true;
+
+    await galleryMod.deleteGalleryImage(targetIdx, 'row-fail-test');
+    assert.ok(galleryMod.galleryImages.includes(dummyImage), 'Gallery media item must be restored on failed deletion');
+    console.log('  ✔ Gallery deletion cleanly rolls back optimistic removal when database request fails');
+
+    // 3. Optimistic Update Rollback on Failed Announcement Deletion
+    const annMod = require('../js/modules/announcements.js');
+    assert.strictEqual(typeof annMod.deleteAnnouncement, 'function', 'deleteAnnouncement must be exported');
+    const dummyAnn = { id: 'fail-ann-1', title: 'Resilience Test Announcement', body: 'Test body' };
+    annMod.announcements.push(dummyAnn);
+    const annIdx = annMod.announcements.indexOf(dummyAnn);
+    assert.ok(annIdx !== -1, 'Dummy announcement must be present');
+
+    global.supa = {
+      delete: async () => { throw new Error('Simulated offline network dropped connection'); },
+      upsert: async () => {}
+    };
+
+    await annMod.deleteAnnouncement(annIdx);
+    assert.ok(annMod.announcements.includes(dummyAnn), 'Announcement must be rolled back to list on failed deletion');
+    console.log('  ✔ Announcement deletion cleanly rolls back optimistic removal when network drops');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const postIdsRes = new Set();
+    const postMatchesRes = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesRes.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsRes.add(match[1]);
+    });
+    assert.strictEqual(postIdsRes.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsRes.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

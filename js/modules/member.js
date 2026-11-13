@@ -806,7 +806,12 @@ function resetFamilyBanner() {
   }
 }
 
+var _isRegisteringMember = false;
+var _isLoggingInMember = false;
+var _isUpdatingSettingsPassword = false;
+
 async function registerMember() {
+  if (_isRegisteringMember) return;
   // Honeypot bot trap check
   var hpEl = document.getElementById('reg-honeypot');
   if (hpEl && hpEl.value && hpEl.value.trim().length > 0) {
@@ -888,6 +893,7 @@ async function registerMember() {
   }
 
   var regBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-register button[type="submit"]') : null;
+  _isRegisteringMember = true;
   if (typeof setButtonLoading === 'function' && regBtn) {
     setButtonLoading(regBtn, true, 'Processing...', 'Verifying registration details...');
   }
@@ -1149,6 +1155,7 @@ async function registerMember() {
   } catch (e) {
     if (typeof showToast === 'function') showToast('Registration error: ' + e.message, 'error');
   } finally {
+    _isRegisteringMember = false;
     if (typeof setButtonLoading === 'function' && regBtn) {
       setButtonLoading(regBtn, false);
     }
@@ -1742,6 +1749,8 @@ async function loginMember() {
     }
   }
 
+  if (_isLoggingInMember) return;
+  _isLoggingInMember = true;
   if (typeof setButtonLoading === 'function' && loginBtn) {
     setButtonLoading(loginBtn, true, 'Logging in...', 'Logging in to member portal...');
   }
@@ -1923,6 +1932,7 @@ async function loginMember() {
   } catch (e) {
     if (typeof showToast === 'function') showToast('Login failed: ' + e.message, 'error');
   } finally {
+    _isLoggingInMember = false;
     if (typeof resetTurnstileWidget === 'function') {
       resetTurnstileWidget('login');
     }
@@ -5548,6 +5558,7 @@ function handleSettingsDefaultTabChange(tab) {
 }
 
 async function handleSettingsPasswordUpdate() {
+  if (_isUpdatingSettingsPassword) return;
   var pCurEl = document.getElementById('settings-pwd-current');
   var pNewEl = document.getElementById('settings-pwd-new');
   var pConfEl = document.getElementById('settings-pwd-confirm');
@@ -5587,6 +5598,7 @@ async function handleSettingsPasswordUpdate() {
   }
 
   try {
+    _isUpdatingSettingsPassword = true;
     var client = (typeof getSupa === 'function') ? getSupa() : (typeof supa !== 'undefined' ? supa : null);
     if (!client) {
       if (typeof showToast === 'function') showToast('Network connection unavailable.', 'error');
@@ -5658,6 +5670,8 @@ async function handleSettingsPasswordUpdate() {
     if (typeof showToast === 'function') {
       showToast('Unable to update password. Please try again.', 'error');
     }
+  } finally {
+    _isUpdatingSettingsPassword = false;
   }
 }
 

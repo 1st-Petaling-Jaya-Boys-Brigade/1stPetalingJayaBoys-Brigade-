@@ -943,7 +943,11 @@ async function handleSaveMasterConfig() {
   }
 }
 
+var _isSyncingMasterSheet = false;
+
 async function triggerMasterSheetFetch() {
+  if (_isSyncingMasterSheet) return;
+  _isSyncingMasterSheet = true;
   var btn = document.getElementById('btn-adm-sync-sheet');
   if (typeof setButtonLoading === 'function') {
     setButtonLoading(btn, true, 'Syncing...', 'Syncing Master Sheet data...');
@@ -966,6 +970,7 @@ async function triggerMasterSheetFetch() {
       showToast('Sync note: ' + err.message, 'warning');
     }
   } finally {
+    _isSyncingMasterSheet = false;
     if (typeof setButtonLoading === 'function') {
       setButtonLoading(btn, false);
     } else if (btn) {
