@@ -5593,11 +5593,39 @@ async function handleSettingsPasswordUpdate() {
       return;
     }
 
+    var cleanEmail = email.trim().toLowerCase();
+    var records = [];
+    if (typeof client.get === 'function') {
+      try {
+        records = await client.get('bb_members?email=eq.' + encodeURIComponent(cleanEmail) + '&select=id,password,email,ic');
+      } catch (_) {}
+      if (!records || !records.length) {
+        var userIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('bb_user_ic')) : '';
+        if (userIc) {
+          try {
+            records = await client.get('bb_members?ic=eq.' + encodeURIComponent(userIc) + '&select=id,password,email,ic');
+          } catch (_) {}
+        }
+      }
+    }
+
+    // Strict identity & password verification: prevent unauthenticated password overwrites
+    if (records && records.length > 0 && records[0].password) {
+      var pwCheck = (typeof verifyPassword === 'function')
+        ? await verifyPassword(pCur, records[0].password)
+        : { valid: false };
+      if (!pwCheck || !pwCheck.valid) {
+        if (typeof showToast === 'function') {
+          showToast('Current password is incorrect.', 'error');
+        }
+        return;
+      }
+    }
+
     var newHash = (typeof hashPassword === 'function') ? await hashPassword(pNew) : pNew;
 
     if (typeof client.patch === 'function') {
       try {
-        var cleanEmail = email.trim().toLowerCase();
         await client.patch('bb_members?email=eq.' + encodeURIComponent(cleanEmail), {
           password: newHash
         });
