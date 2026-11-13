@@ -13324,6 +13324,164 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // 68. WHATSAPP-STYLE GALLERY LIGHTBOX VIEWER & HIGHLIGHTS REMOVAL
+  // =========================================================================
+  {
+    console.log('\nTesting WhatsApp-Style Gallery Lightbox Viewer & Highlights Removal...');
+
+    const galleryMod = require('../js/modules/gallery.js');
+    const compCss = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+
+    // 1. Verify Highlights removal from Gallery Page and Admin Console
+    assert.ok(
+      indexHtml.includes('class="dark-card story-highlights-card" style="display:none;margin-bottom:14px;"'),
+      'Gallery highlights card must be hidden from view'
+    );
+    assert.ok(
+      indexHtml.includes('class="admin-story-highlights-section" style="display:none;'),
+      'Admin console highlights management must be hidden from view'
+    );
+    console.log('  ✔ Highlights section completely removed/hidden from Gallery tab and Admin Console');
+
+    // 2. Verify WhatsApp-Style Lightbox CSS rules
+    assert.ok(compCss.includes('.gallery-lightbox-modal'), 'CSS must include .gallery-lightbox-modal');
+    assert.ok(compCss.includes('.gallery-lb-nav-btn'), 'CSS must include side navigation arrow buttons');
+    assert.ok(compCss.includes('.gallery-lb-prev') && compCss.includes('.gallery-lb-next'), 'CSS must position left and right side arrows');
+    assert.ok(compCss.includes('.gallery-lb-filmstrip'), 'CSS must include bottom WhatsApp-style filmstrip track');
+    assert.ok(compCss.includes('.gallery-lb-thumb.active'), 'CSS must style active thumbnail in filmstrip');
+    console.log('  ✔ WhatsApp-style lightbox viewer CSS rules verified for PC arrows, mobile viewport, and filmstrip');
+
+    // 3. Functional Lightbox Navigation & Filmstrip Carousel Verification
+    const origDoc = global.document;
+
+    const listeners = {};
+    const createdElements = [];
+
+    const mockModal = {
+      id: 'gallery-lightbox-modal',
+      className: '',
+      children: [],
+      style: {},
+      parentNode: null,
+      setAttribute: () => {},
+      appendChild: (child) => { mockModal.children.push(child); child.parentNode = mockModal; },
+      querySelector: (selector) => {
+        if (selector === '#gallery-lb-counter') return mockCounter;
+        if (selector === '#gallery-lb-badge') return mockBadge;
+        if (selector === '#gallery-lb-media-wrap') return mockMediaWrap;
+        if (selector === '#gallery-lb-track') return mockTrack;
+        if (selector === '#gallery-lb-close') return { addEventListener: () => {} };
+        return null;
+      },
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+      remove: () => {
+        if (mockModal.parentNode) {
+          const idx = mockModal.parentNode.children.indexOf(mockModal);
+          if (idx !== -1) mockModal.parentNode.children.splice(idx, 1);
+        }
+      }
+    };
+
+    const mockCounter = { textContent: '' };
+    const mockBadge = { textContent: '' };
+    const mockMediaWrap = { innerHTML: '', onclick: null };
+    const mockTrack = {
+      children: [
+        { classList: { add: (c) => { if (c === 'active') mockTrack.children[0].active = true; }, remove: (c) => { if (c === 'active') mockTrack.children[0].active = false; } }, active: false, scrollIntoView: () => {} },
+        { classList: { add: (c) => { if (c === 'active') mockTrack.children[1].active = true; }, remove: (c) => { if (c === 'active') mockTrack.children[1].active = false; } }, active: false, scrollIntoView: () => {} },
+        { classList: { add: (c) => { if (c === 'active') mockTrack.children[2].active = true; }, remove: (c) => { if (c === 'active') mockTrack.children[2].active = false; } }, active: false, scrollIntoView: () => {} }
+      ]
+    };
+
+    const mockBody = {
+      style: {},
+      children: [],
+      appendChild: (el) => { mockBody.children.push(el); el.parentNode = mockBody; },
+      removeChild: (el) => {
+        const idx = mockBody.children.indexOf(el);
+        if (idx !== -1) mockBody.children.splice(idx, 1);
+      }
+    };
+
+    global.document = {
+      body: mockBody,
+      getElementById: (id) => {
+        if (id === 'gallery-lightbox-modal') {
+          return mockBody.children.find(c => c.id === 'gallery-lightbox-modal') || null;
+        }
+        return null;
+      },
+      createElement: (tag) => {
+        if (tag === 'div') {
+          const d = {
+            id: '',
+            className: '',
+            children: [],
+            style: {},
+            setAttribute: () => {},
+            appendChild: (child) => { d.children.push(child); child.parentNode = d; },
+            querySelector: (sel) => mockModal.querySelector(sel),
+            addEventListener: () => {},
+            classList: { add: () => {}, remove: () => {} }
+          };
+          createdElements.push(d);
+          return d;
+        }
+        if (tag === 'button') {
+          return { type: 'button', id: '', className: '', innerHTML: '', setAttribute: () => {}, addEventListener: () => {} };
+        }
+        return { setAttribute: () => {}, addEventListener: () => {} };
+      },
+      addEventListener: (evt, fn) => { listeners[evt] = fn; },
+      removeEventListener: (evt) => { delete listeners[evt]; }
+    };
+
+    // Open lightbox at slide 0
+    galleryMod.openGalleryLightbox(0);
+    assert.ok(global.document.getElementById('gallery-lightbox-modal'), 'Lightbox modal must be attached to document.body');
+    assert.strictEqual(mockCounter.textContent, '1 of 3', 'Slide 0 counter must display 1 of 3');
+    assert.strictEqual(mockBadge.textContent, 'Photo', 'Slide 0 badge must identify Photo');
+    assert.strictEqual(mockTrack.children[0].active, true, 'First thumbnail must be marked active');
+
+    // Navigate next (Arrow Right / Swipe Left)
+    galleryMod.nextGallerySlide();
+    assert.strictEqual(mockCounter.textContent, '2 of 3', 'Advancing next must update counter to 2 of 3');
+    assert.strictEqual(mockTrack.children[1].active, true, 'Second thumbnail must be marked active');
+    assert.strictEqual(mockTrack.children[0].active, false, 'First thumbnail must no longer be active');
+
+    // Jump to slide 2 (Video item)
+    galleryMod.goToGallerySlide(2);
+    assert.strictEqual(mockCounter.textContent, '3 of 3', 'goToGallerySlide must navigate to slide 3 of 3');
+    assert.strictEqual(mockBadge.textContent, 'Video', 'Slide 2 must identify Video');
+    assert.strictEqual(mockTrack.children[2].active, true, 'Third thumbnail must be marked active');
+    assert.ok(mockMediaWrap.innerHTML.includes('<video'), 'Video slide must render HTML5 video element');
+
+    // Navigate previous (Arrow Left / Swipe Right)
+    galleryMod.prevGallerySlide();
+    assert.strictEqual(mockCounter.textContent, '2 of 3', 'Navigating prev must update counter to 2 of 3');
+    assert.strictEqual(mockTrack.children[1].active, true, 'Second thumbnail active');
+
+    // Close lightbox
+    galleryMod.closeGalleryLightbox();
+    assert.strictEqual(global.document.getElementById('gallery-lightbox-modal'), null, 'Lightbox modal must be removed on close');
+    console.log('  ✔ WhatsApp-style lightbox opens, navigates with side arrows/filmstrip, and closes cleanly');
+
+    // Restore document
+    global.document = origDoc;
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const postIds8 = new Set();
+    const postMatches8 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches8.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds8.add(match[1]);
+    });
+    assert.strictEqual(postIds8.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds8.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
