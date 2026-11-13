@@ -1935,8 +1935,8 @@
       <div class="page-desc">Explore our full company photo and video archives, and highlights from camps, events, enrolments, awards day, band contests, parades and more.</div>
     </div>
 
-    <!-- Instagram-Style Story Highlights Section -->
-    <div class="dark-card" style="margin-bottom:14px;">
+    <!-- Instagram-Style Story Highlights Section (Hidden per user request, ID preserved for invariant) -->
+    <div class="dark-card story-highlights-card" style="display:none;margin-bottom:14px;">
       <div class="section-header" style="margin-bottom:10px;">
         <span style="display:flex;align-items:center;color:var(--accent);"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></span>
         <div class="s-title">Highlights</div>
@@ -2948,8 +2948,8 @@
             <div class="adm-section-desc">Photos shown on the home page</div>
           </div>
         </div>
-        <!-- Story Highlights Admin Management -->
-        <div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:16px;">
+        <!-- Story Highlights Admin Management (Hidden per user request, ID preserved for invariant) -->
+        <div class="admin-story-highlights-section" style="display:none;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <div>
               <div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">
@@ -2976,7 +2976,7 @@
                 <div style="margin-bottom:14px;padding:10px 14px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.25);border-radius:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-secondary);">
           <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#3b82f6;flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           <div>
-            <strong>Storage Best Practice:</strong> Photos and short clips (&lt; 20 MB) can be uploaded directly to Supabase. For high-resolution or long videos (&gt; 20 MB), upload to <strong>Google Drive</strong> (set share to <em>"Anyone with the link can view"</em>) or <strong>YouTube Unlisted</strong> and paste the link in Highlights to preserve free-tier storage quota.
+            <strong>Storage Best Practice:</strong> Photos and short clips (&lt; 20 MB) can be uploaded directly to Supabase. For high-resolution or long videos (&gt; 20 MB), upload to <strong>Google Drive</strong> (set share to <em>"Anyone with the link can view"</em>) or <strong>YouTube Unlisted</strong> to preserve free-tier storage quota.
           </div>
         </div>
         <div id="admin-gallery-grid" class="gallery-grid"></div>

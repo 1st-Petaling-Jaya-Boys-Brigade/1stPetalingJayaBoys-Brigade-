@@ -481,73 +481,304 @@ function renderGallery() {
   }
 }
 
-// ── Lightbox Preview ───────────────────────────────────────────────────────
+// ── Lightbox Preview (WhatsApp-Style Photo & Video Posts Viewer) ───────────
+var _lightboxActiveIdx = 0;
+var _lightboxFiltered = [];
+var _lightboxKeyHandler = null;
+
 /**
- * Opens a responsive full-screen lightbox modal for a selected photo or video
- * @param {number} idx - Index in filtered/galleryImages
+ * Renders or updates the active media content, counter, and filmstrip in the lightbox
  */
-function openGalleryLightbox(idx) {
+function renderActiveLightboxItem() {
   if (typeof document === 'undefined') return;
-  var filtered = galleryImages.filter(function(item) {
-    if (_currentGalleryFilter === 'photos') return !isVideoMedia(item.url, item.type);
-    if (_currentGalleryFilter === 'videos') return isVideoMedia(item.url, item.type);
-    return true;
-  });
-  var item = filtered[idx] || galleryImages[idx];
+  var modal = document.getElementById('gallery-lightbox-modal');
+  if (!modal || !_lightboxFiltered.length) return;
+
+  var item = _lightboxFiltered[_lightboxActiveIdx];
   if (!item) return;
 
   var rawUrl = (typeof item === 'string') ? item : item.url;
-  if (!rawUrl) return;
-
   var normUrl = normalizeMediaUrl(rawUrl, item.type);
   var isVid = isVideoMedia(normUrl, item.type);
 
   var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(normUrl, '') : normUrl;
   var safeUrlStr   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
 
-  // Remove existing lightbox if present
+  // 1. Update counter & type badge
+  var counterEl = modal.querySelector('#gallery-lb-counter');
+  if (counterEl) {
+    counterEl.textContent = (_lightboxActiveIdx + 1) + ' of ' + _lightboxFiltered.length;
+  }
+  var badgeEl = modal.querySelector('#gallery-lb-badge');
+  if (badgeEl) {
+    badgeEl.textContent = isVid ? 'Video' : 'Photo';
+  }
+
+  // 2. Update media viewport stage
+  var wrap = modal.querySelector('#gallery-lb-media-wrap');
+  if (wrap) {
+    var mediaContentHtml = '';
+    if (isVid) {
+      if (safeUrlStr.indexOf('/preview') !== -1 || safeUrlStr.indexOf('youtube') !== -1 || safeUrlStr.indexOf('vimeo') !== -1) {
+        mediaContentHtml = '<iframe class="gallery-lb-iframe" src="' + safeUrlStr + '" allow="autoplay; fullscreen; encrypted-media"></iframe>';
+      } else {
+        mediaContentHtml = '<video class="gallery-lb-video" src="' + safeUrlStr + '" controls autoplay playsinline></video>';
+      }
+    } else {
+      mediaContentHtml = '<img class="gallery-lb-img" src="' + safeUrlStr + '" alt="Photo preview" />';
+    }
+    wrap.innerHTML = mediaContentHtml;
+    wrap.onclick = function(e) {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    };
+  }
+
+  // 3. Update active thumbnail in bottom filmstrip track & scroll into center
+  var track = modal.querySelector('#gallery-lb-track');
+  if (track && track.children) {
+    for (var i = 0; i < track.children.length; i++) {
+      var thumb = track.children[i];
+      if (i === _lightboxActiveIdx) {
+        thumb.classList.add('active');
+        try {
+          thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        } catch (_) {}
+      } else {
+        thumb.classList.remove('active');
+      }
+    }
+  }
+}
+
+/**
+ * Navigates to the next slide in the gallery lightbox
+ */
+function nextGallerySlide() {
+  if (!_lightboxFiltered || !_lightboxFiltered.length) return;
+  _lightboxActiveIdx = (_lightboxActiveIdx + 1) % _lightboxFiltered.length;
+  renderActiveLightboxItem();
+}
+
+/**
+ * Navigates to the previous slide in the gallery lightbox
+ */
+function prevGallerySlide() {
+  if (!_lightboxFiltered || !_lightboxFiltered.length) return;
+  _lightboxActiveIdx = (_lightboxActiveIdx - 1 + _lightboxFiltered.length) % _lightboxFiltered.length;
+  renderActiveLightboxItem();
+}
+
+/**
+ * Jumps directly to a specified slide index in the gallery lightbox
+ * @param {number} targetIdx
+ */
+function goToGallerySlide(targetIdx) {
+  if (!_lightboxFiltered || !_lightboxFiltered.length) return;
+  if (targetIdx >= 0 && targetIdx < _lightboxFiltered.length) {
+    _lightboxActiveIdx = targetIdx;
+    renderActiveLightboxItem();
+  }
+}
+
+/**
+ * Closes the active gallery lightbox modal
+ */
+function closeGalleryLightbox() {
+  if (typeof document === 'undefined') return;
   var existing = document.getElementById('gallery-lightbox-modal');
-  if (existing) existing.remove();
+  if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
+  if (_lightboxKeyHandler) {
+    document.removeEventListener('keydown', _lightboxKeyHandler);
+    _lightboxKeyHandler = null;
+  }
+  try {
+    document.body.style.overflow = '';
+  } catch (_) {}
+}
+
+/**
+ * Opens a responsive full-screen WhatsApp-style lightbox modal for a selected photo or video
+ * Supports side arrow navigation on PC/desktop/laptop, touch swipe gestures on mobile,
+ * and a bottom interactive filmstrip thumbnail carousel.
+ * @param {number} idx - Index in filtered/galleryImages
+ */
+function openGalleryLightbox(idx) {
+  if (typeof document === 'undefined') return;
+
+  var filtered = galleryImages.filter(function(item) {
+    if (_currentGalleryFilter === 'photos') return !isVideoMedia(item.url, item.type);
+    if (_currentGalleryFilter === 'videos') return isVideoMedia(item.url, item.type);
+    return true;
+  });
+
+  if (!filtered.length) {
+    filtered = galleryImages.slice();
+  }
+  if (!filtered.length) return;
+
+  _lightboxFiltered = filtered;
+  _lightboxActiveIdx = Math.max(0, Math.min(idx, _lightboxFiltered.length - 1));
+
+  // Remove existing lightbox if present
+  closeGalleryLightbox();
 
   var modal = document.createElement('div');
   modal.id = 'gallery-lightbox-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,18,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out;backdrop-filter:blur(6px);animation:fadeIn 0.2s ease;';
+  modal.className = 'gallery-lightbox-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-label', 'Photo and Video Viewer');
 
-  var mediaContentHtml = '';
-  if (isVid) {
-    if (safeUrlStr.indexOf('/preview') !== -1 || safeUrlStr.indexOf('youtube') !== -1 || safeUrlStr.indexOf('vimeo') !== -1) {
-      // Embedded player (Google Drive Preview, YouTube, Vimeo)
-      mediaContentHtml = '<iframe src="' + safeUrlStr + '" style="width:88vw;max-width:960px;height:72vh;border:none;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.7);background:#000;" allow="autoplay; fullscreen; encrypted-media"></iframe>';
-    } else {
-      // Direct HTML5 Video (MP4, WebM, MOV)
-      mediaContentHtml = '<video src="' + safeUrlStr + '" controls autoplay playsinline style="max-width:92vw;max-height:86vh;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.12);background:#000;"></video>';
+  // Lock background scroll
+  try {
+    document.body.style.overflow = 'hidden';
+  } catch (_) {}
+
+  // 1. Top Header Bar
+  var topbar = document.createElement('div');
+  topbar.className = 'gallery-lb-topbar';
+  topbar.innerHTML = '<div class="gallery-lb-meta">'
+    + '<span class="gallery-lb-counter" id="gallery-lb-counter"></span>'
+    + '<span class="gallery-lb-badge" id="gallery-lb-badge"></span>'
+    + '</div>'
+    + '<button type="button" class="gallery-lb-close-btn" id="gallery-lb-close" aria-label="Close Preview" title="Close (Esc)">&times;</button>';
+
+  // 2. Central Media Viewport Stage
+  var stage = document.createElement('div');
+  stage.className = 'gallery-lb-stage';
+  stage.id = 'gallery-lb-stage';
+
+  var mediaWrap = document.createElement('div');
+  mediaWrap.className = 'gallery-lb-media-wrap';
+  mediaWrap.id = 'gallery-lb-media-wrap';
+  stage.appendChild(mediaWrap);
+
+  // 3. Side Navigation Arrows for Desktop / Laptop
+  var prevBtn = document.createElement('button');
+  prevBtn.type = 'button';
+  prevBtn.className = 'gallery-lb-nav-btn gallery-lb-prev';
+  prevBtn.id = 'gallery-lb-prev';
+  prevBtn.title = 'Previous (Left Arrow)';
+  prevBtn.setAttribute('aria-label', 'Previous photo or video');
+  prevBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+
+  var nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'gallery-lb-nav-btn gallery-lb-next';
+  nextBtn.id = 'gallery-lb-next';
+  nextBtn.title = 'Next (Right Arrow)';
+  nextBtn.setAttribute('aria-label', 'Next photo or video');
+  nextBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+  // 4. WhatsApp-Style Bottom Filmstrip Carousel
+  var filmstrip = document.createElement('div');
+  filmstrip.className = 'gallery-lb-filmstrip';
+  filmstrip.id = 'gallery-lb-filmstrip';
+
+  var track = document.createElement('div');
+  track.className = 'gallery-lb-track';
+  track.id = 'gallery-lb-track';
+
+  _lightboxFiltered.forEach(function(item, i) {
+    var rawUrl = (typeof item === 'string') ? item : item.url;
+    var normUrl = normalizeMediaUrl(rawUrl, item.type);
+    var isVid = isVideoMedia(normUrl, item.type);
+    var thumbUrl = isVid ? (rawUrl.indexOf('youtube') !== -1 ? rawUrl : 'assets/logo.png') : normUrl;
+    var validatedThumb = (typeof safeUrl === 'function') ? safeUrl(thumbUrl, '') : thumbUrl;
+    var safeThumb = (typeof escapeHtml === 'function') ? escapeHtml(validatedThumb) : validatedThumb;
+
+    var thumbEl = document.createElement('div');
+    thumbEl.className = 'gallery-lb-thumb' + (i === _lightboxActiveIdx ? ' active' : '');
+    thumbEl.setAttribute('data-idx', String(i));
+    thumbEl.title = 'View ' + (isVid ? 'video' : 'photo') + ' ' + (i + 1);
+
+    var inner = '<img src="' + safeThumb + '" alt="Thumbnail ' + (i + 1) + '" onerror="this.src=\'assets/logo.png\'" />';
+    if (isVid) {
+      inner += '<div class="gallery-lb-thumb-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
     }
-  } else {
-    // Photo
-    mediaContentHtml = '<img src="' + safeUrlStr + '" alt="Photo preview" style="max-width:100%;max-height:86vh;object-fit:contain;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.1);" />';
+    thumbEl.innerHTML = inner;
+
+    thumbEl.addEventListener('click', function(e) {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      goToGallerySlide(i);
+    });
+
+    track.appendChild(thumbEl);
+  });
+
+  filmstrip.appendChild(track);
+
+  // Assemble Modal
+  modal.appendChild(topbar);
+  modal.appendChild(stage);
+  if (_lightboxFiltered.length > 1) {
+    modal.appendChild(prevBtn);
+    modal.appendChild(nextBtn);
+    modal.appendChild(filmstrip);
   }
 
-  modal.innerHTML = '<div style="position:relative;max-width:94vw;max-height:92vh;display:flex;align-items:center;justify-content:center;" onclick="event.stopPropagation();">'
-    + mediaContentHtml
-    + '<button type="button" aria-label="Close Preview" style="position:absolute;top:-14px;right:-14px;background:var(--accent,#c8961e);color:#0a0c10;border:2px solid #fff;border-radius:50%;width:34px;height:34px;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.4);line-height:1;">&times;</button>'
-    + '</div>';
+  // Close Listeners
+  var closeBtn = topbar.querySelector('#gallery-lb-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeGalleryLightbox);
 
-  function closeModal() {
-    if (modal && modal.parentNode) {
-      modal.parentNode.removeChild(modal);
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal || e.target === stage) {
+      closeGalleryLightbox();
     }
-    document.removeEventListener('keydown', handleKey);
-  }
+  });
 
-  function handleKey(e) {
-    if (e.key === 'Escape') closeModal();
-  }
+  prevBtn.addEventListener('click', function(e) {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    prevGallerySlide();
+  });
 
-  modal.addEventListener('click', closeModal);
-  modal.querySelector('button').addEventListener('click', closeModal);
-  document.addEventListener('keydown', handleKey);
+  nextBtn.addEventListener('click', function(e) {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    nextGallerySlide();
+  });
+
+  // Mobile Swipe Gestures (touch left / right)
+  var touchStartX = 0;
+  var touchStartY = 0;
+  stage.addEventListener('touchstart', function(e) {
+    if (e.touches && e.touches.length === 1) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
+  stage.addEventListener('touchend', function(e) {
+    if (e.changedTouches && e.changedTouches.length === 1) {
+      var diffX = e.changedTouches[0].clientX - touchStartX;
+      var diffY = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.3) {
+        if (diffX < 0) {
+          nextGallerySlide(); // Swiped left -> next
+        } else {
+          prevGallerySlide(); // Swiped right -> prev
+        }
+      }
+    }
+  }, { passive: true });
+
+  // Keyboard navigation
+  _lightboxKeyHandler = function(e) {
+    if (e.key === 'Escape') {
+      closeGalleryLightbox();
+    } else if (e.key === 'ArrowLeft') {
+      prevGallerySlide();
+    } else if (e.key === 'ArrowRight') {
+      nextGallerySlide();
+    }
+  };
+  document.addEventListener('keydown', _lightboxKeyHandler);
 
   document.body.appendChild(modal);
+
+  // Render first item
+  renderActiveLightboxItem();
 }
 
 // ── Upload Operations ──────────────────────────────────────────────────────
@@ -2436,6 +2667,10 @@ if (typeof window !== 'undefined') {
   window.loadGallery            = loadGallery;
   window.renderGallery          = renderGallery;
   window.openGalleryLightbox    = openGalleryLightbox;
+  window.closeGalleryLightbox   = closeGalleryLightbox;
+  window.nextGallerySlide       = nextGallerySlide;
+  window.prevGallerySlide       = prevGallerySlide;
+  window.goToGallerySlide       = goToGallerySlide;
   window.uploadGalleryFiles     = uploadGalleryFiles;
   window.handleGalleryUpload    = handleGalleryUpload;
   window.deleteGalleryImage     = deleteGalleryImage;
@@ -2488,6 +2723,10 @@ if (typeof module !== 'undefined' && module.exports) {
     loadGallery: loadGallery,
     renderGallery: renderGallery,
     openGalleryLightbox: openGalleryLightbox,
+    closeGalleryLightbox: closeGalleryLightbox,
+    nextGallerySlide: nextGallerySlide,
+    prevGallerySlide: prevGallerySlide,
+    goToGallerySlide: goToGallerySlide,
     uploadGalleryFiles: uploadGalleryFiles,
     handleGalleryUpload: handleGalleryUpload,
     deleteGalleryImage: deleteGalleryImage,
