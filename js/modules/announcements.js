@@ -843,6 +843,9 @@ function renderAnnouncements() {
 }
 
 // ── Reaction Management ────────────────────────────────────────────────────
+var _isSubmittingAnnouncement = false;
+var _reactionInFlight = {};
+
 /**
  * Toggles an emoji reaction on an announcement for the authenticated user
  * @param {number} annIdx - Index in announcements array
@@ -863,8 +866,14 @@ async function toggleReaction(annIdx, emoji) {
 
   var a = announcements[annIdx];
   if (!a) return false;
+
+  var flightKey = (a.id || annIdx) + ':' + emoji + ':' + currentUserId;
+  if (_reactionInFlight[flightKey]) return false;
+  _reactionInFlight[flightKey] = true;
+
   // Enforce curated WhatsApp reaction allowlist
   if (ALL_REACTION_EMOJIS.indexOf(emoji) === -1 && SAFE_REACTION_EMOJIS.indexOf(emoji) === -1) {
+    delete _reactionInFlight[flightKey];
     if (typeof showToast === 'function') {
       showToast('Only approved reactions are permitted.', 'warning');
     }
@@ -879,6 +888,7 @@ async function toggleReaction(annIdx, emoji) {
       : ALL_REACTION_EMOJIS);
 
   if (allowed.indexOf(emoji) === -1) {
+    delete _reactionInFlight[flightKey];
     if (typeof showToast === 'function') {
       showToast('This reaction is not enabled for this announcement.', 'warning');
     }
@@ -925,6 +935,24 @@ async function toggleReaction(annIdx, emoji) {
     }
   } catch (e) {
     console.error('toggleReaction error:', e);
+    // Rollback optimistic reaction mutation
+    var curIdx = who.indexOf(currentUserId);
+    if (pos === -1) {
+      if (curIdx !== -1) who.splice(curIdx, 1);
+    } else {
+      if (curIdx === -1) who.push(currentUserId);
+    }
+    renderAnnouncements();
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
+      }
+    } catch (_) {}
+    if (typeof showToast === 'function') {
+      showToast('Could not save reaction. Reverted.', 'warning');
+    }
+  } finally {
+    delete _reactionInFlight[flightKey];
   }
   return true;
 }
@@ -1276,6 +1304,8 @@ async function broadcastAnnouncementEmail(ann) {
  * Creates or updates an announcement in Supabase
  */
 async function addAnnouncement() {
+  if (_isSubmittingAnnouncement) return;
+  _isSubmittingAnnouncement = true;
   var titleEl = document.getElementById('ann-title-input');
   var bodyEl  = document.getElementById('ann-body-input');
   var btn     = document.getElementById('ann-post-btn');
@@ -1287,6 +1317,7 @@ async function addAnnouncement() {
   var editIdx  = btn ? parseInt(btn.getAttribute('data-edit-idx') || '-1', 10) : -1;
 
   if (!title || !rawBody || rawBody === '<br>' || rawBody === '<div><br></div>') {
+    _isSubmittingAnnouncement = false;
     if (typeof showToast === 'function') {
       showToast('Please fill in both title and message.', 'warning');
     }
@@ -1499,6 +1530,7 @@ async function addAnnouncement() {
       showToast('Failed to save announcement: ' + (e.message || e), 'error');
     }
   } finally {
+    _isSubmittingAnnouncement = false;
     if (btn) btn.disabled = false;
   }
 }
@@ -1548,8 +1580,12 @@ async function deleteAnnouncement(idx) {
     }
   } catch (e) {
     console.error('deleteAnnouncement error:', e);
+    // Rollback optimistic removal
+    announcements.splice(idx, 0, a);
+    renderAnnouncements();
+    renderAdminAnnList();
     if (typeof showToast === 'function') {
-      showToast('Failed to delete announcement from server.', 'error');
+      showToast('Failed to delete announcement: ' + (e.message || 'Server error') + '. Reverted.', 'error');
     }
   }
 }
