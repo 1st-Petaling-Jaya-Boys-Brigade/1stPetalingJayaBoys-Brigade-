@@ -1866,9 +1866,9 @@ async function loginMember() {
       if (check.needsUpgrade) {
         try {
           var upgradedHash = await hashPassword(pass);
-          for (var k = 0; k < accounts.length; k++) {
-            await client.patch('bb_members?ic=eq.' + encodeURIComponent(accounts[k].ic), { password: upgradedHash });
-          }
+          await Promise.all(accounts.map(function(acc) {
+            return client.patch('bb_members?ic=eq.' + encodeURIComponent(acc.ic), { password: upgradedHash });
+          }));
           if (typeof logAuditEvent === 'function') {
             logAuditEvent({
               action: 'auth.credential_migrated',
@@ -4189,10 +4189,10 @@ async function removePfp(e) {
   // 2. Delete from Supabase Storage and database
   try {
     var client = getSupa();
-    if (client && typeof client.deleteFile === 'function') {
-      for (var i = 0; i < targetFileNames.length; i++) {
-        await client.deleteFile('avatars', targetFileNames[i]);
-      }
+    if (client && typeof client.deleteFile === 'function' && targetFileNames.length) {
+      await Promise.all(targetFileNames.map(function(fname) {
+        return client.deleteFile('avatars', fname);
+      }));
     }
     if (typeof _memberPfpsMap !== 'undefined') {
       if (id) delete _memberPfpsMap[id.toLowerCase()];

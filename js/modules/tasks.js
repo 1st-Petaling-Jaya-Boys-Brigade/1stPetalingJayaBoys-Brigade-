@@ -1029,10 +1029,13 @@ async function deleteProject(projectName) {
   if (client && taskIdsToDelete.length) {
     (async function() {
       try {
-        for (var i = 0; i < taskIdsToDelete.length; i++) {
-          if (!String(taskIdsToDelete[i]).startsWith('temp_')) {
-            await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskIdsToDelete[i]));
-          }
+        var validTaskIds = taskIdsToDelete.filter(function(tid) {
+          return !String(tid).startsWith('temp_');
+        });
+        if (validTaskIds.length) {
+          await Promise.all(validTaskIds.map(function(tid) {
+            return client.delete('bb_tasks?id=eq.' + encodeURIComponent(tid));
+          }));
         }
       } catch (err) {
         console.warn('Failed to delete project tasks from Supabase:', err);
