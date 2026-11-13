@@ -4356,23 +4356,25 @@ function openCreateTaskModal(defaultStatus, fromTasksView) {
 /**
  * Closes Create Task modal
  */
-function closeCreateTaskModal() {
+function closeCreateTaskModal(clearDraft) {
   if (typeof document === 'undefined') return;
   var modal = document.querySelector('.task-create-modal');
   if (modal) {
     modal.style.display = 'none';
-    var dEl = modal.querySelector('.new-task-desc-input');
-    if (dEl && dEl.isContentEditable) dEl.innerHTML = '';
-    var titleEl = modal.querySelector('.new-task-title-input');
-    if (titleEl) titleEl.value = '';
-    var estEl = modal.querySelector('.new-task-estimate-input');
-    if (estEl) estEl.value = '';
-    var dueEl = modal.querySelector('.new-task-due-input');
-    if (dueEl) dueEl.value = '';
-    var projSelect = modal.querySelector('.new-task-project-select');
-    if (projSelect) projSelect.style.display = 'none';
-    var projDisplay = modal.querySelector('.new-task-project-display');
-    if (projDisplay) projDisplay.style.display = 'flex';
+    if (clearDraft === true) {
+      var dEl = modal.querySelector('.new-task-desc-input');
+      if (dEl && dEl.isContentEditable) dEl.innerHTML = '';
+      var titleEl = modal.querySelector('.new-task-title-input');
+      if (titleEl) titleEl.value = '';
+      var estEl = modal.querySelector('.new-task-estimate-input');
+      if (estEl) estEl.value = '';
+      var dueEl = modal.querySelector('.new-task-due-input');
+      if (dueEl) dueEl.value = '';
+      var projSelect = modal.querySelector('.new-task-project-select');
+      if (projSelect) projSelect.style.display = 'none';
+      var projDisplay = modal.querySelector('.new-task-project-display');
+      if (projDisplay) projDisplay.style.display = 'flex';
+    }
   }
 }
 
@@ -4549,7 +4551,7 @@ async function handleCreateTaskSubmit(e) {
   }
 
   // Close modal and clear inputs immediately (< 15ms)
-  closeCreateTaskModal();
+  closeCreateTaskModal(true);
   if (titleEl) titleEl.value = '';
   if (descEl) { if (descEl.isContentEditable) descEl.innerHTML = ''; else descEl.value = ''; }
   if (dueEl) dueEl.value = '';

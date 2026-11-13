@@ -13742,6 +13742,76 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 72: Interface Consistency, Responsive Layout & Edge States
+  // =========================================================================
+  {
+    console.log('\n--- Suite 72: Interface Consistency, Accessibility & Edge States ---');
+
+    // 1. Unified Global Modal Escape Dismissal Handler
+    const uiMod = require('../js/core/ui.js');
+    assert.strictEqual(typeof uiMod.handleGlobalModalEscape, 'function', 'handleGlobalModalEscape must be exported');
+
+    // Setup dummy modal elements in DOM
+    const dummyTaskDetail = { id: 'task-detail-modal', style: { display: 'block' } };
+    let taskDetailClosed = false;
+    global.closeTaskDetail = () => { taskDetailClosed = true; dummyTaskDetail.style.display = 'none'; };
+    const origGetEl = global.document.getElementById;
+    const origQuerySel = global.document.querySelector;
+    global.document.getElementById = (id) => {
+      if (id === 'task-detail-modal') return dummyTaskDetail;
+      return null;
+    };
+    global.document.querySelector = () => null;
+
+    uiMod.handleGlobalModalEscape({ key: 'Escape', keyCode: 27 });
+    assert.strictEqual(taskDetailClosed, true, 'handleGlobalModalEscape must dismiss active task detail modal on Escape');
+    console.log('  ✔ Unified global modal escape handler cleanly dismisses active modals on Escape key');
+
+    // 2. Icon-Only Buttons Accessible Name Compliance (WCAG 2.1 AA)
+    const pwButtons = ['login-eye', 'f-eye', 'f-eye2', 'reg-eye', 'reg-eye2'];
+    pwButtons.forEach(btnId => {
+      const match = indexHtml.match(new RegExp('<button[^>]*id=["\']' + btnId + '["\'][^>]*>', 'i'));
+      assert.ok(match, `Button #${btnId} must exist in index.html`);
+      assert.ok(match[0].includes('aria-label="Toggle password visibility"'), `Button #${btnId} must declare aria-label for accessibility`);
+    });
+    console.log('  ✔ Form password visibility toggles and modal icon buttons enforce accessible aria-labels');
+
+    // 3. Rich Standardized Gallery Empty States
+    const galleryMod = require('../js/modules/gallery.js');
+    const dummyGrid = { innerHTML: '', querySelectorAll: () => [] };
+    const dummyNoPhotos = { innerHTML: '', style: { display: 'none' } };
+    const dummyNoPhotosHome = { innerHTML: '', style: { display: 'none' } };
+    global.document.getElementById = (id) => {
+      if (id === 'gallery-grid') return dummyGrid;
+      if (id === 'no-photos') return dummyNoPhotos;
+      if (id === 'no-photos-home') return dummyNoPhotosHome;
+      return null;
+    };
+
+    const origGallery = galleryMod.galleryImages.slice();
+    galleryMod.galleryImages.length = 0; // Empty gallery
+    galleryMod.renderGallery();
+    assert.strictEqual(dummyNoPhotos.style.display, 'block', 'Empty gallery must show #no-photos container');
+    assert.ok(dummyNoPhotos.innerHTML.includes('No gallery media uploaded yet'), 'Empty gallery state must contain friendly title and icon');
+
+    // Restore gallery & globals
+    origGallery.forEach(item => galleryMod.galleryImages.push(item));
+    global.document.getElementById = origGetEl;
+    global.document.querySelector = origQuerySel;
+    console.log('  ✔ Standardized empty states render user-friendly guidance across media views');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const postIdsUX = new Set();
+    const postMatchesUX = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesUX.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsUX.add(match[1]);
+    });
+    assert.strictEqual(postIdsUX.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsUX.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

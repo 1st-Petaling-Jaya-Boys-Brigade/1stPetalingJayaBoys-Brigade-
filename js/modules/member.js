@@ -832,31 +832,62 @@ async function registerMember() {
   var pass    = (document.getElementById('reg-pass') || {}).value || '';
   var pass2   = (document.getElementById('reg-pass2') || {}).value || '';
 
-  if (!name) { if (typeof showToast === 'function') showToast('Please enter your full name.', 'warning'); return; }
+  if (!name) {
+    if (typeof showToast === 'function') showToast('Please enter your full name.', 'warning');
+    var nEl = document.getElementById('reg-fullname');
+    if (nEl && nEl.focus) nEl.focus();
+    return;
+  }
   var nameTokens = name.split(/\s+/).filter(function(w) { return w.length >= 2; });
   if (nameTokens.length < 2) {
     if (typeof showToast === 'function') showToast('Please enter your full name (at least first name and surname).', 'warning');
+    var nEl2 = document.getElementById('reg-fullname');
+    if (nEl2 && nEl2.focus) nEl2.focus();
     return;
   }
-  if (!email || !EMAIL_REGEX.test(email)) { if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning'); return; }
-  if (!section) { if (typeof showToast === 'function') showToast('Please select your section (Junior, Senior, or Officer).', 'warning'); return; }
+  if (!email || !EMAIL_REGEX.test(email)) {
+    if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning');
+    var emEl = document.getElementById('reg-email') || document.getElementById('reg-ic');
+    if (emEl && emEl.focus) emEl.focus();
+    return;
+  }
+  if (!section) {
+    if (typeof showToast === 'function') showToast('Please select your section (Junior, Senior, or Officer).', 'warning');
+    var sEl = document.getElementById('reg-section');
+    if (sEl && sEl.focus) sEl.focus();
+    return;
+  }
 
   var parsedAge = parseInt(ageRaw, 10);
   if (!ageRaw || isNaN(parsedAge) || parsedAge < 5 || parsedAge > 100) {
     if (typeof showToast === 'function') showToast('Please enter a valid age (between 5 and 100).', 'warning');
+    var aEl = document.getElementById('reg-age');
+    if (aEl && aEl.focus) aEl.focus();
     return;
   }
-  if (!rank)  { if (typeof showToast === 'function') showToast('Please select your rank.', 'warning'); return; }
+  if (!rank)  {
+    if (typeof showToast === 'function') showToast('Please select your rank.', 'warning');
+    var rEl = document.getElementById('reg-rank');
+    if (rEl && rEl.focus) rEl.focus();
+    return;
+  }
   var isOfficerSec = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'officer';
   if (!isOfficerSec && !squad) {
     var isJr = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'junior';
     if (typeof showToast === 'function') showToast(isJr ? 'Please select your squad.' : 'Please select your platoon/squad.', 'warning');
+    var sqEl = document.getElementById('reg-squad');
+    if (sqEl && sqEl.focus) sqEl.focus();
     return;
   }
   if (isOfficerSec) {
     squad = '';
   }
-  if (pass.length < 6) { if (typeof showToast === 'function') showToast('Password must be at least 6 characters.', 'warning'); return; }
+  if (pass.length < 6) {
+    if (typeof showToast === 'function') showToast('Password must be at least 6 characters.', 'warning');
+    var pEl = document.getElementById('reg-pass');
+    if (pEl && pEl.focus) pEl.focus();
+    return;
+  }
 
   // Child Safety Governance & Verifiable Parental Consent ( / COPPA & PDPA 2010)
   var isMinor = isMinorSection(section, parsedAge);
@@ -1077,6 +1108,8 @@ async function registerMember() {
     // 2. Brand New Email Registration -> Check Passwords & Trigger Email Verification
     if (pass !== pass2) {
       if (typeof showToast === 'function') showToast('Passwords do not match!', 'error');
+      var p2El = document.getElementById('reg-pass2');
+      if (p2El && p2El.focus) p2El.focus();
       return;
     }
 

@@ -433,12 +433,35 @@ function renderGallery() {
     if (grid)              grid.innerHTML = '';
     if (isHomeGridVisible) homeGrid.innerHTML = '';
     if (adminGrid)         adminGrid.innerHTML = '';
-    if (noPhotos)          noPhotos.style.display = 'block';
-    if (isHomeGridVisible && noPhotosHome) noPhotosHome.style.display = 'block';
+    if (noPhotos) {
+      noPhotos.innerHTML = '<div class="gallery-empty-state" style="text-align:center;padding:44px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
+        + '<div style="font-size:32px;margin-bottom:8px;">📷</div>'
+        + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">No gallery media uploaded yet</div>'
+        + '<div style="font-size:12.5px;color:var(--text-muted);max-width:360px;margin:0 auto;">Photos and videos from weekly parades, camps, and events will appear here.</div>'
+        + '</div>';
+      noPhotos.style.display = 'block';
+    }
+    if (isHomeGridVisible && noPhotosHome) {
+      noPhotosHome.innerHTML = '<div class="gallery-empty-state-home" style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">No media uploaded yet. Check back soon for parade highlights.</div>';
+      noPhotosHome.style.display = 'block';
+    }
     return;
   }
 
-  if (noPhotos)                          noPhotos.style.display = filtered.length ? 'none' : 'block';
+  if (noPhotos) {
+    if (!filtered.length) {
+      var filterLabel = _currentGalleryFilter === 'photos' ? 'photos' : (_currentGalleryFilter === 'videos' ? 'videos' : 'media items');
+      noPhotos.innerHTML = '<div class="gallery-empty-state" style="text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
+        + '<div style="font-size:28px;margin-bottom:8px;">🔍</div>'
+        + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No ' + filterLabel + ' found</div>'
+        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Try selecting "All" to view all photos and videos in the gallery.</div>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="filterGallery(\'all\', document.getElementById(\'gallery-filter-all\'))" style="font-size:12px;padding:6px 14px;cursor:pointer;">Show All Media</button>'
+        + '</div>';
+      noPhotos.style.display = 'block';
+    } else {
+      noPhotos.style.display = 'none';
+    }
+  }
   if (isHomeGridVisible && noPhotosHome) noPhotosHome.style.display = 'none';
 
   var pubHtml = '';
