@@ -1600,6 +1600,8 @@ if (typeof window !== 'undefined') {
 if (typeof window !== 'undefined') {
   window.supa = supa;
   window.getSupaClient = getSupaClient;
+  window.getSupa = getSupaClient;
+  window.getSupabaseClient = getSupaClient;
   window.isCircuitBreakerOpen = isCircuitBreakerOpen;
   window.resetCircuitBreaker = resetCircuitBreaker;
   window.tripCircuitBreaker = tripCircuitBreaker;
@@ -1612,6 +1614,8 @@ if (typeof module !== 'undefined' && module.exports) {
     triggerRealtime: PortalRealtime.trigger,
     supa,
     getSupaClient,
+    getSupa: getSupaClient,
+    getSupabaseClient: getSupaClient,
     rpc: supa.rpc,
     mergeConfigCollections,
     recordConfigSnapshot: supa.recordConfigSnapshot,

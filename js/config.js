@@ -55,12 +55,29 @@ var GEMINI_API_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.
   || (typeof process !== 'undefined' && process.env && (process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY))
   || '';
 
+var DEPARTMENT_KEYS = [
+  'secretariat',
+  'logistics',
+  'media',
+  'hq',
+  'officers'
+];
+
+var FILE_LIMITS = {
+  PHOTO_MAX_BYTES: 15 * 1024 * 1024,
+  VIDEO_MAX_BYTES: 50 * 1024 * 1024,
+  DOCUMENT_MAX_BYTES: 25 * 1024 * 1024,
+  RECEIPT_MAX_BYTES: 10 * 1024 * 1024
+};
+
 var APP_CONFIG = Object.freeze({
   SUPABASE_URL: SUPA_URL,
   SUPABASE_ANON_KEY: SUPA_KEY,
   ADMIN_PASSWORD_HASH: ADMIN_PASSWORD_HASH,
   TURNSTILE_SITE_KEY: TURNSTILE_SITE_KEY,
-  GEMINI_API_KEY: GEMINI_API_KEY
+  GEMINI_API_KEY: GEMINI_API_KEY,
+  DEPARTMENTS: DEPARTMENT_KEYS,
+  LIMITS: FILE_LIMITS
 });
 
 
@@ -90,6 +107,8 @@ if (typeof window !== 'undefined') {
   window.NCO_RANKS = NCO_RANKS;
   window.OFFICER_RANKS = OFFICER_RANKS;
   window.isNcoRank = isNcoRank;
+  window.DEPARTMENT_KEYS = DEPARTMENT_KEYS;
+  window.FILE_LIMITS = FILE_LIMITS;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -104,6 +123,8 @@ if (typeof module !== 'undefined' && module.exports) {
     MEMBERS_SENIOR_RANKS,
     NCO_RANKS,
     OFFICER_RANKS,
-    isNcoRank
+    isNcoRank,
+    DEPARTMENT_KEYS,
+    FILE_LIMITS
   };
 }
