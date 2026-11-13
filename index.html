@@ -3548,6 +3548,7 @@ function switchTab(tab, btn, skipPush) {
   if (tab === 'home')       {
     if (typeof renderCalendarWidget === 'function') renderCalendarWidget();
     if (typeof updateQuickCardsCarousel === 'function') updateQuickCardsCarousel();
+    if (typeof renderAnnouncements === 'function') renderAnnouncements();
   }
 }
 

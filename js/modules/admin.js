@@ -1909,6 +1909,9 @@
     if (document.body) document.body.style.overflow = '';
     var creatorSec = document.getElementById('adm-section-creator-outlines');
     if (creatorSec) creatorSec.style.display = 'none';
+    if (typeof renderAnnouncements === 'function') {
+      renderAnnouncements();
+    }
     if (!skipHistory && typeof window !== 'undefined' && window.location.hash === '#admin') {
       if (typeof history !== 'undefined' && typeof history.back === 'function') {
         history.back();
@@ -2211,6 +2214,9 @@
     if (rolesSec) rolesSec.style.display = 'none';
     var creatorSec = document.getElementById('adm-section-creator-outlines');
     if (creatorSec) creatorSec.style.display = 'none';
+    if (typeof renderAnnouncements === 'function') {
+      renderAnnouncements();
+    }
 
     // Scoped Admin UI Filtering
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;

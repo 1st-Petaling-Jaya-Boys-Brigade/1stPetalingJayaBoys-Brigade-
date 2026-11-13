@@ -12954,6 +12954,190 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // 65. ANNOUNCEMENT ALLOWED REACTIONS PERSISTENCE & REALTIME SYNCHRONIZATION
+  // =========================================================================
+  {
+    console.log('\nTesting Announcement Allowed Reactions Persistence & Realtime Synchronization...');
+
+    const annMod = require('../js/modules/announcements.js');
+    const origDoc = global.document;
+    const origSupa = global.supa;
+
+    // In-memory config mock for bb_config and bb_announcements
+    const mockDbConfig = {};
+    const mockDbAnnouncements = [
+      {
+        id: 'ann-poll-test',
+        title: 'Parade Attendance Poll',
+        body: '<p>Will you attend this Saturday?</p>',
+        date: '13 NOV 2026',
+        reactions: {},
+        allowed_reactions: ['✅', '❌']
+      }
+    ];
+
+    const mockSupaClient = {
+      get: async (endpoint) => {
+        if (endpoint.includes('bb_config?key=eq.bb_announcements_allowed_reactions')) {
+          const val = mockDbConfig['bb_announcements_allowed_reactions'];
+          return val ? [{ key: 'bb_announcements_allowed_reactions', value: JSON.stringify(val) }] : [];
+        }
+        if (endpoint.includes('bb_config?key=eq.bb_announcements_pinned')) {
+          const val = mockDbConfig['bb_announcements_pinned'];
+          return val ? [{ key: 'bb_announcements_pinned', value: JSON.stringify(val) }] : [];
+        }
+        if (endpoint.includes('bb_config?key=eq.bb_announcements_images')) {
+          const val = mockDbConfig['bb_announcements_images'];
+          return val ? [{ key: 'bb_announcements_images', value: JSON.stringify(val) }] : [];
+        }
+        if (endpoint.includes('bb_announcements')) {
+          return JSON.parse(JSON.stringify(mockDbAnnouncements));
+        }
+        return [];
+      },
+      safeConfigGet: async (key, fallback) => {
+        return mockDbConfig[key] !== undefined ? mockDbConfig[key] : fallback;
+      },
+      upsert: async (table, record) => {
+        if (table === 'bb_config' && record.key) {
+          mockDbConfig[record.key] = typeof record.value === 'string' ? JSON.parse(record.value) : record.value;
+          return [record];
+        }
+        return [];
+      },
+      patch: async (endpoint, payload) => {
+        if (endpoint.includes('bb_announcements?id=eq.')) {
+          const id = endpoint.split('id=eq.')[1];
+          const found = mockDbAnnouncements.find(a => a.id === id);
+          if (found) Object.assign(found, payload);
+          return [found];
+        }
+        return [];
+      },
+      post: async (table, payload) => {
+        if (table === 'bb_announcements') {
+          payload.id = 'ann-new-' + Date.now();
+          mockDbAnnouncements.push(payload);
+          return [payload];
+        }
+        return [];
+      }
+    };
+
+    global.supa = mockSupaClient;
+
+    // 1. Test syncAnnouncementAllowedReactionsConfig
+    await annMod.syncAnnouncementAllowedReactionsConfig('ann-poll-test', ['✅', '❌']);
+    assert.deepStrictEqual(
+      mockDbConfig['bb_announcements_allowed_reactions']['ann-poll-test'],
+      ['✅', '❌'],
+      'syncAnnouncementAllowedReactionsConfig must store allowed reaction array in bb_config'
+    );
+    console.log('  ✔ syncAnnouncementAllowedReactionsConfig durably persists reaction allowlist to bb_config');
+
+    // 2. Test loadAnnouncements multi-tier recovery
+    // Strip direct column and object metadata to test recovery from bb_config
+    mockDbAnnouncements[0].allowed_reactions = null;
+    mockDbAnnouncements[0].reactions = {};
+    await annMod.loadAnnouncements();
+    const loaded = annMod.announcements.find(a => a.id === 'ann-poll-test');
+    assert.ok(loaded, 'Announcement was loaded');
+    assert.deepStrictEqual(loaded.allowed_reactions, ['✅', '❌'], 'loadAnnouncements must restore allowed_reactions from bb_config');
+    assert.deepStrictEqual(loaded.reactions._allowed, ['✅', '❌'], 'loadAnnouncements must sync reactions._allowed metadata');
+    console.log('  ✔ loadAnnouncements restores allowed reactions from bb_config when column is missing');
+
+    // 3. Test renderAnnouncements on homepage
+    const homeAnnList = { innerHTML: '', querySelectorAll: () => [] };
+    global.document = {
+      getElementById: (id) => {
+        if (id === 'announcements-list') return homeAnnList;
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    annMod.renderAnnouncements();
+    const renderedFeed = homeAnnList.innerHTML;
+    assert.ok(renderedFeed.includes('data-emoji="✅"'), 'Feed renders ✅ button');
+    assert.ok(renderedFeed.includes('data-emoji="❌"'), 'Feed renders ❌ button');
+    assert.strictEqual(renderedFeed.includes('data-emoji="👍"'), false, 'Feed must NOT render unselected 👍 button');
+    assert.strictEqual(renderedFeed.includes('data-emoji="❤️"'), false, 'Feed must NOT render unselected ❤️ button');
+    assert.strictEqual(renderedFeed.includes('data-emoji="🎉"'), false, 'Feed must NOT render unselected 🎉 button');
+    console.log('  ✔ renderAnnouncements on homepage restricts reaction buttons strictly to allowed reactions (✅, ❌)');
+
+    // 4. Test openEditAnnouncement, chip restoration, and addAnnouncement update
+    const chips = [
+      { emoji: '✅', active: false, classList: { contains: (c) => c === 'active' ? chips[0].active : false, add: () => { chips[0].active = true; }, remove: () => { chips[0].active = false; } }, style: {}, getAttribute: () => '✅' },
+      { emoji: '❌', active: false, classList: { contains: (c) => c === 'active' ? chips[1].active : false, add: () => { chips[1].active = true; }, remove: () => { chips[1].active = false; } }, style: {}, getAttribute: () => '❌' },
+      { emoji: '👍', active: true, classList: { contains: (c) => c === 'active' ? chips[2].active : false, add: () => { chips[2].active = true; }, remove: () => { chips[2].active = false; } }, style: {}, getAttribute: () => '👍' }
+    ];
+
+    const titleInput = { value: '' };
+    const bodyInput = { innerHTML: '' };
+    const postBtn = {
+      innerHTML: '',
+      disabled: false,
+      attrs: {},
+      getAttribute: (k) => postBtn.attrs[k] || null,
+      setAttribute: (k, v) => { postBtn.attrs[k] = v; },
+      removeAttribute: (k) => { delete postBtn.attrs[k]; }
+    };
+    const pinCheckEl = { checked: false };
+
+    global.document = {
+      getElementById: (id) => {
+        if (id === 'ann-title-input') return titleInput;
+        if (id === 'ann-body-input') return bodyInput;
+        if (id === 'ann-post-btn') return postBtn;
+        if (id === 'announcements-list') return homeAnnList;
+        if (id === 'admin-ann-list') return { innerHTML: '', querySelectorAll: () => [] };
+        return null;
+      },
+      querySelector: (sel) => {
+        if (sel === '.ann-pinned-check') return pinCheckEl;
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel === '.ann-reaction-chip') return chips;
+        return [];
+      }
+    };
+
+    // Open edit mode
+    annMod.openEditAnnouncement(0);
+    assert.strictEqual(postBtn.getAttribute('data-edit-id'), 'ann-poll-test', 'postBtn has data-edit-id');
+    assert.strictEqual(chips[0].active, true, '✅ chip activated');
+    assert.strictEqual(chips[1].active, true, '❌ chip activated');
+    assert.strictEqual(chips[2].active, false, '👍 chip deactivated');
+
+    // Simulate saving the updated announcement
+    titleInput.value = 'Updated Parade Poll';
+    bodyInput.innerHTML = '<p>Updated description</p>';
+    await annMod.addAnnouncement();
+
+    assert.strictEqual(loaded.title, 'Updated Parade Poll', 'Announcement title updated in-memory');
+    assert.deepStrictEqual(loaded.allowed_reactions, ['✅', '❌'], 'allowed_reactions preserved on announcement');
+    assert.strictEqual(postBtn.getAttribute('data-edit-id'), null, 'data-edit-id cleared after save');
+    assert.strictEqual(postBtn.getAttribute('data-edit-idx'), null, 'data-edit-idx cleared after save');
+    assert.ok(mockDbConfig['bb_announcements_allowed_reactions']['ann-poll-test'], 'bb_config updated after save');
+    console.log('  ✔ addAnnouncement saves updates, synchronizes allowed reactions, and resets edit button state');
+
+    // Cleanup & restore mocks
+    global.document = origDoc;
+    global.supa = origSupa;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIds5 = new Set();
+    const postMatches5 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches5.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds5.add(match[1]);
+    });
+    assert.strictEqual(postIds5.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds5.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
