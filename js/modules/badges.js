@@ -6,7 +6,7 @@
  * and Officer Admin badge definition management.
  */
 
-/* global supa, escapeHtml, safeUrl, sessionGet, showToast, migrateEntry */
+/* global supa, escapeHtml, safeUrl, sessionGet, showToast, showConfirmModal, migrateEntry */
 
 // ── Default Badge Catalog (41 Official Badges in 4 Categories) ───────────────
 var DEFAULT_BB_BADGES = [
@@ -83,6 +83,7 @@ var DEFAULT_FOUNDERS_REQS = [
 // In-memory caches to eliminate N+1 network waterfalls
 var _badgeDefsCache = null;
 var _memberBadgesCache = {};
+var _deletedBadgesCache = null;
 var PRESIDENTS_REQS = DEFAULT_PRESIDENTS_REQS;
 var _badgesDisplayMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('bb_badges_display_mode') : null) || 'grid';
 var _badgesActiveCategory = 'all';
@@ -172,34 +173,209 @@ function checkBadgesAccess() {
 }
 
 /**
- * Enriches remote badge definitions with official images, categories, and full 41-badge catalog
+ * Checks if a badge definition matches any tombstoned/deleted identifier
+ * @param {Object} b - Badge object
+ * @param {Array<string>} [deletedList] - List of deleted IDs/names
+ * @returns {boolean}
+ */
+function isBadgeDeleted(b, deletedList) {
+  var list = deletedList || _deletedBadgesCache || [];
+  if (!b || !list || !list.length) return false;
+  var bId = String(b.id || '').toLowerCase().trim();
+  var bName = String(b.name || '').toLowerCase().trim();
+  return list.some(function(d) {
+    var dNorm = String(d || '').toLowerCase().trim();
+    if (!dNorm) return false;
+    return (bId && dNorm === bId) || (bName && dNorm === bName);
+  });
+}
+
+/**
+ * Retrieves the persisted list of deleted badge identifiers
+ * @param {boolean} [force=false]
+ * @returns {Promise<Array<string>>}
+ */
+async function getDeletedBadges(force) {
+  if (_deletedBadgesCache && !force) return _deletedBadgesCache;
+  var cached = [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var raw = localStorage.getItem('bb_deleted_badges');
+      if (raw) {
+        var parsedLocal = JSON.parse(raw);
+        if (Array.isArray(parsedLocal)) cached = parsedLocal;
+      }
+    }
+  } catch (_) {}
+
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_deleted_badges&select=value');
+      if (rows && rows.length && rows[0].value) {
+        var parsedRemote = JSON.parse(rows[0].value);
+        if (Array.isArray(parsedRemote)) {
+          _deletedBadgesCache = parsedRemote;
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_deleted_badges', JSON.stringify(parsedRemote));
+            }
+          } catch (_) {}
+          return _deletedBadgesCache;
+        }
+      }
+    } catch (_) {}
+  }
+  _deletedBadgesCache = cached;
+  return _deletedBadgesCache;
+}
+
+/**
+ * Persists the deleted badge identifiers list to Supabase bb_config & localStorage
+ * @param {Array<string>} deletedList
+ */
+async function saveDeletedBadges(deletedList) {
+  _deletedBadgesCache = Array.isArray(deletedList) ? deletedList : [];
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_deleted_badges', JSON.stringify(_deletedBadgesCache));
+    }
+  } catch (_) {}
+  var client = getSupaClient();
+  if (!client) return;
+  try {
+    if (typeof client.upsert === 'function') {
+      await client.upsert('bb_config', { key: 'bb_deleted_badges', value: JSON.stringify(_deletedBadgesCache) }, 'key');
+    } else {
+      await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_deleted_badges', value: JSON.stringify(_deletedBadgesCache) }, {
+        Prefer: 'return=representation,resolution=merge-duplicates'
+      });
+    }
+  } catch (e) {
+    try {
+      await client.patch('bb_config?key=eq.bb_deleted_badges', { value: JSON.stringify(_deletedBadgesCache) });
+    } catch (e2) {
+      try {
+        await client.post('bb_config', { key: 'bb_deleted_badges', value: JSON.stringify(_deletedBadgesCache) });
+      } catch (_) {}
+    }
+  }
+}
+
+/**
+ * Records one or more badges as permanently deleted
+ * @param {Object|Array<Object>|string} badgeOrBadges
+ * @returns {Promise<Array<string>>}
+ */
+async function recordBadgeDeletion(badgeOrBadges) {
+  var list = Array.isArray(badgeOrBadges) ? badgeOrBadges : [badgeOrBadges];
+  var currentDeleted = (await getDeletedBadges()).slice();
+  var changed = false;
+
+  list.forEach(function(b) {
+    if (!b) return;
+    var id = (typeof b === 'object' ? b.id : b) || '';
+    var name = (typeof b === 'object' ? b.name : '') || '';
+    if (id) {
+      var idNorm = String(id).toLowerCase().trim();
+      if (idNorm && currentDeleted.indexOf(idNorm) === -1) {
+        currentDeleted.push(idNorm);
+        changed = true;
+      }
+    }
+    if (name) {
+      var nameNorm = String(name).toLowerCase().trim();
+      if (nameNorm && currentDeleted.indexOf(nameNorm) === -1) {
+        currentDeleted.push(nameNorm);
+        changed = true;
+      }
+    }
+    var def = DEFAULT_BB_BADGES.find(function(d) {
+      return (id && d.id && d.id.toLowerCase() === id.toLowerCase()) || (name && d.name && d.name.toLowerCase() === name.toLowerCase());
+    });
+    if (def) {
+      if (def.id && currentDeleted.indexOf(def.id.toLowerCase()) === -1) {
+        currentDeleted.push(def.id.toLowerCase());
+        changed = true;
+      }
+      if (def.name && currentDeleted.indexOf(def.name.toLowerCase()) === -1) {
+        currentDeleted.push(def.name.toLowerCase());
+        changed = true;
+      }
+    }
+  });
+
+  if (changed) {
+    await saveDeletedBadges(currentDeleted);
+  }
+  return currentDeleted;
+}
+
+/**
+ * Unrecords a badge from the deletion tombstone (e.g. when an admin adds it back)
+ * @param {string} badgeNameOrId
+ */
+async function unrecordBadgeDeletion(badgeNameOrId) {
+  if (!badgeNameOrId) return;
+  var target = String(badgeNameOrId).toLowerCase().trim();
+  var currentDeleted = (await getDeletedBadges()).slice();
+  var matchingDef = DEFAULT_BB_BADGES.find(function(d) {
+    return (d.id && d.id.toLowerCase() === target) || (d.name && d.name.toLowerCase() === target);
+  });
+  var toRemove = [target];
+  if (matchingDef) {
+    if (matchingDef.id) toRemove.push(matchingDef.id.toLowerCase());
+    if (matchingDef.name) toRemove.push(matchingDef.name.toLowerCase());
+  }
+  var filtered = currentDeleted.filter(function(x) {
+    var xNorm = String(x || '').toLowerCase().trim();
+    return toRemove.indexOf(xNorm) === -1;
+  });
+  if (filtered.length !== currentDeleted.length) {
+    await saveDeletedBadges(filtered);
+  }
+}
+
+/**
+ * Enriches remote badge definitions with official images, categories, and full 41-badge catalog while honoring deleted badges
  * @param {Array} remoteDefs
+ * @param {Array<string>} [deletedBadges]
  * @returns {Array}
  */
-function enrichBadgeCatalog(remoteDefs) {
-  if (!Array.isArray(remoteDefs) || !remoteDefs.length) return DEFAULT_BB_BADGES.slice();
+function enrichBadgeCatalog(remoteDefs, deletedBadges) {
+  var deletedList = deletedBadges || _deletedBadgesCache || [];
+  if (!Array.isArray(remoteDefs) || !remoteDefs.length) {
+    return DEFAULT_BB_BADGES.filter(function(def) {
+      return !isBadgeDeleted(def, deletedList);
+    });
+  }
   var map = {};
   DEFAULT_BB_BADGES.forEach(function(d) {
     map[d.id] = d;
     if (d.name) map[d.name.toLowerCase()] = d;
   });
 
-  var enriched = remoteDefs.map(function(b) {
-    var def = map[b.id] || (b.name ? map[b.name.toLowerCase()] : null);
-    if (!def) return b;
-    return {
-      id: b.id,
-      name: b.name || def.name,
-      cat: (b.cat && b.cat.indexOf('Awards') !== -1) ? b.cat : def.cat,
-      hasAdvanced: typeof b.hasAdvanced === 'boolean' ? b.hasAdvanced : def.hasAdvanced,
-      tier: b.tier || def.tier,
-      repeatable: typeof b.repeatable === 'boolean' ? b.repeatable : Boolean(def.repeatable),
-      image: b.image || def.image
-    };
-  });
+  var enriched = remoteDefs
+    .filter(function(b) {
+      return !isBadgeDeleted(b, deletedList);
+    })
+    .map(function(b) {
+      var def = map[b.id] || (b.name ? map[b.name.toLowerCase()] : null);
+      if (!def) return b;
+      return {
+        id: b.id,
+        name: b.name || def.name,
+        cat: (b.cat && b.cat.indexOf('Awards') !== -1) ? b.cat : def.cat,
+        hasAdvanced: typeof b.hasAdvanced === 'boolean' ? b.hasAdvanced : def.hasAdvanced,
+        tier: b.tier || def.tier,
+        repeatable: typeof b.repeatable === 'boolean' ? b.repeatable : Boolean(def.repeatable),
+        image: b.image || def.image
+      };
+    });
 
-  // Ensure any official badges missing from remote config are included
+  // Ensure any official badges missing from remote config are included ONLY if NOT explicitly deleted
   DEFAULT_BB_BADGES.forEach(function(def) {
+    if (isBadgeDeleted(def, deletedList)) return;
     var exists = enriched.some(function(b) {
       return b.id === def.id || (b.name && b.name.toLowerCase() === def.name.toLowerCase());
     });
@@ -212,48 +388,127 @@ function enrichBadgeCatalog(remoteDefs) {
 }
 
 /**
- * Retrieves the badge definition catalog from cache or Supabase bb_config
+ * Retrieves the badge definition catalog from cache, Supabase bb_config, or defaults (filtering out deleted badges)
  * @param {boolean} [force=false]
  * @returns {Promise<Array>}
  */
 async function getBadgeDefs(force) {
   if (_badgeDefsCache && !force) return _badgeDefsCache;
+  var deletedList = await getDeletedBadges(force);
   var client = getSupaClient();
   if (client) {
     try {
       var rows = await client.get('bb_config?key=eq.bb_badge_defs&select=value');
-      if (rows && rows.length) {
+      if (rows && rows.length && rows[0].value) {
         var v = JSON.parse(rows[0].value);
-        if (v && v.length) {
-          _badgeDefsCache = enrichBadgeCatalog(v);
+        if (Array.isArray(v)) {
+          _badgeDefsCache = enrichBadgeCatalog(v, deletedList);
           return _badgeDefsCache;
         }
       }
     } catch (e) {
-      // Fallback to default catalog
+      // Fallback to local or default catalog
     }
   }
-  _badgeDefsCache = DEFAULT_BB_BADGES;
-  return DEFAULT_BB_BADGES;
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var localDefs = localStorage.getItem('bb_badge_defs');
+      if (localDefs) {
+        var parsedLocal = JSON.parse(localDefs);
+        if (Array.isArray(parsedLocal)) {
+          _badgeDefsCache = enrichBadgeCatalog(parsedLocal, deletedList);
+          return _badgeDefsCache;
+        }
+      }
+    }
+  } catch (_) {}
+
+  _badgeDefsCache = DEFAULT_BB_BADGES.filter(function(def) {
+    return !isBadgeDeleted(def, deletedList);
+  });
+  return _badgeDefsCache;
 }
 
 /**
- * Persists the badge catalog definitions to Supabase bb_config
+ * Persists the badge catalog definitions to Supabase bb_config & localStorage
  * @param {Array} defs
  */
 async function saveBadgeDefs(defs) {
   _badgeDefsCache = defs;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_badge_defs', JSON.stringify(defs));
+    }
+  } catch (_) {}
   var client = getSupaClient();
   if (!client) return;
   try {
-    await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_badge_defs', value: JSON.stringify(defs) });
+    if (typeof client.upsert === 'function') {
+      await client.upsert('bb_config', { key: 'bb_badge_defs', value: JSON.stringify(defs) }, 'key');
+    } else {
+      await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_badge_defs', value: JSON.stringify(defs) }, {
+        Prefer: 'return=representation,resolution=merge-duplicates'
+      });
+    }
   } catch (e) {
     try {
       await client.patch('bb_config?key=eq.bb_badge_defs', { value: JSON.stringify(defs) });
     } catch (e2) {
-      console.error('saveBadgeDefs error:', e2);
+      try {
+        await client.post('bb_config', { key: 'bb_badge_defs', value: JSON.stringify(defs) });
+      } catch (e3) {
+        console.error('saveBadgeDefs error:', e3);
+      }
     }
   }
+}
+
+/**
+ * Permanently deletes a badge definition by ID from the catalog and updates all caches & storage
+ * @param {string} id - Badge ID to delete
+ * @returns {Promise<Array>} - Updated badge definitions
+ */
+async function deleteBadgeDef(id) {
+  if (!id) return await getBadgeDefs();
+  var currentDefs = await getBadgeDefs();
+  var badge = currentDefs.find(function(b) { return b.id === id; });
+  if (!badge) return currentDefs;
+
+  await recordBadgeDeletion(badge);
+  var updatedDefs = currentDefs.filter(function(b) { return b.id !== id; });
+  await saveBadgeDefs(updatedDefs);
+
+  // Clean up President's Award requirements if referenced
+  try {
+    var reqs = await getPresidentsReqs();
+    var cleanedReqs = reqs.filter(function(r) {
+      var match = (r.badgeMatch || '').toLowerCase().trim();
+      return match !== (badge.name || '').toLowerCase().trim() && match !== (badge.id || '').toLowerCase().trim();
+    });
+    if (cleanedReqs.length !== reqs.length) {
+      await savePresidentsReqs(cleanedReqs);
+    }
+  } catch (_) {}
+
+  return updatedDefs;
+}
+
+/**
+ * Permanently deletes an entire badge section (category) and all its badges
+ * @param {string} cat - Category name to delete
+ * @returns {Promise<Array>} - Updated badge definitions
+ */
+async function deleteBadgeSection(cat) {
+  if (!cat) return await getBadgeDefs();
+  var currentDefs = await getBadgeDefs();
+  var badgesInCat = currentDefs.filter(function(b) { return b.cat === cat; });
+  if (badgesInCat.length) {
+    await recordBadgeDeletion(badgesInCat);
+  }
+  var updatedDefs = currentDefs.filter(function(b) { return b.cat !== cat; });
+  await saveBadgeDefs(updatedDefs);
+  return updatedDefs;
 }
 
 /**
@@ -1222,7 +1477,7 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
     }
   }
   saved = saved || {};
-  var defs = _badgeDefsCache || DEFAULT_BB_BADGES;
+  var defs = _badgeDefsCache || (await getBadgeDefs());
   var res = evaluatePresidentsCriteria(saved, defs);
 
   var statusBadgeHtml = res.overallEligible
@@ -1582,7 +1837,10 @@ async function renderAdminBadges() {
         ? await showConfirmModal('Delete the "' + cat + '" section and all its badges?')
         : true;
       if (!ok) return;
-      await saveBadgeDefs((await getBadgeDefs()).filter(function(b) { return b.cat !== cat; }));
+      await deleteBadgeSection(cat);
+      if (typeof showToast === 'function') {
+        showToast('Section "' + cat + '" and its badges deleted permanently.', 'success');
+      }
       renderAdminBadges();
     });
   });
@@ -1597,7 +1855,10 @@ async function renderAdminBadges() {
         ? await showConfirmModal('Delete badge "' + badge.name + '"?')
         : true;
       if (!ok) return;
-      await saveBadgeDefs(currentDefs.filter(function(b) { return b.id !== id; }));
+      await deleteBadgeDef(id);
+      if (typeof showToast === 'function') {
+        showToast('Badge "' + badge.name + '" deleted permanently.', 'success');
+      }
       renderAdminBadges();
     });
   });
@@ -1612,6 +1873,7 @@ async function renderAdminBadges() {
         if (typeof showToast === 'function') showToast('Please enter a badge name.', 'warning');
         return;
       }
+      await unrecordBadgeDeletion(name);
       var currentDefs = (await getBadgeDefs()).filter(function(b) {
         return !(b.cat === cat && b.name === '(Add badges below)');
       });
@@ -1686,6 +1948,13 @@ if (typeof window !== 'undefined') {
   window.getBadgesDisplayMode       = getBadgesDisplayMode;
   window.filterBadgesByCategory     = filterBadgesByCategory;
   window.enrichBadgeCatalog         = enrichBadgeCatalog;
+  window.deleteBadgeDef             = deleteBadgeDef;
+  window.deleteBadgeSection         = deleteBadgeSection;
+  window.getDeletedBadges           = getDeletedBadges;
+  window.saveDeletedBadges          = saveDeletedBadges;
+  window.recordBadgeDeletion        = recordBadgeDeletion;
+  window.unrecordBadgeDeletion      = unrecordBadgeDeletion;
+  window.isBadgeDeleted             = isBadgeDeleted;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1697,6 +1966,7 @@ if (typeof module !== 'undefined' && module.exports) {
     PRESIDENTS_REQS,
     _badgeDefsCache,
     _memberBadgesCache,
+    _deletedBadgesCache,
     checkBadgesAccess,
     getBadgeDefs,
     saveBadgeDefs,
@@ -1721,6 +1991,13 @@ if (typeof module !== 'undefined' && module.exports) {
     setBadgesDisplayMode,
     getBadgesDisplayMode,
     filterBadgesByCategory,
-    enrichBadgeCatalog
+    enrichBadgeCatalog,
+    deleteBadgeDef,
+    deleteBadgeSection,
+    getDeletedBadges,
+    saveDeletedBadges,
+    recordBadgeDeletion,
+    unrecordBadgeDeletion,
+    isBadgeDeleted
   };
 }

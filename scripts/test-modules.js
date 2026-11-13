@@ -2364,6 +2364,97 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   }
   console.log('  ✔ setReqTier updates active requirement tier state');
 
+  // 7. Permanent Badge Deletion from Catalog & Badge Tracker
+  const origSupaBadges = global.supa;
+  const mockConfigStore = {
+    bb_badge_defs: JSON.stringify(badgesMod.DEFAULT_BB_BADGES),
+    bb_deleted_badges: JSON.stringify([]),
+    bb_presidents_reqs: JSON.stringify(badgesMod.DEFAULT_PRESIDENTS_REQS)
+  };
+  global.supa = {
+    get: async path => {
+      if (path.includes('bb_badge_defs')) {
+        return [{ value: mockConfigStore.bb_badge_defs }];
+      }
+      if (path.includes('bb_deleted_badges')) {
+        return [{ value: mockConfigStore.bb_deleted_badges }];
+      }
+      if (path.includes('bb_presidents_reqs')) {
+        return [{ value: mockConfigStore.bb_presidents_reqs }];
+      }
+      return [];
+    },
+    upsert: async (table, body) => {
+      if (body && body.key) mockConfigStore[body.key] = body.value;
+      return [{ id: 'ok' }];
+    },
+    patch: async (path, body) => {
+      const match = path.match(/key=eq\.([a-zA-Z0-9_]+)/);
+      if (match && body && body.value) mockConfigStore[match[1]] = body.value;
+      return [{ id: 'ok' }];
+    },
+    req: async (method, path, body) => {
+      if (body && body.key) mockConfigStore[body.key] = body.value;
+      return [{ id: 'ok' }];
+    }
+  };
+
+  // Reset caches
+  badgesMod.saveDeletedBadges([]);
+  const initialDefs = await badgesMod.getBadgeDefs(true);
+  assert.ok(initialDefs.some(b => b.id === 'bb_arts'), 'Arts badge must exist initially');
+
+  // Permanently delete "Arts" badge
+  await badgesMod.deleteBadgeDef('bb_arts');
+  const deletedBadges = await badgesMod.getDeletedBadges(true);
+  assert.ok(deletedBadges.includes('bb_arts'), 'Deleted list must include bb_arts');
+  assert.ok(deletedBadges.includes('arts'), 'Deleted list must include arts');
+
+  // Verify it is removed from in-memory definitions
+  const defsAfterDelete = await badgesMod.getBadgeDefs();
+  assert.strictEqual(defsAfterDelete.some(b => b.id === 'bb_arts'), false, 'Arts must be deleted from catalog');
+
+  // Simulate complete page refresh by resetting cache and re-querying
+  const defsAfterRefresh = await badgesMod.getBadgeDefs(true);
+  assert.strictEqual(
+    defsAfterRefresh.some(b => b.id === 'bb_arts' || (b.name && b.name.toLowerCase() === 'arts')),
+    false,
+    'Arts badge must NOT be resurrected on refresh/re-fetch'
+  );
+
+  // Verify enrichBadgeCatalog honors deleted list
+  const enrichedWithDeleted = badgesMod.enrichBadgeCatalog(
+    [{ id: 'bb1', name: 'Target Badge', cat: 'Compulsory Awards' }],
+    ['bb_arts', 'arts']
+  );
+  assert.strictEqual(
+    enrichedWithDeleted.some(b => b.id === 'bb_arts' || b.name === 'Arts'),
+    false,
+    'enrichBadgeCatalog must never resurrect explicitly deleted badge'
+  );
+
+  // Permanently delete a full section ("Service Awards")
+  await badgesMod.deleteBadgeSection('Service Awards');
+  const defsAfterCatDelete = await badgesMod.getBadgeDefs(true);
+  assert.strictEqual(
+    defsAfterCatDelete.some(b => b.cat === 'Service Awards'),
+    false,
+    'All badges in deleted section must be permanently removed on refresh'
+  );
+
+  // Re-adding unrecords deletion
+  await badgesMod.unrecordBadgeDeletion('Arts');
+  const deletedAfterUnrecord = await badgesMod.getDeletedBadges();
+  assert.strictEqual(deletedAfterUnrecord.includes('bb_arts'), false, 'unrecordBadgeDeletion must remove bb_arts');
+  assert.strictEqual(deletedAfterUnrecord.includes('arts'), false, 'unrecordBadgeDeletion must remove arts');
+
+  // Restore clean state for subsequent test suites
+  await badgesMod.saveDeletedBadges([]);
+  await badgesMod.saveBadgeDefs(badgesMod.DEFAULT_BB_BADGES.slice());
+  await badgesMod.getBadgeDefs(true);
+  global.supa = origSupaBadges;
+  console.log('  ✔ deleteBadgeDef and deleteBadgeSection permanently delete badges without refresh resurrection');
+
   // ── Testing NCO Tasks & Kanban Board Module ──────────────────────
   console.log('Testing NCO Tasks & Kanban Board Module...');
   const tasksMod = require('../js/modules/tasks.js');
