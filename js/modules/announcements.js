@@ -644,7 +644,7 @@ async function loadAnnouncements() {
             localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
           }
         } catch (_) {}
-      } else if (results[2].status === 'fulfilled' && rows && rows.length === 0) {
+      } else if (results[3].status === 'fulfilled' && rows && rows.length === 0) {
         // Explicit empty announcements confirmed by server
         announcements.length = 0;
         try {
@@ -679,9 +679,6 @@ async function loadAnnouncements() {
   var adminList = (typeof document !== 'undefined') ? document.getElementById('admin-ann-list') : null;
   if (adminList) {
     renderAdminAnnList();
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-      window.PortalRealtime.broadcast('announcements', 'save');
-    }
   }
 }
 
@@ -914,6 +911,14 @@ async function toggleReaction(annIdx, emoji) {
   try {
     if (typeof supa !== 'undefined' && supa.patch && a.id) {
       await supa.patch('bb_announcements?id=eq.' + a.id, { reactions: a.reactions });
+      try {
+        if (typeof supa !== 'undefined' && supa.upsert) {
+          await supa.upsert('bb_config', {
+            key: 'bb_announcements',
+            value: JSON.stringify({ last_updated: new Date().toISOString() })
+          }, 'key');
+        }
+      } catch (_) {}
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
         window.PortalRealtime.broadcast('announcements', 'reaction');
       }
@@ -1048,6 +1053,14 @@ async function togglePinAnnouncement(idx) {
         await supa.patch('bb_announcements?id=eq.' + a.id, { is_pinned: newPinnedState });
       } catch (_) {}
     }
+    try {
+      if (typeof supa !== 'undefined' && supa.upsert) {
+        await supa.upsert('bb_config', {
+          key: 'bb_announcements',
+          value: JSON.stringify({ last_updated: new Date().toISOString() })
+        }, 'key');
+      }
+    } catch (_) {}
   }
 
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
@@ -1381,6 +1394,14 @@ async function addAnnouncement() {
       if (infographicUrl && a.id) {
         await syncAnnouncementImageConfig(a.id, infographicUrl);
       }
+      try {
+        if (typeof supa !== 'undefined' && supa.upsert) {
+          await supa.upsert('bb_config', {
+            key: 'bb_announcements',
+            value: JSON.stringify({ last_updated: new Date().toISOString() })
+          }, 'key');
+        }
+      } catch (_) {}
       if (btn) {
         btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
         btn.removeAttribute('data-edit-idx');
@@ -1434,6 +1455,14 @@ async function addAnnouncement() {
           if (infographicUrl) await syncAnnouncementImageConfig(createdAnnId, infographicUrl);
           if (isPinned) await syncAnnouncementPinConfig(createdAnnId, isPinned);
           await syncAnnouncementAllowedReactionsConfig(createdAnnId, selectedAllowed);
+          try {
+            if (typeof supa !== 'undefined' && supa.upsert) {
+              await supa.upsert('bb_config', {
+                key: 'bb_announcements',
+                value: JSON.stringify({ last_updated: new Date().toISOString() })
+              }, 'key');
+            }
+          } catch (_) {}
         }
       }
       var broadcastCheckNew = (typeof document !== 'undefined') ? document.querySelector('.ann-email-broadcast-check') : null;
@@ -1503,6 +1532,14 @@ async function deleteAnnouncement(idx) {
     }
     if (typeof supa !== 'undefined' && supa.delete && a && a.id) {
       await supa.delete('bb_announcements?id=eq.' + a.id);
+      try {
+        if (typeof supa !== 'undefined' && supa.upsert) {
+          await supa.upsert('bb_config', {
+            key: 'bb_announcements',
+            value: JSON.stringify({ last_updated: new Date().toISOString() })
+          }, 'key');
+        }
+      } catch (_) {}
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
         window.PortalRealtime.broadcast('announcements', 'delete');
       }

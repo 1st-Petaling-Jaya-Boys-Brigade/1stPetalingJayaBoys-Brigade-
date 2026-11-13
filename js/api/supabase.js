@@ -1118,9 +1118,11 @@ var PortalRealtime = (function() {
   }
 
   function broadcastLocalChange(entity, action, data) {
+    var msgId = _realtimeTabId + ':' + entity + ':' + Date.now() + ':' + (++_refCounter);
+
+    // 1. Cross-Tab Local BroadcastChannel (Same Device, 0ms)
     if (_broadcastChannel) {
       try {
-        var msgId = _realtimeTabId + ':' + entity + ':' + Date.now() + ':' + (++_refCounter);
         _broadcastChannel.postMessage({
           type: 'PORTAL_REALTIME_CHANGE',
           senderId: _realtimeTabId,
@@ -1129,6 +1131,29 @@ var PortalRealtime = (function() {
           action: action || 'update',
           data: data || null
         });
+      } catch (_) {}
+    }
+
+    // 2. Cross-Device Supabase Realtime WebSocket Push (All Devices Worldwide)
+    if (_ws && _ws.readyState === WebSocket.OPEN) {
+      try {
+        _ws.send(JSON.stringify({
+          topic: 'realtime:public',
+          event: 'broadcast',
+          payload: {
+            type: 'broadcast',
+            event: 'PORTAL_REALTIME_CHANGE',
+            payload: {
+              type: 'PORTAL_REALTIME_CHANGE',
+              senderId: _realtimeTabId,
+              msgId: msgId,
+              entity: entity,
+              action: action || 'update',
+              data: data || null
+            }
+          },
+          ref: String(_refCounter++)
+        }));
       } catch (_) {}
     }
   }
@@ -1199,6 +1224,40 @@ var PortalRealtime = (function() {
         if (!event || !event.data) return;
         try {
           var data = JSON.parse(event.data);
+
+          // 1. Supabase Cross-Device Broadcast Events
+          if (data.event === 'broadcast' && data.payload) {
+            var bPayload = (data.payload.payload && typeof data.payload.payload === 'object') ? data.payload.payload : data.payload;
+            if (bPayload && bPayload.senderId && bPayload.senderId === _realtimeTabId) {
+              return;
+            }
+            if (bPayload && bPayload.msgId) {
+              if (_seenRealtimeMsgIds.has(bPayload.msgId)) return;
+              _seenRealtimeMsgIds.add(bPayload.msgId);
+              if (_seenRealtimeMsgIds.size > 256) {
+                var firstKey = _seenRealtimeMsgIds.keys().next().value;
+                _seenRealtimeMsgIds.delete(firstKey);
+              }
+            }
+            if (bPayload && bPayload.entity) {
+              triggerEntityUpdate(bPayload.entity, bPayload.action || 'update', bPayload.data || null, true);
+              if (_broadcastChannel) {
+                try {
+                  _broadcastChannel.postMessage({
+                    type: 'PORTAL_REALTIME_CHANGE',
+                    senderId: _realtimeTabId,
+                    msgId: bPayload.msgId || (_realtimeTabId + ':' + bPayload.entity + ':' + Date.now()),
+                    entity: bPayload.entity,
+                    action: bPayload.action || 'update',
+                    data: bPayload.data || null
+                  });
+                } catch (_) {}
+              }
+            }
+            return;
+          }
+
+          // 2. Supabase Postgres Changes Events
           if (data.event === 'postgres_changes' && data.payload) {
             var payload = data.payload.data || data.payload;
             var table = payload.table;
@@ -1214,7 +1273,7 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('calendar', 'update', record);
               } else if (key.startsWith('bb_task_comments_')) {
                 triggerEntityUpdate('comments', 'update', { key: key });
-              } else if (key === 'bb_announcements') {
+              } else if (key === 'bb_announcements' || key.startsWith('bb_announcements_')) {
                 triggerEntityUpdate('announcements', 'update', record);
               } else if (key === 'bb_admin_roles') {
                 triggerEntityUpdate('roles', 'update', record);
@@ -1258,17 +1317,9 @@ var PortalRealtime = (function() {
       scheduleNextDeltaSync(120000);
       return;
     }
-    if (typeof document !== 'undefined' && document.hidden) {
-      scheduleNextDeltaSync(30000);
-      return;
-    }
-    // If WebSocket is alive and receiving live events, skip polling
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      scheduleNextDeltaSync(120000);
-      return;
-    }
-    if (_ws && _ws.readyState === 1) {
-      scheduleNextDeltaSync(180000);
+    // If tab is hidden, back off to avoid battery drain
+    if (typeof document !== 'undefined' && (document.hidden || document.visibilityState === 'hidden')) {
+      scheduleNextDeltaSync(60000);
       return;
     }
     if (isCircuitBreakerOpen()) {
@@ -1277,12 +1328,12 @@ var PortalRealtime = (function() {
     }
     var client = (typeof getSupaClient === 'function') ? getSupaClient() : null;
     if (!client || typeof client.get !== 'function') {
-      scheduleNextDeltaSync(30000);
+      scheduleNextDeltaSync(15000);
       return;
     }
 
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_company_projects)&select=key,updated_at');
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_company_projects)&select=key,updated_at');
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r.key) return;
@@ -1290,11 +1341,20 @@ var PortalRealtime = (function() {
           if (_lastEntityTimestamps[r.key] && _lastEntityTimestamps[r.key] !== ts) {
             if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update');
             else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update');
-            else if (r.key === 'bb_announcements') triggerEntityUpdate('announcements', 'update');
+            else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update');
             else if (r.key === 'bb_company_projects') triggerEntityUpdate('projects', 'update');
           }
           _lastEntityTimestamps[r.key] = ts;
         });
+      }
+
+      var annRows = await client.get('bb_announcements?select=id,created_at&order=created_at.desc&limit=1');
+      if (Array.isArray(annRows) && annRows.length) {
+        var annKey = (annRows[0].id || '') + ':' + (annRows[0].created_at || '');
+        if (_lastEntityTimestamps['bb_announcements_latest'] && _lastEntityTimestamps['bb_announcements_latest'] !== annKey) {
+          triggerEntityUpdate('announcements', 'update');
+        }
+        _lastEntityTimestamps['bb_announcements_latest'] = annKey;
       }
 
       var taskRows = await client.get('bb_tasks?select=id,updated_at&order=updated_at.desc&limit=1');
@@ -1314,23 +1374,39 @@ var PortalRealtime = (function() {
         }
         _lastEntityTimestamps['bb_members_latest'] = mKey;
       }
-      _deltaSyncBackoff = 90000;
+      _deltaSyncBackoff = (_ws && _ws.readyState === 1) ? 25000 : 12000;
     } catch (_) {
       // Back off on error to prevent database saturation
-      _deltaSyncBackoff = Math.min(300000, _deltaSyncBackoff * 2);
+      _deltaSyncBackoff = Math.min(120000, _deltaSyncBackoff * 2);
     }
     scheduleNextDeltaSync(_deltaSyncBackoff);
   }
 
   function scheduleNextDeltaSync(delayMs) {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 90000);
+    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 15000);
   }
 
   function startDeltaSync() {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncBackoff = 90000;
-    scheduleNextDeltaSync(90000);
+    _deltaSyncBackoff = 12000;
+    scheduleNextDeltaSync(12000);
+  }
+
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        if (!_ws || _ws.readyState !== 1) {
+          connectWebSocket();
+        }
+        checkDeltaSync();
+      }
+    });
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('focus', function() {
+        checkDeltaSync();
+      });
+    }
   }
 
   // 4. Central Realtime Dispatcher
