@@ -13990,6 +13990,268 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 74: QA Automation — Comprehensive Edge Cases, Permission Calculators & Boundary Logic
+  // =========================================================================
+  {
+    console.log('\n--- Suite 74: QA Automation — Comprehensive Edge Cases, Permission Calculators & Boundary Logic ---');
+
+    const utilsMod = require('../js/core/utils.js');
+    const calendarMod = require('../js/modules/calendar.js');
+    const rbacMod = require('../js/core/rbac.js');
+    const resourcesMod = require('../js/modules/resources.js');
+    const attendanceMod = require('../js/modules/attendance.js');
+
+    // 1. Utility & Converter Edge Cases (hexToBytes, bytesToHex, safeBase64Encode, safeBase64Decode)
+    assert.strictEqual(typeof utilsMod.bytesToHex, 'function', 'bytesToHex must be exported');
+    assert.strictEqual(typeof utilsMod.hexToBytes, 'function', 'hexToBytes must be exported');
+    assert.strictEqual(typeof utilsMod.safeBase64Encode, 'function', 'safeBase64Encode must be exported');
+    assert.strictEqual(typeof utilsMod.safeBase64Decode, 'function', 'safeBase64Decode must be exported');
+
+    // Null, undefined, and non-array / non-string handling
+    assert.strictEqual(utilsMod.bytesToHex(null), '', 'bytesToHex(null) must return empty string');
+    assert.strictEqual(utilsMod.bytesToHex(undefined), '', 'bytesToHex(undefined) must return empty string');
+    assert.strictEqual(utilsMod.bytesToHex(new Uint8Array(0)), '', 'bytesToHex(empty) must return empty string');
+    assert.strictEqual(utilsMod.hexToBytes(null).length, 0, 'hexToBytes(null) must return empty Uint8Array');
+    assert.strictEqual(utilsMod.hexToBytes(undefined).length, 0, 'hexToBytes(undefined) must return empty Uint8Array');
+    assert.strictEqual(utilsMod.hexToBytes('').length, 0, 'hexToBytes("") must return empty Uint8Array');
+    assert.strictEqual(utilsMod.hexToBytes(12345).length, 0, 'hexToBytes(number) must return empty Uint8Array');
+
+    // Odd-length hex string padding resilience
+    const oddHex = utilsMod.hexToBytes('abc'); // Should pad to '0abc' -> [10, 188]
+    assert.strictEqual(oddHex.length, 2, 'Odd-length hex string must be safely padded and parsed');
+    assert.strictEqual(oddHex[0], 0x0a);
+    assert.strictEqual(oddHex[1], 0xbc);
+
+    // Byte round-trip with full ranges (0x00, 0x0f, 0x7f, 0x80, 0xff)
+    const rawBytes = new Uint8Array([0x00, 0x0f, 0x7f, 0x80, 0xff]);
+    const hexStr = utilsMod.bytesToHex(rawBytes);
+    assert.strictEqual(hexStr, '000f7f80ff', 'bytesToHex must produce zero-padded lowercase hex');
+    const parsedBytes = utilsMod.hexToBytes(hexStr);
+    assert.deepStrictEqual(Array.from(parsedBytes), [0, 15, 127, 128, 255], 'hexToBytes must roundtrip full byte spectrum accurately');
+
+    // Unicode, Asian Scripts & Emoji Base64 Safety
+    const complexUnicode = '1st Petaling Jaya Boys\' Brigade 🇲🇾 ⚓ 1983 - 第一八打灵培幼队 🎉';
+    const encodedB64 = utilsMod.safeBase64Encode(complexUnicode);
+    assert.ok(encodedB64 && encodedB64.length > 0, 'safeBase64Encode must handle multiline Unicode and emojis');
+    const decodedB64 = utilsMod.safeBase64Decode(encodedB64);
+    assert.strictEqual(decodedB64, complexUnicode, 'safeBase64Decode must perfectly reproduce UTF-8 Unicode characters');
+
+    assert.strictEqual(utilsMod.safeBase64Encode(null), '', 'safeBase64Encode(null) must return empty string');
+    assert.strictEqual(utilsMod.safeBase64Decode(null), null, 'safeBase64Decode(null) must return null');
+    assert.strictEqual(utilsMod.safeBase64Decode(''), null, 'safeBase64Decode("") must return null');
+    console.log('  ✔ Binary hex conversions and Unicode Base64 encoding/decoding operate safely across edge inputs');
+
+    // 2. Date, Time & Calendar Mathematics (formatDate, Leap Years, getMonthMatrix)
+    assert.strictEqual(typeof utilsMod.formatDate, 'function', 'formatDate must be exported');
+    assert.strictEqual(utilsMod.formatDate(null), '', 'formatDate(null) must return empty string');
+    assert.strictEqual(utilsMod.formatDate(undefined), '', 'formatDate(undefined) must return empty string');
+    assert.strictEqual(utilsMod.formatDate(''), '', 'formatDate("") must return empty string');
+    assert.strictEqual(utilsMod.formatDate('not-a-valid-date'), 'not-a-valid-date', 'formatDate with invalid string must return raw string without throwing');
+
+    // Leap day formatting
+    const leapDayFormatted = utilsMod.formatDate('2024-02-29');
+    assert.ok(leapDayFormatted.includes('29') && (leapDayFormatted.includes('Feb') || leapDayFormatted.includes('2')), 'formatDate handles leap day 2024-02-29');
+
+    // Calendar getMonthMatrix verification
+    assert.strictEqual(typeof calendarMod.getMonthMatrix, 'function', 'getMonthMatrix must be exported');
+
+    // Leap year 2024 February: must have 29 days
+    const feb2024 = calendarMod.getMonthMatrix(2024, 1);
+    const feb2024CurrentDays = feb2024.filter(c => c.isCurrentMonth);
+    assert.strictEqual(feb2024CurrentDays.length, 29, 'February 2024 in leap year must have 29 days');
+    assert.strictEqual(feb2024CurrentDays[28].dayNumber, 29);
+    assert.strictEqual(feb2024CurrentDays[28].dateKey, '2024-02-29');
+
+    // Non-leap year 2026 February: must have 28 days
+    const feb2026 = calendarMod.getMonthMatrix(2026, 1);
+    const feb2026CurrentDays = feb2026.filter(c => c.isCurrentMonth);
+    assert.strictEqual(feb2026CurrentDays.length, 28, 'February 2026 in non-leap year must have 28 days');
+    assert.strictEqual(feb2026CurrentDays[27].dayNumber, 28);
+    assert.strictEqual(feb2026CurrentDays[27].dateKey, '2026-02-28');
+
+    // String month input resilience: '1' must parse as February, NOT November ('1' + 1 !== '11')
+    const febStringMonth = calendarMod.getMonthMatrix(2024, '1');
+    const febStringDays = febStringMonth.filter(c => c.isCurrentMonth);
+    assert.strictEqual(febStringDays.length, 29, 'getMonthMatrix with string month "1" must calculate February (29 days)');
+    assert.strictEqual(febStringDays[0].dateKey, '2024-02-01');
+
+    // Century leap year boundaries: 2000 is leap (29 days), 2100 is non-leap (28 days)
+    const feb2000 = calendarMod.getMonthMatrix(2000, 1).filter(c => c.isCurrentMonth);
+    const feb2100 = calendarMod.getMonthMatrix(2100, 1).filter(c => c.isCurrentMonth);
+    assert.strictEqual(feb2000.length, 29, 'Year 2000 century leap year has 29 days in February');
+    assert.strictEqual(feb2100.length, 28, 'Year 2100 non-leap century year has 28 days in February');
+
+    // Matrix grid completeness (must always be 35 or 42 cells)
+    assert.ok(feb2024.length === 35 || feb2024.length === 42, 'Month matrix must contain 35 or 42 cells');
+    assert.ok(feb2026.length === 35 || feb2026.length === 42, 'Month matrix must contain 35 or 42 cells');
+    console.log('  ✔ Calendar month mathematics, leap years, string parsing, and century boundaries verified');
+
+    // 3. Name Sanitization, Privacy Masking & Matching
+    assert.strictEqual(typeof utilsMod.maskSurname, 'function', 'maskSurname must be exported');
+    assert.strictEqual(typeof utilsMod.maskMemberNameForDirectory, 'function', 'maskMemberNameForDirectory must be exported');
+    assert.strictEqual(typeof utilsMod.isNameMatch, 'function', 'isNameMatch must be exported');
+    assert.strictEqual(typeof attendanceMod.normalizeMemberName, 'function', 'normalizeMemberName must be exported');
+
+    // maskSurname edge cases
+    assert.strictEqual(utilsMod.maskSurname(null), '', 'maskSurname(null) returns empty string');
+    assert.strictEqual(utilsMod.maskSurname(undefined), '', 'maskSurname(undefined) returns empty string');
+    assert.strictEqual(utilsMod.maskSurname('   '), '', 'maskSurname whitespace returns empty string');
+    assert.strictEqual(utilsMod.maskSurname('Daniel'), 'Daniel', 'Single word name is preserved unmasked');
+    assert.strictEqual(utilsMod.maskSurname('Tan Wei Lun'), 'Tan Wei L.', 'Multi-word surname is masked to last initial');
+    assert.strictEqual(utilsMod.maskSurname('Tan Wei Lun (Pre-Junior)'), 'Tan Wei L. (Pre-Junior)', 'Parenthesized section tag is preserved after masked initial');
+    assert.strictEqual(utilsMod.maskSurname('Captain Oliver Ling Chee Sheng'), 'Captain Oliver Ling Chee S.', 'Compound rank and multi-part name masked cleanly');
+
+    // Directory privacy visibility
+    assert.strictEqual(utilsMod.maskMemberNameForDirectory('Tan Wei Lun', false), 'Tan Wei L.', 'Directory masks surname for regular peer');
+    assert.strictEqual(utilsMod.maskMemberNameForDirectory('Tan Wei Lun', true), 'Tan Wei Lun', 'Directory shows full name for self or officer');
+
+    // normalizeMemberName & isNameMatch
+    assert.strictEqual(attendanceMod.normalizeMemberName('  Captain Tan Wei Lun! #1  '), 'captaintanweilun1', 'normalizeMemberName flattens case and strips special chars');
+    assert.strictEqual(utilsMod.isNameMatch('Oliver Ling', 'OLIVER LING CHEE SHENG'), true, 'isNameMatch handles expanded middle names');
+    assert.strictEqual(utilsMod.isNameMatch('Moses Lai', 'Lai Moses'), true, 'isNameMatch handles transposed names');
+    assert.strictEqual(utilsMod.isNameMatch('Daniel Tan', 'Samuel Lee'), false, 'isNameMatch safely rejects non-matching names');
+    console.log('  ✔ Minor privacy surname masking, directory visibility, and resilient name matching verified');
+
+    // 4. Attendance Rate Calculations & Achievement Tiers
+    assert.strictEqual(typeof utilsMod.formatSafeAttendanceRate, 'function', 'formatSafeAttendanceRate must be exported');
+    assert.strictEqual(typeof utilsMod.getAttendanceAchievementTier, 'function', 'getAttendanceAchievementTier must be exported');
+
+    // formatSafeAttendanceRate edge cases
+    const safe100 = utilsMod.formatSafeAttendanceRate(100, false);
+    assert.strictEqual(safe100.text, '100%');
+    assert.strictEqual(safe100.isMasked, false);
+    assert.strictEqual(safe100.tier, 'high');
+
+    // String input with % and numeric parsing
+    const safeStr = utilsMod.formatSafeAttendanceRate('85%', false);
+    assert.strictEqual(safeStr.text, '85%');
+    assert.strictEqual(safeStr.isMasked, false);
+
+    // Negative and excessive value clamping
+    const clampedUnder = utilsMod.formatSafeAttendanceRate(-20, true);
+    assert.strictEqual(clampedUnder.text, '0%', 'Negative attendance rate clamped to 0%');
+    const clampedOver = utilsMod.formatSafeAttendanceRate(180, true);
+    assert.strictEqual(clampedOver.text, '100%', 'Attendance rate over 100% clamped to 100%');
+
+    // Privacy masking for low percentages (< 75%) among peers
+    const peerLow = utilsMod.formatSafeAttendanceRate(60, false);
+    assert.strictEqual(peerLow.text, 'Protected', 'Low attendance rate is masked as Protected for peers');
+    assert.strictEqual(peerLow.isMasked, true);
+    assert.strictEqual(peerLow.tier, 'protected');
+
+    // Officer / self unmasked visibility for low percentages
+    const officerLow = utilsMod.formatSafeAttendanceRate(60, true);
+    assert.strictEqual(officerLow.text, '60%', 'Officer/self sees unmasked attendance percentage');
+    assert.strictEqual(officerLow.isMasked, false);
+    assert.strictEqual(officerLow.tier, 'medium');
+
+    // getAttendanceAchievementTier threshold boundaries
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(null).tier, 'none');
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier('invalid').tier, 'none');
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(100).tier, 'perfect');
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(100).qualifiesForOneYearService, true);
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(90).tier, 'excellent');
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(80).tier, 'good');
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(80).qualifiesForOneYearService, true);
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(79.4).tier, 'at_risk');
+    assert.strictEqual(utilsMod.getAttendanceAchievementTier(79.4).qualifiesForOneYearService, false);
+    assert.ok(utilsMod.getAttendanceAchievementTier(75).tooltipText.includes('80% minimum'), 'Achievement tier tooltip must communicate the 80% rule');
+    console.log('  ✔ Attendance rate safety boundaries, peer privacy protection, and achievement tiers verified');
+
+    // 5. Role-Based Access Control (RBAC) & Permission Boundaries
+    assert.strictEqual(typeof rbacMod.hasModulePermission, 'function', 'hasModulePermission must be exported');
+    assert.strictEqual(typeof rbacMod.isSuperAdmin, 'function', 'isSuperAdmin must be exported');
+    assert.strictEqual(typeof rbacMod.assignUserRole, 'function', 'assignUserRole must be exported');
+
+    // Super Admin privileges & casing insensitivity
+    assert.strictEqual(rbacMod.isSuperAdmin('jeshuakoh2008@gmail.com'), true);
+    assert.strictEqual(rbacMod.isSuperAdmin('JESHUAKOH2008@GMAIL.COM'), true, 'isSuperAdmin must be case insensitive');
+    assert.strictEqual(rbacMod.hasModulePermission('roles', 'jeshuakoh2008@gmail.com'), true, 'Super Admin has access to roles module');
+    assert.strictEqual(rbacMod.hasModulePermission('members', 'jeshuakoh2008@gmail.com'), true, 'Super Admin has access to all modules');
+
+    // Super Admin demotion protection: Jeshua Koh account can never be demoted
+    await assert.rejects(
+      rbacMod.assignUserRole('jeshuakoh2008@gmail.com', 'admin', ['members'], 'jeshuakoh2008@gmail.com'),
+      /cannot be demoted/i,
+      'Demotion attempt on protected Super Admin account must be rejected'
+    );
+
+    // Non-super-admin unauthorized assignment rejection
+    await assert.rejects(
+      rbacMod.assignUserRole('target@example.com', 'admin', ['members'], 'unauthorized_member@example.com'),
+      /Access Denied/i,
+      'Unauthorized role assignment attempt must be rejected'
+    );
+
+    // Scoped Admin permissions vs Member access
+    const savedConfig = rbacMod._getRolesConfig();
+    try {
+      rbacMod._setRolesConfig({
+        super_admins: ['jeshuakoh2008@gmail.com'],
+        admins: {
+          'scoped_admin@1stpj.org': {
+            role: 'admin',
+            permissions: ['members', 'attendance']
+          }
+        }
+      });
+
+      assert.strictEqual(rbacMod.hasModulePermission('members', 'scoped_admin@1stpj.org'), true, 'Scoped admin has access to granted module');
+      assert.strictEqual(rbacMod.hasModulePermission('attendance', 'scoped_admin@1stpj.org'), true, 'Scoped admin has access to granted module');
+      assert.strictEqual(rbacMod.hasModulePermission('uniform', 'scoped_admin@1stpj.org'), false, 'Scoped admin denied access to ungranted module');
+      assert.strictEqual(rbacMod.hasModulePermission('roles', 'scoped_admin@1stpj.org'), false, 'Scoped admin strictly denied access to roles module');
+      assert.strictEqual(rbacMod.hasModulePermission('members', 'standard_member@1stpj.org'), false, 'Standard member denied admin module access');
+    } finally {
+      rbacMod._setRolesConfig(savedConfig);
+    }
+    console.log('  ✔ RBAC module permissions, Super Admin demotion immunity, and authorization gates verified');
+
+    // 6. Resource Hub Role-Based Access Boundaries (hasResourceAccess)
+    assert.strictEqual(typeof resourcesMod.hasResourceAccess, 'function', 'hasResourceAccess must be exported');
+
+    const origSessionGet = global.sessionGet;
+    try {
+      // Public resources are accessible to everyone
+      global.sessionGet = () => null;
+      assert.strictEqual(resourcesMod.hasResourceAccess('all'), true, 'Public resources accessible without session');
+      assert.strictEqual(resourcesMod.hasResourceAccess(''), true, 'Empty visibility defaults to public access');
+
+      // NCO resources
+      global.sessionGet = (k) => (k === 'rank' ? 'Lance Corporal' : null);
+      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'NCO rank accesses NCO resources');
+      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), false, 'NCO rank denied officer resources');
+
+      // Officer resources
+      global.sessionGet = (k) => (k === 'rank' ? 'Captain' : null);
+      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'Officer accesses NCO resources');
+      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), true, 'Officer accesses Officer resources');
+
+      // Admin override
+      global.sessionGet = (k) => (k === 'adminAuthed' ? true : (k === 'rank' ? 'Private' : null));
+      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), true, 'Admin session accesses Officer resources regardless of rank');
+      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'Admin session accesses NCO resources regardless of rank');
+
+      // Private rank denied restricted resources
+      global.sessionGet = (k) => (k === 'rank' ? 'Private' : null);
+      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), false, 'Private denied NCO resources');
+      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), false, 'Private denied Officer resources');
+    } finally {
+      global.sessionGet = origSessionGet;
+    }
+    console.log('  ✔ Resource hub visibility tiers (public, NCO, officer, admin) verified');
+
+    // 7. Strict 388 Unique DOM IDs Invariant
+    const postIdsQA = new Set();
+    const postMatchesQA = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesQA.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsQA.add(match[1]);
+    });
+    assert.strictEqual(postIdsQA.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsQA.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

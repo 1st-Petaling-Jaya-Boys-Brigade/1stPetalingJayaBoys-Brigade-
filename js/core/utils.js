@@ -239,9 +239,10 @@ var migrateBadgeEntry = migrateEntry;
  * @returns {string}
  */
 function bytesToHex(bytes) {
+  if (!bytes || !bytes.length) return '';
   var hex = [];
   for (var i = 0; i < bytes.length; i++) {
-    var b = bytes[i].toString(16);
+    var b = (bytes[i] & 0xff).toString(16);
     hex.push(b.length === 1 ? '0' + b : b);
   }
   return hex.join('');
@@ -253,9 +254,11 @@ function bytesToHex(bytes) {
  * @returns {Uint8Array}
  */
 function hexToBytes(hex) {
-  var bytes = new Uint8Array(hex.length / 2);
+  if (!hex || typeof hex !== 'string') return new Uint8Array(0);
+  var clean = hex.length % 2 === 1 ? '0' + hex : hex;
+  var bytes = new Uint8Array(clean.length / 2);
   for (var i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    bytes[i] = parseInt(clean.substr(i * 2, 2), 16) || 0;
   }
   return bytes;
 }
@@ -1831,7 +1834,8 @@ function maskMemberNameForDirectory(fullName, isSelfOrOfficer) {
  * @returns {{ text: string, isMasked: boolean, tier: 'high'|'medium'|'low'|'protected' }}
  */
 function formatSafeAttendanceRate(percentage, isSelfOrOfficer) {
-  var pct = (typeof percentage === 'number' && !isNaN(percentage)) ? Math.round(percentage) : 0;
+  var num = typeof percentage === 'number' ? percentage : parseFloat(String(percentage).replace('%', ''));
+  var pct = (!isNaN(num) && isFinite(num)) ? Math.max(0, Math.min(100, Math.round(num))) : 0;
   if (isSelfOrOfficer) {
     return {
       text: pct + '%',

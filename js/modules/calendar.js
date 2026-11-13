@@ -454,17 +454,25 @@
   var DAY_SHORT_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
   function getMonthMatrix(year, month) {
-    var firstDay = new Date(year, month, 1).getDay();
-    var daysInMonth = new Date(year, month + 1, 0).getDate();
-    var daysInPrevMonth = new Date(year, month, 0).getDate();
+    var y = parseInt(year, 10);
+    var m = parseInt(month, 10);
+    if (isNaN(y) || isNaN(m)) {
+      var now = new Date();
+      y = isNaN(y) ? now.getFullYear() : y;
+      m = isNaN(m) ? now.getMonth() : m;
+    }
+
+    var firstDay = new Date(y, m, 1).getDay();
+    var daysInMonth = new Date(y, m + 1, 0).getDate();
+    var daysInPrevMonth = new Date(y, m, 0).getDate();
 
     var cells = [];
 
     // Previous month filler
     for (var i = firstDay - 1; i >= 0; i--) {
       var prevDay = daysInPrevMonth - i;
-      var prevMonth = month === 0 ? 11 : month - 1;
-      var prevYear = month === 0 ? year - 1 : year;
+      var prevMonth = m === 0 ? 11 : m - 1;
+      var prevYear = m === 0 ? y - 1 : y;
       var dateKey = prevYear + '-' + String(prevMonth + 1).padStart(2, '0') + '-' + String(prevDay).padStart(2, '0');
       cells.push({
         dayNumber: prevDay,
@@ -475,7 +483,7 @@
 
     // Current month days
     for (var d = 1; d <= daysInMonth; d++) {
-      var curDateKey = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var curDateKey = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
       cells.push({
         dayNumber: d,
         dateKey: curDateKey,
@@ -487,8 +495,8 @@
     var totalCells = cells.length > 35 ? 42 : 35;
     var nextCount = totalCells - cells.length;
     for (var n = 1; n <= nextCount; n++) {
-      var nextMonth = month === 11 ? 0 : month + 1;
-      var nextYear = month === 11 ? year + 1 : year;
+      var nextMonth = m === 11 ? 0 : m + 1;
+      var nextYear = m === 11 ? y + 1 : y;
       var nDateKey = nextYear + '-' + String(nextMonth + 1).padStart(2, '0') + '-' + String(n).padStart(2, '0');
       cells.push({
         dayNumber: n,
