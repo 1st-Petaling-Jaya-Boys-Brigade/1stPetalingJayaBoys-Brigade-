@@ -11118,21 +11118,30 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // Setup dedicated Supabase mock client for admin tests
     let blockedStorage = [];
+    let verificationStatuses = {};
+    const mockMember = { ic: 'test@pjbb.org', name: 'Alexander Tan', rank: 'Sergeant', squad: 'Alpha', section: 'Senior', department: 'hq', date_of_birth: '2008-01-01' };
     const testAdminSupa = {
       get: async (path) => {
         if (path.includes('bb_members')) {
-          return [
-            { ic: 'test@pjbb.org', name: 'Alexander Tan', rank: 'Sergeant', squad: 'Alpha', section: 'Senior', department: 'hq', date_of_birth: '2008-01-01' }
-          ];
+          return [ mockMember ];
         }
         if (path.includes('bb_blocked_emails')) {
           return [{ value: JSON.stringify(blockedStorage) }];
         }
+        if (path.includes('bb_verification_statuses')) {
+          return [{ value: JSON.stringify(verificationStatuses) }];
+        }
         return [];
       },
       patch: async (path, body) => {
+        if (path.includes('bb_members')) {
+          Object.assign(mockMember, body);
+        }
         if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
           blockedStorage = JSON.parse(body.value);
+        }
+        if (path.includes('bb_verification_statuses') || (body && body.key === 'bb_verification_statuses')) {
+          verificationStatuses = JSON.parse(body.value);
         }
         return [body];
       },
@@ -11140,11 +11149,26 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
         if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
           blockedStorage = JSON.parse(body.value);
         }
+        if (path.includes('bb_verification_statuses') || (body && body.key === 'bb_verification_statuses')) {
+          verificationStatuses = JSON.parse(body.value);
+        }
         return [body];
       },
+      upsert: async (table, record) => {
+        if (record && record.key === 'bb_verification_statuses') {
+          verificationStatuses = JSON.parse(record.value);
+        }
+        return [record];
+      },
       req: async (method, path, body) => {
+        if (path.includes('bb_members')) {
+          Object.assign(mockMember, body);
+        }
         if (path.includes('bb_blocked_emails') || (body && body.key === 'bb_blocked_emails')) {
           blockedStorage = JSON.parse(body.value);
+        }
+        if (path.includes('bb_verification_statuses') || (body && body.key === 'bb_verification_statuses')) {
+          verificationStatuses = JSON.parse(body.value);
         }
         return [body];
       }
@@ -11348,10 +11372,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // Verification Status Badge
     assert.ok(memberListEl.innerHTML.includes('adm-status-badge'), 'Table rows contain verification status badge');
-    assert.ok(memberListEl.innerHTML.includes('status-verified'), 'Status badge renders Verified state');
+    assert.ok(memberListEl.innerHTML.includes('status-not-verified'), 'Status badge renders Not Verified state by default');
     assert.strictEqual(typeof adminModule.updateMemberVerificationStatus, 'function', 'updateMemberVerificationStatus exported');
+    await adminModule.updateMemberVerificationStatus('test@pjbb.org', 'verified');
+    assert.ok(memberListEl.innerHTML.includes('status-verified'), 'Status badge renders Verified state when updated by admin');
     await adminModule.updateMemberVerificationStatus('test@pjbb.org', 'processing');
     assert.strictEqual(adminModule.getMemberVerificationStatus({ ic: 'test@pjbb.org', verification_status: 'processing' }), 'processing', 'Verification status resolves to processing');
+    assert.strictEqual(adminModule.getMemberVerificationStatus({ ic: 'new@pjbb.org' }), 'not_verified', 'New account defaults to not_verified');
 
     // Rank Insignia Stripes
     assert.strictEqual(typeof adminModule.getRankInsigniaSvg, 'function', 'getRankInsigniaSvg exported');
@@ -12516,6 +12543,99 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       if (match) postIds2.add(match[1]);
     });
     assert.strictEqual(postIds2.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds2.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // ── Test Default Not Verified Status for New Accounts & Admin Verification Governance ──
+  {
+    console.log('\nTesting Default Not Verified Status for New Accounts & Admin Verification Governance...');
+    const adminMod = require('../js/modules/admin.js');
+    const memberMod = require('../js/modules/member.js');
+
+    // 1. getMemberVerificationStatus defaults to 'not_verified'
+    assert.strictEqual(adminMod.getMemberVerificationStatus(null), 'not_verified', 'Null member defaults to not_verified');
+    assert.strictEqual(adminMod.getMemberVerificationStatus({}), 'not_verified', 'Empty member defaults to not_verified');
+    assert.strictEqual(adminMod.getMemberVerificationStatus({ ic: 'user1@pjbb.org' }), 'not_verified', 'Member without verification_status defaults to not_verified');
+    assert.strictEqual(adminMod.getMemberVerificationStatus({ ic: 'user1@pjbb.org', verification_status: '' }), 'not_verified', 'Member with empty status defaults to not_verified');
+    assert.strictEqual(adminMod.getMemberVerificationStatus({ ic: 'user1@pjbb.org', verification_status: 'verified' }), 'verified', 'Member with verified status resolves to verified');
+    assert.strictEqual(adminMod.getMemberVerificationStatus({ ic: 'user1@pjbb.org', verification_status: 'processing' }), 'processing', 'Member with processing status resolves to processing');
+    assert.strictEqual(adminMod.getMemberVerificationStatus({ ic: 'user1@pjbb.org', verification_status: 'rejected' }), 'rejected', 'Member with rejected status resolves to rejected');
+    console.log('  ✔ getMemberVerificationStatus defaults to not_verified and handles all explicit states');
+
+    // 2. renderStatusBadge renders appropriate badges
+    assert.ok(adminMod.renderStatusBadge().includes('status-not-verified'), 'Unset badge defaults to status-not-verified');
+    assert.ok(adminMod.renderStatusBadge('not_verified').includes('status-not-verified'), 'not_verified renders status-not-verified');
+    assert.ok(adminMod.renderStatusBadge('verified').includes('status-verified'), 'verified renders status-verified');
+    console.log('  ✔ renderStatusBadge renders Not Verified by default and Verified when approved');
+
+    // 3. New member registration payload includes verification_status: 'not_verified'
+    let registeredPayload = null;
+    let savedConfig = {};
+    const mockRegSupa = {
+      get: async (path) => {
+        if (path.includes('bb_members?ic=')) return [];
+        if (path.includes('bb_members?select=')) return [];
+        if (path.includes('bb_config?key=eq.bb_verification_statuses')) return [{ value: JSON.stringify(savedConfig) }];
+        return [];
+      },
+      post: async (table, payload) => {
+        if (table === 'bb_members') registeredPayload = payload;
+        return [payload];
+      },
+      patch: async (path, body) => {
+        if (path.includes('bb_verification_statuses')) {
+          savedConfig = JSON.parse(body.value);
+        }
+        return [body];
+      },
+      upsert: async (table, record) => {
+        if (record && record.key === 'bb_verification_statuses') {
+          savedConfig = JSON.parse(record.value);
+        }
+        return [record];
+      }
+    };
+    global.supa = mockRegSupa;
+    global.getSupaClient = () => mockRegSupa;
+
+    await memberMod.finalizeMemberRegistration({
+      ic: 'newcadet@pjbb.org',
+      email: 'newcadet@pjbb.org',
+      name: 'New Cadet',
+      rank: 'Recruit',
+      squad: 'Alpha',
+      section: 'Junior',
+      age: 10,
+      passwordHash: 'mockHash',
+      isMinor: true,
+      parentName: 'Parent Cadet',
+      parentContact: '0123456789',
+      parentConsent: true,
+      consentTimestamp: new Date().toISOString(),
+      mediaConsent: true
+    });
+    assert.ok(registeredPayload, 'finalizeMemberRegistration posted to bb_members');
+    assert.strictEqual(registeredPayload.verification_status, 'not_verified', 'New registration strictly sets verification_status to not_verified');
+    assert.strictEqual(savedConfig['newcadet@pjbb.org'], 'not_verified', 'New registration persists not_verified in bb_verification_statuses');
+    console.log('  ✔ Registration of new member automatically defaults to Not Verified in payload and bb_config');
+
+    // 4. Changing one member to not_verified does NOT change other members to verified
+    const memberA = { ic: 'a@pjbb.org', name: 'Member A', verification_status: 'not_verified' };
+    const memberB = { ic: 'b@pjbb.org', name: 'Member B', verification_status: 'verified' };
+    const memberC = { ic: 'c@pjbb.org', name: 'Member C' };
+    assert.strictEqual(adminMod.getMemberVerificationStatus(memberA), 'not_verified', 'Member A is not_verified');
+    assert.strictEqual(adminMod.getMemberVerificationStatus(memberB), 'verified', 'Member B is verified');
+    assert.strictEqual(adminMod.getMemberVerificationStatus(memberC), 'not_verified', 'Member C (unset) remains not_verified');
+    console.log('  ✔ Independent verification statuses preserved with zero unwanted cross-member mutation');
+
+    // 5. Strict 388 unique DOM IDs Invariant
+    const postIds3 = new Set();
+    const postMatches3 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches3.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds3.add(match[1]);
+    });
+    assert.strictEqual(postIds3.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds3.size})`);
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 

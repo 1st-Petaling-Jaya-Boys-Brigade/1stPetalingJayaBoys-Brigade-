@@ -645,25 +645,30 @@
 
   // Verification Status Resolution & Badge Rendering (No Dropdown in Table)
   function getMemberVerificationStatus(m) {
-    if (!m) return 'verified';
-    var v = (m.verification_status || m.v_status || '').toLowerCase();
-    if (v === 'verified' || v === 'processing' || v === 'rejected' || v === 'not_verified' || v === 'not verified') {
-      return v === 'not verified' ? 'not_verified' : v;
-    }
-    return 'verified';
+    if (!m) return 'not_verified';
+    var v = (m.verification_status || m.v_status || '').toLowerCase().trim();
+    if (v === 'verified') return 'verified';
+    if (v === 'processing' || v === 'pending' || v === 'in_progress') return 'processing';
+    if (v === 'rejected') return 'rejected';
+    if (v === 'not_verified' || v === 'not verified' || v === 'unverified' || v === 'none') return 'not_verified';
+    return 'not_verified';
   }
 
   function renderStatusBadge(statusVal) {
-    var rawSt = (statusVal || 'verified').toLowerCase().replace(/\s+/g, '_');
+    var rawSt = (statusVal || 'not_verified').toLowerCase().replace(/\s+/g, '_');
     var st = rawSt;
     if (st === 'pending' || st === 'in_progress') st = 'processing';
     if (st === 'unverified' || st === 'none' || !st) st = 'not_verified';
 
-    var cls = 'status-verified';
-    var label = 'Verified';
-    var icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    var cls = 'status-not-verified';
+    var label = 'Not Verified';
+    var icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 
-    if (st === 'processing') {
+    if (st === 'verified') {
+      cls = 'status-verified';
+      label = 'Verified';
+      icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else if (st === 'processing') {
       cls = 'status-processing';
       label = 'Processing';
       icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
@@ -671,10 +676,6 @@
       cls = 'status-rejected';
       label = 'Rejected';
       icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-    } else if (st === 'not_verified') {
-      cls = 'status-not-verified';
-      label = 'Not Verified';
-      icon = '<svg style="width:12px;height:12px;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
     }
 
     return '<span class="adm-status-badge ' + cls + '">' +
@@ -686,14 +687,18 @@
   async function updateMemberVerificationStatus(ic, val) {
     if (!ic) return;
     var client = getSupabaseClient();
-    var cleanVal = (val || 'verified').toLowerCase();
+    var cleanVal = (val || 'not_verified').toLowerCase().trim();
 
     if (_adminMembers && _adminMembers[ic]) {
       _adminMembers[ic].verification_status = cleanVal;
+      _adminMembers[ic].v_status = cleanVal;
     }
     if (Array.isArray(_adminMembersCache)) {
       _adminMembersCache.forEach(function(m) {
-        if (m.ic === ic) m.verification_status = cleanVal;
+        if (m.ic === ic || m.email === ic) {
+          m.verification_status = cleanVal;
+          m.v_status = cleanVal;
+        }
       });
     }
 
@@ -706,19 +711,25 @@
         }
       } catch (e) {
         console.warn('verification_status column not yet in bb_members schema, storing in bb_config:', e);
-        try {
-          var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
-          var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
-          vMap[ic] = cleanVal;
-          await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
-        } catch (_) {}
       }
+      try {
+        var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
+        var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
+        vMap[ic] = cleanVal;
+        var memberObj = (_adminMembers && _adminMembers[ic]) || {};
+        if (memberObj.email) vMap[memberObj.email] = cleanVal;
+        if (client.upsert) {
+          await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMap) }, 'key');
+        } else if (client.patch) {
+          await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
+        }
+      } catch (_) {}
     }
 
     if (typeof showToast === 'function') {
       showToast('Updated status to ' + cleanVal.replace('_', ' '), 'success');
     }
-    await renderAdminList();
+    await renderAdminList(true);
   }
 
   // Selection & Bulk Actions
@@ -1376,6 +1387,12 @@
     }
 
     var cleanVal = (value !== undefined && value !== null) ? String(value).trim() : '';
+
+    if (field === 'verification_status' || field === 'v_status') {
+      await updateMemberVerificationStatus(ic, cleanVal);
+      return;
+    }
+
     var patchObj = {};
 
     if (field === 'name') {
@@ -2699,7 +2716,7 @@
         members = _adminMembersCache;
       } else {
         try {
-          members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at&order=name.asc');
+          members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,verification_status&order=name.asc');
         } catch (selectErr) {
           console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
           members = await client.get('bb_members?order=name.asc');
@@ -2708,6 +2725,33 @@
         _adminMembersCache = members;
         _adminMembersCacheTime = now;
       }
+
+      // Merge verification statuses from bb_config fallback map
+      var verificationMap = {};
+      try {
+        var vCfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
+        if (vCfgRes && vCfgRes.length && vCfgRes[0].value) {
+          verificationMap = (typeof vCfgRes[0].value === 'string') ? JSON.parse(vCfgRes[0].value) : vCfgRes[0].value;
+        }
+      } catch (_) {}
+      verificationMap = verificationMap || {};
+
+      members.forEach(function(m) {
+        if (!m) return;
+        var key = m.ic || m.email;
+        if (m.verification_status) {
+          m.verification_status = String(m.verification_status).toLowerCase().trim();
+        } else if (verificationMap[key]) {
+          m.verification_status = verificationMap[key];
+        } else if (m.email && verificationMap[m.email]) {
+          m.verification_status = verificationMap[m.email];
+        } else if (m.ic && verificationMap[m.ic]) {
+          m.verification_status = verificationMap[m.ic];
+        } else {
+          m.verification_status = 'not_verified';
+        }
+        m.v_status = m.verification_status;
+      });
       // Active non-deleted members calculation (Fixes '5 of 28' count discrepancy)
       var activeMembers = members.filter(function(m) {
         if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return false;
@@ -3313,6 +3357,9 @@
     var oi = document.getElementById('em-original-ic');
     if (oi) oi.value = '';
 
+    var emStatusSel = document.querySelector('#edit-member-modal .em-status-select');
+    if (emStatusSel) emStatusSel.value = 'not_verified';
+
     var modal = document.getElementById('edit-member-modal');
     if (modal) {
       modal.setAttribute('data-original-name', '');
@@ -3606,8 +3653,8 @@
     var media_consent = mConsentCb ? !!mConsentCb.checked : false;
 
     var emStatusSel   = document.querySelector('#edit-member-modal .em-status-select');
-    var rawStatus     = emStatusSel ? emStatusSel.value : 'verified';
-    var verification_status = (rawStatus || 'verified').toLowerCase();
+    var rawStatus     = emStatusSel ? emStatusSel.value : 'not_verified';
+    var verification_status = (rawStatus || 'not_verified').toLowerCase().trim();
 
     if (!name) {
       if (typeof showToast === 'function') showToast('Name cannot be empty.', 'warning');
@@ -3703,7 +3750,8 @@
           att_section: att_section || null,
           date_of_birth: date_of_birth,
           password: defaultHash,
-          joined_at: joined_at || new Date().toISOString()
+          joined_at: joined_at || new Date().toISOString(),
+          verification_status: verification_status || 'not_verified'
         };
 
         if (parent_name) newPayload.parent_name = parent_name;
@@ -3726,9 +3774,21 @@
             department: department,
             date_of_birth: date_of_birth,
             password: defaultHash,
-            joined_at: joined_at || new Date().toISOString()
+            joined_at: joined_at || new Date().toISOString(),
+            verification_status: verification_status || 'not_verified'
           });
         }
+
+        try {
+          var cfgResNew = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
+          var vMapNew = (cfgResNew && cfgResNew.length && cfgResNew[0].value) ? JSON.parse(cfgResNew[0].value) : {};
+          vMapNew[ic] = verification_status || 'not_verified';
+          if (client.upsert) {
+            await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMapNew) }, 'key');
+          } else if (client.patch) {
+            await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMapNew) });
+          }
+        } catch (_) {}
         if (typeof logAuditEvent === 'function') {
           logAuditEvent({
             action: 'member.create',
@@ -3773,14 +3833,19 @@
           if (joined_at)     baseUpdates.joined_at     = joined_at;
           if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
           await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
-
-          try {
-            var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
-            var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
-            vMap[originalIc || ic] = verification_status;
-            await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
-          } catch (_) {}
         }
+
+        try {
+          var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
+          var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
+          vMap[originalIc || ic] = verification_status;
+          if (ic) vMap[ic] = verification_status;
+          if (client.upsert) {
+            await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMap) }, 'key');
+          } else if (client.patch) {
+            await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
+          }
+        } catch (_) {}
         if (typeof logAuditEvent === 'function') {
           logAuditEvent({
             action: 'member.update',
@@ -3824,6 +3889,25 @@
         _adminMembers[memberTargetKey].media_consent = media_consent;
         _adminMembers[memberTargetKey].verification_status = verification_status;
         _adminMembers[memberTargetKey].v_status = verification_status;
+      }
+
+      if (Array.isArray(_adminMembersCache)) {
+        _adminMembersCache.forEach(function(m) {
+          if (m && (m.ic === memberTargetKey || m.ic === originalIc || m.ic === ic || (m.email && (m.email === memberTargetKey || m.email === originalIc || m.email === ic)))) {
+            m.name = name;
+            m.rank = rank;
+            m.squad = squad;
+            m.department = department;
+            m.section = att_section;
+            m.att_section = att_section;
+            m.parent_name = parent_name;
+            m.parent_contact = parent_contact;
+            m.parental_consent_signed = parental_consent_signed;
+            m.media_consent = media_consent;
+            m.verification_status = verification_status;
+            m.v_status = verification_status;
+          }
+        });
       }
 
       var trimmedOldName = (oldName || '').trim();
@@ -3945,7 +4029,7 @@
       }
 
       closeEditMember();
-      renderAdminList();
+      renderAdminList(true);
     } catch (e) {
       if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
     } finally {
