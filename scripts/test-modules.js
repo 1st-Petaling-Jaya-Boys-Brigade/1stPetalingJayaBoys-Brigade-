@@ -12773,6 +12773,187 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── 64. Company Resources Hub Admin Redesign & Announcements Pinning ──
+  {
+    console.log('\nTesting Company Resources Hub Admin Redesign & Announcements Pinning...');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const adminCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'admin.css'), 'utf8');
+    const compCss = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const resourcesMod = require('../js/modules/resources.js');
+    const annMod = require('../js/modules/announcements.js');
+
+    // 1. Resources Hub Layout & Upload Card Button (Images 1 & 2)
+    assert.ok(indexHtml.includes('class="adm-create-resource-card"'), 'index.html must include .adm-create-resource-card button');
+    assert.ok(indexHtml.includes('class="adm-resources-main-view"'), 'index.html must define .adm-resources-main-view');
+    assert.ok(adminCss.includes('.adm-create-resource-card'), 'admin.css must define .adm-create-resource-card styles');
+    assert.ok(adminCss.includes('.adm-resource-card'), 'admin.css must define .adm-resource-card clickable row styles');
+
+    // In index.html, #adm-resources-list must precede .adm-create-resource-card, which precedes #adm-res-form-card
+    const listPos = indexHtml.indexOf('id="adm-resources-list"');
+    const createCardPos = indexHtml.indexOf('class="adm-create-resource-card"');
+    const formCardPos = indexHtml.indexOf('id="adm-res-form-card"');
+    assert.ok(listPos !== -1 && createCardPos !== -1 && formCardPos !== -1, 'Required resources elements must exist in index.html');
+    assert.ok(listPos < createCardPos, 'Existing resources list must be positioned before Create/Upload card');
+    assert.ok(createCardPos < formCardPos, 'Create/Upload card must be positioned before form editor card');
+    console.log('  ✔ Existing resources appear first with Upload Resource card positioned at the bottom (Images 1 & 2)');
+
+    // 2. Resources Admin Flow: Clicking Card Opens Editor, Delete from Form
+    assert.strictEqual(typeof resourcesMod.openCreateResourceFlow, 'function', 'openCreateResourceFlow must be exported');
+    assert.strictEqual(typeof resourcesMod.closeResourceEditor, 'function', 'closeResourceEditor must be exported');
+    assert.strictEqual(typeof resourcesMod.handleAdminDeleteCurrentResource, 'function', 'handleAdminDeleteCurrentResource must be exported');
+
+    // Mock DOM for Resources
+    const mockElements = {
+      'adm-resources-list': { innerHTML: '', querySelectorAll: () => [] },
+      'adm-res-form-card': { style: { display: 'none' }, scrollIntoView: () => {} },
+      'adm-res-title': { value: '', focus: () => {} },
+      'adm-res-desc': { value: '' },
+      'adm-res-cat': { value: 'Handbooks & Manuals' },
+      'adm-res-url': { value: '' },
+      'adm-res-type': { value: 'PDF' },
+      'adm-res-vis': { value: 'all' },
+      'adm-res-upload-status': { innerHTML: '' },
+      'adm-res-submit-btn': {
+        textContent: '',
+        disabled: false,
+        _attrs: {},
+        setAttribute: function(k, v) { this._attrs[k] = v; },
+        removeAttribute: function(k) { delete this._attrs[k]; },
+        getAttribute: function(k) { return this._attrs[k]; }
+      }
+    };
+    const mockQuerySelectors = {
+      '.adm-resources-main-view': { style: { display: 'block' } },
+      '.adm-res-delete-btn': { style: { display: 'none' }, setAttribute: () => {} },
+      '.adm-res-form-heading': { textContent: '' },
+      '.adm-resources-header-label': { textContent: '' }
+    };
+
+    const origDoc = global.document;
+    global.document = {
+      getElementById: (id) => mockElements[id] || null,
+      querySelector: (sel) => mockQuerySelectors[sel] || null,
+      querySelectorAll: () => []
+    };
+
+    // Test list rendering without separate Edit or × buttons
+    resourcesMod.resources.length = 0;
+    resourcesMod.resources.push({
+      id: 'res-test-1',
+      title: 'Drill Manual 2026',
+      category: 'Handbooks & Manuals',
+      fileType: 'PDF',
+      visibility: 'all',
+      url: 'https://example.com/drill.pdf'
+    });
+    resourcesMod.renderAdminResourcesList();
+    const renderedHtml = mockElements['adm-resources-list'].innerHTML;
+    assert.ok(renderedHtml.includes('data-open-res-card="res-test-1"'), 'Rendered item must have data-open-res-card');
+    assert.ok(!renderedHtml.includes('>Edit<') && !renderedHtml.includes('onclick="deleteResource'), 'List items must not have separate Edit or Delete buttons');
+
+    // Test openCreateResourceFlow
+    resourcesMod.openCreateResourceFlow();
+    assert.strictEqual(mockQuerySelectors['.adm-resources-main-view'].style.display, 'none', 'Main view hidden on create');
+    assert.strictEqual(mockElements['adm-res-form-card'].style.display, 'block', 'Form card shown on create');
+    assert.strictEqual(mockQuerySelectors['.adm-res-delete-btn'].style.display, 'none', 'Delete button hidden on create');
+
+    // Test openEditResource
+    resourcesMod.openEditResource('res-test-1');
+    assert.strictEqual(mockQuerySelectors['.adm-resources-main-view'].style.display, 'none', 'Main view hidden on edit');
+    assert.strictEqual(mockElements['adm-res-form-card'].style.display, 'block', 'Form card shown on edit');
+    assert.strictEqual(mockQuerySelectors['.adm-res-delete-btn'].style.display, 'inline-flex', 'Delete button shown in form on edit');
+    assert.strictEqual(mockElements['adm-res-title'].value, 'Drill Manual 2026', 'Document title populated in form');
+
+    // Test closeResourceEditor
+    resourcesMod.closeResourceEditor();
+    assert.strictEqual(mockQuerySelectors['.adm-resources-main-view'].style.display, 'block', 'Main view restored on close');
+    assert.strictEqual(mockElements['adm-res-form-card'].style.display, 'none', 'Form card hidden on close');
+    console.log('  ✔ Clicking resource opens editor with in-form delete button, and creating opens clean blank editor');
+
+    // 3. Announcements Pinning: Composer Checkbox & CSS Styling
+    assert.ok(indexHtml.includes('class="ann-pinned-check"'), 'index.html must include .ann-pinned-check checkbox');
+    assert.ok(compCss.includes('.announcement-item.is-pinned'), 'components.css must define .announcement-item.is-pinned');
+    assert.ok(compCss.includes('.ann-pinned-badge'), 'components.css must define .ann-pinned-badge');
+    console.log('  ✔ Announcement composer pin checkbox and pinned badge styling verified');
+
+    // 4. Announcements Logic: Pinned Sorting & Direct Admin Pin Toggle
+    assert.strictEqual(typeof annMod.togglePinAnnouncement, 'function', 'togglePinAnnouncement must be exported');
+    assert.strictEqual(typeof annMod.syncAnnouncementPinConfig, 'function', 'syncAnnouncementPinConfig must be exported');
+
+    // Reset announcements with 3 items: Item 1 (older), Item 2 (middle), Item 3 (newest)
+    annMod.announcements.length = 0;
+    annMod.announcements.push(
+      { id: 'ann-1', title: 'First Notice', body: 'Old post', date: '01 NOV 2026', is_pinned: false },
+      { id: 'ann-2', title: 'Second Notice', body: 'Middle post (Pinned)', date: '05 NOV 2026', is_pinned: true },
+      { id: 'ann-3', title: 'Third Notice', body: 'Newest post', date: '10 NOV 2026', is_pinned: false }
+    );
+
+    const annListEl = { innerHTML: '', querySelectorAll: () => [] };
+    const adminAnnListEl = { innerHTML: '', querySelectorAll: () => [] };
+    const annTitleInp = { value: '' };
+    const annBodyInp = { innerHTML: '' };
+    const annPostBtn = { setAttribute: () => {}, removeAttribute: () => {} };
+    const annPinCheckEl = { checked: false };
+
+    global.document = {
+      getElementById: (id) => {
+        if (id === 'announcements-list') return annListEl;
+        if (id === 'admin-ann-list') return adminAnnListEl;
+        if (id === 'ann-title-input') return annTitleInp;
+        if (id === 'ann-body-input') return annBodyInp;
+        if (id === 'ann-post-btn') return annPostBtn;
+        return mockElements[id] || null;
+      },
+      querySelector: (sel) => {
+        if (sel === '.ann-pinned-check') return annPinCheckEl;
+        return mockQuerySelectors[sel] || null;
+      },
+      querySelectorAll: () => []
+    };
+
+    // Public feed render verification: pinned item must appear first
+    annMod.renderAnnouncements();
+    const pubHtml = annListEl.innerHTML;
+    assert.ok(pubHtml.includes('ann-pinned-badge'), 'Public feed must render ann-pinned-badge for pinned item');
+    assert.ok(pubHtml.includes('is-pinned'), 'Public feed must add is-pinned class');
+    const posNotice2 = pubHtml.indexOf('Second Notice');
+    const posNotice3 = pubHtml.indexOf('Third Notice');
+    assert.ok(posNotice2 < posNotice3, 'Pinned announcement (Second Notice) must appear ahead of unpinned newer post (Third Notice)');
+
+    // Admin list render verification: quick pin button & sorting
+    annMod.renderAdminAnnList();
+    const adminHtml = adminAnnListEl.innerHTML;
+    assert.ok(adminHtml.includes('data-pin-ann="1"'), 'Admin list must render data-pin-ann button');
+    assert.ok(adminHtml.includes('>Pinned<'), 'Pinned item shows Pinned in button');
+    assert.ok(adminHtml.includes('>Pin<'), 'Unpinned item shows Pin in button');
+
+    // Test togglePinAnnouncement
+    await annMod.togglePinAnnouncement(2); // Toggle item 3 to pinned
+    assert.strictEqual(annMod.announcements[2].is_pinned, true, 'Announcement 3 is now pinned');
+    await annMod.togglePinAnnouncement(2); // Toggle back
+    assert.strictEqual(annMod.announcements[2].is_pinned, false, 'Announcement 3 is now unpinned');
+
+    // Test openEditAnnouncement syncs checkbox
+    annMod.openEditAnnouncement(1); // Item 2 is pinned
+    assert.strictEqual(annPinCheckEl.checked, true, 'Composer pin checkbox checked when editing pinned item');
+    annMod.cancelEditAnnouncement();
+    assert.strictEqual(annPinCheckEl.checked, false, 'Composer pin checkbox unchecked on cancel');
+    console.log('  ✔ Announcements pinning correctly prioritizes pinned posts, badges feed, and enables quick admin pin toggle');
+
+    // Restore document
+    global.document = origDoc;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIds4 = new Set();
+    const postMatches4 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatches4.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIds4.add(match[1]);
+    });
+    assert.strictEqual(postIds4.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds4.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

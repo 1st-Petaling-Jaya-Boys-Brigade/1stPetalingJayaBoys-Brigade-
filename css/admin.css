@@ -2208,6 +2208,73 @@
   margin-top: 2px;
 }
 
+/* Create / Upload New Resource Card Button (Below Existing Resources) */
+.adm-create-resource-card {
+  background: var(--bg-card-subtle);
+  border: 2px dashed var(--border-card);
+  border-radius: 12px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  margin-top: 12px;
+  box-sizing: border-box;
+}
+
+.adm-create-resource-card:hover {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: var(--brand-blue, #3b82f6);
+  transform: translateY(-1px);
+}
+
+.adm-create-resource-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--brand-blue, #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.adm-create-resource-title {
+  font-family: var(--font-headline, 'Inter', sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.adm-create-resource-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.adm-resource-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.adm-resource-card:hover {
+  background: var(--bg-card-subtle);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
 /* ── FORM TYPE CHOOSER MODAL ── */
 .adm-ftype-modal-overlay {
   position: fixed;
