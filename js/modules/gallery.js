@@ -933,6 +933,16 @@ async function uploadGalleryFiles(files) {
 
   renderGallery();
 
+  if (successCount > 0 && typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'gallery.upload',
+      targetType: 'gallery',
+      targetId: 'multiple',
+      actorRole: 'officer_admin',
+      details: { uploaded_count: successCount, failed_count: failCount }
+    });
+  }
+
   if (typeof showToast === 'function') {
     if (successCount > 0 && failCount === 0) {
       showToast('Uploaded ' + successCount + ' media file' + (successCount > 1 ? 's' : '') + ' successfully!', 'success');

@@ -4700,6 +4700,19 @@ function logoutMember() {
   } else if (typeof window !== 'undefined' && typeof window.sendPresenceHeartbeat === 'function') {
     try { window.sendPresenceHeartbeat('offline').catch(function() {}); } catch (_) {}
   }
+
+  var curUser = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'member';
+  var curRole = (typeof sessionGet === 'function' ? sessionGet('role') : '') || 'member';
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'auth.logout',
+      targetType: 'member_session',
+      targetId: curUser,
+      actorId: curUser,
+      actorRole: curRole
+    });
+  }
+
   resetMemberAvatar();
   setRemovePfpButtonVisible(false);
   // Completely purge session state eliminating residual keys
@@ -5692,6 +5705,17 @@ async function handleSettingsPasswordUpdate() {
     pCurEl.value = '';
     pNewEl.value = '';
     pConfEl.value = '';
+
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'auth.password_change',
+        targetType: 'member',
+        targetId: cleanEmail,
+        actorId: cleanEmail,
+        actorRole: (typeof sessionGet === 'function' ? sessionGet('role') : '') || 'member',
+        details: { method: 'settings_self_service' }
+      });
+    }
 
     if (typeof showToast === 'function') {
       showToast('Password updated successfully!', 'success');

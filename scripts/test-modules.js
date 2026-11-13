@@ -13702,6 +13702,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(targetIdx !== -1, 'Dummy image must be present in gallery');
 
     // Mock failing Supabase delete operation (simulating network error / 500)
+    const origSupa71 = global.supa;
     const failingGallerySupa = {
       delete: async () => { throw new Error('Simulated network timeout 504 Gateway Timeout'); },
       deleteFile: async () => {}
@@ -13730,6 +13731,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     await annMod.deleteAnnouncement(annIdx);
     assert.ok(annMod.announcements.includes(dummyAnn), 'Announcement must be rolled back to list on failed deletion');
     console.log('  ✔ Announcement deletion cleanly rolls back optimistic removal when network drops');
+
+    // Restore supa mock
+    global.supa = origSupa71;
+    if (typeof window !== 'undefined') window.supa = origSupa71;
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const postIdsRes = new Set();
@@ -13809,6 +13814,179 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       if (match) postIdsUX.add(match[1]);
     });
     assert.strictEqual(postIdsUX.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsUX.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // =========================================================================
+  // Suite 73: Observability, Administrative Audit Trails & Privacy-Safe Logging
+  // =========================================================================
+  {
+    console.log('\n--- Suite 73: Observability, Administrative Audit Trails & Privacy-Safe Logging ---');
+
+    const utilsMod = require('../js/core/utils.js');
+    assert.strictEqual(typeof utilsMod.sanitizeAuditDetails, 'function', 'sanitizeAuditDetails must be exported');
+    assert.strictEqual(typeof utilsMod.logAuditEvent, 'function', 'logAuditEvent must be exported');
+    assert.strictEqual(typeof utilsMod.getAuditLogs, 'function', 'getAuditLogs must be exported');
+
+    // 1. Privacy-Safe Deep Redaction & PII Masking
+    const sensitivePayload = {
+      user: 'admin_test',
+      password: 'PlainPassword123',
+      credentials: { raw: 'hidden' },
+      metadata: {
+        token: 'secret_jwt_token_here',
+        otp_code: '998877',
+        nested: {
+          client_secret: 'top_secret_api_key'
+        }
+      },
+      ic: '081123-10-1234',
+      phone: '0123456789',
+      bearer: 'Bearer secret_key',
+      remote_session: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xyz'
+    };
+
+    const sanitized = utilsMod.sanitizeAuditDetails(sensitivePayload);
+    assert.strictEqual(sanitized.user, 'admin_test', 'Safe fields must be preserved');
+    assert.strictEqual(sanitized.password, '[REDACTED]', 'Direct passwords must be redacted');
+    assert.strictEqual(sanitized.credentials, '[REDACTED]', 'Credential objects must be redacted');
+    assert.strictEqual(sanitized.metadata.token, '[REDACTED]', 'Nested tokens must be redacted');
+    assert.strictEqual(sanitized.metadata.otp_code, '[REDACTED]', 'Nested OTP codes must be redacted');
+    assert.strictEqual(sanitized.metadata.nested.client_secret, '[REDACTED]', 'Deeply nested secrets must be redacted');
+    assert.strictEqual(sanitized.bearer, '[REDACTED]', 'Bearer key must be redacted');
+    assert.strictEqual(sanitized.remote_session, '[REDACTED_TOKEN]', 'Bearer/JWT token strings must be sanitized');
+    assert.ok(sanitized.ic.endsWith('1234') && sanitized.ic.includes('*'), 'Malaysian IC numbers must be masked preserving last 4 chars');
+    assert.ok(sanitized.phone.endsWith('6789') && sanitized.phone.includes('*'), 'Phone numbers must be masked preserving last 4 chars');
+    console.log('  ✔ Privacy-safe deep redaction neutralizes passwords, tokens, and masks PII in audit payloads');
+
+    // 2. Audit Trail Event Logging Engine & RPC Privacy Enforcement
+    const origGetSupa = global.getSupa;
+    const origLogAudit = global.logAuditEvent;
+    let capturedRpcCall = null;
+    global.getSupa = () => ({
+      rpc: async (fnName, rpcParams) => {
+        capturedRpcCall = { fnName, rpcParams };
+        return { success: true, log_id: 'test_rpc_log_id_123' };
+      },
+      get: async () => [],
+      patch: async () => [],
+      post: async () => [],
+      delete: async () => [],
+      upsert: async () => []
+    });
+
+    const auditRes = await utilsMod.logAuditEvent({
+      action: 'admin.role_update',
+      targetType: 'member_role',
+      targetId: '081123-10-1234',
+      actorId: 'jeshuakoh2008@gmail.com',
+      actorRole: 'officer_admin',
+      details: {
+        new_role: 'officer',
+        auth_token: 'should_not_leak_to_rpc',
+        ic: '081123-10-1234'
+      }
+    });
+
+    assert.strictEqual(auditRes.success, true, 'logAuditEvent must succeed');
+    assert.ok(capturedRpcCall, 'Supabase RPC rpc_log_audit_event must be invoked');
+    assert.strictEqual(capturedRpcCall.fnName, 'rpc_log_audit_event', 'RPC name must match rpc_log_audit_event');
+    assert.strictEqual(capturedRpcCall.rpcParams.p_action, 'admin.role_update', 'Captured action must match');
+    assert.strictEqual(capturedRpcCall.rpcParams.p_details.auth_token, '[REDACTED]', 'Unredacted details must NEVER be passed to RPC');
+    assert.ok(capturedRpcCall.rpcParams.p_details.ic.includes('*'), 'Masked IC must be passed to RPC');
+
+    const inMemoryLogs = await utilsMod.getAuditLogs({ limit: 5 });
+    assert.ok(inMemoryLogs.total > 0, 'In-memory audit log ledger must retain logged events');
+    const recentEntry = inMemoryLogs.logs[0];
+    assert.strictEqual(recentEntry.action, 'admin.role_update');
+    assert.strictEqual(recentEntry.actor_id, 'jeshuakoh2008@gmail.com');
+    assert.ok(recentEntry.created_at, 'Audit log entry must have timestamp');
+    console.log('  ✔ logAuditEvent records actor, action, target, timestamp, and protects server RPC from credential leaks');
+
+    // 3. Administrative Sensitive Operation Audit Coverage
+    const adminMod = require('../js/modules/admin.js');
+    const origSupa3 = global.supa;
+    const mockFullSupa = {
+      get: async () => [],
+      patch: async () => [],
+      post: async () => [],
+      delete: async () => [],
+      upsert: async () => [],
+      req: async () => [],
+      rpc: async () => ({ success: true })
+    };
+    global.supa = mockFullSupa;
+    if (typeof window !== 'undefined') window.supa = mockFullSupa;
+
+    let emittedAudits = [];
+    global.logAuditEvent = (evt) => {
+      emittedAudits.push(evt);
+      return utilsMod.logAuditEvent(evt);
+    };
+
+    // Test member verification status update audit logging
+    if (typeof adminMod.updateMemberVerificationStatus === 'function') {
+      emittedAudits = [];
+      await adminMod.updateMemberVerificationStatus('081123-10-9999', 'verified');
+      const vAudit = emittedAudits.find(e => e.action === 'member.verification_update');
+      assert.ok(vAudit, 'updateMemberVerificationStatus must emit member.verification_update audit event');
+      assert.strictEqual(vAudit.targetId, '081123-10-9999');
+      assert.strictEqual(vAudit.details.verification_status, 'verified');
+    }
+
+    // Test blocked email audit logging
+    if (typeof adminMod.addBlockedEmail === 'function' && typeof adminMod.removeBlockedEmail === 'function') {
+      emittedAudits = [];
+      await adminMod.addBlockedEmail('badactor@example.com', 'Violated code of conduct');
+      const blockAudit = emittedAudits.find(e => e.action === 'admin.block_email');
+      assert.ok(blockAudit, 'addBlockedEmail must emit admin.block_email audit event');
+      assert.strictEqual(blockAudit.targetId, 'badactor@example.com');
+
+      emittedAudits = [];
+      await adminMod.removeBlockedEmail('badactor@example.com');
+      const unblockAudit = emittedAudits.find(e => e.action === 'admin.unblock_email');
+      assert.ok(unblockAudit, 'removeBlockedEmail must emit admin.unblock_email audit event');
+      assert.strictEqual(unblockAudit.targetId, 'badactor@example.com');
+    }
+
+    // Test uniform order product deletion audit logging
+    const ordersMod = require('../js/modules/orders.js');
+    if (typeof ordersMod.deleteProduct === 'function') {
+      emittedAudits = [];
+      global.showConfirmModal = async () => true;
+      ordersMod.UNIFORM_ITEMS.push({ key: 'audit_test_prod', name: 'Audit Test Hat', price: 15 });
+      await ordersMod.deleteProduct('audit_test_prod');
+      const prodDelAudit = emittedAudits.find(e => e.action === 'order.product_delete');
+      assert.ok(prodDelAudit, 'deleteProduct must emit order.product_delete audit event');
+      assert.strictEqual(prodDelAudit.targetId, 'audit_test_prod');
+    }
+
+    // Test member logout audit logging
+    const memberMod = require('../js/modules/member.js');
+    if (typeof memberMod.logoutMember === 'function') {
+      emittedAudits = [];
+      global.sessionGet = (k) => (k === 'email' ? 'officer@1stpj.org' : (k === 'role' ? 'officer_admin' : null));
+      memberMod.logoutMember();
+      const logoutAudit = emittedAudits.find(e => e.action === 'auth.logout');
+      assert.ok(logoutAudit, 'logoutMember must emit auth.logout audit event');
+      assert.strictEqual(logoutAudit.targetId, 'officer@1stpj.org');
+    }
+    console.log('  ✔ Sensitive administrative operations (verification, blocking, orders, authentication) emit audit events');
+
+    // Restore mocked globals
+    global.supa = origSupa3;
+    if (typeof window !== 'undefined') window.supa = origSupa3;
+    global.getSupa = origGetSupa;
+    global.logAuditEvent = origLogAudit;
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const postIdsAudit = new Set();
+    const postMatchesAudit = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesAudit.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsAudit.add(match[1]);
+    });
+    assert.strictEqual(postIdsAudit.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsAudit.size})`);
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 

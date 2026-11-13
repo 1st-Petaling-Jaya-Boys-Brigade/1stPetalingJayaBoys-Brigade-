@@ -1504,6 +1504,16 @@ async function addAnnouncement() {
       }
     }
 
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: editId ? 'announcement.update' : 'announcement.create',
+        targetType: 'announcement',
+        targetId: String(editId || createdAnnId || 'announcement'),
+        actorRole: 'officer_admin',
+        details: { title: title, is_pinned: isPinned }
+      });
+    }
+
     clearAnnouncementInfographic();
     setAnnReactionPreset('all');
     if (titleEl) titleEl.value = '';
@@ -1574,6 +1584,15 @@ async function deleteAnnouncement(idx) {
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
         window.PortalRealtime.broadcast('announcements', 'delete');
       }
+    }
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({
+        action: 'announcement.delete',
+        targetType: 'announcement',
+        targetId: String((a && a.id) || idx),
+        actorRole: 'officer_admin',
+        details: { title: (a && a.title) || 'announcement' }
+      });
     }
     if (typeof showToast === 'function') {
       showToast('Announcement deleted.', 'success');
