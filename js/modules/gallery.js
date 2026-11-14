@@ -82,6 +82,80 @@ function galleryMediaSource(url) {
   return id && /^[a-zA-Z0-9_-]+$/.test(id) ? { provider: provider, id: id } : null;
 }
 
+function galleryStorageObject(rawUrl) {
+  var url = parseGalleryUrl(rawUrl);
+  var configured = parseGalleryUrl(typeof SUPA_URL !== 'undefined' ? SUPA_URL : '');
+  if (!url || !configured || url.origin !== configured.origin) return null;
+  var object = url.pathname.match(/^\/storage\/v1\/(?:object|render\/image)\/(sign|public|authenticated)\/gallery\/(.+)$/);
+  return object ? { mode: object[1], path: object[2] } : null;
+}
+
+var pendingGallerySignatures = new Map();
+
+function signGalleryObject(path) {
+  var client = getSupa();
+  if (!client || typeof client.createSignedUrl !== 'function') return Promise.resolve('');
+  if (pendingGallerySignatures.has(path)) return pendingGallerySignatures.get(path);
+  var request = Promise.resolve().then(function() {
+    return client.createSignedUrl('gallery', path, 3600);
+  }).then(function(result) {
+    var signed = result?.signedUrl;
+    var object = galleryStorageObject(signed);
+    return object?.mode === 'sign' && object.path === path ? signed : '';
+  }).catch(function() {
+    return '';
+  }).finally(function() { pendingGallerySignatures.delete(path); });
+  pendingGallerySignatures.set(path, request);
+  return request;
+}
+
+function loadGalleryMedia(image, rawUrl, initialUrl, failed) {
+  initialUrl = parseGalleryUrl(initialUrl) ? initialUrl : '';
+  var storage = galleryStorageObject(rawUrl);
+  var source = parseGalleryUrl(rawUrl);
+  var drive = source && galleryMediaSource(source);
+  var triedFallback = false;
+  function finish() { if (image.isConnected) failed(); }
+  function load(url) {
+    if (!image.isConnected) return;
+    if (url) image.src = url;
+    else finish();
+  }
+  image.onerror = function() {
+    if (!image.isConnected) return;
+    if (triedFallback) { finish(); return; }
+    triedFallback = true;
+    if (storage) {
+      signGalleryObject(storage.path).then(load);
+    } else if (drive?.provider === 'drive') {
+      var preview = new URL('https://drive.google.com/thumbnail');
+      preview.searchParams.set('id', drive.id);
+      preview.searchParams.set('sz', 'w1600');
+      var key = source.searchParams.get('resourcekey');
+      if (key) preview.searchParams.set('resourcekey', key);
+      load(preview.href);
+    } else finish();
+  };
+  if (storage && storage.mode !== 'public') {
+    triedFallback = true;
+    signGalleryObject(storage.path).then(function(url) { load(url || (storage.mode === 'sign' ? initialUrl : '')); });
+  } else {
+    load(initialUrl);
+  }
+}
+
+function configureGalleryThumbs(container, items) {
+  container.querySelectorAll('img[data-gallery-item]').forEach(function(img) {
+    var item = items[Number(img.dataset.galleryItem)];
+    if (!item) return;
+    var url = typeof item === 'string' ? item : item.url;
+    loadGalleryMedia(img, url, getGalleryThumbnailUrl(url, item.type), function() {
+      img.onerror = null;
+      img.src = 'assets/logo.png';
+    });
+  });
+}
+
 /**
  * Normalizes media URLs for Google Drive, YouTube, and Vimeo
  * Converts Google Drive sharing links into embeddable / streaming links
@@ -505,9 +579,7 @@ function renderGallery() {
     var id     = (typeof item === 'object' && item && item.id) ? item.id : '';
     var isVid  = isVideoMedia(rawUrl, item.type);
 
-    var thumbUrl = getGalleryThumbnailUrl(rawUrl, item.type);
-    var validatedThumb = (typeof safeUrl === 'function') ? safeUrl(thumbUrl, '') : thumbUrl;
-    var safeThumbStr   = (typeof escapeHtml === 'function') ? escapeHtml(validatedThumb) : validatedThumb;
+    var thumbnail = '<img data-gallery-item="' + i + '" alt="Media ' + (i + 1) + '" loading="lazy" />';
 
     var videoBadgeHtml = isVid
       ? '<span class="gallery-video-badge"><svg viewBox="0 0 24 24" fill="currentColor" style="width:10px;height:10px;"><polygon points="5 3 19 12 5 21 5 3"/></svg> Video</span>'
@@ -516,27 +588,28 @@ function renderGallery() {
     // Public grid item with clickable lightbox preview
     pubHtml += '<div class="gallery-img-wrap" data-lightbox-idx="' + i + '" style="cursor:pointer;" title="Click to view ' + (isVid ? 'video' : 'photo') + '">'
       + videoBadgeHtml
-      + '<img src="' + safeThumbStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
+      + thumbnail
       + '</div>';
 
     // Home teaser: limit to first 6 items
     if (homeGrid && i < 6) {
       homeHtml += '<div class="gallery-img-wrap" data-home-idx="' + i + '" style="cursor:pointer;" title="Click to preview">'
         + videoBadgeHtml
-        + '<img src="' + safeThumbStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
+        + thumbnail
         + '</div>';
     }
 
     // Admin grid item with delete button
     admHtml += '<div class="gallery-img-wrap">'
       + videoBadgeHtml
-      + '<img src="' + safeThumbStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
+      + thumbnail
       + '<button type="button" class="del-btn" data-gi="' + galleryImages.indexOf(item) + '" data-gid="' + escapeHtml(id) + '" title="Delete Media" aria-label="Delete Media">&times;</button>'
       + '</div>';
   });
 
   if (grid) {
     grid.innerHTML = pubHtml;
+    configureGalleryThumbs(grid, filtered);
     grid.querySelectorAll('[data-lightbox-idx]').forEach(function(el) {
       el.addEventListener('click', function() {
         var idx = parseInt(el.getAttribute('data-lightbox-idx'), 10);
@@ -547,6 +620,7 @@ function renderGallery() {
 
   if (isHomeGridVisible) {
     homeGrid.innerHTML = homeHtml;
+    configureGalleryThumbs(homeGrid, filtered);
     homeGrid.querySelectorAll('[data-home-idx]').forEach(function(el) {
       el.addEventListener('click', function() {
         var idx = parseInt(el.getAttribute('data-home-idx'), 10);
@@ -557,6 +631,7 @@ function renderGallery() {
 
   if (adminGrid) {
     adminGrid.innerHTML = admHtml;
+    configureGalleryThumbs(adminGrid, filtered);
     adminGrid.querySelectorAll('[data-gi]').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -619,9 +694,26 @@ function renderActiveLightboxItem() {
         mediaContentHtml = '<video class="gallery-lb-video" src="' + safeUrlStr + '" controls autoplay playsinline></video>';
       }
     } else {
-      mediaContentHtml = '<img class="gallery-lb-img" src="' + safeUrlStr + '" alt="Photo preview" />';
+      mediaContentHtml = '<img class="gallery-lb-img" alt="Photo preview" />';
     }
     wrap.innerHTML = mediaContentHtml;
+    var photo = wrap.querySelector('.gallery-lb-img');
+    if (photo) loadGalleryMedia(photo, rawUrl, validatedUrl, function() {
+      var message = document.createElement('p');
+      message.setAttribute('role', 'status');
+      message.textContent = 'This photo could not be loaded.';
+      photo.replaceWith(message);
+    });
+    var video = wrap.querySelector('.gallery-lb-video');
+    var storage = galleryStorageObject(rawUrl);
+    if (video && storage) {
+      loadGalleryMedia(video, rawUrl, validatedUrl, function() {
+        var message = document.createElement('p');
+        message.setAttribute('role', 'status');
+        message.textContent = 'This video could not be loaded.';
+        video.replaceWith(message);
+      });
+    }
     wrap.onclick = function(e) {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     };
@@ -775,9 +867,6 @@ function openGalleryLightbox(idx) {
     var rawUrl = (typeof item === 'string') ? item : item.url;
     var normUrl = normalizeMediaUrl(rawUrl, item.type);
     var isVid = isVideoMedia(normUrl, item.type);
-    var thumbUrl = getGalleryThumbnailUrl(rawUrl, item.type);
-    var validatedThumb = (typeof safeUrl === 'function') ? safeUrl(thumbUrl, '') : thumbUrl;
-    var safeThumb = (typeof escapeHtml === 'function') ? escapeHtml(validatedThumb) : validatedThumb;
 
     var thumbEl = document.createElement('button');
     thumbEl.type = 'button';
@@ -785,7 +874,7 @@ function openGalleryLightbox(idx) {
     thumbEl.setAttribute('data-idx', String(i));
     thumbEl.title = 'View ' + (isVid ? 'video' : 'photo') + ' ' + (i + 1);
 
-    var inner = '<img src="' + safeThumb + '" alt="Thumbnail ' + (i + 1) + '" onerror="this.src=\'assets/logo.png\'" />';
+    var inner = '<img data-gallery-item="' + i + '" alt="Thumbnail ' + (i + 1) + '" loading="lazy" />';
     if (isVid) {
       inner += '<div class="gallery-lb-thumb-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
     }
@@ -869,6 +958,7 @@ function openGalleryLightbox(idx) {
   document.addEventListener('keydown', _lightboxKeyHandler);
 
   document.body.appendChild(modal);
+  configureGalleryThumbs(track, _lightboxFiltered);
   if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
 
   // Render first item
@@ -888,7 +978,6 @@ async function uploadGalleryFiles(files) {
     if (typeof showToast === 'function') showToast('Media upload already in progress. Please wait.', 'warning');
     return;
   }
-  _isUploadingGallery = true;
   var validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'heic', 'mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'];
 
   var validFiles = Array.from(files).filter(function(f) {
@@ -904,6 +993,7 @@ async function uploadGalleryFiles(files) {
     }
     return;
   }
+  _isUploadingGallery = true;
 
   var dropZone = (typeof document !== 'undefined') ? document.getElementById('gallery-drop') : null;
   if (dropZone) dropZone.style.opacity = '0.5';
@@ -934,23 +1024,27 @@ async function uploadGalleryFiles(files) {
       var res = await uploadSingleMediaFile(file);
       if (res && res.url) {
         var client = getSupa();
+        var storage = galleryStorageObject(res.url);
+        var url = storage
+          ? new URL('/storage/v1/object/authenticated/gallery/' + storage.path, res.url).href
+          : res.url;
         var row = null;
         if (client && client.post) {
           try {
             row = await client.post('bb_gallery', {
-              url: res.url,
+              url: url,
               type: res.type,
               created_at: new Date().toISOString()
             });
           } catch (errPostType) {
             row = await client.post('bb_gallery', {
-              url: res.url,
+              url: url,
               created_at: new Date().toISOString()
             });
           }
         }
         var id = (row && row[0] && row[0].id) ? row[0].id : null;
-        galleryImages.push({ id: id, url: res.url, type: res.type });
+        galleryImages.push({ id: id, url: url, type: res.type });
         successCount++;
       }
     } catch (e) {

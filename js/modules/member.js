@@ -1902,14 +1902,26 @@ async function loginMember() {
 
     var rememberEl = document.getElementById('login-remember');
     var rememberMe = rememberEl ? rememberEl.checked : true;
+    var adminSignIn = null;
+    if (client && typeof client.rpc === 'function' && typeof RBAC !== 'undefined') {
+      try {
+        await RBAC.loadRolesConfig(true);
+        if (RBAC.isAdmin(queryEmail)) {
+          var issued = await client.rpc('rpc_begin_admin_member_signin', {
+            p_email: queryEmail, p_password: pass, p_remember: rememberMe
+          });
+          if (issued?.token) adminSignIn = { token: issued.token, expires_at: issued.expires_at, email: queryEmail };
+        }
+      } catch (_) {}
+    }
 
     // Multi-Account Family Selector Logic
     if (accounts.length > 1) {
       // Prompt user to select which account to sign in as
-      await showAccountPickerModal(accounts, rememberMe);
+      await showAccountPickerModal(accounts, rememberMe, adminSignIn);
     } else {
       // Single account -> direct login
-      completeLoginWithAccount(accounts[0], rememberMe);
+      completeLoginWithAccount(accounts[0], rememberMe, adminSignIn);
       if (typeof window !== 'undefined' && window.location) {
         var target = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
           ? AuthGuard.getRedirectTarget()
@@ -2089,7 +2101,8 @@ async function checkAndNotifyNewDeviceLogin(m) {
  * @param {Object} m Member account object
  * @param {boolean} rememberMe
  */
-function completeLoginWithAccount(m, rememberMe) {
+/* global saveAdminMemberSignIn */
+function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   if (typeof window !== 'undefined' && typeof window.Notification !== 'undefined' && window.Notification.permission === 'default' && typeof window.requestNotificationPermission === 'function') {
     window.requestNotificationPermission();
   }
@@ -2097,6 +2110,9 @@ function completeLoginWithAccount(m, rememberMe) {
   sessionSet('remember', rememberMe !== false);
   sessionSet('ic', m.ic);
   sessionSet('email', userEmail);
+  if (typeof saveAdminMemberSignIn === 'function' && adminSignIn !== undefined) {
+    saveAdminMemberSignIn(adminSignIn, rememberMe !== false);
+  }
   sessionSet('rank', m.rank || '');
   sessionSet('squad', m.squad || '');
   sessionSet('name', m.name || '');
@@ -2178,9 +2194,9 @@ function completeLoginWithAccount(m, rememberMe) {
  * @param {boolean} rememberMe
  * @returns {Promise<Object|null>}
  */
-function showAccountPickerModal(accounts, rememberMe) {
+function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
   if (typeof document === 'undefined') {
-    completeLoginWithAccount(accounts[0], rememberMe);
+    completeLoginWithAccount(accounts[0], rememberMe, adminSignIn);
     return Promise.resolve(accounts[0]);
   }
 
@@ -2245,7 +2261,7 @@ function showAccountPickerModal(accounts, rememberMe) {
 
       item.addEventListener('click', function() {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        completeLoginWithAccount(acc, rememberMe);
+        completeLoginWithAccount(acc, rememberMe, adminSignIn);
         if (typeof window !== 'undefined' && window.location) {
           var pickerTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
             ? AuthGuard.getRedirectTarget()

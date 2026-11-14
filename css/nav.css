@@ -1136,6 +1136,10 @@
   transition: var(--transition-smooth);
 }
 
+.sidebar-admin-btn[hidden] {
+  display: none !important;
+}
+
 @media (hover: hover) {
   .sidebar-admin-btn:hover {
     background: var(--accent);

@@ -154,9 +154,6 @@
     }
 
     if (!userEmail) {
-      if (getSession('adminAuthed') === true) {
-        return ROLES.ADMIN;
-      }
       return ROLES.MEMBER;
     }
 
@@ -169,35 +166,13 @@
     }
 
     // 2. Check Scoped Admin list (Explicitly assigned in database bb_config)
-    if (_rolesConfig && _rolesConfig.admins && _rolesConfig.admins[userEmail]) {
+    if (_rolesConfig && _rolesConfig.admins && Object.hasOwn(_rolesConfig.admins, userEmail)) {
       return ROLES.ADMIN;
-    }
-
-    // Fallback: Check local storage cached roles config in case of offline/network transition
-    if (typeof localStorage !== 'undefined') {
-      try {
-        var rawRoles = localStorage.getItem('bb_roles_config');
-        if (rawRoles) {
-          var parsed = JSON.parse(rawRoles);
-          if (parsed && Array.isArray(parsed.super_admins) && parsed.super_admins.map(cleanEmail).includes(userEmail)) {
-            return ROLES.SUPER_ADMIN;
-          }
-          if (parsed && parsed.admins && parsed.admins[userEmail]) {
-            return ROLES.ADMIN;
-          }
-        }
-      } catch (_) {}
     }
 
     // CRITICAL SECURITY ENFORCEMENT:
     // ALL other accounts—regardless of rank (Captain, Lieutenant, Chaplain, etc.) or name—
     // default strictly to MEMBER! Ranks NEVER grant Admin/Super Admin access automatically.
-
-    // Authenticated admin session fallback ONLY when no signed-in member session exists
-    var sessEmail = cleanEmail(getSession('email') || getSession('ic'));
-    if (!sessEmail && getSession('adminAuthed') === true) {
-      return ROLES.ADMIN;
-    }
 
     // 4. Default: Member
     return ROLES.MEMBER;
@@ -219,12 +194,12 @@
       if (!userEmail) {
         userEmail = cleanEmail(getSession('email') || getSession('ic'));
       }
-      if (userEmail && _rolesConfig && _rolesConfig.admins && _rolesConfig.admins[userEmail]) {
+      if (userEmail && _rolesConfig && _rolesConfig.admins && Object.hasOwn(_rolesConfig.admins, userEmail)) {
         var adminEntry = _rolesConfig.admins[userEmail];
         var perms = Array.isArray(adminEntry) ? adminEntry : (adminEntry && adminEntry.permissions);
         return Array.isArray(perms) ? perms : [];
       }
-      return !userEmail && getSession('adminAuthed') === true ? [...DEFAULT_ADMIN_MODULES] : [];
+      return [];
     }
 
     return [];
@@ -482,8 +457,10 @@
     var adminBtns = document.querySelectorAll('.sidebar-admin-btn');
     if (!adminBtns || !adminBtns.length) return;
 
-    var canAccess = isAdmin();
+    var identity = cleanEmail(getSession('email') || getSession('ic'));
+    var canAccess = Boolean(identity && isAdmin(identity));
     for (var i = 0; i < adminBtns.length; i++) {
+      adminBtns[i].hidden = !canAccess;
       adminBtns[i].style.display = canAccess ? 'flex' : 'none';
     }
   }
