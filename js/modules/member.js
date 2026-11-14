@@ -1928,7 +1928,11 @@ async function loginMember() {
           : null;
         if (target && target !== 'member') {
           AuthGuard.clearRedirectTarget();
-          window.location.hash = '#' + target;
+          if (target !== 'admin' || adminSignIn) window.location.hash = '#' + target;
+          else if (typeof showToast === 'function') {
+            showToast('Your member sign-in succeeded. Admin access could not be verified.', 'warning');
+            return;
+          }
         }
         window.location.reload();
       }
@@ -2268,7 +2272,12 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
             : null;
           if (pickerTarget && pickerTarget !== 'member') {
             AuthGuard.clearRedirectTarget();
-            window.location.hash = '#' + pickerTarget;
+            if (pickerTarget !== 'admin' || adminSignIn) window.location.hash = '#' + pickerTarget;
+            else if (typeof showToast === 'function') {
+              showToast('Your member sign-in succeeded. Admin access could not be verified.', 'warning');
+              resolve(acc);
+              return;
+            }
           }
           window.location.reload();
         }
@@ -4793,6 +4802,14 @@ function logoutMember() {
   }
 }
 
+function openMemberSignInForAdmin(email) {
+  logoutMember();
+  if (typeof AuthGuard !== 'undefined') AuthGuard.setRedirectTarget('admin');
+  var emailInput = document.getElementById('login-email');
+  if (emailInput) emailInput.value = email;
+  document.getElementById('login-pass')?.focus();
+}
+
 async function uploadPfp(input) {
   var file = input && input.files && input.files[0];
   if (!file) return;
@@ -6646,6 +6663,7 @@ if (typeof window !== 'undefined') {
   window.viewMemberFormResponse       = viewMemberFormResponse;
   window.closeMemberResponseModal     = closeMemberResponseModal;
   window.logoutMember                 = logoutMember;
+  window.openMemberSignInForAdmin       = openMemberSignInForAdmin;
   window.uploadPfp                    = uploadPfp;
   window.loadSecurityQuestion         = loadSecurityQuestion;
   window.sendPasswordResetEmail       = sendPasswordResetEmail;

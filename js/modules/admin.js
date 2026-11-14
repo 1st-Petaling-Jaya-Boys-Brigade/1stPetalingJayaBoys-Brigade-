@@ -1467,7 +1467,6 @@
   }
 
   // ── Cryptographic Session & Gate Hardening ──────────────────────
-  var SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 
   var _adminSessionToken = null;
   var _adminSessionData = null;
@@ -1522,10 +1521,9 @@
   function isAdminSessionCurrent() {
     if (!_adminSessionToken || !_adminSessionData) return false;
     var data = _adminSessionData;
-    var now = Date.now();
-    return Number.isFinite(data.expiresAt) && data.expiresAt > now &&
-      now - data.lastActiveAt < SESSION_IDLE_TIMEOUT_MS &&
-      data.officerEmail === getAdminMemberEmail() && getAdminRole(data.officerEmail) !== 'member';
+    return Number.isFinite(data.expiresAt) && data.expiresAt > Date.now() &&
+      data.officerEmail === getAdminMemberEmail() && getAdminRole(data.officerEmail) !== 'member' &&
+      (typeof getAdminMemberSignIn !== 'function' || Boolean(getAdminMemberSignIn()));
   }
 
   function verifyAdminSessionSync() {
@@ -1547,7 +1545,6 @@
         _adminSessionData.confirmed = true;
         _adminSessionData.scope = result.scope;
         _adminSessionData.permissions = result.permissions;
-        _adminSessionData.lastActiveAt = Date.now();
         if (typeof sessionSet === 'function') sessionSet('adminAuthed', true, { localOnly: true });
         return true;
       }
@@ -1656,14 +1653,21 @@
         request = _adminLifecycle;
       }
       var proof = typeof getAdminMemberSignIn === 'function' ? getAdminMemberSignIn() : null;
-      if (!proof) {
-        if (typeof showToast === 'function') showToast('Sign out and sign back in with your member account to open the Admin Console.', 'warning');
-        return;
-      }
-      // A rejected or expired console session can be replaced using the same member sign-in.
       try {
-        var result = await getSupabaseClient()?.rpc('rpc_open_member_admin_session', { p_member_token: proof });
+        var client = getSupabaseClient();
+        if (!client || typeof client.rpc !== 'function') throw new Error('Admin service unavailable');
+        // A null proof checks deployment readiness without creating a console session.
+        var result = await client.rpc('rpc_open_member_admin_session', { p_member_token: proof });
         if (request !== _adminLifecycle || identity !== getAdminMemberEmail()) return;
+        if (!result && typeof showConfirmModal === 'function') {
+          var proceed = await showConfirmModal('Confirm your member sign-in once to open the Admin Console.', 'Verify Member Sign-in', {
+            confirmText: 'Continue to Sign In', cancelText: 'Cancel'
+          });
+          if (proceed && request === _adminLifecycle && identity === getAdminMemberEmail() && typeof global.openMemberSignInForAdmin === 'function') {
+            global.openMemberSignInForAdmin(identity);
+          }
+          return;
+        }
         var expiresAt = Date.parse(result?.expires_at);
         if (!result?.valid || typeof result.token !== 'string' || !result.token || result.officer_email !== identity ||
             !['admin', 'super_admin'].includes(result.scope) || !Array.isArray(result.permissions) || !(expiresAt > Date.now())) {
@@ -1675,14 +1679,17 @@
         }
         establishAdminSession(result.token, {
           role: 'officer_admin', officerEmail: identity, scope: result.scope, permissions: result.permissions,
-          expiresAt: expiresAt, lastActiveAt: Date.now(), confirmed: true
+          expiresAt: expiresAt, confirmed: true
         });
         if (typeof sessionSet === 'function') sessionSet('adminAuthed', true, { localOnly: true });
         if (typeof logAuditEvent === 'function') {
           logAuditEvent({ action: 'admin.login_success', targetType: 'admin_auth', actorId: identity, actorRole: 'officer_admin' });
         }
-      } catch (_) {
-        if (typeof showToast === 'function') showToast('Admin access is temporarily unavailable. Try again when connected.', 'error');
+      } catch (error) {
+        if (request !== _adminLifecycle || identity !== getAdminMemberEmail()) return;
+        if (typeof showToast === 'function') showToast(error?.code === 'PGRST202'
+          ? 'The Admin Console database update hasn’t been applied yet.'
+          : 'Admin access is temporarily unavailable. Please try again.', 'error');
         return;
       }
     }
@@ -5099,7 +5106,6 @@
     // ── Window & Global Attachment ─────────────────────────────────────────────
   if (typeof global !== 'undefined') {
     global.renderAdminAuditLogs    = renderAdminAuditLogs;
-    global.SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_MS;
     global.ADMIN_SECTIONS           = ADMIN_SECTIONS;
     global.RANK_ORDER               = RANK_ORDER;
     global.MEMBERS_JUNIORS_RANKS    = typeof MEMBERS_JUNIORS_RANKS !== 'undefined' ? MEMBERS_JUNIORS_RANKS : [];
@@ -5308,7 +5314,6 @@
       setAdminViewMode: setAdminViewMode,
       getAdminViewMode: getAdminViewMode,
       renderAdminAuditLogs: renderAdminAuditLogs,
-      SESSION_IDLE_TIMEOUT_MS: SESSION_IDLE_TIMEOUT_MS,
       getAdminMembers: function() { return _adminMembers; },
       getAdminTasks: function() { return _allAdminTasks; },
       getAdminSortBy: function() { return _adminSortBy; },
