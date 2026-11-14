@@ -476,15 +476,14 @@ async function updateMemberMediaConsent(newConsent) {
     var client = getSupa();
     var consentVal = !!newConsent;
 
-    if (client && typeof client.patch === 'function') {
-      try {
-        await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { media_consent: consentVal });
-      } catch (patchErr) {
-        console.warn('Direct media_consent column update note:', patchErr);
-      }
+    if (!client || typeof client.patch !== 'function') {
+      throw new Error('Member service unavailable');
     }
+    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { media_consent: consentVal });
+    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
 
     // Update active session state
+    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (typeof sessionSet === 'function') {
       sessionSet('media_consent', consentVal);
     }
@@ -500,7 +499,11 @@ async function updateMemberMediaConsent(newConsent) {
         audit.governance = 'COPPA/PDPA-2010';
         await client.upsert('bb_config', { key: consentKey, value: JSON.stringify(audit) }, 'key');
       } catch (cfgErr) {
-        console.warn('Child consent audit backup update failed:', cfgErr);
+        if (typeof showToast === 'function') {
+          showToast('Media preference saved. The consent history could not be updated.', 'warning');
+        }
+        if (typeof renderDashboard === 'function') renderDashboard();
+        return;
       }
     }
 
@@ -513,7 +516,7 @@ async function updateMemberMediaConsent(newConsent) {
     }
   } catch (e) {
     if (typeof showToast === 'function') {
-      showToast('Failed to update media preference: ' + e.message, 'error');
+      showToast('Failed to update media preference. Please try again.', 'error');
     }
   }
 }
@@ -534,6 +537,7 @@ var _emailCheckTimeout = null;
 var _isFamilyRegistration = false;
 var _familyAccounts = [];
 var _stagedRegistration = null;
+try { sessionStorage.removeItem('bb_staged_reg'); } catch (_) {}
 
 /**
  * Searches for all active member accounts associated with an email address.
@@ -1152,7 +1156,7 @@ async function registerMember() {
       squad: squad,
       section: section,
       age: parsedAge,
-      password: pass,
+      passwordHash: await hashPassword(pass),
       isMinor: isMinor,
       parentName: parentName,
       parentContact: parentContact,
@@ -1168,7 +1172,6 @@ async function registerMember() {
       (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || (process.argv && process.argv.some(function(a) { return a.includes('test-modules'); }))));
 
     if (isTestRun) {
-      newMemberData.passwordHash = await hashPassword(pass);
       await finalizeMemberRegistration(newMemberData);
       return;
     }
@@ -1176,17 +1179,17 @@ async function registerMember() {
     // In browser: Generate 6-digit OTP and show Verification Screen to block fake/random emails
     var otpCode = Math.floor(100000 + Math.random() * 900000).toString();
     _stagedRegistration = newMemberData;
-    _stagedRegistration.passwordHash = await hashPassword(pass);
-    try { sessionStorage.setItem('bb_staged_reg', JSON.stringify(_stagedRegistration)); } catch (e) {}
+    document.getElementById('reg-pass').value = '';
+    document.getElementById('reg-pass2').value = '';
 
     var mailRes = await dispatchVerificationEmail(email, name, otpCode);
     showRegistrationVerifyView(email, name, otpCode, mailRes ? mailRes.hasMailer : false);
 
-    if (typeof showToast === 'function') {
+    if (mailRes && mailRes.hasMailer && typeof showToast === 'function') {
       showToast('Verification code sent to ' + email + '! Please check your inbox.', 'success', 5000);
     }
   } catch (e) {
-    if (typeof showToast === 'function') showToast('Registration error: ' + e.message, 'error');
+    if (typeof showToast === 'function') showToast('Registration could not be saved. Check your details or try again.', 'error');
   } finally {
     _isRegisteringMember = false;
     if (typeof setButtonLoading === 'function' && regBtn) {
@@ -1195,7 +1198,7 @@ async function registerMember() {
   }
 }
 
-function showRegistrationVerifyView(email, _name, otpCode, hasMailer) {
+function showRegistrationVerifyView(email, _name, _otpCode, hasMailer) {
   var form = document.getElementById('auth-register');
   if (!form) return;
 
@@ -1211,23 +1214,7 @@ function showRegistrationVerifyView(email, _name, otpCode, hasMailer) {
   form.style.display = 'none';
   verifyView.style.display = 'block';
 
-  var fallbackHtml = '';
-  if (!hasMailer && otpCode) {
-    fallbackHtml =
-      '<div style="background:rgba(217,163,35,0.08);border:1px solid rgba(217,163,35,0.3);border-radius:10px;padding:12px 14px;margin-top:14px;font-size:12px;color:var(--text-secondary);text-align:center;">' +
-        '<div style="display:flex;align-items:center;justify-content:center;gap:6px;color:var(--accent);font-weight:700;margin-bottom:4px;">' +
-          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-          '<span>Google Apps Script Mailer Not Yet Linked</span>' +
-        '</div>' +
-        '<span style="font-size:11.5px;line-height:1.4;display:block;">Google Apps Script Webhook is pending setup in Admin Console. For testing &amp; account creation, your verification code is:</span>' +
-        '<div style="margin-top:8px;">' +
-          '<button type="button" onclick="var inp=document.getElementById(\'reg-verify-code\');if(inp){inp.value=\'' + escapeHtml(otpCode) + '\';inp.focus();}" style="background:var(--accent);color:#0f172a;border:none;border-radius:6px;padding:5px 14px;font-weight:800;cursor:pointer;font-family:var(--font-mono, monospace);font-size:16px;letter-spacing:2px;box-shadow:0 2px 6px rgba(0,0,0,0.25);" title="Click to auto-fill code">' +
-            escapeHtml(otpCode) +
-          '</button>' +
-        '</div>' +
-        '<span style="font-size:11px;color:var(--text-muted);display:block;margin-top:5px;">(Click the yellow button above to auto-fill the code)</span>' +
-      '</div>';
-  }
+  var fallbackHtml = hasMailer ? '' : '<p role="status">Email delivery is unavailable. Please contact a Company Officer.</p>';
 
   verifyView.innerHTML =
     '<div style="text-align:center;margin-bottom:12px;">' +
@@ -1267,6 +1254,9 @@ function showRegistrationVerifyView(email, _name, otpCode, hasMailer) {
 }
 
 function cancelRegistrationVerification() {
+  if (_stagedRegistration) {
+    try { sessionStorage.removeItem('bb_reg_otp_' + _stagedRegistration.email); } catch (_) {}
+  }
   _stagedRegistration = null;
   try { sessionStorage.removeItem('bb_staged_reg'); } catch (e) {}
   var verifyView = document.getElementById('reg-verify-step-view');
@@ -1295,7 +1285,7 @@ async function resendRegistrationCode() {
   showRegistrationVerifyView(email, _stagedRegistration.name, newCode, mailRes ? mailRes.hasMailer : false);
   _lastOtpTime[email] = Date.now();
   startRegOtpCooldown(60);
-  if (typeof showToast === 'function') showToast('New 6-digit code sent to ' + email, 'success');
+  if (mailRes && mailRes.hasMailer && typeof showToast === 'function') showToast('New 6-digit code sent to ' + email, 'success');
 }
 
 function startRegOtpCooldown(seconds) {
@@ -1319,13 +1309,6 @@ function startRegOtpCooldown(seconds) {
 }
 
 async function verifyAndCompleteRegistration() {
-  if (!_stagedRegistration) {
-    try {
-      var storedStaged = sessionStorage.getItem('bb_staged_reg');
-      if (storedStaged) _stagedRegistration = JSON.parse(storedStaged);
-    } catch (e) {}
-  }
-
   if (!_stagedRegistration) {
     if (typeof showToast === 'function') showToast('Registration session expired. Please refill the registration form.', 'error');
     cancelRegistrationVerification();
@@ -1386,30 +1369,27 @@ async function verifyAndCompleteRegistration() {
   // Verification passed!
   var staged = _stagedRegistration;
 
-  // Cleanup OTP
-  try { sessionStorage.removeItem('bb_reg_otp_' + email); } catch (e) {}
-  try {
-    var supa = getSupa();
-    if (supa && typeof supa.delete === 'function') {
-      var cfgKey2 = 'bb_reg_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-      supa.delete('bb_config?key=eq.' + encodeURIComponent(cfgKey2)).catch(function() {});
-    }
-  } catch (e) {}
-
   try {
     await finalizeMemberRegistration(staged);
     _stagedRegistration = null;
-    try { sessionStorage.removeItem('bb_staged_reg'); } catch (e) {}
+    // Cleanup OTP only after the member record is saved.
+    try { sessionStorage.removeItem('bb_reg_otp_' + email); } catch (e) {}
+    var client = getSupa();
+    if (client && typeof client.delete === 'function') {
+      var cfgKey2 = 'bb_reg_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
+      try { await client.delete('bb_config?key=eq.' + encodeURIComponent(cfgKey2)); } catch (e) {}
+    }
   } catch (finalizeErr) {
     _stagedRegistration = staged;
-    console.error('Finalize registration error:', finalizeErr);
-    if (typeof showToast === 'function') {
-      showToast('Registration failed: ' + (finalizeErr.message || 'Database error'), 'error');
-    }
+    if (typeof showToast === 'function') showToast('Registration could not be saved. Please try again.', 'error');
   }
 }
 
 async function finalizeMemberRegistration(data) {
+  var isMinor = isMinorSection(data.section, data.age);
+  if (isMinor && (!data.parentName || !data.parentContact || data.parentConsent !== true || !data.consentTimestamp)) {
+    throw new Error('Parental consent is required');
+  }
   var client = getSupa();
   var birthYear = new Date().getFullYear() - data.age;
   var approxDob = birthYear + '-01-01';
@@ -1429,12 +1409,12 @@ async function finalizeMemberRegistration(data) {
     verification_status: 'not_verified'
   };
 
-  if (data.isMinor) {
+  if (isMinor) {
     memberPayload.parent_name = data.parentName;
     memberPayload.parent_contact = data.parentContact;
     memberPayload.parental_consent_signed = true;
     memberPayload.parental_consent_date = data.consentTimestamp;
-    memberPayload.media_consent = data.mediaConsent;
+    memberPayload.media_consent = data.mediaConsent === true;
   }
 
   // Final safeguard: Name uniqueness verification before database write
@@ -1473,31 +1453,12 @@ async function finalizeMemberRegistration(data) {
     }
   }
 
-  // Attempt insert or update if previously deleted row exists with same ic
-  try {
-    memberPayload.email = data.email;
-    memberPayload.department = null;
-    var existingRow = null;
-    try {
-      var checkRes = await client.get('bb_members?ic=eq.' + encodeURIComponent(data.ic) + '&select=ic');
-      if (checkRes && checkRes.length) existingRow = checkRes[0];
-    } catch (checkErr) {}
-
-    if (existingRow) {
-      await client.patch('bb_members?ic=eq.' + encodeURIComponent(data.ic), memberPayload);
-    } else {
-      await client.post('bb_members', memberPayload);
-    }
-  } catch (postErr) {
-    delete memberPayload.email;
-    try {
-      var checkRes2 = await client.get('bb_members?ic=eq.' + encodeURIComponent(data.ic) + '&select=ic');
-      if (checkRes2 && checkRes2.length) {
-        await client.patch('bb_members?ic=eq.' + encodeURIComponent(data.ic), memberPayload);
-      } else {
-        await client.post('bb_members', memberPayload);
-      }
-    } catch (e2) {}
+  // An existing member row must go through login or officer review.
+  memberPayload.email = data.email;
+  memberPayload.department = null;
+  var created = await client.post('bb_members', memberPayload);
+  if (!created || (Array.isArray(created) && created.length === 0)) {
+    throw new Error('Registration did not create a member record');
   }
 
   // Remove from bb_deleted_members in bb_config if it was previously deleted
@@ -1531,7 +1492,7 @@ async function finalizeMemberRegistration(data) {
   } catch (_) {}
 
   // Store parental consent audit in bb_config if minor
-  if (data.isMinor) {
+  if (isMinor) {
     try {
       var auditRecord = {
         email: data.email,
@@ -1542,7 +1503,7 @@ async function finalizeMemberRegistration(data) {
         parent_contact: data.parentContact,
         parental_consent_signed: true,
         parental_consent_date: data.consentTimestamp,
-        media_consent: data.mediaConsent,
+        media_consent: memberPayload.media_consent,
         governance: 'COPPA/PDPA-2010',
         recorded_at: new Date().toISOString()
       };
@@ -1574,12 +1535,10 @@ async function finalizeMemberRegistration(data) {
   var remEl = (typeof document !== 'undefined') ? document.getElementById('reg-remember') : null;
   var rememberMe = remEl ? remEl.checked : true;
 
-  if (data.isMinor) {
-    sessionSet('parent_name', data.parentName);
-    sessionSet('parent_contact', data.parentContact);
+  if (isMinor) {
     sessionSet('parental_consent_signed', true);
     sessionSet('parental_consent_date', data.consentTimestamp);
-    sessionSet('media_consent', data.mediaConsent);
+    sessionSet('media_consent', memberPayload.media_consent);
   }
 
   if (typeof localStorage !== 'undefined') {
@@ -1613,7 +1572,7 @@ async function finalizeMemberRegistration(data) {
         name: data.name,
         section: data.section,
         rank: data.rank,
-        isMinor: !!data.isMinor
+        isMinor: isMinor
       }
     });
   }
@@ -4194,16 +4153,31 @@ async function removePfp(e) {
     ? await showConfirmModal('Remove your custom profile picture and revert to your personalized initials avatar?', 'Remove Profile Picture', { confirmText: 'Remove', cancelText: 'Cancel', danger: true })
     : true;
   if (!confirmed) return;
+  if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
   var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
   var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
 
   var targetFileNames = [];
   if (id) targetFileNames.push(id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
-  if (email && email !== id) targetFileNames.push(email.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+  if (email && email !== id && id.indexOf(email + '__') !== 0) targetFileNames.push(email.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
   if (ic && ic !== id && ic !== email) targetFileNames.push(ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
 
-  // 1. Purge from local storage and session cache immediately
+  // Confirm storage deletion before clearing the local avatar.
+  var client = getSupa();
+  try {
+    for (var i = 0; i < targetFileNames.length; i++) {
+      if (!await client.deleteFile('avatars', targetFileNames[i])) throw new Error('Storage rejected deletion');
+    }
+    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: null });
+    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
+  } catch (_) {
+    if (typeof showToast === 'function') showToast('Profile photo removal could not be confirmed. Please retry.', 'error');
+    return;
+  }
+  if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+
+  // 1. Purge saved copies for this avatar.
   targetFileNames.forEach(function(fn) {
     if (typeof sessionSet === 'function') {
       sessionSet('pfp_cache_' + fn, null);
@@ -4218,28 +4192,12 @@ async function removePfp(e) {
     sessionSet('photo_url', null);
   }
 
-  // Also purge any legacy avatar keys from localStorage
-  if (typeof localStorage !== 'undefined') {
-    try {
-      Object.keys(localStorage).forEach(function(k) {
-        if (k.startsWith('bb_pfp_')) {
-          localStorage.removeItem(k);
-        }
-      });
-    } catch (_) {}
-  }
-
-  // 2. Delete from Supabase Storage and database
+  // 2. Update the directory avatar index.
+  var directorySyncFailed = false;
   try {
-    var client = getSupa();
-    if (client && typeof client.deleteFile === 'function' && targetFileNames.length) {
-      await Promise.all(targetFileNames.map(function(fname) {
-        return client.deleteFile('avatars', fname);
-      }));
-    }
     if (typeof _memberPfpsMap !== 'undefined') {
       if (id) delete _memberPfpsMap[id.toLowerCase()];
-      if (email) delete _memberPfpsMap[email.toLowerCase()];
+      if (email && (email === id || id.indexOf(email + '__') !== 0)) delete _memberPfpsMap[email.toLowerCase()];
       if (ic) delete _memberPfpsMap[ic.toLowerCase()];
       var removeCurrentName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
       if (removeCurrentName) delete _memberPfpsMap[removeCurrentName.trim().toLowerCase()];
@@ -4249,15 +4207,13 @@ async function removePfp(e) {
         }
       } catch (_) {}
     }
-    if (client && typeof client.patch === 'function') {
-      await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: null });
-    }
     if (client && typeof client.upsert === 'function' && typeof _memberPfpsMap !== 'undefined') {
       await client.upsert('bb_config', { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) }, 'key');
     }
-  } catch (err) {
-    console.warn('Storage delete encountered non-fatal error:', err);
+  } catch (_) {
+    directorySyncFailed = true;
   }
+  if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
   // 3. Immediately revert UI to default initials avatar
   if (typeof document !== 'undefined') {
@@ -4291,25 +4247,30 @@ async function removePfp(e) {
   }
 
   if (typeof showToast === 'function') {
-    showToast('Profile picture removed successfully.', 'success');
+    if (directorySyncFailed) showToast('Profile picture removed. Directory sync failed.', 'warning');
+    else showToast('Profile picture removed successfully.', 'success');
   }
 }
 
 // ── Member Dashboard & Profile ──────────────────────────────────────────────
 
-async function renderDashboard() {
-  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
-  if (!id) return;
+var _renderedMemberId = null;
 
+async function renderDashboard() {
+  if (typeof document === 'undefined') return;
+  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   var authBox = document.getElementById('m-auth');
   var dashBox = document.getElementById('m-dashboard');
-  if (authBox) authBox.style.display = 'none';
-  if (dashBox) dashBox.style.display = 'block';
+  if (authBox && !id) authBox.style.display = 'block';
+  if (dashBox && (!id || _renderedMemberId !== id)) dashBox.style.display = 'none';
+  if (!id) _renderedMemberId = null;
+  if (!id) return;
 
   try {
     var client = getSupa();
     var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
-    if (!data || !data.length) return;
+    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+    if (!data || !data.length) throw new Error('Member record unavailable');
 
     var m = data[0];
     var set = function(elemId, val) {
@@ -4317,7 +4278,7 @@ async function renderDashboard() {
       if (el) el.textContent = val;
     };
 
-    var displayEmail = (m.ic && m.ic.indexOf('@') !== -1) ? m.ic : (m.email || m.ic);
+    var displayEmail = m.email || (m.ic && m.ic.includes('@') ? m.ic.split('__')[0] : '');
     set('m-display-name', m.name || '—');
     set('m-display-email', displayEmail);
     set('m-display-ic',   displayEmail); // Compatibility for legacy selectors
@@ -4331,7 +4292,7 @@ async function renderDashboard() {
       ageVal = sessionGet('age') + ' yrs';
     } else if (m.date_of_birth) {
       var bYear = parseInt((m.date_of_birth || '').split('-')[0], 10);
-      if (!isNaN(bYear) && bYear > 1990) {
+      if (bYear > 0 && bYear <= new Date().getFullYear()) {
         ageVal = (new Date().getFullYear() - bYear) + ' yrs';
       }
     }
@@ -4349,7 +4310,7 @@ async function renderDashboard() {
     var memberAge = sessionGet('age');
     if (!memberAge && m.date_of_birth) {
       var bYear = parseInt((m.date_of_birth || '').split('-')[0], 10);
-      if (!isNaN(bYear) && bYear > 1990) memberAge = new Date().getFullYear() - bYear;
+      if (bYear > 0 && bYear <= new Date().getFullYear()) memberAge = new Date().getFullYear() - bYear;
     }
     var isMinor = isMinorSection(memberSection, memberAge);
     var consentWrap = document.getElementById('m-consent-status-wrap');
@@ -4357,8 +4318,9 @@ async function renderDashboard() {
       if (isMinor) {
         consentWrap.style.display = 'block';
         var consentData = await fetchMemberConsent(id, m);
+        if ((sessionGet('ic') || sessionGet('email')) !== id) return;
         var isVerified = consentData && consentData.parental_consent_signed;
-        var mediaConsent = consentData && consentData.media_consent;
+        var mediaConsent = !!(consentData && consentData.media_consent === true);
         var consentDateStr = (consentData && consentData.parental_consent_date)
           ? new Date(consentData.parental_consent_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
           : '';
@@ -4371,10 +4333,10 @@ async function renderDashboard() {
             + '</div>'
             + '<div>'
               + '<div style="font-size:12px;font-weight:700;color:var(--text-primary);">'
-                + (isVerified ? ('Parental Consent Verified' + parentNameStr) : 'Parental Consent Pending Verification')
+                + (isVerified ? ('Parental Consent Recorded' + parentNameStr) : 'Parental Consent Pending Verification')
               + '</div>'
               + '<div style="font-size:11px;color:var(--text-muted);">'
-                + (isVerified ? ('E-signed on ' + (consentDateStr || 'Registration') + ' (PDPA/COPPA Compliant)') : 'Consent record missing. Contact Section Officer.')
+                + (isVerified ? ('Submitted on ' + (consentDateStr || 'registration')) : 'Consent record missing. Contact Section Officer.')
               + '</div>'
             + '</div>'
           + '</div>'
@@ -4428,6 +4390,7 @@ async function renderDashboard() {
       var pfpUrl = client.fileUrl('avatars', cleanFileName);
       var testImg = new Image();
       testImg.onload = function() {
+        if ((sessionGet('ic') || sessionGet('email')) !== id) return;
         var img = document.getElementById('m-pfp-img');
         var ph  = document.getElementById('m-pfp-ph');
         if (img) { img.src = pfpUrl; img.style.display = 'block'; }
@@ -4445,6 +4408,7 @@ async function renderDashboard() {
         setRemovePfpButtonVisible(true);
       };
       testImg.onerror = function() {
+        if ((sessionGet('ic') || sessionGet('email')) !== id) return;
         if (!hasActiveCustomPhoto()) {
           setRemovePfpButtonVisible(false);
         }
@@ -4452,6 +4416,9 @@ async function renderDashboard() {
       testImg.src = pfpUrl + '?t=' + Date.now();
     } catch (e) {}
 
+    _renderedMemberId = id;
+    if (authBox) authBox.style.display = 'none';
+    if (dashBox) dashBox.style.display = 'block';
     loadMemberOrders();
     if (typeof loadMemberAttendanceStats === 'function') loadMemberAttendanceStats(m.name);
 
@@ -4460,7 +4427,9 @@ async function renderDashboard() {
 
     if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
   } catch (e) {
-    console.error('Failed to render dashboard:', e);
+    if ((sessionGet('ic') || sessionGet('email')) === id && typeof showToast === 'function') {
+      showToast('Could not load your member profile. Please try again.', 'error');
+    }
   }
 }
 
@@ -4478,6 +4447,7 @@ async function loadMemberOrders() {
   try {
     var client = getSupa();
     var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');
+    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!orders) orders = [];
 
     var SC = { pending: '#e8b830', processing: '#42a5f5', ready: '#66bb6a', collected: '#888', cancelled: '#ef5350', submitted: '#34d399', approved: '#60a5fa', rejected: '#ef5350' };
@@ -4694,6 +4664,7 @@ function closeMemberResponseModal() {
 }
 
 function logoutMember() {
+  if (_stagedRegistration) cancelRegistrationVerification();
   if (typeof window !== 'undefined' && typeof window.resetTasksFiltersToDefault === 'function') window.resetTasksFiltersToDefault();
   if (typeof sendPresenceHeartbeat === 'function') {
     try { sendPresenceHeartbeat('offline').catch(function() {}); } catch (_) {}
@@ -4770,6 +4741,7 @@ function logoutMember() {
 
   var authBox = document.getElementById('m-auth');
   var dashBox = document.getElementById('m-dashboard');
+  _renderedMemberId = null;
   if (authBox) authBox.style.display = 'block';
   if (dashBox) dashBox.style.display = 'none';
 
@@ -4795,46 +4767,54 @@ function logoutMember() {
 }
 
 async function uploadPfp(input) {
-  var file = input.files[0];
+  var file = input && input.files && input.files[0];
   if (!file) return;
   var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   if (!id) return;
 
   try {
     // 1. Strict security validation & EXIF GPS stripping via canvas
-    var strippedResult = (typeof stripExifAndCompress === 'function')
-      ? await stripExifAndCompress(file, { maxDimension: 600, quality: 0.85, bucket: 'avatars' })
-      : { blob: new Blob([await file.arrayBuffer()], { type: 'image/jpeg' }) };
+    var strippedResult = await stripExifAndCompress(file, { maxDimension: 600, quality: 0.85, bucket: 'avatars' });
     var cleanBlob = strippedResult.blob;
-
-    // Immediate local preview so member sees their new photo with zero delay
-    var localPreviewUrl = URL.createObjectURL(cleanBlob);
-    var img = document.getElementById('m-pfp-img');
-    var ph  = document.getElementById('m-pfp-ph');
-    if (img) { img.src = localPreviewUrl; img.style.display = 'block'; }
-    if (ph)  ph.style.display = 'none';
-    var sImg = document.getElementById('sidebar-user-avatar-img');
-    var sPh  = document.getElementById('sidebar-user-avatar-ph');
-    if (sImg) { sImg.src = localPreviewUrl; sImg.style.display = 'block'; }
-    if (sPh)  sPh.style.display = 'none';
-    var navAvatarImg = document.getElementById('nav-avatar-img');
-    var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
-    if (navAvatarImg) { navAvatarImg.src = localPreviewUrl; navAvatarImg.style.display = 'block'; }
-    if (navAvatarPh)  navAvatarPh.style.display = 'none';
-    if (typeof sessionSet === 'function') sessionSet('photo_url', localPreviewUrl);
-    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
-    setRemovePfpButtonVisible(true);
+    if (!(cleanBlob instanceof Blob) || !cleanBlob.size) throw new Error('Photo could not be processed');
+    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
     var client = getSupa();
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    await client.uploadFile('avatars', cleanFileName, cleanBlob);
+    var signed = typeof client.createSignedUrl === 'function'
+      ? await client.createSignedUrl('avatars', cleanFileName, 86400)
+      : null;
+    var pfpUrl = signed && signed.signedUrl
+      ? signed.signedUrl
+      : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
+    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: pfpUrl });
+    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
+    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
-    // Store in session cache & local storage for instant offline resilience
+    var img = document.getElementById('m-pfp-img');
+    var ph  = document.getElementById('m-pfp-ph');
+    if (img) { img.src = pfpUrl; img.style.display = 'block'; }
+    if (ph)  ph.style.display = 'none';
+    var sImg = document.getElementById('sidebar-user-avatar-img');
+    var sPh  = document.getElementById('sidebar-user-avatar-ph');
+    if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
+    if (sPh)  sPh.style.display = 'none';
+    var navAvatarImg = document.getElementById('nav-avatar-img');
+    var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
+    if (navAvatarImg) { navAvatarImg.src = pfpUrl; navAvatarImg.style.display = 'block'; }
+    if (navAvatarPh)  navAvatarPh.style.display = 'none';
+    if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
+    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+    setRemovePfpButtonVisible(true);
+
+    // Store only a confirmed upload in the offline avatar cache.
     if (typeof sessionSet === 'function') {
       try {
         var reader = new FileReader();
         reader.onloadend = function() {
-          if (reader.result) {
-            sessionSet('pfp_cache_' + cleanFileName, reader.result);
+          if (reader.result && (sessionGet('ic') || sessionGet('email')) === id && sessionGet('photo_url') === pfpUrl) {
+            sessionSet('pfp_cache_' + cleanFileName, reader.result, { localOnly: true });
             if (typeof localStorage !== 'undefined') {
               try { localStorage.setItem('bb_pfp_' + cleanFileName, reader.result); } catch (_) {}
             }
@@ -4844,74 +4824,30 @@ async function uploadPfp(input) {
       } catch (_) {}
     }
 
-    var uploadSucceeded = false;
-    if (client && typeof client.uploadFile === 'function') {
+    // Synchronize the directory avatar index after the member record is saved.
+    if (typeof _memberPfpsMap !== 'undefined') {
+      _memberPfpsMap[id.toLowerCase()] = pfpUrl;
+      var curName = sessionGet('name');
+      if (curName) _memberPfpsMap[curName.trim().toLowerCase()] = pfpUrl;
       try {
-        await client.uploadFile('avatars', cleanFileName, cleanBlob);
-        uploadSucceeded = true;
-      } catch (uploadErr) {
-        console.warn('Avatar storage bucket upload encountered error:', uploadErr);
-        var errStr = uploadErr ? (uploadErr.message || String(uploadErr)) : '';
-        // If storage RLS is blocking, keep local preview and inform user with success
-        if (errStr.indexOf('security policy') !== -1 || errStr.indexOf('row-level') !== -1 || errStr.indexOf('Unauthorized') !== -1 || errStr.indexOf('AccessDenied') !== -1 || errStr.indexOf('403') !== -1) {
-          if (typeof showToast === 'function') {
-            showToast('Profile picture updated successfully (saved to device).', 'success');
-          }
-          return;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
         }
-        throw uploadErr;
-      }
-    }
-
-    if (uploadSucceeded) {
-      // 2. Obtain secure signed URL or public URL
-      var signedRes = (client && typeof client.createSignedUrl === 'function')
-        ? await client.createSignedUrl('avatars', cleanFileName, 86400)
-        : null;
-      var pfpUrl = (signedRes && signedRes.signedUrl)
-        ? signedRes.signedUrl
-        : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
-
-      if (img) img.src = pfpUrl;
-      if (sImg) sImg.src = pfpUrl;
-      if (navAvatarImg) navAvatarImg.src = pfpUrl;
-      if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
-      if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
-
-      // Synchronize across centralized map and Supabase
-      if (typeof _memberPfpsMap !== 'undefined') {
-        if (id) _memberPfpsMap[id.toLowerCase()] = pfpUrl;
-        var curName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
-        if (curName) _memberPfpsMap[curName.trim().toLowerCase()] = pfpUrl;
-        try {
-          if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
-          }
-        } catch (_) {}
-      }
-
+      } catch (_) {}
       try {
-        if (client && typeof client.patch === 'function') {
-          await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: pfpUrl });
-        }
-        if (client && typeof client.upsert === 'function' && typeof _memberPfpsMap !== 'undefined') {
+        if (typeof client.upsert === 'function') {
           await client.upsert('bb_config', { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) }, 'key');
         }
       } catch (pfpSyncErr) {
-        console.warn('Sync pfp to bb_members / bb_config note:', pfpSyncErr);
-      }
-
-      if (typeof showToast === 'function') {
-        showToast('Profile picture updated successfully (EXIF GPS data stripped).', 'success');
+        if (typeof showToast === 'function') showToast('Profile picture saved. Directory sync failed.', 'warning');
+        return;
       }
     }
+    if (typeof showToast === 'function') showToast('Profile picture updated successfully.', 'success');
   } catch (e) {
-    var rawErr = e ? (e.message || String(e)) : 'Upload failed';
-    try {
-      var parsed = JSON.parse(rawErr);
-      rawErr = parsed.message || parsed.error || rawErr;
-    } catch (_) {}
-    if (typeof showToast === 'function') showToast('Failed to upload photo: ' + rawErr, 'error');
+    if (typeof showToast === 'function') showToast('Could not save your profile photo. Try a JPEG, PNG, or WebP image.', 'error');
+  } finally {
+    input.value = '';
   }
 }
 
@@ -4927,6 +4863,7 @@ async function refreshLoggedInUserProfile() {
     var client = getSupa();
     if (!client || typeof client.get !== 'function') return;
     var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=ic,email,name,rank,squad,section,department,att_section,joined_at');
+    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!data || data.length === 0 || (data[0] && (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))) {
       if (typeof forceKickDeletedAccount === 'function') {
         forceKickDeletedAccount();
@@ -5478,23 +5415,8 @@ function refreshSettingsModalAvatar() {
 
 async function handleSettingsAvatarUpload(input) {
   if (!input || !input.files || !input.files[0]) return;
-  var file = input.files[0];
-  try {
-    if (typeof uploadPfp === 'function') {
-      await uploadPfp(file);
-    }
-    refreshSettingsModalAvatar();
-    if (typeof showToast === 'function') {
-      showToast('Profile picture updated successfully!', 'success');
-    }
-  } catch (err) {
-    if (typeof console !== 'undefined' && console.warn) {
-      console.warn('handleSettingsAvatarUpload error:', err);
-    }
-    if (typeof showToast === 'function') {
-      showToast('Failed to upload profile picture.', 'error');
-    }
-  }
+  await uploadPfp(input);
+  refreshSettingsModalAvatar();
 }
 
 async function handleSettingsAvatarRemove() {
@@ -5668,39 +5590,21 @@ async function handleSettingsPasswordUpdate() {
     }
 
     // Strict identity & password verification: prevent unauthenticated password overwrites
-    if (records && records.length > 0 && records[0].password) {
-      var pwCheck = (typeof verifyPassword === 'function')
-        ? await verifyPassword(pCur, records[0].password)
-        : { valid: false };
-      if (!pwCheck || !pwCheck.valid) {
-        if (typeof showToast === 'function') {
-          showToast('Current password is incorrect.', 'error');
-        }
-        return;
-      }
+    if (!records || !records.length || !records[0].password) {
+      throw new Error('Current credential unavailable');
+    }
+    var pwCheck = await verifyPassword(pCur, records[0].password);
+    if (!pwCheck.valid) {
+      if (typeof showToast === 'function') showToast('Current password is incorrect.', 'error');
+      return;
     }
 
-    var newHash = (typeof hashPassword === 'function') ? await hashPassword(pNew) : pNew;
-
-    if (typeof client.patch === 'function') {
-      try {
-        await client.patch('bb_members?email=eq.' + encodeURIComponent(cleanEmail), {
-          password: newHash
-        });
-      } catch (err) {
-        if (typeof console !== 'undefined' && console.warn) {
-          console.warn('Direct patch by email error, trying ic match:', err);
-        }
-        try {
-          var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('bb_user_ic')) : '';
-          if (ic) {
-            await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), {
-              password: newHash
-            });
-          }
-        } catch (_) {}
-      }
-    }
+    var newHash = await hashPassword(pNew);
+    var query = records[0].email
+      ? 'bb_members?email=eq.' + encodeURIComponent(cleanEmail)
+      : 'bb_members?ic=eq.' + encodeURIComponent(records[0].ic);
+    var updated = await client.patch(query, { password: newHash });
+    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
 
     pCurEl.value = '';
     pNewEl.value = '';
@@ -5721,9 +5625,6 @@ async function handleSettingsPasswordUpdate() {
       showToast('Password updated successfully!', 'success');
     }
   } catch (err) {
-    if (typeof console !== 'undefined' && console.error) {
-      console.error('handleSettingsPasswordUpdate error:', err);
-    }
     if (typeof showToast === 'function') {
       showToast('Unable to update password. Please try again.', 'error');
     }

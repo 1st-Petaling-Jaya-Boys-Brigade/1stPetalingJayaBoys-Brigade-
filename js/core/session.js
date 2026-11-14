@@ -38,8 +38,9 @@ var _session = (function() {
           }
           return {};
         }
+        delete parsed.adminAuthed;
         if (typeof sessionStorage !== 'undefined') {
-          sessionStorage.setItem('bb_session', l);
+          sessionStorage.setItem('bb_session', JSON.stringify(parsed));
         }
         return parsed;
       }
@@ -208,14 +209,7 @@ function handleSyncMessage(data) {
   _isApplyingRemoteSync = true;
   try {
     if (data.action === 'clear') {
-      for (var k in _session) {
-        if (Object.prototype.hasOwnProperty.call(_session, k)) {
-          delete _session[k];
-        }
-      }
-      if (typeof sessionStorage !== 'undefined') {
-        try { sessionStorage.removeItem('bb_session'); } catch (_) {}
-      }
+      sessionClear({ localOnly: true });
       if (typeof window !== 'undefined') {
         if (typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
         if (typeof window.renderDashboard === 'function') window.renderDashboard();
@@ -228,12 +222,14 @@ function handleSyncMessage(data) {
       var prevId = _session['ic'] || _session['email'];
 
       if (data.session && typeof data.session === 'object') {
-        for (var sKey in data.session) {
-          if (Object.prototype.hasOwnProperty.call(data.session, sKey)) {
-            _session[sKey] = data.session[sKey];
-          }
+        var remoteId = data.session.ic || data.session.email;
+        if (remoteId && remoteId !== prevId) {
+          for (var sKey in _session) delete _session[sKey];
         }
-      } else if (data.key) {
+        Object.keys(data.session).forEach(function(key) {
+          if (key !== 'adminAuthed') _session[key] = data.session[key];
+        });
+      } else if (data.key && data.key !== 'adminAuthed') {
         _session[data.key] = data.value;
       }
       if (typeof sessionStorage !== 'undefined') {
@@ -315,31 +311,35 @@ function sessionSet(key, value, options) {
         if (!_session._session_saved_at) {
           _session._session_saved_at = Date.now();
         }
-        localStorage.setItem('bb_session', JSON.stringify(_session));
+        var remembered = { ..._session };
+        delete remembered.adminAuthed;
+        localStorage.setItem('bb_session', JSON.stringify(remembered));
         localStorage.setItem('bb_remember', 'true');
       }
     }
 
     // Broadcast to other tabs only if NOT local-only and NOT handling an incoming remote sync
-    if (!localOnly && !_isApplyingRemoteSync) {
+    if (!localOnly && !_isApplyingRemoteSync && key !== 'adminAuthed') {
       var msgId = _tabId + ':' + Date.now() + ':' + (++_msgSeq);
       isDuplicateMessage(msgId);
 
+      var sharedSession = { ..._session };
+      delete sharedSession.adminAuthed;
       var syncPayload = {
         action: 'set',
         key: key,
         value: value,
-        session: _session,
+        session: sharedSession,
         senderId: _tabId,
         msgId: msgId,
         time: Date.now()
       };
 
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('bb_session_sync', JSON.stringify(syncPayload));
-      }
       if (_syncChannel) {
         _syncChannel.postMessage(syncPayload);
+      } else if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_session_sync', JSON.stringify(syncPayload));
+        localStorage.removeItem('bb_session_sync');
       }
     }
   } catch (e) {
@@ -359,6 +359,9 @@ function sessionClear(options) {
   options = options || {};
   var localOnly = options.localOnly === true || options.silent === true;
 
+  if (typeof window !== 'undefined' && typeof window.revokeAdminSession === 'function') {
+    window.revokeAdminSession();
+  }
   for (var k in _session) {
     if (Object.prototype.hasOwnProperty.call(_session, k)) {
       delete _session[k];
@@ -372,10 +375,13 @@ function sessionClear(options) {
       sessionStorage.removeItem('bb_session');
       sessionStorage.removeItem('bb_redirect_target');
       sessionStorage.removeItem('bb_last_session_verify_ts');
+      sessionStorage.removeItem('bb_admin_session_data');
+      sessionStorage.removeItem('bb_staged_reg');
     }
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('bb_session');
       localStorage.removeItem('bb_remember');
+      localStorage.removeItem('bb_session_sync');
     }
 
     if (!localOnly && !_isApplyingRemoteSync) {
@@ -387,11 +393,11 @@ function sessionClear(options) {
         msgId: msgId,
         time: Date.now()
       };
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('bb_session_sync', JSON.stringify(clearPayload));
-      }
       if (_syncChannel) {
         _syncChannel.postMessage(clearPayload);
+      } else if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_session_sync', JSON.stringify(clearPayload));
+        localStorage.removeItem('bb_session_sync');
       }
     }
   } catch (e) {
@@ -410,6 +416,7 @@ function sessionClear(options) {
  */
 async function signOutEverywhere() {
   var actorId = sessionGet('email') || sessionGet('ic') || sessionGet('name') || 'anonymous';
+  var remoteRevoked = false;
 
   // 1. Invalidate remote sessions and record audit trail via Supabase RPC
   try {
@@ -419,18 +426,19 @@ async function signOutEverywhere() {
     else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
 
     if (client && typeof client.rpc === 'function') {
-      await client.rpc('rpc_sign_out_everywhere', { p_actor_id: actorId });
+      var result = await client.rpc('rpc_sign_out_everywhere', { p_actor_id: actorId });
+      remoteRevoked = !!(result && result.success);
     } else if (typeof logAuditEvent === 'function') {
       await logAuditEvent({
         action: 'auth.signout_everywhere',
         targetType: 'auth',
         targetId: actorId,
         actorId: actorId,
-        details: { message: 'All active sessions invalidated across devices' }
+        details: { message: 'Local session cleared. Remote revocation unavailable.' }
       });
     }
   } catch (err) {
-    console.warn('Remote sign out everywhere warning:', err);
+    console.warn('Remote sign-out could not be confirmed.');
   }
 
   // 2. Revoke Officer Admin session if present
@@ -450,11 +458,16 @@ async function signOutEverywhere() {
     if (typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
     if (typeof window.renderDashboard === 'function') window.renderDashboard();
     if (typeof window.showToast === 'function') {
-      window.showToast('You have been signed out of all devices.', 'info');
+      window.showToast(
+        remoteRevoked
+          ? 'Signed out in this browser. Officer sessions were revoked. Member sessions on other devices may remain active.'
+          : 'Signed out in this browser. Sign-out on other devices could not be confirmed.',
+        'info'
+      );
     }
   }
 
-  return { success: true };
+  return { success: true, remoteRevoked: remoteRevoked };
 }
 
 /**
@@ -619,9 +632,6 @@ async function verifyActiveMemberSession(force) {
   var ic = sessionGet('ic');
   var email = sessionGet('email');
   if (!ic && !email) return false;
-
-  // Bypass remote check for automated test harness placeholder IC
-  if (ic === '010101-14-1234') return true;
 
   // 1. Instant local verification against cached deleted/blocked members (0ms latency)
   var cleanIc = String(ic || '').toLowerCase().trim();

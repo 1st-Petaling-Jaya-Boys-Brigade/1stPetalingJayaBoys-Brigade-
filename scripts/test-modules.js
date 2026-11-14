@@ -1347,6 +1347,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log(
     '  ✔ updateMemberMediaConsent empowers parents to dynamically opt-in or withdraw media release'
   );
+  global.supa.patch = async () => { throw new Error('Service unavailable'); };
+  await memberModule.updateMemberMediaConsent(true);
+  assert.strictEqual(mockSession.media_consent, false, 'Failed consent update preserves the previous preference');
 
   // 8. Migration schema verification (004_child_safety_parental_consent.sql)
   const migrationPath = 'supabase/migrations/004_child_safety_parental_consent.sql';
@@ -4897,6 +4900,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     });
     assert.strictEqual(sessionMod.sessionGet('name'), 'Synced Member Name', 'Cross-tab set syncs in-memory session');
     assert.strictEqual(sessionMod.sessionGet('ic'), 'member@test.org', 'Cross-tab set syncs identifier');
+    sessionMod.handleSyncMessage({
+      action: 'set',
+      session: { ic: 'other@example.com', adminAuthed: true }
+    });
+    assert.strictEqual(sessionMod.sessionGet('adminAuthed'), null, 'Admin authentication stays in the originating tab');
+    assert.strictEqual(sessionMod.sessionGet('name'), null, 'Account changes clear fields from the previous member');
+    sessionMod.handleSyncMessage({
+      action: 'set',
+      session: { name: 'Synced Member Name', ic: 'member@test.org' }
+    });
 
     // 8b. Anti-Loop: Self-originating messages must be dropped
     const myTabId = sessionMod.getTabId();
@@ -6251,6 +6264,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(hasModulePermission('uniform', scopedAdminEmail), true, 'Scoped admin granted uniform access');
     assert.strictEqual(hasModulePermission('members', scopedAdminEmail), false, 'Scoped admin denied members access');
     assert.strictEqual(hasModulePermission('roles', scopedAdminEmail), false, 'Scoped admin denied roles console access');
+    await rbacMod.assignUserRole(scopedAdminEmail, 'admin', [], 'jeshuakoh2008@gmail.com');
+    assert.deepStrictEqual(getUserPermissions(scopedAdminEmail), [], 'Empty admin scope grants no permissions');
+    assert.strictEqual(hasModulePermission('members', scopedAdminEmail), false, 'Empty admin scope denies member management');
     console.log('  ✔ Scoped Admin modular permission enforcement verified');
 
     // 5. Jeshua Koh Demotion Protection & Audit Logging
@@ -8595,6 +8611,24 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(sessionMod.sessionGet('name'), 'Oliver Tan', 'Registered member name must be active in session immediately');
     assert.strictEqual(sessionMod.sessionGet('rank'), 'Recruit', 'Registered member rank must be active in session immediately');
     assert.strictEqual(sessionMod.sessionGet('section'), 'Senior', 'Registered member section must be active in session immediately');
+    mockRegSupa.post = async () => { throw new Error('Service unavailable'); };
+    await assert.rejects(memberMod.finalizeMemberRegistration({
+      ...newRegUser, ic: 'pending@example.com', email: 'pending@example.com'
+    }), /Service unavailable/);
+    assert.strictEqual(sessionMod.sessionGet('ic'), newRegUser.ic, 'Failed registration leaves the current session intact');
+
+    const previousStrip = global.stripExifAndCompress;
+    global.stripExifAndCompress = async () => ({ blob: new Blob(['photo'], { type: 'image/jpeg' }) });
+    mockRegSupa.uploadFile = async () => { throw new Error('Service unavailable'); };
+    const previousPhoto = sessionMod.sessionGet('photo_url');
+    const photoInput = { files: [{}], value: 'photo.jpg' };
+    try {
+      await memberMod.handleSettingsAvatarUpload(photoInput);
+      assert.strictEqual(sessionMod.sessionGet('photo_url'), previousPhoto, 'A rejected upload preserves the saved profile photo');
+      assert.strictEqual(photoInput.value, '', 'Settings upload clears the input so the same photo can be retried');
+    } finally {
+      global.stripExifAndCompress = previousStrip;
+    }
     console.log('  ✔ Registration immediately establishes active authenticated session without requiring manual re-login');
 
     // 3. Service Worker Precaching of Sound Asset
@@ -9743,6 +9777,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(adminMod.calcAge('2010-05-15'), curYear - 2010, 'calcAge must accurately calculate standard turning age');
     assert.strictEqual(adminMod.calcAge('2000-02-29'), curYear - 2000, 'calcAge must accurately calculate leap-year 2000 turning age');
     assert.strictEqual(adminMod.calcAge('2024-02-29'), curYear - 2024, 'calcAge must accurately calculate leap-year 2024 turning age');
+    assert.strictEqual(adminMod.calcAge('2023-02-29'), null, 'An invalid leap day must be rejected');
+    assert.strictEqual(adminMod.calcAge((curYear + 1) + '-01-01'), null, 'A future birth date must be rejected');
     console.log('  ✔ calcAge null, invalid date, leap year, and turning age boundaries verified');
 
     // 2. formatFileSize Edge Cases
