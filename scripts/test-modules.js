@@ -429,6 +429,11 @@ assert.strictEqual(
 );
 assert.strictEqual(utils.safeUrl(null, 'default'), 'default');
 assert.strictEqual(utils.safeUrl('', 'default'), 'default');
+assert.strictEqual(utils.safeUrl(null, 'vbscript:disabled'), '#', 'Fallback URLs obey the same protocol policy');
+assert.strictEqual(utils.safeUrl('https:relative-path'), '#', 'Web URLs require an explicit host');
+assert.strictEqual(utils.escapeHtml(Object.create(null)), '', 'Unformattable values produce empty text');
+assert.strictEqual(utils.formatDate(Symbol()), '', 'Unexpected dates produce empty text');
+assert.ok(utils.formatDate(0), 'The Unix epoch is a valid timestamp');
 console.log(
   '  ✔ safeUrl strictly validates protocols and blocks javascript:, vbscript:, and SVG data URIs'
 );
@@ -469,17 +474,17 @@ assert.strictEqual(
   'sanitizeHtml must remove iframe tags'
 );
 assert.strictEqual(
-  cleanRichText.includes('onerror'),
+  /<[^>]+\sonerror\s*=/.test(cleanRichText),
   false,
   'sanitizeHtml must strip onerror event handlers'
 );
 assert.strictEqual(
-  cleanRichText.includes('onclick'),
+  /<[^>]+\sonclick\s*=/.test(cleanRichText),
   false,
   'sanitizeHtml must strip onclick event handlers'
 );
 assert.strictEqual(
-  cleanRichText.includes('javascript:'),
+  /<[^>]+href\s*=\s*["']?javascript:/i.test(cleanRichText),
   false,
   'sanitizeHtml must strip javascript: URIs'
 );
@@ -503,7 +508,7 @@ const cleanSafe = announcementsModule.sanitizeAnnouncementHtml(
 );
 assert.strictEqual(cleanSafe.includes('<script>'), false, 'Sanitizer should remove <script> tags');
 assert.strictEqual(
-  cleanSafe.includes('onerror'),
+  /<[^>]+\sonerror\s*=/i.test(cleanSafe),
   false,
   'Sanitizer should remove inline onerror event handlers'
 );
@@ -3597,6 +3602,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'js/core/theme.js',
     'js/core/utils.js',
     'js/core/ui.js',
+    'js/core/loading.js',
     'js/modules/member.js',
     'js/modules/attendance.js',
     'js/modules/announcements.js',
@@ -3606,7 +3612,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'js/modules/orders.js',
     'js/modules/forms.js',
     'js/modules/badges.js',
-    'js/modules/admin.js'
+    'js/modules/admin.js',
+    'js/modules/tasks.js',
+    'js/modules/forum.js',
+    'js/modules/arcade.js'
   ];
   let unmigratedCount = 0;
   scannedFiles.forEach(f => {
@@ -3623,6 +3632,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
         unmigratedCount++;
       }
       if (/(?<!show)\bconfirm\s*\(/.test(l) && !l.includes('*') && !l.includes('//')) {
+        unmigratedCount++;
+      }
+      if (/\bprompt\s*\(/.test(l) && f !== 'js/api/sheets.js' && !l.includes('*') && !l.includes('//')) {
         unmigratedCount++;
       }
     });
@@ -4524,6 +4536,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     open: async name => {
       if (!mockCacheStore[name]) mockCacheStore[name] = new Map();
       return {
+        match: async req => mockCacheStore[name].get(typeof req === 'string' ? req : req.url),
         put: async (req, res) => {
           const key = typeof req === 'string' ? req : req.url;
           mockCacheStore[name].set(key, res);
@@ -4532,23 +4545,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
           assets.forEach(a => mockCacheStore[name].set(a, { url: a, status: 200 }));
         }
       };
-    },
-    match: async (req, options) => {
-      const targetUrl = typeof req === 'string' ? req : req.url;
-      for (const name of Object.keys(mockCacheStore)) {
-        const store = mockCacheStore[name];
-        for (const [key, res] of store.entries()) {
-          if (options && options.ignoreSearch) {
-            const cleanKey = key.split('?')[0];
-            const cleanTarget = targetUrl.split('?')[0];
-            if (cleanKey === cleanTarget || cleanTarget.endsWith(cleanKey.replace(/^\.\//, ''))) {
-              return res;
-            }
-          }
-          if (key === targetUrl) return res;
-        }
-      }
-      return null;
     }
   };
 
@@ -4560,7 +4556,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(postRes, null, 'Mutation POST requests must bypass SW caching');
 
   // 4a2. Unmanaged GET requests (e.g. Supabase bb_members auth) must bypass service worker
-  const memberGetReq = { method: 'GET', url: 'https://xyz.supabase.co/rest/v1/bb_members?ic=eq.test%40bb.org' };
+  const memberGetReq = { method: 'GET', url: 'https://xyz.supabase.co/rest/v1/bb_members?section=eq.bb_company_calendar' };
   const memberGetRes = await swMod.handleFetchRequest(memberGetReq, mockCaches, async () => ({
     status: 200
   }));
@@ -4596,38 +4592,37 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(offlineDataRes, 'Offline request must resolve from data cache');
   assert.strictEqual(offlineDataRes.status, 200, 'Cached response status must be 200');
 
-  // 4d. Network failure with cold cache returns fallback JSON
+  // 4d. Network failure with cold cache returns a retryable offline error
   const coldBadgeReq = {
     method: 'GET',
     url: 'https://xyz.supabase.co/rest/v1/bb_config?key=eq.bb_badge_defs&select=value'
   };
   const coldDataRes = await swMod.handleFetchRequest(coldBadgeReq, mockCaches, failingFetchFn);
   assert.ok(coldDataRes, 'Cold cache offline request must return fallback');
-  const coldDataPayload = await coldDataRes.json();
-  assert.deepStrictEqual(
-    coldDataPayload,
-    [],
-    'Fallback response must be empty array allowing embedded defaults'
-  );
+  assert.strictEqual(coldDataRes.status, 503, 'Cold cache must not look like a successful empty query');
+  assert.strictEqual(coldDataRes.headers.get('X-BB-Offline'), 'true');
 
-  // 4e. Stale-while-revalidate for static assets with query param ignoreSearch
+  // 4e. A versioned request can fall back to its own precache version only.
   const scriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/calendar.js?v=20261026e'
+    url: 'https://localhost:3000/js/modules/calendar.js?v=' + swMod.CACHE_VERSION
   };
   mockCacheStore[swMod.STATIC_CACHE_NAME] = new Map([
     ['./js/modules/calendar.js', { status: 200, body: 'calendar_code' }]
   ]);
-  const cachedAssetRes = await swMod.handleFetchRequest(scriptReq, mockCaches, async () => ({
-    status: 200,
-    clone: () => ({})
-  }));
-  assert.ok(cachedAssetRes, 'Static asset must match cache ignoring search parameters');
+  const cachedAssetRes = await swMod.handleFetchRequest(scriptReq, mockCaches, failingFetchFn);
+  assert.ok(cachedAssetRes, 'Static asset must fall back to current precache');
   assert.strictEqual(
     cachedAssetRes.body,
     'calendar_code',
-    'Must return cached static asset immediately'
+    'Must return cached static asset when unavailable'
   );
+  const otherVersionReq = { ...scriptReq, url: scriptReq.url.replace(swMod.CACHE_VERSION, 'old-version') };
+  mockCacheStore['bb-portal-static-old-version'] = new Map([[otherVersionReq.url, { status: 200 }]]);
+  const otherVersionResp = await swMod.handleFetchRequest(otherVersionReq, mockCaches, failingFetchFn);
+  assert.strictEqual(otherVersionResp.status, 503, 'A different version must not reuse its old or the current precache');
+  const privateCalendarReq = { ...liveCalendarReq, headers: new Headers({ Authorization: 'Bearer private-session' }) };
+  assert.strictEqual(await swMod.handleFetchRequest(privateCalendarReq, mockCaches, failingFetchFn), null);
   // 4f. RBAC module in precache assets list and version bump verification
   assert.ok(
     swMod.PRECACHE_ASSETS.includes('./js/core/rbac.js'),
@@ -4643,8 +4638,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261109k',
-    'sw.js CACHE_VERSION must be 20261109k'
+    '20261114a',
+    'sw.js CACHE_VERSION must be 20261114a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4653,21 +4648,18 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     url: 'https://localhost:3000/index.html',
     mode: 'navigate'
   };
-  let navCachedClone = null;
+  const originalShell = { status: 200, body: 'cached_offline_shell' };
+  mockCacheStore[swMod.STATIC_CACHE_NAME].set('./index.html', originalShell);
   const liveNavFetchFn = async () => ({
     status: 200,
     body: 'fresh_html_shell',
-    clone: () => {
-      navCachedClone = { status: 200, body: 'fresh_html_shell' };
-      return navCachedClone;
-    }
+    clone: () => ({ status: 200, body: 'fresh_html_shell' })
   });
   const liveNavRes = await swMod.handleFetchRequest(navReq, mockCaches, liveNavFetchFn);
   assert.ok(liveNavRes, 'Navigation request must resolve from network when online');
   assert.strictEqual(liveNavRes.body, 'fresh_html_shell', 'Must return live HTML document immediately');
 
   // 4h. Navigation offline fallback to cached index.html
-  mockCacheStore[swMod.STATIC_CACHE_NAME].set('./index.html', { status: 200, body: 'cached_offline_shell' });
   const offlineNavRes = await swMod.handleFetchRequest(navReq, mockCaches, failingFetchFn);
   assert.ok(offlineNavRes, 'Offline navigation must resolve from static cache fallback');
   assert.strictEqual(offlineNavRes.body, 'cached_offline_shell', 'Must return cached HTML shell when offline');
@@ -4675,7 +4667,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261109k',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261114a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -5289,6 +5281,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       style: {},
       innerHTML: '<span>Submit Order</span>',
       offsetWidth: 140,
+      offsetHeight: 42,
       disabled: false,
       classList: {
         classes: new Set(),
@@ -5307,12 +5300,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(mockBtn.attributes['aria-disabled'], 'true', 'aria-disabled is true');
     assert.strictEqual(mockBtn.attributes['aria-busy'], 'true', 'aria-busy is true');
     assert.strictEqual(mockBtn.style.minWidth, '140px', 'Explicit min-width locked to prevent layout shift');
+    assert.strictEqual(mockBtn.style.minHeight, '42px', 'Explicit min-height locked to prevent layout shift');
+    assert.ok(!mockBtn.innerHTML.includes('btn-spinner'), 'Loading indicator waits for the anti-flicker delay');
+    assert.strictEqual(await loadingMod.withSmartButtonLock(mockBtn, () => assert.fail('Duplicate submission ran')), null);
+    await new Promise(resolve => setTimeout(resolve, 220));
     assert.ok(mockBtn.innerHTML.includes('btn-spinner'), 'Localized spinner injected');
     assert.ok(mockBtn.innerHTML.includes('Submitting uniform order...'), 'Accessible sr-only text injected');
 
     loadingMod.setButtonLoading(mockBtn, false);
     assert.strictEqual(mockBtn.disabled, false, 'Button re-enabled');
     assert.strictEqual(mockBtn.style.minWidth, '', 'min-width reset');
+    assert.strictEqual(mockBtn.style.minHeight, '', 'min-height reset');
     assert.strictEqual(mockBtn.innerHTML, '<span>Submit Order</span>', 'Original innerHTML restored');
     console.log('  ✔ Localized button loading locks min-width, prevents layout shift, and manages aria attributes');
 
@@ -5490,7 +5488,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Theme Core JS Sync
     assert.ok(themeSrc.includes('syncThemeMetaTags') && themeSrc.includes('meta[name="color-scheme"]'), 'theme.js syncs meta[name="color-scheme"] tag');
-    assert.ok(themeSrc.includes("matchMedia('(prefers-color-scheme: light)')"), 'theme.js listens to OS system color scheme changes');
+    assert.ok(themeSrc.includes("matchMedia('(prefers-color-scheme: dark)')"), 'theme.js listens to OS system color scheme changes');
     assert.ok(themeSrc.includes("window.addEventListener('storage'"), 'theme.js synchronizes theme across multiple open browser tabs');
 
     // 4. Component High-Contrast Guards
@@ -7510,7 +7508,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261109k'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261114a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8357,6 +8355,45 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(supaApi.isCircuitBreakerOpen(), false, 'resetCircuitBreaker must restore open status to false');
     console.log('  ✔ Supabase Circuit Breaker fast-fails GET requests and enforces 60s cooldown');
 
+    const savedFetch = global.fetch;
+    let connectionCalls = 0;
+    try {
+      global.fetch = async () => {
+        connectionCalls++;
+        if (connectionCalls === 1) return new Response('Temporarily unavailable', { status: 504, headers: { 'Retry-After': '0' } });
+        return Response.json([{ count: 1 }]);
+      };
+      const responses = await Promise.all([
+        supaApi.supa.get('bb_retry_fixture'),
+        supaApi.supa.get('bb_retry_fixture')
+      ]);
+      assert.strictEqual(connectionCalls, 2, 'Coalesced reads share a single 504 retry');
+      responses[0][0].count = 9;
+      assert.strictEqual(responses[1][0].count, 1, 'Coalesced callers get independent results');
+      assert.strictEqual((await supaApi.supa.get('bb_retry_fixture'))[0].count, 1);
+
+      global.fetch = async () => {
+        connectionCalls++;
+        return new Response('Temporarily unavailable', { status: 504 });
+      };
+      await assert.rejects(supaApi.supa.req('POST', 'bb_retry_fixture', { count: 1 }), { status: 504 });
+      assert.strictEqual(connectionCalls, 3, 'An ambiguous write timeout is never replayed by default');
+      supaApi.resetCircuitBreaker();
+
+      global.fetch = async () => {
+        connectionCalls++;
+        return new Response('Offline', { status: 503, headers: { 'X-BB-Offline': 'true' } });
+      };
+      await assert.rejects(supaApi.supa.get('bb_offline_fixture'), { code: 'offline' });
+      assert.strictEqual(connectionCalls, 4, 'A confirmed offline miss does not retry');
+      assert.ok(!supaApi.isCircuitBreakerOpen(), 'An offline miss does not block subsequent reads');
+    } finally {
+      global.fetch = savedFetch;
+      supaApi.resetCircuitBreaker();
+      supaApi.clearQueryCache();
+    }
+    console.log('  ✔ Coalesced retry, isolated query results, and offline/write failure handling verified');
+
     // 2. Zero-Blank Fallbacks for Announcements
     const annModule = require('../js/modules/announcements.js');
     assert.ok(Array.isArray(annModule.DEFAULT_ANNOUNCEMENTS), 'DEFAULT_ANNOUNCEMENTS must be an array');
@@ -8948,12 +8985,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109k', 'Service Worker cache version must be 20261109k');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261114a', 'Service Worker cache version must be 20261114a');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261109k and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261114a and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -9861,7 +9898,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       const tdmDesc = document.getElementById('tdm-desc');
       assert.ok(tdmDesc, 'tdm-desc element must exist');
       assert.ok(!tdmDesc.innerHTML.includes('<script>'), 'openTaskDetail must eliminate script tags from task descriptions');
-      assert.ok(!tdmDesc.innerHTML.includes('onerror='), 'openTaskDetail must eliminate inline event handlers from task descriptions');
+      assert.ok(!/<[^>]+\sonerror\s*=/i.test(tdmDesc.innerHTML), 'openTaskDetail must eliminate inline event handlers from task descriptions');
       assert.ok(tdmDesc.innerHTML.includes('bold text'), 'openTaskDetail must preserve safe formatting');
       console.log('  ✔ openTaskDetail sanitizes task descriptions eliminating XSS payloads');
     }
@@ -10237,25 +10274,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261109k', 'sw.js CACHE_VERSION must be 20261109k');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261109k', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261109k', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261114a', 'sw.js CACHE_VERSION must be 20261114a');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261114a', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261114a', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261109k cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261114a cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261109k'), 'config.js must use v=20261109k');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261109k'), 'forum.js must use v=20261109k');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261109k'), 'variables.css must use v=20261109k');
-    assert.ok(indexRaw.includes('css/base.css?v=20261109k'), 'base.css must use v=20261109k');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261109k');
+    assert.ok(indexRaw.includes('js/config.js?v=20261114a'), 'config.js must use v=20261114a');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261114a'), 'forum.js must use v=20261114a');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261114a'), 'variables.css must use v=20261114a');
+    assert.ok(indexRaw.includes('css/base.css?v=20261114a'), 'base.css must use v=20261114a');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261114a');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──

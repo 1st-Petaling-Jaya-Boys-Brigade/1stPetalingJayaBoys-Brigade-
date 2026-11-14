@@ -1522,21 +1522,25 @@ async function getJson(url) {
 
     // 1. Trigger showToast and verify DOM elements
     const evalToast = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        showToast('Browser test success toast notification', 'success', 10000);
+      expression: `(async () => {
+        const toast = showToast('Browser test success toast notification', 'success', 10000);
+        window.browserToastFixture = toast;
+        for (let attempt = 0; attempt < 15 && !toast.isConnected; attempt++) {
+          document.querySelectorAll('.portal-toast-close').forEach(button => button.click());
+          await new Promise(resolve => setTimeout(resolve, 275));
+        }
         const container = document.getElementById('portal-toast-container');
-        const allToasts = container ? container.querySelectorAll('.portal-toast-success') : [];
-        const toast = allToasts[allToasts.length - 1] || null;
         const closeBtn = toast ? toast.querySelector('.portal-toast-close') : null;
         return {
           hasContainer: !!container,
           containerAriaLive: container ? container.getAttribute('aria-live') : '',
-          hasToast: !!toast,
+          hasToast: toast.isConnected,
           toastRole: toast ? toast.getAttribute('role') : '',
           toastBody: toast ? toast.querySelector('.portal-toast-body').textContent : '',
           hasCloseBtn: !!closeBtn
         };
       })()`,
+      awaitPromise: true,
       returnByValue: true
     });
     const toastResult = evalToast.result.value;
@@ -1555,7 +1559,7 @@ async function getJson(url) {
       true,
       'Toast element with portal-toast-success must be rendered'
     );
-    assert.strictEqual(toastResult.toastRole, 'alert', 'Toast element must have role="alert"');
+    assert.strictEqual(toastResult.toastRole, 'status', 'Success toast must be announced without interrupting the current screen reader message');
     assert.strictEqual(
       toastResult.toastBody,
       'Browser test success toast notification',
@@ -1569,8 +1573,8 @@ async function getJson(url) {
     // 2. Test toast manual close dismissal
     const evalDismiss = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
-        const container = document.getElementById('portal-toast-container');
-        const toast = container ? container.querySelector('.portal-toast-success') : null;
+        const toast = window.browserToastFixture;
+        delete window.browserToastFixture;
         const closeBtn = toast ? toast.querySelector('.portal-toast-close') : null;
         if (closeBtn) closeBtn.click();
         return {
@@ -1644,15 +1648,21 @@ async function getJson(url) {
 
     // 4. Test non-blocking window.alert wrapper
     const evalAlertWrapper = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
+      expression: `(async () => {
         window.alert('✅ Action performed successfully');
-        const container = document.getElementById('portal-toast-container');
-        const toast = container ? container.querySelector('.portal-toast-success') : null;
+        const findToast = () => Array.from(document.querySelectorAll('.portal-toast-success')).find(toast =>
+          toast.querySelector('.portal-toast-body').textContent.includes('Action performed successfully'));
+        for (let attempt = 0; attempt < 15 && !findToast(); attempt++) {
+          document.querySelectorAll('.portal-toast-close').forEach(button => button.click());
+          await new Promise(resolve => setTimeout(resolve, 275));
+        }
+        const toast = findToast();
         return {
           hasToast: !!toast,
           bodyText: toast ? toast.querySelector('.portal-toast-body').textContent : ''
         };
       })()`,
+      awaitPromise: true,
       returnByValue: true
     });
     const alertWrapperResult = evalAlertWrapper.result.value;
@@ -1664,6 +1674,91 @@ async function getJson(url) {
     console.log(
       '  ✔ Non-blocking window.alert wrapper translates calls to modern toast notifications seamlessly'
     );
+
+    const coreInteractions = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const fixture = document.createElement('div');
+        fixture.style.cssText = 'position:fixed;top:100px;left:100px;display:flex;gap:10px';
+        const button = document.createElement('button');
+        button.className = 'portal-btn portal-btn-primary';
+        const label = document.createElement('span');
+        label.textContent = 'Submit';
+        button.append(label);
+        const sibling = document.createElement('span');
+        sibling.textContent = 'Next';
+        fixture.append(button, sibling);
+        document.body.append(fixture);
+        const layout = () => [button.offsetWidth, button.offsetHeight, sibling.getBoundingClientRect().left].join(':');
+        const before = layout();
+        await withSmartButtonLock(button, async () => 1);
+        const afterFast = !button.querySelector('.btn-spinner') && !button.disabled;
+        let resolveSubmit;
+        const slow = withSmartButtonLock(button, () => new Promise(resolve => { resolveSubmit = resolve; }));
+        const duplicate = await withSmartButtonLock(button, async () => 2);
+        await delay(250);
+        const during = layout();
+        const showsSpinner = !!button.querySelector('.btn-spinner');
+        resolveSubmit();
+        await slow;
+        const stableLayout = before === during && before === layout() && button.firstChild === label;
+
+        button.focus();
+        const outer = showConfirmModal('Outer dialog', 'Confirmation');
+        const outerFocus = document.activeElement;
+        const inner = showPromptModal('Inner dialog', '', '');
+        const innerFocused = document.activeElement.classList.contains('portal-prompt-input');
+        const escape = () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        escape();
+        const innerDismissed = await inner === null && document.activeElement === outerFocus;
+        const overlay = document.querySelector('.portal-modal-overlay');
+        overlay.click();
+        const outerDismissed = await outer === false && document.activeElement === button;
+        fixture.remove();
+
+        const sanitized = document.createElement('template');
+        sanitized.innerHTML = sanitizeHtml('<b>Formatting</b><a href="https://example.org/">Reference</a><span tabindex="1">Text</span>');
+        const link = sanitized.content.querySelector('a');
+        const richTextSafe = !!sanitized.content.querySelector('b') && link.rel === 'noopener noreferrer' &&
+          !sanitized.content.querySelector('span').hasAttribute('tabindex');
+        return { afterFast, duplicate, showsSpinner, stableLayout, innerFocused, innerDismissed, outerDismissed, richTextSafe };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.deepStrictEqual(coreInteractions.result.value, {
+      afterFast: true, duplicate: null, showsSpinner: true, stableLayout: true, innerFocused: true,
+      innerDismissed: true, outerDismissed: true, richTextSafe: true
+    }, 'Core controls must preserve dimensions, focus, and safe formatting');
+    console.log('  ✔ Submit geometry, delayed indicator, re-entry lock, stacked focus restoration, and rich-text filtering verified');
+
+    const gatewayFailure = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const savedFetch = window.fetch;
+        const errors = [];
+        const onError = event => errors.push(event.detail);
+        let requests = 0;
+        window.addEventListener('bb:database-error', onError);
+        try {
+          window.fetch = async () => {
+            requests++;
+            return new Response('Temporarily unavailable', { status: 504 });
+          };
+          const status = await supa.post('bb_core_test_fixture', {}).then(() => 0, error => error.status);
+          return { requests, status, errors };
+        } finally {
+          window.removeEventListener('bb:database-error', onError);
+          window.fetch = savedFetch;
+          resetCircuitBreaker();
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.deepStrictEqual(gatewayFailure.result.value, {
+      requests: 1, status: 504, errors: [{ code: 'http', method: 'POST', status: 504 }]
+    }, 'A gateway timeout must notify the caller and emit one redacted network event without retrying the write');
+    console.log('  ✔ Gateway timeout reports a single redacted error and does not replay the write');
 
     // ── Admin Console Master Controller Verification ──
     console.log('\n[Admin Console Master Controller Verification]');
@@ -2568,6 +2663,22 @@ async function getJson(url) {
     assert.strictEqual(td.darkDataTheme, 'dark', 'Document root data-theme must switch to dark');
     assert.strictEqual(td.darkSchemeMeta, 'dark', 'meta[name="color-scheme"] must sync to dark when dark theme is active');
     console.log('  ✔ Headless Edge dual-theme switching and meta synchronization verified');
+
+    await sendCmd('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+    const themeOverride = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        localStorage.removeItem('bb_theme');
+        window.dispatchEvent(new StorageEvent('storage', { key: 'bb_theme', newValue: null }));
+        const followingOS = document.documentElement.dataset.theme;
+        themeApply('dark', true);
+        window.dispatchEvent(new StorageEvent('storage', { key: 'bb_theme', newValue: 'dark' }));
+        return [followingOS, document.documentElement.dataset.theme];
+      })()`,
+      returnByValue: true
+    });
+    assert.deepStrictEqual(themeOverride.result.value, ['light', 'dark'], 'Clearing storage follows the OS and saving overrides it');
+    await sendCmd('Emulation.setEmulatedMedia', { features: [] });
+    console.log('  ✔ Stored theme override and OS fallback verified');
 
     // ── Member Avatar, Initials & Creator RGB Animation Verification ──
     console.log('\n[Member Avatar & Creator RGB Animation Verification]');

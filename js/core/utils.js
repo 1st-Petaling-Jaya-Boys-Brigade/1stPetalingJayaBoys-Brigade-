@@ -3,6 +3,10 @@
  * Core Utilities, Data Normalization, Cryptographic Security & UI System
  */
 
+function toDisplayString(value) {
+  try { return value == null ? '' : String(value); } catch (_) { return ''; }
+}
+
 /**
  * Escapes unsafe characters for HTML rendering to prevent XSS vulnerabilities.
  * Encodes &, <, >, ", ', /, and ` per OWASP defense-in-depth guidelines.
@@ -10,8 +14,7 @@
  * @returns {string}
  */
 function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str)
+  return toDisplayString(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -29,27 +32,31 @@ function escapeHtml(str) {
  * @returns {string} Safe sanitized URL
  */
 function safeUrl(url, fallback) {
-  var defaultFallback = typeof fallback === 'string' ? fallback : '#';
-  if (!url || typeof url !== 'string') return defaultFallback;
+  return validatePortalUrl(url) || (fallback === '' ? '' : validatePortalUrl(fallback) || '#');
+}
+
+function validatePortalUrl(url) {
+  if (typeof url !== 'string') return '';
   var cleaned = url.replace(/[\x00-\x1F\x7F]/g, '').trim();
-  if (!cleaned) return defaultFallback;
+  if (!cleaned || cleaned.includes('\\') || cleaned.startsWith('//')) return '';
 
-  // Safe relative paths and anchor hashes
-  if (/^(\/|\.\/|\.\.\/|#|[a-zA-Z0-9_\-.~%]+\/)/.test(cleaned) && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(cleaned)) {
-    return cleaned;
+  // Reject malformed or credential-bearing web addresses.
+  if (/^https?:\/\//i.test(cleaned)) {
+    try {
+      var target = new URL(cleaned);
+      return target.hostname && !target.username && !target.password ? cleaned : '';
+    } catch (_) { return ''; }
   }
 
-  // Safe explicit protocols
-  if (/^(https?|mailto|tel):/i.test(cleaned)) {
-    return cleaned;
-  }
+  if (/^(mailto|tel):\S+/i.test(cleaned)) return cleaned;
 
   // Safe raster image data URIs (PNG, JPEG, GIF, WebP - SVG excluded due to script execution risks)
   if (/^data:image\/(png|jpeg|jpg|gif|webp);base64,[A-Za-z0-9+/=]+$/i.test(cleaned)) {
     return cleaned;
   }
 
-  return defaultFallback;
+  var firstSegment = cleaned.split(/[/?#]/, 1)[0];
+  return !firstSegment.includes(':') && !/[<>"]/.test(cleaned) ? cleaned : '';
 }
 
 /**
@@ -60,8 +67,7 @@ function safeUrl(url, fallback) {
  * @returns {string}
  */
 function sanitizeInput(str, maxLength) {
-  if (str === null || str === undefined) return '';
-  var cleaned = String(str)
+  var cleaned = toDisplayString(str)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .trim();
   if (typeof maxLength === 'number' && maxLength > 0 && cleaned.length > maxLength) {
@@ -78,9 +84,20 @@ function sanitizeInput(str, maxLength) {
  * @returns {string}
  */
 function sanitizeText(str, maxLength) {
-  var cleaned = sanitizeInput(str, maxLength);
-  cleaned = cleaned.replace(/<[^>]*>?/gm, '');
-  return cleaned;
+  return sanitizeInput(sanitizeInput(str).replace(/<[^>]*>?/gm, ''), maxLength);
+}
+
+function sanitizeRichStyle(value) {
+  return value.split(';').map(function(declaration) {
+    var property = declaration.slice(0, declaration.indexOf(':')).trim().toLowerCase();
+    var setting = declaration.slice(declaration.indexOf(':') + 1).trim();
+    var allowedProperty = /^(?:color|background-color|font-(?:family|size|weight|style)|line-height|text-(?:align|decoration|indent)|vertical-align|white-space|border(?:-[a-z-]+)?|padding(?:-[a-z-]+)?|margin(?:-[a-z-]+)?|(?:min-|max-)?(?:width|height)|display|flex-shrink|align-items|gap|accent-color|list-style-type)$/;
+    return declaration.includes(':') && allowedProperty.test(property) &&
+      /^[a-z\d #.,%()'"+/-]+$/i.test(setting) &&
+      !/\/\*|url\s*\(|image(?:-set)?\s*\(|expression\s*\(|javascript|vbscript/i.test(setting) &&
+      (property !== 'display' || /^(?:none|block|inline|inline-block|flex|inline-flex|table|table-row|table-cell)$/i.test(setting))
+      ? property + ': ' + setting : '';
+  }).filter(Boolean).join('; ');
 }
 
 /**
@@ -93,9 +110,9 @@ function sanitizeText(str, maxLength) {
 function sanitizeHtml(dirtyHtml, _options) {
   if (!dirtyHtml || typeof dirtyHtml !== 'string') return '';
 
-  if (typeof DOMParser !== 'undefined') {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(dirtyHtml, 'text/html');
+  if (typeof HTMLTemplateElement !== 'undefined') {
+    var template = document.createElement('template');
+    template.innerHTML = dirtyHtml;
 
     var ALLOWED_TAGS = [
       'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'DEL',
@@ -103,7 +120,7 @@ function sanitizeHtml(dirtyHtml, _options) {
       'DIV', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE',
       'CODE', 'PRE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG'
     ];
-    var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel', 'class', 'align', 'src', 'alt', 'title', 'width', 'height', 'loading', 'type', 'checked', 'disabled', 'data-infographic-url'];
+    var ALLOWED_ATTRS = ['color', 'size', 'align', 'title', 'width', 'height'];
 
     function cleanNode(node) {
       var children = Array.from(node.childNodes);
@@ -114,6 +131,10 @@ function sanitizeHtml(dirtyHtml, _options) {
 
           var isChecklistInput = tagName === 'INPUT' && (child.getAttribute('type') || '').toLowerCase() === 'checkbox';
 
+          if (child.namespaceURI !== 'http://www.w3.org/1999/xhtml') {
+            node.removeChild(child);
+            continue;
+          }
           if (ALLOWED_TAGS.indexOf(tagName) === -1 && !isChecklistInput) {
             // Dangerous tags: remove completely with all their content
             if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'SVG', 'LINK', 'META', 'BASE', 'FRAME', 'FRAMESET', 'APPLET', 'AUDIO', 'VIDEO', 'SOURCE', 'NOSCRIPT', 'TEMPLATE'].indexOf(tagName) !== -1) {
@@ -121,7 +142,7 @@ function sanitizeHtml(dirtyHtml, _options) {
               continue;
             } else {
               // Unknown tags: replace with their text content
-              var textNode = doc.createTextNode(child.textContent || '');
+              var textNode = document.createTextNode(child.textContent || '');
               node.replaceChild(textNode, child);
               continue;
             }
@@ -134,62 +155,47 @@ function sanitizeHtml(dirtyHtml, _options) {
             var attrName = attr.name.toLowerCase();
 
             // Block any event handlers (on*) or disallowed attributes
-            if (attrName.startsWith('on') || ALLOWED_ATTRS.indexOf(attrName) === -1) {
-              child.removeAttribute(attr.name);
-            } else if (attrName === 'href') {
-              var hrefVal = (attr.value || '').trim();
-              var validatedHref = safeUrl(hrefVal, '');
-              if (!validatedHref || validatedHref === '#') {
-                child.removeAttribute(attr.name);
-              } else {
-                child.setAttribute('href', validatedHref);
-                child.setAttribute('target', '_blank');
-                child.setAttribute('rel', 'noopener noreferrer');
-              }
-            } else if (attrName === 'src') {
-              var srcVal = (attr.value || '').trim();
-              var validatedSrc = safeUrl(srcVal, '');
-              if (!validatedSrc || validatedSrc === '#') {
-                child.removeAttribute(attr.name);
-              } else {
-                child.setAttribute('src', validatedSrc);
-              }
+            if ((tagName === 'A' && attrName === 'href') ||
+                (tagName === 'IMG' && (attrName === 'src' || attrName === 'data-infographic-url'))) {
+              var validated = safeUrl(attr.value, '');
+              if (!validated || validated === '#' || (tagName === 'A' && /^data:/i.test(validated))) child.removeAttribute(attr.name);
+              else child.setAttribute(attrName, validated);
             } else if (attrName === 'style') {
-              var styleVal = attr.value || '';
-              // Block expressions, javascript: URLs, behavior, or CSS injections
-              if (/expression|javascript:|vbscript:|url\(|behavior|-moz-binding|@import/i.test(styleVal)) {
-                child.removeAttribute('style');
-              }
+              var styleVal = sanitizeRichStyle(attr.value);
+              if (styleVal) child.setAttribute('style', styleVal);
+              else child.removeAttribute('style');
+            } else if (attrName === 'class') {
+              var formattingClass = { DIV: 'tb-checklist-row', IMG: 'ann-embedded-infographic', TABLE: 'tb-table' }[tagName];
+              if (formattingClass && child.classList.contains(formattingClass)) child.setAttribute('class', formattingClass);
+              else child.removeAttribute('class');
+            } else if (!ALLOWED_ATTRS.includes(attrName) &&
+                !(tagName === 'IMG' && ['alt', 'loading'].includes(attrName)) &&
+                !(isChecklistInput && ['type', 'checked', 'disabled'].includes(attrName)) &&
+                !(['TD', 'TH'].includes(tagName) && ['colspan', 'rowspan'].includes(attrName) && /^\d{1,2}$/.test(attr.value))) {
+              child.removeAttribute(attr.name);
             }
           }
 
+          if (tagName === 'A' && child.hasAttribute('href')) {
+            child.setAttribute('target', '_blank');
+            child.setAttribute('rel', 'noopener noreferrer');
+          }
+          if (tagName === 'IMG') child.setAttribute('referrerpolicy', 'no-referrer');
+          if (isChecklistInput) child.setAttribute('disabled', '');
           cleanNode(child);
+        } else if (child.nodeType !== 3) {
+          node.removeChild(child);
         }
       }
     }
 
-    cleanNode(doc.body);
-    return doc.body.innerHTML;
+    cleanNode(template.content);
+    return template.innerHTML;
   }
 
-  // Fallback regex sanitization for non-browser/test environments
-  var sanitized = dirtyHtml
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^>]*>/gi, '')
-    .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
-    .replace(/<link\b[^>]*>/gi, '')
-    .replace(/<meta\b[^>]*>/gi, '')
-    .replace(/<base\b[^>]*>/gi, '')
-    .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
-    .replace(/\son\w+\s*=\s*[^>\s]+/gi, '')
-    .replace(/href\s*=\s*(['"])\s*(?:javascript|vbscript|data):.*?\1/gi, '')
-    .replace(/src\s*=\s*(['"])\s*(?:javascript|vbscript):.*?\1/gi, '')
-    .replace(/style\s*=\s*(['"])[^'"]*(?:expression|javascript:|url\()[^'"]*\1/gi, '');
-
-  return sanitized;
+  // Preserve only attribute-free formatting when an HTML parser is unavailable.
+  return dirtyHtml.split(/(<\/?(?:b|strong|i|em|u|s|p|br|ul|ol|li|code|pre|blockquote)\s*>)/gi)
+    .map(function(part, index) { return index % 2 ? part : escapeHtml(part); }).join('');
 }
 
 /**
@@ -199,14 +205,20 @@ function sanitizeHtml(dirtyHtml, _options) {
  * @returns {string}
  */
 function formatDate(dateStr, options) {
-  if (!dateStr) return '';
+  if (typeof dateStr !== 'string' && typeof dateStr !== 'number' && !(dateStr instanceof Date)) return '';
+  if (dateStr === '') return '';
   try {
+    var dateOnly = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
     var d = new Date(dateStr);
-    if (isNaN(d.getTime())) return String(dateStr);
+    if (!Number.isFinite(d.getTime())) return typeof dateStr === 'string' ? dateStr : '';
     var defaultOpts = { day: 'numeric', month: 'short', year: 'numeric' };
+    if (dateOnly) {
+      if (d.toISOString().slice(0, 10) !== dateStr) return dateStr;
+      return d.toLocaleDateString('en-MY', Object.assign({}, options || defaultOpts, { timeZone: 'UTC' }));
+    }
     return d.toLocaleDateString('en-MY', options || defaultOpts);
   } catch (e) {
-    return String(dateStr);
+    return typeof dateStr === 'string' ? dateStr : '';
   }
 }
 
@@ -1834,7 +1846,7 @@ function maskMemberNameForDirectory(fullName, isSelfOrOfficer) {
  * @returns {{ text: string, isMasked: boolean, tier: 'high'|'medium'|'low'|'protected' }}
  */
 function formatSafeAttendanceRate(percentage, isSelfOrOfficer) {
-  var num = typeof percentage === 'number' ? percentage : parseFloat(String(percentage).replace('%', ''));
+  var num = typeof percentage === 'number' ? percentage : (typeof percentage === 'string' ? parseFloat(percentage) : NaN);
   var pct = (!isNaN(num) && isFinite(num)) ? Math.max(0, Math.min(100, Math.round(num))) : 0;
   if (isSelfOrOfficer) {
     return {
@@ -1865,7 +1877,7 @@ function formatSafeAttendanceRate(percentage, isSelfOrOfficer) {
  */
 function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
   if (!isSelfOrOfficer) return 0;
-  return (typeof demerits === 'number' && !isNaN(demerits)) ? Math.max(0, demerits) : 0;
+  return Number.isFinite(demerits) ? Math.max(0, demerits) : 0;
 }
 
 /**
@@ -1892,7 +1904,7 @@ function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
  * }}
  */
 function getAttendanceAchievementTier(percentage) {
-  var pct = (percentage !== null && percentage !== undefined && percentage !== '') ? parseFloat(percentage) : NaN;
+  var pct = typeof percentage === 'number' ? percentage : (typeof percentage === 'string' ? parseFloat(percentage) : NaN);
   if (!Number.isFinite(pct)) {
     return {
       tier: 'none',
@@ -2643,6 +2655,7 @@ async function clearPortalCache(options) {
     try {
       var keys = await window.caches.keys();
       for (var i = 0; i < keys.length; i++) {
+        if (!/^bb-portal-(?:static|data)-/.test(keys[i])) continue;
         await window.caches.delete(keys[i]);
         purgedCaches.push(keys[i]);
       }

@@ -58,51 +58,44 @@
    * @param {number} [duration=3500] - Display duration before auto-dismiss in milliseconds
    * @returns {HTMLElement|null} The created toast element
    */
-  var _lastToastMap = {};
+  var _lastToastMap = new Map();
+  var pendingToasts = [];
   var MAX_VISIBLE_TOASTS = 3;
+  var MAX_PENDING_TOASTS = 20;
+
+  function displayNextToasts() {
+    var container = ensureToastContainer();
+    if (!container) return;
+    while (container.children.length < MAX_VISIBLE_TOASTS && pendingToasts.length) {
+      var entry = pendingToasts.shift();
+      container.appendChild(entry.toast);
+      entry.toast.classList.add('portal-toast-show');
+      entry.toast._dismissTimer = setTimeout(dismissToast, entry.duration, entry.toast);
+    }
+  }
 
   function showToast(message, type, duration, _options) {
     if (!message) return null;
     if (typeof document === 'undefined') return null;
 
-    type = type || 'info';
-    duration = duration || 3500;
+    type = ['info', 'success', 'error', 'warning'].includes(type) ? type : 'info';
+    duration = Number.isFinite(duration) ? Math.max(0, Math.min(duration, 30000)) : 3500;
 
     // Prevent duplicate rapid-fire identical toasts
-    var dedupKey = type + ':' + String(message).trim();
+    var text = safeEscapeHtml(message).trim();
+    if (!text) return null;
+    var dedupKey = type + ':' + text;
     var now = Date.now();
-    if (_lastToastMap[dedupKey] && now - _lastToastMap[dedupKey] < 1200) {
+    if (_lastToastMap.has(dedupKey) && now - _lastToastMap.get(dedupKey) < 1200) {
       return null;
     }
-    _lastToastMap[dedupKey] = now;
-
-    // Prune stale toast throttling entries
-    var toastKeys = Object.keys(_lastToastMap);
-    if (toastKeys.length > 40) {
-      for (var tk = 0; tk < toastKeys.length; tk++) {
-        if (now - _lastToastMap[toastKeys[tk]] > 10000) {
-          delete _lastToastMap[toastKeys[tk]];
-        }
-      }
-    }
-
-    var container = ensureToastContainer();
-    if (!container) return null;
-
-    // Cap active toast count to MAX_VISIBLE_TOASTS
-    while (container.children.length >= MAX_VISIBLE_TOASTS) {
-      var oldest = container.firstElementChild;
-      if (oldest) {
-        if (oldest._dismissTimer) clearTimeout(oldest._dismissTimer);
-        container.removeChild(oldest);
-      } else {
-        break;
-      }
-    }
+    _lastToastMap.delete(dedupKey);
+    _lastToastMap.set(dedupKey, now);
+    if (_lastToastMap.size > 64) _lastToastMap.delete(_lastToastMap.keys().next().value);
 
     var toast = document.createElement('div');
     toast.className = 'portal-toast portal-toast-' + type;
-    toast.setAttribute('role', 'alert');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
 
     var iconSvg = '';
     if (type === 'success') {
@@ -115,7 +108,7 @@
       iconSvg = '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
     }
 
-    var safeMsg = safeEscapeHtml(message).replace(/\n/g, '<br>');
+    var safeMsg = text.replace(/\n/g, '<br>');
 
     toast.innerHTML = iconSvg +
       '<div class="portal-toast-body">' + safeMsg + '</div>' +
@@ -128,22 +121,9 @@
       });
     }
 
-    container.appendChild(toast);
-
-    // Trigger enter transition
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(function() {
-        toast.classList.add('portal-toast-show');
-      });
-    } else {
-      toast.classList.add('portal-toast-show');
-    }
-
-    var timer = setTimeout(function() {
-      dismissToast(toast);
-    }, duration);
-
-    toast._dismissTimer = timer;
+    if (pendingToasts.length >= MAX_PENDING_TOASTS) pendingToasts.shift();
+    pendingToasts.push({ toast: toast, duration: duration });
+    displayNextToasts();
 
     return toast;
   }
@@ -153,7 +133,9 @@
    * @param {HTMLElement} el - The toast DOM element to dismiss
    */
   function dismissToast(el) {
-    if (!el) return;
+    if (!el || el.classList.contains('portal-toast-hide')) return;
+    var queued = pendingToasts.findIndex(function(entry) { return entry.toast === el; });
+    if (queued !== -1) { pendingToasts.splice(queued, 1); return; }
     if (el._dismissTimer) {
       clearTimeout(el._dismissTimer);
       el._dismissTimer = null;
@@ -164,6 +146,7 @@
       if (el && el.parentNode) {
         el.parentNode.removeChild(el);
       }
+      displayNextToasts();
     }, 250);
   }
 
@@ -196,6 +179,7 @@
       var modal = document.createElement('div');
       modal.className = 'portal-modal-card';
 
+      overlay.setAttribute('aria-label', title || 'Please Confirm');
       var safeTitle = safeEscapeHtml(title || 'Please Confirm');
       var safeMsg = safeEscapeHtml(message || '').replace(/\n/g, '<br>');
 
@@ -211,48 +195,9 @@
           '<button type="button" class="portal-btn portal-btn-primary" id="portal-modal-ok">' + safeEscapeHtml(confirmText) + '</button>' +
         '</div>';
 
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-
-      var cleanedUp = false;
-      function cleanup(result) {
-        if (cleanedUp) return;
-        cleanedUp = true;
-        if (typeof document !== 'undefined') {
-          document.removeEventListener('keydown', handleKeyDown);
-        }
-        overlay.classList.add('portal-modal-closing');
-        setTimeout(function() {
-          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-          resolve(result);
-        }, 200);
-      }
-
-      function handleKeyDown(e) {
-        if (e.key === 'Escape' || e.keyCode === 27) {
-          cleanup(false);
-        }
-      }
-
-      if (typeof document !== 'undefined') {
-        document.addEventListener('keydown', handleKeyDown);
-      }
-
       var cancelBtn = modal.querySelector('#portal-modal-cancel');
       var okBtn = modal.querySelector('#portal-modal-ok');
-
-      if (cancelBtn) cancelBtn.addEventListener('click', function() { cleanup(false); });
-      if (okBtn) okBtn.addEventListener('click', function() { cleanup(true); });
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) cleanup(false);
-      });
-
-      // Accessible auto-focus
-      if (okBtn && typeof okBtn.focus === 'function') {
-        setTimeout(function() {
-          try { okBtn.focus(); } catch (_) {}
-        }, 50);
-      }
+      mountPortalDialog(overlay, modal, cancelBtn || okBtn, cancelBtn, okBtn, false, function() { return true; }, resolve);
     });
   }
 
@@ -288,6 +233,7 @@
       modal.className = 'portal-modal-card';
       modal.style.maxWidth = '460px';
 
+      overlay.setAttribute('aria-label', title || 'Enter Value');
       var safeTitle = safeEscapeHtml(title || 'Enter Value');
       var safePlaceholder = safeEscapeHtml(placeholder || '');
       var safeVal = safeEscapeHtml(defaultValue || '');
@@ -308,54 +254,85 @@
           '<button type="button" class="portal-btn portal-btn-primary" id="portal-prompt-ok">' + safeEscapeHtml(confirmText) + '</button>' +
         '</div>';
 
-      overlay.appendChild(modal);
-      document.body.appendChild(overlay);
-
       var input = modal.querySelector('.portal-prompt-input');
-      if (input) {
-        setTimeout(function() {
-          try {
-            input.focus();
-            if (input.select) input.select();
-          } catch (_) {}
-        }, 50);
-      }
-
-      var cleanedUp = false;
-      function cleanup(val) {
-        if (cleanedUp) return;
-        cleanedUp = true;
-        if (typeof document !== 'undefined') {
-          document.removeEventListener('keydown', handleKeyDown);
-        }
-        overlay.classList.add('portal-modal-closing');
-        setTimeout(function() {
-          if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-          resolve(val);
-        }, 200);
-      }
-
-      function handleKeyDown(e) {
-        if (e.key === 'Escape' || e.keyCode === 27) {
-          cleanup(null);
-        } else if (e.key === 'Enter' || e.keyCode === 13) {
-          e.preventDefault();
-          cleanup(input ? input.value : null);
-        }
-      }
-
-      if (typeof document !== 'undefined') {
-        document.addEventListener('keydown', handleKeyDown);
-      }
-
+      if (input) input.setAttribute('aria-label', title || 'Enter value');
       var cancelBtn = modal.querySelector('#portal-prompt-cancel');
       var okBtn = modal.querySelector('#portal-prompt-ok');
+      mountPortalDialog(overlay, modal, input || okBtn, cancelBtn, okBtn, null, function() { return input ? input.value : null; }, resolve);
+      if (input && input.select) input.select();
+    });
+  }
 
-      if (cancelBtn) cancelBtn.addEventListener('click', function() { cleanup(null); });
-      if (okBtn) okBtn.addEventListener('click', function() { cleanup(input ? input.value : null); });
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) cleanup(null);
-      });
+  var portalDialogStack = [];
+
+  function mountPortalDialog(overlay, modal, initialFocus, cancelButton, confirmButton, cancelResult, confirmedValue, resolve) {
+    var previousFocus = document.activeElement;
+    var parent = portalDialogStack[portalDialogStack.length - 1];
+    var state = { overlay: overlay, closing: false, initialFocus: initialFocus || modal, previousFocus: previousFocus };
+    portalDialogStack.push(state);
+    if (parent) {
+      parent.overlay.inert = true;
+      parent.overlay.removeAttribute('aria-modal');
+    }
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    modal.setAttribute('tabindex', '-1');
+    (initialFocus || modal).focus?.({ preventScroll: true });
+
+    function onTop() {
+      return portalDialogStack[portalDialogStack.length - 1] === state;
+    }
+
+    function cleanup(result) {
+      if (!onTop() || state.closing) return;
+      state.closing = true;
+      overlay.classList.add('portal-modal-closing');
+      setTimeout(function() {
+        document.removeEventListener('keydown', handleKeyDown, true);
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        var index = portalDialogStack.indexOf(state);
+        var wasTop = onTop();
+        if (index !== -1) portalDialogStack.splice(index, 1);
+        if (wasTop) {
+          var active = portalDialogStack[portalDialogStack.length - 1];
+          if (active) {
+            active.overlay.inert = false;
+            active.overlay.setAttribute('aria-modal', 'true');
+          }
+          var restoreTo = state.previousFocus?.isConnected ? state.previousFocus : active?.initialFocus;
+          restoreTo?.focus?.({ preventScroll: true });
+        } else if (portalDialogStack[index]) {
+          portalDialogStack[index].previousFocus = state.previousFocus;
+        }
+        resolve(result);
+      }, 200);
+    }
+
+    function handleKeyDown(e) {
+      if (!onTop()) return;
+      if (e.key === 'Escape' || e.keyCode === 27) {
+        e.preventDefault?.();
+        e.stopImmediatePropagation?.();
+        cleanup(cancelResult);
+      } else if (e.key === 'Enter' && e.target === initialFocus && initialFocus?.tagName === 'INPUT' && !e.isComposing) {
+        e.preventDefault();
+        cleanup(confirmedValue());
+      } else if (e.key === 'Tab') {
+        var controls = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]'))
+          .filter(function(node) { return node.getClientRects().length > 0; });
+        var index = controls.indexOf(document.activeElement);
+        if (!controls.length || index === -1 || (e.shiftKey ? index === 0 : index === controls.length - 1)) {
+          e.preventDefault();
+          (controls[e.shiftKey ? controls.length - 1 : 0] || modal).focus();
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    cancelButton?.addEventListener('click', function() { cleanup(cancelResult); });
+    confirmButton?.addEventListener('click', function() { cleanup(confirmedValue()); });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) cleanup(cancelResult);
     });
   }
 
@@ -537,29 +514,19 @@
         document.execCommand('insertHTML', false, '<code>code</code>&nbsp;');
       }
     } else if (cmd === 'link') {
-      var url = null;
-      if (typeof showPromptModal === 'function') {
-        url = await showPromptModal('Insert Link', 'https://...', '', { confirmText: 'Insert', cancelText: 'Cancel' });
-      } else if (typeof prompt === 'function') {
-        url = prompt('Enter URL (https://...):');
-      }
+      var url = await showPromptModal('Insert Link', 'https://...', '', { confirmText: 'Insert', cancelText: 'Cancel' });
       if (url && url.trim()) {
         restoreRichEditorRange();
-        var validUrl = (typeof safeUrl === 'function') ? safeUrl(url.trim(), '#') : url.trim();
+        var validUrl = typeof safeUrl === 'function' ? safeUrl(url, '') : '';
         if (validUrl && validUrl !== '#') {
           document.execCommand('createLink', false, validUrl);
         }
       }
     } else if (cmd === 'image') {
-      var imgUrl = null;
-      if (typeof showPromptModal === 'function') {
-        imgUrl = await showPromptModal('Insert Image', 'https://...', '', { confirmText: 'Insert Image', cancelText: 'Cancel' });
-      } else if (typeof prompt === 'function') {
-        imgUrl = prompt('Enter Image URL (https://...):');
-      }
+      var imgUrl = await showPromptModal('Insert Image', 'https://...', '', { confirmText: 'Insert Image', cancelText: 'Cancel' });
       if (imgUrl && imgUrl.trim()) {
         restoreRichEditorRange();
-        var validImgUrl = (typeof safeUrl === 'function') ? safeUrl(imgUrl.trim(), '') : imgUrl.trim();
+        var validImgUrl = typeof safeUrl === 'function' ? safeUrl(imgUrl, '') : '';
         if (validImgUrl) {
           document.execCommand('insertHTML', false, '<img src="' + safeEscapeHtml(validImgUrl) + '" alt="Embedded image" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;" /><br/>');
         }
@@ -708,7 +675,9 @@
 
   // ── Announcement Infographic Zoom / Lightbox Modal ───────────────────────
   function openAnnouncementZoomModal(imageUrl, title) {
-    if (typeof document === 'undefined' || !imageUrl) return;
+    if (typeof document === 'undefined') return;
+    imageUrl = typeof safeUrl === 'function' ? safeUrl(imageUrl, '') : '';
+    if (!imageUrl) return;
     var modal = document.querySelector('.ann-zoom-modal');
     if (!modal) {
       modal = document.createElement('div');
@@ -746,20 +715,19 @@
     }
     var cap = modal.querySelector('.ann-zoom-caption');
     if (cap) cap.textContent = title || 'Announcement Infographic';
+    if (modal.style.display !== 'flex' || !modal._opener) modal._opener = document.activeElement;
     modal.style.display = 'flex';
-
-    document.addEventListener('keydown', function handleEsc(e) {
-      if (e.key === 'Escape') {
-        closeAnnouncementZoomModal();
-        document.removeEventListener('keydown', handleEsc);
-      }
-    });
+    modal.querySelector('.ann-zoom-close-btn')?.focus?.({ preventScroll: true });
   }
 
   function closeAnnouncementZoomModal() {
     if (typeof document === 'undefined') return;
     var modal = document.querySelector('.ann-zoom-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.style.display = 'none';
+      if (modal._opener?.isConnected) modal._opener.focus({ preventScroll: true });
+      modal._opener = null;
+    }
   }
 
   
@@ -1398,7 +1366,7 @@
             try {
               navigator.serviceWorker.getRegistration().then(function(reg) {
                 if (reg && typeof reg.showNotification === 'function') {
-                  reg.showNotification(notifTitle, notifOpts);
+                return reg.showNotification(notifTitle, notifOpts);
                 }
               }).catch(function() {});
             } catch (_) {}
@@ -1567,7 +1535,7 @@
    * Follows WAI-ARIA Dialog recommendations: closes topmost visible dialog/modal on Escape
    */
   function handleGlobalModalEscape(e) {
-    if (!e || e.defaultPrevented || (e.key !== 'Escape' && e.keyCode !== 27)) return;
+    if (!e || e.defaultPrevented || portalDialogStack.length || (e.key !== 'Escape' && e.keyCode !== 27)) return;
     if (typeof document === 'undefined') return;
 
     // 1. Zoom Modal
@@ -1579,7 +1547,7 @@
 
     // 2. Lightbox Modal
     var lbModal = document.getElementById('gallery-lightbox-modal');
-    if (lbModal) {
+    if (lbModal && lbModal.style.display !== 'none') {
       var closeLb = _resolveGlobalFn('closeGalleryLightbox');
       if (closeLb) { closeLb(); return; }
     }

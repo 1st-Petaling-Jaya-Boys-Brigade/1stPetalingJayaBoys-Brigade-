@@ -6,14 +6,14 @@
 /**
  * In-memory concurrency locks per config key
  */
-const _configLocks = {};
+const _configLocks = Object.create(null);
 const PRIVATE_STORAGE_BUCKETS = ['avatars', 'gallery', 'story_highlights', 'highlights', 'receipts', 'waivers', 'resources'];
 const _signedUrlCache = new Map();
 
 /**
  * Cached snapshots tracking known version/timestamp/state of config keys
  */
-const _configSnapshots = {};
+const _configSnapshots = Object.create(null);
 
 /**
  * Deep merge utility for array of objects by unique identifier (3-way merge)
@@ -106,71 +106,91 @@ function getSupaClient() {
 
 /**
  * Request Throttling: Limits maximum concurrent HTTP requests to prevent socket exhaustion
- * Enhanced with 12s AbortController timeout boundaries and queue-abort de-registration.
+ * A request holds its slot until its response is consumed or aborted.
  */
 const MAX_CONCURRENT_REQUESTS = 12;
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 let _activeRequests = 0;
 const _requestQueue = [];
 
-async function throttledFetch(url, fetchOpts, timeoutMs) {
-  fetchOpts = fetchOpts ? Object.assign({}, fetchOpts) : {};
-  timeoutMs = timeoutMs || DEFAULT_REQUEST_TIMEOUT_MS;
-
-  const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  let timeoutId = null;
-
-  if (fetchOpts.signal) {
-    if (fetchOpts.signal.aborted) {
-      const err = new Error('The user aborted a request.');
-      err.name = 'AbortError';
-      throw err;
-    }
-    if (controller) {
-      fetchOpts.signal.addEventListener('abort', () => controller.abort(), { once: true });
-    }
+function acquireRequestSlot(signal) {
+  if (signal?.aborted) return Promise.reject(signal.reason || new DOMException('Request cancelled', 'AbortError'));
+  if (_activeRequests < MAX_CONCURRENT_REQUESTS) {
+    _activeRequests++;
+    return Promise.resolve();
   }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      const index = _requestQueue.indexOf(resume);
+      if (index !== -1) _requestQueue.splice(index, 1);
+      reject(signal.reason || new DOMException('Request cancelled', 'AbortError'));
+    };
+    const resume = () => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    _requestQueue.push(resume);
+  });
+}
 
-  // If at concurrency capacity, wait in queue without consuming timeout
-  if (_activeRequests >= MAX_CONCURRENT_REQUESTS) {
-    await new Promise((resolve, reject) => {
-      const queueItem = { resolve, reject };
-      if (fetchOpts.signal) {
-        const onAbort = () => {
-          const idx = _requestQueue.indexOf(queueItem);
-          if (idx !== -1) _requestQueue.splice(idx, 1);
-          const err = new Error('The user aborted a request.');
-          err.name = 'AbortError';
-          reject(err);
-        };
-        fetchOpts.signal.addEventListener('abort', onAbort, { once: true });
-      }
-      _requestQueue.push(queueItem);
-    });
-  }
+async function throttledFetch(url, fetchOpts, timeoutMs, consumeResponse) {
+  fetchOpts = Object.assign({}, fetchOpts);
+  const external = fetchOpts.signal;
+  const controller = new AbortController();
+  const forwardAbort = () => controller.abort(external.reason);
+  await acquireRequestSlot(external);
+  external?.addEventListener('abort', forwardAbort, { once: true });
+  if (external?.aborted) forwardAbort();
 
-  // Arm network timeout ONLY once dequeued and actively dispatching
-  if (controller) {
-    timeoutId = setTimeout(() => {
-      controller.abort();
-    }, timeoutMs);
-    fetchOpts.signal = controller.signal;
-  }
-
-  _activeRequests++;
+  const timeout = setTimeout(() => controller.abort(new DOMException('Database request timed out.', 'TimeoutError')), timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS);
   try {
-    return await fetch(url, fetchOpts);
+    if (controller.signal.aborted) throw controller.signal.reason;
+    const response = await fetch(url, { ...fetchOpts, signal: controller.signal });
+    return consumeResponse ? await consumeResponse(response) : response;
+  } catch (error) {
+    if (controller.signal.aborted) throw controller.signal.reason || error;
+    throw error;
   } finally {
-    if (timeoutId) clearTimeout(timeoutId);
-    _activeRequests--;
-    if (_requestQueue.length > 0) {
-      const next = _requestQueue.shift();
-      if (next && typeof next.resolve === 'function') {
-        next.resolve();
-      }
-    }
+    clearTimeout(timeout);
+    external?.removeEventListener('abort', forwardAbort);
+    const next = _requestQueue.shift();
+    if (next) next();
+    else _activeRequests--;
   }
 }
+
+function emitDatabaseError(code, method, status) {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+    window.dispatchEvent(new CustomEvent('bb:database-error', { detail: { code, method, status } }));
+  }
+}
+
+function readDatabaseResponse(response) {
+  if (response.ok) return response.status === 204 ? null : response.json();
+  return response.text().then(function(body) {
+    var error = new Error(response.status >= 500 ? 'Database unavailable (HTTP ' + response.status + ').' : 'Database rejected the request.');
+    try {
+      var info = JSON.parse(body);
+      if (info && typeof info.code === 'string') {
+        error.code = info.code;
+        // Keep schema compatibility errors recognizable without returning row values.
+        if (['PGRST204', '42703'].includes(info.code) && typeof info.message === 'string') error.message = info.code + ': ' + info.message;
+        else error.message += ' (' + info.code + ')';
+      }
+    } catch (_) {}
+    error.status = response.status;
+    if (response.headers?.get('X-BB-Offline') === 'true') error.code = 'offline';
+    error.retryAfter = response.headers?.get('Retry-After');
+    throw error;
+  });
+}
+
+function cloneQueryData(value) {
+  return value !== null && typeof value === 'object' ? JSON.parse(JSON.stringify(value)) : value;
+}
+
+const MAX_CACHED_QUERIES = 256;
 
 /**
  * In-memory TTL Query Cache & Request Coalescing
@@ -210,9 +230,9 @@ function invalidateCache(tablePrefix) {
     _queryCache.clear();
     return;
   }
-  const prefix = tablePrefix.split('?')[0].toLowerCase();
+  const prefix = '/rest/v1/' + tablePrefix.split('?')[0].toLowerCase();
   for (const key of Array.from(_queryCache.keys())) {
-    if (key.toLowerCase().includes(prefix)) {
+    if (key.toLowerCase().includes(prefix + '?') || key.toLowerCase().includes(prefix + ':')) {
       _queryCache.delete(key);
     }
   }
@@ -229,10 +249,10 @@ const supa = {
    */
   async req(method, path, body, extraHeaders, options) {
     options = options || {};
-    const maxRetries = options.maxRetries !== undefined ? options.maxRetries : 3;
-    const baseDelay = options.baseDelay || 150;
-    const maxDelay = options.maxDelay || 3000;
-    const shouldCache = method === 'GET' && options.cache !== false;
+    const maxRetries = options.maxRetries ?? (method === 'GET' ? 3 : 0);
+    const baseDelay = options.baseDelay ?? 150;
+    const maxDelay = options.maxDelay ?? 3000;
+    const cacheable = method === 'GET' && options.cache !== false && !options.signal;
     const ttl = typeof options.ttl === 'number' ? options.ttl : 5000;
 
     const url =
@@ -270,116 +290,85 @@ const supa = {
       Object.assign(headers, extraHeaders);
     }
 
-    // Auto-invalidate cache on mutation
-    if (method !== 'GET') {
-      invalidateCache(path);
-    }
-
-        const cKey = getCacheKey(method, path, headers);
+    const cKey = getCacheKey(method, url, headers);
     if (method === 'GET' && isCircuitBreakerOpen()) {
-      const cached = _queryCache.get(cKey);
-      if (cached && cached.data) {
-        return cached.data !== null && typeof cached.data === 'object'
-          ? JSON.parse(JSON.stringify(cached.data))
-          : cached.data;
-      }
-      return null;
+      emitDatabaseError('circuit-open', method, null);
+      return cacheable ? cloneQueryData(_queryCache.get(cKey)?.data ?? null) : null;
     }
-    if (shouldCache) {
-      const cached = _queryCache.get(cKey);
-      if (cached) {
-        if (Date.now() < cached.expiresAt) {
-          return cached.data !== null && typeof cached.data === 'object'
-            ? JSON.parse(JSON.stringify(cached.data))
-            : cached.data;
-        }
-        if (cached.inFlightPromise) {
-          return await cached.inFlightPromise;
-        }
-      }
+    const cached = cacheable && _queryCache.get(cKey);
+    if (cached) {
+      if (cached.inFlightPromise) return cloneQueryData(await cached.inFlightPromise);
+      if (Date.now() < cached.expiresAt) return cloneQueryData(cached.data);
     }
 
+    if (method !== 'GET') invalidateCache(path);
+
+    const serializedBody = body == null ? undefined : JSON.stringify(body);
     const executeRequest = async () => {
-      let attempt = 0;
-      while (true) {
+      for (let attempt = 0; ; attempt++) {
         try {
-          const r = await throttledFetch(url, {
+          if (options.signal?.aborted) throw options.signal.reason;
+          if (method !== 'GET' && typeof navigator !== 'undefined' && navigator.onLine === false) {
+            const error = new Error('You are offline. Reconnect and try again.');
+            error.code = 'offline';
+            throw error;
+          }
+          return await throttledFetch(url, {
             method,
             headers,
-            body: body ? JSON.stringify(body) : undefined
-          });
-
-          // Handle rate limit (HTTP 429) and server errors (HTTP 500-599) with exponential backoff & jitter
-          // Fail fast on HTTP 544 DatabaseTimeout to prevent cascading connection pool exhaustion
-          if (r.status === 429 || (r.status >= 500 && r.status <= 599)) {
-            if (r.status === 544) {
-              tripCircuitBreaker('HTTP 544 DatabaseTimeout');
-            }
-            if (attempt < maxRetries && r.status !== 544) {
-              attempt++;
-              let delay = baseDelay * Math.pow(2, attempt) + Math.random() * 50;
-              const retryAfter = r.headers && typeof r.headers.get === 'function' ? r.headers.get('Retry-After') : null;
-              if (retryAfter) {
-                const parsed = parseInt(retryAfter, 10);
-                if (!isNaN(parsed)) delay = parsed * 1000;
-              }
-              await new Promise(res => setTimeout(res, Math.min(maxDelay, delay)));
-              continue;
-            }
-            if (r.status >= 500) {
-              tripCircuitBreaker('HTTP ' + r.status);
-            }
-            const e = await r.text();
-            throw new Error(`HTTP ${r.status}: ${e}`);
-          }
-
-          if (!r.ok) {
-            const e = await r.text();
-            throw new Error(e);
-          }
-
-          const data = r.status === 204 ? null : await r.json();
-
-          if (shouldCache) {
-            _queryCache.set(cKey, {
-              data: data !== null && typeof data === 'object' ? JSON.parse(JSON.stringify(data)) : data,
-              expiresAt: Date.now() + ttl,
-              inFlightPromise: null
-            });
-          }
-
-          return data;
-        } catch (err) {
-          const isTimeout = err && (err.name === 'AbortError' || (err.message && (err.message.includes('aborted') || err.message.includes('timeout'))));
-          if (isTimeout) {
-            tripCircuitBreaker('Request Timeout');
-          }
-          const isNetworkError = err && (err.name === 'TypeError' || err.message === 'Failed to fetch');
-          if (isNetworkError && attempt < maxRetries) {
-            attempt++;
-            const delay = Math.min(maxDelay, baseDelay * Math.pow(2, attempt) + Math.random() * 50);
-            await new Promise(res => setTimeout(res, delay));
+            signal: options.signal,
+            body: serializedBody
+          }, options.timeoutMs, readDatabaseResponse);
+        } catch (error) {
+          if (options.signal?.aborted || error?.name === 'AbortError') throw error;
+          const status = error?.status;
+          const timedOut = error?.name === 'TimeoutError';
+          const network = error instanceof TypeError;
+          const offline = error?.code === 'offline' || (network && typeof navigator !== 'undefined' && navigator.onLine === false);
+          const retryable = timedOut || network || status === 429 || (status >= 500 && status <= 599 && status !== 544);
+          if (!offline && retryable && attempt < maxRetries) {
+            const retryAfter = error.retryAfter;
+            const retryAt = typeof retryAfter === 'string' && /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
+            const delay = Number.isFinite(retryAt) ? Math.max(0, retryAt) : baseDelay * Math.pow(2, attempt) + Math.random() * 50;
+            await new Promise(resolve => setTimeout(resolve, Math.min(maxDelay, delay)));
             continue;
           }
-          if (shouldCache) {
-            _queryCache.delete(cKey);
+          if (!offline && (status === 544 || status === 503 || status === 504 || timedOut)) tripCircuitBreaker('Database temporarily unavailable');
+          if (offline || timedOut || network || status === 429 || status >= 500) {
+            emitDatabaseError(offline ? 'offline' : timedOut ? 'timeout' : network ? 'network' : 'http', method, status ?? null);
           }
-          throw err;
+          if (offline) {
+            const offlineError = new Error('You are offline. Reconnect and try again.');
+            offlineError.code = 'offline';
+            throw offlineError;
+          }
+          throw error;
         }
       }
     };
 
-    if (shouldCache) {
-      const inFlight = executeRequest();
-      _queryCache.set(cKey, {
-        data: null,
-        expiresAt: 0,
-        inFlightPromise: inFlight
-      });
-      return await inFlight;
+    if (!cacheable) {
+      try {
+        return await executeRequest();
+      } finally {
+        if (method !== 'GET') invalidateCache(path);
+      }
     }
 
-    return await executeRequest();
+    const entry = { data: cached ? cached.data : null, expiresAt: 0, inFlightPromise: executeRequest() };
+    if (_queryCache.size >= MAX_CACHED_QUERIES) _queryCache.delete(_queryCache.keys().next().value);
+    _queryCache.set(cKey, entry);
+    try {
+      const data = await entry.inFlightPromise;
+      if (_queryCache.get(cKey) === entry) {
+        entry.data = cloneQueryData(data);
+        entry.expiresAt = Date.now() + ttl;
+      }
+      return cloneQueryData(data);
+    } finally {
+      entry.inFlightPromise = null;
+      if (entry.expiresAt === 0 && entry.data === null && _queryCache.get(cKey) === entry) _queryCache.delete(cKey);
+    }
   },
 
   get(path, options) {
@@ -392,7 +381,8 @@ const supa = {
   /**
    * Supabase query with content-range header parsing for total records
    */
-  async queryWithCount(method, path, body, extraHeaders, _options) {
+  async queryWithCount(method, path, body, extraHeaders, options) {
+    options = options || {};
     const url =
       (typeof SUPA_URL !== 'undefined'
         ? SUPA_URL
@@ -418,33 +408,21 @@ const supa = {
       Object.assign(headers, extraHeaders);
     }
 
-    const r = await throttledFetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined
-    });
-
-    if (!r.ok) {
-      const e = await r.text();
-      throw new Error(e);
-    }
-
-    const data = r.status === 204 ? null : await r.json();
-    let total = null;
-    const contentRange = r.headers && typeof r.headers.get === 'function' ? r.headers.get('content-range') : null;
-    if (contentRange) {
-      const parts = contentRange.split('/');
-      if (parts[1]) {
-        const parsed = parseInt(parts[1], 10);
-        if (!isNaN(parsed)) total = parsed;
+    return throttledFetch(url, {
+      method, headers, signal: options.signal,
+      body: body == null ? undefined : JSON.stringify(body)
+    }, options.timeoutMs, async function(response) {
+      const data = await readDatabaseResponse(response);
+      const range = response.headers?.get('content-range');
+      const count = range ? Number.parseInt(range.split('/')[1], 10) : NaN;
+      return { data, total: Number.isFinite(count) ? count : (Array.isArray(data) ? data.length : 0), status: response.status };
+    }).catch(function(error) {
+      if (error?.name !== 'AbortError' && !options.signal?.aborted) {
+        const offline = error?.code === 'offline' || (typeof navigator !== 'undefined' && navigator.onLine === false);
+        emitDatabaseError(offline ? 'offline' : error?.name === 'TimeoutError' ? 'timeout' : error?.status ? 'http' : 'network', method, error?.status ?? null);
       }
-    }
-
-    return {
-      data,
-      total: total !== null ? total : (Array.isArray(data) ? data.length : 0),
-      status: r.status
-    };
+      throw error;
+    });
   },
 
   /**
@@ -667,6 +645,7 @@ const supa = {
         }
       }
     } catch (e) {
+      if (options.signal?.aborted) throw e;
       console.warn('safeConfigGet error for ' + key + ':', e.message);
     }
     supa.recordConfigSnapshot(key, fallback || null);
@@ -755,8 +734,13 @@ const supa = {
 
     const currentLock = _configLocks[key];
     const nextLock = currentLock.then(runUpdate, runUpdate);
-    _configLocks[key] = nextLock.catch(() => {});
-    return nextLock;
+    const settledLock = nextLock.catch(() => {});
+    _configLocks[key] = settledLock;
+    try {
+      return await nextLock;
+    } finally {
+      if (_configLocks[key] === settledLock) delete _configLocks[key];
+    }
   },
 
   /**
@@ -897,7 +881,7 @@ const supa = {
     const cacheKey = bucket + '/' + filePath;
     if (_signedUrlCache.has(cacheKey)) {
       const entry = _signedUrlCache.get(cacheKey);
-      if (entry && entry.expiresAt > Date.now()) {
+      if (entry && entry.expiresAt > Date.now() && entry.lifetime <= expiresIn) {
         return { signedUrl: entry.signedUrl, error: null };
       }
     }
@@ -918,7 +902,7 @@ const supa = {
     const url = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + filePath;
 
     try {
-      const r = await fetch(url, {
+      const res = await throttledFetch(url, {
         method: 'POST',
         headers: {
           apikey: key,
@@ -926,18 +910,11 @@ const supa = {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ expiresIn: expiresIn })
-      });
-
-      if (!r.ok) {
-        return { signedUrl: null, error: new Error('Failed to create signed URL: HTTP ' + r.status) };
-      }
-
-      const res = await r.json();
+      }, undefined, readDatabaseResponse);
       const signedPath = res.signedURL || res.signedUrl;
       let fullUrl = signedPath;
-      if (!signedPath) {
-        fullUrl = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + filePath + '?token=auth_' + Date.now();
-      } else if (signedPath.startsWith('http://') || signedPath.startsWith('https://')) {
+      if (!signedPath) throw new Error('Storage did not provide a signed URL.');
+      if (signedPath.startsWith('http://') || signedPath.startsWith('https://')) {
         fullUrl = signedPath;
       } else if (signedPath.startsWith('/storage/v1')) {
         fullUrl = baseUrl + signedPath;
@@ -949,14 +926,14 @@ const supa = {
 
       _signedUrlCache.set(cacheKey, {
         signedUrl: fullUrl,
+        lifetime: expiresIn,
         expiresAt: Date.now() + expiresIn * 1000 - 30000
       });
 
       return { signedUrl: fullUrl, error: null };
     } catch (err) {
       console.warn('createSignedUrl error:', err.message);
-      const fallbackUrl = baseUrl + '/storage/v1/object/authenticated/' + bucket + '/' + filePath;
-      return { signedUrl: fallbackUrl, error: err };
+      return { signedUrl: null, error: err };
     }
   },
 
@@ -1019,6 +996,7 @@ const supa = {
           }
           _signedUrlCache.set(bucket + '/' + p, {
             signedUrl: fullUrl,
+            lifetime: expiresIn,
             expiresAt: Date.now() + expiresIn * 1000 - 30000
           });
         }
@@ -1085,6 +1063,7 @@ const supa = {
 // ── Realtime Synchronization Engine (Zero-Dependency) ──────────────────────
 var PortalRealtime = (function() {
   var _ws = null;
+  var _reconnectTimer = null;
   var _broadcastChannel = null;
   var _heartbeatTimer = null;
   var _deltaSyncTimer = null;
@@ -1161,7 +1140,9 @@ var PortalRealtime = (function() {
   // 2. Supabase Realtime WebSocket Connection (Instant cross-device push)
   function connectWebSocket() {
     if (typeof WebSocket === 'undefined') return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
     if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) return;
+    clearTimeout(_reconnectTimer);
 
     // Multi-Tab Coordination: Non-leader tabs receive updates instantly via BroadcastChannel (0ms latency).
     // Only the elected leader tab maintains an active WebSocket to prevent socket & memory exhaustion.
@@ -1297,10 +1278,13 @@ var PortalRealtime = (function() {
         } catch (_) {}
       };
 
+      var socket = _ws;
       _ws.onclose = function() {
+        if (_ws !== socket) return;
         if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
         var delay = Math.min(10000, 1000 * Math.pow(2, _reconnectAttempts++));
-        setTimeout(connectWebSocket, delay);
+        _reconnectTimer = setTimeout(connectWebSocket, delay);
       };
 
       _ws.onerror = function() {
@@ -1311,8 +1295,10 @@ var PortalRealtime = (function() {
 
   // 3. Smart Adaptive Delta Poller (25s interval, backoff on error, paused when hidden or WebSocket active)
   var _deltaSyncBackoff = 25000;
+  var _deltaSyncInFlight = false;
 
   async function checkDeltaSync() {
+    if (_deltaSyncInFlight || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
     // Multi-Tab Coordination: Non-leader tabs receive updates via BroadcastChannel; leader runs delta poller
     var isLeaderFn = (typeof window !== 'undefined' && typeof window.isLeaderTab === 'function')
       ? window.isLeaderTab
@@ -1338,11 +1324,12 @@ var PortalRealtime = (function() {
       return;
     }
 
+    _deltaSyncInFlight = true;
     try {
       var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance)&select=key,updated_at');
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
-          if (!r.key) return;
+          if (!r?.key) return;
           var ts = r.updated_at || '';
           if (_lastEntityTimestamps[r.key] && _lastEntityTimestamps[r.key] !== ts) {
             if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update');
@@ -1385,6 +1372,8 @@ var PortalRealtime = (function() {
     } catch (_) {
       // Back off on error to prevent database saturation
       _deltaSyncBackoff = Math.min(120000, _deltaSyncBackoff * 2);
+    } finally {
+      _deltaSyncInFlight = false;
     }
     scheduleNextDeltaSync(_deltaSyncBackoff);
   }
@@ -1411,6 +1400,11 @@ var PortalRealtime = (function() {
     });
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('focus', function() {
+        checkDeltaSync();
+      });
+      window.addEventListener('online', function() {
+        resetCircuitBreaker();
+        connectWebSocket();
         checkDeltaSync();
       });
     }

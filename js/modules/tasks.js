@@ -965,7 +965,7 @@ async function deleteProject(projectName) {
   if (!projectTasks.length && !hasTaskAdminSession() && !isTaskOfficer(currentTaskUser())) return;
   var confirmFn = (typeof showConfirmModal === 'function')
     ? showConfirmModal
-    : async function(msg) { return (typeof confirm === 'function') ? confirm(msg) : true; };
+    : async function() { return false; };
 
   var confirmed = await confirmFn(
     'Are you sure you want to delete project "' + projectName + '" and all its tasks? This action cannot be undone.',
@@ -1090,8 +1090,6 @@ async function openAddProjectModal() {
       cancelText: 'Cancel',
       subtitle: 'Enter a name for the new project in your workspace.'
     });
-  } else if (typeof prompt === 'function') {
-    name = prompt('Enter new project name:');
   }
   if (!name || !name.trim() || !hasDepartmentRole()) return;
   var cleanName = (typeof sanitizeText === 'function') ? sanitizeText(name.trim(), 80) : name.trim();
@@ -2370,12 +2368,11 @@ async function insertTaskDescLink() {
   var url = null;
   if (typeof showPromptModal === 'function') {
     url = await showPromptModal('Insert Link', 'https://...', '', { confirmText: 'Insert', cancelText: 'Cancel' });
-  } else if (typeof prompt === 'function') {
-    url = prompt('Enter URL (https://...):');
   }
-  if (url && url.trim()) {
-    formatTaskDesc('createLink', url.trim());
-  }
+  if (url == null) return;
+  var link = typeof safeUrl === 'function' ? safeUrl(url, '') : '';
+  if (link) formatTaskDesc('createLink', link);
+  else if (typeof showToast === 'function') showToast('Enter a valid link.', 'warning');
 }
 
 /**
@@ -2403,8 +2400,6 @@ async function addActiveTaskLink() {
   var urlOrTitle = null;
   if (typeof showPromptModal === 'function') {
     urlOrTitle = await showPromptModal('Add Related Link', 'https://... or related task ID', '', { confirmText: 'Add Link', cancelText: 'Cancel' });
-  } else if (typeof prompt === 'function') {
-    urlOrTitle = prompt('Enter link URL or related task ID:');
   }
   if (!urlOrTitle || !urlOrTitle.trim()) return;
   var emptyNotice = document.querySelector('.tb-links-empty');
@@ -3959,8 +3954,6 @@ async function editTaskDetailEstimate(e) {
       cancelText: 'Cancel',
       subtitle: 'Enter the estimated effort or duration for this task.'
     });
-  } else if (typeof prompt === 'function') {
-    newEst = prompt('Enter task estimate (e.g. 2h, 1d):', currentEst);
   }
   if (newEst !== null) {
     saveTaskField(_activeDetailTaskId, 'estimate', newEst.trim());
@@ -4015,7 +4008,7 @@ async function deleteActiveTask() {
   var taskBackup = _taskMap[taskId] || (_allLoadedTasks && _allLoadedTasks.find(function(t) { return String(t.id) === String(taskId); }));
   var confirmFn = (typeof showConfirmModal === 'function')
     ? showConfirmModal
-    : async function(msg) { return (typeof confirm === 'function') ? confirm(msg) : true; };
+    : async function() { return false; };
 
   var confirmed = await confirmFn(
     'Are you sure you want to delete this task? This action cannot be undone.',
@@ -4641,16 +4634,12 @@ async function saveTask() {
   if (!title) {
     if (typeof showToast === 'function') {
       showToast('Please enter a task title.', 'warning');
-    } else if (typeof alert === 'function') {
-      alert('Please enter a task title.');
     }
     return;
   }
   if (!dept) {
     if (typeof showToast === 'function') {
       showToast('Please select a department.', 'warning');
-    } else if (typeof alert === 'function') {
-      alert('Please select a department.');
     }
     return;
   }
@@ -4684,7 +4673,6 @@ async function saveTask() {
     if (editId) {
       await client.patch('bb_tasks?id=eq.' + encodeURIComponent(editId), payload);
       if (typeof showToast === 'function') showToast('Task updated successfully!', 'success');
-      else if (typeof alert === 'function') alert('\u2705 Task updated!');
       if (typeof logAuditEvent === 'function') {
         logAuditEvent({
           action: 'task.edit',
@@ -4696,7 +4684,6 @@ async function saveTask() {
     } else {
       await client.post('bb_tasks', payload);
       if (typeof showToast === 'function') showToast('Task added successfully!', 'success');
-      else if (typeof alert === 'function') alert('\u2705 Task added!');
       if (typeof logAuditEvent === 'function') {
         logAuditEvent({
           action: 'task.create',
@@ -4713,8 +4700,6 @@ async function saveTask() {
   } catch (e) {
     if (typeof showToast === 'function') {
       showToast('Failed: ' + e.message, 'error');
-    } else if (typeof alert === 'function') {
-      alert('Failed: ' + e.message);
     }
   }
 }
@@ -4842,8 +4827,6 @@ async function updateTaskStatus(id, status) {
   } catch (e) {
     if (typeof showToast === 'function') {
       showToast('Failed to update status: ' + e.message, 'error');
-    } else if (typeof alert === 'function') {
-      alert('Failed to update status.');
     }
   }
 }
@@ -4898,7 +4881,7 @@ async function deleteTask(id) {
   if (!hasTaskAdminSession()) return;
   var ok = (typeof showConfirmModal === 'function')
     ? await showConfirmModal('Delete this task?')
-    : (typeof confirm === 'function' ? confirm('Delete this task?') : true);
+    : false;
   if (!ok) return;
 
   var client = getSupaClient();
@@ -4922,14 +4905,10 @@ async function deleteTask(id) {
     }
     if (typeof showToast === 'function') {
       showToast('Task deleted successfully.', 'success');
-    } else if (typeof alert === 'function') {
-      alert('Task deleted successfully.');
     }
   } catch (e) {
     if (typeof showToast === 'function') {
       showToast('Failed to delete task.', 'error');
-    } else if (typeof alert === 'function') {
-      alert('Failed to delete task.');
     }
   }
 }
