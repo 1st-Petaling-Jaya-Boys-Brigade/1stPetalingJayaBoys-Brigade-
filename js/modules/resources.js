@@ -54,6 +54,8 @@ async function loadResources() {
         });
         resources.length = 0;
         realDocs.forEach(function(r) { resources.push(r); });
+        renderResourcesPage();
+        renderAdminResourcesList();
         return;
       }
     }
@@ -75,10 +77,6 @@ async function loadResources() {
           resources.length = 0;
           realDocs.forEach(function(r) { resources.push(r); });
 
-          // If legacy placeholders were found in bb_config, automatically purge them
-          if (realDocs.length !== parsed.length) {
-            saveResources(realDocs);
-          }
         }
       }
     }
@@ -141,50 +139,18 @@ function handleResourceUrlInput(val) {
  * @param {Array} list
  */
 async function saveResources(list) {
-  if (Array.isArray(list) && list !== resources) {
-    resources.length = 0;
-    list.forEach(function(r) { resources.push(r); });
-  }
+  var next = Array.isArray(list) ? list : resources;
+  var serialized = JSON.stringify(next);
 
-  if (typeof window !== 'undefined') {
-    window.resources = resources;
-  }
+  if (typeof supa === 'undefined') throw new Error('Database unavailable');
+  var record = { key: 'bb_resources', value: serialized };
+  if (typeof supa.req === 'function') await supa.req('POST', 'bb_config?on_conflict=key', record, {
+    Prefer: 'return=representation,resolution=merge-duplicates'
+  });
+  else await supa.upsert('bb_config', record, 'key');
 
-  var serialized = JSON.stringify(resources);
-
-  try {
-    if (typeof supa !== 'undefined') {
-      var saved = false;
-      if (supa.req) {
-        try {
-          await supa.req('POST', 'bb_config?on_conflict=key', { key: 'bb_resources', value: serialized }, {
-            Prefer: 'return=representation,resolution=merge-duplicates'
-          });
-          saved = true;
-        } catch (postErr) {
-          console.warn('saveResources POST error, trying PATCH fallback:', postErr);
-        }
-      }
-      if (!saved && supa.patch) {
-        try {
-          var patchRes = await supa.patch('bb_config?key=eq.bb_resources', { value: serialized });
-          if (Array.isArray(patchRes) && patchRes.length === 0 && supa.post) {
-            await supa.post('bb_config', { key: 'bb_resources', value: serialized });
-          }
-          saved = true;
-        } catch (patchErr) {
-          console.error('saveResources PATCH error:', patchErr);
-        }
-      }
-      if (!saved) {
-        throw new Error('Could not persist resources to Supabase bb_config');
-      }
-    }
-  } catch (e) {
-    console.error('saveResources error:', e);
-    throw e;
-  }
-
+  resources.splice(0, resources.length, ...JSON.parse(serialized));
+  if (typeof supa.recordConfigSnapshot === 'function') supa.recordConfigSnapshot('bb_resources', resources);
   renderResourcesPage();
   renderAdminResourcesList();
 }
@@ -195,23 +161,30 @@ async function saveResources(list) {
  * @param {string} visibility - 'all' | 'nco' | 'officer'
  * @returns {boolean}
  */
+function isPublicResource(visibility) {
+  return ['', 'all', 'public'].includes(String(visibility || '').trim().toLowerCase());
+}
+
 function hasResourceAccess(visibility) {
-  if (!visibility || visibility === 'all') return true;
+  if (isPublicResource(visibility)) return true;
+  visibility = String(visibility).trim().toLowerCase();
+  if (visibility !== 'nco' && visibility !== 'officer') return false;
 
   var currentRank = '';
   var isAdmin = false;
 
   if (typeof sessionGet === 'function') {
+    if (!(sessionGet('ic') || sessionGet('email'))) return false;
     currentRank = sessionGet('rank') || '';
-    isAdmin = sessionGet('adminAuthed') === true;
+    isAdmin = typeof window !== 'undefined' && typeof window.hasAdminModuleAccess === 'function' &&
+      window.hasAdminModuleAccess('resources');
   }
 
   if (isAdmin) return true;
 
   var isOfficer = STANDARD_OFFICER_RANKS.indexOf(currentRank) !== -1;
   var isNco = isOfficer ||
-              STANDARD_NCO_RANKS.indexOf(currentRank) !== -1 ||
-              (typeof isNCO === 'function' && isNCO(currentRank));
+              STANDARD_NCO_RANKS.indexOf(currentRank) !== -1;
 
   if (visibility === 'officer') {
     return isOfficer;
@@ -219,9 +192,25 @@ function hasResourceAccess(visibility) {
   if (visibility === 'nco') {
     return isNco;
   }
-  return true;
+  return false;
 }
 
+function parseResourceUrl(raw) {
+  if (typeof raw !== 'string') return null;
+  try {
+    var url = new URL(raw);
+    return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password ? url : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getResourceStorageObject(url) {
+  var configured = parseResourceUrl(typeof SUPA_URL !== 'undefined' ? SUPA_URL : '');
+  if (!url || !configured || url.origin !== configured.origin) return null;
+  var match = url.pathname.match(/^\/storage\/v1\/object\/(authenticated|public|sign)\/([^/]+)\/(.+)$/);
+  return match ? { mode: match[1], bucket: match[2], path: match[3] } : null;
+}
 // ── Search & Filter ────────────────────────────────────────────────────────
 /**
  * Sets current filter category and re-renders
@@ -248,27 +237,21 @@ function searchResources(query) {
  */
 function getResourceThumbnailUrl(r) {
   if (!r) return null;
-  if (r.thumbnailUrl || r.thumbnail) return r.thumbnailUrl || r.thumbnail;
-  var url = (r.url || '').trim();
-  if (!url || url === '#') return null;
+  var thumbnail = parseResourceUrl(r.thumbnailUrl || r.thumbnail);
+  if (thumbnail) return thumbnail.href;
+  var url = parseResourceUrl(r.url);
+  if (!url) return null;
 
   // Direct image files
-  if (/\.(png|jpe?g|webp|gif|svg)($|\?)/i.test(url)) {
-    return url;
+  if (/\.(png|jpe?g|webp|gif|svg)$/i.test(url.pathname)) {
+    return url.href;
   }
 
   // Google Drive & Google Docs thumbnails
-  var driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
-                   url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/) ||
-                   url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/) ||
-                   url.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/) ||
-                   url.match(/\/d\/([a-zA-Z0-9_-]+)/) ||
-                   url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (driveMatch && driveMatch[1]) {
-    return 'https://drive.google.com/thumbnail?id=' + driveMatch[1] + '&sz=w400';
-  }
-
-  return null;
+  if (url.protocol !== 'https:' || !['drive.google.com', 'docs.google.com'].includes(url.hostname)) return null;
+  var match = url.pathname.match(/\/(?:file|document|spreadsheets|presentation)\/d\/([a-zA-Z0-9_-]+)(?:\/|$)/);
+  var id = match ? match[1] : url.searchParams.get('id');
+  return id && /^[a-zA-Z0-9_-]+$/.test(id) ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w400' : null;
 }
 
 // ── Public View Rendering ──────────────────────────────────────────────────
@@ -349,12 +332,7 @@ function renderResourcesPage() {
     var safeTitle  = (typeof escapeHtml === 'function') ? escapeHtml(r.title || '') : r.title;
     var safeCat    = (typeof escapeHtml === 'function') ? escapeHtml(r.category || 'General') : r.category;
     var safeSize   = (typeof escapeHtml === 'function') ? escapeHtml(r.fileSize || '') : r.fileSize;
-    var rawUrl     = r.url || '#';
-    if (rawUrl.indexOf('/storage/v1/object/authenticated/') !== -1) {
-      rawUrl = rawUrl.replace('/storage/v1/object/authenticated/', '/storage/v1/object/public/');
-    }
-    var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, '#') : rawUrl;
-    var safeDocUrl   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
+    var safeId = escapeHtml(String(r.id || ''));
 
     // Visibility Badge
     var visBadge = '';
@@ -366,7 +344,10 @@ function renderResourcesPage() {
       visBadge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(16,185,129,0.18);color:var(--green);border:1px solid rgba(16,185,129,0.4);backdrop-filter:blur(4px);">Public</span>';
     }
 
-    var thumbUrl = getResourceThumbnailUrl(r);
+    var thumbUrl = accessible && isPublicResource(r.visibility) ? getResourceThumbnailUrl(r) : null;
+    var previewAddress = parseResourceUrl(r.url);
+    var storageObject = getResourceStorageObject(previewAddress);
+    var canCopy = isPublicResource(r.visibility) && (!storageObject || storageObject.mode === 'public');
     var tType = (r.fileType || 'PDF').toUpperCase();
     var docIconCls = tType.indexOf('DOC') !== -1 ? 'doc' : (tType.indexOf('SHEET') !== -1 ? 'sheet' : (tType.indexOf('DRIVE') !== -1 || tType.indexOf('LINK') !== -1 ? 'link' : 'pdf'));
     var docIconColor = docIconCls === 'doc' ? '#3b82f6' : (docIconCls === 'sheet' ? '#10b981' : (docIconCls === 'link' ? '#a855f7' : '#ef4444'));
@@ -400,11 +381,7 @@ function renderResourcesPage() {
       + '</div>'
       + '</div>';
 
-    var cardAction = accessible
-      ? 'openResourceDocument(\'' + r.id + '\')'
-      : 'goToMemberTab()';
-
-    html += '<div class="resource-card" onclick="' + cardAction + '" title="' + safeTitle + ' (' + safeCat + ')">'
+    html += '<div class="resource-card" data-resource-open="' + safeId + '" title="' + safeTitle + ' (' + safeCat + ')">'
       + '<div class="resource-card-preview">'
         + previewImgHtml
         + mockupHtml
@@ -420,8 +397,8 @@ function renderResourcesPage() {
         + '</div>'
         + '<div class="resource-card-actions">'
           + (accessible
-            ? ('<button type="button" class="resource-action-btn view" title="View Document" aria-label="View ' + safeTitle + '" onclick="event.stopPropagation();openResourceDocument(\'' + r.id + '\');"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>'
-              + '<button type="button" class="resource-action-btn copy" title="Copy Direct Link" aria-label="Copy direct link to ' + safeTitle + '" onclick="event.stopPropagation();copyResourceLink(\'' + safeDocUrl.replace(/'/g, "\\'") + '\', \'' + safeTitle.replace(/'/g, "\\'") + '\');"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>')
+            ? ('<button type="button" class="resource-action-btn view" title="View Document" aria-label="View ' + safeTitle + '" data-resource-open="' + safeId + '"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>'
+              + (previewAddress && canCopy ? '<button type="button" class="resource-action-btn copy" title="Copy Direct Link" aria-label="Copy direct link to ' + safeTitle + '" data-resource-copy="' + safeId + '"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>' : ''))
             : ('<span title="Login to access" style="font-size:11px;opacity:0.6;">🔒</span>'))
         + '</div>'
       + '</div>'
@@ -429,6 +406,15 @@ function renderResourcesPage() {
   });
 
   container.innerHTML = html;
+  container.querySelectorAll('[data-resource-open], [data-resource-copy]').forEach(function(control) {
+    control.addEventListener('click', function(event) {
+      event.stopPropagation();
+      var copyId = control.getAttribute('data-resource-copy');
+      if (copyId) copyResourceLink(copyId);
+      else openResourceDocument(control.getAttribute('data-resource-open'));
+    });
+  });
+
 }
 
 
@@ -451,106 +437,42 @@ async function openResourceDocument(resourceId) {
     return;
   }
 
-  var rawUrl = (r.url || '').trim();
-  if (!rawUrl || rawUrl === '#') {
-    if (typeof showToast === 'function') {
-      showToast('No URL configured for this document.', 'warning');
-    }
+  var url = parseResourceUrl(r.url);
+  if (!url) {
+    if (typeof showToast === 'function') showToast('This document has no valid web link.', 'warning');
     return;
   }
 
-  // Pre-open tab to prevent popup blocker blocking async window.open
-  var newTab = null;
-  var isSupabaseStorage = /\/storage\/v1\/object\/(?:authenticated|public|sign)\//.test(rawUrl);
-  if (isSupabaseStorage && typeof window !== 'undefined' && window.open) {
-    try {
-      newTab = window.open('about:blank', '_blank');
-    } catch (_) {}
+  var storage = getResourceStorageObject(url);
+  if (!storage) {
+    window.open(url.href, '_blank', 'noopener,noreferrer');
+    return;
   }
 
+  if (isPublicResource(r.visibility) && storage.mode === 'public') {
+    window.open(url.href, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  if (storage.mode === 'public') {
+    if (typeof showToast === 'function') showToast('This restricted document needs a private storage link.', 'warning');
+    return;
+  }
+
+  var tab = window.open('about:blank', '_blank');
+  if (tab) tab.opener = null;
   try {
-    var supaMatch = rawUrl.match(/\/storage\/v1\/object\/(?:authenticated|public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
-    if (supaMatch) {
-      var bucket = supaMatch[1];
-      var filePath = decodeURIComponent(supaMatch[2]);
-      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupaClient === 'function' ? getSupaClient() : (typeof window !== 'undefined' && window.supa ? window.supa : null)));
-
-      // 1. If it's in public storage or public document visibility, use public URL (bypasses auth requirement)
-      var publicUrl = rawUrl.replace('/storage/v1/object/authenticated/', '/storage/v1/object/public/');
-      if (bucket === 'gallery' || bucket === 'resources' || r.visibility === 'all' || r.visibility === 'public') {
-        var targetPublic = (typeof safeUrl === 'function') ? safeUrl(publicUrl, publicUrl) : publicUrl;
-        if (newTab && !newTab.closed) {
-          newTab.location.href = targetPublic;
-        } else {
-          window.open(targetPublic, '_blank', 'noopener,noreferrer');
-        }
-        return;
-      }
-
-      // 2. For restricted private buckets, attempt signed URL
-      if (client && typeof client.createSignedUrl === 'function') {
-        try {
-          var signedRes = await client.createSignedUrl(bucket, filePath, 86400);
-          if (signedRes && signedRes.signedUrl && !signedRes.error && !signedRes.signedUrl.includes('?token=auth_')) {
-            if (newTab && !newTab.closed) {
-              newTab.location.href = signedRes.signedUrl;
-            } else {
-              window.open(signedRes.signedUrl, '_blank', 'noopener,noreferrer');
-            }
-            return;
-          }
-        } catch (signErr) {
-          console.warn('createSignedUrl failed, trying authenticated blob fetch:', signErr);
-        }
-      }
-
-      // 3. Authenticated blob fetch fallback
-      var key = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : '');
-      if (key) {
-        try {
-          var fetchResp = await fetch(rawUrl, {
-            headers: {
-              'apikey': key,
-              'Authorization': 'Bearer ' + key
-            }
-          });
-          if (fetchResp.ok) {
-            var blob = await fetchResp.blob();
-            var blobUrl = URL.createObjectURL(blob);
-            if (newTab && !newTab.closed) {
-              newTab.location.href = blobUrl;
-            } else {
-              window.open(blobUrl, '_blank', 'noopener,noreferrer');
-            }
-            return;
-          }
-        } catch (blobErr) {
-          console.warn('Authenticated blob fetch failed:', blobErr);
-        }
-      }
-
-      // 4. Fallback to publicUrl
-      if (newTab && !newTab.closed) {
-        newTab.location.href = publicUrl;
-      } else {
-        window.open(publicUrl, '_blank', 'noopener,noreferrer');
-      }
-      return;
-    }
-
-    var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(rawUrl, rawUrl) : rawUrl;
-    if (newTab && !newTab.closed) {
-      newTab.location.href = validatedUrl;
-    } else {
-      window.open(validatedUrl, '_blank', 'noopener,noreferrer');
-    }
-  } catch (err) {
-    if (newTab && !newTab.closed) {
-      newTab.close();
-    }
-    if (typeof showToast === 'function') {
-      showToast('Unable to open document: ' + (err.message || 'Unknown error'), 'error');
-    }
+    var client = typeof getSupaClient === 'function' ? getSupaClient() : window.supa;
+    var signed = client && await client.createSignedUrl(storage.bucket, decodeURIComponent(storage.path), 300);
+    var preview = signed && !signed.error && parseResourceUrl(signed.signedUrl);
+    if (!preview || preview.origin !== url.origin || !preview.searchParams.get('token') ||
+        preview.searchParams.get('token').startsWith('auth_') ||
+        resources.find(function(item) { return item.id === resourceId; }) !== r ||
+        !hasResourceAccess(r.visibility)) throw new Error('Preview unavailable');
+    if (tab && !tab.closed) tab.location.href = preview.href;
+    else window.open(preview.href, '_blank', 'noopener,noreferrer');
+  } catch (_) {
+    if (tab && !tab.closed) tab.close();
+    if (typeof showToast === 'function') showToast('Could not securely open this document.', 'error');
   }
 }
 
@@ -579,34 +501,22 @@ function getFileTypeBadgeHtml(type) {
  * @param {string} title
  */
 async function copyResourceLink(url, title) {
-  if (!url) return;
-  var targetUrl = url;
-  var supaMatch = url.match(/\/storage\/v1\/object\/(?:authenticated|public|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
-  if (supaMatch) {
-    var bucket = supaMatch[1];
-    var filePath = decodeURIComponent(supaMatch[2]);
-    var client = (typeof supa !== 'undefined') ? supa : (typeof getSupa === 'function' ? getSupa() : null);
-    if (client && typeof client.createSignedUrl === 'function') {
-      try {
-        var signedRes = await client.createSignedUrl(bucket, filePath, 86400 * 7);
-        if (signedRes && signedRes.signedUrl) {
-          targetUrl = signedRes.signedUrl;
-        }
-      } catch (_) {}
-    }
-  }
+  var resource = resources.find(function(item) { return item.id === url || item.url === url; });
+  if (!resource || !hasResourceAccess(resource.visibility) || !isPublicResource(resource.visibility)) return false;
+  var target = parseResourceUrl(resource.url);
+  if (!target) return false;
+  var storage = getResourceStorageObject(target);
+  if (storage && storage.mode !== 'public') return false;
 
-  if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(targetUrl).then(function() {
-      if (typeof showToast === 'function') {
-        showToast('Link copied: ' + (title || 'Resource'), 'success');
-      }
-    }).catch(function() {
-      fallbackCopyText(targetUrl);
-    });
-  } else {
-    fallbackCopyText(targetUrl);
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(target.href);
+      if (typeof showToast === 'function') showToast('Link copied: ' + (title || resource.title || 'Resource'), 'success');
+      return true;
+    } catch (_) {}
   }
+  fallbackCopyText(target.href);
+  return true;
 }
 
 function fallbackCopyText(text) {
@@ -679,13 +589,11 @@ function renderAdminResourcesList() {
     var safeCat   = (typeof escapeHtml === 'function') ? escapeHtml(r.category || '') : r.category;
     var safeType  = (typeof escapeHtml === 'function') ? escapeHtml(r.fileType || '') : r.fileType;
     var safeVis   = (typeof escapeHtml === 'function') ? escapeHtml(r.visibility || 'all') : r.visibility;
-    var rawAdminUrl = r.url || '#';
-    var validAdminUrl = (typeof safeUrl === 'function') ? safeUrl(rawAdminUrl, '#') : rawAdminUrl;
-    var safeAdminUrl = (typeof escapeHtml === 'function') ? escapeHtml(validAdminUrl) : validAdminUrl;
+    var safeId = escapeHtml(String(r.id || ''));
 
     var iconSvg = getResourceIconSvg(safeType);
 
-    html += '<div class="adm-resource-card" data-open-res-card="' + r.id + '" role="button" tabindex="0" title="Click to edit or delete ' + safeTitle + '">'
+    html += '<div class="adm-resource-card" data-open-res-card="' + safeId + '" role="button" tabindex="0" title="Click to edit or delete ' + safeTitle + '">'
       + '<div style="width:40px;height:40px;border-radius:10px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;color:var(--brand-blue);flex-shrink:0;">'
         + iconSvg
       + '</div>'
@@ -695,7 +603,7 @@ function renderAdminResourcesList() {
           + '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">' + safeType + '</span>'
           + '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(200,150,30,0.15);color:var(--accent);border:1px solid rgba(200,150,30,0.3);">' + safeVis.toUpperCase() + '</span>'
         + '</div>'
-        + '<div style="font-size:12px;color:var(--text-secondary);">' + safeCat + ' &bull; <a href="' + safeAdminUrl + '" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:var(--brand-blue);text-decoration:none;">Open document &rarr;</a></div>'
+        + '<div style="font-size:12px;color:var(--text-secondary);">' + safeCat + ' &bull; <button type="button" class="portal-btn" data-admin-resource-preview="' + safeId + '">Open document &rarr;</button></div>'
       + '</div>'
       + '<div style="display:flex;align-items:center;color:var(--text-muted);font-size:18px;margin-left:auto;flex-shrink:0;">'
         + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'
@@ -704,6 +612,12 @@ function renderAdminResourcesList() {
   });
 
   container.innerHTML = html;
+  container.querySelectorAll('[data-admin-resource-preview]').forEach(function(button) {
+    button.addEventListener('click', function(event) {
+      event.stopPropagation();
+      openResourceDocument(button.getAttribute('data-admin-resource-preview'));
+    });
+  });
 
   container.querySelectorAll('[data-open-res-card]').forEach(function(card) {
     card.addEventListener('click', function() {
@@ -916,12 +830,10 @@ async function addOrUpdateResource() {
   var title    = (typeof sanitizeText === 'function') ? sanitizeText(rawTitle, 150) : rawTitle;
   var desc     = (typeof sanitizeText === 'function') ? sanitizeText(rawDesc, 300) : rawDesc;
   var cat      = (typeof sanitizeText === 'function') ? sanitizeText(rawCat, 60) : rawCat;
-  var url      = (urlInp ? urlInp.value : '').trim();
-  if (url && typeof safeUrl === 'function') {
-    url = safeUrl(url, url);
-  }
+  var url      = parseResourceUrl(urlInp && urlInp.value)?.href || '';
   var type  = (typeInp ? typeInp.value : 'PDF').trim().toUpperCase();
   var vis   = (visInp ? visInp.value : 'all').trim().toLowerCase();
+  if (!isPublicResource(vis) && !['nco', 'officer'].includes(vis)) return;
 
   // If title is empty, check if a file was selected to derive title
   if (!title && fileInp && fileInp.files && fileInp.files.length > 0) {
@@ -951,6 +863,17 @@ async function addOrUpdateResource() {
   if (!url) {
     if (typeof showToast === 'function') showToast('Please select a file to upload or enter a document URL.', 'warning');
     return;
+  }
+  var storage = getResourceStorageObject(parseResourceUrl(url));
+  if (!isPublicResource(vis) && storage && storage.mode === 'public') {
+    if (typeof showToast === 'function') showToast('Use a private link for restricted documents.', 'warning');
+    return;
+  }
+  if (storage && storage.mode === 'sign') {
+    var stableUrl = parseResourceUrl(url);
+    stableUrl.pathname = stableUrl.pathname.replace('/object/sign/', '/object/authenticated/');
+    stableUrl.search = '';
+    url = stableUrl.href;
   }
 
   // Compute file size label
@@ -1115,35 +1038,11 @@ async function handleResourceFileUpload(input) {
       ? file
       : new Blob([await file.arrayBuffer()], { type: mimeType });
 
-    var uploadedUrl = '';
-
-    if (typeof supa !== 'undefined' && supa.uploadFile) {
-      try {
-        await supa.uploadFile('gallery', 'resources/' + fname, blob);
-        var signRes = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('gallery', 'resources/' + fname, 86400 * 365) : null;
-        uploadedUrl = (signRes && signRes.signedUrl && !signRes.error && !signRes.signedUrl.includes('?token=auth_'))
-          ? signRes.signedUrl
-          : supa.fileUrl('gallery', 'resources/' + fname, { private: false });
-      } catch (galleryErr) {
-        try {
-          await supa.uploadFile('gallery', fname, blob);
-          var signRes2 = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('gallery', fname, 86400 * 365) : null;
-          uploadedUrl = (signRes2 && signRes2.signedUrl && !signRes2.error && !signRes2.signedUrl.includes('?token=auth_'))
-            ? signRes2.signedUrl
-            : supa.fileUrl('gallery', fname, { private: false });
-        } catch (galleryRootErr) {
-          await supa.uploadFile('resources', fname, blob);
-          var signRes3 = (typeof supa.createSignedUrl === 'function') ? await supa.createSignedUrl('resources', fname, 86400 * 365) : null;
-          uploadedUrl = (signRes3 && signRes3.signedUrl && !signRes3.error && !signRes3.signedUrl.includes('?token=auth_'))
-            ? signRes3.signedUrl
-            : supa.fileUrl('resources', fname, { private: false });
-        }
-      }
-    }
-
-    if (!uploadedUrl) {
+    if (typeof supa === 'undefined' || !supa.uploadFile || !supa.fileUrl) {
       throw new Error('Supabase Storage is unavailable.');
     }
+    await supa.uploadFile('resources', fname, blob);
+    var uploadedUrl = supa.fileUrl('resources', fname, { private: true });
 
     if (urlInp) urlInp.value = uploadedUrl;
     return uploadedUrl;

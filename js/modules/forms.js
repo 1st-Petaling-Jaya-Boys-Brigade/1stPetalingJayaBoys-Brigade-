@@ -14,6 +14,8 @@ var _currentFormType = 'link';
 var _fbFields = [];
 var _isSubmittingBuiltinForm = false;
 var _isSavingCustomForm = false;
+var _isWritingCustomForms = false;
+var _customFormsRevision = 0;
 
 // Upgraded Google Forms Builder & Responses state
 var _gfCurrentForm = null;
@@ -41,12 +43,13 @@ function getSupa() {
  * Loads custom forms definitions from Supabase bb_config
  * @returns {Promise<Array>}
  */
-async function loadCustomForms() {
+async function loadCustomForms(force) {
   var client = getSupa();
-  if (client && typeof client.getConfigSnapshot === 'function') {
+  var revision = _customFormsRevision;
+  if (!force && client && typeof client.getConfigSnapshot === 'function') {
     var snapForms = client.getConfigSnapshot('bb_custom_forms');
     if (Array.isArray(snapForms)) {
-      _customForms = snapForms;
+      if (!_isWritingCustomForms) _customForms.splice(0, _customForms.length, ...snapForms.filter(Boolean));
       if (typeof syncFormNotifications === 'function') {
         syncFormNotifications(_customForms);
       } else if (typeof window !== 'undefined' && typeof window.syncFormNotifications === 'function') {
@@ -57,17 +60,15 @@ async function loadCustomForms() {
   }
   if (client && client.get) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_custom_forms&select=value');
-      if (rows && rows.length) {
-        _customForms = JSON.parse(rows[0].value || '[]');
-        if (client.recordConfigSnapshot)
-          client.recordConfigSnapshot('bb_custom_forms', _customForms);
-      } else {
-        _customForms = [];
-        if (client.recordConfigSnapshot) client.recordConfigSnapshot('bb_custom_forms', []);
-      }
+      var rows = await client.get('bb_config?key=eq.bb_custom_forms&select=value', { cache: !force });
+      if (_isWritingCustomForms || revision !== _customFormsRevision) return _customForms;
+      var value = rows && rows.length ? rows[0].value : [];
+      var parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      if (!Array.isArray(parsed)) return _customForms;
+      _customForms.splice(0, _customForms.length, ...parsed.filter(Boolean));
+      if (client.recordConfigSnapshot) client.recordConfigSnapshot('bb_custom_forms', _customForms);
     } catch (e) {
-      _customForms = [];
+      // Keep the last valid catalog if the request fails.
     }
   }
   if (typeof syncFormNotifications === 'function') {
@@ -81,39 +82,36 @@ async function loadCustomForms() {
 /**
  * Saves current custom forms array to Supabase bb_config
  */
-async function saveCustomForms() {
+async function saveCustomForms(nextForms) {
   var client = getSupa();
-  if (!client) return;
-
-  var payload = JSON.parse(JSON.stringify(_customForms));
-
-  if (typeof client.safeConfigUpdate === 'function') {
-    try {
-      var updated = await client.safeConfigUpdate('bb_custom_forms', payload, {
-        idProp: 'id',
-        enableMerge: false
-      });
-      if (updated && Array.isArray(updated)) {
-        _customForms = updated;
-      }
-      return;
-    } catch (eSafe) {
-      console.warn('safeConfigUpdate fallback in saveCustomForms:', eSafe);
-    }
-  }
-
+  if (_isWritingCustomForms) return false;
+  _isWritingCustomForms = true;
   try {
-    await client.req('POST', 'bb_config?on_conflict=key', {
-      key: 'bb_custom_forms',
-      value: JSON.stringify(payload)
-    });
-  } catch (e) {
-    try {
-      await client.patch('bb_config?key=eq.bb_custom_forms', {
-        value: JSON.stringify(payload)
+    if (!client) throw new Error('Database unavailable');
+    var payload = JSON.parse(JSON.stringify(nextForms || _customForms));
+    if (typeof client.safeConfigUpdate === 'function') {
+      payload = await client.safeConfigUpdate('bb_custom_forms', payload, { idProp: 'id' });
+      if (!Array.isArray(payload)) throw new Error('Form catalog was not confirmed');
+    } else {
+      await client.req('POST', 'bb_config?on_conflict=key', {
+        key: 'bb_custom_forms', value: JSON.stringify(payload)
       });
-    } catch (e2) {}
+    }
+    _customForms.splice(0, _customForms.length, ...payload);
+    _customFormsRevision++;
+    if (typeof client.recordConfigSnapshot === 'function') client.recordConfigSnapshot('bb_custom_forms', payload);
+    return true;
+  } catch (_) {
+    if (typeof showToast === 'function') showToast('Form changes could not be saved. Please try again.', 'error');
+    return false;
+  } finally {
+    _isWritingCustomForms = false;
   }
+}
+
+function parseFormSchedule(value) {
+  if (typeof value !== 'string') return NaN;
+  return Date.parse(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value) ? value + '+08:00' : value);
 }
 
 /**
@@ -124,7 +122,7 @@ async function saveCustomForms() {
 function isFormAcceptingResponses(form) {
   if (!form) return { open: true, reason: 'active', message: '' };
 
-  var defaultPausedMsg = form.paused_message && form.paused_message.trim()
+  var defaultPausedMsg = typeof form.paused_message === 'string' && form.paused_message.trim()
     ? form.paused_message.trim()
     : 'Responses for this form are currently paused by the company administration. Please check back later.';
 
@@ -138,12 +136,17 @@ function isFormAcceptingResponses(form) {
   }
 
   var now = Date.now();
+  var openTime = form.open_at ? parseFormSchedule(form.open_at) : -Infinity;
+  var closeTime = form.close_at ? parseFormSchedule(form.close_at) : Infinity;
+  if (Number.isNaN(openTime) || Number.isNaN(closeTime) || openTime >= closeTime) {
+    return { open: false, reason: 'invalid_schedule', message: 'This form has an invalid response schedule. Contact the company office.' };
+  }
 
   // 2. Scheduled opening in future
   if (form.open_at) {
-    var openTime = new Date(form.open_at).getTime();
     if (!isNaN(openTime) && now < openTime) {
-      var openFormatted = new Date(form.open_at).toLocaleString('en-MY', {
+      var openFormatted = new Date(openTime).toLocaleString('en-MY', {
+        timeZone: 'Asia/Kuala_Lumpur',
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -154,7 +157,7 @@ function isFormAcceptingResponses(form) {
       return {
         open: false,
         reason: 'scheduled_future',
-        message: form.paused_message && form.paused_message.trim()
+        message: typeof form.paused_message === 'string' && form.paused_message.trim()
           ? form.paused_message.trim()
           : ('This form is scheduled to open on ' + openFormatted + '. Please check back once responses are open.')
       };
@@ -163,9 +166,9 @@ function isFormAcceptingResponses(form) {
 
   // 3. Scheduled close in past
   if (form.close_at) {
-    var closeTime = new Date(form.close_at).getTime();
-    if (!isNaN(closeTime) && now > closeTime) {
-      var closeFormatted = new Date(form.close_at).toLocaleString('en-MY', {
+    if (!isNaN(closeTime) && now >= closeTime) {
+      var closeFormatted = new Date(closeTime).toLocaleString('en-MY', {
+        timeZone: 'Asia/Kuala_Lumpur',
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -176,7 +179,7 @@ function isFormAcceptingResponses(form) {
       return {
         open: false,
         reason: 'scheduled_past',
-        message: form.paused_message && form.paused_message.trim()
+        message: typeof form.paused_message === 'string' && form.paused_message.trim()
           ? form.paused_message.trim()
           : ('Responses for this form closed on ' + closeFormatted + '.')
       };
@@ -195,9 +198,8 @@ async function toggleCustomFormStatus(formId) {
   if (!f) return;
   var isCurrentlyPaused = (f.status === 'paused' || f.active === false);
   var nextStatus = isCurrentlyPaused ? 'active' : 'paused';
-  f.status = nextStatus;
-  f.active = nextStatus === 'active';
-  await saveCustomForms();
+  var next = Object.assign({}, f, { status: nextStatus, active: nextStatus === 'active' });
+  if (!await saveCustomForms(_customForms.map(function(item) { return item === f ? next : item; }))) return false;
   renderAdminForms();
   renderFormsHub();
   var editIdEl = document.getElementById('fb-edit-id');
@@ -211,6 +213,7 @@ async function toggleCustomFormStatus(formId) {
   if (typeof showToast === 'function') {
     showToast(nextStatus === 'paused' ? 'Form responses paused.' : 'Form responses resumed.', 'info');
   }
+  return true;
 }
 
 // ── Google Forms Item Conversion & Formatting Utilities ───────────────────
@@ -222,7 +225,7 @@ async function toggleCustomFormStatus(formId) {
  */
 function convertOldFieldsToGfItems(fields) {
   if (!Array.isArray(fields)) return [];
-  return fields.map(function (f, idx) {
+  return fields.filter(function(f) { return f && !isLegacyFormUpload(f); }).map(function (f, idx) {
     var t = f.type || 'short_answer';
     if (t === 'text') t = 'short_answer';
     if (t === 'textarea') t = 'paragraph';
@@ -258,7 +261,7 @@ function convertGfItemsToFields(items) {
   if (!Array.isArray(items)) return [];
   var fields = [];
   items.forEach(function (it) {
-    if (it.kind === 'question') {
+    if (it.kind === 'question' && !isLegacyFormUpload(it)) {
       fields.push({
         label: it.title || it.label || 'Question',
         type: it.type || 'text',
@@ -268,6 +271,18 @@ function convertGfItemsToFields(items) {
     }
   });
   return fields;
+}
+
+function isLegacyFormUpload(field) {
+  return field.type === 'file_upload' || field.type === 'file';
+}
+
+function isFormQuestion(field) {
+  return field && !isLegacyFormUpload(field) && !['section', 'title_desc', 'image'].includes(field.kind);
+}
+
+function isFormSignature(value) {
+  return typeof value === 'string' && value.length <= 500000 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
 }
 
 /**
@@ -441,7 +456,7 @@ function attachSignatureCanvas(canvasEl, inputEl, clearBtn) {
  * @param {string} [signerName]
  */
 function showSignatureEnlargedModal(dataUrl, signerName) {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined' || !isFormSignature(dataUrl)) return;
   var existing = document.getElementById('signature-enlarged-modal');
   if (existing) existing.remove();
 
@@ -481,30 +496,8 @@ function showSignatureEnlargedModal(dataUrl, signerName) {
  * @param {HTMLInputElement} input
  */
 function handleFormFileUpload(fieldId, input) {
-  if (typeof document === 'undefined' || !input || !input.files || !input.files[0]) return;
-  var file = input.files[0];
-  var labelEl = document.getElementById(fieldId + '-filename');
-  var hiddenInp = document.getElementById(fieldId);
-  var removeBtn = document.getElementById(fieldId + '-remove');
-  var sizeText = file.size > 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.round(file.size / 1024) + ' KB';
-  if (labelEl) labelEl.textContent = file.name + ' (' + sizeText + ')';
-
-  if (file.size > 10 * 1024 * 1024) {
-    if (typeof showToast === 'function') showToast('File exceeds 10MB limit.', 'error');
-    input.value = '';
-    if (labelEl) labelEl.textContent = 'No file chosen';
-    if (hiddenInp) hiddenInp.value = '';
-    if (removeBtn) removeBtn.style.display = 'none';
-    return;
-  }
-
-  if (removeBtn) removeBtn.style.display = 'inline-flex';
-
-  var reader = new FileReader();
-  reader.onload = function (e) {
-    if (hiddenInp) hiddenInp.value = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  if (input) input.value = '';
+  removeFormFileUpload(fieldId);
 }
 
 /**
@@ -796,7 +789,7 @@ function renderBuiltinFormInline(form, customContainer, options) {
 
   var avail = isFormAcceptingResponses(form);
   if (!avail.open && !isPreview) {
-    var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled to Open' : (avail.reason === 'scheduled_past' ? 'Responses Closed' : 'Responses Paused');
+    var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled to Open' : (avail.reason === 'paused' ? 'Responses Paused' : 'Responses Closed');
     container.innerHTML =
       '<div class="dark-card" style="text-align:center;padding:36px 24px;">' +
       '<button onclick="backToFormsHub()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px;">\u2039 Back to Forms</button>' +
@@ -827,6 +820,7 @@ function renderBuiltinFormInline(form, customContainer, options) {
   };
 
   items.forEach(function (f, idx) {
+    if (!f || isLegacyFormUpload(f)) return;
     if (f.kind === 'section') {
       if (curPage.items.length > 0 || curPage.title || curPage.desc || sectionPages.length > 0) {
         sectionPages.push(curPage);
@@ -958,18 +952,6 @@ function renderBuiltinFormInline(form, customContainer, options) {
         inp = '<input class="form-input" type="date" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
       } else if (f.type === 'time') {
         inp = '<input class="form-input" type="time" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
-      } else if (f.type === 'file_upload' || f.type === 'file') {
-        inp = '<div class="form-file-upload-wrap" style="margin-top:8px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;">' +
-          '<label class="portal-btn portal-btn-secondary" style="margin:0;cursor:pointer;padding:8px 16px;font-size:12px;display:inline-flex;align-items:center;gap:6px;border-radius:8px;">' +
-          '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> <span>Choose File</span>' +
-          '<input type="file" id="' + fieldId + '-file" class="form-file-input" style="display:none;" onchange="handleFormFileUpload(\'' + fieldId + '\', this)"/>' +
-          '</label>' +
-          '<span id="' + fieldId + '-filename" style="font-size:12px;color:var(--text-secondary);font-style:italic;">No file chosen</span>' +
-          '<button type="button" id="' + fieldId + '-remove" class="form-file-remove-btn" onclick="removeFormFileUpload(\'' + fieldId + '\')" style="display:none;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red, #ef4444);padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;align-items:center;gap:5px;" title="Remove uploaded file">' +
-          '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> <span>Remove</span>' +
-          '</button>' +
-          '<input type="hidden" id="' + fieldId + '" value=""' + reqAttr + '/>' +
-          '</div>';
       } else if (f.type === 'signature') {
         inp = '<div class="form-signature-wrapper" id="sig-wrap-' + fieldId + '" style="margin-top:8px;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
@@ -1158,7 +1140,7 @@ function validateFormAnswers(form, answersMap) {
     ? form.items
     : ((form && Array.isArray(form.fields)) ? form.fields : []);
   var answers = answersMap || {};
-  var errors = {};
+  var errors = Object.create(null);
   var firstError = null;
 
   var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -1166,9 +1148,9 @@ function validateFormAnswers(form, answersMap) {
 
   for (var i = 0; i < items.length; i++) {
     var f = items[i];
-    if (f.kind === 'section' || f.kind === 'title_desc' || f.kind === 'image') continue;
+    if (!isFormQuestion(f)) continue;
     var label = f.label || f.title || ('Question ' + (i + 1));
-    var val = answers[label] !== undefined ? String(answers[label]).trim() : '';
+    var val = Object.hasOwn(answers, label) && answers[label] != null ? String(answers[label]).trim() : '';
     var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : '';
     if (val === '' && formKey && answers['bff-' + formKey + '-' + i] !== undefined) {
       val = String(answers['bff-' + formKey + '-' + i]).trim();
@@ -1189,8 +1171,8 @@ function validateFormAnswers(form, answersMap) {
 
     // Signature check
     if (f.type === 'signature') {
-      if (f.required && (!val || val.indexOf('data:image') === -1)) {
-        errors[label] = label + ' is required. Please provide a signature.';
+      if (!isFormSignature(val)) {
+        errors[label] = 'Please provide a valid signature for ' + label + '.';
         if (!firstError) firstError = errors[label];
       }
       continue;
@@ -1213,8 +1195,22 @@ function validateFormAnswers(form, answersMap) {
     // Number validation
     if (f.type === 'number') {
       var num = Number(val);
-      if (isNaN(num)) {
+      if (!Number.isFinite(num)) {
         errors[label] = 'Please enter a valid number.';
+        if (!firstError) firstError = errors[label];
+        continue;
+      }
+    }
+
+    if (['select', 'dropdown', 'radio', 'multiple_choice', 'checkboxes'].includes(f.type)) {
+      var choices = (Array.isArray(f.options) ? f.options : String(f.options || '').split(',')).map(function(option) {
+        return String(option).trim();
+      }).filter(Boolean);
+      var entries = f.type === 'checkboxes' ? val.split(', ') : [val];
+      if (choices.length && !choices.includes(val) && !entries.every(function(entry) {
+        return choices.includes(entry) || (choices.some(isOtherOption) && /^Other: .+/.test(entry));
+      })) {
+        errors[label] = 'Please select a valid option for ' + label + '.';
         if (!firstError) firstError = errors[label];
         continue;
       }
@@ -1249,7 +1245,9 @@ async function submitBuiltinForm(form) {
     return;
   }
 
-  var avail = isFormAcceptingResponses(form);
+  if (!form || !form.id) return;
+  var currentForm = _customForms.find(function(item) { return item && String(item.id) === String(form.id); });
+  var avail = isFormAcceptingResponses(currentForm || form);
   if (!avail.open) {
     if (typeof showToast === 'function') {
       showToast(avail.message || 'Responses for this form are currently paused.', 'warning');
@@ -1261,11 +1259,11 @@ async function submitBuiltinForm(form) {
     ? form.items
     : ((form && Array.isArray(form.fields)) ? form.fields : []);
   var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
-  var rawAnswers = {};
-  var cleanAnswers = {};
+  var rawAnswers = Object.create(null);
+  var cleanAnswers = Object.create(null);
 
   items.forEach(function (f, i) {
-    if (f.kind === 'section' || f.kind === 'title_desc' || f.kind === 'image') return;
+    if (!isFormQuestion(f)) return;
     var label = f.label || f.title || ('Question ' + (i + 1));
     var scopedId = 'bff-' + formKey + '-' + i;
     var el = typeof document !== 'undefined'
@@ -1278,7 +1276,7 @@ async function submitBuiltinForm(form) {
         if (checkedRadio.value === '__other__') {
           var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
           var otherVal = otherInp ? otherInp.value.trim() : '';
-          val = otherVal ? ('Other: ' + otherVal) : (f.required ? '' : 'Other');
+          val = otherVal ? ('Other: ' + otherVal) : '';
         } else {
           val = checkedRadio.value;
         }
@@ -1292,7 +1290,7 @@ async function submitBuiltinForm(form) {
         if (cb.value === '__other__') {
           var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
           var otherVal = otherInp ? otherInp.value.trim() : '';
-          vals.push(otherVal ? ('Other: ' + otherVal) : 'Other');
+          if (otherVal) vals.push('Other: ' + otherVal);
         } else {
           vals.push(cb.value);
         }
@@ -1316,8 +1314,7 @@ async function submitBuiltinForm(form) {
       val = el.value.trim();
     }
     rawAnswers[label] = val;
-    var isDataUrl = typeof val === 'string' && val.indexOf('data:') === 0;
-    var sanitizedVal = (f.type === 'signature' || f.type === 'file_upload' || f.type === 'file' || isDataUrl)
+    var sanitizedVal = f.type === 'signature'
       ? val
       : (typeof sanitizeInput === 'function' ? sanitizeInput(val, (f.type === 'textarea' || f.type === 'paragraph') ? 2000 : 300) : val);
     cleanAnswers[label] = sanitizedVal;
@@ -1328,7 +1325,7 @@ async function submitBuiltinForm(form) {
 
   // Update DOM field border styling
   items.forEach(function (f, i) {
-    if (f.kind === 'section' || f.kind === 'title_desc' || f.kind === 'image') return;
+    if (!isFormQuestion(f)) return;
     var label = f.label || f.title || ('Question ' + (i + 1));
     var scopedId = 'bff-' + formKey + '-' + i;
     var el = typeof document !== 'undefined'
@@ -1361,7 +1358,9 @@ async function submitBuiltinForm(form) {
 
   _isSubmittingBuiltinForm = true;
 
-  var btn = typeof document !== 'undefined' ? document.querySelector('[data-submit-form]') : null;
+  var btn = typeof document !== 'undefined' ? Array.from(document.querySelectorAll('[data-submit-form]')).find(function(button) {
+    return button.getAttribute('data-submit-form') === String(form.id);
+  }) : null;
   if (typeof setButtonLoading === 'function') {
     setButtonLoading(btn, true, 'Submitting...', 'Submitting form responses...');
   } else if (btn) {
@@ -1369,18 +1368,15 @@ async function submitBuiltinForm(form) {
     btn.disabled = true;
   }
 
-  var ic = typeof sessionGet === 'function' ? sessionGet('ic') || '' : '';
-  var name = '';
-  var rank = '';
-  if (typeof document !== 'undefined') {
-    name = (document.getElementById('order-member-name') || {}).textContent || ic;
-    rank = (document.getElementById('order-member-rank') || {}).textContent || '';
-  }
+  var ic = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') || '' : '';
+  var name = typeof sessionGet === 'function' ? sessionGet('name') || '' : '';
+  var rank = typeof sessionGet === 'function' ? sessionGet('rank') || '' : '';
 
   var client = getSupa();
-  if (!client || !client.post) {
+  if (!client || (typeof client.req !== 'function' && typeof client.post !== 'function')) {
     if (typeof showToast === 'function') showToast('Database unavailable.', 'error');
-    if (btn) {
+    if (typeof setButtonLoading === 'function') setButtonLoading(btn, false);
+    else if (btn) {
       btn.innerHTML = 'Submit';
       btn.disabled = false;
     }
@@ -1388,7 +1384,7 @@ async function submitBuiltinForm(form) {
     return;
   }
 
-  var orderNum = 'FORM-' + Date.now().toString(36).toUpperCase();
+  var orderNum = 'FORM-' + crypto.randomUUID().toUpperCase();
   var payload = {
     order_number: orderNum,
     ic: ic || 'GUEST',
@@ -1406,7 +1402,36 @@ async function submitBuiltinForm(form) {
   };
 
   try {
-    await client.post('bb_orders', payload);
+    if (currentForm) {
+      await loadCustomForms(true);
+      var latest = _customForms.find(function(item) { return String(item.id) === String(form.id); });
+      var currentAvailability = latest ? isFormAcceptingResponses(latest) : { open: false, message: 'This form is no longer available.' };
+      if (!currentAvailability.open || latest.type !== 'builtin') {
+        if (typeof showToast === 'function') showToast(currentAvailability.message || 'This form is no longer available.', 'warning');
+        if (typeof setButtonLoading === 'function') setButtonLoading(btn, false);
+        else if (btn) { btn.innerHTML = 'Submit Response'; btn.disabled = false; }
+        return;
+      }
+      if (JSON.stringify(latest.items || latest.fields) !== JSON.stringify(form.items || form.fields)) {
+        if (typeof showToast === 'function') showToast('The questions changed. Reopen the form before submitting.', 'warning');
+        if (typeof setButtonLoading === 'function') setButtonLoading(btn, false);
+        else if (btn) { btn.innerHTML = 'Submit Response'; btn.disabled = false; }
+        return;
+      }
+    }
+    try {
+      if (typeof client.req === 'function') await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 });
+      else await client.post('bb_orders', payload);
+    } catch (error) {
+      var message = String(error.message || '');
+      var omitted = ['notes', 'rank', 'squad', 'created_at'].find(function(key) {
+        return message.includes('PGRST204') && message.includes("'" + key + "'");
+      });
+      if (!omitted) throw error;
+      delete payload[omitted];
+      if (typeof client.req === 'function') await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 });
+      else await client.post('bb_orders', payload);
+    }
 
     if (typeof document !== 'undefined') {
       var s = document.getElementById('builtin-success');
@@ -1422,8 +1447,9 @@ async function submitBuiltinForm(form) {
     }, 1800);
   } catch (e) {
     if (typeof showToast === 'function')
-      showToast('Submission failed: ' + e.message, 'error');
-    if (btn) {
+      showToast('Submission could not be confirmed. Check your responses before trying again.', 'error');
+    if (typeof setButtonLoading === 'function') setButtonLoading(btn, false);
+    else if (btn) {
       btn.innerHTML = 'Submit Response';
       btn.disabled = false;
     }
@@ -1494,7 +1520,7 @@ function renderFbFields() {
     html +=
       '<div class="fb-field-row">' +
       '<input type="text" value="' +
-      (f.label || '') +
+      escapeHtml(f.label || '') +
       '" data-fi="' +
       i +
       '" data-fk="label" placeholder="Field label" style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;"/>' +
@@ -1514,7 +1540,7 @@ function renderFbFields() {
       '</div>' +
       (f.type === 'select'
         ? '<input type="text" value="' +
-          (f.options || '') +
+          escapeHtml(f.options || '') +
           '" data-fi="' +
           i +
           '" data-fk="options" placeholder="Options: Yes, No, Maybe" style="width:100%;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:8px;"/>'
@@ -1523,7 +1549,7 @@ function renderFbFields() {
 
   container.innerHTML = html;
   container.querySelectorAll('[data-fi]').forEach(function (el) {
-    var event = el.type === 'checkbox' ? 'change' : 'input';
+    var event = el.getAttribute('data-fk') === 'del' ? 'click' : el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(event, function () {
       var i = parseInt(el.getAttribute('data-fi'), 10);
       var fk = el.getAttribute('data-fk');
@@ -1576,12 +1602,15 @@ function updateFormBuilderScheduleBadge(status) {
 /**
  * Toggles form builder status between Active and Paused from the header button
  */
-function toggleFormBuilderStatus() {
+async function toggleFormBuilderStatus() {
   if (typeof document === 'undefined') return;
   var activeRadio = document.querySelector('input[name="fb-status-radio"][value="active"]');
   var pausedRadio = document.querySelector('input[name="fb-status-radio"][value="paused"]');
   var isCurrentlyPaused = pausedRadio && pausedRadio.checked;
   var nextStatus = isCurrentlyPaused ? 'active' : 'paused';
+  var editIdEl = document.getElementById('fb-edit-id');
+  var existing = editIdEl && _customForms.find(function(f) { return String(f.id) === String(editIdEl.value); });
+  if (existing) return toggleCustomFormStatus(existing.id);
 
   if (activeRadio && pausedRadio) {
     activeRadio.checked = nextStatus === 'active';
@@ -1589,17 +1618,6 @@ function toggleFormBuilderStatus() {
   }
 
   updateFormBuilderScheduleBadge(nextStatus);
-
-  var editIdEl = document.getElementById('fb-edit-id');
-  if (editIdEl && editIdEl.value) {
-    var f = _customForms.find(function(x) { return String(x.id) === String(editIdEl.value); });
-    if (f) {
-      f.status = nextStatus;
-      f.active = nextStatus === 'active';
-      saveCustomForms();
-      renderAdminForms();
-    }
-  }
 
   if (typeof showToast === 'function') {
     showToast(
@@ -1646,7 +1664,7 @@ function clearFormBuilder() {
 /**
  * Saves form definition (External link or Built-in) to Supabase
  */
-function saveForm() {
+async function saveForm() {
   if (typeof document === 'undefined') return;
   if (_isSavingCustomForm) return;
   _isSavingCustomForm = true;
@@ -1721,10 +1739,7 @@ function saveForm() {
     var idx = _customForms.findIndex(function (f) {
       return f.id === formData.id;
     });
-    if (idx >= 0) _customForms[idx] = formData;
-    else _customForms.push(formData);
-
-    saveCustomForms();
+    if (!await saveFormDefinition(formData)) return;
     clearFormBuilder();
     renderAdminForms();
     renderFormsHub();
@@ -1769,10 +1784,9 @@ async function deleteForm(id) {
       : true;
   if (!ok) return;
 
-  _customForms = _customForms.filter(function (x) {
+  if (!await saveCustomForms(_customForms.filter(function (x) {
     return x.id !== id;
-  });
-  await saveCustomForms();
+  }))) return false;
   renderAdminForms();
   renderFormsHub();
 
@@ -1787,6 +1801,7 @@ async function deleteForm(id) {
   }
 
   if (typeof showToast === 'function') showToast('Form deleted.', 'info');
+  return true;
 }
 
 // ── Upgraded Forms List & Editor Routing (Images 1, 2, 3) ──────────────────
@@ -1972,6 +1987,7 @@ function closeFormEditor() {
   if (subpanelBuilder) subpanelBuilder.style.display = 'none';
   if (mainView) mainView.style.display = 'block';
   if (mount) mount.innerHTML = '';
+  _gfCurrentForm = null;
   renderAdminForms();
 }
 
@@ -2080,11 +2096,7 @@ function openExternalLinkFormEditor(form) {
       currentForm.close_at = closeEl ? closeEl.value.trim() : '';
       currentForm.paused_message = pausedMsgEl ? pausedMsgEl.value.trim() : '';
 
-      var idx = _customForms.findIndex(function(x) { return String(x.id) === String(currentForm.id); });
-      if (idx >= 0) _customForms[idx] = currentForm;
-      else _customForms.push(currentForm);
-
-      await saveCustomForms();
+      if (!await saveFormDefinition(currentForm)) return;
       if (typeof showToast === 'function') showToast('External form saved!', 'success');
       closeFormEditor();
     });
@@ -2114,6 +2126,9 @@ function openBuiltinGoogleFormEditor(form) {
 
   if (form) {
     _gfCurrentForm = JSON.parse(JSON.stringify(form));
+    if (Array.isArray(_gfCurrentForm.items)) {
+      _gfCurrentForm.items = _gfCurrentForm.items.filter(function(item) { return item && !isLegacyFormUpload(item); });
+    }
     if (!_gfCurrentForm.items || !_gfCurrentForm.items.length) {
       if (_gfCurrentForm.fields && _gfCurrentForm.fields.length) {
         _gfCurrentForm.items = convertOldFieldsToGfItems(_gfCurrentForm.fields);
@@ -2231,20 +2246,39 @@ async function saveGfCurrentForm() {
   if (titleEl) _gfCurrentForm.name = titleEl.value.trim() || 'Untitled form';
   if (descEl) _gfCurrentForm.desc = descEl.value.trim() || '';
 
+  _gfCurrentForm.items = (_gfCurrentForm.items || []).filter(function(item) { return item && !isLegacyFormUpload(item); });
   _gfCurrentForm.fields = convertGfItemsToFields(_gfCurrentForm.items);
-
-  var idx = _customForms.findIndex(function (x) {
-    return String(x.id) === String(_gfCurrentForm.id);
-  });
-  if (idx >= 0) _customForms[idx] = JSON.parse(JSON.stringify(_gfCurrentForm));
-  else _customForms.push(JSON.parse(JSON.stringify(_gfCurrentForm)));
-
-  await saveCustomForms();
+  if (!await saveFormDefinition(_gfCurrentForm)) return false;
   renderFormsHub();
 
   if (typeof showToast === 'function') {
     showToast('Form "' + _gfCurrentForm.name + '" saved successfully!', 'success');
   }
+  return true;
+}
+
+function saveFormDefinition(form) {
+  var availability = isFormAcceptingResponses(Object.assign({}, form, { status: 'active', active: true }));
+  if (availability.reason === 'invalid_schedule') {
+    if (typeof showToast === 'function') showToast('Enter an opening time before the closing time.', 'warning');
+    return false;
+  }
+  var labels = new Set();
+  var fields = form.items && form.items.length ? form.items : (form.fields || []);
+  if (fields.filter(isFormQuestion).some(function(field) {
+    var label = String(field.label || field.title || '').trim().toLowerCase();
+    if (!label || labels.has(label)) return true;
+    labels.add(label);
+    return false;
+  })) {
+    if (typeof showToast === 'function') showToast('Use a different, nonempty label for each question.', 'warning');
+    return false;
+  }
+  var next = _customForms.slice();
+  var index = next.findIndex(function(item) { return String(item.id) === String(form.id); });
+  if (index < 0) next.push(form);
+  else next[index] = form;
+  return saveCustomForms(next);
 }
 
 /**
@@ -2595,8 +2629,6 @@ function renderGfQuestionsTab() {
       bodyHtml = '<div style="color:var(--text-muted);font-size:13px;display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-card);padding:8px 0;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Month, day, year</div>';
     } else if (qType === 'time') {
       bodyHtml = '<div style="color:var(--text-muted);font-size:13px;display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-card);padding:8px 0;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Time (hh:mm)</div>';
-    } else if (qType === 'file_upload') {
-      bodyHtml = '<div style="color:var(--text-muted);font-size:13px;display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--border-card);border-radius:8px;padding:12px 16px;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> File upload button for respondents</div>';
     } else if (qType === 'signature') {
       bodyHtml =
         '<div class="gf-signature-mockup">' +
@@ -2621,7 +2653,6 @@ function renderGfQuestionsTab() {
       '<option value="multiple_choice" ' + (qType === 'multiple_choice' ? 'selected' : '') + '>Multiple choice</option>' +
       '<option value="checkboxes" ' + (qType === 'checkboxes' ? 'selected' : '') + '>Checkboxes</option>' +
       '<option value="dropdown" ' + (qType === 'dropdown' || qType === 'select' ? 'selected' : '') + '>Dropdown</option>' +
-      '<option value="file_upload" ' + (qType === 'file_upload' ? 'selected' : '') + '>File upload</option>' +
       '<option value="date" ' + (qType === 'date' ? 'selected' : '') + '>Date</option>' +
       '<option value="time" ' + (qType === 'time' ? 'selected' : '') + '>Time</option>' +
       '<option value="signature" ' + (qType === 'signature' ? 'selected' : '') + '>Signature</option>' +
@@ -2835,18 +2866,15 @@ async function loadGfResponses() {
   var client = getSupa();
   if (!client || !client.get || !_gfCurrentForm) return [];
   try {
-    var orders = await client.get('bb_orders?select=*&order=created_at.desc');
+    var orders = await client.get('bb_orders?select=order_number,created_at,member_name,ic,rank,squad,items,notes&order=created_at.desc');
     var formId = String(_gfCurrentForm.id);
     var formName = String(_gfCurrentForm.name || '');
 
     return orders.filter(function (o) {
       try {
-        var items = JSON.parse(o.items || '{}');
-        return (
-          items.form_name === formName ||
-          (o.notes && String(o.notes) === formId) ||
-          (items.form_id && String(items.form_id) === formId)
-        );
+        var items = readFormResponseItems(o);
+        var responseId = items.form_id || o.notes;
+        return responseId ? String(responseId) === formId : items.form_name === formName;
       } catch (e) {
         return false;
       }
@@ -2854,6 +2882,21 @@ async function loadGfResponses() {
   } catch (err) {
     return [];
   }
+}
+
+function readFormResponseItems(row) {
+  try {
+    var items = typeof row.items === 'string' ? JSON.parse(row.items) : row.items;
+    return items && typeof items === 'object' && !Array.isArray(items) ? items : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function quoteResponseCsvCell(value) {
+  var text = String(value ?? '');
+  if (/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(text)) text = "'" + text;
+  return '"' + text.replace(/"/g, '""') + '"';
 }
 
 /**
@@ -2870,29 +2913,24 @@ function downloadFormResponsesCsv(form, responses) {
   var questions = [];
   var items = form.items && form.items.length ? form.items : (form.fields || []);
   items.forEach(function(it) {
-    if (it.kind !== 'section' && it.kind !== 'title_desc' && it.kind !== 'image') {
+    if (isFormQuestion(it)) {
       var qName = it.title || it.label || 'Question';
       questions.push(qName);
-      headers.push('"' + qName.replace(/"/g, '""') + '"');
+      headers.push(quoteResponseCsvCell(qName));
     }
   });
 
   var rows = [headers.join(',')];
   responses.forEach(function(r) {
-    var itemsObj = {};
-    try { itemsObj = JSON.parse(r.items || '{}'); } catch(e){}
+    var itemsObj = readFormResponseItems(r);
     var answers = itemsObj.answers || {};
     var row = [
-      '"' + (r.order_number || '').replace(/"/g, '""') + '"',
-      '"' + (r.created_at || '').replace(/"/g, '""') + '"',
-      '"' + (r.member_name || r.ic || '').replace(/"/g, '""') + '"',
-      '"' + (r.rank || '').replace(/"/g, '""') + '"',
-      '"' + (r.squad || '').replace(/"/g, '""') + '"'
-    ];
+      r.order_number, r.created_at, r.member_name || r.ic, r.rank, r.squad
+    ].map(quoteResponseCsvCell);
     questions.forEach(function(q) {
-      var ans = answers[q] || '';
-      if (String(ans).startsWith('data:image')) ans = '[Digital Signature Captured]';
-      row.push('"' + String(ans).replace(/"/g, '""') + '"');
+      var ans = answers[q] ?? '';
+      if (isFormSignature(ans)) ans = '[Digital Signature Captured]';
+      row.push(quoteResponseCsvCell(ans));
     });
     rows.push(row.join(','));
   });
@@ -2934,14 +2972,20 @@ async function renderGfResponsesTab() {
 
   container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:14px;">Loading responses...</div>';
 
-  _gfResponsesList = await loadGfResponses();
+  var activeForm = _gfCurrentForm;
+  var activeTab = _gfActiveTab;
+  var responses = await loadGfResponses();
+  if (_gfCurrentForm !== activeForm || _gfActiveTab !== activeTab) return;
+  _gfResponsesList = responses;
 
   var isAccepting = _gfCurrentForm.status === 'active' && _gfCurrentForm.active !== false;
+  var availability = isFormAcceptingResponses(_gfCurrentForm);
 
   var headerHtml =
     '<div class="gf-responses-header">' +
     '<div>' +
     '<div class="gf-responses-count">' + _gfResponsesList.length + ' response' + (_gfResponsesList.length === 1 ? '' : 's') + '</div>' +
+    (!availability.open && availability.reason !== 'paused' ? '<p class="page-desc">' + escapeHtml(availability.message) + '</p>' : '') +
     '</div>' +
     '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">' +
     '<div style="display:flex;align-items:center;gap:8px;">' +
@@ -2976,7 +3020,7 @@ async function renderGfResponsesTab() {
   var questions = [];
   var items = _gfCurrentForm.items && _gfCurrentForm.items.length ? _gfCurrentForm.items : (_gfCurrentForm.fields || []);
   items.forEach(function(it) {
-    if (it.kind !== 'section' && it.kind !== 'title_desc' && it.kind !== 'image') {
+    if (isFormQuestion(it)) {
       questions.push({
         label: it.title || it.label || 'Question',
         type: it.type || 'text'
@@ -2997,8 +3041,7 @@ async function renderGfResponsesTab() {
 
     var tableRows = '';
     _gfResponsesList.forEach(function(r, rIdx) {
-      var itemsObj = {};
-      try { itemsObj = JSON.parse(r.items || '{}'); } catch(e){}
+      var itemsObj = readFormResponseItems(r);
       var answers = itemsObj.answers || {};
 
       var formattedDate = r.created_at
@@ -3011,14 +3054,14 @@ async function renderGfResponsesTab() {
         '<td class="gf-col-autofill gf-col-autofill-last" style="font-weight:600;">' + escapeHtml(r.member_name || r.ic || 'Guest') + '</td>';
 
       questions.forEach(function(q) {
-        var val = answers[q.label] || '';
-        if (q.type === 'signature' && val && String(val).startsWith('data:image')) {
+        var val = answers[q.label] ?? '';
+        if (q.type === 'signature' && isFormSignature(val)) {
           tableRows += '<td>' +
-            '<img src="' + escapeHtml(val) + '" alt="Signature" style="max-height:28px;max-width:85px;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:2px;cursor:pointer;vertical-align:middle;" title="Click to view full signature" onclick="showSignatureEnlargedModal(\'' + escapeHtml(val) + '\', \'' + escapeHtml(r.member_name || '') + '\')"/>' +
+            '<img src="' + escapeHtml(val) + '" alt="Signature" style="max-height:28px;max-width:85px;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:2px;cursor:pointer;vertical-align:middle;" title="Click to view full signature" data-signature-signer="' + escapeHtml(r.member_name || '') + '"/>' +
             '</td>';
         } else {
           tableRows += '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(val) + '">' +
-            (val ? escapeHtml(val) : '<span style="color:var(--text-muted);">—</span>') +
+            (val !== '' ? escapeHtml(String(val)) : '<span style="color:var(--text-muted);">—</span>') +
             '</td>';
         }
       });
@@ -3040,11 +3083,7 @@ async function renderGfResponsesTab() {
     if (_gfIndividualIndex >= _gfResponsesList.length) _gfIndividualIndex = _gfResponsesList.length - 1;
 
     var currentResp = _gfResponsesList[_gfIndividualIndex];
-    var currentAnswers = {};
-    try {
-      var itm = JSON.parse(currentResp.items || '{}');
-      currentAnswers = itm.answers || {};
-    } catch(e){}
+    var currentAnswers = readFormResponseItems(currentResp).answers || {};
 
     var formattedDate = currentResp.created_at
       ? new Date(currentResp.created_at).toLocaleString('en-MY', {
@@ -3078,10 +3117,10 @@ async function renderGfResponsesTab() {
       '</div>';
 
     questions.forEach(function(q) {
-      var ans = currentAnswers[q.label] || '';
+      var ans = currentAnswers[q.label] ?? '';
       var valHtml = '';
 
-      if (q.type === 'signature' && ans && String(ans).startsWith('data:image')) {
+      if (q.type === 'signature' && isFormSignature(ans)) {
         valHtml =
           '<div style="background:#ffffff;padding:14px 18px;border-radius:8px;border:1px solid #cbd5e1;display:inline-block;margin-top:8px;">' +
           '<img src="' + escapeHtml(ans) + '" alt="Digital Signature" style="max-height:120px;max-width:100%;display:block;"/>' +
@@ -3089,15 +3128,10 @@ async function renderGfResponsesTab() {
           '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg> Digitally signed by respondent' +
           '</div>' +
           '</div>';
-      } else if ((q.type === 'file_upload' || q.type === 'file') && ans && String(ans).startsWith('data:')) {
-        valHtml =
-          '<div style="margin-top:8px;">' +
-          '<a href="' + escapeHtml(ans) + '" download="uploaded-attachment" class="portal-btn portal-btn-secondary" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:12px;text-decoration:none;color:var(--text-primary);"><svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Uploaded File</a>' +
-          '</div>';
       } else {
         valHtml =
           '<div style="font-size:14px;color:var(--text-primary);background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:10px 14px;margin-top:6px;">' +
-          (ans ? escapeHtml(ans) : '<span style="color:var(--text-muted);font-style:italic;">No answer provided</span>') +
+          (ans !== '' ? escapeHtml(String(ans)) : '<span style="color:var(--text-muted);font-style:italic;">No answer provided</span>') +
           '</div>';
       }
 
@@ -3153,9 +3187,17 @@ async function renderGfResponsesTab() {
     }
   }
 
+  wireResponseSignatures(container);
   wireResponsesHeaderEvents();
 }
 
+function wireResponseSignatures(container) {
+  container.querySelectorAll('[data-signature-signer]').forEach(function(image) {
+    image.addEventListener('click', function() {
+      showSignatureEnlargedModal(image.getAttribute('src'), image.getAttribute('data-signature-signer'));
+    });
+  });
+}
 /**
  * Attaches event listeners for accepting responses toggle, CSV export, and table/individual switchers
  */
@@ -3164,12 +3206,16 @@ function wireResponsesHeaderEvents() {
   if (acceptingToggle) {
     acceptingToggle.addEventListener('change', async function() {
       var nextStatus = acceptingToggle.checked ? 'active' : 'paused';
-      _gfCurrentForm.status = nextStatus;
-      _gfCurrentForm.active = nextStatus === 'active';
-      await saveGfCurrentForm();
-      if (typeof showToast === 'function') {
-        showToast('Form status updated to ' + nextStatus + '.', 'info');
+      var form = _gfCurrentForm;
+      acceptingToggle.disabled = true;
+      var saved = await toggleCustomFormStatus(form.id);
+      acceptingToggle.disabled = false;
+      if (!saved) {
+        acceptingToggle.checked = !acceptingToggle.checked;
+        return;
       }
+      form.status = nextStatus;
+      form.active = nextStatus === 'active';
     });
   }
 
@@ -3296,33 +3342,19 @@ async function renderFormResponses() {
 
   try {
     if (!client || !client.get) throw new Error('Database client unavailable');
-    var orders = await client.get('bb_orders?select=*&order=created_at.desc');
+    var orders = await client.get('bb_orders?select=order_number,created_at,member_name,ic,rank,squad,items,notes&order=created_at.desc');
 
     var filtered = orders.filter(function (o) {
-      try {
-        var items = JSON.parse(o.items || '{}');
-        return items.form_name !== undefined;
-      } catch (e) {
-        return false;
-      }
+      return readFormResponseItems(o).form_name !== undefined;
     });
 
     if (formFilter) {
       filtered = filtered.filter(function (o) {
-        try {
-          var items = JSON.parse(o.items || '{}');
-          return (
-            (o.notes || '') === formFilter ||
-            (items.form_name &&
-              (items.form_name === formFilter ||
-                _customForms.find(function (f) {
-                  return f.id === formFilter && f.name === items.form_name;
-                }))) ||
-            false
-          );
-        } catch (e) {
-          return false;
-        }
+        var items = readFormResponseItems(o);
+        var responseId = items.form_id || o.notes;
+        return responseId ? String(responseId) === formFilter : _customForms.some(function(f) {
+          return f.id === formFilter && f.name === items.form_name;
+        });
       });
     }
 
@@ -3334,13 +3366,9 @@ async function renderFormResponses() {
 
     var html = '';
     filtered.forEach(function (o) {
-      var formName = '';
-      var answers = {};
-      try {
-        var items = JSON.parse(o.items || '{}');
-        formName = items.form_name || '';
-        answers = items.answers || {};
-      } catch (e) {}
+      var items = readFormResponseItems(o);
+      var formName = items.form_name || '';
+      var answers = items.answers || {};
 
       var created = o.created_at
         ? new Date(o.created_at).toLocaleDateString('en-MY', {
@@ -3352,10 +3380,12 @@ async function renderFormResponses() {
       var answersHtml = '';
       Object.entries(answers).forEach(function (kv) {
         var valDisplay = kv[1];
-        if (String(valDisplay).startsWith('data:image')) {
-          valDisplay = '<img src="' + escapeHtml(valDisplay) + '" alt="Signature" style="max-height:28px;background:#fff;border-radius:4px;border:1px solid #ddd;padding:2px;cursor:pointer;" onclick="showSignatureEnlargedModal(\'' + escapeHtml(valDisplay) + '\', \'' + escapeHtml(o.member_name || '') + '\')"/>';
+        if (isFormSignature(valDisplay)) {
+          valDisplay = '<img src="' + escapeHtml(valDisplay) + '" alt="Signature" style="max-height:28px;background:#fff;border-radius:4px;border:1px solid #ddd;padding:2px;cursor:pointer;" data-signature-signer="' + escapeHtml(o.member_name || '') + '"/>';
+        } else if (typeof valDisplay === 'string' && valDisplay.startsWith('data:')) {
+          return;
         } else {
-          valDisplay = valDisplay ? escapeHtml(valDisplay) : '<span style="color:var(--text-muted);font-style:italic;">—</span>';
+          valDisplay = valDisplay != null && valDisplay !== '' ? escapeHtml(String(valDisplay)) : '<span style="color:var(--text-muted);font-style:italic;">—</span>';
         }
         answersHtml +=
           '<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-subtle);">' +
@@ -3401,6 +3431,7 @@ async function renderFormResponses() {
     });
 
     list.innerHTML = html;
+    wireResponseSignatures(list);
     list.querySelectorAll('[data-del-resp]').forEach(function (btn) {
       btn.addEventListener('click', async function () {
         var ok =

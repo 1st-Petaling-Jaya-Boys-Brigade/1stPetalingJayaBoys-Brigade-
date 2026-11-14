@@ -385,6 +385,9 @@
     maxTries: 6,
     dateKey: ''
   };
+  var _wordleOwner = null;
+  var _triviaOwner = null;
+  var _triviaSubmitting = false;
 
   var _triviaState = {
     dateKey: '',
@@ -397,37 +400,25 @@
   };
 
   // ── Date & Daily Key Helpers ──────────────────────────────────────────────
+  var arcadeDateFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+
   function getTodayDateKey(ref) {
-    var now;
-    if (ref instanceof Date) {
-      now = ref;
-    } else if (typeof ref === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ref)) {
-      var parts = ref.split('-');
-      now = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-    } else {
-      now = new Date();
+    if (typeof ref === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ref)) {
+      var parsed = new Date(ref + 'T00:00:00Z');
+      if (Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === ref) return ref;
     }
-    var y = now.getFullYear();
-    var m = String(now.getMonth() + 1).padStart(2, '0');
-    var d = String(now.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + d;
+    var now = ref instanceof Date && Number.isFinite(ref.getTime()) ? ref : new Date();
+    var parts = {};
+    arcadeDateFormatter.formatToParts(now).forEach(function(part) { parts[part.type] = part.value; });
+    return parts.year + '-' + parts.month + '-' + parts.day;
   }
 
   function getYesterdayDateKey(ref) {
-    var base;
-    if (ref instanceof Date) {
-      base = ref;
-    } else if (typeof ref === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ref)) {
-      var parts = ref.split('-');
-      base = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-    } else {
-      base = new Date();
-    }
-    var prev = new Date(base.getTime() - 86400000);
-    var y = prev.getFullYear();
-    var m = String(prev.getMonth() + 1).padStart(2, '0');
-    var d = String(prev.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + d;
+    var base = new Date(getTodayDateKey(ref) + 'T00:00:00Z');
+    base.setUTCDate(base.getUTCDate() - 1);
+    return base.toISOString().slice(0, 10);
   }
 
   function getDailyWordleWord(dateKey) {
@@ -451,7 +442,6 @@
     var candidates = [];
     var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
     var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
-    var name = (typeof sessionGet === 'function') ? sessionGet('name') : null;
 
     var addCandidate = function(id) {
       if (!id || typeof id !== 'string') return;
@@ -468,7 +458,6 @@
 
     addCandidate(ic);
     addCandidate(email);
-    if (candidates.length === 0) addCandidate(name);
     if (candidates.length === 0) candidates.push(pfx + 'guest');
     return candidates;
   }
@@ -509,7 +498,8 @@
 
   function saveArcadeStats(stats) {
     try {
-      var _key = getArcadeUserKey();
+      var prior = getArcadeStats();
+      if (stats.credits !== prior.credits) stats.balanceUpdatedAt = Math.max(Date.now(), (Number(prior.balanceUpdatedAt) || 0) + 1);
       var candKeys = getCandidateUserKeys('bb_arcade_');
       candKeys.forEach(function(k) {
         if (typeof localStorage !== 'undefined') {
@@ -561,7 +551,6 @@
     var client = getArcadeSupaClient();
     if (!client) return getArcadeStats(optRefDate);
 
-    var local = getArcadeStats(optRefDate);
     var candKeys = getCandidateUserKeys('bb_arcade_');
 
     try {
@@ -585,22 +574,31 @@
         } catch (_) {}
       }
 
+      if (key !== getArcadeUserKey()) return getArcadeStats(optRefDate);
+      var local = getArcadeStats(optRefDate);
       if (remoteList.length > 0) {
         var today = (typeof optRefDate === 'string' && optRefDate) ? getTodayDateKey(optRefDate) : getTodayDateKey();
         var yesterday = getYesterdayDateKey(today);
 
         var merged = Object.assign({}, local);
         remoteList.forEach(function(remote) {
-          merged.credits = Math.max(Number(merged.credits) || 0, Number(remote.credits) || 0);
+          var localVersion = Number(merged.balanceUpdatedAt) || 0;
+          var remoteVersion = Number(remote.balanceUpdatedAt) || 0;
+          if (remoteVersion > localVersion || (remoteVersion === localVersion && arcadeCount(remote.credits) > arcadeCount(merged.credits))) {
+            merged.credits = arcadeCount(remote.credits);
+            merged.balanceUpdatedAt = remoteVersion;
+          }
           merged.bestStreak = Math.max(Number(merged.bestStreak) || 0, Number(remote.bestStreak) || 0);
           merged.wordlePlays = Math.max(Number(merged.wordlePlays) || 0, Number(remote.wordlePlays) || 0);
           merged.wordleWins = Math.max(Number(merged.wordleWins) || 0, Number(remote.wordleWins) || 0);
           merged.triviaPlays = Math.max(Number(merged.triviaPlays) || 0, Number(remote.triviaPlays) || 0);
           merged.triviaScoreTotal = Math.max(Number(merged.triviaScoreTotal) || 0, Number(remote.triviaScoreTotal) || 0);
-          merged.lastPlayedDate = (remote.lastPlayedDate && merged.lastPlayedDate)
-            ? (remote.lastPlayedDate > merged.lastPlayedDate ? remote.lastPlayedDate : merged.lastPlayedDate)
-            : (remote.lastPlayedDate || merged.lastPlayedDate || null);
-          merged.streak = Math.max(Number(merged.streak) || 0, Number(remote.streak) || 0);
+          if (remote.lastPlayedDate && (!merged.lastPlayedDate || remote.lastPlayedDate > merged.lastPlayedDate)) {
+            merged.lastPlayedDate = remote.lastPlayedDate;
+            merged.streak = Number(remote.streak) || 0;
+          } else if (remote.lastPlayedDate === merged.lastPlayedDate) {
+            merged.streak = Math.max(Number(merged.streak) || 0, Number(remote.streak) || 0);
+          }
           merged.awardedWordle = Object.assign({}, merged.awardedWordle || {}, remote.awardedWordle || {});
           merged.awardedTrivia = Object.assign({}, merged.awardedTrivia || {}, remote.awardedTrivia || {});
         });
@@ -621,35 +619,13 @@
         }
         updateArcadeHeaderBadge(merged);
 
-        candKeys.forEach(function(k) {
-          if (k !== 'bb_arcade_guest') {
-            if (typeof client.setConfig === 'function') {
-              client.setConfig(k, merged).catch(function() {});
-            } else if (typeof client.upsert === 'function') {
-              client.upsert('bb_config', { key: k, value: JSON.stringify(merged) }, 'key').catch(function() {});
-            }
-          }
-        });
-
         return merged;
-      } else {
-        if (local && (local.credits > 0 || local.streak > 0)) {
-          candKeys.forEach(function(k) {
-            if (k !== 'bb_arcade_guest') {
-              if (typeof client.setConfig === 'function') {
-                client.setConfig(k, local).catch(function() {});
-              } else if (typeof client.upsert === 'function') {
-                client.upsert('bb_config', { key: k, value: JSON.stringify(local) }, 'key').catch(function() {});
-              }
-            }
-          });
-        }
       }
     } catch (e) {
       console.warn('fetchRemoteArcadeStats error:', e);
     }
 
-    return local;
+    return getArcadeStats(optRefDate);
   }
 
   /**
@@ -669,7 +645,7 @@
     var today = overrideDate ? getTodayDateKey(overrideDate) : getTodayDateKey();
     var yesterday = getYesterdayDateKey(today);
 
-    if (stats.lastPlayedDate === today) {
+    if (stats.lastPlayedDate && stats.lastPlayedDate >= today) {
       // Already participated today; streak preserved
       return stats;
     }
@@ -728,9 +704,9 @@
     var storageKey = 'bb_wordle_' + today + '_' + userKey;
     try {
       var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(storageKey) : null;
-      if (raw) return JSON.parse(raw);
+      if (raw) return normalizeWordleState(JSON.parse(raw), today);
     } catch (e) {}
-    if (_wordleState && _wordleState.dateKey === today) return _wordleState;
+    if (_wordleOwner === userKey && _wordleState.dateKey === today) return _wordleState;
     return null;
   }
 
@@ -738,12 +714,13 @@
     var today = getTodayDateKey();
     var targetWord = getDailyWordleWord(today).toUpperCase();
     var userKey = getArcadeUserKey();
+    _wordleOwner = userKey;
     var storageKey = 'bb_wordle_' + today + '_' + userKey;
 
     var saved = null;
     try {
       var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(storageKey) : null;
-      if (raw) saved = JSON.parse(raw);
+      if (raw) saved = normalizeWordleState(JSON.parse(raw), today);
     } catch (e) {}
 
     if (saved && saved.dateKey === today) {
@@ -768,6 +745,7 @@
   function saveWordleState() {
     try {
       var userKey = getArcadeUserKey();
+      if (_wordleOwner !== userKey) return;
       var storageKey = 'bb_wordle_' + _wordleState.dateKey + '_' + userKey;
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(storageKey, JSON.stringify(_wordleState));
@@ -813,44 +791,48 @@
               cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
             }
           }
-          if (cfg && cfg.dateKey === today) {
-            if (!bestRemote) {
-              bestRemote = cfg;
-            } else if (cfg.isGameOver && !bestRemote.isGameOver) {
-              bestRemote = cfg;
-            } else if (cfg.creditsAwarded && !bestRemote.creditsAwarded) {
-              bestRemote = cfg;
-            } else if ((cfg.guesses || []).length > (bestRemote.guesses || []).length) {
-              bestRemote = cfg;
-            }
-          }
+          cfg = normalizeWordleState(cfg, today);
+          if (cfg && progressScore(cfg, 'wordle') > progressScore(bestRemote, 'wordle')) bestRemote = cfg;
         } catch (_) {}
       }
 
-      if (bestRemote && bestRemote.dateKey === today) {
-        var localCount = (_wordleState && _wordleState.guesses) ? _wordleState.guesses.length : 0;
-        var remoteCount = (bestRemote.guesses) ? bestRemote.guesses.length : 0;
-
-        if (bestRemote.isGameOver || remoteCount > localCount || bestRemote.creditsAwarded) {
-          _wordleState = Object.assign({}, _wordleState, bestRemote);
-          candKeys.forEach(function(k) {
-            var sk = 'bb_wordle_' + today + '_' + k;
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem(sk, JSON.stringify(_wordleState));
-            }
-          });
-          if (_arcadeSubtab === 'wordle') {
-            renderWordleView();
-          }
-        } else if (localCount > remoteCount || _wordleState.isGameOver) {
-          saveWordleState();
+      if (userKey !== getArcadeUserKey() || (_wordleState.dateKey && _wordleOwner === userKey && _wordleState.dateKey !== today)) return;
+      var localState = loadWordleState(today);
+      if (bestRemote && (!localState || progressScore(bestRemote, 'wordle') > progressScore(localState, 'wordle'))) {
+        _wordleOwner = userKey;
+        _wordleState = bestRemote;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_wordle_' + today + '_' + userKey, JSON.stringify(bestRemote));
         }
-      } else if (_wordleState && (_wordleState.guesses.length > 0 || _wordleState.isGameOver)) {
+        if (_arcadeSubtab === 'wordle') renderWordleView();
+      } else if (_wordleOwner === userKey && _wordleState.dateKey === today &&
+          progressScore(_wordleState, 'wordle') > progressScore(bestRemote, 'wordle')) {
         saveWordleState();
       }
     } catch (e) {
       console.warn('fetchRemoteWordleState error:', e);
     }
+  }
+
+  function progressScore(state, game) {
+    if (!state) return 0;
+    if (game === 'wordle') return (state.isGameOver ? 16 : 0) + (state.hasWon ? 8 : 0) + (state.guesses?.length || 0);
+    return (state.isSubmitted ? 16 : 0) + Object.keys(state.answers || {}).length;
+  }
+
+  function normalizeWordleState(state, date) {
+    if (!state || state.dateKey !== date || !Array.isArray(state.guesses)) return null;
+    var word = getDailyWordleWord(date).toUpperCase();
+    var guesses = state.guesses.slice(0, 6).filter(function(entry) { return entry && isValidWordleWord(entry.guess); })
+      .map(function(entry) {
+        var guess = entry.guess.toUpperCase();
+        return { guess: guess, evalResult: evaluateGuess(guess, word) };
+      });
+    var win = guesses.findIndex(function(entry) { return entry.guess === word; });
+    if (win !== -1) guesses = guesses.slice(0, win + 1);
+    return Object.assign({}, state, { word: word, guesses: guesses, maxTries: 6,
+      currentGuess: /^[A-Z]{0,5}$/.test(state.currentGuess) ? state.currentGuess : '',
+      hasWon: win !== -1, isGameOver: win !== -1 || guesses.length === 6 });
   }
 
   function evaluateGuess(guess, target) {
@@ -882,6 +864,7 @@
   }
 
   function handleWordleKey(char) {
+    if (_wordleOwner !== getArcadeUserKey() || _wordleState.dateKey !== getTodayDateKey()) initWordle();
     if (_wordleState.isGameOver) return;
     var c = String(char || '').toUpperCase();
 
@@ -901,7 +884,7 @@
   }
 
   function submitWordleGuess() {
-    if (_wordleState.isGameOver) return;
+    if (_wordleState.isGameOver || _wordleOwner !== getArcadeUserKey() || _wordleState.dateKey !== getTodayDateKey()) return;
 
     if (_wordleState.currentGuess.length !== 5) {
       showWordleToast('Not enough letters');
@@ -1039,8 +1022,8 @@
         }
       });
 
-      // Persist across devices to Supabase bb_config
-      if (primaryKey && primaryKey !== 'bb_trivia_guest') {
+      // An empty daily quiz has no progress to publish.
+      if (primaryKey && primaryKey !== 'bb_trivia_guest' && (st.isSubmitted || Object.keys(st.answers || {}).length)) {
         var client = getArcadeSupaClient();
         if (client) {
           candKeys.forEach(function(uKey) {
@@ -1060,6 +1043,25 @@
     } catch (e) {
       console.warn('saveTriviaState error:', e);
     }
+  }
+
+  function normalizeTriviaState(state, date) {
+    if (!state || state.dateKey !== date) return null;
+    var indices = getDailyTriviaQuestionIndices(date);
+    var answers = {};
+    var score = 0;
+    indices.forEach(function(questionIndex, index) {
+      var question = BB_TRIVIA_QUESTIONS[questionIndex];
+      var answer = state.answers?.[index];
+      if (!Number.isInteger(answer) || answer < 0 || answer >= question.options.length) return;
+      answers[index] = answer;
+      if (answer === question.correct) score++;
+    });
+    return Object.assign({}, state, {
+      questionIndices: indices, answers: answers, score: score,
+      currentIndex: Number.isInteger(state.currentIndex) ? Math.max(0, Math.min(4, state.currentIndex)) : 0,
+      isSubmitted: state.isSubmitted === true
+    });
   }
 
   async function fetchRemoteTriviaState(todayKey, uKey) {
@@ -1088,53 +1090,38 @@
               cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
             }
           }
-          if (cfg && cfg.dateKey === today) {
-            if (!bestRemote) {
-              bestRemote = cfg;
-            } else if (cfg.isSubmitted && !bestRemote.isSubmitted) {
-              bestRemote = cfg;
-            } else if (cfg.creditsAwarded && !bestRemote.creditsAwarded) {
-              bestRemote = cfg;
-            } else if (Object.keys(cfg.answers || {}).length > Object.keys(bestRemote.answers || {}).length) {
-              bestRemote = cfg;
-            }
-          }
+          cfg = normalizeTriviaState(cfg, today);
+          if (cfg && progressScore(cfg, 'trivia') > progressScore(bestRemote, 'trivia')) bestRemote = cfg;
         } catch (_) {}
       }
 
-      if (bestRemote && bestRemote.dateKey === today) {
-        var localCount = (_triviaState && _triviaState.answers) ? Object.keys(_triviaState.answers).length : 0;
-        var remoteCount = (bestRemote.answers) ? Object.keys(bestRemote.answers).length : 0;
-
-        if (bestRemote.isSubmitted || remoteCount > localCount || bestRemote.creditsAwarded) {
-          _triviaState = Object.assign({}, _triviaState, bestRemote);
-          // Set currentIndex to the next unanswered question if not submitted
-          if (!_triviaState.isSubmitted) {
-            var nextUnanswered = 0;
-            while (nextUnanswered < 5 && _triviaState.answers[nextUnanswered] !== undefined) {
-              nextUnanswered++;
-            }
-            if (nextUnanswered < 5) {
-              _triviaState.currentIndex = nextUnanswered;
-            }
-          }
-
-          candKeys.forEach(function(uKey) {
-            var storageKey = uKey + '_' + today;
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem(storageKey, JSON.stringify(_triviaState));
-              localStorage.setItem(uKey + '_active', JSON.stringify(_triviaState));
-            }
+      if (userKey !== getTriviaUserKey() || (_triviaState.dateKey && _triviaOwner === userKey && _triviaState.dateKey !== today)) return;
+      var localState = _triviaOwner === userKey && _triviaState.dateKey === today ? _triviaState : null;
+      if (bestRemote && !localState && typeof localStorage !== 'undefined') {
+        localState = normalizeTriviaState(JSON.parse(localStorage.getItem(userKey + '_' + today)), today);
+      }
+      if (bestRemote && !localState?.isSubmitted && !bestRemote.isSubmitted && localState) {
+        bestRemote = normalizeTriviaState(Object.assign({}, bestRemote, {
+          answers: Object.assign({}, bestRemote.answers, localState.answers)
+        }), today);
+      }
+      if (bestRemote && progressScore(bestRemote, 'trivia') > progressScore(localState, 'trivia')) {
+        _triviaOwner = userKey;
+        _triviaState = bestRemote;
+        if (!bestRemote.isSubmitted) {
+          var nextUnanswered = bestRemote.questionIndices.findIndex(function(_, index) {
+            return !Object.hasOwn(bestRemote.answers, index);
           });
-
-          if (_arcadeSubtab === 'trivia') {
-            renderTriviaView();
-          }
-        } else if (localCount > remoteCount || _triviaState.isSubmitted) {
-          saveTriviaState(_triviaState);
+          if (nextUnanswered >= 0) bestRemote.currentIndex = nextUnanswered;
         }
-      } else if (_triviaState && (Object.keys(_triviaState.answers || {}).length > 0 || _triviaState.isSubmitted)) {
-        saveTriviaState(_triviaState);
+        if (typeof localStorage !== 'undefined') {
+          var json = JSON.stringify(bestRemote);
+          localStorage.setItem(userKey + '_' + today, json);
+          localStorage.setItem(userKey + '_active', json);
+        }
+        if (_arcadeSubtab === 'trivia') renderTriviaView();
+      } else if (localState && progressScore(localState, 'trivia') > progressScore(bestRemote, 'trivia')) {
+        saveTriviaState(localState);
       }
     } catch (e) {
       console.warn('fetchRemoteTriviaState error:', e);
@@ -1152,37 +1139,22 @@
       if (typeof localStorage === 'undefined') return;
       var rawActive = localStorage.getItem(uKey + '_active');
       if (!rawActive) return;
-      var past = JSON.parse(rawActive);
+      var rawPast = JSON.parse(rawActive);
+      var past = rawPast && normalizeTriviaState(rawPast, rawPast.dateKey);
       if (past && past.dateKey && past.dateKey < today && !past.isSubmitted) {
-        var autoScore = 0;
-        var qIndices = past.questionIndices || getDailyTriviaQuestionIndices(past.dateKey);
-        var answers = past.answers || {};
-        for (var i = 0; i < 5; i++) {
-          var chosenOpt = answers[i];
-          if (chosenOpt !== undefined && chosenOpt !== null) {
-            var realQIdx = qIndices[i];
-            if (BB_TRIVIA_QUESTIONS[realQIdx] && chosenOpt === BB_TRIVIA_QUESTIONS[realQIdx].correct) {
-              autoScore++;
-            }
-          }
+        if (!Object.keys(past.answers).length) {
+          localStorage.removeItem(uKey + '_active');
+          return;
         }
-        past.score = autoScore;
         past.isSubmitted = true;
         past.autoSubmitted = true;
         past.submittedAt = new Date().toISOString();
 
-        if (autoScore > 0) {
-          awardCredits(autoScore * 5, 'Past Daily BB Trivia (' + past.dateKey + ')');
-        }
-        recordGameParticipation(past.dateKey);
-
-        var stats = getArcadeStats();
-        stats.triviaPlays = (stats.triviaPlays || 0) + 1;
-        stats.triviaScoreTotal = (stats.triviaScoreTotal || 0) + autoScore;
-        saveArcadeStats(stats);
-
-        localStorage.setItem(uKey + '_' + past.dateKey, JSON.stringify(past));
-        localStorage.removeItem(uKey + '_active');
+        awardTriviaResult(past);
+        saveTriviaState(past);
+        getCandidateUserKeys('bb_trivia_').forEach(function(key) {
+          localStorage.removeItem(key + '_active');
+        });
       }
     } catch (e) {
       console.warn('checkAndAutoSubmitPastTrivia error:', e);
@@ -1192,6 +1164,7 @@
   function loadTriviaState(optDate) {
     var today = (typeof optDate === 'string' && optDate) ? getTodayDateKey(optDate) : getTodayDateKey();
     var uKey = getTriviaUserKey();
+    _triviaOwner = uKey;
 
     checkAndAutoSubmitPastTrivia(today);
 
@@ -1199,7 +1172,7 @@
     try {
       if (typeof localStorage !== 'undefined') {
         var raw = localStorage.getItem(uKey + '_' + today);
-        if (raw) saved = JSON.parse(raw);
+        if (raw) saved = normalizeTriviaState(JSON.parse(raw), today);
       }
     } catch (e) {}
 
@@ -1233,7 +1206,9 @@
   }
 
   function selectTriviaAnswer(optIndex) {
-    if (_triviaState.isSubmitted) return;
+    if (_triviaState.isSubmitted || _triviaOwner !== getTriviaUserKey()) return;
+    var question = BB_TRIVIA_QUESTIONS[_triviaState.questionIndices[_triviaState.currentIndex]];
+    if (!question || !Number.isInteger(optIndex) || optIndex < 0 || optIndex >= question.options.length) return;
     _triviaState.answers[_triviaState.currentIndex] = optIndex;
     saveTriviaState(_triviaState);
     renderTriviaView();
@@ -1256,55 +1231,41 @@
   }
 
   async function submitTriviaQuiz() {
-    if (_triviaState.isSubmitted) return;
-
-    var answeredCount = Object.keys(_triviaState.answers).length;
-    if (answeredCount < 5) {
-      var proceed = true;
-      if (typeof showConfirmModal === 'function') {
-        proceed = await showConfirmModal(
-          'You have answered ' + answeredCount + ' of 5 questions. Unanswered questions will receive 0 points. Submit quiz now?',
-          'Submit Daily BB Trivia?',
-          { confirmText: 'Submit Now', cancelText: 'Review Answers' }
-        );
-      }
-      if (!proceed) return;
+    if (_triviaSubmitting || _triviaState.isSubmitted || _triviaOwner !== getTriviaUserKey()) return;
+    _triviaSubmitting = true;
+    var current = _triviaState;
+    var owner = _triviaOwner;
+    try {
+      var result = normalizeTriviaState(current, current.dateKey);
+      var answered = Object.keys(result.answers).length;
+      if (answered < 5 && typeof showConfirmModal === 'function' && !await showConfirmModal(
+        'You have answered ' + answered + ' of 5 questions. Unanswered questions receive 0 points. Submit now?',
+        'Submit Daily BB Trivia?',
+        { confirmText: 'Submit Now', cancelText: 'Review Answers' }
+      )) return;
+      if (owner !== getTriviaUserKey() || _triviaState !== current || current.isSubmitted) return;
+      result = normalizeTriviaState(current, current.dateKey);
+      Object.assign(current, result, { isSubmitted: true, submittedAt: new Date().toISOString() });
+      awardTriviaResult(current);
+      saveTriviaState(current);
+      renderTriviaView();
+    } finally {
+      _triviaSubmitting = false;
     }
+  }
 
-    var score = 0;
-    var qIndices = _triviaState.questionIndices;
-    for (var i = 0; i < 5; i++) {
-      var chosen = _triviaState.answers[i];
-      if (chosen !== undefined && chosen !== null) {
-        var realIdx = qIndices[i];
-        if (BB_TRIVIA_QUESTIONS[realIdx] && chosen === BB_TRIVIA_QUESTIONS[realIdx].correct) {
-          score++;
-        }
-      }
-    }
-
-    _triviaState.score = score;
-    _triviaState.isSubmitted = true;
-    _triviaState.submittedAt = new Date().toISOString();
-
+  function awardTriviaResult(state) {
     var stats = getArcadeStats();
     stats.awardedTrivia = stats.awardedTrivia || {};
-    if (!stats.awardedTrivia[_triviaState.dateKey] && !_triviaState.creditsAwarded) {
-      _triviaState.creditsAwarded = true;
-      recordGameParticipation('trivia');
-      if (score > 0) {
-        awardCredits(score * 5, 'Daily BB Trivia');
-      }
-      var freshTriviaStats = getArcadeStats();
-      freshTriviaStats.awardedTrivia = freshTriviaStats.awardedTrivia || {};
-      freshTriviaStats.awardedTrivia[_triviaState.dateKey] = true;
-      freshTriviaStats.triviaPlays = (freshTriviaStats.triviaPlays || 0) + 1;
-      freshTriviaStats.triviaScoreTotal = (freshTriviaStats.triviaScoreTotal || 0) + score;
-      saveArcadeStats(freshTriviaStats);
-    }
-    saveTriviaState(_triviaState);
-
-    renderTriviaView();
+    if (stats.awardedTrivia[state.dateKey]) return;
+    recordGameParticipation('trivia', state.dateKey);
+    stats = getArcadeStats();
+    stats.awardedTrivia = Object.assign({}, stats.awardedTrivia, { [state.dateKey]: true });
+    stats.credits += state.score * 5;
+    stats.triviaPlays++;
+    stats.triviaScoreTotal += state.score;
+    state.creditsAwarded = true;
+    saveArcadeStats(stats);
   }
 
   // Backward compatibility alias
@@ -1338,56 +1299,23 @@
    * Reconciles game rewards if Wordle or Trivia was completed today but credits or streak were interrupted
    */
   function reconcileArcadeRewards() {
-    try {
-      var today = getTodayDateKey();
-      var stats = getArcadeStats();
-      var changed = false;
-
-      // 1. Reconcile Wordle completion
-      var wState = loadWordleState();
-      if (wState && wState.dateKey === today && wState.isGameOver && wState.hasWon) {
-        if (!stats.awardedWordle || !stats.awardedWordle[today]) {
-          stats.awardedWordle = stats.awardedWordle || {};
-          stats.awardedWordle[today] = true;
-          stats.credits = (stats.credits || 0) + 15;
-          changed = true;
-        }
-        if (stats.lastPlayedDate !== today) {
-          stats = recordGameParticipation(today);
-          changed = true;
-        }
-      }
-
-      // 2. Reconcile Trivia completion
-      var tState = loadTriviaState();
-      if (tState && tState.dateKey === today && tState.isSubmitted) {
-        var tScore = Number(tState.score) || 0;
-        if (!stats.awardedTrivia || !stats.awardedTrivia[today]) {
-          stats.awardedTrivia = stats.awardedTrivia || {};
-          stats.awardedTrivia[today] = true;
-          if (tScore > 0) {
-            stats.credits = (stats.credits || 0) + (tScore * 5);
-          }
-          changed = true;
-        }
-        if (stats.lastPlayedDate !== today) {
-          stats = recordGameParticipation(today);
-          changed = true;
-        }
-      }
-
-      // 3. Catch edge case where awardedWordle or awardedTrivia is true for today, but lastPlayedDate is stale
-      if (((stats.awardedWordle && stats.awardedWordle[today]) || (stats.awardedTrivia && stats.awardedTrivia[today])) && stats.lastPlayedDate !== today) {
-        stats = recordGameParticipation(today);
-        changed = true;
-      }
-
-      if (changed) {
-        saveArcadeStats(stats);
-      }
-    } catch (e) {
-      console.warn('reconcileArcadeRewards error:', e);
+    var today = getTodayDateKey();
+    var wordle = loadWordleState(today);
+    var trivia = loadTriviaState(today);
+    if (!wordle?.isGameOver && !trivia.isSubmitted) return;
+    recordGameParticipation(today);
+    if (trivia.isSubmitted) awardTriviaResult(trivia);
+    if (!wordle?.isGameOver) return;
+    var stats = getArcadeStats();
+    stats.awardedWordle = stats.awardedWordle || {};
+    if (stats.awardedWordle[today]) return;
+    stats.awardedWordle[today] = true;
+    stats.wordlePlays++;
+    if (wordle.hasWon) {
+      stats.wordleWins++;
+      stats.credits += 15;
     }
+    saveArcadeStats(stats);
   }
 
   function renderArcadePage() {
@@ -1401,12 +1329,15 @@
     });
     page.classList.add('active');
 
-    reconcileArcadeRewards();
     var stats = getArcadeStats();
     updateArcadeHeaderBadge(stats);
-    fetchRemoteArcadeStats();
-    fetchRemoteWordleState();
-    fetchRemoteTriviaState();
+    var owner = getArcadeUserKey();
+    Promise.all([fetchRemoteArcadeStats(), fetchRemoteWordleState(), fetchRemoteTriviaState()]).then(function() {
+      if (owner !== getArcadeUserKey()) return;
+      reconcileArcadeRewards();
+      if (_arcadeSubtab === 'stats') renderStatsView();
+      if (_arcadeSubtab === 'leaderboard') renderArcadeLeaderboardView();
+    });
 
     page.innerHTML =
       '<div class="arcade-container">' +
@@ -1472,6 +1403,7 @@
       }
     } else if (_arcadeSubtab === 'leaderboard') {
       renderArcadeLeaderboardView();
+      syncArcadeLeaderboard();
     } else {
       renderStatsView();
     }
@@ -1904,7 +1836,58 @@
     var hash = 0;
     for (var i = 0; i < (name || '').length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
     var color = colors[Math.abs(hash) % colors.length];
-    return '<span class="member-avatar-unified" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:' + Math.round(size * 0.45) + 'px;">' + initial + '</span>';
+    return '<span class="member-avatar-unified" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:' + Math.round(size * 0.45) + 'px;">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : '?') + '</span>';
+  }
+
+  function arcadeCount(value) {
+    return Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
+  }
+
+  function getLeaderboardMemberStats(member) {
+    var key = 'bb_arcade_' + String(member.ic || member.email).replace(/[^a-zA-Z0-9_-]/g, '_');
+    try {
+      var snapshot = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem(key)) : null;
+      var stats = _arcadeLeaderboardStats.get(key) || snapshot;
+      if (!stats || typeof stats !== 'object') return null;
+      var today = getTodayDateKey();
+      return Object.assign({}, stats, { streak: [today, getYesterdayDateKey(today)].includes(stats.lastPlayedDate) ? stats.streak : 0 });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  var _arcadeLeaderboardStats = new Map();
+  var _arcadeLeaderboardSync = null;
+  async function syncArcadeLeaderboard() {
+    var client = getArcadeSupaClient();
+    var owner = getArcadeUserKey();
+    if (!client || typeof client.batchConfigGet !== 'function' || owner === 'bb_arcade_guest' || _arcadeLeaderboardSync) return;
+    try {
+      var roster = JSON.parse(localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members'));
+      if (!Array.isArray(roster)) return;
+      var keys = Array.from(new Set(roster.filter(function(member) {
+        return member && (member.ic || member.email) &&
+          !(typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member));
+      }).map(function(member) {
+        return 'bb_arcade_' + String(member.ic || member.email).replace(/[^a-zA-Z0-9_-]/g, '_');
+      })));
+      var next = new Map();
+      _arcadeLeaderboardSync = owner;
+      for (var i = 0; i < keys.length; i += 40) {
+        var slice = keys.slice(i, i + 40);
+        var values = await client.batchConfigGet(slice);
+        slice.forEach(function(key) {
+          if (values && values[key] && typeof values[key] === 'object') next.set(key, values[key]);
+        });
+      }
+      if (owner !== getArcadeUserKey()) return;
+      _arcadeLeaderboardStats = next;
+      if (_arcadeSubtab === 'leaderboard') renderArcadeLeaderboardView();
+    } catch (_) {
+      // Keep the existing leaderboard while the network is unavailable.
+    } finally {
+      _arcadeLeaderboardSync = null;
+    }
   }
 
   function getArcadeLeaderboardData(category) {
@@ -1914,103 +1897,37 @@
       try { cleanMembersCache(); } catch (_) {}
     }
 
-    // Roster of verified company members with real database arcade activity
-    var baseMembers = [
-      { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', rank: 'Sergeant', platoon: 'Hotel Platoon', streak: 4, credits: 75 },
-      { name: 'OLIVER LING CHEE SHENG', email: 'chickensans0@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 2, credits: 45 },
-      { name: 'Joash Lee Tian Wei', email: 'jl.pytiger@gmail.com', rank: 'Lance Corporal', platoon: 'Alpha Platoon', streak: 1, credits: 40 },
-      { name: 'Jason Koh', email: 'jasonkoh2010712@gmail.com', rank: 'Corporal', platoon: 'Papa Platoon', streak: 1, credits: 35 },
-      { name: 'Tester Account', email: 'jeshuakoh1601@gmail.com', rank: 'Lieutenant', platoon: 'Officer', streak: 0, credits: 0 }
-    ];
+    var roster = [];
+    try {
+      var raw = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+      var saved = JSON.parse(raw);
+      if (Array.isArray(saved)) roster = saved;
+    } catch (_) {}
 
-    if (typeof isDeletedOrTestAccount === 'function') {
-      baseMembers = baseMembers.filter(function(m) {
-        return !isDeletedOrTestAccount(m);
-      });
-    }
-
-    // Check localStorage/sessionStorage for any live-synced arcade stats across members
-    if (typeof localStorage !== 'undefined') {
-      baseMembers.forEach(function(m) {
-        if (!m.email) return;
-        try {
-          var cleanK = 'bb_arcade_' + m.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
-          var raw = localStorage.getItem(cleanK);
-          if (raw) {
-            var parsedA = JSON.parse(raw);
-            if (parsedA) {
-              if (typeof parsedA.streak !== 'undefined') m.streak = Number(parsedA.streak) || 0;
-              if (typeof parsedA.credits !== 'undefined') m.credits = Number(parsedA.credits) || 0;
-            }
-          }
-        } catch (_) {}
-      });
-    }
-
-    // Merge registered accounts from local cache if present, strictly filtering deleted accounts
-    if (typeof localStorage !== 'undefined') {
-      try {
-        var rawCache = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
-        if (rawCache) {
-          var parsed = JSON.parse(rawCache);
-          if (Array.isArray(parsed)) {
-            parsed.forEach(function(m) {
-              if (!m || !m.name) return;
-              if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return;
-              if (m.rank === 'Deleted' || m.department === 'deleted' || m.department === 'archived_deleted') return;
-              var existing = baseMembers.find(function(b) {
-                return (b.email && m.email && b.email.toLowerCase().trim() === m.email.toLowerCase().trim()) ||
-                       (b.name && m.name && b.name.toLowerCase().trim() === m.name.toLowerCase().trim());
-              });
-              if (!existing) {
-                baseMembers.push({
-                  name: m.name,
-                  email: m.email || '',
-                  rank: m.rank || 'Member',
-                  platoon: m.squad || m.platoon || 'General Section',
-                  streak: 0,
-                  credits: 0
-                });
-              }
-            });
-          }
-        }
-      } catch (_) {}
-    }
-
-    // Reflect the authenticated user's real live arcade stats dynamically
-    var curName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
-    var curEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
-    var curRank = (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member';
-    var curPlatoon = (typeof sessionGet === 'function' ? sessionGet('squad') : '') || 'General Section';
-    var myStats = getArcadeStats();
-
-    var curUserFound = false;
-    baseMembers.forEach(function(m) {
-      var isMe = (curEmail && m.email && curEmail.toLowerCase().trim() === m.email.toLowerCase().trim()) ||
-                 (curName && m.name && curName.toLowerCase().trim() === m.name.toLowerCase().trim());
-      if (isMe) {
-        curUserFound = true;
-        m.isCurrentUser = true;
-        m.streak = Number(myStats.streak) || 0;
-        m.credits = Number(myStats.credits) || 0;
-        if (curName) m.name = curName;
-        if (curRank) m.rank = curRank;
-        if (curPlatoon) m.platoon = curPlatoon;
-      }
+    var currentId = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : '';
+    var currentName = currentId ? sessionGet('name') : '';
+    if (currentName) roster = roster.concat({
+      ic: currentId, email: sessionGet('email'), name: currentName, rank: sessionGet('rank'), squad: sessionGet('squad')
     });
 
-    if (!curUserFound && curName) {
-      baseMembers.push({
-        name: curName,
-        email: curEmail,
-        rank: curRank,
-        platoon: curPlatoon,
-        streak: Number(myStats.streak) || 0,
-        credits: Number(myStats.credits) || 0,
-        isCurrentUser: true
+    var seen = new Map();
+    roster.forEach(function(member) {
+      if (!member || !member.name || (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member))) return;
+      if (['deleted', 'archived_deleted'].includes(member.department) || member.rank === 'Deleted') return;
+      var id = String(member.ic || member.email || '').trim().toLowerCase();
+      if (!id) return;
+      var isCurrentUser = Boolean(currentId && id === String(currentId).trim().toLowerCase());
+      var stats = isCurrentUser ? getArcadeStats() : getLeaderboardMemberStats(member);
+      if (!stats || (!isCurrentUser && !(stats.credits > 0 || stats.streak > 0))) return;
+      var name = typeof window !== 'undefined' && typeof window.maskMemberNameForDirectory === 'function'
+        ? window.maskMemberNameForDirectory(member.name, isCurrentUser) : member.name;
+      seen.set(id, {
+        name: name, email: member.email || '', rank: member.rank || 'Member',
+        platoon: member.squad || member.platoon || 'General Section',
+        streak: arcadeCount(stats.streak), credits: arcadeCount(stats.credits), isCurrentUser: isCurrentUser
       });
-    }
+    });
+    var baseMembers = Array.from(seen.values());
 
     // Sort descending by selected metric
     baseMembers.sort(function(a, b) {
@@ -2020,10 +1937,11 @@
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    // Assign ranking indexes (1-based)
+    // Keep stable display order and share the rank when scores tie.
+    var metric = category === 'streak' ? 'streak' : 'credits';
     baseMembers.forEach(function(m, idx) {
       m.rankIndex = idx + 1;
-      m.displayRank = idx + 1;
+      m.displayRank = idx > 0 && baseMembers[idx - 1][metric] === m[metric] ? baseMembers[idx - 1].displayRank : idx + 1;
     });
 
     return baseMembers;
@@ -2076,7 +1994,7 @@
         '</div>' +
         // 3. PODIUM PILLAR STEP
         '<div class="podium-step podium-step-' + stepNum + '">' +
-          '<div class="podium-step-num">#' + stepNum + '</div>' +
+          '<div class="podium-step-num">#' + item.displayRank + '</div>' +
           '<div class="podium-step-val">' + val + ' ' + metricUnit + '</div>' +
           (safeRank ? '<div class="podium-step-sub">' + safeRank + '</div>' : '') +
         '</div>' +
