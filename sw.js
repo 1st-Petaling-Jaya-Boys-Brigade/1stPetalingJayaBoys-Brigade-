@@ -6,7 +6,7 @@
  * and company parade schedules with network-first recovery for the shell and data.
  */
 
-const CACHE_VERSION = '20261114a';
+const CACHE_VERSION = '20261114b';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 

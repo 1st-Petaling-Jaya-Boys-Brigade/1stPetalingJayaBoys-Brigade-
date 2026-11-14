@@ -2373,13 +2373,13 @@ async function getJson(url) {
     assert.strictEqual(m.scrollWidth <= m.windowWidth, true, 'Zero horizontal overflow allowed on mobile');
     assert.ok(m.actionsRight <= m.headerRight, 'All header actions must fit within the mobile viewport');
     assert.ok(m.logoWidth >= 80, 'Logo and brand name must be clearly visible on mobile (width >= 80px)');
-    assert.strictEqual(m.searchHeight, 36, 'Mobile search button height must be 36px');
-    assert.strictEqual(m.notifHeight, 36, 'Mobile notif button height must be 36px');
-    assert.strictEqual(m.pointsHeight, 36, 'Mobile points badge height must be 36px');
-    assert.strictEqual(m.profileHeight, 36, 'Mobile profile avatar height must be 36px');
-    assert.strictEqual(m.menuHeight, 36, 'Mobile hamburger menu height must be 36px');
+    assert.ok(m.searchHeight >= 44 && m.searchWidth >= 44, 'Mobile search button must meet the touch target minimum');
+    assert.ok(m.notifHeight >= 44, 'Mobile notification button must meet the touch target minimum');
+    assert.ok(m.pointsHeight >= 44, 'Mobile points badge must meet the touch target minimum');
+    assert.ok(m.profileHeight >= 44, 'Mobile profile button must meet the touch target minimum');
+    assert.ok(m.menuHeight >= 44, 'Mobile menu button must meet the touch target minimum');
     assert.strictEqual(m.themeHidden, true, 'Desktop theme text button must be hidden on mobile header');
-    console.log('  ✔ Mobile header alignment, 36px uniform scaling, and 0px overflow verified at 390px viewport');
+    console.log('  ✔ Mobile header alignment, 44px targets, and 0px overflow verified at 390px viewport');
 
     // Test top-left logo home navigation
     await sendCmd('Runtime.evaluate', {
@@ -2445,8 +2445,8 @@ async function getJson(url) {
     });
     const col = collapsedDiag.result.value;
     assert.strictEqual(col.expanded, false, 'Search pill must not have expanded class');
-    assert.strictEqual(col.width, 36, 'Collapsed search pill must return to 36px icon size');
-    console.log('  ✔ Mobile search pill collapses back to 36px icon button upon blur/close');
+    assert.strictEqual(col.width, 44, 'Collapsed search pill must return to the 44px touch target');
+    console.log('  ✔ Mobile search pill collapses back to a 44px button upon blur/close');
 
     // Test mobile More button drawer & Escape dismissal at 390x844
     await sendCmd('Runtime.evaluate', { expression: "document.getElementById('bnav-more').click()" });
@@ -2610,6 +2610,131 @@ async function getJson(url) {
     assert.strictEqual(t768.scrollWidth <= t768.windowWidth, true, 'Zero horizontal overflow allowed at 768px tablet viewport');
     assert.ok(t768.actionsRight <= t768.headerRight + 0.5, 'Header actions must fit cleanly inside 768px tablet header');
     console.log('  ✔ Tablet 768px viewport verified with 0px horizontal overflow');
+
+    console.log('\n[Mobile Touch Targets, Safe Areas & Dock Clearance]');
+    await sendCmd('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    for (const [width, height] of [[360, 780], [390, 844], [430, 932], [768, 1024], [1024, 768]]) {
+      await sendCmd('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: true });
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const responsive = await sendCmd('Runtime.evaluate', {
+        expression: `(async () => {
+          const root = document.documentElement;
+          const injectedInsets = { top: 48, bottom: 34, left: 16, right: 24 };
+          for (const [side, size] of Object.entries(injectedInsets)) root.style.setProperty('--safe-area-' + side, size + 'px');
+          const frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          const rect = element => element.getBoundingClientRect();
+          const sizes = selectors => selectors.flatMap(selector => {
+            const elements = document.querySelectorAll(selector);
+            const visible = [...elements].filter(element => element.getClientRects().length);
+            return visible.length ? visible.filter(element => {
+              const hit = rect(element);
+              return hit.width < 43.9 || hit.height < 43.9;
+            }).map(() => selector) : ['Missing ' + selector];
+          });
+          const dock = document.getElementById('bottom-nav');
+          const problems = [];
+          const visitedRoutes = [];
+          const viewport = root.clientWidth;
+          const header = document.querySelector('.nav');
+          problems.push(...sizes(['.nav-search-pill', '.nav-notif-btn', '.nav-points-badge', '.nav-profile-btn']));
+          if (getComputedStyle(dock).display !== 'none') {
+            const dockBox = rect(dock);
+            const actions = rect(document.querySelector('.nav-actions'));
+            if (actions.top < 48 || actions.right > viewport - 24 || actions.bottom > rect(header).bottom) {
+              problems.push('header safe area');
+            }
+            if (dockBox.left < 16 || dockBox.right > viewport - 24 || dockBox.bottom > innerHeight - 34) problems.push('dock safe area');
+            problems.push(...sizes(['.bnav-btn']));
+          }
+
+          for (const section of document.querySelectorAll('main > .page[id]')) {
+            switchTabNav(section.id.slice(5), true);
+            await frame();
+            if (!section.classList.contains('active')) continue;
+            visitedRoutes.push(section.id);
+            if (root.scrollWidth > viewport || section.scrollWidth > section.clientWidth + 1) problems.push(section.id + ' overflow');
+            if (getComputedStyle(dock).display === 'none') continue;
+            const last = [...section.children].filter(node => node.getClientRects().length).at(-1);
+            window.scrollTo({ top: root.scrollHeight, behavior: 'instant' });
+            if (last && rect(last).bottom > rect(dock).top + 1) {
+              problems.push(section.id + ' dock clearance');
+            }
+          }
+          switchTabNav('order', true);
+          document.getElementById('order-logged-in').style.display = 'block';
+          window.UNIFORM_ITEMS = window.DEFAULT_UNIFORM_ITEMS.map(item => ({ ...item, price: 45 }));
+          const availability = window.isUniformOrdersAcceptingResponses;
+          try {
+            window.isUniformOrdersAcceptingResponses = () => ({ open: true });
+            openFormForMember('__uniform__');
+          } finally {
+            window.isUniformOrdersAcceptingResponses = availability;
+          }
+          await frame();
+          document.getElementById('forms-hub').style.display = 'none';
+          document.getElementById('inline-form-view').style.display = 'block';
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          problems.push(...sizes(['.uniform-product-card .qty-btn', 'button.size-pill', '.uniform-cat-tab', '.checkout-cta-btn']));
+          const bar = document.querySelector('.sticky-checkout-bar');
+          if (getComputedStyle(dock).display !== 'none' && rect(bar).bottom > rect(dock).top) {
+            problems.push('checkout dock clearance');
+          }
+          switchTabNav('home', true);
+          await frame();
+          problems.push(...sizes(['.cal-day-cell', '.hq-dot']));
+          const carousel = document.querySelector('.hq-carousel-container');
+          carousel.classList.add('hover-left');
+          if (getComputedStyle(carousel.querySelector('.hq-arrow-prev')).visibility !== 'hidden') problems.push('hover arrow shown on touch');
+          carousel.classList.remove('hover-left');
+          switchTabNav('parade', true);
+          switchCalendarView('month');
+          await frame();
+          problems.push(...sizes(['.cal-month-day-cell', '.cal-view-tab', '.cal-nav-arrow']));
+          const day = document.querySelector('.cal-month-day-cell');
+          day?.click();
+          await frame();
+          const modal = document.getElementById('calendar-day-modal');
+          const card = modal.querySelector('.portal-modal-card');
+          const cardBox = rect(card);
+          if (cardBox.top < 48 || cardBox.left < 16 || cardBox.right > viewport - 24 || cardBox.bottom > innerHeight - 34 ||
+              getComputedStyle(modal).backdropFilter === 'none') problems.push('calendar modal safe area');
+          modal.click();
+          if (getComputedStyle(modal).display !== 'none') problems.push('calendar modal backdrop dismissal');
+          switchCalendarView('year');
+          await frame();
+          problems.push(...sizes(['.cal-year-month-name', '.cal-year-day-cell']));
+          document.querySelectorAll('.cal-year-month-name')[1]?.click();
+          if (!document.querySelector('.cal-month-grid') || !document.querySelector('.cal-current-range-heading').textContent.includes('February')) {
+            problems.push('year view month navigation');
+          }
+          if (getComputedStyle(dock).display !== 'none') {
+            toggleSidebar();
+            await new Promise(resolve => setTimeout(resolve, 320));
+            const drawer = document.querySelector('.sidebar-panel');
+            const footer = rect(drawer.querySelector('.sidebar-footer'));
+            const firstItem = rect(drawer.querySelector('.sidebar-item'));
+            if (firstItem.top < 48 || footer.right > viewport - 24 || footer.bottom > innerHeight - 34 ||
+                document.elementFromPoint(rect(dock).left + 3, rect(dock).top + 3)?.closest('#bottom-nav')) {
+              problems.push('drawer safe area or stacking');
+            }
+            drawer.parentElement.querySelector('.sidebar-backdrop').click();
+            if (drawer.parentElement.classList.contains('open')) problems.push('drawer backdrop dismissal');
+          }
+          return { viewport, visitedRoutes, routeCount: document.querySelectorAll('main > .page[id]').length, problems: [...new Set(problems)] };
+        })()`,
+        awaitPromise: true,
+        returnByValue: true
+      });
+      assert.ok(responsive.result.value, JSON.stringify(responsive.exceptionDetails));
+      assert.strictEqual(responsive.result.value.viewport, width);
+      assert.strictEqual(responsive.result.value.visitedRoutes.length, responsive.result.value.routeCount, 'Every route must participate in the responsive checks');
+      assert.deepStrictEqual(responsive.result.value.problems, [], 'Responsive requirements at ' + width + 'px');
+      console.log('  ✔ ' + width + 'px touch layout, route overflow, and dock clearance');
+    }
+    await sendCmd('Runtime.evaluate', {
+      expression: `['top', 'bottom', 'left', 'right'].forEach(side => document.documentElement.style.removeProperty('--safe-area-' + side))`
+    });
+    await sendCmd('Emulation.setTouchEmulationEnabled', { enabled: false });
 
     // Restore desktop viewport (1280x900)
     await sendCmd('Emulation.setDeviceMetricsOverride', {

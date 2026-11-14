@@ -1042,19 +1042,19 @@
       if (!cell.isCurrentMonth) cellClass += ' cal-month-cell-overflow';
       if (isToday) cellClass += ' cal-month-cell-today';
 
-      html += '<div class="' + cellClass + '" onclick="openCalendarDayModal(\'' + cell.dateKey + '\')">';
+      html += '<button type="button" class="' + cellClass + '" aria-label="' + cell.dateKey + '" onclick="openCalendarDayModal(\'' + cell.dateKey + '\')">';
 
       // Top number bar
-      html += '<div class="cal-m-cell-top">';
+      html += '<span class="cal-m-cell-top">';
       if (isToday) {
         html += '<span class="cal-m-today-badge">' + cell.dayNumber + '</span>';
       } else {
         html += '<span class="cal-m-day-number">' + cell.dayNumber + '</span>';
       }
-      html += '</div>';
+      html += '</span>';
 
       // Event Pills (Image 4 format)
-      html += '<div class="cal-m-events-list">';
+      html += '<span class="cal-m-events-list">';
       var maxShow = 3;
       var shownCount = 0;
 
@@ -1072,22 +1072,22 @@
         else if (isCamp) pillCls = 'cal-m-pill-cyan';
         else if (isCeremonial) pillCls = 'cal-m-pill-purple';
 
-        html += '<div class="cal-m-pill ' + pillCls + '" title="' + escapeHtml(ev.title) + '">' + escapeHtml(ev.title) + '</div>';
+        html += '<span class="cal-m-pill ' + pillCls + '" title="' + escapeHtml(ev.title) + '">' + escapeHtml(ev.title) + '</span>';
       });
 
       memEvents.forEach(function(rem) {
         if (shownCount >= maxShow) return;
         shownCount++;
-        html += '<div class="cal-m-pill cal-m-pill-personal" title="Personal: ' + escapeHtml(rem.title) + '">' + CAL_ICONS.reminder + ' ' + escapeHtml(rem.title) + '</div>';
+        html += '<span class="cal-m-pill cal-m-pill-personal" title="Personal: ' + escapeHtml(rem.title) + '">' + CAL_ICONS.reminder + ' ' + escapeHtml(rem.title) + '</span>';
       });
 
       var totalEvents = compEvents.length + memEvents.length;
       if (totalEvents > maxShow) {
-        html += '<div class="cal-m-more">+' + (totalEvents - maxShow) + ' more</div>';
+        html += '<span class="cal-m-more">+' + (totalEvents - maxShow) + ' more</span>';
       }
 
-      html += '</div>'; // end cal-m-events-list
-      html += '</div>'; // end cal-month-day-cell
+      html += '</span>'; // end cal-m-events-list
+      html += '</button>'; // end cal-month-day-cell
     });
 
     html += '</div>'; // end cal-month-grid
@@ -1096,17 +1096,17 @@
   }
 
   // ── 4. YEAR VIEW (Image 5 Google Calendar Style) ───────────────────────────
-  function renderYearView() {
+  function renderYearView(isAdminView) {
     var todayStr = formatDateKey(new Date());
     var html = '<div class="cal-year-grid">';
 
     for (var m = 0; m < 12; m++) {
-      var matrix = getMonthMatrix(_currentYear, m);
+      var matrix = getMonthMatrix(isAdminView ? _adminYear : _currentYear, m);
       html += ''
         + '<div class="cal-year-month-box">'
-          + '<div class="cal-year-month-name" onclick="_currentMonth=' + m + ';switchCalendarView(\'month\')">'
+          + '<button type="button" class="cal-year-month-name" onclick="openCalendarMonth(' + m + ',' + !!isAdminView + ')">'
             + MONTH_NAMES[m]
-          + '</div>'
+          + '</button>'
           + '<div class="cal-year-weekdays">'
             + '<span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>'
           + '</div>'
@@ -1133,10 +1133,10 @@
         }
 
         html += ''
-          + '<div class="cal-year-day-cell ' + (isToday ? 'cal-y-today' : '') + '" onclick="openCalendarDayModal(\'' + c.dateKey + '\')">'
+          + '<button type="button" class="cal-year-day-cell ' + (isToday ? 'cal-y-today' : '') + '" aria-label="' + c.dateKey + '" onclick="' + (isAdminView ? 'openAdminEventModal' : 'openCalendarDayModal') + '(\'' + c.dateKey + '\')">'
             + '<span class="cal-y-num">' + c.dayNumber + '</span>'
             + dotHtml
-          + '</div>';
+          + '</button>';
       });
 
       html += '</div></div>'; // end cal-year-month-box
@@ -1144,6 +1144,18 @@
 
     html += '</div>'; // end cal-year-grid
     return html;
+  }
+
+  function openCalendarMonth(month, isAdminView) {
+    if (!Number.isInteger(month) || month < 0 || month > 11) return;
+    if (isAdminView) {
+      _adminMonth = month;
+      adminSwitchCalendarView('month');
+    } else {
+      _currentMonth = month;
+      _calendarDate = new Date(_currentYear, month, 1);
+      switchCalendarView('month');
+    }
   }
 
   // ── 5. EVENTS / SCHEDULE VIEW (Image 6 Google Calendar Style) ──────────────
@@ -1960,6 +1972,7 @@
         + '</div>'
       + '</div>'
 
+      + '<div class="cal-widget-date-scroller">'
       + '<div class="cal-weekdays-row">'
         + '<span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>'
       + '</div>'
@@ -1981,7 +1994,7 @@
       if (isSelected) dayClass += ' cal-day-selected';
       if (hasCompEvent || hasMemEvent) dayClass += ' cal-day-has-event';
 
-      var dotsHtml = '<div class="cal-dots-wrap">';
+      var dotsHtml = '<span class="cal-dots-wrap">';
       if (hasCompEvent) {
         var ev = compEvents[0];
         var dotColor = '#eab308';
@@ -1994,15 +2007,15 @@
       if (hasMemEvent) {
         dotsHtml += '<span class="cal-event-dot cal-dot-personal" style="background:#38bdf8;" title="Personal Reminder"></span>';
       }
-      dotsHtml += '</div>';
+      dotsHtml += '</span>';
 
-      html += '<div class="' + dayClass + '" onclick="calSelectDate(\'' + cell.dateKey + '\')" role="button" tabindex="0">'
+      html += '<button type="button" class="' + dayClass + '" aria-label="' + cell.dateKey + '" aria-pressed="' + isSelected + '" onclick="calSelectDate(\'' + cell.dateKey + '\')">'
         + '<span class="cal-day-num">' + cell.dayNumber + '</span>'
         + dotsHtml
-        + '</div>';
+        + '</button>';
     });
 
-    html += '</div>'; // end cal-days-grid
+    html += '</div></div>'; // end cal-days-grid and its scroller
 
     var kitMeta = (primaryEvent && KIT_BADGES[primaryEvent.kit]) ? KIT_BADGES[primaryEvent.kit] : (primaryEvent && primaryEvent.kit && primaryEvent.kit !== 'None' ? { label: primaryEvent.kit, color: 'var(--accent)', bg: 'var(--accent-soft)' } : null);
     var typeMeta = (primaryEvent && TYPE_BADGES[primaryEvent.type]) ? TYPE_BADGES[primaryEvent.type] : null;
@@ -2112,6 +2125,7 @@
     window.getUpcomingEventIndex        = function() { return _upcomingEventIndex; };
     window.switchCalendarView           = switchCalendarView;
     window.calNavigate                  = calNavigate;
+    window.openCalendarMonth            = openCalendarMonth;
     window.calJumpToday                 = calJumpToday;
     window.calJumpToEventIndex          = calJumpToEventIndex;
     window.getUpcomingEventsList        = getUpcomingEventsList;
