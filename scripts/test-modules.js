@@ -3695,8 +3695,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   console.log('  ✔ calcAge accurately calculates member age from date of birth');
 
-  const adminTestPasscode = 'fixture-officer-passcode';
-  const adminTestDigest = await utils.computeSha256(adminTestPasscode);
+  const memberSignInProof = 'a'.repeat(64);
+  let fixtureMemberSignIn = memberSignInProof;
+  const originalMemberSignInGetter = global.getAdminMemberSignIn;
+  global.getAdminMemberSignIn = () => fixtureMemberSignIn;
   const fixtureAdminEmail = 'jeshuakoh2008@gmail.com';
   let fixtureAdminToken;
   const originalFixtureRole = global.RBAC;
@@ -3712,10 +3714,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const previousGet = global.sessionGet;
     global.sessionGet = key => key === 'email' || key === 'ic' ? fixtureAdminEmail : previousGet(key);
     global.supa.rpc = async (route, args) => {
-      if (route === 'rpc_admin_login') {
-        if (args.p_password_hash !== adminTestDigest) return { success: false };
+      if (route === 'rpc_open_member_admin_session') {
+        if (args.p_member_token !== memberSignInProof) return null;
         fixtureAdminToken = global.crypto.randomUUID();
-        return { success: true, token: fixtureAdminToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
+        return { valid: true, officer_email: fixtureAdminEmail, scope: 'super_admin', permissions: [], token: fixtureAdminToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
       }
       if (route === 'rpc_verify_admin_session') return {
         valid: args.p_token === fixtureAdminToken, officer_email: fixtureAdminEmail, scope: 'super_admin', permissions: []
@@ -3740,84 +3742,37 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     };
   }
 
-  // Test openAdmin, closeAdmin, logoutAdmin, adminLogin
   const adminOverlay = document.getElementById('admin-overlay');
-  const loginBox = document.getElementById('admin-login-box');
   const adminPanel = document.getElementById('admin-panel');
-  const adminPass = document.getElementById('admin-pass');
-
-  assert.strictEqual(adminModule.verifyAdminSessionSync(), false, 'Without a verified admin session, the console stays locked');
-  assert.strictEqual(await adminModule.updateMemberField('test@pjbb.org', 'rank', 'Captain'), false, 'Roster mutations require a verified admin session');
+  assert.strictEqual(adminModule.verifyAdminSessionSync(), false, 'Unverified users cannot open the console');
+  assert.strictEqual(await adminModule.updateMemberField('test@pjbb.org', 'rank', 'Captain'), false, 'Roster changes require a verified session');
 
   useAdminFixture();
+  fixtureMemberSignIn = null;
+  adminOverlay.style.display = 'none';
   await adminModule.openAdmin();
-  assert.strictEqual(adminOverlay.style.display, 'block', 'openAdmin must display admin-overlay');
-  assert.strictEqual(loginBox.style.display, 'block', 'openAdmin must display login-box');
-  assert.strictEqual(adminPanel.style.display, 'none', 'openAdmin must hide admin-panel');
-  assert.strictEqual(
-    global.sessionGet('adminAuthed'),
-    false,
-    'openAdmin must clear adminAuthed session'
-  );
+  assert.strictEqual(adminOverlay.style.display, 'none', 'An existing profile entry cannot grant access without server proof');
+  fixtureMemberSignIn = 'rejected-member-proof';
+  await adminModule.openAdmin();
+  assert.strictEqual(adminOverlay.style.display, 'none', 'Rejected member proof cannot open the console');
 
-  adminPass.value = 'wrongPass';
-  await adminModule.adminLogin();
-  assert.strictEqual(
-    global.sessionGet('adminAuthed'),
-    false,
-    'adminLogin must reject invalid password'
-  );
-
-  adminPass.value = adminTestPasscode;
-  await adminModule.adminLogin();
-  assert.strictEqual(
-    global.sessionGet('adminAuthed'),
-    true,
-    'adminLogin must authenticate valid password'
-  );
-  assert.strictEqual(loginBox.style.display, 'none', 'adminLogin must hide login box');
-  assert.strictEqual(adminPanel.style.display, 'block', 'adminLogin must show admin panel');
-
+  fixtureMemberSignIn = memberSignInProof;
+  await adminModule.openAdmin();
+  assert.strictEqual(adminOverlay.style.display, 'block', 'Admin opens directly after member sign-in');
+  assert.strictEqual(adminPanel.style.display, 'block', 'Verified session unlocks the console');
+  assert.strictEqual(global.sessionGet('adminAuthed'), true);
   adminModule.logoutAdmin();
-  assert.strictEqual(
-    global.sessionGet('adminAuthed'),
-    false,
-    'logoutAdmin must clear adminAuthed session'
-  );
-  assert.strictEqual(adminPanel.style.display, 'none', 'logoutAdmin must hide admin panel');
-  assert.strictEqual(loginBox.style.display, 'block', 'logoutAdmin must show login box');
+  assert.strictEqual(global.sessionGet('adminAuthed'), false);
+  assert.strictEqual(adminOverlay.style.display, 'none');
+  assert.strictEqual(adminPanel.style.display, 'none');
+  console.log('  ✔ Admin Console opens from verified member sign-in and closes on logout');
 
-  adminModule.closeAdmin();
-  assert.strictEqual(adminOverlay.style.display, 'none', 'closeAdmin must hide admin-overlay');
-  console.log(
-    '  ✔ Admin console authentication and modal visibility transitions function accurately'
-  );
-
-  // Test toggleAdminPassVis
-  adminPass.style.webkitTextSecurity = 'disc';
-  adminModule.toggleAdminPassVis();
-  assert.strictEqual(
-    adminPass.style.webkitTextSecurity,
-    'none',
-    'toggleAdminPassVis must unmask password'
-  );
-  adminModule.toggleAdminPassVis();
-  assert.strictEqual(
-    adminPass.style.webkitTextSecurity,
-    'disc',
-    'toggleAdminPassVis must re-mask password'
-  );
-  console.log(
-    '  ✔ toggleAdminPassVis cleanly unmasks and re-masks password without triggering credential autofill'
-  );
   // ── Officer Admin Gate Hardening & Session Tamperproofing ───────
   console.log('\nTesting Officer Admin Gate Hardening & Session Tamperproofing...');
   await adminModule.openAdmin();
-  adminPass.value = adminTestPasscode;
-  await adminModule.adminLogin();
 
   const sessionToken = adminModule.getAdminSessionToken();
-  assert(sessionToken, 'adminLogin must generate cryptographic session token');
+  assert(sessionToken, 'Opening the console must obtain a server-issued token');
   assert.strictEqual(adminModule.verifyAdminSessionSync(), true);
   assert.strictEqual(await adminModule.verifyAdminSession(), true);
   const sessionData = adminModule.getAdminSessionData();
@@ -3837,33 +3792,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(global.sessionGet('adminAuthed'), false, 'Forged adminAuthed flag must be purged');
   console.log('  ✔ DevTools visual bypass protection blocks unauthenticated action execution');
 
-  await adminModule.openAdmin();
-  // Brute-force rate limiting: 5 consecutive failed attempts trigger lockout
-  adminModule.resetAdminLockout();
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    adminPass.value = 'badPass' + attempt;
-    const loginRes = await adminModule.adminLogin();
-    assert.strictEqual(loginRes, false, 'Invalid login attempt must fail');
-  }
-
-  const lockoutStatus = adminModule.getAdminLockoutStatus();
-  assert.strictEqual(lockoutStatus.locked, true, '5 consecutive failures must trigger lockout');
-  assert(lockoutStatus.remainingSeconds > 0, 'Lockout must report remaining cooldown seconds');
-
-  // Attempt 6 during lockout should be rejected immediately even with correct password
-  adminPass.value = adminTestPasscode;
-  const lockedOutLogin = await adminModule.adminLogin();
-  assert.strictEqual(lockedOutLogin, false, 'Login must be blocked while lockout is active');
-  console.log('  ✔ Brute-force rate limiting enforces exponential lockout after 5 failed attempts');
-
-  // Reset lockout for subsequent suite execution
-  adminModule.resetAdminLockout();
-
-
   // Test switchAdminSection & backToAdminHome
   await adminModule.openAdmin();
-  adminPass.value = adminTestPasscode;
-  await adminModule.adminLogin();
 
   adminModule.switchAdminSection('members');
   const secMembers = document.getElementById('adm-section-members');
@@ -4638,8 +4568,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261114b',
-    'sw.js CACHE_VERSION must be 20261114b'
+    '20261114c',
+    'sw.js CACHE_VERSION must be 20261114c'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4667,7 +4597,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261114b',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261114c',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -5907,17 +5837,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 5. Server-Side Officer Admin Authentication & Session Verification
     let adminTokenIssued = null;
     const rpcAdminMock = async (fn, params) => {
-      if (fn === 'rpc_admin_login') {
-        if (params.p_password_hash === adminTestDigest) {
+      if (fn === 'rpc_open_member_admin_session') {
+        if (params.p_member_token === memberSignInProof) {
           adminTokenIssued = 'srv_tok_' + Math.random().toString(36).substring(2);
           return {
-            success: true,
+            valid: true, scope: 'super_admin', permissions: [], officer_email: fixtureAdminEmail,
             token: adminTokenIssued,
             role: 'officer_admin',
             expires_at: new Date(Date.now() + 7200000).toISOString()
           };
         }
-        return { success: false, error: 'Invalid admin password' };
+        return null;
       }
       if (fn === 'rpc_verify_admin_session') {
         return { valid: params.p_token === adminTokenIssued, scope: 'super_admin', permissions: [], officer_email: fixtureAdminEmail };
@@ -5936,8 +5866,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const fixtureRpc = global.supa.rpc;
     global.supa.rpc = rpcAdminMock;
     await adminMod.openAdmin();
-    document.getElementById('admin-pass').value = adminTestPasscode;
-    await adminMod.adminLogin();
     const token = adminMod.getAdminSessionToken();
     assert.ok(token, 'Admin login issued session token');
     const isSessionValid = await adminMod.verifyAdminSession();
@@ -5947,6 +5875,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.supa.rpc = fixtureRpc;
     restoreAdminRpcFixture();
     assert.strictEqual(adminMod.getAdminSessionToken(), null, 'Admin token revoked on logout');
+    global.getAdminMemberSignIn = originalMemberSignInGetter;
     console.log('  ✔ Server-side Officer Admin authentication & session token RPC gatekeeping verified');
     global.hashPassword = origHashPassword;
     if (typeof window !== 'undefined') window.hashPassword = origHashPassword;
@@ -7508,7 +7437,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261114b'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261114c'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8985,12 +8914,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261114b', 'Service Worker cache version must be 20261114b');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261114c', 'Service Worker cache version must be 20261114c');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261114b and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261114c and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10274,25 +10203,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261114b', 'sw.js CACHE_VERSION must be 20261114b');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261114b', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261114b', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261114c', 'sw.js CACHE_VERSION must be 20261114c');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261114c', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261114c', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261114b cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261114c cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261114b'), 'config.js must use v=20261114b');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261114b'), 'forum.js must use v=20261114b');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261114b'), 'variables.css must use v=20261114b');
-    assert.ok(indexRaw.includes('css/base.css?v=20261114b'), 'base.css must use v=20261114b');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261114b');
+    assert.ok(indexRaw.includes('js/config.js?v=20261114c'), 'config.js must use v=20261114c');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261114c'), 'forum.js must use v=20261114c');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261114c'), 'variables.css must use v=20261114c');
+    assert.ok(indexRaw.includes('css/base.css?v=20261114c'), 'base.css must use v=20261114c');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261114c');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -13880,7 +13809,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     const mockCounter = { textContent: '' };
     const mockBadge = { textContent: '' };
-    const mockMediaWrap = { innerHTML: '', onclick: null };
+    const mockMediaWrap = { innerHTML: '', onclick: null, querySelector: () => null };
     const mockTrack = {
       children: [
         { classList: { add: (c) => { if (c === 'active') mockTrack.children[0].active = true; }, remove: (c) => { if (c === 'active') mockTrack.children[0].active = false; } }, active: false, scrollIntoView: () => {} },
@@ -13918,6 +13847,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
             setAttribute: () => {},
             appendChild: (child) => { d.children.push(child); child.parentNode = d; },
             querySelector: (sel) => mockModal.querySelector(sel),
+            querySelectorAll: () => [],
             addEventListener: () => {},
             classList: { add: () => {}, remove: () => {} }
           };

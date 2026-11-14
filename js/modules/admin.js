@@ -6,6 +6,7 @@
  * members, orders, tasks, and configs from index.html into a dedicated controller module.
  */
 
+/* global getAdminMemberSignIn */
 (function(global) {
   'use strict';
 
@@ -1459,18 +1460,6 @@
     return null;
   }
 
-  async function verifyAdminPassword(inputPass) {
-    var client = getSupabaseClient();
-    var identity = getAdminMemberEmail();
-    if (!inputPass || !identity || !client || typeof client.rpc !== 'function') return null;
-    var inputHash = await computeSha256(inputPass);
-    return client.rpc('rpc_admin_login', {
-      p_password_hash: inputHash,
-      p_officer_email: identity,
-      p_officer_rank: typeof sessionGet === 'function' ? sessionGet('rank') || null : null
-    });
-  }
-
   function getDeptConfig() {
     if (typeof global !== 'undefined' && global.DEPT_CONFIG) return global.DEPT_CONFIG;
     if (typeof DEPT_CONFIG !== 'undefined') return DEPT_CONFIG;
@@ -1479,16 +1468,10 @@
 
   // ── Cryptographic Session & Gate Hardening ──────────────────────
   var SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
-  var MAX_LOGIN_FAILURES = 5;
-  var BASE_LOCKOUT_MS = 30 * 1000;
-  var MAX_LOCKOUT_MS = 300 * 1000;
 
   var _adminSessionToken = null;
   var _adminSessionData = null;
-  var _adminLoginFailures = 0;
-  var _adminLockoutUntil = 0;
   var _adminDomObserver = null;
-  var _adminLoginInFlight = false;
   var _adminLifecycle = 0;
   var _adminPreviousFocus = null;
   var _adminPreviousOverflow = '';
@@ -1519,27 +1502,6 @@
     return await verifyAdminSession() && hasAdminModuleAccess(section);
   }
 
-  function getAdminLockoutRemainingSecs() {
-    if (_adminLockoutUntil && Date.now() < _adminLockoutUntil) {
-      return Math.ceil((_adminLockoutUntil - Date.now()) / 1000);
-    }
-    return 0;
-  }
-
-  function resetAdminLockout() {
-    _adminLoginFailures = 0;
-    _adminLockoutUntil = 0;
-  }
-
-  function getAdminLockoutStatus() {
-    var rem = getAdminLockoutRemainingSecs();
-    return {
-      locked: rem > 0,
-      remainingSeconds: rem,
-      failures: _adminLoginFailures
-    };
-  }
-
   function getAdminSessionToken() {
     return _adminSessionToken;
   }
@@ -1561,20 +1523,16 @@
     if (!_adminSessionToken || !_adminSessionData) return false;
     var data = _adminSessionData;
     var now = Date.now();
-    if (!Number.isFinite(data.expiresAt) || data.expiresAt <= now ||
-        now - data.lastActiveAt >= SESSION_IDLE_TIMEOUT_MS ||
-        data.officerEmail !== getAdminMemberEmail() || getAdminRole(data.officerEmail) === 'member') {
-      revokeAdminSession();
-      return false;
-    }
-    return true;
+    return Number.isFinite(data.expiresAt) && data.expiresAt > now &&
+      now - data.lastActiveAt < SESSION_IDLE_TIMEOUT_MS &&
+      data.officerEmail === getAdminMemberEmail() && getAdminRole(data.officerEmail) !== 'member';
   }
 
   function verifyAdminSessionSync() {
     return isAdminSessionCurrent() && _adminSessionData.confirmed === true;
   }
 
-  async function verifyAdminSession() {
+  async function verifyAdminSession(renewing) {
     if (!isAdminSessionCurrent()) return false;
     var token = _adminSessionToken;
     var client = getSupabaseClient();
@@ -1593,12 +1551,13 @@
         if (typeof sessionSet === 'function') sessionSet('adminAuthed', true, { localOnly: true });
         return true;
       }
-      if (result && typeof result.valid === 'boolean') revokeAdminSession();
+      if (!renewing && result && typeof result.valid === 'boolean') revokeAdminSession();
     } catch (_) {}
     return false;
   }
 
   function revokeAdminSession(reason) {
+    var token = _adminSessionToken;
     _adminSessionToken = null;
     _adminSessionData = null;
     _adminLifecycle++;
@@ -1626,9 +1585,11 @@
       var roster = document.getElementById('admin-members-list');
       if (roster) roster.textContent = '';
       closeEditMember();
-
-      var loginBox = document.getElementById('admin-login-box');
-      if (loginBox) loginBox.style.display = 'block';
+      closeAdmin(true);
+    }
+    var client = token && getSupabaseClient();
+    if (client && typeof client.rpc === 'function') {
+      Promise.resolve().then(function() { return client.rpc('rpc_admin_logout', { p_token: token }); }).catch(function() {});
     }
 
     if (reason && typeof showToast === 'function') {
@@ -1644,8 +1605,6 @@
     _adminDomObserver = new MutationObserver(function() {
       if (panel.style.display !== 'none' && !verifyAdminSessionSync()) {
         panel.style.display = 'none';
-        var loginBox = document.getElementById('admin-login-box');
-        if (loginBox) loginBox.style.display = 'block';
         revokeAdminSession('Unauthorized DOM display bypass detected.');
       }
     });
@@ -1680,15 +1639,54 @@
     var request = ++_adminLifecycle;
     var identity = getAdminMemberEmail();
     if (identity && typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
-      try { await RBAC.loadRolesConfig(); } catch (_) {}
+      try { await RBAC.loadRolesConfig(true); } catch (_) {}
     }
     if (request !== _adminLifecycle || identity !== getAdminMemberEmail()) return;
-    if (identity && getAdminRole(identity) === 'member') {
-      if (verifyAdminSessionSync()) revokeAdminSession();
+    if (!identity || getAdminRole(identity) === 'member') {
+      if (_adminSessionToken) revokeAdminSession();
       closeAdmin(true);
       if (typeof showToast === 'function') showToast('Administrative privileges are required.', 'error');
       return;
     }
+    if (!await verifyAdminSession(true)) {
+      if (getAdminMemberEmail() !== identity) return;
+      if (request !== _adminLifecycle) return;
+      if (_adminSessionToken) {
+        revokeAdminSession();
+        request = _adminLifecycle;
+      }
+      var proof = typeof getAdminMemberSignIn === 'function' ? getAdminMemberSignIn() : null;
+      if (!proof) {
+        if (typeof showToast === 'function') showToast('Sign out and sign back in with your member account to open the Admin Console.', 'warning');
+        return;
+      }
+      // A rejected or expired console session can be replaced using the same member sign-in.
+      try {
+        var result = await getSupabaseClient()?.rpc('rpc_open_member_admin_session', { p_member_token: proof });
+        if (request !== _adminLifecycle || identity !== getAdminMemberEmail()) return;
+        var expiresAt = Date.parse(result?.expires_at);
+        if (!result?.valid || typeof result.token !== 'string' || !result.token || result.officer_email !== identity ||
+            !['admin', 'super_admin'].includes(result.scope) || !Array.isArray(result.permissions) || !(expiresAt > Date.now())) {
+          if (typeof logAuditEvent === 'function') {
+            logAuditEvent({ action: 'admin.login_failed', targetType: 'admin_auth', actorId: identity, details: { reason: 'rejected' } });
+          }
+          if (typeof showToast === 'function') showToast('Admin access could not be verified. Sign in again to refresh your session.', 'warning');
+          return;
+        }
+        establishAdminSession(result.token, {
+          role: 'officer_admin', officerEmail: identity, scope: result.scope, permissions: result.permissions,
+          expiresAt: expiresAt, lastActiveAt: Date.now(), confirmed: true
+        });
+        if (typeof sessionSet === 'function') sessionSet('adminAuthed', true, { localOnly: true });
+        if (typeof logAuditEvent === 'function') {
+          logAuditEvent({ action: 'admin.login_success', targetType: 'admin_auth', actorId: identity, actorRole: 'officer_admin' });
+        }
+      } catch (_) {
+        if (typeof showToast === 'function') showToast('Admin access is temporarily unavailable. Try again when connected.', 'error');
+        return;
+      }
+    }
+    if (request !== _adminLifecycle || !verifyAdminSessionSync()) return;
     var overlay = document.getElementById('admin-overlay');
     if (!overlay) return;
     if (overlay.style.display !== 'block') {
@@ -1705,30 +1703,12 @@
     if (document.body) document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', adminOverlayKeys);
     initAdminDomGuard();
-    if (verifyAdminSessionSync() && await verifyAdminSession() && request === _adminLifecycle) {
-      showAuthenticatedAdmin();
-      return;
-    }
-    if (request !== _adminLifecycle && overlay.style.display !== 'block') return;
-    if (typeof sessionSet === 'function') sessionSet('adminAuthed', false, { localOnly: true });
-    var panel = document.getElementById('admin-panel');
-    var login = document.getElementById('admin-login-box');
-    var pass = document.getElementById('admin-pass');
-    if (panel) panel.style.display = 'none';
-    if (login) login.style.display = 'block';
-    if (pass) {
-      pass.value = '';
-      pass.style.webkitTextSecurity = 'disc';
-      pass.style.textSecurity = 'disc';
-      if (pass.focus) pass.focus();
-    }
+    showAuthenticatedAdmin();
   }
 
   function showAuthenticatedAdmin() {
     if (!verifyAdminSessionSync()) return;
-    var login = document.getElementById('admin-login-box');
     var panel = document.getElementById('admin-panel');
-    if (login) login.style.display = 'none';
     if (panel) panel.style.display = 'block';
     backToAdminHome();
     var first = document.querySelector('#admin-overlay .admin-container button:not([disabled])');
@@ -1757,23 +1737,6 @@
     }
   }
 
-  function toggleAdminPassVis() {
-    if (typeof document === 'undefined') return;
-    var inp = document.getElementById('admin-pass');
-    var btn = document.getElementById('admin-eye');
-    if (!inp) return;
-    var isMasked = inp.style.webkitTextSecurity !== 'none';
-    if (isMasked) {
-      inp.style.webkitTextSecurity = 'none';
-      inp.style.textSecurity = 'none';
-      if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
-    } else {
-      inp.style.webkitTextSecurity = 'disc';
-      inp.style.textSecurity = 'disc';
-      if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-    }
-  }
-
   function logoutAdmin() {
     closeColumnFilterMenu();
     closeGlobalPopovers();
@@ -1787,101 +1750,7 @@
         actorRole: 'officer_admin'
       });
     }
-    var token = getAdminSessionToken();
-    var client = getSupabaseClient();
-    if (token && client && typeof client.rpc === 'function') {
-      try {
-        client.rpc('rpc_admin_logout', { p_token: token }).catch(function() {});
-      } catch (_) {}
-    }
     revokeAdminSession();
-    if (typeof document === 'undefined') return;
-
-    var panel = document.getElementById('admin-panel');
-    if (panel) panel.style.display = 'none';
-
-    var loginBox = document.getElementById('admin-login-box');
-    if (loginBox) loginBox.style.display = 'block';
-
-    var passEl = document.getElementById('admin-pass');
-    if (passEl) {
-      passEl.value = '';
-      passEl.style.webkitTextSecurity = 'disc';
-      passEl.style.textSecurity = 'disc';
-      if (typeof passEl.focus === 'function') passEl.focus();
-    }
-    var eyeBtn = document.getElementById('admin-eye');
-    if (eyeBtn) {
-      eyeBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-    }
-  }
-
-  async function adminLogin() {
-    if (typeof document === 'undefined' || _adminLoginInFlight) return false;
-    var remaining = getAdminLockoutRemainingSecs();
-    if (remaining > 0) {
-      if (typeof showToast === 'function') showToast('Admin access is locked. Try again in ' + remaining + 's.', 'error');
-      return false;
-    }
-
-    var identity = getAdminMemberEmail();
-    var overlay = document.getElementById('admin-overlay');
-    if (!overlay || overlay.style.display === 'none' || getAdminRole(identity) === 'member') {
-      if (typeof showToast === 'function') showToast('Sign in with an authorized member account before entering the admin passcode.', 'warning');
-      return false;
-    }
-    var passEl = document.getElementById('admin-pass');
-    if (!passEl || !passEl.value) return false;
-    var button = document.querySelector('#admin-login-box button.submit-btn');
-    var request = _adminLifecycle;
-    var pass = passEl.value;
-    passEl.value = '';
-    _adminLoginInFlight = true;
-    var performLogin = async function() {
-      try {
-        var result = await verifyAdminPassword(pass);
-        if (request !== _adminLifecycle || identity !== getAdminMemberEmail() || getAdminRole(identity) === 'member') return false;
-        if (result && result.success === false) {
-          _adminLoginFailures++;
-          if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
-            _adminLockoutUntil = Date.now() + Math.min(BASE_LOCKOUT_MS * Math.pow(2, _adminLoginFailures - MAX_LOGIN_FAILURES), MAX_LOCKOUT_MS);
-          }
-          if (typeof logAuditEvent === 'function') await logAuditEvent({
-            action: 'admin.login_failed', targetType: 'admin_auth', actorId: identity,
-            actorRole: 'anonymous', details: { reason: 'rejected' }
-          });
-          if (typeof showToast === 'function') showToast('Admin sign-in was declined.', 'error');
-          return false;
-        }
-        var expiresAt = Date.parse(result && result.expires_at);
-        if (!result || typeof result.token !== 'string' || !result.token ||
-            !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('Admin sign-in unavailable.');
-        establishAdminSession(result.token, {
-          role: 'officer_admin',
-          officerEmail: identity,
-          expiresAt: expiresAt,
-          lastActiveAt: Date.now()
-        });
-        if (!await verifyAdminSession() || request !== _adminLifecycle) {
-          revokeAdminSession();
-          return false;
-        }
-        resetAdminLockout();
-        showAuthenticatedAdmin();
-        if (typeof logAuditEvent === 'function') {
-          await logAuditEvent({ action: 'admin.login_success', targetType: 'admin_auth', actorId: identity, actorRole: 'officer_admin' });
-        }
-        return true;
-      } catch (_) {
-        if (typeof showToast === 'function') showToast('Admin sign-in is unavailable. Try again when connected.', 'error');
-        return false;
-      }
-    };
-    try {
-      return await (button && typeof withSmartButtonLock === 'function' ? withSmartButtonLock(button, performLogin) : performLogin());
-    } finally {
-      _adminLoginInFlight = false;
-    }
   }
 
   function setAdminViewMode(mode) {
@@ -5244,16 +5113,12 @@
     global.closeAdmin               = closeAdmin;
     global.logoutAdmin              = logoutAdmin;
     global.revokeAdminSession       = revokeAdminSession;
-    global.adminLogin               = adminLogin;
     global.verifyAdminSession       = verifyAdminSession;
     global.verifyAdminSessionSync   = verifyAdminSessionSync;
     global.hasAdminModuleAccess    = hasAdminModuleAccess;
     global.authorizeAdminMutation = authorizeAdminMutation;
     global.getAdminSessionToken     = getAdminSessionToken;
     global.getAdminSessionData      = getAdminSessionData;
-    global.getAdminLockoutStatus    = getAdminLockoutStatus;
-    global.resetAdminLockout        = resetAdminLockout;
-    global.toggleAdminPassVis       = toggleAdminPassVis;
     global.backToAdminHome          = backToAdminHome;
     global.switchAdminSection       = switchAdminSection;
     global.switchDeptTab            = switchDeptTab;
@@ -5354,17 +5219,12 @@
       renderCreatorAvatarOutlinesStudio: renderCreatorAvatarOutlinesStudio,
       closeAdmin: closeAdmin,
       logoutAdmin: logoutAdmin,
-      verifyAdminPassword: verifyAdminPassword,
-      adminLogin: adminLogin,
       verifyAdminSession: verifyAdminSession,
       verifyAdminSessionSync: verifyAdminSessionSync,
       revokeAdminSession: revokeAdminSession,
       getAdminSessionToken: getAdminSessionToken,
       getAdminSessionData: getAdminSessionData,
-      getAdminLockoutStatus: getAdminLockoutStatus,
-      resetAdminLockout: resetAdminLockout,
       setAdminSessionTokenForTesting: setAdminSessionTokenForTesting,
-      toggleAdminPassVis: toggleAdminPassVis,
       backToAdminHome: backToAdminHome,
       switchAdminSection: switchAdminSection,
       switchDeptTab: switchDeptTab,

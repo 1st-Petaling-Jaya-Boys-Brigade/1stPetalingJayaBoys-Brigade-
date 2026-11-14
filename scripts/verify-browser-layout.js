@@ -69,9 +69,11 @@ async function getJson(url) {
     const ws = new WebSocket(wsUrl);
     let idCounter = 1;
     const callbacks = new Map();
+    let fulfillGalleryFixture;
 
     ws.onmessage = event => {
       const msg = JSON.parse(event.data);
+      if (msg.method === 'Fetch.requestPaused') fulfillGalleryFixture?.(msg.params);
       if (msg.id && callbacks.has(msg.id)) {
         callbacks.get(msg.id)(msg);
         callbacks.delete(msg.id);
@@ -1244,6 +1246,126 @@ async function getJson(url) {
       '  ✔ Weekly parade schedule and NCO Kanban board verified in headless Edge browser'
     );
 
+    const restoredWorkflows = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const originalGet = supa.get;
+        const originalPatch = supa.patch;
+        const beforeRoles = RBAC._getRolesConfig();
+        const beforeMember = Object.fromEntries(['email', 'ic', 'rank', 'department'].map(key => [key, sessionGet(key)]));
+        const updates = [];
+        const renderPause = () => new Promise(resolve => setTimeout(resolve, 30));
+        try {
+          sessionSet('email', 'board-admin@example.test');
+          sessionSet('ic', 'board-admin@example.test');
+          sessionSet('rank', 'Sergeant');
+          sessionSet('department', '');
+          RBAC._setRolesConfig({ super_admins: [], admins: { 'board-admin@example.test': ['tasks'] } });
+          supa.get = async path => path.startsWith('bb_tasks?') ? [{
+            id: 'restore-drag-task', title: 'Drag between columns', status: 'planning',
+            department: 'media', project_name: 'Media', priority: 'medium'
+          }] : [];
+          supa.patch = async (path, data) => {
+            updates.push(data.status);
+            if (data.status === 'inreview') throw new Error('Fixture network failure');
+            return [];
+          };
+          switchTabNav('tasks', true);
+          await renderTasksBoard('Media');
+          const findCard = () => document.querySelector('[data-task-id="restore-drag-task"]');
+          const findColumn = status => document.querySelector('.task-col[data-col-status="' + status + '"]');
+          const card = findCard();
+          if (!card) throw new Error('Task card fixture did not render');
+          const drag = async status => {
+            const source = findCard();
+            const target = findColumn(status);
+            const transfer = new DataTransfer();
+            const send = (element, type) => element.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: transfer }));
+            send(source, 'dragstart');
+            const dropAccepted = !send(target, 'dragover');
+            send(target, 'drop');
+            send(source, 'dragend');
+            await renderPause();
+            return dropAccepted && findCard()?.closest('.task-col') === target;
+          };
+          const moved = card.draggable && await drag('todo') && await drag('inprogress');
+          await drag('inreview');
+          const rolledBack = findCard()?.closest('.task-col') === findColumn('inprogress');
+
+          return { moved, rolledBack, updates };
+        } finally {
+          RBAC._setRolesConfig(beforeRoles);
+          for (const [key, value] of Object.entries(beforeMember)) sessionSet(key, value);
+          supa.get = originalGet;
+          supa.patch = originalPatch;
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(restoredWorkflows.result.value, JSON.stringify(restoredWorkflows.exceptionDetails));
+    assert.deepStrictEqual(restoredWorkflows.result.value, {
+      moved: true, rolledBack: true, updates: ['todo', 'inprogress', 'inreview']
+    }, 'Task drops update the board and failed saves restore the prior column');
+    console.log('  ✔ Task drag between columns and failed-move rollback verified');
+
+    // Exercise the gallery lightbox with a fresh signature and real image bytes.
+    const fixturePhoto = fs.readFileSync(path.resolve('assets/logo.png')).toString('base64');
+    let signatureRequests = 0;
+    fulfillGalleryFixture = params => {
+      const refreshed = new URL(params.request.url).searchParams.get('token') === 'refreshed';
+      if (refreshed) signatureRequests++;
+      sendCmd('Fetch.fulfillRequest', {
+        requestId: params.requestId, responseCode: refreshed ? 200 : 403,
+        responseHeaders: [{ name: 'Content-Type', value: 'image/png' }],
+        body: refreshed ? fixturePhoto : ''
+      }).catch(() => {});
+    };
+    await sendCmd('Fetch.enable', { patterns: [{ urlPattern: '*://*.supabase.co/storage/v1/object/sign/gallery/restore-fixture.png*' }] });
+    try {
+      const check = await sendCmd('Runtime.evaluate', {
+        expression: `(async () => {
+          const originalSigner = supa.createSignedUrl;
+          const storedGallery = galleryImages.slice();
+          const originalOrigin = SUPA_URL;
+          const origin = 'https://fixture.supabase.co';
+          let signed = 0;
+          try {
+            SUPA_URL = origin;
+            galleryImages.splice(0, galleryImages.length, {
+              id: 'repair-photo', url: origin + '/storage/v1/object/sign/gallery/restore-fixture.png?token=expired', type: 'image'
+            });
+            supa.createSignedUrl = async (bucket, storagePath) => {
+              if (bucket === 'gallery' && storagePath === 'restore-fixture.png') signed++;
+              return { signedUrl: origin + '/storage/v1/object/sign/gallery/restore-fixture.png?token=refreshed' };
+            };
+            filterGallery('photos');
+            document.querySelector('#gallery-grid [data-lightbox-idx="0"]').click();
+            for (let attempt = 0; attempt < 40; attempt++) {
+              const preview = document.querySelector('.gallery-lb-img');
+              if (preview?.naturalWidth > 0) return { loaded: true, signed, thumbnail: document.querySelector('#gallery-grid img')?.src.endsWith('token=refreshed') };
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+            return { loaded: false, signed };
+          } finally {
+            closeGalleryLightbox();
+            SUPA_URL = originalOrigin;
+            supa.createSignedUrl = originalSigner;
+            galleryImages.splice(0, galleryImages.length, ...storedGallery);
+            filterGallery('all');
+          }
+        })()`,
+        awaitPromise: true,
+        returnByValue: true
+      });
+      assert.ok(check.result.value, JSON.stringify(check.exceptionDetails));
+      assert.deepStrictEqual(check.result.value, { loaded: true, signed: 1, thumbnail: true });
+      assert.ok(signatureRequests > 0, 'The refreshed image was fetched and decoded');
+      console.log('  ✔ Gallery grid and lightbox recover an expired photo and decode the refreshed image');
+    } finally {
+      await sendCmd('Fetch.disable');
+      fulfillGalleryFixture = undefined;
+    }
+
     // 17B. Calendar Hub 5 Views & Day Schedule Verification
     console.log('\n[Calendar Hub 5 Views & Day Schedule Verification]');
     const evalCalendarViews = await sendCmd('Runtime.evaluate', {
@@ -1775,10 +1897,11 @@ async function getJson(url) {
         let issuedToken = null;
         let issuedEmail = null;
         window.supa.rpc = async (name, args) => {
-          if (name === 'rpc_admin_login') {
-            issuedEmail = args.p_officer_email;
+          if (name === 'rpc_open_member_admin_session') {
+            if (args.p_member_token !== 'a'.repeat(64)) return null;
+            issuedEmail = sessionGet('email');
             issuedToken = crypto.randomUUID();
-            return { success: true, token: issuedToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
+            return { valid: true, officer_email: issuedEmail, scope: issuedEmail === 'store_officer@example.com' ? 'admin' : 'super_admin', permissions: issuedEmail === 'store_officer@example.com' ? ['orders', 'uniform'] : [], token: issuedToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
           }
           if (name === 'rpc_verify_admin_session') return {
             valid: issuedToken === args.p_token, officer_email: issuedEmail, scope: 'super_admin', permissions: []
@@ -1787,13 +1910,11 @@ async function getJson(url) {
           return oldRpc.call(window.supa, name, args);
         };
         async function unlockAdmin() {
+          saveAdminMemberSignIn({ email: sessionGet('email'), token: 'a'.repeat(64), expires_at: new Date(Date.now() + 86400000).toISOString() }, false);
           await window.openAdmin();
-          document.getElementById('admin-pass').value = 'fixture-officer-passcode';
-          await window.adminLogin();
         }
         const layoutEntries = [];
         const layoutObserver = new PerformanceObserver(list => layoutEntries.push(...list.getEntries()));
-        layoutObserver.observe({ type: 'layout-shift' });
         const anchor = document.createElement('button');
         anchor.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
         document.body.appendChild(anchor);
@@ -1803,43 +1924,26 @@ async function getJson(url) {
         await window.openAdmin();
         const memberBlocked = (!document.getElementById('admin-overlay') || document.getElementById('admin-overlay').style.display === 'none');
 
-        // 2b. Guests can view the prompt. The passcode requires an authorized member identity.
         if (typeof sessionClear === 'function') sessionClear();
         await window.openAdmin();
         const overlay = document.getElementById('admin-overlay');
-        const loginBox = document.getElementById('admin-login-box');
         const adminPanel = document.getElementById('admin-panel');
-        const passInput = document.getElementById('admin-pass');
-        
-        const openState = {
-          memberBlocked: memberBlocked,
-          overlayVisible: overlay && overlay.style.display !== 'none',
-          loginBoxVisible: loginBox && loginBox.style.display !== 'none',
-          adminPanelHidden: !adminPanel || adminPanel.style.display === 'none'
-        };
-
-        const passAttributes = {
-          type: passInput ? passInput.type : '',
-          hasFormParent: passInput ? !!passInput.closest('form') : false,
-          autocomplete: passInput ? passInput.getAttribute('autocomplete') : '',
-          lpIgnore: passInput ? passInput.getAttribute('data-lpignore') : '',
-          onepIgnore: passInput ? passInput.getAttribute('data-1p-ignore') : ''
-        };
-
-        const initialMasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
-        if (typeof window.toggleAdminPassVis === 'function') window.toggleAdminPassVis();
-        const unmasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
-        if (typeof window.toggleAdminPassVis === 'function') window.toggleAdminPassVis();
-        const remasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
-
+        const guestBlocked = overlay.style.display === 'none';
         sessionSet('email', 'jeshuakoh2008@gmail.com');
         sessionSet('rank', 'Captain');
-        if (passInput) passInput.value = 'fixture-officer-passcode';
-        await window.adminLogin();
+        RBAC.renderHeaderRoleBadge();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        layoutObserver.observe({ type: 'layout-shift' });
+        await unlockAdmin();
         await new Promise(resolve => requestAnimationFrame(resolve));
+        const openState = {
+          memberBlocked,
+          guestBlocked,
+          overlayVisible: overlay.style.display !== 'none',
+          passcodeAbsent: !overlay.querySelector('#admin-login-box input')
+        };
 
         const authedState = {
-          loginBoxHidden: !loginBox || loginBox.style.display === 'none',
           adminPanelVisible: adminPanel && adminPanel.style.display !== 'none'
         };
 
@@ -1990,10 +2094,8 @@ async function getJson(url) {
           closeState,
           visitedSections,
           adminLayoutShift,
-          passAttributes,
-          initialMasked,
-          unmasked,
-          remasked
+          shiftSources: layoutEntries.filter(entry => !entry.hadRecentInput).flatMap(entry =>
+            entry.sources.map(source => [source.node?.id, source.node?.className, source.previousRect.x, source.currentRect.x]))
         };
       })()`,
       awaitPromise: true,
@@ -2005,7 +2107,7 @@ async function getJson(url) {
     assert.strictEqual(adminResult.closeState.wrapped, true, 'Tab wraps within the admin overlay');
     assert.strictEqual(adminResult.closeState.wrappedBack, true, 'Shift+Tab wraps within the admin overlay');
     assert.strictEqual(adminResult.closeState.focusRestored, true, 'Escape closes and restores the opener focus');
-    assert.strictEqual(adminResult.adminLayoutShift, 0, 'Admin overlay open, switch and close must have CLS = 0');
+    assert.strictEqual(adminResult.adminLayoutShift, 0, 'Admin overlay open, switch and close must have CLS = 0: ' + JSON.stringify(adminResult.shiftSources));
     assert.strictEqual(adminResult.hasOpenAdmin, true, 'openAdmin must be exported globally');
     assert.strictEqual(
       adminResult.hasSwitchAdminSection,
@@ -2018,28 +2120,8 @@ async function getJson(url) {
       'openAddMember must be exported globally'
     );
     assert.strictEqual(adminResult.hasSaveTask, true, 'saveTask must be exported globally');
-    assert.strictEqual(
-      adminResult.passAttributes.type,
-      'text',
-      'admin-pass must be type="text" to prevent browser password manager popup'
-    );
-    assert.strictEqual(
-      adminResult.passAttributes.hasFormParent,
-      false,
-      'admin-pass must not be wrapped in form tag'
-    );
-    assert.strictEqual(
-      adminResult.passAttributes.autocomplete,
-      'off',
-      'admin-pass must have autocomplete="off"'
-    );
-    assert.strictEqual(
-      adminResult.passAttributes.lpIgnore,
-      'true',
-      'admin-pass must have data-lpignore="true"'
-    );
-    assert.strictEqual(adminResult.unmasked, 'none', 'toggleAdminPassVis must unmask password');
-    assert.strictEqual(adminResult.remasked, 'disc', 'toggleAdminPassVis must remask password');
+    assert.strictEqual(adminResult.openState.passcodeAbsent, true, 'Console has no passcode form');
+    assert.strictEqual(adminResult.openState.guestBlocked, true, 'Guests cannot open the console');
     assert.strictEqual(
       adminResult.openState.memberBlocked,
       true,
@@ -2053,7 +2135,7 @@ async function getJson(url) {
     assert.strictEqual(
       adminResult.authedState.adminPanelVisible,
       true,
-      'adminLogin must unlock admin panel'
+      'The existing member sign-in must unlock the admin panel'
     );
     assert.strictEqual(
       adminResult.membersState.membersVisible,
@@ -2983,10 +3065,11 @@ async function getJson(url) {
         let issuedToken = null;
         let issuedEmail = null;
         window.supa.rpc = async (name, args) => {
-          if (name === 'rpc_admin_login') {
-            issuedEmail = args.p_officer_email;
+          if (name === 'rpc_open_member_admin_session') {
+            if (args.p_member_token !== 'a'.repeat(64)) return null;
+            issuedEmail = sessionGet('email');
             issuedToken = crypto.randomUUID();
-            return { success: true, token: issuedToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
+            return { valid: true, officer_email: issuedEmail, scope: issuedEmail === 'store_officer@example.com' ? 'admin' : 'super_admin', permissions: issuedEmail === 'store_officer@example.com' ? ['orders', 'uniform'] : [], token: issuedToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
           }
           if (name === 'rpc_verify_admin_session') {
             const scoped = issuedEmail === 'store_officer@example.com';
@@ -2999,9 +3082,8 @@ async function getJson(url) {
           return oldRpc.call(window.supa, name, args);
         };
         async function unlockAdmin() {
+          saveAdminMemberSignIn({ email: sessionGet('email'), token: 'a'.repeat(64), expires_at: new Date(Date.now() + 86400000).toISOString() }, false);
           await window.openAdmin();
-          document.getElementById('admin-pass').value = 'fixture-officer-passcode';
-          await window.adminLogin();
         }
         // Test the Super Admin badge and verified console access.
         sessionSet('email', 'jeshuakoh2008@gmail.com');

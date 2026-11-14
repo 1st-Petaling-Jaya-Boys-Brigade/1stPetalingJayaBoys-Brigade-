@@ -355,12 +355,43 @@ function sessionGet(key) {
   return (_session[key] !== undefined && _session[key] !== null) ? _session[key] : null;
 }
 
+function saveAdminMemberSignIn(signIn, remember) {
+  try {
+    sessionStorage.removeItem('bb_admin_member_signin');
+    localStorage.removeItem('bb_admin_member_signin');
+    if (signIn && /^[a-f0-9]{64}$/.test(signIn.token) && Date.parse(signIn.expires_at) > Date.now()) {
+      var storage = remember ? localStorage : sessionStorage;
+      storage.setItem('bb_admin_member_signin', JSON.stringify(signIn));
+    }
+  } catch (_) {}
+}
+
+function getAdminMemberSignIn() {
+  try {
+    var signIn = JSON.parse(sessionStorage.getItem('bb_admin_member_signin') || localStorage.getItem('bb_admin_member_signin') || 'null');
+    var identity = String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
+    return signIn && signIn.email === identity && Date.parse(signIn.expires_at) > Date.now() &&
+      /^[a-f0-9]{64}$/.test(signIn.token) ? signIn.token : null;
+  } catch (_) { return null; }
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', function(event) {
+    if (event.key === 'bb_admin_member_signin' && !getAdminMemberSignIn()) window.revokeAdminSession?.();
+  });
+}
+
 function sessionClear(options) {
   options = options || {};
   var localOnly = options.localOnly === true || options.silent === true;
 
   if (typeof window !== 'undefined' && typeof window.revokeAdminSession === 'function') {
     window.revokeAdminSession();
+  }
+  var adminSignIn = getAdminMemberSignIn();
+  saveAdminMemberSignIn(null);
+  if (adminSignIn && !localOnly && typeof supa !== 'undefined' && typeof supa.rpc === 'function') {
+    supa.rpc('rpc_end_admin_member_signin', { p_member_token: adminSignIn }).catch(function() {});
   }
   for (var k in _session) {
     if (Object.prototype.hasOwnProperty.call(_session, k)) {
@@ -405,6 +436,7 @@ function sessionClear(options) {
   }
   if (typeof window !== 'undefined') {
     window._session = _session;
+    window.RBAC?.syncAdminButtonVisibility?.();
   }
 }
 

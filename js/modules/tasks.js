@@ -352,7 +352,7 @@ function hasDepartmentRole(memberOrDept, rank) {
   var profile = typeof memberOrDept === 'string' ? { department: memberOrDept } : memberOrDept;
   if (!explicit) profile = currentTaskUser();
   return Boolean(profile && (taskDepartmentKey(profile.department) || isTaskOfficer(profile, rank) ||
-    (!explicit && hasTaskAdminSession())));
+    (!explicit && hasTaskBoardAdminAccess())));
 }
 
 function taskDepartmentKey(value) {
@@ -382,6 +382,11 @@ function hasTaskAdminSession() {
   }
 }
 
+function hasTaskBoardAdminAccess() {
+  return hasTaskAdminSession() || Boolean(currentTaskUser() &&
+    typeof window !== 'undefined' && window.RBAC?.hasModulePermission('tasks'));
+}
+
 function taskDepartmentForProject(projectName) {
   var key = taskDepartmentKey(projectName);
   if (key) return key;
@@ -393,7 +398,7 @@ function taskDepartmentForProject(projectName) {
 function canManageTaskDepartment(department) {
   var user = currentTaskUser();
   if (!user) return false;
-  if (isTaskOfficer(user) || hasTaskAdminSession()) return true;
+  if (isTaskOfficer(user) || hasTaskBoardAdminAccess()) return true;
   var key = taskDepartmentKey(department);
   return Boolean(key && taskDepartmentKey(user.department) === key);
 }
@@ -401,7 +406,7 @@ function canManageTaskDepartment(department) {
 function findManagedTask(id) {
   var task = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id] ||
     _allLoadedTasks.find(function(row) { return String(row.id) === String(id); });
-  return task && canManageTaskDepartment(task.department) ? task : null;
+  return task && canManageTaskDepartment(task.department || getTaskProjectName(task)) ? task : null;
 }
 
 /**
@@ -1408,7 +1413,7 @@ function renderColumnsFromTasks(tasksList) {
       }
 
       // Modern Task Card Layout (Exact match to Image 3)
-      return '<div class="task-card" draggable="' + canManageTaskDepartment(t.department) + '" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
+      return '<div class="task-card" draggable="' + canManageTaskDepartment(t.department || getTaskProjectName(t)) + '" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
         + '<div class="task-card-id-tag">' + taskId + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
         + metaRowHtml
@@ -1726,6 +1731,8 @@ function setupKanbanDragAndDrop() {
 
   var cards = document.querySelectorAll('.task-card[draggable="true"]');
   cards.forEach(function(card) {
+    if (card._dragBound) return;
+    card._dragBound = true;
     card.addEventListener('dragstart', function(e) {
       var tid = card.getAttribute('data-task-id') || card.getAttribute('data-drag-tid');
       _draggedTaskId = tid;
@@ -1753,6 +1760,7 @@ function setupKanbanDragAndDrop() {
     col._dragBound = true;
 
     col.addEventListener('dragover', function(e) {
+      if (!_draggedTaskId) return;
       e.preventDefault();
       if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
       col.classList.add('drag-over');
@@ -1766,7 +1774,7 @@ function setupKanbanDragAndDrop() {
     col.addEventListener('drop', function(e) {
       e.preventDefault();
       col.classList.remove('drag-over');
-      var tid = (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '') || _draggedTaskId;
+      var tid = _draggedTaskId;
       if (!tid) return;
 
       var targetStatus = col.getAttribute('data-col-status');
@@ -4095,39 +4103,47 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   var client = getSupaClient();
   if (!client || _taskStatusWrites.has(id)) return;
   _taskStatusWrites.add(id);
+  var oldStatus = task.status;
+  var paint = function() {
+    if (_tasksViewMode === 'mytasks') renderMyTasksView();
+    else if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
+    else renderColumnsFromTasks(_allLoadedTasks);
+  };
+  var cachedTask = _allLoadedTasks.find(function(row) { return String(row.id) === String(id); });
+  task.status = status;
+  if (cachedTask) cachedTask.status = status;
+  if (_taskMap[id]) _taskMap[id].status = status;
   try {
+    paint();
     await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
-    if (typeof logAuditEvent === 'function') {
-      logAuditEvent({
-        action: 'task.status_update',
-        targetType: 'task',
-        targetId: id,
-        details: { status: status, department: task.department }
-      });
-    }
-    // Update local cache
-    if (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) {
-      window._taskMap[id].status = status;
-    }
-    if (_taskMap[id]) _taskMap[id].status = status;
-    var foundLoaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
-    if (foundLoaded) foundLoaded.status = status;
-
-    if (_tasksViewMode === 'mytasks') {
-      renderMyTasksView();
-    } else {
-      if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-      else renderColumnsFromTasks(_allLoadedTasks);
-    }
-    return true;
   } catch (e) {
+    task.status = oldStatus;
+    if (cachedTask) cachedTask.status = oldStatus;
+    if (_taskMap[id]) _taskMap[id].status = oldStatus;
+    paint();
     if (typeof showToast === 'function') {
       showToast('Failed to update task status.', 'error');
     }
+    return false;
   } finally {
     _taskStatusWrites.delete(id);
   }
+  var current = _allLoadedTasks.find(function(row) { return String(row.id) === String(id); });
+  if (current && current !== cachedTask) {
+    current.status = status;
+    paint();
+  }
+  try { localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
+  }
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'task.status_update', targetType: 'task', targetId: id,
+      details: { status: status, department: task.department }
+    });
+  }
+  return true;
 }
 
 /**
