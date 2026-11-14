@@ -222,11 +222,9 @@
       if (userEmail && _rolesConfig && _rolesConfig.admins && _rolesConfig.admins[userEmail]) {
         var adminEntry = _rolesConfig.admins[userEmail];
         var perms = Array.isArray(adminEntry) ? adminEntry : (adminEntry && adminEntry.permissions);
-        if (Array.isArray(perms) && perms.length > 0) {
-          return perms;
-        }
+        return Array.isArray(perms) ? perms : [];
       }
-      return [...DEFAULT_ADMIN_MODULES];
+      return !userEmail && getSession('adminAuthed') === true ? [...DEFAULT_ADMIN_MODULES] : [];
     }
 
     return [];

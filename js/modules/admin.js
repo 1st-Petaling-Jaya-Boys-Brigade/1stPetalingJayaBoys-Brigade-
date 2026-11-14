@@ -1792,11 +1792,12 @@
       try {
         sessionStorage.removeItem('bb_admin_session_token');
         sessionStorage.removeItem('bb_admin_session_salt');
+        sessionStorage.removeItem('bb_admin_session_data');
       } catch (_) {}
     }
 
     if (typeof sessionSet === 'function') {
-      sessionSet('adminAuthed', false);
+      sessionSet('adminAuthed', false, { localOnly: true });
     }
 
     if (typeof document !== 'undefined') {
@@ -2458,7 +2459,11 @@
   function calcAge(dob) {
     if (!dob) return null;
     var d = new Date(dob);
-    if (isNaN(d.getTime())) return null;
+    if (isNaN(d.getTime()) || d > new Date()) return null;
+    if (typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      if (d.toISOString().slice(0, 10) !== dob) return null;
+      return new Date().getFullYear() - d.getUTCFullYear();
+    }
     return new Date().getFullYear() - d.getFullYear();
   }
 
@@ -5635,6 +5640,7 @@
     global.renderCreatorAvatarOutlinesStudio = renderCreatorAvatarOutlinesStudio;
     global.closeAdmin               = closeAdmin;
     global.logoutAdmin              = logoutAdmin;
+    global.revokeAdminSession       = revokeAdminSession;
     global.adminLogin               = adminLogin;
     global.verifyAdminSession       = verifyAdminSession;
     global.verifyAdminSessionSync   = verifyAdminSessionSync;
