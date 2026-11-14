@@ -34,15 +34,11 @@ function generateSecureSyncToken() {
   var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   var prefix = 'bb_sec_';
   var result = '';
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    var buf = new Uint8Array(28);
+  var buf = new Uint8Array(28);
+  while (result.length < 28) {
     crypto.getRandomValues(buf);
-    for (var i = 0; i < buf.length; i++) {
-      result += chars.charAt(buf[i] % chars.length);
-    }
-  } else {
-    for (var j = 0; j < 28; j++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (var i = 0; i < buf.length && result.length < 28; i++) {
+      if (buf[i] < 248) result += chars.charAt(buf[i] % chars.length);
     }
   }
   return prefix + result;
@@ -91,16 +87,16 @@ function sanitizeMasterMemberRecord(rawMember) {
     rank: typeof rawMember.rank === 'string' ? rawMember.rank.trim() : '',
     platoon: typeof rawMember.platoon === 'string' ? rawMember.platoon.trim() : '',
     squad: typeof rawMember.squad === 'string' ? rawMember.squad.trim() : '',
-    isBandMember: !!rawMember.isBandMember,
+    isBandMember: rawMember.isBandMember === true,
     bandSection: typeof rawMember.bandSection === 'string' ? rawMember.bandSection.trim() : '',
     paradeAttendance: {
       percentage: (rawMember.paradeAttendance && Number.isFinite(rawMember.paradeAttendance.percentage))
-        ? Math.round(rawMember.paradeAttendance.percentage * 100) / 100
+        ? Math.min(100, Math.max(0, rawMember.paradeAttendance.percentage))
         : 0
     },
     bandAttendance: {
       percentage: (rawMember.bandAttendance && Number.isFinite(rawMember.bandAttendance.percentage))
-        ? Math.round(rawMember.bandAttendance.percentage * 100) / 100
+        ? Math.min(100, Math.max(0, rawMember.bandAttendance.percentage))
         : 0
     },
     points: {
@@ -110,7 +106,8 @@ function sanitizeMasterMemberRecord(rawMember) {
       bandAtt: (rawMember.points && Number.isFinite(rawMember.points.bandAtt)) ? rawMember.points.bandAtt : 0,
       total: (rawMember.points && Number.isFinite(rawMember.points.total)) ? rawMember.points.total : 0
     },
-    lastUpdated: rawMember.lastUpdated || new Date().toISOString()
+    lastUpdated: typeof rawMember.lastUpdated === 'string' && Number.isFinite(Date.parse(rawMember.lastUpdated))
+      ? rawMember.lastUpdated : null
   };
 
   // Explicitly ensure no sensitive PII keys are passed through
@@ -128,65 +125,66 @@ function sanitizeMasterMemberRecord(rawMember) {
  * @returns {Object|null}
  */
 function sanitizeMasterAttendancePayload(payload) {
-  if (!payload || typeof payload !== 'object') return null;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+      !payload.members || typeof payload.members !== 'object' || Array.isArray(payload.members)) return null;
 
-  var cleanMembers = {};
+  var cleanMembers = Object.create(null);
   if (payload.members && typeof payload.members === 'object') {
     Object.keys(payload.members).forEach(function(key) {
       // Do not process non-member or suspicious keys
-      var isPiiKey = SENSITIVE_PII_KEYS.some(function(pii) { return key.toLowerCase().indexOf(pii) !== -1; });
-      if (isPiiKey) return;
-
       var cleanRecord = sanitizeMasterMemberRecord(payload.members[key]);
-      if (cleanRecord && cleanRecord.name) {
-        cleanMembers[key] = cleanRecord;
+      if (cleanRecord) {
+        var nameKey = cleanRecord.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (key.toLowerCase() === nameKey && nameKey && !Object.hasOwn(cleanMembers, nameKey)) {
+          cleanMembers[nameKey] = cleanRecord;
+        }
       }
     });
   }
 
-  var cleanSquads = {};
+  var cleanSquads = Object.create(null);
   if (payload.squads && typeof payload.squads === 'object') {
     Object.keys(payload.squads).forEach(function(sqKey) {
       var sq = payload.squads[sqKey];
-      if (sq && typeof sq === 'object') {
+      if (sq && typeof sq === 'object' && /^(alpha|papa|zulu|hotel)\s*[0-9]+$/i.test(sqKey.trim())) {
         cleanSquads[sqKey] = {
           name: typeof sq.name === 'string' ? sq.name.trim() : sqKey,
-          points: typeof sq.points === 'number' ? sq.points : 0,
-          rank: typeof sq.rank === 'number' ? sq.rank : 1,
+          points: Number.isFinite(sq.points) ? sq.points : 0,
+          rank: Number.isInteger(sq.rank) && sq.rank > 0 ? sq.rank : 1,
           platoon: typeof sq.platoon === 'string' ? sq.platoon.trim() : ''
         };
       }
     });
   }
 
-  var cleanPlatoons = {};
+  var cleanPlatoons = Object.create(null);
   if (payload.platoons && typeof payload.platoons === 'object') {
     Object.keys(payload.platoons).forEach(function(pltKey) {
       var plt = payload.platoons[pltKey];
-      if (plt && typeof plt === 'object') {
+      if (plt && typeof plt === 'object' && /^(alpha|papa|zulu|hotel)$/i.test(pltKey)) {
         cleanPlatoons[pltKey] = {
           name: typeof plt.name === 'string' ? plt.name.trim() : pltKey,
-          totalPoints: typeof plt.totalPoints === 'number' ? plt.totalPoints : 0,
-          averagePoints: typeof plt.averagePoints === 'number' ? plt.averagePoints : 0,
-          squadCount: typeof plt.squadCount === 'number' ? plt.squadCount : 0,
-          rank: typeof plt.rank === 'number' ? plt.rank : 1
+          totalPoints: Number.isFinite(plt.totalPoints) ? plt.totalPoints : 0,
+          averagePoints: Number.isFinite(plt.averagePoints) ? plt.averagePoints : 0,
+          squadCount: Number.isInteger(plt.squadCount) && plt.squadCount >= 0 ? plt.squadCount : 0,
+          rank: Number.isInteger(plt.rank) && plt.rank > 0 ? plt.rank : 1
         };
       }
     });
   }
 
   return {
-    lastSynced: payload.lastSynced || new Date().toISOString(),
+    lastSynced: typeof payload.lastSynced === 'string' && Number.isFinite(Date.parse(payload.lastSynced))
+      ? payload.lastSynced : null,
     sheetTitle: typeof payload.sheetTitle === 'string' ? payload.sheetTitle : 'Master Attendance',
-    scannedSheets: Array.isArray(payload.scannedSheets) ? payload.scannedSheets.slice(0, 25) : [],
+    scannedSheets: Array.isArray(payload.scannedSheets)
+      ? payload.scannedSheets.filter(function(name) { return typeof name === 'string'; }).slice(0, 25) : [],
     members: cleanMembers,
     squads: cleanSquads,
     platoons: cleanPlatoons,
     _security: {
       piiStripped: true,
-      sanitizedAt: new Date().toISOString(),
-      dataMinimizationCompliant: true,
-      tokenVerified: true
+      dataMinimizationCompliant: true
     }
   };
 }
@@ -269,21 +267,15 @@ async function saveMasterSheetConfig(cfgOverride) {
       };
 
   var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
-  if (client) {
-    try {
-      await client.req('POST', 'bb_config?on_conflict=key', {
-        key: MASTER_SHEET_CONFIG_KEY,
-        value: JSON.stringify(cfg)
-      });
-    } catch (e) {
-      try {
-        await client.patch('bb_config?key=eq.' + MASTER_SHEET_CONFIG_KEY, {
-          value: JSON.stringify(cfg)
-        });
-      } catch (e2) {
-        console.error('saveMasterSheetConfig error:', e2);
-      }
-    }
+  if (!client) throw new Error('Master Sheet configuration service is unavailable.');
+  if (cfg.scriptUrl) cfg.scriptUrl = attendanceWebhookUrl(cfg.scriptUrl);
+  try {
+    await client.req('POST', 'bb_config?on_conflict=key', {
+      key: MASTER_SHEET_CONFIG_KEY,
+      value: JSON.stringify(cfg)
+    });
+  } catch (_) {
+    throw new Error('Master Sheet configuration could not be saved.');
   }
 
   if (typeof logAuditEvent === 'function') {
@@ -303,6 +295,56 @@ async function saveMasterSheetConfig(cfgOverride) {
 }
 
 // ── Ingestion & Data Fetching (Hardened ) ─────────────────────────────
+
+function attendanceWebhookUrl(value) {
+  var url;
+  try { url = new URL(value); } catch (_) {
+    throw new Error('Use the deployed HTTPS Google Apps Script Web App URL.');
+  }
+  if (url.protocol !== 'https:' || url.hostname !== 'script.google.com' ||
+      url.port || url.username || url.password || url.search || url.hash ||
+      !/^\/macros\/s\/[\w-]+\/exec$/.test(url.pathname)) {
+    throw new Error('Use the deployed HTTPS Google Apps Script Web App URL.');
+  }
+  return url.href;
+}
+
+async function requestAttendanceWebhook(url, token, payload, retryRead) {
+  var endpoint = attendanceWebhookUrl(url);
+  if (typeof token !== 'string' || !token.trim()) throw new Error('Master Sheet sync token is required.');
+
+  for (var attempt = 0; ; attempt++) {
+    var signal = AbortSignal.timeout(4000);
+    var res;
+    var data;
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8', Accept: 'application/json' },
+        body: JSON.stringify({ ...payload, token: token.trim() }),
+        referrerPolicy: 'no-referrer',
+        signal: signal
+      });
+      if (res.ok) {
+        data = await res.json();
+      }
+    } catch (_) {
+      if (res && !signal.aborted) throw new Error('Google Sheets returned an unreadable response.');
+    }
+
+    var status = res && (res.ok ? Number(data && data.status) : res.status);
+    var temporary = !res || signal.aborted || status === 429 || [500, 502, 503, 504].includes(status);
+    if (retryRead && temporary && attempt < 2) {
+      await new Promise(function(resolve) { setTimeout(resolve, 250 * Math.pow(2, attempt)); });
+      continue;
+    }
+    if (status === 401 || status === 403) throw new Error('Google Sheets sync rejected: Unauthorized or invalid sync token.');
+    if (!res || signal.aborted) throw new Error('Google Sheets sync failed: Network connection error or timeout.');
+    if (!res.ok || status >= 400) throw new Error('Google Sheets sync failed with HTTP status ' + status + '.');
+    if (!data || typeof data !== 'object' || data.error) throw new Error('Google Sheets rejected the attendance request.');
+    return data;
+  }
+}
 
 /**
  * Pushes attendance records to Google Apps Script / Google Sheets with real CORS response validation
@@ -338,76 +380,34 @@ async function syncToSheets(recordsOrOptions, scriptUrl, syncToken) {
     throw errNoUrl;
   }
 
-  var payload = {
-    action: 'syncAttendance',
-    sheetId: options.sheetId || '',
-    weekLabel: options.weekLabel || '',
-    weekDate: options.weekDate || '',
-    records: options.records || []
-  };
-
-  // Build authenticated URL
-  var separator = targetUrl.indexOf('?') === -1 ? '?' : '&';
-  var requestUrl = targetUrl;
-  if (token) {
-    requestUrl += separator + 'token=' + encodeURIComponent(token);
+  if (!Array.isArray(options.records) || !options.records.length) {
+    throw new Error('At least one attendance record is required.');
   }
-
-  var headers = {
-    'Content-Type': 'text/plain;charset=utf-8',
-    'Accept': 'application/json'
-  };
-  if (token) {
-    headers['X-Sync-Token'] = token;
-  }
-
-  // Real CORS request - NO mode: 'no-cors'
-  var res;
-  try {
-    res = await fetch(requestUrl, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(payload)
-    });
-  } catch (netErr) {
-    var networkMsg = 'Google Sheets sync failed: Network connection error or invalid endpoint.';
-    if (typeof showToast === 'function') {
-      showToast(networkMsg, 'error');
+  var records = options.records.map(function(record) {
+    if (!record || typeof record.name !== 'string' || !record.name.trim() || record.name.length > 100) {
+      throw new Error('Every attendance record requires a member name.');
     }
-    throw new Error(networkMsg);
-  }
-
-  if (res.status === 401 || res.status === 403) {
-    var authMsg = 'Google Sheets sync rejected: Unauthorized or invalid sync token.';
-    if (typeof showToast === 'function') {
-      showToast(authMsg, 'error');
+    var clean = { name: record.name.trim() };
+    if (typeof record.present === 'boolean' || record.present === 0 || record.present === 1) clean.present = record.present;
+    if (typeof record.late === 'boolean') clean.late = record.late;
+    if (typeof record.excused === 'boolean') clean.excused = record.excused;
+    return clean;
+  });
+  var payload = { action: 'syncAttendance', records: records };
+  if (typeof options.sheetId === 'string' && /^[\w-]+$/.test(options.sheetId)) payload.sheetId = options.sheetId;
+  if (options.weekDate) {
+    var weekDate = new Date(options.weekDate);
+    if (typeof options.weekDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(options.weekDate) ||
+        !Number.isFinite(weekDate.getTime()) || weekDate.toISOString().slice(0, 10) !== options.weekDate) {
+      throw new Error('Invalid attendance week date.');
     }
-    throw new Error(authMsg);
+    payload.weekDate = options.weekDate;
   }
+  if (typeof options.weekLabel === 'string' && /^Week \d{1,2}$/i.test(options.weekLabel)) payload.weekLabel = options.weekLabel;
 
-  if (!res.ok) {
-    var httpMsg = 'Google Sheets sync failed with HTTP status ' + res.status + '.';
-    if (typeof showToast === 'function') {
-      showToast(httpMsg, 'error');
-    }
-    throw new Error(httpMsg);
-  }
-
-  var responseData = null;
-  try {
-    var text = await res.text();
-    responseData = JSON.parse(text);
-  } catch (e) {
-    // Non-JSON response
-  }
-
-  if (responseData && responseData.error) {
-    var apiErrMsg = 'Google Sheets sync error: ' + responseData.error;
-    if (typeof showToast === 'function') {
-      showToast(apiErrMsg, 'error');
-    }
-    throw new Error(apiErrMsg);
-  }
+  // A failed write response may arrive after the sheet was updated.
+  var responseData = await requestAttendanceWebhook(targetUrl, token, payload, false);
+  if (responseData.success !== true) throw new Error('Google Sheets did not confirm the attendance write.');
 
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
@@ -415,7 +415,7 @@ async function syncToSheets(recordsOrOptions, scriptUrl, syncToken) {
       targetType: 'attendance',
       targetId: 'master_attendance',
       actorRole: 'officer_admin',
-      details: { records_count: Array.isArray(recordsOrOptions) ? recordsOrOptions.length : 1 }
+      details: { records_count: records.length }
     });
   }
   if (typeof showToast === 'function') {
@@ -428,7 +428,7 @@ async function syncToSheets(recordsOrOptions, scriptUrl, syncToken) {
 var syncAttendanceToSheets = syncToSheets;
 
 /**
- * Fetch attendance & performance data directly from a deployed Google Apps Script Web App (doGet)
+ * Fetch attendance & performance data directly from a deployed Google Apps Script Web App
  * Enforces shared-secret token validation and strictly strips all sensitive PII before storage.
  * @param {string} [scriptUrl]
  * @param {string} [syncToken]
@@ -446,52 +446,23 @@ async function fetchMasterAttendanceFromGAS(scriptUrl, syncToken) {
     throw new Error('Google Apps Script Web App URL is not configured. Please enter the Web App URL in the Admin Console.');
   }
 
-  // Construct hardened request URL with token query parameter (handles Google 302 redirect transparently)
-  var separator = scriptUrl.indexOf('?') === -1 ? '?' : '&';
-  var requestUrl = scriptUrl + separator + 'action=getAttendance';
-  if (syncToken) {
-    requestUrl += '&token=' + encodeURIComponent(syncToken);
-  }
-
-  var headers = {
-    'Accept': 'application/json'
-  };
-  if (syncToken) {
-    headers['X-Sync-Token'] = syncToken;
-  }
-
-  var res = await fetch(requestUrl, {
-    method: 'GET',
-    headers: headers
-  });
-
-  if (res.status === 401 || res.status === 403) {
-    throw new Error('Unauthorized: Google Apps Script rejected request. The sync token is invalid or missing.');
-  }
-
-  if (!res.ok) {
-    throw new Error('Failed to fetch from Google Apps Script (HTTP ' + res.status + ')');
-  }
-
-  var rawData = await res.json();
-  if (rawData && rawData.error) {
-    throw new Error(rawData.error);
-  }
-
-  // Strict defense-in-depth: strip any sensitive PII (phones, addresses, IC) from incoming payload
+  var rawData = await requestAttendanceWebhook(scriptUrl, syncToken, { action: 'getAttendance' }, true);
   var sanitizedData = sanitizeMasterAttendancePayload(rawData);
+  if (!sanitizedData || !sanitizedData.lastSynced || !Object.keys(sanitizedData.members).length) {
+    throw new Error('The Master Sheet returned no valid attendance records.');
+  }
 
-  // Cache sanitized data into Supabase bb_config for fast subsequent loading
+  // Publish only a complete snapshot. Keep the previous snapshot if saving fails.
   var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
-  if (client && sanitizedData) {
-    try {
-      await client.req('POST', 'bb_config?on_conflict=key', {
-        key: MASTER_ATTENDANCE_KEY,
-        value: JSON.stringify(sanitizedData)
-      });
-    } catch (e) {
-      console.warn('Failed to cache attendance in Supabase:', e);
-    }
+  if (!client) throw new Error('The attendance database is unavailable.');
+  try {
+    await client.req('POST', 'bb_config?on_conflict=key', {
+      key: MASTER_ATTENDANCE_KEY,
+      value: JSON.stringify(sanitizedData),
+      updated_at: new Date().toISOString()
+    });
+  } catch (_) {
+    throw new Error('Master Sheet data was read but could not be saved. Please try again.');
   }
 
   return sanitizedData;
@@ -515,8 +486,13 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey, syncToken) {
   var url = supaUrl || 'https://mjfclxcklkbgsivvvlfe.supabase.co';
   var key = supaKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
   var token = syncToken || generateSecureSyncToken();
+  function scriptString(value) {
+    return String(value).replace(/['\\\u0000-\u001f\u2028\u2029]/g, function(character) {
+      return '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0');
+    });
+  }
 
-  return `// ==============================================================================
+  return String.raw`// ==============================================================================
 // 1st Petaling Jaya Boys' Brigade - Master Attendance Sheet Ingestion Script
 // Hardened Security Edition
 // 
@@ -524,9 +500,9 @@ function getGoogleAppsScriptTemplate(supaUrl, supaKey, syncToken) {
 // Sets up custom menu 'BB Portal' in your Master Attendance Spreadsheet.
 // ==============================================================================
 
-var PORTAL_SUPABASE_URL = '${url}';
-var PORTAL_SUPABASE_KEY = '${key}';
-var SYNC_TOKEN          = '${token}';
+var PORTAL_SUPABASE_URL = '${scriptString(url)}';
+var PORTAL_SUPABASE_KEY = '${scriptString(key)}';
+var SYNC_TOKEN          = '${scriptString(token)}';
 
 /**
  * Adds custom menu when the Google Sheet opens
@@ -567,27 +543,24 @@ function handleIncomingRequest(e) {
 }
 
 function handleIncomingApiRequest(e) {
-  var p = (e && e.parameter) ? e.parameter : {};
+  var p = Object.assign(Object.create(null), e && e.parameter);
   if (e && e.postData && e.postData.contents) {
     try {
       var bodyObj = JSON.parse(e.postData.contents);
       if (bodyObj && typeof bodyObj === 'object') {
-        for (var k in bodyObj) {
-          if (!p[k]) p[k] = bodyObj[k];
-        }
+        Object.assign(p, bodyObj);
       }
     } catch (_) {}
   }
-  var reqToken = (p.token || p.key || p.secret || '').trim();
+  var reqToken = String(p.token || p.key || p.secret || '').trim();
+  var expectedToken = PropertiesService.getScriptProperties().getProperty('SYNC_TOKEN') || SYNC_TOKEN;
 
   // 1. Enforce Shared-Secret / Proxy Token Authentication (safe check)
-  if (SYNC_TOKEN && SYNC_TOKEN.trim().length > 0) {
-    if (reqToken !== SYNC_TOKEN.trim()) {
+  if (!expectedToken || reqToken !== expectedToken.trim()) {
       return ContentService.createTextOutput(JSON.stringify({
         error: 'Unauthorized: Invalid or missing sync token. Update token in Google Sheet under BB Portal > Configure Sync Token.',
         status: 401
       })).setMimeType(ContentService.MimeType.JSON);
-    }
   }
 
   var action = p.action || 'getAttendance';
@@ -640,9 +613,7 @@ function handleIncomingApiRequest(e) {
         status: 500
       })).setMimeType(ContentService.MimeType.JSON);
     }
-  }
-
-    } else if (action === 'broadcastAnnouncement') {
+  } else if (action === 'broadcastAnnouncement') {
     var title = (p.title || 'Company Announcement').trim();
     var date = (p.date || '').trim();
     var summary = (p.summary || '').trim();
@@ -789,8 +760,6 @@ function handleIncomingApiRequest(e) {
         status: 500
       })).setMimeType(ContentService.MimeType.JSON);
     }
-  }
-
   } else if (action === 'verifyTurnstile') {
     var turnstileToken = (p.token || '').trim();
     if (!turnstileToken) {
@@ -820,6 +789,7 @@ function handleIncomingApiRequest(e) {
         status: 502
       })).setMimeType(ContentService.MimeType.JSON);
     }
+  }
   return ContentService.createTextOutput(JSON.stringify({
     error: 'Unknown action: ' + action,
     status: 400
@@ -839,9 +809,9 @@ function auditSheetSharingSecurity() {
 
     var isPublicLink = (access === DriveApp.Access.ANYONE || access === DriveApp.Access.ANYONE_WITH_LINK);
     if (isPublicLink) {
-      var warnMsg = '⚠️ CRITICAL PRIVACY ALERT:\\n\\n' +
+      var warnMsg = '⚠️ CRITICAL PRIVACY ALERT:\n\n' +
         'This Google Sheet is currently shared as "Anyone with the link can ' + 
-        (permission === DriveApp.Permission.EDIT ? 'EDIT' : 'VIEW') + '"!\\n\\n' +
+        (permission === DriveApp.Permission.EDIT ? 'EDIT' : 'VIEW') + '"!\n\n' +
         'Anyone who gets this link could access the entire Master Sheet. To protect member data under BB Child Safety & PDPA rules, please change sharing to "Restricted" (Specific officers and NCOs only).';
       notifyUser(warnMsg);
       return { secure: false, access: String(access), permission: String(permission), warning: warnMsg };
@@ -850,7 +820,7 @@ function auditSheetSharingSecurity() {
     return { secure: true, access: 'Restricted' };
   } catch (err) {
     Logger.log('auditSheetSharingSecurity note: ' + err.message);
-    return { secure: true, access: 'Restricted (or DriveApp limited)' };
+    return { secure: false, access: 'Sharing could not be verified' };
   }
 }
 
@@ -859,7 +829,7 @@ function auditSheetSharingSecurity() {
  */
 function configureSyncTokenUI() {
   var ui = SpreadsheetApp.getUi();
-  var resp = ui.prompt('Configure Sync Token', 'Current Token: ' + SYNC_TOKEN + '\\n\\nEnter new sync token (or leave empty to keep):', ui.ButtonSet.OK_CANCEL);
+  var resp = ui.prompt('Configure Sync Token', 'Enter a new sync token (or leave empty to keep it):', ui.ButtonSet.OK_CANCEL);
   if (resp.getSelectedButton() === ui.Button.OK) {
     var val = resp.getResponseText().trim();
     if (val) {
@@ -968,9 +938,9 @@ function checkAutoSyncStatus() {
     }
   }
   if (active.length > 0) {
-    notifyUser('Active Auto-Sync Triggers (' + active.length + '):\\n\\n' + active.join('\\n') + '\\n\\nAuto-sync is active and running in the background.');
+    notifyUser('Active Auto-Sync Triggers (' + active.length + '):\n\n' + active.join('\n') + '\n\nAuto-sync is active and running in the background.');
   } else {
-    notifyUser('Auto-Sync is currently DISABLED.\\n\\nTo enable, click:\\nBB Portal > Enable Immediate Auto-Sync (On Edit & Change)');
+    notifyUser('Auto-Sync is currently DISABLED.\n\nTo enable, click:\nBB Portal > Enable Immediate Auto-Sync (On Edit & Change)');
   }
 }
 
@@ -1003,7 +973,9 @@ function notifyUser(msg) {
  */
 function buildSanitizedAttendancePayload() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var members = {};
+  var members = Object.create(null);
+  var ambiguousMembers = Object.create(null);
+  var missingTotals = Object.create(null);
   var squads = {};
   var scannedSheets = [];
 
@@ -1015,7 +987,6 @@ function buildSanitizedAttendancePayload() {
 
     scannedSheets.push(sheet.getName());
     var data = sheet.getDataRange().getValues();
-    if (data.length < 9) return;
 
     var headerRowIdx = -1;
     var colMap = {
@@ -1050,17 +1021,22 @@ function buildSanitizedAttendancePayload() {
       if (!rawName || rawName.toLowerCase() === 'name') continue;
 
       var normKey = normalizeMemberKey(rawName);
+      if (!normKey || ambiguousMembers[normKey]) continue;
+      if (Object.prototype.hasOwnProperty.call(members, normKey)) {
+        delete members[normKey];
+        ambiguousMembers[normKey] = true;
+        continue;
+      }
       var rank = colMap.rank !== -1 ? String(row[colMap.rank] || '').trim() : '';
       var squad = colMap.squad !== -1 ? String(row[colMap.squad] || '').trim() : (plt + ' Platoon');
-      var totalPts = colMap.totalPts !== -1 ? parseNumber(row[colMap.totalPts]) : 0;
+      var totalPts = colMap.totalPts !== -1 ? parseOptionalNumber(row[colMap.totalPts]) : null;
+      missingTotals[normKey] = totalPts === null;
       var bandPts = colMap.bandPts !== -1 ? parseNumber(row[colMap.bandPts]) : 0;
       var bandAttPct = colMap.bandAtt !== -1 ? parsePercentage(row[colMap.bandAtt]) : 0;
       var paradePts = colMap.paradePts !== -1 ? parseNumber(row[colMap.paradePts]) : 0;
       var paradeAttPct = colMap.paradeAtt !== -1 ? parsePercentage(row[colMap.paradeAtt]) : 0;
       var uniformPts = colMap.uniformPts !== -1 ? parseNumber(row[colMap.uniformPts]) : 0;
 
-      var paradeDays = paradePts > 0 ? (paradePts / 2) : 0;
-      var uniformAvg = paradeDays > 0 ? Math.round((uniformPts / paradeDays) * 10) / 10 : 0;
       var isBand = (bandPts > 0 || bandAttPct > 0);
 
       // Strictly zero PII in member record
@@ -1074,11 +1050,11 @@ function buildSanitizedAttendancePayload() {
         paradeAttendance: { percentage: paradeAttPct },
         bandAttendance: { percentage: bandAttPct },
         points: {
-          uniform: Math.round(uniformPts * 10) / 10,
-          uniformAvg: uniformAvg,
-          paradeAtt: Math.round(paradePts),
-          bandAtt: Math.round(bandPts),
-          total: Math.round(totalPts || (uniformPts + paradePts + bandPts))
+        uniform: uniformPts,
+          uniformAvg: 0,
+          paradeAtt: paradePts,
+          bandAtt: bandPts,
+          total: totalPts === null ? Math.round((uniformPts + paradePts + bandPts) * 100) / 100 : totalPts
         },
         lastUpdated: new Date().toISOString()
       };
@@ -1086,7 +1062,8 @@ function buildSanitizedAttendancePayload() {
   });
 
   // 2. Process Band Attendance Tab
-  var bandSheet = ss.getSheetByName('Band Attendance 2026') || ss.getSheetByName('Band Attendance');
+  var bandSheet = ss.getSheetByName('Band Attendance') ||
+    ss.getSheetByName('Band Attendance ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy'));
   if (bandSheet) {
     scannedSheets.push(bandSheet.getName());
     var bData = bandSheet.getDataRange().getValues();
@@ -1095,7 +1072,7 @@ function buildSanitizedAttendancePayload() {
 
     for (var r = 0; r < Math.min(10, bData.length); r++) {
       var row = bData[r].map(function(c) { return String(c || '').toLowerCase().trim(); });
-      var nIdx = row.findIndex(function(h) { return h.indexOf('name') !== -1; });
+      var nIdx = row.findIndex(function(h) { return h === 'name' || h === 'member name' || h === 'nama'; });
       if (nIdx !== -1) {
         bHeaderRow = r;
         bColMap.name = nIdx;
@@ -1114,15 +1091,21 @@ function buildSanitizedAttendancePayload() {
         if (!rawName || rawName.toLowerCase() === 'name' || rawName.indexOf('#REF!') !== -1) continue;
 
         var normKey = normalizeMemberKey(rawName);
+        if (!normKey || ambiguousMembers[normKey]) continue;
         var section = bColMap.section !== -1 ? String(row[bColMap.section] || '').trim() : '';
-        var bPts = bColMap.points !== -1 ? parseNumber(row[bColMap.points]) : 0;
-        var bAtt = bColMap.att !== -1 ? parsePercentage(row[bColMap.att]) : 0;
+        var bPts = bColMap.points !== -1 ? parseOptionalNumber(row[bColMap.points]) : null;
+        var bAtt = bColMap.att !== -1 && parseOptionalNumber(row[bColMap.att]) !== null
+          ? parsePercentage(row[bColMap.att]) : null;
 
         if (members[normKey]) {
           members[normKey].isBandMember = true;
           if (section) members[normKey].bandSection = section;
-          if (bAtt > 0) members[normKey].bandAttendance.percentage = bAtt;
-          if (bPts > 0) members[normKey].points.bandAtt = Math.round(bPts);
+          if (bAtt !== null) members[normKey].bandAttendance.percentage = bAtt;
+          if (bPts !== null) {
+            var points = members[normKey].points;
+            if (missingTotals[normKey]) points.total = Math.round((points.total + bPts - points.bandAtt) * 100) / 100;
+            points.bandAtt = bPts;
+          }
         } else {
           members[normKey] = {
             name: rawName,
@@ -1132,8 +1115,8 @@ function buildSanitizedAttendancePayload() {
             isBandMember: true,
             bandSection: section,
             paradeAttendance: { percentage: 0 },
-            bandAttendance: { percentage: bAtt },
-            points: { uniform: 0, uniformAvg: 0, paradeAtt: 0, bandAtt: Math.round(bPts), total: Math.round(bPts) },
+            bandAttendance: { percentage: bAtt === null ? 0 : bAtt },
+            points: { uniform: 0, uniformAvg: 0, paradeAtt: 0, bandAtt: bPts === null ? 0 : bPts, total: bPts === null ? 0 : bPts },
             lastUpdated: new Date().toISOString()
           };
         }
@@ -1152,15 +1135,16 @@ function buildSanitizedAttendancePayload() {
       var row = lbData[r];
       for (var c = 0; c < row.length; c++) {
         var cellVal = String(row[c] || '').trim();
-        var m = cellVal.match(/^(ALPHA|PAPA|ZULU)\\s*([0-9]+)$/i);
+        var m = cellVal.match(/^(ALPHA|PAPA|ZULU)\s*([0-9]+)$/i);
         if (m) {
           var squadName = (m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase()) + ' ' + m[2];
-          var pts = 0;
+          var pts = null;
           for (var nc = c + 1; nc < row.length; nc++) {
-            var nVal = parseNumber(row[nc]);
-            if (nVal > 0) { pts = nVal; break; }
+            if (/^(ALPHA|PAPA|ZULU|HOTEL)\s*[0-9]+$/i.test(String(row[nc]).trim())) break;
+            pts = parseOptionalNumber(row[nc]);
+            if (pts !== null) break;
           }
-          if (pts > 0) {
+          if (pts !== null) {
             squads[squadName] = { 
               name: squadName, 
               points: pts, 
@@ -1170,17 +1154,6 @@ function buildSanitizedAttendancePayload() {
         }
       }
     }
-  }
-
-  if (Object.keys(squads).length === 0) {
-    squads = {
-      'PAPA 1':  { name: 'PAPA 1',  points: 161, platoon: 'Papa' },
-      'PAPA 2':  { name: 'PAPA 2',  points: 161, platoon: 'Papa' },
-      'ZULU 1':  { name: 'ZULU 1',  points: 160, platoon: 'Zulu' },
-      'ALPHA 2': { name: 'ALPHA 2', points: 155, platoon: 'Alpha' },
-      'ALPHA 1': { name: 'ALPHA 1', points: 149, platoon: 'Alpha' },
-      'ZULU 2':  { name: 'ZULU 2',  points: 144, platoon: 'Zulu' }
-    };
   }
 
   // Compute Squad Ranks
@@ -1199,12 +1172,13 @@ function buildSanitizedAttendancePayload() {
   var platoons = {};
   ['Papa', 'Alpha', 'Zulu'].forEach(function(plt) {
     var pSquads = Object.keys(squads).filter(function(k) { return squads[k].platoon === plt; });
+    if (!pSquads.length) return;
     var sum = 0;
     pSquads.forEach(function(k) { sum += (squads[k].points || 0); });
     var avg = pSquads.length > 0 ? Math.round(sum / pSquads.length) : 0;
     platoons[plt] = {
       name: plt,
-      totalPoints: avg,
+      totalPoints: sum,
       averagePoints: avg,
       squadCount: pSquads.length
     };
@@ -1214,7 +1188,8 @@ function buildSanitizedAttendancePayload() {
     return platoons[b].averagePoints - platoons[a].averagePoints;
   });
   sortedPlatoons.forEach(function(plt, idx) {
-    platoons[plt].rank = idx + 1;
+    var previous = platoons[sortedPlatoons[idx - 1]];
+    platoons[plt].rank = previous && previous.averagePoints === platoons[plt].averagePoints ? previous.rank : idx + 1;
   });
 
   return {
@@ -1236,6 +1211,19 @@ function buildSanitizedAttendancePayload() {
  * Main Sync Function: Reads all Platoon tabs and pushes sanitized data to Supabase
  */
 function syncMasterAttendanceToPortal(isBackground) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) {
+    if (!isBackground) notifyUser('Attendance sync is already running. Please try again.');
+    return;
+  }
+  try {
+    publishMasterAttendance(isBackground);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function publishMasterAttendance(isBackground) {
   var payload = buildSanitizedAttendancePayload();
   var memberCount = Object.keys(payload.members).length;
 
@@ -1273,7 +1261,7 @@ function syncMasterAttendanceToPortal(isBackground) {
       notifyUser(successMsg);
     }
   } else {
-    var errorMsg = 'Sync Failed (HTTP ' + code + '):\\n' + response.getContentText();
+    var errorMsg = 'Attendance sync failed (HTTP ' + code + ').';
     Logger.log(errorMsg);
     if (!isBackground) {
       notifyUser(errorMsg);
@@ -1298,22 +1286,21 @@ function testPortalConnection() {
 }
 
 function parseNumber(val) {
-  if (val === null || val === undefined || val === '' || val === 'N/A') return 0;
-  if (typeof val === 'number') return val;
-  var s = String(val).replace(/[^0-9.-]/g, '');
-  var num = parseFloat(s);
-  return isNaN(num) ? 0 : num;
+  var value = parseOptionalNumber(val);
+  return value === null ? 0 : value;
+}
+
+function parseOptionalNumber(val) {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  if (typeof val !== 'string' || !/^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?%?$/.test(val.trim())) return null;
+  var number = Number(val.trim().replace(/[, %]/g, ''));
+  return Number.isFinite(number) ? number : null;
 }
 
 function parsePercentage(val) {
-  if (val === null || val === undefined || val === '' || val === 'N/A') return 0;
-  if (typeof val === 'number') {
-    if (val <= 2.0 && val > 0) return Math.round(val * 10000) / 100;
-    return Math.round(val * 100) / 100;
-  }
-  var s = String(val).replace('%', '').trim();
-  var num = parseFloat(s);
-  return isNaN(num) ? 0 : Math.round(num * 100) / 100;
+  var number = parseNumber(val);
+  if (typeof val === 'number' && number > 0 && number <= 1) number *= 100;
+  return Math.max(0, Math.min(100, number));
 }
 
 function normalizeMemberKey(name) {

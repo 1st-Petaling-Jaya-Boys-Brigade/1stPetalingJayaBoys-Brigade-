@@ -1893,7 +1893,7 @@ function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
  */
 function getAttendanceAchievementTier(percentage) {
   var pct = (percentage !== null && percentage !== undefined && percentage !== '') ? parseFloat(percentage) : NaN;
-  if (isNaN(pct)) {
+  if (!Number.isFinite(pct)) {
     return {
       tier: 'none',
       label: 'No Data',
@@ -1906,8 +1906,6 @@ function getAttendanceAchievementTier(percentage) {
       tooltipText: 'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
     };
   }
-
-  pct = Math.round(pct);
 
   if (pct >= 100) {
     return {

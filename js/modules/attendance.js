@@ -12,16 +12,18 @@ var MASTER_ATTENDANCE_KEY = 'bb_master_attendance';
 var MASTER_ATTENDANCE_CACHE_TTL = 10 * 1000; // 10-second cache TTL for responsive real-time updates
 var _masterAttendanceCache = null;
 var _masterAttendanceCacheTime = 0;
+var _masterAttendanceRequest = null;
 
 // ── Confidential Attendance Achievement Tiers Helper ────────────────
 var _getTierFn = (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function')
   ? window.getAttendanceAchievementTier
   : function(percentage) {
-      if (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function') {
+      if (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function' &&
+          window.getAttendanceAchievementTier !== _getTierFn) {
         return window.getAttendanceAchievementTier(percentage);
       }
       var pct = (percentage !== null && percentage !== undefined && percentage !== '') ? parseFloat(percentage) : NaN;
-      if (isNaN(pct)) {
+      if (!Number.isFinite(pct)) {
         return {
           tier: 'none',
           label: 'No Data',
@@ -34,7 +36,6 @@ var _getTierFn = (typeof window !== 'undefined' && typeof window.getAttendanceAc
           tooltipText: 'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
         };
       }
-      pct = Math.round(pct);
       if (pct >= 100) {
         return {
           tier: 'perfect',
@@ -163,6 +164,18 @@ function normalizeMemberName(name) {
 
 var DEFAULT_MAX_SQUAD_POINTS = 161;
 
+function getCompetingSquadStandings(data) {
+  var squads = Object.values((data && data.squads) || {}).filter(function(squad) {
+    return squad && typeof squad.name === 'string' && Number.isFinite(squad.points) &&
+      /^(alpha|papa|zulu)\s*[0-9]+$/i.test(squad.name.trim());
+  }).sort(function(a, b) { return b.points - a.points; });
+  var rank = 1;
+  return squads.map(function(squad, index) {
+    if (index > 0 && squad.points < squads[index - 1].points) rank = index + 1;
+    return { ...squad, displayRank: rank };
+  });
+}
+
 /**
  * Resolves theme color tokens, badge background, border, and platoon name for a given squad name
  * @param {string} sqName
@@ -187,52 +200,62 @@ async function getMasterAttendanceData(forceRefresh) {
     return _masterAttendanceCache;
   }
 
-  // Check sessionStorage or localStorage cache
-  if (!forceRefresh) {
-    try {
-      var cachedStr = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('bb_master_att_cache') : null)
-        || (typeof localStorage !== 'undefined' ? localStorage.getItem('bb_master_att_cache') : null);
-      if (cachedStr) {
-        var parsedLocalAtt = JSON.parse(cachedStr);
-        if (parsedLocalAtt && parsedLocalAtt.squads) {
-          _masterAttendanceCache = parsedLocalAtt;
-          return _masterAttendanceCache;
-        }
-      }
-    } catch (e) {}
-  }
+  if (_masterAttendanceRequest) return _masterAttendanceRequest;
 
-  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
-  if (!client) return null;
-
+  var sanitizer = typeof window !== 'undefined' ? window.sanitizeMasterAttendancePayload : null;
+  var fallback = _masterAttendanceCache;
   try {
-    var rows = await client.get('bb_config?key=eq.' + MASTER_ATTENDANCE_KEY + '&select=value');
-    if (rows && rows.length && rows[0].value) {
-      var parsed = JSON.parse(rows[0].value);
-      if (typeof window !== 'undefined' && typeof window.sanitizeMasterAttendancePayload === 'function') {
-        parsed = window.sanitizeMasterAttendancePayload(parsed);
+    var cachedStr = typeof localStorage !== 'undefined' ? localStorage.getItem('bb_master_att_cache') : null;
+    if (!cachedStr && typeof sessionStorage !== 'undefined') cachedStr = sessionStorage.getItem('bb_master_att_cache');
+    if (cachedStr && sanitizer) fallback = sanitizer(JSON.parse(cachedStr));
+  } catch (_) {}
+  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
+  if (!client) return fallback;
+  _masterAttendanceRequest = (async function() {
+    try {
+      var rows = await client.get('bb_config?key=eq.' + MASTER_ATTENDANCE_KEY + '&select=value', { cache: !forceRefresh });
+      if (rows && rows.length && rows[0].value) {
+        var value = rows[0].value;
+        var parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        if (sanitizer) parsed = sanitizer(parsed);
+        if (parsed) return cacheMasterAttendance(parsed);
       }
-      _masterAttendanceCache = parsed;
-      _masterAttendanceCacheTime = now;
-      if (typeof sessionStorage !== 'undefined') {
-        try {
-          sessionStorage.setItem('bb_master_att_cache', JSON.stringify(parsed));
-          sessionStorage.setItem('bb_master_att_cache_time', String(now));
-        } catch (e2) {}
-      }
-      if (typeof localStorage !== 'undefined') {
-        try {
-          localStorage.setItem('bb_master_att_cache', JSON.stringify(parsed));
-          localStorage.setItem('bb_master_att_cache_time', String(now));
-        } catch (e3) {}
-      }
-      return parsed;
-    }
-  } catch (err) {
-    console.warn('getMasterAttendanceData error:', err);
+    } catch (_) {}
+    return fallback;
+  })();
+  try {
+    return await _masterAttendanceRequest;
+  } finally {
+    _masterAttendanceRequest = null;
   }
+}
 
-  return null;
+function cacheMasterAttendance(data, fromStorage) {
+  var prevTime = Date.parse(_masterAttendanceCache && _masterAttendanceCache.lastSynced);
+  var nextTime = Date.parse(data.lastSynced);
+  if (Number.isFinite(prevTime) && (!Number.isFinite(nextTime) || nextTime < prevTime)) return _masterAttendanceCache;
+  _masterAttendanceCache = data;
+  _masterAttendanceCacheTime = Date.now();
+  var snapshot = JSON.stringify(data);
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('bb_master_att_cache', snapshot);
+    }
+  } catch (_) {}
+  try {
+    if (!fromStorage && typeof localStorage !== 'undefined' && localStorage.getItem('bb_master_att_cache') !== snapshot) {
+      localStorage.setItem('bb_master_att_cache', snapshot);
+    }
+  } catch (_) {}
+  return data;
+}
+
+function refreshVisibleAttendance() {
+  if (typeof isUserAuthenticated !== 'function' || !isUserAuthenticated()) return;
+  var memberPage = document.getElementById('page-member');
+  var leaderboardPage = document.getElementById('page-attendance');
+  if (memberPage && memberPage.classList.contains('active')) loadMemberAttendanceStats();
+  if (leaderboardPage && leaderboardPage.classList.contains('active')) renderCompanyLeaderboard();
 }
 
 /**
@@ -246,9 +269,10 @@ async function getMemberAttendanceRecord(memberName) {
   // Security & Privacy Protection:
   // Jeshua Koh attendance and points belong exclusively to verified portal creator account (jeshuakoh2008@gmail.com)
   var norm = normalizeMemberName(memberName);
+  if (!norm) return null;
   if (norm === 'jeshuakoh') {
     var sessEmail = (typeof sessionGet === 'function') ? String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase() : '';
-    if (sessEmail && sessEmail !== 'jeshuakoh2008@gmail.com') {
+    if (sessEmail !== 'jeshuakoh2008@gmail.com') {
       return null;
     }
   }
@@ -256,13 +280,13 @@ async function getMemberAttendanceRecord(memberName) {
   var data = await getMasterAttendanceData();
   if (!data || !data.members) return null;
 
-  if (data.members[norm]) {
+  if (Object.hasOwn(data.members, norm)) {
     return data.members[norm];
   }
 
   // Filter out noise/test words so dummy or spoof accounts never bind to real member records
   var noiseWords = ['tester', 'test', 'demo', 'admin', 'fake', 'dummy'];
-  var normTokens = norm.split(' ').filter(function(t) { return t.length >= 2; });
+  var normTokens = String(memberName).toLowerCase().split(/[^a-z0-9]+/);
   var hasNoise = normTokens.some(function(t) { return noiseWords.includes(t); });
   if (hasNoise) {
     return null;
@@ -274,14 +298,10 @@ async function getMemberAttendanceRecord(memberName) {
     ? isNameMatch
     : (typeof window !== 'undefined' && typeof window.isNameMatch === 'function' ? window.isNameMatch : null);
 
-  for (var i = 0; i < keys.length; i++) {
-    var k = keys[i];
-    if (matchFn && matchFn(memberName, k)) {
-      return data.members[k];
-    }
-  }
-
-  return null;
+  var matches = keys.filter(function(k) {
+    return k !== 'jeshuakoh' && matchFn && data.members[k].name && matchFn(memberName, data.members[k].name);
+  });
+  return matches.length === 1 ? data.members[matches[0]] : null;
 }
 
 // ── Member Tab UI: Performance & Points Breakdown Card ──────────────────────
@@ -294,6 +314,7 @@ async function getMemberAttendanceRecord(memberName) {
 async function loadMemberAttendanceStats(memberName) {
   var container = document.getElementById('member-attendance-card');
   if (!container) return;
+  var activeMember = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : null;
 
   var currentSection = (typeof sessionGet === 'function') ? (sessionGet('section') || sessionGet('att_section')) : '';
   var currentRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
@@ -332,6 +353,7 @@ async function loadMemberAttendanceStats(memberName) {
 
   var data = await getMasterAttendanceData();
   var record = await getMemberAttendanceRecord(name);
+  if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email')) !== activeMember) return;
   var platoons = (data && data.platoons) ? data.platoons : {};
   var squads   = (data && data.squads) ? data.squads : {};
 
@@ -618,14 +640,7 @@ function renderEmptyAttendanceState(name, lastSynced) {
  * Interactive helper: Triggers a fresh reload of attendance stats
  */
 async function refreshMemberAttendanceStats() {
-  _masterAttendanceCache = null;
-  _masterAttendanceCacheTime = 0;
-  if (typeof sessionStorage !== 'undefined') {
-    try {
-      sessionStorage.removeItem('bb_master_att_cache');
-      sessionStorage.removeItem('bb_master_att_cache_time');
-    } catch (e) {}
-  }
+  await getMasterAttendanceData(true);
   await loadMemberAttendanceStats();
 }
 
@@ -645,36 +660,7 @@ async function renderAdminMasterSheetPanel() {
   var syncDate = data && data.lastSynced ? new Date(data.lastSynced).toLocaleString() : 'Never synced';
   var sheetName = data && data.sheetTitle ? data.sheetTitle : 'Google Master Sheet';
 
-  var rawSquads = (data && data.squads) ? data.squads : null;
-  var squadList = [];
-  if (rawSquads && Object.keys(rawSquads).length > 0) {
-    Object.keys(rawSquads).forEach(function(k) {
-      if (k.toLowerCase().indexOf('hotel') === -1) {
-        squadList.push(rawSquads[k]);
-      }
-    });
-  } else {
-    squadList = [
-      { name: 'PAPA 1',  points: 161, rank: 1, platoon: 'Papa' },
-      { name: 'PAPA 2',  points: 161, rank: 1, platoon: 'Papa' },
-      { name: 'ZULU 1',  points: 160, rank: 3, platoon: 'Zulu' },
-      { name: 'ALPHA 2', points: 155, rank: 4, platoon: 'Alpha' },
-      { name: 'ALPHA 1', points: 149, rank: 5, platoon: 'Alpha' },
-      { name: 'ZULU 2',  points: 144, rank: 6, platoon: 'Zulu' }
-    ];
-  }
-
-  squadList.sort(function(a, b) {
-    return (b.points || 0) - (a.points || 0);
-  });
-
-  var curRank = 1;
-  for (var i = 0; i < squadList.length; i++) {
-    if (i > 0 && squadList[i].points < squadList[i - 1].points) {
-      curRank = i + 1;
-    }
-    squadList[i].displayRank = curRank;
-  }
+  var squadList = getCompetingSquadStandings(data);
 
 
   // Calculate platoon averages (excluding Hotel)
@@ -729,6 +715,7 @@ async function renderAdminMasterSheetPanel() {
         'Squad Leader Board (' + memberCount + ' Synced Members)' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:8px;margin-bottom:10px;">' +
+        (squadList.length ? '' : '<p>No squad standings have been synced.</p>') +
         squadList.map(function(sq) {
           var st = getPlatoonStyle(sq.name);
           return (
@@ -921,7 +908,9 @@ async function copyMasterSyncToken() {
       success = document.execCommand('copy');
     } catch (e2) {}
   }
-  if (typeof showToast === 'function') showToast('Sync token copied to clipboard!', 'success');
+  if (typeof showToast === 'function') {
+    showToast(success ? 'Sync token copied to clipboard!' : 'Sync token could not be copied.', success ? 'success' : 'error');
+  }
 }
 
 async function handleSaveMasterConfig() {
@@ -930,16 +919,15 @@ async function handleSaveMasterConfig() {
   var tok = ((document.getElementById('master-sync-token-input') || {}).value || '').trim();
 
   var saveFn = (typeof window !== 'undefined' && typeof window.saveMasterSheetConfig === 'function') ? window.saveMasterSheetConfig : null;
-  if (saveFn) {
-    await saveFn({
-      sheetId: sid,
-      scriptUrl: url,
-      syncToken: tok,
-      autoSync: true,
-      piiFiltered: true,
-      lastUpdated: new Date().toISOString()
-    });
-    await renderAdminMasterSheetPanel();
+  var btn = document.getElementById('btn-save-master-config');
+  if (!saveFn || (btn && btn.disabled)) return;
+  try {
+    await withSmartButtonLock(btn, async function() {
+      await saveFn({ sheetId: sid, scriptUrl: url, syncToken: tok, autoSync: true });
+      await renderAdminMasterSheetPanel();
+    }, { loadingText: 'Saving...' });
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message, 'error');
   }
 }
 
@@ -957,10 +945,20 @@ async function triggerMasterSheetFetch() {
   }
 
   try {
-    if (typeof window.fetchMasterAttendanceFromGAS === 'function') {
-      await window.fetchMasterAttendanceFromGAS();
+    if (typeof window.fetchMasterAttendanceFromGAS !== 'function') {
+      throw new Error('Master Sheet sync is unavailable.');
     }
-    _masterAttendanceCache = null;
+    var data;
+    if (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') {
+      data = await navigator.locks.request('bb_master_attendance_import', { ifAvailable: true }, function(lock) {
+        if (!lock) throw new Error('Master Sheet sync is already running in another tab.');
+        return window.fetchMasterAttendanceFromGAS();
+      });
+    } else {
+      data = await window.fetchMasterAttendanceFromGAS();
+    }
+    cacheMasterAttendance(data);
+    refreshVisibleAttendance();
     await renderAdminMasterSheetPanel();
 
     if (typeof logAuditEvent === 'function') {
@@ -1020,9 +1018,15 @@ function toggleSquadRoster(rosterId) {
 async function renderCompanyLeaderboard() {
   var c = document.getElementById('company-platoon-leaderboard');
   if (!c) return;
+  var viewerId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : null;
 
   var data = await getMasterAttendanceData();
-  var rawSquads = (data && data.squads) ? data.squads : null;
+  if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email')) !== viewerId) return;
+  var squadList = getCompetingSquadStandings(data);
+  if (!squadList.length) {
+    c.innerHTML = '<p role="status">No squad standings have been synced.</p>';
+    return;
+  }
 
   // Viewer authorization context for privacy masking
   var viewerName = '';
@@ -1106,38 +1110,6 @@ async function renderCompanyLeaderboard() {
     return null;
   }
 
-  // Standard competing squads fallback from master sheet
-  var squadList = [];
-  if (rawSquads && Object.keys(rawSquads).length > 0) {
-    Object.keys(rawSquads).forEach(function(k) {
-      if (k.toLowerCase().indexOf('hotel') === -1) {
-        squadList.push(rawSquads[k]);
-      }
-    });
-  } else {
-    squadList = [
-      { name: 'PAPA 1',  points: 161, rank: 1, platoon: 'Papa' },
-      { name: 'PAPA 2',  points: 161, rank: 1, platoon: 'Papa' },
-      { name: 'ZULU 1',  points: 160, rank: 3, platoon: 'Zulu' },
-      { name: 'ALPHA 2', points: 155, rank: 4, platoon: 'Alpha' },
-      { name: 'ALPHA 1', points: 149, rank: 5, platoon: 'Alpha' },
-      { name: 'ZULU 2',  points: 144, rank: 6, platoon: 'Zulu' }
-    ];
-  }
-
-  // Sort descending by points
-  squadList.sort(function(a, b) {
-    return (b.points || 0) - (a.points || 0);
-  });
-
-  // Calculate ranks handling ties
-  var curRank = 1;
-  for (var i = 0; i < squadList.length; i++) {
-    if (i > 0 && squadList[i].points < squadList[i - 1].points) {
-      curRank = i + 1;
-    }
-    squadList[i].displayRank = curRank;
-  }
 
   var maxPts = squadList.length > 0 ? squadList[0].points : DEFAULT_MAX_SQUAD_POINTS;
   if (!maxPts || maxPts <= 0) maxPts = DEFAULT_MAX_SQUAD_POINTS;
@@ -1155,22 +1127,6 @@ async function renderCompanyLeaderboard() {
     });
   }
 
-  // Baseline sample roster for demo / empty states
-  var baselineRosters = {
-    'PAPA 1': [
-      { name: 'Jeshua Koh', rank: 'Sgt', points: { total: 55 }, paradeAttendance: { percentage: 92 } },
-      { name: 'Jason Koh', rank: 'Cpl', points: { total: 54 }, paradeAttendance: { percentage: 88 } }
-    ],
-    'PAPA 2': [
-      { name: 'Tester Account', rank: 'Lt', points: { total: 40 }, paradeAttendance: { percentage: 50 } }
-    ],
-    'ALPHA 1': [
-      { name: 'OLIVER LING CHEE SHENG', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 100 } }
-    ],
-    'ALPHA 2': [
-      { name: 'Joash Lee Tian Wei', rank: 'L/Cpl', points: { total: 52 }, paradeAttendance: { percentage: 82 } }
-    ]
-  };
 
   var html = '';
 
@@ -1195,9 +1151,9 @@ async function renderCompanyLeaderboard() {
 
     var st = getPlatoonStyle(sq.name);
     var safeSquadName = escapeAttHtml(sq.name);
-    var rankBadgeStyle = (stepNum === 1)
+    var rankBadgeStyle = (sq.displayRank === 1)
       ? 'background:var(--brand-gold,#f5c542);color:#000;'
-      : (stepNum === 2 ? 'background:#cbd5e1;color:#000;' : 'background:#ea580c;color:#fff;');
+      : (sq.displayRank === 2 ? 'background:#cbd5e1;color:#000;' : 'background:#ea580c;color:#fff;');
 
     var squadLetter = safeSquadName.charAt(0).toUpperCase();
 
@@ -1210,12 +1166,12 @@ async function renderCompanyLeaderboard() {
           '<div class="podium-avatar plt-' + st.plt.toLowerCase() + '" style="width:48px;height:48px;background:' + st.bg + ';border:2px solid ' + st.border + ';color:' + st.color + ';font-size:18px;font-family:var(--font-headline);font-weight:800;">' +
             squadLetter +
           '</div>' +
-          '<span class="podium-rank-badge" style="' + rankBadgeStyle + '">#' + stepNum + '</span>' +
+          '<span class="podium-rank-badge" style="' + rankBadgeStyle + '">#' + sq.displayRank + '</span>' +
         '</div>' +
       '</div>' +
       // 3. PODIUM PILLAR STEP
       '<div class="podium-step podium-step-' + stepNum + '">' +
-        '<div class="podium-step-num">#' + stepNum + '</div>' +
+        '<div class="podium-step-num">#' + sq.displayRank + '</div>' +
         '<div class="podium-step-val">' + (sq.points || 0) + ' pts</div>' +
         '<div class="podium-step-sub">' + st.plt + ' Platoon</div>' +
       '</div>' +
@@ -1238,7 +1194,7 @@ async function renderCompanyLeaderboard() {
   // 2. Render Competing Squad Cards with Safe Member Rosters
   squadList.forEach(function(sq, sqIdx) {
     var st = getPlatoonStyle(sq.name);
-    var pct = Math.min(100, Math.round(((sq.points || 0) / maxPts) * 100));
+    var pct = Math.max(0, Math.min(100, Math.round((sq.points / maxPts) * 100)));
     var rankPill = sq.displayRank === 1
       ? 'background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-border);'
       : (sq.displayRank === 2
@@ -1248,7 +1204,7 @@ async function renderCompanyLeaderboard() {
           : 'background:transparent;color:var(--text-muted);border:1px solid transparent;'));
 
     var sqUpper = String(sq.name || '').toUpperCase().trim();
-    var members = squadMembersMap[sqUpper] || baselineRosters[sqUpper] || [];
+    var members = squadMembersMap[sqUpper] || [];
 
     // Sort members descending by points
     members.sort(function(a, b) {
@@ -1310,7 +1266,7 @@ async function renderCompanyLeaderboard() {
           } else if (typeof getAssigneeAvatarHtml === 'function') {
             avatarHtml = getAssigneeAvatarHtml(regName, regId, 24);
           } else {
-            avatarHtml = '<span class="task-card-avatar" style="width:24px;height:24px;border-radius:9999px;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + (m.name ? m.name[0] : 'M') + '</span>';
+            avatarHtml = '<span class="task-card-avatar" style="width:24px;height:24px;border-radius:9999px;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + escapeAttHtml(m.name ? m.name[0] : 'M') + '</span>';
           }
         } else {
           avatarHtml = '<span class="empty-profile-avatar" style="width:24px;height:24px;border-radius:9999px;background:var(--surface-tint);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);flex-shrink:0;position:relative;" title="Account not yet created" aria-label="Account not registered"><svg class="ui-icon-xs" style="width:13px;height:13px;opacity:0.55;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>';
@@ -1339,7 +1295,7 @@ async function renderCompanyLeaderboard() {
             '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;width:32px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;' + rankPill + '">#' + sq.displayRank + '</div>' +
             '<div>' +
               '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' + sq.name.toUpperCase() + '</span>' +
+                '<span style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' + escapeAttHtml(sq.name).toUpperCase() + '</span>' +
                 '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:12px;background:' + st.bg + ';color:' + st.color + ';border:1px solid ' + st.border + ';">' + st.plt + '</span>' +
               '</div>' +
             '</div>' +
@@ -1351,11 +1307,11 @@ async function renderCompanyLeaderboard() {
         '<div style="height:6px;background:var(--surface-track);border-radius:3px;overflow:hidden;margin-bottom:8px;">' +
           '<div style="height:100%;width:' + pct + '%;background:' + st.color + ';border-radius:3px;"></div>' +
         '</div>' +
-        '<div style="display:flex;justify-content:flex-end;">' +
+        (members.length ? '<div style="display:flex;justify-content:flex-end;">' +
           '<button type="button" data-roster-btn="' + rosterId + '" onclick="toggleSquadRoster(\'' + rosterId + '\')" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:2px 6px;">' +
             'View Squad Members &darr;' +
           '</button>' +
-        '</div>' +
+        '</div>' : '') +
         rosterHtml +
       '</div>';
   });
@@ -1393,7 +1349,7 @@ async function renderCompanyLeaderboard() {
 
   html += '</div></div>';
 
-  c.innerHTML = html;
+  if (typeof sessionGet !== 'function' || (sessionGet('ic') || sessionGet('email')) === viewerId) c.innerHTML = html;
 }
 
 /**
@@ -1403,8 +1359,8 @@ async function renderCompanyLeaderboard() {
  * @returns {Promise<Object>}
  */
 async function syncToSheets(records) {
-  if (typeof window !== 'undefined' && typeof window.syncToSheets === 'function' && window.syncToSheets !== syncToSheets) {
-    return window.syncToSheets(records);
+  if (typeof window !== 'undefined' && typeof window.syncAttendanceToSheets === 'function') {
+    return window.syncAttendanceToSheets(records);
   }
   var sheetsApi = typeof require !== 'undefined' ? require('../api/sheets.js') : null;
   if (sheetsApi && typeof sheetsApi.syncToSheets === 'function') {
@@ -1415,7 +1371,20 @@ async function syncToSheets(records) {
 
 // ── Global Window Exports ───────────────────────────────────────────────────
 
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', function(event) {
+    if (event.key !== 'bb_master_att_cache' || !event.newValue) return;
+    try {
+      var data = window.sanitizeMasterAttendancePayload(JSON.parse(event.newValue));
+      if (data && cacheMasterAttendance(data, true) === data) refreshVisibleAttendance();
+    } catch (_) {}
+  });
+}
 if (typeof window !== 'undefined') {
+  window.onMasterAttendanceChanged = async function() {
+    await getMasterAttendanceData(true);
+    refreshVisibleAttendance();
+  };
   window.normalizeMemberName = normalizeMemberName;
   window.getMasterAttendanceData = getMasterAttendanceData;
   window.getMemberAttendanceRecord = getMemberAttendanceRecord;

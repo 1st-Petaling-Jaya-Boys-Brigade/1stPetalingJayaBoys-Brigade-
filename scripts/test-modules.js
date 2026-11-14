@@ -3117,15 +3117,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // 6. GAS Web App Fetch with Token Authentication
   let lastFetchUrl = '';
-  let lastFetchHeaders = {};
+  let lastFetchOptions;
   global.fetch = async (url, opts) => {
     lastFetchUrl = url;
-    lastFetchHeaders = (opts && opts.headers) || {};
-    if (url.includes('token=' + encodeURIComponent(customToken))) {
+    lastFetchOptions = opts;
+    const request = JSON.parse(opts.body);
+    if (request.token === customToken) {
       return {
         ok: true,
         status: 200,
-        json: async () => dirtyPayload
+        json: async () => request.action === 'getAttendance' ? dirtyPayload : { success: true }
       };
     } else {
       return {
@@ -3140,15 +3141,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'https://script.google.com/macros/s/test_exec/exec',
     customToken
   );
-  assert.ok(
-    lastFetchUrl.includes('token=' + encodeURIComponent(customToken)),
-    'Token query param must be sent to GAS'
-  );
-  assert.strictEqual(
-    lastFetchHeaders['X-Sync-Token'],
-    customToken,
-    'X-Sync-Token header must be passed'
-  );
+  assert.ok(!lastFetchUrl.includes(customToken), 'Attendance token stays out of the request URL');
+  assert.strictEqual(JSON.parse(lastFetchOptions.body).token, customToken, 'Attendance token is in the request body');
+  assert.ok(lastFetchOptions.signal instanceof AbortSignal, 'Request includes a timeout signal');
   assert.ok(fetchedData._security.piiStripped, 'Fetched data must be sanitized before return');
   console.log('  ✔ fetchMasterAttendanceFromGAS enforces token and strips PII before caching');
 
@@ -3171,6 +3166,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     customToken
   );
   assert.strictEqual(syncSuccessRes.success, true, 'syncToSheets resolves with success on HTTP 200');
+  assert.deepStrictEqual(JSON.parse(lastFetchOptions.body).records, [{ name: 'John Doe', present: 1 }], 'Export drops legacy identifiers before sending');
 
   // Verify false-positive rejection on 401/403
   await assert.rejects(
@@ -3187,7 +3183,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // Verify false-positive rejection on network error
   const origFetch = global.fetch;
-  global.fetch = async () => { throw new Error('Network offline'); };
+  let writeAttempts = 0;
+  global.fetch = async () => { writeAttempts++; throw new Error('Network offline'); };
   await assert.rejects(
     async () => {
       await sheetsMod.syncToSheets(
@@ -3199,6 +3196,36 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     /Network connection error/i,
     'syncToSheets must reject on network error instead of false-positive toast'
   );
+  assert.strictEqual(writeAttempts, 1, 'An ambiguous write failure must not replay attendance changes');
+  let readAttempts = 0;
+  global.fetch = async () => {
+    readAttempts++;
+    if (readAttempts === 1) return { ok: false, status: 504 };
+    return { ok: true, json: async () => dirtyPayload };
+  };
+  await sheetsMod.fetchMasterAttendanceFromGAS('https://script.google.com/macros/s/test_exec/exec', customToken);
+  assert.strictEqual(readAttempts, 2, 'An attendance read retries after HTTP 504');
+
+  global.fetch = async () => ({ ok: true, json: async () => ({}) });
+  await assert.rejects(
+    sheetsMod.syncToSheets([{ name: 'John Doe', present: 1 }], 'https://script.google.com/macros/s/test_exec/exec', customToken),
+    /did not confirm/
+  );
+  await assert.rejects(
+    sheetsMod.fetchMasterAttendanceFromGAS('https://script.google.com/macros/s/test_exec/exec', customToken),
+    /no valid attendance records/
+  );
+  const previousRequest = global.supa.req;
+  global.fetch = async () => ({ ok: true, json: async () => dirtyPayload });
+  global.supa.req = async () => { throw new Error('HTTP 504'); };
+  try {
+    await assert.rejects(
+      sheetsMod.fetchMasterAttendanceFromGAS('https://script.google.com/macros/s/test_exec/exec', customToken),
+      /could not be saved/
+    );
+  } finally {
+    global.supa.req = previousRequest;
+  }
   global.fetch = origFetch;
   console.log('  ✔ syncToSheets eliminates mode: no-cors and verifies real response status');
 
@@ -3208,6 +3235,97 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'example_key',
     customToken
   );
+  assert.doesNotThrow(() => new (require('node:vm').Script)(templateCode), 'Generated Apps Script must compile');
+  const sheetRows = {
+    'Platoon Alpha': [
+      ['Name', 'Total Member Points', 'Total Parade Points', 'Total Band Points', 'Parade Attendance'],
+      ['Alice Lim', 0, 1.5, 8, 0.795],
+      ['Ben Lee', '', 3, 9, 1.5]
+    ],
+    'Band Attendance': [
+      ['Parent Name', 'Name', 'Band Points', 'Band Attendance'],
+      ['Parent Lim', 'Alice Lim', 0, 0],
+      ['Parent Lee', 'Ben Lee', 3, 0.75]
+    ],
+    'Squad Leaderboard': [['Alpha 1', 0, 'Alpha 2', -1], ['Zulu 1', 0], ['Hotel 1', 100]]
+  };
+  const gasContext = {
+    SpreadsheetApp: {
+      getActiveSpreadsheet: () => ({
+        getName: () => 'Attendance test',
+        getSheetByName: name => sheetRows[name] && ({
+          getName: () => name,
+          getDataRange: () => ({ getValues: () => sheetRows[name] })
+        })
+      })
+    }
+  };
+  require('node:vm').runInNewContext(templateCode, gasContext);
+  const totals = gasContext.buildSanitizedAttendancePayload();
+  assert.strictEqual(totals.members.alicelim.points.total, 0, 'Explicit zero total is preserved');
+  assert.strictEqual(totals.members.alicelim.points.paradeAtt, 1.5, 'Fractional deductions survive import');
+  assert.strictEqual(totals.members.alicelim.points.bandAtt, 0, 'Band tab can correct a score to zero');
+  assert.strictEqual(totals.members.benlee.points.total, 6, 'Fallback total incorporates the authoritative Band points');
+  assert.strictEqual(totals.members.benlee.paradeAttendance.percentage, 1.5, 'Plain values above 1 are not multiplied by 100');
+  assert.strictEqual(totals.members.parentlim, undefined, 'Parent Name column cannot become a member identifier');
+  assert.strictEqual(totals.squads['Alpha 1'].rank, totals.squads['Zulu 1'].rank, 'Zero-point ties share rank');
+  assert.strictEqual(totals.squads['Alpha 2'].points, -1, 'Negative scores remain in the standings');
+  assert.strictEqual(totals.squads['Hotel 1'], undefined, 'Hotel remains non-competing');
+  assert.strictEqual(
+    attendanceMod.getAttendanceAchievementTier(79.99).qualifiesForOneYearService,
+    false,
+    'An attendance rate below 80% does not qualify after rounding'
+  );
+
+  let onAttendanceStorage;
+  let storageWrites = 0;
+  let attendanceRead = { lastSynced: '2026-08-08T12:00:00Z', members: dirtyPayload.members };
+  const isolatedAttendance = {
+    window: {
+      addEventListener: (type, callback) => { if (type === 'storage') onAttendanceStorage = callback; },
+      sanitizeMasterAttendancePayload: sheetsMod.sanitizeMasterAttendancePayload
+    },
+    localStorage: {
+      getItem: () => null,
+      setItem: () => { storageWrites++; }
+    },
+    getSupaClient: () => ({
+      get: async () => {
+        if (!attendanceRead) throw new Error('Network offline');
+        return [{ value: JSON.stringify(attendanceRead) }];
+      }
+    })
+  };
+  require('node:vm').runInNewContext(
+    fs.readFileSync(path.join(__dirname, '..', 'js/modules/attendance.js'), 'utf8'),
+    isolatedAttendance
+  );
+  await isolatedAttendance.window.getMasterAttendanceData(true);
+  const newerSnapshot = { ...attendanceRead, lastSynced: '2026-08-15T12:00:00Z' };
+  onAttendanceStorage({ key: 'bb_master_att_cache', newValue: JSON.stringify(newerSnapshot) });
+  await isolatedAttendance.window.getMasterAttendanceData(true);
+  attendanceRead = null;
+  assert.strictEqual(
+    (await isolatedAttendance.window.getMasterAttendanceData(true)).lastSynced,
+    newerSnapshot.lastSynced,
+    'The last confirmed snapshot survives a stale response and a later network drop'
+  );
+  assert.strictEqual(storageWrites, 1, 'Applying a cross-tab snapshot does not echo it back to storage');
+  let finishImport;
+  let importCalls = 0;
+  const syncButton = { disabled: false, innerHTML: 'Sync Now' };
+  isolatedAttendance.document = { getElementById: id => id === 'btn-adm-sync-sheet' ? syncButton : null };
+  isolatedAttendance.window.fetchMasterAttendanceFromGAS = () => {
+    importCalls++;
+    return new Promise(resolve => { finishImport = resolve; });
+  };
+  const firstImport = isolatedAttendance.window.triggerMasterSheetFetch();
+  assert.ok(syncButton.disabled, 'The sync button is disabled while a request is pending');
+  await isolatedAttendance.window.triggerMasterSheetFetch();
+  assert.strictEqual(importCalls, 1, 'Repeated clicks share the pending import');
+  finishImport(sheetsMod.sanitizeMasterAttendancePayload(newerSnapshot));
+  await firstImport;
+  assert.strictEqual(syncButton.disabled, false, 'The sync button unlocks after completion');
   assert.ok(
     templateCode.includes(`var SYNC_TOKEN          = '${customToken}';`),
     'Template must embed active sync token'
@@ -3215,7 +3333,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(templateCode.includes('function doGet(e)'), 'Template must define doGet handler');
   assert.ok(templateCode.includes('function doPost(e)'), 'Template must define doPost handler');
   assert.ok(
-    templateCode.includes('reqToken !== SYNC_TOKEN'),
+    templateCode.includes('reqToken !== expectedToken.trim()'),
     'Template must enforce token equality check'
   );
   assert.ok(templateCode.includes('status: 401'), 'Template must return HTTP 401 on token failure');
@@ -5833,11 +5951,22 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.sessionGet = (k) => (k === 'name' ? 'Guest Visitor' : null);
     if (typeof window !== 'undefined') window.sessionGet = global.sessionGet;
 
+    const previousAttendanceClient = global.getSupaClient;
+    global.getSupaClient = () => ({
+      get: async () => [{ value: JSON.stringify({
+        members: {
+          samplemember: { name: 'Sample Member', squad: 'Papa 1', paradeAttendance: { percentage: 90 } }
+        },
+        squads: { 'Papa 1': { name: 'Papa 1', points: 5 } }
+      }) }]
+    });
+    await attMod.getMasterAttendanceData(true);
+    global.getSupaClient = previousAttendanceClient;
     await attMod.renderCompanyLeaderboard();
     const renderedHtml = leaderboardEl.innerHTML;
 
     assert.strictEqual(renderedHtml.includes('Minor Privacy &amp; Safe-Standings Active') || renderedHtml.includes('Minor Privacy'), false, 'Leaderboard removes minor privacy notification banner');
-    assert.ok(renderedHtml.includes('Jeshua Koh'), 'Leaderboard displays full unmasked surnames (Jeshua Koh)');
+    assert.ok(renderedHtml.includes('Sample Member'), 'Leaderboard displays the synced roster');
     assert.strictEqual(renderedHtml.includes('Protected'), false, 'Individual member attendance percentage/demerits removed from squad members list');
     assert.ok(renderedHtml.includes('View Squad Members'), 'Button uses View Squad Members instead of Roster');
     assert.ok(renderedHtml.includes('MEMBERS'), 'Section header uses MEMBERS instead of ROSTER');
@@ -6858,6 +6987,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       leaderboardContainer.id = 'company-platoon-leaderboard';
       document.body.appendChild(leaderboardContainer);
     }
+    const previousAttendanceClient = global.getSupaClient;
+    global.getSupaClient = () => ({
+      get: async () => [{ value: JSON.stringify({
+        lastSynced: new Date().toISOString(),
+        members: Object.fromEntries([100, 92, 80, 50].map((percentage, index) => [
+          'fixturemember' + index,
+          { name: 'Fixture Member ' + index, squad: 'Alpha 1', paradeAttendance: { percentage } }
+        ])),
+        squads: { 'Alpha 1': { name: 'Alpha 1', points: 5 } }
+      }) }]
+    });
+    await attMod.getMasterAttendanceData(true);
+    global.getSupaClient = previousAttendanceClient;
     await attMod.renderCompanyLeaderboard();
     const leaderboardHtml = leaderboardContainer.innerHTML;
 
@@ -8361,7 +8503,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const mockAttSupa = {
       get: async (path) => {
         if (path.includes('bb_master_attendance')) {
-          return [{ value: JSON.stringify({ members: { jeshuakoh: { name: 'Jeshua Koh', points: { total: 218 } } } }) }];
+          return [{ value: JSON.stringify({ lastSynced: new Date().toISOString(), members: { jeshuakoh: { name: 'Jeshua Koh', points: { total: 218 } } } }) }];
         }
         if (path.includes('bb_blocked_emails')) {
           return [{ value: JSON.stringify(blockedStorage) }];
@@ -9381,6 +9523,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 4. Squad Championship Podium in Company Leaderboard Tab
     const attendanceModule = require('../js/modules/attendance.js');
+    const previousAttendanceClient = global.getSupaClient;
+    const attendanceSnapshot = {
+      lastSynced: new Date().toISOString(),
+      members: { testmember: { name: 'Test Member', squad: 'Alpha 1' } },
+      squads: {
+        'Alpha 1': { name: 'Alpha 1', points: 5 },
+        'Papa 1': { name: 'Papa 1', points: 5 },
+        'Zulu 1': { name: 'Zulu 1', points: 4 }
+      }
+    };
+    global.getSupaClient = () => ({
+      get: async () => [{ value: JSON.stringify(attendanceSnapshot) }]
+    });
+    await attendanceModule.getMasterAttendanceData(true);
+    global.getSupaClient = previousAttendanceClient;
     let fakeLeaderboardContainer = document.getElementById('company-platoon-leaderboard');
     if (!fakeLeaderboardContainer) {
       fakeLeaderboardContainer = document.createElement('div');
@@ -9392,6 +9549,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(fakeLeaderboardContainer.innerHTML.includes('Squad Championship Podium'), 'Squad podium title verified');
     assert.ok(fakeLeaderboardContainer.innerHTML.includes('podium-step-1') && fakeLeaderboardContainer.innerHTML.includes('podium-step-2') && fakeLeaderboardContainer.innerHTML.includes('podium-step-3'), 'Top 3 squad podium steps verified');
     assert.ok(fakeLeaderboardContainer.innerHTML.includes('squad-roster-0'), 'Existing squad cards and member rosters must remain below podium');
+    assert.strictEqual((fakeLeaderboardContainer.innerHTML.match(/podium-rank-badge[^>]*>#1</g) || []).length, 2, 'Podium shows tied first-place ranks');
     console.log('  ✔ Company Leaderboard Tab Top 3 Squad Podium placed above squad list view verified');
 
     // 5. Announcement Infographic Resilient Image Recovery

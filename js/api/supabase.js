@@ -1277,6 +1277,8 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('announcements', 'update', record);
               } else if (key === 'bb_admin_roles') {
                 triggerEntityUpdate('roles', 'update', record);
+              } else if (key === 'bb_master_attendance') {
+                triggerEntityUpdate('attendance', 'update');
               } else {
                 triggerEntityUpdate('config', 'update', { key: key });
               }
@@ -1333,7 +1335,7 @@ var PortalRealtime = (function() {
     }
 
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_company_projects)&select=key,updated_at');
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_company_projects,bb_master_attendance)&select=key,updated_at');
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r.key) return;
@@ -1343,6 +1345,7 @@ var PortalRealtime = (function() {
             else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update');
             else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update');
             else if (r.key === 'bb_company_projects') triggerEntityUpdate('projects', 'update');
+            else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update');
           }
           _lastEntityTimestamps[r.key] = ts;
         });
@@ -1413,6 +1416,13 @@ var PortalRealtime = (function() {
   function triggerEntityUpdate(entity, action, data, fromBroadcast) {
     if (!fromBroadcast) {
       broadcastLocalChange(entity, action, data);
+    }
+
+    if (entity === 'attendance') {
+      if (typeof window !== 'undefined' && typeof window.onMasterAttendanceChanged === 'function') {
+        window.onMasterAttendanceChanged().catch(function() {});
+      }
+      return;
     }
 
     if (entity === 'calendar') {
