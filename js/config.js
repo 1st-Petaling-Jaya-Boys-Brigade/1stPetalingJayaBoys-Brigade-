@@ -11,11 +11,6 @@ var SUPA_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV_
   || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY))
   || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
 
-// Pre-computed cryptographic SHA-256 hash of default admin password
-var ADMIN_PASSWORD_HASH = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.ADMIN_PASSWORD_HASH)
-  || (typeof process !== 'undefined' && process.env && process.env.ADMIN_PASSWORD_HASH)
-  || 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f';
-
 // Cloudflare Turnstile CAPTCHA
 // 1x00000000000000000000AA: Cloudflare testing sitekey (Always passes)
 // 2x00000000000000000000AB: Cloudflare testing sitekey (Always blocks)
@@ -73,7 +68,6 @@ var FILE_LIMITS = {
 var APP_CONFIG = Object.freeze({
   SUPABASE_URL: SUPA_URL,
   SUPABASE_ANON_KEY: SUPA_KEY,
-  ADMIN_PASSWORD_HASH: ADMIN_PASSWORD_HASH,
   TURNSTILE_SITE_KEY: TURNSTILE_SITE_KEY,
   GEMINI_API_KEY: GEMINI_API_KEY,
   DEPARTMENTS: DEPARTMENT_KEYS,
@@ -98,7 +92,6 @@ function isNcoRank(rank) {
 if (typeof window !== 'undefined') {
   window.SUPA_URL = SUPA_URL;
   window.SUPA_KEY = SUPA_KEY;
-  window.ADMIN_PASSWORD_HASH = ADMIN_PASSWORD_HASH;
   window.TURNSTILE_SITE_KEY = TURNSTILE_SITE_KEY;
   window.GEMINI_API_KEY = GEMINI_API_KEY;
   window.APP_CONFIG = APP_CONFIG;
@@ -116,7 +109,6 @@ if (typeof module !== 'undefined' && module.exports) {
     APP_CONFIG,
     SUPA_URL,
     SUPA_KEY,
-    ADMIN_PASSWORD_HASH,
     TURNSTILE_SITE_KEY,
     GEMINI_API_KEY,
     MEMBERS_JUNIORS_RANKS,

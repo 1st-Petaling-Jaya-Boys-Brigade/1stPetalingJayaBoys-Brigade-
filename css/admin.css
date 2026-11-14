@@ -3351,3 +3351,18 @@
   background: #f8fafc;
   border-color: #cbd5e1;
 }
+.admin-overlay {
+  scrollbar-gutter: stable;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+.adm-roster-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-block: 16px;
+}

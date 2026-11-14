@@ -66,7 +66,6 @@ function envInjectionPlugin(mode) {
         VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         VITE_TURNSTILE_SITE_KEY: env.VITE_TURNSTILE_SITE_KEY || process.env.VITE_TURNSTILE_SITE_KEY || '',
         VITE_GEMINI_API_KEY: env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '',
-        ADMIN_PASSWORD_HASH: env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD_HASH || ''
       };
       const nonNullEnv = Object.fromEntries(
         Object.entries(clientEnv).filter(([_, v]) => typeof v === 'string' && v.trim().length > 0)

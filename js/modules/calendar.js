@@ -187,7 +187,7 @@
         var rows = await client.get('bb_config?key=eq.bb_company_calendar&select=value');
         if (rows && rows.length && rows[0].value) {
           var parsed = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             _calendarEvents = parsed;
             try {
               localStorage.setItem('bb_company_calendar_cache', JSON.stringify(parsed));
@@ -204,7 +204,7 @@
       var cached = localStorage.getItem('bb_company_calendar_cache');
       if (cached) {
         var cParsed = JSON.parse(cached);
-        if (Array.isArray(cParsed) && cParsed.length > 0) {
+          if (Array.isArray(cParsed)) {
           _calendarEvents = cParsed;
           return _calendarEvents;
         }
@@ -217,22 +217,20 @@
 
   async function saveCalendarEvents(eventsArray) {
     if (!Array.isArray(eventsArray)) return false;
-    _calendarEvents = eventsArray;
-    try {
-      localStorage.setItem('bb_company_calendar_cache', JSON.stringify(eventsArray));
-    } catch (_) {}
+    if (typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('calendar')) return false;
 
     try {
       var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
-      if (client && typeof client.upsert === 'function') {
-        await client.upsert('bb_config', {
+      if (!client || typeof client.upsert !== 'function') return false;
+      await client.upsert('bb_config', {
           key: 'bb_company_calendar',
           value: JSON.stringify(eventsArray),
           updated_at: new Date().toISOString()
-        });
-      }
+      }, 'key');
+      _calendarEvents = eventsArray;
+      try { localStorage.setItem('bb_company_calendar_cache', JSON.stringify(eventsArray)); } catch (_) {}
       if (typeof logAuditEvent === 'function') {
-        logAuditEvent({
+        await logAuditEvent({
           action: 'calendar.update',
           targetType: 'calendar',
           targetId: 'bb_company_calendar',

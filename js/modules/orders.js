@@ -947,29 +947,23 @@ async function loadPaymentInfo() {
  * @param {string} text
  */
 async function savePaymentInfo(text) {
+  if (!await canWriteUniformAdmin()) return false;
+  return saveUniformSetting('bb_payment_info', text);
+}
+
+async function saveUniformSetting(key, value) {
   var client = getSupa();
-  if (!client) return;
-
-  if (typeof client.safeConfigUpdate === 'function') {
-    try {
-      await client.safeConfigUpdate('bb_payment_info', text, { enableMerge: false });
-      return;
-    } catch (eSafe) {
-      console.warn('safeConfigUpdate fallback in savePaymentInfo:', eSafe);
-    }
-  }
-
+  if (!client) return false;
   try {
-    await client.req('POST', 'bb_config?on_conflict=key', {
-      key: 'bb_payment_info',
-      value: text
+    if (typeof client.upsert === 'function') await client.upsert('bb_config', { key: key, value: value }, 'key');
+    else await client.req('POST', 'bb_config?on_conflict=key', { key: key, value: value });
+    if (typeof logAuditEvent === 'function') await logAuditEvent({
+      action: 'config.uniform_update', targetType: 'config', targetId: key, actorRole: 'officer_admin'
     });
-  } catch (e) {
-    try {
-      await client.patch('bb_config?key=eq.bb_payment_info', {
-        value: text
-      });
-    } catch (e2) {}
+    return true;
+  } catch (_) {
+    if (typeof showToast === 'function') showToast('The uniform settings could not be saved.', 'error');
+    return false;
   }
 }
 
@@ -1019,36 +1013,13 @@ async function loadUniformOrdersSchedule() {
  * @param {object} [scheduleData]
  */
 async function saveUniformOrdersSchedule(scheduleData) {
-  var client = getSupa();
+  if (!await canWriteUniformAdmin()) return false;
   var payload = scheduleData || _uniformOrdersSchedule;
-  var jsonStr = JSON.stringify(payload);
+  if (!await saveUniformSetting('bb_uniform_schedule', JSON.stringify(payload))) return false;
   _uniformOrdersSchedule = Object.assign({}, payload);
-
-  if (client) {
-    if (typeof client.recordConfigSnapshot === 'function') {
-      client.recordConfigSnapshot('bb_uniform_schedule', _uniformOrdersSchedule);
-    }
-    if (typeof client.safeConfigUpdate === 'function') {
-      try {
-        await client.safeConfigUpdate('bb_uniform_schedule', jsonStr, { enableMerge: false });
-        return;
-      } catch (eSafe) {
-        console.warn('safeConfigUpdate fallback in saveUniformOrdersSchedule:', eSafe);
-      }
-    }
-    try {
-      await client.req('POST', 'bb_config?on_conflict=key', {
-        key: 'bb_uniform_schedule',
-        value: jsonStr
-      });
-    } catch (e) {
-      try {
-        await client.patch('bb_config?key=eq.bb_uniform_schedule', {
-          value: jsonStr
-        });
-      } catch (e2) {}
-    }
-  }
+  var client = getSupa();
+  if (client && client.recordConfigSnapshot) client.recordConfigSnapshot('bb_uniform_schedule', payload);
+  return true;
 }
 
 /**
@@ -1127,7 +1098,7 @@ async function saveAdminUniformOrdersSchedule() {
     paused_message: pausedMsg
   };
 
-  await saveUniformOrdersSchedule(updatedSchedule);
+  if (!await saveUniformOrdersSchedule(updatedSchedule)) return;
   await renderUniformOrdersScheduleControls();
 
   if (typeof closeUniformScheduleModal === 'function') {
@@ -1145,8 +1116,7 @@ async function saveAdminUniformOrdersSchedule() {
 async function toggleUniformOrdersStatus() {
   await loadUniformOrdersSchedule();
   var newStatus = _uniformOrdersSchedule.status === 'paused' ? 'active' : 'paused';
-  _uniformOrdersSchedule.status = newStatus;
-  await saveUniformOrdersSchedule(_uniformOrdersSchedule);
+  if (!await saveUniformOrdersSchedule(Object.assign({}, _uniformOrdersSchedule, { status: newStatus }))) return;
   await renderUniformOrdersScheduleControls();
 
   if (typeof showToast === 'function') {
@@ -2090,7 +2060,7 @@ async function adminSavePaymentInfo() {
   if (typeof document === 'undefined') return;
   var el = document.getElementById('payment-info-editor');
   var text = el ? el.value.trim() : '';
-  await savePaymentInfo(text);
+  if (!await savePaymentInfo(text)) return;
   _paymentInfo = text;
   if (typeof showToast === 'function') {
     showToast('Payment info saved! Members will see it on the order review page.', 'success');
@@ -2189,24 +2159,13 @@ async function loadOrdersSheetsArchiveUrl() {
  * @param {string} url
  */
 async function saveOrdersSheetsArchiveUrl(url) {
-  var client = getSupa();
-  var cleanUrl = (typeof url === 'string') ? url.trim() : '';
+  if (!await canWriteUniformAdmin()) return false;
+  var cleanUrl = typeof url === 'string' ? url.trim() : '';
+  if (!await saveUniformSetting('bb_orders_sheets_url', cleanUrl)) return false;
   _ordersSheetsArchiveUrl = cleanUrl;
-  if (!client) return false;
-  try {
-    if (typeof client.safeConfigUpdate === 'function') {
-      await client.safeConfigUpdate('bb_orders_sheets_url', cleanUrl);
-    } else {
-      await client.post('bb_config', { key: 'bb_orders_sheets_url', value: cleanUrl, updated_at: new Date().toISOString() });
-    }
-    if (typeof client.recordConfigSnapshot === 'function') {
-      client.recordConfigSnapshot('bb_orders_sheets_url', cleanUrl);
-    }
-    return true;
-  } catch (e) {
-    console.warn('saveOrdersSheetsArchiveUrl error:', e.message);
-    return false;
-  }
+  var client = getSupa();
+  if (client && client.recordConfigSnapshot) client.recordConfigSnapshot('bb_orders_sheets_url', cleanUrl);
+  return true;
 }
 
 /**
@@ -2948,6 +2907,7 @@ function renderOrdersPreparationSummaryHtml(itemCounts, sizeBreakdown, totalItem
 }
 
 async function renderAdminOrders(forceRefresh) {
+  if (typeof window !== 'undefined' && typeof window.hasAdminModuleAccess === 'function' && !window.hasAdminModuleAccess('uniform')) return;
   if (typeof document === 'undefined') return;
   var search = ((document.getElementById('admin-order-search') || {}).value || '').toLowerCase();
   var statusFilter = ((document.getElementById('admin-order-form-filter') || {}).value || '').toLowerCase();
@@ -2964,7 +2924,7 @@ async function renderAdminOrders(forceRefresh) {
     if (!forceRefresh && _cachedAdminOrders && (now - _cachedAdminOrdersTime < ADMIN_ORDERS_CACHE_TTL)) {
       orders = _cachedAdminOrders;
     } else {
-      orders = await client.get('bb_orders?select=*&order=created_at.desc');
+      orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,total_amount&order=created_at.desc', { cache: !forceRefresh });
       if (Array.isArray(orders)) {
         _cachedAdminOrders = orders;
         _cachedAdminOrdersTime = now;
@@ -3297,7 +3257,7 @@ async function renderAdminOrders(forceRefresh) {
           typeof showConfirmModal === 'function'
             ? await showConfirmModal('Delete order ' + orderNum + '? In Google Sheets, this order will be automatically marked as CANCELLED in Order Tracker, while permanently preserved in Order Archives.', 'Delete Uniform Order', { isDestructive: true, confirmText: 'Delete' })
             : true;
-        if (!ok) return;
+        if (!ok || !await canWriteUniformAdmin()) return;
 
         client
           .delete(
@@ -3375,9 +3335,12 @@ function attachToolbarEvents(container) {
  * @param {string} status
  */
 async function updateOrderStatus(orderNum, status) {
-  if (typeof window !== 'undefined' && typeof window.verifyAdminSessionSync === 'function' && !window.verifyAdminSessionSync()) return false;
-  if (typeof RBAC !== 'undefined' && !RBAC.hasModulePermission('uniform')) return false;
+  if (!await canWriteUniformAdmin()) return false;
   return changeUniformOrderStatus(orderNum, status, null);
+}
+
+async function canWriteUniformAdmin() {
+  return typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && await window.authorizeAdminMutation('uniform');
 }
 
 async function cancelUniformOrder(orderNum) {
@@ -3394,7 +3357,7 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
   if (memberId) path += '&ic=eq.' + encodeURIComponent(memberId);
 
   try {
-    var rows = await client.get(path + '&select=order_number,status,items,payment_method', { cache: false });
+    var rows = await client.get(path + '&select=order_number,status,items', { cache: false });
     var order = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
     var current = order && order.status;
     if (!order || !isUniformOrder(order) || (memberId && current !== 'pending') || !getUniformStatusOptions(current).includes(status) || current === status) {
@@ -3402,6 +3365,7 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
       return false;
     }
     if (memberId && (sessionGet('ic') || sessionGet('email')) !== memberId) return false;
+    if (!memberId && typeof window.hasAdminModuleAccess === 'function' && !window.hasAdminModuleAccess('uniform')) return false;
     var updatePath = path + '&status=eq.' + encodeURIComponent(current);
     var changed = typeof client.req === 'function'
       ? await client.req('PATCH', updatePath, { status: status }, { Prefer: 'return=representation' }, { maxRetries: 0 })
@@ -3415,12 +3379,12 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
     syncOrderStatusToGoogleSheet(orderNum, status);
     if (typeof showToast === 'function') showToast('Order status updated to ' + status + '.', 'success');
     if (typeof logAuditEvent === 'function') {
-      logAuditEvent({
+      await logAuditEvent({
         action: 'order.status_update',
         targetType: 'order',
         targetId: orderNum,
         actorRole: memberId ? 'member' : 'officer_admin',
-        details: { status: status }
+        details: { previous_status: current, status: status }
       });
     }
     return true;
@@ -3657,7 +3621,8 @@ function renderAdminProducts() {
  * @param {number} fromIndex
  * @param {number} toIndex
  */
-function reorderUniformProducts(fromIndex, toIndex) {
+async function reorderUniformProducts(fromIndex, toIndex) {
+  if (!await canWriteUniformAdmin()) return false;
   if (
     fromIndex < 0 ||
     fromIndex >= UNIFORM_ITEMS.length ||
@@ -3792,12 +3757,13 @@ function clearProductForm() {
 /**
  * Saves new or edited uniform product definition and syncs with Supabase
  */
-function saveProduct() {
+async function saveProduct() {
   if (typeof document === 'undefined') return;
   if (_isSavingProduct) return;
   _isSavingProduct = true;
 
   try {
+    if (!await canWriteUniformAdmin()) return false;
     var rawName = ((document.getElementById('prod-name') || {}).value || '').trim();
     var name = typeof sanitizeText === 'function' ? sanitizeText(rawName, 100) : rawName;
     var priceVal = (document.getElementById('prod-price') || {}).value;
@@ -3960,6 +3926,7 @@ async function deleteCurrentProduct() {
  * @param {string} key
  */
 async function deleteProduct(key) {
+  if (!await canWriteUniformAdmin()) return false;
   var item = UNIFORM_ITEMS.find(function (i) {
     return i.key === key;
   });
@@ -3967,7 +3934,7 @@ async function deleteProduct(key) {
     typeof showConfirmModal === 'function'
       ? await showConfirmModal('Delete "' + (item ? item.name : key) + '"?', 'Delete Product')
       : true;
-  if (!ok) return;
+  if (!ok || !await canWriteUniformAdmin()) return false;
 
   var idx = UNIFORM_ITEMS.findIndex(function (i) {
     return i.key === key;

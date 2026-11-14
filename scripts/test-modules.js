@@ -3645,10 +3645,55 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const testDob = currentYear - 14 + '-05-15';
   assert.strictEqual(
     adminModule.calcAge(testDob),
-    14,
+    new Date().getMonth() >= 5 || (new Date().getMonth() === 4 && new Date().getDate() >= 15) ? 14 : 13,
     'calcAge must calculate exact difference in years'
   );
   console.log('  ✔ calcAge accurately calculates member age from date of birth');
+
+  const adminTestPasscode = 'fixture-officer-passcode';
+  const adminTestDigest = await utils.computeSha256(adminTestPasscode);
+  const fixtureAdminEmail = 'jeshuakoh2008@gmail.com';
+  let fixtureAdminToken;
+  const originalFixtureRole = global.RBAC;
+  const originalFixtureSessionGet = global.sessionGet;
+  const originalFixtureRpc = global.supa.rpc;
+  const adminFixtureRoles = {
+    getUserRole: email => email === fixtureAdminEmail ? 'super_admin' : 'member',
+    hasModulePermission: (_scope, email) => email === fixtureAdminEmail,
+    isSuperAdmin: () => true
+  };
+  function useAdminFixture() {
+    global.RBAC = adminFixtureRoles;
+    const previousGet = global.sessionGet;
+    global.sessionGet = key => key === 'email' || key === 'ic' ? fixtureAdminEmail : previousGet(key);
+    global.supa.rpc = async (route, args) => {
+      if (route === 'rpc_admin_login') {
+        if (args.p_password_hash !== adminTestDigest) return { success: false };
+        fixtureAdminToken = global.crypto.randomUUID();
+        return { success: true, token: fixtureAdminToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
+      }
+      if (route === 'rpc_verify_admin_session') return {
+        valid: args.p_token === fixtureAdminToken, officer_email: fixtureAdminEmail, scope: 'super_admin', permissions: []
+      };
+      if (route === 'rpc_admin_logout') return { success: true };
+      return null;
+    };
+  }
+  function authorizeAdminFixture() {
+    const previous = { get: global.sessionGet, roles: global.RBAC, rpc: global.supa.rpc };
+    useAdminFixture();
+    const token = global.crypto.randomUUID();
+    fixtureAdminToken = token;
+    require('../js/modules/admin.js').setAdminSessionTokenForTesting(token, {
+      role: 'officer_admin', officerEmail: fixtureAdminEmail, expiresAt: Date.now() + 7200000,
+      lastActiveAt: Date.now(), confirmed: true, scope: 'super_admin', permissions: []
+    });
+    return function() {
+      global.sessionGet = previous.get;
+      global.RBAC = previous.roles;
+      global.supa.rpc = previous.rpc;
+    };
+  }
 
   // Test openAdmin, closeAdmin, logoutAdmin, adminLogin
   const adminOverlay = document.getElementById('admin-overlay');
@@ -3656,7 +3701,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const adminPanel = document.getElementById('admin-panel');
   const adminPass = document.getElementById('admin-pass');
 
-  adminModule.openAdmin();
+  assert.strictEqual(adminModule.verifyAdminSessionSync(), false, 'Without a verified admin session, the console stays locked');
+  assert.strictEqual(await adminModule.updateMemberField('test@pjbb.org', 'rank', 'Captain'), false, 'Roster mutations require a verified admin session');
+
+  useAdminFixture();
+  await adminModule.openAdmin();
   assert.strictEqual(adminOverlay.style.display, 'block', 'openAdmin must display admin-overlay');
   assert.strictEqual(loginBox.style.display, 'block', 'openAdmin must display login-box');
   assert.strictEqual(adminPanel.style.display, 'none', 'openAdmin must hide admin-panel');
@@ -3667,14 +3716,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
 
   adminPass.value = 'wrongPass';
-  adminModule.adminLogin();
+  await adminModule.adminLogin();
   assert.strictEqual(
     global.sessionGet('adminAuthed'),
     false,
     'adminLogin must reject invalid password'
   );
 
-  adminPass.value = 'bb2024admin';
+  adminPass.value = adminTestPasscode;
   await adminModule.adminLogin();
   assert.strictEqual(
     global.sessionGet('adminAuthed'),
@@ -3699,25 +3748,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ Admin console authentication and modal visibility transitions function accurately'
   );
 
-  // Admin Password SHA-256 Hashing Verification
-  const computedHash = await utils.computeSha256('bb2024admin');
-  assert.strictEqual(
-    computedHash,
-    'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f',
-    'computeSha256 produces exact match'
-  );
-  assert.strictEqual(
-    await adminModule.verifyAdminPassword('bb2024admin'),
-    true,
-    'verifyAdminPassword validates correct credential'
-  );
-  assert.strictEqual(
-    await adminModule.verifyAdminPassword('wrongpassword'),
-    false,
-    'verifyAdminPassword rejects incorrect credential'
-  );
-  console.log('  ✔ admin credentials hashed with SHA-256 eliminating plaintext exposure');
-
   // Test toggleAdminPassVis
   adminPass.style.webkitTextSecurity = 'disc';
   adminModule.toggleAdminPassVis();
@@ -3737,36 +3767,23 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   // ── Officer Admin Gate Hardening & Session Tamperproofing ───────
   console.log('\nTesting Officer Admin Gate Hardening & Session Tamperproofing...');
-  adminModule.openAdmin();
-  adminPass.value = 'bb2024admin';
+  await adminModule.openAdmin();
+  adminPass.value = adminTestPasscode;
   await adminModule.adminLogin();
 
   const sessionToken = adminModule.getAdminSessionToken();
   assert(sessionToken, 'adminLogin must generate cryptographic session token');
-  assert(sessionToken.includes('.'), 'Session token must be dot-separated payload and signature');
-  const tokenParts = sessionToken.split('.');
-  assert.strictEqual(tokenParts.length, 2, 'Token must contain exactly payload and HMAC-SHA256 signature');
-  assert.strictEqual(tokenParts[1].length, 64, 'Signature must be a 64-character SHA-256 hexadecimal hash');
-
+  assert.strictEqual(adminModule.verifyAdminSessionSync(), true);
+  assert.strictEqual(await adminModule.verifyAdminSession(), true);
   const sessionData = adminModule.getAdminSessionData();
-  assert.strictEqual(sessionData.role, 'officer_admin', 'Session role must be officer_admin');
-  assert(sessionData.expiresAt > Date.now(), 'Token must have future expiration');
-  assert(sessionData.nonce && sessionData.nonce.length >= 16, 'Token must contain cryptographically secure nonce');
-
-  // Verify sync and async verification
-  assert.strictEqual(adminModule.verifyAdminSessionSync(), true, 'verifyAdminSessionSync must validate active session');
-  assert.strictEqual(await adminModule.verifyAdminSession(), true, 'verifyAdminSession must validate cryptographic HMAC signature');
-  console.log('  ✔ Cryptographic HMAC-SHA256 session token generation and timing-safe verification verified');
-
-  // Tamper detection: Corrupt token signature
-  const corruptedToken = tokenParts[0] + '.' + '0'.repeat(64);
-  adminModule.setAdminSessionTokenForTesting(corruptedToken, sessionData);
-  assert.strictEqual(await adminModule.verifyAdminSession(), false, 'Tampered token signature must be rejected');
-  assert.strictEqual(adminPanel.style.display, 'none', 'Tampered token must immediately lock down admin panel');
-  console.log('  ✔ Session tamperproofing detects corrupted signatures and revokes access');
+  assert.strictEqual(sessionData.officerEmail, fixtureAdminEmail);
+  adminModule.setAdminSessionTokenForTesting('invalid-fixture-token', sessionData);
+  assert.strictEqual(await adminModule.verifyAdminSession(), false, 'Server rejects a token it did not issue');
+  assert.strictEqual(adminPanel.style.display, 'none', 'Rejected tokens close the admin panel');
+  console.log('  ✔ Server-issued session verification and revocation verified');
 
   // DevTools Visual Bypass Protection: Spoofing sessionSet('adminAuthed', true) without token
-  adminModule.openAdmin();
+  await adminModule.openAdmin();
   global.sessionSet('adminAuthed', true);
   adminModule.logoutAdmin();
   global.sessionSet('adminAuthed', true);
@@ -3775,6 +3792,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(global.sessionGet('adminAuthed'), false, 'Forged adminAuthed flag must be purged');
   console.log('  ✔ DevTools visual bypass protection blocks unauthenticated action execution');
 
+  await adminModule.openAdmin();
   // Brute-force rate limiting: 5 consecutive failed attempts trigger lockout
   adminModule.resetAdminLockout();
   for (let attempt = 1; attempt <= 5; attempt++) {
@@ -3788,7 +3806,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert(lockoutStatus.remainingSeconds > 0, 'Lockout must report remaining cooldown seconds');
 
   // Attempt 6 during lockout should be rejected immediately even with correct password
-  adminPass.value = 'bb2024admin';
+  adminPass.value = adminTestPasscode;
   const lockedOutLogin = await adminModule.adminLogin();
   assert.strictEqual(lockedOutLogin, false, 'Login must be blocked while lockout is active');
   console.log('  ✔ Brute-force rate limiting enforces exponential lockout after 5 failed attempts');
@@ -3798,8 +3816,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
 
   // Test switchAdminSection & backToAdminHome
-  adminModule.openAdmin();
-  adminPass.value = 'bb2024admin';
+  await adminModule.openAdmin();
+  adminPass.value = adminTestPasscode;
   await adminModule.adminLogin();
 
   adminModule.switchAdminSection('members');
@@ -3978,6 +3996,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   console.log(
     '  ✔ Admin task management (creation, department filtering, status updates) verified'
   );
+
+  adminModule.logoutAdmin();
+  global.RBAC = originalFixtureRole;
+  global.sessionGet = originalFixtureSessionGet;
+  global.supa.rpc = originalFixtureRpc;
 
   console.log('\nTesting HTML Application Shell & View Template Cleanup...');
   const indexHtmlStr = fs.readFileSync('index.html', 'utf8');
@@ -5854,7 +5877,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     let adminTokenIssued = null;
     const rpcAdminMock = async (fn, params) => {
       if (fn === 'rpc_admin_login') {
-        if (params.p_password_hash === 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f') {
+        if (params.p_password_hash === adminTestDigest) {
           adminTokenIssued = 'srv_tok_' + Math.random().toString(36).substring(2);
           return {
             success: true,
@@ -5866,7 +5889,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
         return { success: false, error: 'Invalid admin password' };
       }
       if (fn === 'rpc_verify_admin_session') {
-        return { valid: params.p_token === adminTokenIssued, role: 'officer_admin' };
+        return { valid: params.p_token === adminTokenIssued, scope: 'super_admin', permissions: [], officer_email: fixtureAdminEmail };
       }
       if (fn === 'rpc_admin_logout') {
         adminTokenIssued = null;
@@ -5877,7 +5900,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.supa.rpc = rpcAdminMock;
     if (typeof window !== 'undefined' && window.supa) window.supa.rpc = rpcAdminMock;
 
-    document.getElementById('admin-pass').value = 'bb2024admin';
+    const restoreAdminRpcFixture = authorizeAdminFixture();
+    adminMod.revokeAdminSession();
+    const fixtureRpc = global.supa.rpc;
+    global.supa.rpc = rpcAdminMock;
+    await adminMod.openAdmin();
+    document.getElementById('admin-pass').value = adminTestPasscode;
     await adminMod.adminLogin();
     const token = adminMod.getAdminSessionToken();
     assert.ok(token, 'Admin login issued session token');
@@ -5885,6 +5913,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(isSessionValid, true, 'Server-side admin session verification succeeded');
 
     adminMod.logoutAdmin();
+    global.supa.rpc = fixtureRpc;
+    restoreAdminRpcFixture();
     assert.strictEqual(adminMod.getAdminSessionToken(), null, 'Admin token revoked on logout');
     console.log('  ✔ Server-side Officer Admin authentication & session token RPC gatekeeping verified');
     global.hashPassword = origHashPassword;
@@ -6568,12 +6598,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 7. Admin Module Console Gatekeeping & UI Filtering
     const adminJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'admin.js'), 'utf8');
-    assert.ok(adminJs.includes("isMemberSession") && adminJs.includes("Access Denied: Administrative privileges required."), 'openAdmin blocks standard members');
-    assert.ok(adminJs.includes("RBAC.hasModulePermission(section)"), 'switchAdminSection validates granular module permission');
+    assert.ok(adminJs.includes('getAdminRole(identity)') && adminJs.includes('Administrative privileges are required.'), 'openAdmin blocks standard members');
+    assert.ok(adminJs.includes('hasAdminModuleAccess(section)') && adminJs.includes('_adminSessionData.permissions.includes(section)'),
+      'switchAdminSection validates server-confirmed module permissions');
     assert.ok(adminJs.includes("sec-btn-roles"), 'backToAdminHome injects roles management button dynamically');
     assert.ok(adminJs.includes("renderAdminRoles"), 'admin.js provides renderAdminRoles management console');
     assert.ok(adminJs.includes("saveMemberRbacPermissions"), 'admin.js exports saveMemberRbacPermissions');
-    assert.ok(adminJs.includes("Passwordless Access for Authenticated Admins & Super Admins"), 'admin.js implements passwordless console access for Admins/Super Admins');
+    assert.ok(adminJs.includes('await verifyAdminSession()'), 'Admin console verifies the issued session');
     assert.ok(adminJs.includes("rbac-role-filter"), 'admin.js provides role filter select dropdown in Roles & Permissions console');
     assert.ok(adminJs.includes("filterRbacMembers"), 'admin.js provides filterRbacMembers for filtering by role and search query');
     assert.ok(adminJs.includes("Creator"), 'admin.js provides Creator designation tag for Jeshua Koh');
@@ -7687,7 +7718,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     document.getElementById('em-ic').value = 'test@1stpjbb.org.my';
     document.getElementById('em-name').value = 'Test User';
     document.getElementById('em-rank').value = '';
+    const restoreInvalidRankAdmin = authorizeAdminFixture();
     await adminModule.saveEditMember();
+    restoreInvalidRankAdmin();
     assert.ok(toastFired, 'saveEditMember must reject member without valid rank');
     console.log('  ✔ saveEditMember enforces mandatory rank and disallows empty / "No rank" submission');
   }
@@ -8051,7 +8084,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(adminJsContent.includes('_adminPresenceMap'), 'admin.js maintains _adminPresenceMap');
     assert.ok(adminJsContent.includes('admin-presence-badge'), 'renderAdminList injects .admin-presence-badge into row subtitle');
     assert.ok(adminJsContent.includes('em-profile-presence-card'), 'openEditMember dynamically renders .em-profile-presence-card header');
-    assert.ok(adminJsContent.includes("_adminSortBy === 'status'"), 'renderAdminList supports sorting by presence status');
+    assert.ok(adminJsContent.includes("key === 'status'"), 'The status comparison only applies to the requested sort field');
 
     // 5. Database Migration Schema 014
     const mig014 = fs.readFileSync('supabase/migrations/014_member_presence_tracking.sql', 'utf8');
@@ -8644,6 +8677,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Attendance record privacy protected against duplicate name spoofing');
 
     // 4. Admin Console Email Blocklist (bb_blocked_emails)
+    const restoreBlocklistAdmin = authorizeAdminFixture();
     const testBlockedEmail = 'malicious_user@spam.com';
     await adminMod.addBlockedEmail(testBlockedEmail);
     const blockedList = await adminMod.loadBlockedEmails();
@@ -8675,6 +8709,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Clean up blocked email
     await adminMod.removeBlockedEmail(testBlockedEmail);
     const unblockedList = await adminMod.loadBlockedEmails();
+    restoreBlocklistAdmin();
     assert.strictEqual(unblockedList.includes(testBlockedEmail), false, 'Blocked email must be removed after unblocking');
     global.getSupaClient = prevClient;
     console.log('  ✔ Admin email blocklist successfully gates registration and supports unblocking');
@@ -9988,8 +10023,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(adminCode.includes('admin.logout'), 'admin.js must audit admin logouts');
     assert.ok(adminCode.includes('member.create'), 'admin.js must audit member creations');
     assert.ok(adminCode.includes('member.update'), 'admin.js must audit member updates');
-    assert.ok(adminCode.includes('member.delete'), 'admin.js must audit member deletions');
-    console.log('  ✔ Admin console login, logout, member creation, update, and deletion audits verified');
+    const adminSql = fs.readFileSync(path.join(__dirname, '../supabase/migrations/020_admin_passcode.sql'), 'utf8');
+    assert.ok(adminCode.includes('rpc_deactivate_member_accounts') && adminSql.includes("'member.deactivate'"),
+      'Account deactivation must audit the mutation in the database transaction');
+    console.log('  ✔ Admin console login, logout, member creation, update, and deactivation audits verified');
 
     // 6. Verification that Sheets, Resources, and Gallery actions are audited
     const sheetsCode = fs.readFileSync(path.join(__dirname, '../js/api/sheets.js'), 'utf8');
@@ -11155,6 +11192,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 2. Uniform Orders Schedule state & availability logic
     assert.ok(typeof ordersMod.isUniformOrdersAcceptingResponses === 'function', 'isUniformOrdersAcceptingResponses is defined');
+    const preScheduleSupa = global.supa;
+    global.supa = { ...preScheduleSupa, upsert: async () => [] };
+    const restoreScheduleAdmin = authorizeAdminFixture();
 
     // Active state
     await ordersMod.saveUniformOrdersSchedule({
@@ -11232,6 +11272,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       paused_message: ''
     });
     console.log('  ✔ submitOrder blocked when uniform orders are paused or scheduled closed');
+    restoreScheduleAdmin();
+    global.supa = preScheduleSupa;
 
     // 4. index.html contains Response Availability & Auto-Schedule in adm-section-uniform
     const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
@@ -11581,6 +11623,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(!ordersJs.includes('<Cell ss:MergeAcross="1">'), 'orders.js export must not merge columns A & B on Sheet 2');
     assert.ok(ordersJs.includes('<Cell><Data ss:Type="String">\' + escapeXml(prepMergedList.join(\', \'))'), 'orders.js exports item list in column A');
 
+    const restoreRosterAdmin = authorizeAdminFixture();
     // Admin Member Table View & Controls
     assert.strictEqual(typeof adminModule.getAdminMembersViewMode, 'function', 'getAdminMembersViewMode must be exported');
     assert.strictEqual(typeof adminModule.setAdminMembersViewMode, 'function', 'setAdminMembersViewMode must be exported');
@@ -11848,6 +11891,28 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(sortRules[0].key, 'dept', 'restoreAdminFiltersAndSort restored sort rules');
     console.log('  ✔ Multi-level compound sorting, localStorage persistence & flyout menus verified');
 
+    await adminModule.clearAllAdminMemberFilters();
+    const getTestRoster = testAdminSupa.get;
+    const rosterPages = [];
+    testAdminSupa.get = async route => {
+      if (!route.startsWith('bb_members?') || !route.includes('&offset=')) return getTestRoster(route);
+      const offset = Number(new URLSearchParams(route.split('?')[1]).get('offset'));
+      rosterPages.push(offset);
+      return Array.from({ length: offset === 0 ? 200 : 1 }, (_, i) => ({
+        ...mockMember, ic: 'roster' + (offset + i) + '@example.com',
+        name: 'Roster Member ' + String(offset + i).padStart(3, '0')
+      }));
+    };
+    await adminModule.renderAdminList(true);
+    assert.deepStrictEqual(rosterPages, [0, 200], 'Roster loading goes beyond the first database page');
+    assert.ok(memberListEl.innerHTML.includes('Page 1 of 5'), 'The console paginates the full roster');
+    document.getElementById('admin-search').value = 'Roster Member 200';
+    await adminModule.renderAdminList();
+    assert.ok(memberListEl.innerHTML.includes('Roster Member 200'), 'Search includes members beyond the first database page');
+    document.getElementById('admin-search').value = '';
+    testAdminSupa.get = getTestRoster;
+    restoreRosterAdmin();
+
     // 8. Strict 388 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
@@ -11879,14 +11944,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     const origItemsLen = ordersMod.UNIFORM_ITEMS.length;
     if (origItemsLen >= 2) {
+      const restoreReorderAdmin = authorizeAdminFixture();
       const firstItem = ordersMod.UNIFORM_ITEMS[0];
       const secondItem = ordersMod.UNIFORM_ITEMS[1];
-      ordersMod.reorderUniformProducts(1, 0);
+      await ordersMod.reorderUniformProducts(1, 0);
       assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, secondItem.key, 'Second item moved to first slot via drag & drop reorder');
       assert.strictEqual(ordersMod.UNIFORM_ITEMS[1].key, firstItem.key, 'First item shifted to second slot');
       // Restore
-      ordersMod.reorderUniformProducts(0, 1);
+      await ordersMod.reorderUniformProducts(0, 1);
       assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, firstItem.key, 'Item order restored');
+      restoreReorderAdmin();
     }
     console.log('  ✔ Admin product view modes and drag-and-drop reordering synced and verified');
 
@@ -12087,12 +12154,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 3. Instant Drag & Drop reordering (no loadPrices race condition)
     const initialFirst = ordersMod.UNIFORM_ITEMS[0].key;
     const initialSecond = ordersMod.UNIFORM_ITEMS[1].key;
-    ordersMod.reorderUniformProducts(0, 1);
+    const restoreReorderAdmin = authorizeAdminFixture();
+    await ordersMod.reorderUniformProducts(0, 1);
     assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, initialSecond, 'First item successfully swapped to second');
     assert.strictEqual(ordersMod.UNIFORM_ITEMS[1].key, initialFirst, 'Second item successfully swapped to first');
     // Restore
-    ordersMod.reorderUniformProducts(0, 1);
+    await ordersMod.reorderUniformProducts(0, 1);
     assert.strictEqual(ordersMod.UNIFORM_ITEMS[0].key, initialFirst, 'Order restored cleanly');
+    restoreReorderAdmin();
     console.log('  ✔ Instant zero-lag drag-and-drop reordering without remote race conditions verified');
 
     // 4. Calendar Manager Clean-up & Reset Date on Leave
@@ -14259,6 +14328,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     };
     global.supa = mockFullSupa;
     if (typeof window !== 'undefined') window.supa = mockFullSupa;
+    global.getSupa = () => mockFullSupa;
 
     let emittedAudits = [];
     global.logAuditEvent = (evt) => {
@@ -14266,6 +14336,39 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       return utilsMod.logAuditEvent(evt);
     };
 
+    const restoreAuditAdmin = authorizeAdminFixture();
+    const verifyAuditRpc = mockFullSupa.rpc;
+    let configAuditEntry;
+    mockFullSupa.rpc = async (route, args) => {
+      if (route === 'rpc_append_admin_config_audit') {
+        assert.strictEqual(args.p_token, fixtureAdminToken);
+        configAuditEntry = args.p_entry;
+        return true;
+      }
+      if (route === 'rpc_deactivate_member_accounts') {
+        assert.strictEqual(args.p_token, fixtureAdminToken);
+        assert.deepStrictEqual(args.p_member_ids, ['fixture@example.com']);
+        return null;
+      }
+      return verifyAuditRpc(route, args);
+    };
+    const durableAudit = await utilsMod.logAuditEvent({
+      action: 'config.uniform_update', actorRole: 'officer_admin', details: { sync_token: 'fixture' }
+    });
+    assert.ok(durableAudit.durable && durableAudit.configPersisted, 'Confirmed configuration audit is durable');
+    assert.strictEqual(configAuditEntry.details.sync_token, '[REDACTED]');
+    global.showConfirmModal = async () => true;
+    assert.strictEqual(await adminMod.deleteMemberAccount('fixture@example.com'), false, 'Deactivation requires a confirmed database result');
+    const orderMod = require('../js/modules/orders.js');
+    const readAuditFixture = mockFullSupa.get;
+    const writeAuditFixture = mockFullSupa.req;
+    let orderStatusPath;
+    mockFullSupa.get = async () => [{ order_number: 'BB-FIXTURE', status: 'processing', items: [{ name: 'Cap', qty: 1, price: 5 }] }];
+    mockFullSupa.req = async (_method, route) => { orderStatusPath = route; return []; };
+    assert.strictEqual(await orderMod.updateOrderStatus('BB-FIXTURE', 'ready'), false, 'A concurrent order status update cannot be overwritten');
+    assert.ok(orderStatusPath.includes('&status=eq.processing'), 'Admin order update compares the current database state');
+    mockFullSupa.get = readAuditFixture;
+    mockFullSupa.req = writeAuditFixture;
     // Test member verification status update audit logging
     if (typeof adminMod.updateMemberVerificationStatus === 'function') {
       emittedAudits = [];
@@ -14303,6 +14406,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       assert.strictEqual(prodDelAudit.targetId, 'audit_test_prod');
     }
 
+    restoreAuditAdmin();
     // Test member logout audit logging
     const memberMod = require('../js/modules/member.js');
     if (typeof memberMod.logoutMember === 'function') {
@@ -14618,7 +14722,6 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'VITE_SUPABASE_ANON_KEY',
       'VITE_TURNSTILE_SITE_KEY',
       'VITE_GEMINI_API_KEY',
-      'ADMIN_PASSWORD_HASH',
       'PORT',
       'NODE_ENV'
     ];

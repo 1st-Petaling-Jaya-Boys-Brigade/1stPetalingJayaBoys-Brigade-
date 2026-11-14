@@ -242,6 +242,9 @@ async function loadMasterSheetConfig() {
  * @returns {Promise<Object>}
  */
 async function saveMasterSheetConfig(cfgOverride) {
+  if (typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) {
+    throw new Error('Authorized admin access is required.');
+  }
   var sid = '';
   var url = '';
   var tok = '';
@@ -279,7 +282,7 @@ async function saveMasterSheetConfig(cfgOverride) {
   }
 
   if (typeof logAuditEvent === 'function') {
-    logAuditEvent({
+    await logAuditEvent({
       action: 'sheets.config_update',
       targetType: 'config',
       targetId: 'bb_master_sheet_config',
@@ -435,6 +438,9 @@ var syncAttendanceToSheets = syncToSheets;
  * @returns {Promise<Object>}
  */
 async function fetchMasterAttendanceFromGAS(scriptUrl, syncToken) {
+  if (typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) {
+    throw new Error('Authorized admin access is required.');
+  }
   var cfg = null;
   if (!scriptUrl || !syncToken) {
     cfg = await loadMasterSheetConfig();

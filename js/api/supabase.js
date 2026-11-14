@@ -1279,6 +1279,8 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('announcements', 'update', record);
               } else if (key === 'bb_admin_roles') {
                 triggerEntityUpdate('roles', 'update', record);
+              } else if (key === 'bb_blocked_emails' || key === 'bb_deleted_members') {
+                triggerEntityUpdate('blocklist', 'update');
               } else if (key === 'bb_master_attendance') {
                 triggerEntityUpdate('attendance', 'update');
               } else {
@@ -1418,6 +1420,13 @@ var PortalRealtime = (function() {
   function triggerEntityUpdate(entity, action, data, fromBroadcast) {
     if (!fromBroadcast) {
       broadcastLocalChange(entity, action, data);
+    }
+
+    if (entity === 'blocklist') {
+      if (typeof window !== 'undefined' && typeof window.verifyActiveMemberSession === 'function') {
+        window.verifyActiveMemberSession(true).catch(function() {});
+      }
+      return;
     }
 
     if (entity === 'attendance') {

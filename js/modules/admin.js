@@ -30,7 +30,14 @@
     'Assistant Junior Leader',
     'Junior Leader',
     'Chief Junior Leader',
+    'Junior Target',
+    'Junior Bronze',
+    'Junior Silver',
+    'Junior Gold',
     'Recruit',
+    'One Year Service',
+    'Two Year Service',
+    'Three Year Service',
     'Private',
     'Lance Corporal',
     'Corporal',
@@ -39,6 +46,7 @@
     'Instructor',
     'Warrant Officer',
     'Lieutenant',
+    'Chaplain',
     'Honarary Captain',
     'Honorary Captain',
     'Captain'
@@ -69,6 +77,10 @@
   var _isGlobalSortOpen = false;
   var _isBulkActionsMenuOpen = false;
   var _lastFilteredMembers = [];
+  var _adminRosterPage = 0;
+  var _adminRosterFilter = '';
+  var _adminRosterRequest = 0;
+  var ADMIN_ROSTER_PAGE_SIZE = 50;
   var _adminMemberFilters = {
     section: '',
     rank: '',
@@ -402,7 +414,7 @@
       if (ba === null) return -1;
       return aa - ba;
     }
-    if (key === 'status' || _adminSortBy === 'status') {
+    if (key === 'status') {
       var vOrd = { verified: 0, processing: 1, rejected: 2, not_verified: 3 };
       var stA = getMemberVerificationStatus(a);
       var stB = getMemberVerificationStatus(b);
@@ -684,64 +696,41 @@
     '</span>';
   }
 
+  var VERIFICATION_STATES = ['not_verified', 'processing', 'verified', 'rejected'];
+
   async function updateMemberVerificationStatus(ic, val) {
-    if (!ic) return;
+    if (!ic || !await authorizeAdminMutation('members')) return false;
+    var cleanVal = String(val || '').trim().toLowerCase();
+    if (!VERIFICATION_STATES.includes(cleanVal)) return false;
     var client = getSupabaseClient();
-    var cleanVal = (val || 'not_verified').toLowerCase().trim();
-
-    if (_adminMembers && _adminMembers[ic]) {
-      _adminMembers[ic].verification_status = cleanVal;
-      _adminMembers[ic].v_status = cleanVal;
-    }
-    if (Array.isArray(_adminMembersCache)) {
-      _adminMembersCache.forEach(function(m) {
-        if (m.ic === ic || m.email === ic) {
-          m.verification_status = cleanVal;
-          m.v_status = cleanVal;
-        }
-      });
-    }
-
-    if (client) {
+    var member = _adminMembers[ic];
+    try {
+      if (!client || !client.patch) throw new Error('Member service unavailable.');
       try {
-        if (client.patch) {
-          await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), { verification_status: cleanVal });
-        } else if (client.req) {
-          await client.req('PATCH', 'bb_members?ic=eq.' + encodeURIComponent(ic), { verification_status: cleanVal });
-        }
-      } catch (e) {
-        console.warn('verification_status column not yet in bb_members schema, storing in bb_config:', e);
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), { verification_status: cleanVal });
+      } catch (error) {
+        if (!/PGRST204|42703/i.test(error.message || '')) throw error;
+        if (!client.safeConfigUpdate) throw error;
+        await client.safeConfigUpdate('bb_verification_statuses', function(map) {
+          return Object.assign({}, map, { [ic]: cleanVal });
+        }, { fallback: {} });
       }
-      try {
-        var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
-        var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
-        vMap[ic] = cleanVal;
-        var memberObj = (_adminMembers && _adminMembers[ic]) || {};
-        if (memberObj.email) vMap[memberObj.email] = cleanVal;
-        if (client.upsert) {
-          await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMap) }, 'key');
-        } else if (client.patch) {
-          await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
-        }
-      } catch (errSync) {
-        console.error('Failed to sync verification status to bb_config:', errSync);
+      if (member) {
+        member.verification_status = cleanVal;
+        member.v_status = cleanVal;
       }
-    }
-
-    if (typeof logAuditEvent === 'function') {
-      logAuditEvent({
-        action: 'member.verification_update',
-        targetType: 'member',
-        targetId: ic,
-        actorRole: 'officer_admin',
+      if (typeof logAuditEvent === 'function') await logAuditEvent({
+        action: 'member.verification_update', targetType: 'member', targetId: ic, actorRole: 'officer_admin',
         details: { verification_status: cleanVal }
       });
+      if (typeof showToast === 'function') showToast('Member verification updated.', 'success');
+      await renderAdminList(true);
+      return true;
+    } catch (_) {
+      if (typeof showToast === 'function') showToast('Could not update member verification.', 'error');
+      await renderAdminList(true);
+      return false;
     }
-
-    if (typeof showToast === 'function') {
-      showToast('Updated status to ' + cleanVal.replace('_', ' '), 'success');
-    }
-    await renderAdminList(true);
   }
 
   // Selection & Bulk Actions
@@ -825,7 +814,7 @@
               '</button>' +
               '<button type="button" class="adm-action-item" onclick="bulkDeleteSelectedMembers()" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border:none;background:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;text-align:left;width:100%;">' +
                 '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
-                '<span>Delete selected</span>' +
+                '<span>Deactivate selected</span>' +
               '</button>' +
             '</div>'
           : '') +
@@ -842,6 +831,7 @@
   }
 
   async function bulkBlockSelectedMembers() {
+    if (!await authorizeAdminMutation('members')) return false;
     var count = _selectedMemberIcs.size;
     if (count === 0) return;
     _isBulkActionsMenuOpen = false;
@@ -861,10 +851,7 @@
       var ic = ics[i];
       var mem = (_adminMembers && _adminMembers[ic]) || { ic: ic, email: ic };
       var em = mem.email || mem.ic;
-      if (em) {
-        await addBlockedEmail(em, 'Bulk blocked by administrator');
-        blockedCount++;
-      }
+      if (em && await addBlockedEmail(em, 'Bulk blocked by administrator')) blockedCount++;
     }
     _selectedMemberIcs.clear();
     if (typeof logAuditEvent === 'function') {
@@ -883,53 +870,16 @@
   }
 
   async function bulkDeleteSelectedMembers() {
-    var count = _selectedMemberIcs.size;
-    if (count === 0) return;
+    if (!await authorizeAdminMutation('members') || !_selectedMemberIcs.size) return false;
+    var ids = Array.from(_selectedMemberIcs);
     _isBulkActionsMenuOpen = false;
     renderRowActionsButton();
-
-    var confirmed = false;
-    if (typeof showConfirmModal === 'function') {
-      confirmed = await showConfirmModal('Delete ' + count + ' Selected Accounts?', 'Are you sure you want to permanently delete ' + count + ' selected account(s)? This action cannot be undone.');
-    } else {
-      confirmed = true;
-    }
-    if (!confirmed) return;
-
-    var deletedCount = 0;
-    var client = getSupabaseClient();
-    var ics = Array.from(_selectedMemberIcs);
-    if (client && ics.length) {
-      var deletePromises = ics.map(async function(ic) {
-        try {
-          if (client.delete) {
-            await client.delete('bb_members?ic=eq.' + encodeURIComponent(ic));
-          } else if (client.req) {
-            await client.req('DELETE', 'bb_members?ic=eq.' + encodeURIComponent(ic));
-          }
-          return true;
-        } catch (err) {
-          var maskedId = (ic ? String(ic).replace(/\d(?=\d{4})/g, '*') : 'member');
-          console.error('bulkDeleteSelectedMembers item error for ' + maskedId + ':', err);
-          return false;
-        }
-      });
-      var results = await Promise.all(deletePromises);
-      deletedCount = results.filter(Boolean).length;
-    }
+    if (typeof showConfirmModal === 'function' && !await showConfirmModal(
+      'Remove portal access for ' + ids.length + ' selected accounts? Their historical records will be retained.',
+      'Deactivate selected accounts'
+    )) return false;
+    if (!await deactivateMemberAccounts(ids)) return false;
     _selectedMemberIcs.clear();
-    if (typeof logAuditEvent === 'function') {
-      logAuditEvent({
-        action: 'member.bulk_delete',
-        targetType: 'member',
-        targetId: 'multiple',
-        actorRole: 'officer_admin',
-        details: { count: deletedCount, member_ids: ics }
-      });
-    }
-    if (typeof showToast === 'function') {
-      showToast('Successfully deleted ' + deletedCount + ' account(s).', 'success');
-    }
     return renderAdminList(true);
   }
 
@@ -1234,6 +1184,7 @@
   }
 
   async function openBlockedEmailsView() {
+    if (!hasAdminModuleAccess('members')) return;
     closeColumnFilterMenu();
     closeGlobalPopovers();
     _adminMembersSubView = 'blocked_emails';
@@ -1272,6 +1223,7 @@
   }
 
   function renderBlockedEmailsFullView() {
+    if (!hasAdminModuleAccess('members')) return;
     if (typeof document === 'undefined') return;
     var container = document.getElementById('admin-members-list');
     if (!container) return;
@@ -1412,6 +1364,7 @@
   }
 
   async function updateMemberField(ic, field, value) {
+    if (!await authorizeAdminMutation('members')) return false;
     if (!ic || !field) return;
     var client = getSupabaseClient();
     if (!client) {
@@ -1428,26 +1381,39 @@
 
     var patchObj = {};
 
+    var member = _adminMembers[ic];
+    if (!member) return false;
+    var section = member.att_section || member.section || sectionForAdminRank(member.rank);
     if (field === 'name') {
-      if (!cleanVal) {
-        if (typeof showToast === 'function') showToast('Member name cannot be blank.', 'warning');
-        return;
-      }
+      if (!cleanVal || cleanVal.length > 100) return false;
       patchObj.name = cleanVal;
     } else if (field === 'section') {
+      if (!['Pre-Junior', 'Junior', 'Senior', 'Officer'].includes(cleanVal)) return false;
       patchObj.section = cleanVal;
       patchObj.att_section = cleanVal;
+      patchObj.rank = validSectionRank(cleanVal, member.rank) ? member.rank : ({
+        'Pre-Junior': 'Pre-Junior', Junior: 'Junior', Senior: 'Recruit', Officer: 'Instructor'
+      })[cleanVal];
+      if (cleanVal === 'Officer' || cleanVal !== section) patchObj.squad = '';
     } else if (field === 'rank') {
+      if (!validSectionRank(section, cleanVal)) return false;
       patchObj.rank = cleanVal;
     } else if (field === 'squad') {
+      if (section === 'Officer' && cleanVal) return false;
+      if (cleanVal && !/^(?:(?:Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|Golf|Hotel|India|Zulu|Papa)(?: Platoon)?|(?:Red|Yellow|Green|Blue)(?: Squad)?|Squad [1-6]|Officers)$/i.test(cleanVal)) return false;
       patchObj.squad = cleanVal;
     } else if (field === 'department') {
-      patchObj.department = cleanVal.toLowerCase();
+      cleanVal = cleanVal.toLowerCase();
+      if (cleanVal && !Object.hasOwn(getDeptConfig(), cleanVal)) return false;
+      patchObj.department = cleanVal;
     } else if (field === 'date_of_birth') {
+      if (cleanVal && calcAge(cleanVal) === null) return false;
       patchObj.date_of_birth = cleanVal || null;
     } else {
-      patchObj[field] = cleanVal;
+      return false;
     }
+    var previousRank = member.rank;
+    var previousSection = section;
 
     try {
       if (client.patch) {
@@ -1465,11 +1431,17 @@
         });
       }
 
+      if (typeof logAuditEvent === 'function') await logAuditEvent({
+        action: field === 'rank' ? 'member.rank_update' : (field === 'section' ? 'member.section_update' : 'member.update'),
+        targetType: 'member', targetId: ic, actorRole: 'officer_admin',
+        details: { field: field, previous_rank: previousRank, rank: patchObj.rank, previous_section: previousSection, section: patchObj.section }
+      });
       var memName = (_adminMembers && _adminMembers[ic] && _adminMembers[ic].name) || ic;
       if (typeof showToast === 'function') {
         showToast('Updated ' + field.replace(/_/g, ' ') + ' for ' + memName, 'success');
       }
       renderAdminList();
+      return true;
     } catch (err) {
       console.error('updateMemberField error:', err);
       if (typeof showToast === 'function') {
@@ -1487,47 +1459,16 @@
     return null;
   }
 
-  var DEFAULT_ADMIN_HASH = 'e73d72da113ab72c21c2a07d2a4b72c5d28885ce29bd22abcb6697a8cd79ec7f';
-
-  function getAdminPasswordHash() {
-    if (typeof global !== 'undefined' && global.ADMIN_PASSWORD_HASH) return global.ADMIN_PASSWORD_HASH;
-    if (typeof ADMIN_PASSWORD_HASH !== 'undefined') return ADMIN_PASSWORD_HASH;
-    if (typeof window !== 'undefined' && window.ADMIN_PASSWORD_HASH) return window.ADMIN_PASSWORD_HASH;
-    return DEFAULT_ADMIN_HASH;
-  }
-
   async function verifyAdminPassword(inputPass) {
-    if (!inputPass) return false;
-    var expectedHash = getAdminPasswordHash();
-    var inputHash = '';
-
-    if (typeof computeSha256 === 'function') {
-      inputHash = await computeSha256(inputPass);
-    } else if (typeof window !== 'undefined' && typeof window.computeSha256 === 'function') {
-      inputHash = await window.computeSha256(inputPass);
-    } else if (typeof crypto !== 'undefined') {
-      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
-      if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
-        var enc = new TextEncoder();
-        var buf = await cryptoObj.subtle.digest('SHA-256', enc.encode(inputPass));
-        var bytes = new Uint8Array(buf);
-        for (var i = 0; i < bytes.length; i++) {
-          var b = bytes[i].toString(16);
-          inputHash += b.length === 1 ? '0' + b : b;
-        }
-      }
-    }
-
-    if (inputHash && expectedHash) {
-      if (typeof window !== 'undefined' && typeof window.timingSafeEqualToken === 'function') {
-        return window.timingSafeEqualToken(inputHash, expectedHash);
-      }
-      if (typeof timingSafeEqualToken === 'function') {
-        return timingSafeEqualToken(inputHash, expectedHash);
-      }
-      return inputHash.toLowerCase() === expectedHash.toLowerCase();
-    }
-    return false;
+    var client = getSupabaseClient();
+    var identity = getAdminMemberEmail();
+    if (!inputPass || !identity || !client || typeof client.rpc !== 'function') return null;
+    var inputHash = await computeSha256(inputPass);
+    return client.rpc('rpc_admin_login', {
+      p_password_hash: inputHash,
+      p_officer_email: identity,
+      p_officer_rank: typeof sessionGet === 'function' ? sessionGet('rank') || null : null
+    });
   }
 
   function getDeptConfig() {
@@ -1537,69 +1478,45 @@
   }
 
   // ── Cryptographic Session & Gate Hardening ──────────────────────
-  var SESSION_MAX_LIFETIME_MS = 8 * 60 * 60 * 1000; // 8 hours absolute lifetime
-  var SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;     // 60 minutes idle timeout
-  var MAX_LOGIN_FAILURES      = 5;
-  var BASE_LOCKOUT_MS         = 30 * 1000;      // 30 seconds
-  var MAX_LOCKOUT_MS          = 300 * 1000;     // 5 minutes max
+  var SESSION_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+  var MAX_LOGIN_FAILURES = 5;
+  var BASE_LOCKOUT_MS = 30 * 1000;
+  var MAX_LOCKOUT_MS = 300 * 1000;
 
-  var _adminSessionToken  = null;
-  var _adminSessionData   = null;
-  var _adminSessionSalt   = '';
+  var _adminSessionToken = null;
+  var _adminSessionData = null;
   var _adminLoginFailures = 0;
-  var _adminLockoutUntil  = 0;
-  var _adminDomObserver   = null;
+  var _adminLockoutUntil = 0;
+  var _adminDomObserver = null;
+  var _adminLoginInFlight = false;
+  var _adminLifecycle = 0;
+  var _adminPreviousFocus = null;
+  var _adminPreviousOverflow = '';
+  var _adminPreviousTitle = '';
 
-  function generateSecureHex(len) {
-    var bytesCount = len || 16;
-    if (typeof crypto !== 'undefined') {
-      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
-      if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
-        var arr = new Uint8Array(bytesCount);
-        cryptoObj.getRandomValues(arr);
-        var hex = '';
-        for (var i = 0; i < arr.length; i++) {
-          var b = arr[i].toString(16);
-          hex += b.length === 1 ? '0' + b : b;
-        }
-        return hex;
-      }
-    }
-    var fallback = '';
-    for (var j = 0; j < bytesCount; j++) {
-      var r = Math.floor(Math.random() * 256).toString(16);
-      fallback += r.length === 1 ? '0' + r : r;
-    }
-    return fallback;
+  function getAdminMemberEmail() {
+    if (typeof sessionGet !== 'function') return '';
+    return String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
   }
 
-  async function computeHmacSha256(secretKeyHex, messageStr) {
-    if (typeof crypto !== 'undefined') {
-      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
-      if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
-        var enc = new TextEncoder();
-        var key = await cryptoObj.subtle.importKey(
-          'raw',
-          enc.encode(secretKeyHex),
-          { name: 'HMAC', hash: 'SHA-256' },
-          false,
-          ['sign']
-        );
-        var sigBuf = await cryptoObj.subtle.sign('HMAC', key, enc.encode(messageStr));
-        var bytes = new Uint8Array(sigBuf);
-        var hex = '';
-        for (var i = 0; i < bytes.length; i++) {
-          var b = bytes[i].toString(16);
-          hex += b.length === 1 ? '0' + b : b;
-        }
-        return hex;
-      }
+  function getAdminRole(email) {
+    if (!email || typeof RBAC === 'undefined' || typeof RBAC.getUserRole !== 'function') return 'member';
+    return RBAC.getUserRole(email);
+  }
+
+  function hasAdminModuleAccess(section) {
+    if (!verifyAdminSessionSync()) return false;
+    if (!section) return true;
+    if (section === 'creator_outlines' || section === 'creator-outlines') {
+      return typeof isCreatorSession === 'function' && isCreatorSession();
     }
-    if (typeof computeSha256 === 'function') {
-      var s1 = await computeSha256(secretKeyHex + ':' + messageStr);
-      return await computeSha256(s1 + ':' + secretKeyHex);
-    }
-    return '';
+    if (_adminSessionData.scope === 'super_admin') return true;
+    return section !== 'roles' && _adminSessionData.permissions.includes(section);
+  }
+
+  async function authorizeAdminMutation(section) {
+    if (!hasAdminModuleAccess(section)) return false;
+    return await verifyAdminSession() && hasAdminModuleAccess(section);
   }
 
   function getAdminLockoutRemainingSecs() {
@@ -1624,169 +1541,72 @@
   }
 
   function getAdminSessionToken() {
-    return _adminSessionToken || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('bb_admin_session_token') : null);
+    return _adminSessionToken;
   }
 
   function getAdminSessionData() {
-    return _adminSessionData;
+    return _adminSessionData && Object.assign({}, _adminSessionData);
+  }
+
+  function establishAdminSession(token, data) {
+    _adminSessionToken = token;
+    _adminSessionData = data;
   }
 
   function setAdminSessionTokenForTesting(token, data) {
-    _adminSessionToken = token;
-    _adminSessionData = data || null;
+    establishAdminSession(token, data);
   }
 
-  async function createAdminSessionToken(officerEmail, officerRank) {
-    _adminSessionSalt = generateSecureHex(32);
+  function isAdminSessionCurrent() {
+    if (!_adminSessionToken || !_adminSessionData) return false;
+    var data = _adminSessionData;
     var now = Date.now();
-    var email = officerEmail || (typeof sessionGet === 'function' ? sessionGet('email') : '') || 'company_officer';
-    var rank = officerRank || (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Officer';
-
-    var payload = {
-      role: 'officer_admin',
-      officerEmail: email,
-      officerRank: rank,
-      issuedAt: now,
-      expiresAt: now + SESSION_MAX_LIFETIME_MS,
-      lastActiveAt: now,
-      nonce: generateSecureHex(16)
-    };
-
-    var signPayload = [
-      payload.role,
-      payload.officerEmail,
-      payload.issuedAt,
-      payload.expiresAt,
-      payload.nonce
-    ].join(':');
-
-    var expectedHash = getAdminPasswordHash();
-    var secretKey = expectedHash + ':' + _adminSessionSalt;
-    var signature = await computeHmacSha256(secretKey, signPayload);
-
-    var payloadStr = typeof btoa === 'function'
-      ? btoa(unescape(encodeURIComponent(JSON.stringify(payload))))
-      : Buffer.from(JSON.stringify(payload)).toString('base64');
-
-    var token = payloadStr + '.' + signature;
-
-    _adminSessionToken = token;
-    _adminSessionData = payload;
-
-    if (typeof sessionStorage !== 'undefined') {
-      try {
-        sessionStorage.setItem('bb_admin_session_token', token);
-        sessionStorage.setItem('bb_admin_session_salt', _adminSessionSalt);
-      } catch (_) {}
+    if (!Number.isFinite(data.expiresAt) || data.expiresAt <= now ||
+        now - data.lastActiveAt >= SESSION_IDLE_TIMEOUT_MS ||
+        data.officerEmail !== getAdminMemberEmail() || getAdminRole(data.officerEmail) === 'member') {
+      revokeAdminSession();
+      return false;
     }
-
-    if (typeof sessionSet === 'function') {
-      sessionSet('adminAuthed', true);
-    }
-
-    return token;
+    return true;
   }
 
   function verifyAdminSessionSync() {
-    var token = getAdminSessionToken();
-    if (!token) return false;
-    // Server-issued tokens do not use dot notation; verified asynchronously
-    if (token.indexOf('.') === -1) {
-      return true;
-    }
-    if (!_adminSessionData) {
-      try {
-        var parts = token.split('.');
-        if (parts.length !== 2) return false;
-        var jsonStr = typeof atob === 'function'
-          ? decodeURIComponent(escape(atob(parts[0])))
-          : Buffer.from(parts[0], 'base64').toString('utf8');
-        _adminSessionData = JSON.parse(jsonStr);
-      } catch (_) {
-        return false;
-      }
-    }
-
-    var data = _adminSessionData;
-    if (!data || data.role !== 'officer_admin') return false;
-
-    var now = Date.now();
-    if (now > data.expiresAt) {
-      revokeAdminSession('Session expired. Please re-authenticate.');
-      return false;
-    }
-
-    if (now - data.lastActiveAt > SESSION_IDLE_TIMEOUT_MS) {
-      revokeAdminSession('Session timed out due to inactivity.');
-      return false;
-    }
-
-    data.lastActiveAt = now;
-    return true;
+    return isAdminSessionCurrent() && _adminSessionData.confirmed === true;
   }
 
   async function verifyAdminSession() {
-    var token = getAdminSessionToken();
-    if (!token) return false;
-
+    if (!isAdminSessionCurrent()) return false;
+    var token = _adminSessionToken;
     var client = getSupabaseClient();
-    if (client && typeof client.rpc === 'function') {
-      try {
-        var verifyRes = await client.rpc('rpc_verify_admin_session', { p_token: token });
-        if (verifyRes && verifyRes.valid === true) {
-          return true;
-        } else if (verifyRes && verifyRes.valid === false) {
-          revokeAdminSession('Server rejected admin session.');
-          return false;
-        }
-      } catch (rpcErr) {
-        console.warn('RPC session verify fallback:', rpcErr);
+    if (!client || typeof client.rpc !== 'function') return false;
+    try {
+      var result = await client.rpc('rpc_verify_admin_session', { p_token: token });
+      if (_adminSessionToken !== token) return false;
+      if (result && result.valid === true && typeof result.officer_email === 'string' &&
+          result.officer_email.toLowerCase() === _adminSessionData.officerEmail &&
+          ['admin', 'super_admin'].includes(result.scope) && Array.isArray(result.permissions)) {
+        if (!isAdminSessionCurrent()) return false;
+        _adminSessionData.confirmed = true;
+        _adminSessionData.scope = result.scope;
+        _adminSessionData.permissions = result.permissions;
+        _adminSessionData.lastActiveAt = Date.now();
+        if (typeof sessionSet === 'function') sessionSet('adminAuthed', true, { localOnly: true });
+        return true;
       }
-    }
-
-    if (!verifyAdminSessionSync()) return false;
-    var parts = token.split('.');
-    if (parts.length !== 2) {
-      revokeAdminSession('Malformed session token.');
-      return false;
-    }
-    if (!_adminSessionData) return false;
-
-    var payload = _adminSessionData;
-    var signPayload = [
-      payload.role,
-      payload.officerEmail,
-      payload.issuedAt,
-      payload.expiresAt,
-      payload.nonce
-    ].join(':');
-
-    var salt = _adminSessionSalt || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('bb_admin_session_salt') : '');
-    var expectedHash = getAdminPasswordHash();
-    var secretKey = expectedHash + ':' + salt;
-    var expectedSig = await computeHmacSha256(secretKey, signPayload);
-
-    var valid = false;
-    if (typeof timingSafeEqualToken === 'function') {
-      valid = timingSafeEqualToken(parts[1], expectedSig);
-    } else if (typeof window !== 'undefined' && typeof window.timingSafeEqualToken === 'function') {
-      valid = window.timingSafeEqualToken(parts[1], expectedSig);
-    } else {
-      valid = parts[1].toLowerCase() === expectedSig.toLowerCase();
-    }
-
-    if (!valid) {
-      revokeAdminSession('Cryptographic token signature mismatch. Tampering detected.');
-      return false;
-    }
-
-    return true;
+      if (result && typeof result.valid === 'boolean') revokeAdminSession();
+    } catch (_) {}
+    return false;
   }
 
   function revokeAdminSession(reason) {
     _adminSessionToken = null;
     _adminSessionData = null;
-    _adminSessionSalt = '';
+    _adminLifecycle++;
+    _adminMembers = {};
+    global._adminMembers = _adminMembers;
+    _adminMembersCache = null;
+    _lastFilteredMembers = [];
+    _selectedMemberIcs.clear();
 
     if (typeof sessionStorage !== 'undefined') {
       try {
@@ -1803,6 +1623,9 @@
     if (typeof document !== 'undefined') {
       var panel = document.getElementById('admin-panel');
       if (panel) panel.style.display = 'none';
+      var roster = document.getElementById('admin-members-list');
+      if (roster) roster.textContent = '';
+      closeEditMember();
 
       var loginBox = document.getElementById('admin-login-box');
       if (loginBox) loginBox.style.display = 'block';
@@ -1834,122 +1657,103 @@
 
   // ── Admin Authentication & Back-Office Navigation ──────────────────────────
 
+  function adminOverlayKeys(event) {
+    if (event.defaultPrevented || event.key !== 'Tab') return;
+    var overlay = document.getElementById('admin-overlay');
+    if (!overlay || overlay.style.display === 'none') return;
+    // Leave nested dialogs to their own handlers, including dialogs mounted on body.
+    if (event.target && event.target.closest &&
+        event.target.closest('.portal-modal-overlay, #edit-member-modal, #adm-event-edit-modal, .adm-product-modal-overlay')) return;
+    var controls = Array.from(overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]')).filter(function(node) {
+      return node.getClientRects().length > 0 && !node.closest('[inert]');
+    });
+    if (!controls.length) return;
+    var index = controls.indexOf(document.activeElement);
+    if (index === -1 || (event.shiftKey && index === 0) || (!event.shiftKey && index === controls.length - 1)) {
+      event.preventDefault();
+      (event.shiftKey ? controls[controls.length - 1] : controls[0]).focus();
+    }
+  }
+
   async function openAdmin(skipPush) {
     if (typeof document === 'undefined') return;
-
-    if (!skipPush && typeof history !== 'undefined' && history.pushState && typeof window !== 'undefined' && window.location.hash !== '#admin') {
-      var activePg = document.querySelector('.page.active');
-      var curTab = activePg ? activePg.id.replace('page-', '') : 'home';
-      history.pushState({ tab: curTab, admin: true }, '', '#admin');
+    var request = ++_adminLifecycle;
+    var identity = getAdminMemberEmail();
+    if (identity && typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
+      try { await RBAC.loadRolesConfig(); } catch (_) {}
     }
-    if (typeof document !== 'undefined') {
-      document.title = 'Admin Console — 1st PJ Boys\' Brigade';
-    }
-
-    if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
-      try {
-        await Promise.race([
-          RBAC.loadRolesConfig(),
-          new Promise(function(resolve) { setTimeout(resolve, 600); })
-        ]);
-      } catch (_) {}
-    }
-
-    // RBAC Gatekeeper: Block standard members from accessing admin routes/console
-    var isMemberSession = false;
-    var sessEmail = null;
-    var currentRole = 'member';
-
-    if (typeof sessionGet === 'function') {
-      sessEmail = sessionGet('email') || sessionGet('ic');
-      if (sessEmail) {
-        currentRole = (typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function')
-          ? RBAC.getUserRole(sessEmail)
-          : (sessionGet('role') || 'member');
-        // STRICT SECURITY GATE: Officers and Captains without explicit Admin/Super Admin role are strictly blocked
-        if (currentRole === 'member' && !verifyAdminSessionSync()) {
-          isMemberSession = true;
-        }
-      }
-    }
-
-    if (isMemberSession) {
-      if (typeof showToast === 'function') {
-        showToast('Access Denied: Administrative privileges required. Only designated Admins and Super Admins may access the Admin Console.', 'error');
-      }
+    if (request !== _adminLifecycle || identity !== getAdminMemberEmail()) return;
+    if (identity && getAdminRole(identity) === 'member') {
+      if (verifyAdminSessionSync()) revokeAdminSession();
+      closeAdmin(true);
+      if (typeof showToast === 'function') showToast('Administrative privileges are required.', 'error');
       return;
     }
-
     var overlay = document.getElementById('admin-overlay');
-    if (overlay) overlay.style.display = 'block';
+    if (!overlay) return;
+    if (overlay.style.display !== 'block') {
+      _adminPreviousFocus = document.activeElement;
+      _adminPreviousOverflow = document.body ? document.body.style.overflow : '';
+      _adminPreviousTitle = document.title;
+    }
+    if (!skipPush && typeof history !== 'undefined' && history.pushState && window.location.hash !== '#admin') {
+      var activePage = document.querySelector('.page.active');
+      history.pushState({ tab: activePage ? activePage.id.replace('page-', '') : 'home', admin: true }, '', '#admin');
+    }
+    document.title = 'Admin Console — 1st PJ Boys’ Brigade';
+    overlay.style.display = 'block';
     if (document.body) document.body.style.overflow = 'hidden';
-
-    // Passwordless Access for Authenticated Admins & Super Admins
-    if (sessEmail && (currentRole === 'admin' || currentRole === 'super_admin')) {
-      if (!verifyAdminSessionSync()) {
-        await createAdminSessionToken(sessEmail, currentRole === 'super_admin' ? 'Super Admin' : 'Admin');
-      }
-      if (typeof sessionSet === 'function') {
-        sessionSet('adminAuthed', true);
-      }
-
-      var loginBoxEl = document.getElementById('admin-login-box');
-      if (loginBoxEl) loginBoxEl.style.display = 'none';
-
-      var panelEl = document.getElementById('admin-panel');
-      if (panelEl) panelEl.style.display = 'block';
-
-      initAdminDomGuard();
-      backToAdminHome();
-
-      if (typeof renderGallery === 'function') renderGallery();
-      if (typeof renderAnnouncements === 'function') renderAnnouncements();
-      if (typeof loadResources === 'function') loadResources();
-      if (typeof initCalendarModule === 'function') initCalendarModule();
+    document.addEventListener('keydown', adminOverlayKeys);
+    initAdminDomGuard();
+    if (verifyAdminSessionSync() && await verifyAdminSession() && request === _adminLifecycle) {
+      showAuthenticatedAdmin();
       return;
     }
-
-    // Fallback: If no authenticated member session, show password prompt
-    revokeAdminSession();
-
-    var loginBox = document.getElementById('admin-login-box');
-    if (loginBox) loginBox.style.display = 'block';
-
+    if (request !== _adminLifecycle && overlay.style.display !== 'block') return;
+    if (typeof sessionSet === 'function') sessionSet('adminAuthed', false, { localOnly: true });
     var panel = document.getElementById('admin-panel');
+    var login = document.getElementById('admin-login-box');
+    var pass = document.getElementById('admin-pass');
     if (panel) panel.style.display = 'none';
-
-    initAdminDomGuard();
-
-    var passEl = document.getElementById('admin-pass');
-    if (passEl) {
-      passEl.value = '';
-      passEl.style.webkitTextSecurity = 'disc';
-      passEl.style.textSecurity = 'disc';
-      if (typeof passEl.focus === 'function') passEl.focus();
+    if (login) login.style.display = 'block';
+    if (pass) {
+      pass.value = '';
+      pass.style.webkitTextSecurity = 'disc';
+      pass.style.textSecurity = 'disc';
+      if (pass.focus) pass.focus();
     }
-    var eyeBtn = document.getElementById('admin-eye');
-    if (eyeBtn) {
-      eyeBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-    }
+  }
+
+  function showAuthenticatedAdmin() {
+    if (!verifyAdminSessionSync()) return;
+    var login = document.getElementById('admin-login-box');
+    var panel = document.getElementById('admin-panel');
+    if (login) login.style.display = 'none';
+    if (panel) panel.style.display = 'block';
+    backToAdminHome();
+    var first = document.querySelector('#admin-overlay .admin-container button:not([disabled])');
+    if (first && first.focus) first.focus();
   }
 
   function closeAdmin(skipHistory) {
     if (typeof document === 'undefined') return;
+    _adminLifecycle++;
     if (typeof resetAdminCalendarDate === 'function') resetAdminCalendarDate();
     closeColumnFilterMenu();
     closeGlobalPopovers();
     var overlay = document.getElementById('admin-overlay');
-    if (overlay) overlay.style.display = 'none';
-    if (document.body) document.body.style.overflow = '';
+    if (overlay && overlay.style.display === 'block') {
+      overlay.style.display = 'none';
+      if (document.body) document.body.style.overflow = _adminPreviousOverflow;
+      if (_adminPreviousTitle) document.title = _adminPreviousTitle;
+      if (_adminPreviousFocus && _adminPreviousFocus.isConnected && _adminPreviousFocus.focus) _adminPreviousFocus.focus();
+      document.removeEventListener('keydown', adminOverlayKeys);
+    }
     var creatorSec = document.getElementById('adm-section-creator-outlines');
     if (creatorSec) creatorSec.style.display = 'none';
-    if (typeof renderAnnouncements === 'function') {
-      renderAnnouncements();
-    }
-    if (!skipHistory && typeof window !== 'undefined' && window.location.hash === '#admin') {
-      if (typeof history !== 'undefined' && typeof history.back === 'function') {
-        history.back();
-      }
+    if (!skipHistory && typeof window !== 'undefined' && window.location.hash === '#admin' &&
+        typeof history !== 'undefined' && history.state && history.state.admin && typeof history.back === 'function') {
+      history.back();
     }
   }
 
@@ -2013,180 +1817,71 @@
   }
 
   async function adminLogin() {
-    if (typeof document === 'undefined') return false;
-
-    // 1. Rate limiting lockout check
+    if (typeof document === 'undefined' || _adminLoginInFlight) return false;
     var remaining = getAdminLockoutRemainingSecs();
     if (remaining > 0) {
-      if (typeof showToast === 'function') {
-        showToast('Admin locked due to failed attempts. Try again in ' + remaining + 's.', 'error');
-      }
+      if (typeof showToast === 'function') showToast('Admin access is locked. Try again in ' + remaining + 's.', 'error');
       return false;
     }
 
-    var passEl = document.getElementById('admin-pass');
-    var pass = passEl ? passEl.value : '';
-
-    var client = getSupabaseClient();
-    var officerEmail = typeof sessionGet === 'function' ? sessionGet('email') : '';
-    var officerRank = typeof sessionGet === 'function' ? sessionGet('rank') : '';
-
-    // Calculate input SHA-256 hash
-    var inputHash = '';
-    if (typeof computeSha256 === 'function') {
-      inputHash = await computeSha256(pass);
-    } else if (typeof window !== 'undefined' && typeof window.computeSha256 === 'function') {
-      inputHash = await window.computeSha256(pass);
-    } else if (typeof crypto !== 'undefined') {
-      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
-      if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
-        var enc = new TextEncoder();
-        var buf = await cryptoObj.subtle.digest('SHA-256', enc.encode(pass));
-        var bytes = new Uint8Array(buf);
-        for (var i = 0; i < bytes.length; i++) {
-          var b = bytes[i].toString(16);
-          inputHash += b.length === 1 ? '0' + b : b;
-        }
-      }
+    var identity = getAdminMemberEmail();
+    var overlay = document.getElementById('admin-overlay');
+    if (!overlay || overlay.style.display === 'none' || getAdminRole(identity) === 'member') {
+      if (typeof showToast === 'function') showToast('Sign in with an authorized member account before entering the admin passcode.', 'warning');
+      return false;
     }
-
-    // Try server-side RPC authentication
-    if (client && typeof client.rpc === 'function') {
+    var passEl = document.getElementById('admin-pass');
+    if (!passEl || !passEl.value) return false;
+    var button = document.querySelector('#admin-login-box button.submit-btn');
+    var request = _adminLifecycle;
+    var pass = passEl.value;
+    passEl.value = '';
+    _adminLoginInFlight = true;
+    var performLogin = async function() {
       try {
-        var rpcAuth = await client.rpc('rpc_admin_login', {
-          p_password_hash: inputHash,
-          p_officer_email: officerEmail,
-          p_officer_rank: officerRank
-        });
-
-        if (rpcAuth && rpcAuth.token) {
-          _adminLoginFailures = 0;
-          _adminLockoutUntil = 0;
-          _adminSessionToken = rpcAuth.token;
-          _adminSessionData = {
-            role: rpcAuth.role || 'officer_admin',
-            officerEmail: officerEmail,
-            officerRank: officerRank,
-            issuedAt: Date.now(),
-            expiresAt: rpcAuth.expires_at ? new Date(rpcAuth.expires_at).getTime() : Date.now() + SESSION_MAX_LIFETIME_MS,
-            lastActiveAt: Date.now()
-          };
-
-          if (typeof sessionStorage !== 'undefined') {
-            try {
-              sessionStorage.setItem('bb_admin_session_token', rpcAuth.token);
-              sessionStorage.setItem('bb_admin_session_data', JSON.stringify(_adminSessionData));
-            } catch (_) {}
-          }
-
-          if (typeof sessionSet === 'function') {
-            sessionSet('adminAuthed', true);
-          }
-
-          if (passEl) passEl.value = '';
-
-          var loginBox = document.getElementById('admin-login-box');
-          if (loginBox) loginBox.style.display = 'none';
-
-          var panel = document.getElementById('admin-panel');
-          if (panel) panel.style.display = 'block';
-
-          initAdminDomGuard();
-          backToAdminHome();
-
-          if (typeof logAuditEvent === 'function') {
-            logAuditEvent({
-              action: 'admin.login_success',
-              targetType: 'admin_auth',
-              targetId: officerEmail || 'admin',
-              actorId: officerEmail || 'admin',
-              actorRole: 'officer_admin',
-              details: { rank: officerRank }
-            });
-          }
-          if (typeof renderGallery === 'function') renderGallery();
-          if (typeof renderAnnouncements === 'function') renderAnnouncements();
-          if (typeof loadResources === 'function') loadResources();
-          if (typeof initCalendarModule === 'function') initCalendarModule();
-          return true;
-        } else if (rpcAuth && rpcAuth.success === false) {
-          if (typeof logAuditEvent === 'function') {
-            logAuditEvent({
-              action: 'admin.login_failed',
-              targetType: 'admin_auth',
-              targetId: officerEmail || 'admin',
-              actorId: officerEmail || 'admin',
-              actorRole: 'anonymous',
-              details: { reason: 'invalid_credentials' }
-            });
-          }
+        var result = await verifyAdminPassword(pass);
+        if (request !== _adminLifecycle || identity !== getAdminMemberEmail() || getAdminRole(identity) === 'member') return false;
+        if (result && result.success === false) {
           _adminLoginFailures++;
           if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
-            var lockoutMs = Math.min(
-              BASE_LOCKOUT_MS * Math.pow(2, _adminLoginFailures - MAX_LOGIN_FAILURES),
-              MAX_LOCKOUT_MS
-            );
-            _adminLockoutUntil = Date.now() + lockoutMs;
-            if (typeof showToast === 'function') {
-              showToast('Security Alert: Multiple failed attempts. Locked for ' + Math.round(lockoutMs / 1000) + 's.', 'error');
-            }
-          } else {
-            if (typeof showToast === 'function') {
-              showToast('Wrong password! Attempt ' + _adminLoginFailures + ' of ' + MAX_LOGIN_FAILURES + '.', 'error');
-            }
+            _adminLockoutUntil = Date.now() + Math.min(BASE_LOCKOUT_MS * Math.pow(2, _adminLoginFailures - MAX_LOGIN_FAILURES), MAX_LOCKOUT_MS);
           }
-          logoutAdmin();
+          if (typeof logAuditEvent === 'function') await logAuditEvent({
+            action: 'admin.login_failed', targetType: 'admin_auth', actorId: identity,
+            actorRole: 'anonymous', details: { reason: 'rejected' }
+          });
+          if (typeof showToast === 'function') showToast('Admin sign-in was declined.', 'error');
           return false;
         }
-      } catch (rpcErr) {
-        console.warn('RPC admin login fallback:', rpcErr);
-      }
-    }
-
-    var valid = await verifyAdminPassword(pass);
-    if (!valid) {
-      _adminLoginFailures++;
-      if (_adminLoginFailures >= MAX_LOGIN_FAILURES) {
-        var lockoutMs2 = Math.min(
-          BASE_LOCKOUT_MS * Math.pow(2, _adminLoginFailures - MAX_LOGIN_FAILURES),
-          MAX_LOCKOUT_MS
-        );
-        _adminLockoutUntil = Date.now() + lockoutMs2;
-        if (typeof showToast === 'function') {
-          showToast('Security Alert: Multiple failed attempts. Locked for ' + Math.round(lockoutMs2 / 1000) + 's.', 'error');
+        var expiresAt = Date.parse(result && result.expires_at);
+        if (!result || typeof result.token !== 'string' || !result.token ||
+            !Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('Admin sign-in unavailable.');
+        establishAdminSession(result.token, {
+          role: 'officer_admin',
+          officerEmail: identity,
+          expiresAt: expiresAt,
+          lastActiveAt: Date.now()
+        });
+        if (!await verifyAdminSession() || request !== _adminLifecycle) {
+          revokeAdminSession();
+          return false;
         }
-      } else {
-        if (typeof showToast === 'function') {
-          showToast('Wrong password! Attempt ' + _adminLoginFailures + ' of ' + MAX_LOGIN_FAILURES + '.', 'error');
+        resetAdminLockout();
+        showAuthenticatedAdmin();
+        if (typeof logAuditEvent === 'function') {
+          await logAuditEvent({ action: 'admin.login_success', targetType: 'admin_auth', actorId: identity, actorRole: 'officer_admin' });
         }
+        return true;
+      } catch (_) {
+        if (typeof showToast === 'function') showToast('Admin sign-in is unavailable. Try again when connected.', 'error');
+        return false;
       }
-      logoutAdmin();
-      return false;
+    };
+    try {
+      return await (button && typeof withSmartButtonLock === 'function' ? withSmartButtonLock(button, performLogin) : performLogin());
+    } finally {
+      _adminLoginInFlight = false;
     }
-
-    // 2. Clear failure tracking on success
-    _adminLoginFailures = 0;
-    _adminLockoutUntil = 0;
-
-    // 3. Issue cryptographic HMAC session token
-    await createAdminSessionToken(officerEmail, officerRank);
-
-    if (passEl) passEl.value = '';
-
-    var loginBoxFallback = document.getElementById('admin-login-box');
-    if (loginBoxFallback) loginBoxFallback.style.display = 'none';
-
-    var panelFallback = document.getElementById('admin-panel');
-    if (panelFallback) panelFallback.style.display = 'block';
-
-    initAdminDomGuard();
-    backToAdminHome();
-
-    if (typeof renderGallery === 'function') renderGallery();
-    if (typeof renderAnnouncements === 'function') renderAnnouncements();
-    if (typeof loadResources === 'function') loadResources();
-    if (typeof initCalendarModule === 'function') initCalendarModule();
-    return true;
   }
 
   function setAdminViewMode(mode) {
@@ -2227,6 +1922,7 @@
   }
 
   function backToAdminHome() {
+    if (!verifyAdminSessionSync()) return;
     if (typeof document === 'undefined') return;
     if (typeof resetAdminCalendarDate === 'function') resetAdminCalendarDate();
     closeColumnFilterMenu();
@@ -2252,9 +1948,6 @@
       renderAnnouncements();
     }
 
-    // Scoped Admin UI Filtering
-    var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
-
     // Dynamically inject Super Admin Roles & Permissions button if missing
     var rolesBtn = document.getElementById('sec-btn-roles');
     if (!rolesBtn) {
@@ -2270,7 +1963,6 @@
     }
 
     // Dynamically inject Creator Avatar Outlines button for Jeshua Koh
-    var isCreator = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
     var creatorBtn = document.getElementById('sec-btn-creator-outlines');
     if (!creatorBtn) {
       var calBtnEl = document.getElementById('sec-btn-calendar');
@@ -2287,13 +1979,16 @@
     var visibleCount = 0;
     document.querySelectorAll('.adm-section-btn').forEach(function(b) {
       var secId = b.id.replace('sec-btn-', '');
-      var isVisible = true;
-      if (secId === 'roles') {
-        isVisible = isSuper;
-      } else if (secId === 'creator-outlines' || secId === 'creator_outlines') {
-        isVisible = isCreator;
-      } else if (typeof RBAC !== 'undefined' && typeof RBAC.hasModulePermission === 'function') {
-        isVisible = RBAC.hasModulePermission(secId);
+      var isVisible = hasAdminModuleAccess(secId);
+      if (b.tagName === 'DIV') {
+        b.setAttribute('role', 'button');
+        b.tabIndex = 0;
+        b.onkeydown = function(event) {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            b.click();
+          }
+        };
       }
       b.style.display = isVisible ? 'flex' : 'none';
       if (isVisible) visibleCount++;
@@ -2307,11 +2002,9 @@
 
   function switchAdminSection(section) {
     if (typeof document === 'undefined') return;
+    if (!ADMIN_SECTIONS.includes(section) && !['roles', 'creator_outlines', 'creator-outlines'].includes(section)) return;
     closeColumnFilterMenu();
     closeGlobalPopovers();
-
-    var toolbar = document.querySelector('.adm-toolbar-row');
-    if (toolbar) toolbar.style.display = 'none';
 
     if (!verifyAdminSessionSync()) {
       if (typeof showToast === 'function') showToast('Unauthorized: Valid officer session token required.', 'error');
@@ -2320,8 +2013,8 @@
     }
 
     // Scoped Admin Permission Gate
-    if (typeof RBAC !== 'undefined' && typeof RBAC.hasModulePermission === 'function') {
-      if (!RBAC.hasModulePermission(section)) {
+    {
+      if (!hasAdminModuleAccess(section)) {
         if (typeof showToast === 'function') {
           showToast('Access Denied: You do not have permission to access the ' + section + ' module.', 'error');
         }
@@ -2336,6 +2029,9 @@
         return;
       }
     }
+
+    var toolbar = document.querySelector('.adm-toolbar-row');
+    if (toolbar) toolbar.style.display = 'none';
 
     document.querySelectorAll('.adm-section-btn').forEach(function(b) {
       b.style.display = 'none';
@@ -2353,8 +2049,12 @@
     if (rolesSec && section !== 'roles') rolesSec.style.display = 'none';
     var creatorSec = document.getElementById('adm-section-creator-outlines');
     if (creatorSec && section !== 'creator_outlines' && section !== 'creator-outlines') creatorSec.style.display = 'none';
-    var target = document.getElementById('adm-section-' + section);
-    if (target) target.style.display = 'block';
+    var target = document.getElementById('adm-section-' + section.replace(/_/g, '-'));
+    if (target) {
+      target.style.display = 'block';
+      if (target.setAttribute) target.setAttribute('tabindex', '-1');
+      if (target.focus) target.focus({ preventScroll: true });
+    }
 
     if (section === 'creator_outlines' || section === 'creator-outlines') {
       var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
@@ -2401,7 +2101,6 @@
 
     if (section === 'gallery') {
       if (typeof renderGallery === 'function') renderGallery();
-      if (typeof renderAdminStoryHighlights === 'function') renderAdminStoryHighlights();
     }
 
     if (section === 'attendance') {
@@ -2462,7 +2161,10 @@
     if (isNaN(d.getTime()) || d > new Date()) return null;
     if (typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
       if (d.toISOString().slice(0, 10) !== dob) return null;
-      return new Date().getFullYear() - d.getUTCFullYear();
+      var today = new Date();
+      var years = today.getFullYear() - d.getUTCFullYear();
+      if (today.getMonth() < d.getUTCMonth() || (today.getMonth() === d.getUTCMonth() && today.getDate() < d.getUTCDate())) years--;
+      return years;
     }
     return new Date().getFullYear() - d.getFullYear();
   }
@@ -2601,6 +2303,19 @@
     '</span>';
   }
 
+  function sectionForAdminRank(rank) {
+    rank = String(rank || '');
+    if (rank === 'Pre-Junior') return 'Pre-Junior';
+    if (rank.startsWith('Junior ') || ['Junior', 'Assistance Junior Leader', 'Assistant Junior Leader', 'Chief Junior Leader'].includes(rank)) return 'Junior';
+    if (rank.endsWith(' Year Service') || ['Recruit', 'Private', 'Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant'].includes(rank)) return 'Senior';
+    return RANK_ORDER.includes(rank) ? 'Officer' : '';
+  }
+
+  function validSectionRank(section, rank) {
+    return Boolean(section && RANK_ORDER.includes(rank) &&
+      (sectionForAdminRank(rank) === section || (rank === 'Staff Sergeant' && section === 'Officer')));
+  }
+
   function renderSectionSelectOptions(curSec) {
     var secs = ['Pre-Junior', 'Junior', 'Senior', 'Officer'];
     var cur = (curSec || '').trim().toLowerCase();
@@ -2691,7 +2406,25 @@
   var _adminMembersCacheTime = 0;
   var ADMIN_MEMBERS_CACHE_TTL = 30000;
 
+  async function loadAdminRoster(client, select) {
+    var members = [];
+    var size = 200;
+    for (var offset = 0; ; offset += size) {
+      var page = await client.get('bb_members?select=' + select + '&order=name.asc,ic.asc&limit=' + size + '&offset=' + offset, { cache: false });
+      if (!Array.isArray(page)) throw new Error('Roster unavailable');
+      members.push(...page);
+      if (page.length < size) return members;
+    }
+  }
+
+  function changeAdminRosterPage(delta) {
+    if (!hasAdminModuleAccess('members') || ![-1, 1].includes(delta)) return;
+    _adminRosterPage += delta;
+    return renderAdminList();
+  }
+
   async function renderAdminList(forceRefresh) {
+    if (!hasAdminModuleAccess('members')) return;
     if (typeof document === 'undefined') return;
 
     if (_adminMembersSubView === 'blocked_emails') {
@@ -2699,7 +2432,11 @@
       return;
     }
 
-    var search = ((document.getElementById('admin-search') || {}).value || '').toLowerCase();
+    var request = ++_adminRosterRequest;
+    var search = ((document.getElementById('admin-search') || {}).value || '').trim().toLowerCase();
+    var filterKey = JSON.stringify([search, _adminMemberFilters, _adminSortRules]);
+    if (filterKey !== _adminRosterFilter) _adminRosterPage = 0;
+    _adminRosterFilter = filterKey;
     var list   = document.getElementById('admin-members-list');
     if (!list) return;
 
@@ -2760,11 +2497,12 @@
         members = _adminMembersCache;
       } else {
         try {
-          members = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,verification_status&order=name.asc');
+          members = await loadAdminRoster(client, 'ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,verification_status,parental_consent_signed,media_consent');
         } catch (selectErr) {
-          console.warn('Detailed bb_members query failed, retrying with select all:', selectErr);
-          members = await client.get('bb_members?order=name.asc');
+          if (!/PGRST204|42703|column.*does not exist/i.test(selectErr.message || '')) throw selectErr;
+          members = await loadAdminRoster(client, 'ic,email,name,rank,squad,section,department,date_of_birth,joined_at');
         }
+        if (request !== _adminRosterRequest || !hasAdminModuleAccess('members')) return;
         if (!Array.isArray(members)) members = [];
         _adminMembersCache = members;
         _adminMembersCacheTime = now;
@@ -2800,7 +2538,7 @@
       var activeMembers = members.filter(function(m) {
         if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return false;
         if (deletedSet.has(m.ic)) return false;
-        if (m.department === 'deleted' || m.department === 'archived_deleted') return false;
+        if (!m || !m.ic || ['deleted', 'archived_deleted'].includes(m.department)) return false;
         return true;
       });
 
@@ -2901,15 +2639,17 @@
         return (a.name || '').localeCompare(b.name || '');
       });
 
-      _adminMembers = {};
+      if (request !== _adminRosterRequest || !hasAdminModuleAccess('members')) return;
+      _adminMembers = Object.create(null);
       filtered.forEach(function(m) { _adminMembers[m.ic] = m; });
       if (typeof global !== 'undefined') global._adminMembers = _adminMembers;
       global._adminPresenceMap = _adminPresenceMap;
-      if (typeof localStorage !== 'undefined') {
-        try { localStorage.setItem('bb_members_cache', JSON.stringify(filtered)); } catch (_) {}
-      }
 
-      _lastFilteredMembers = filtered;
+      var lastPage = Math.max(0, Math.ceil(filtered.length / ADMIN_ROSTER_PAGE_SIZE) - 1);
+      _adminRosterPage = Math.max(0, Math.min(_adminRosterPage, lastPage));
+      var firstRow = _adminRosterPage * ADMIN_ROSTER_PAGE_SIZE;
+      var visibleMembers = filtered.slice(firstRow, firstRow + ADMIN_ROSTER_PAGE_SIZE);
+      _lastFilteredMembers = visibleMembers;
 
       // ── TOP OVERVIEW STATS PILLS (IMAGE 5) ──
       var totalUsers = activeMembers.length;
@@ -2993,9 +2733,9 @@
 
       if (_adminMembersViewMode === 'table') {
         var tableRowsHtml = '';
-        var isAllSelected = (filtered.length > 0 && _selectedMemberIcs.size === filtered.length);
+        var isAllSelected = visibleMembers.length > 0 && visibleMembers.every(function(member) { return _selectedMemberIcs.has(member.ic); });
 
-        filtered.forEach(function(m, idx) {
+        visibleMembers.forEach(function(m, idx) {
           var age = calcAge(m.date_of_birth);
           var ageStr = age !== null ? (age + ' years') : '\u2014';
           var dobStr = m.date_of_birth ? m.date_of_birth.slice(0, 10) : '\u2014';
@@ -3044,7 +2784,7 @@
           if (!_adminMemberEditMode) {
             tableRowsHtml += '<tr class="admin-table-row' + (isSel ? ' is-selected' : '') + '" data-ic="' + safeIc + '" data-edit-ic="' + safeIc + '" style="cursor:pointer;">' +
               '<td class="crm-cell-num" style="width:52px;min-width:52px;text-align:center;">' +
-                '<span class="crm-row-index">' + (idx + 1) + '</span>' +
+                '<span class="crm-row-index">' + (firstRow + idx + 1) + '</span>' +
                 '<div class="crm-row-hover-actions">' +
                   '<input type="checkbox" class="adm-row-chk" data-ic="' + safeIc + '" onchange="toggleSelectMemberRow(\'' + safeIc + '\', this.checked)" ' + (isSel ? 'checked' : '') + ' onclick="event.stopPropagation();" />' +
                   '<button type="button" class="adm-row-pencil-btn" onclick="event.stopPropagation();openEditMember(\'' + safeIc + '\');" title="Edit ' + safeName + ' in Side Drawer">' +
@@ -3091,7 +2831,7 @@
             '</tr>';
           } else {
             tableRowsHtml += '<tr class="admin-table-row admin-table-row-editing">' +
-              '<td class="crm-cell-num"><span class="crm-row-index">' + (idx + 1) + '</span></td>' +
+              '<td class="crm-cell-num"><span class="crm-row-index">' + (firstRow + idx + 1) + '</span></td>' +
               '<td style="min-width:180px;">' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                   avatarHtml +
@@ -3165,7 +2905,7 @@
         var lastDept = null;
         var cardRowsHtml = '';
 
-        filtered.forEach(function(m) {
+        visibleMembers.forEach(function(m) {
           var age = calcAge(m.date_of_birth);
           var ageStr = age !== null ? (age + ' years') : '\u2014';
           var isMinor = (typeof isMinorSection === 'function')
@@ -3234,7 +2974,7 @@
               + '<div class="admin-rank-badge">' + ((typeof escapeHtml === 'function') ? escapeHtml(m.rank || '\u2014') : (m.rank || '\u2014')) + '</div>'
               + '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">' + ageStr + '</div>'
             + '</div>'
-            + '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Delete Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:7px 10px;margin-left:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'
+            + '<button class="adm-row-del-btn" data-del-ic="' + safeIc + '" data-del-name="' + ((typeof escapeHtml === 'function') ? escapeHtml(m.name || '') : (m.name || '')) + '" title="Deactivate Member Account" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:8px;padding:7px 10px;margin-left:4px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">'
               + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
             + '</button>'
             + '<div style="color:var(--text-muted);font-size:18px;margin-left:4px;">\u203a</div></div>';
@@ -3243,6 +2983,12 @@
         html = toolbarHtml + editBannerHtml + cardRowsHtml;
       }
 
+      if (lastPage > 0) {
+        html += '<nav class="adm-roster-pagination" aria-label="Roster pages">' +
+          '<button type="button" class="portal-btn" onclick="changeAdminRosterPage(-1)"' + (_adminRosterPage === 0 ? ' disabled' : '') + '>Previous</button>' +
+          '<span>Page ' + (_adminRosterPage + 1) + ' of ' + (lastPage + 1) + '</span>' +
+          '<button type="button" class="portal-btn" onclick="changeAdminRosterPage(1)"' + (_adminRosterPage === lastPage ? ' disabled' : '') + '>Next</button></nav>';
+      }
       list.innerHTML = html;
       updateTopControlsUI();
 
@@ -3262,6 +3008,7 @@
         });
       });
     } catch (e) {
+      if (request !== _adminRosterRequest || !hasAdminModuleAccess('members')) return;
       console.error('renderAdminList error:', e);
       list.innerHTML = '<div class="admin-error-card" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;color:var(--text-secondary);">'
         + '<div style="font-size:24px;margin-bottom:6px;">⚠️</div>'
@@ -3341,6 +3088,7 @@
   }
 
   function openAddMember() {
+    if (!hasAdminModuleAccess('members')) return;
     if (typeof document === 'undefined') return;
     if (!verifyAdminSessionSync()) {
       logoutAdmin();
@@ -3412,6 +3160,7 @@
   }
 
   function openEditMember(ic) {
+    if (!hasAdminModuleAccess('members')) return;
     if (typeof document === 'undefined') return;
     var m = (_adminMembers && _adminMembers[ic]) || { ic: ic };
     // Dynamically inject/update member profile presence card header
@@ -3536,7 +3285,7 @@
           : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
     var editSec = m.att_section || m.section || '';
     var rankInferredSec = (m.rank && typeof secRankFn === 'function') ? secRankFn(m.rank) : '';
-    if (!editSec || (rankInferredSec && editSec !== rankInferredSec)) {
+    if (!editSec) {
       if (rankInferredSec) editSec = rankInferredSec;
     }
     set('em-section', editSec);
@@ -3635,6 +3384,7 @@
   var _isSavingEditMember = false;
 
   async function saveEditMember() {
+    if (!await authorizeAdminMutation('members')) return false;
     if (typeof document === 'undefined') return;
     if (_isSavingEditMember) return;
     var editModal = document.getElementById('edit-member-modal');
@@ -3645,81 +3395,74 @@
       saveBtn.innerHTML = 'Saving...';
     }
     _isSavingEditMember = true;
-    var originalIc = (document.getElementById('em-original-ic') || {}).value || '';
-    var oldName = (editModal && editModal.getAttribute('data-original-name')) || (_adminMembers && _adminMembers[originalIc] && _adminMembers[originalIc].name) || '';
-    var rawIc      = ((document.getElementById('em-ic') || {}).value || '').trim().replace(/\s/g, '');
-    var rawName    = ((document.getElementById('em-name') || {}).value || '').trim();
-    var rawRank    = (document.getElementById('em-rank') || {}).value || '';
-    var rawSquad   = (document.getElementById('em-squad') || {}).value || '';
-    var rawDept    = (document.getElementById('em-dept') || {}).value || '';
-
-    var ic         = (typeof sanitizeInput === 'function') ? sanitizeInput(rawIc, 100) : rawIc;
-    var name       = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 100) : rawName;
-    var rank       = (typeof sanitizeText === 'function') ? sanitizeText(rawRank, 50) : rawRank;
-    var squad      = (typeof sanitizeText === 'function') ? sanitizeText(rawSquad, 50) : rawSquad;
-    var department = (typeof sanitizeText === 'function') ? sanitizeText(rawDept, 50) : rawDept;
-
-    var joinedRaw     = (document.getElementById('em-joined') || {}).value || '';
-    var joined_at     = joinedRaw ? new Date(joinedRaw).toISOString() : null;
-    var dobRaw        = (document.getElementById('em-dob') || {}).value || '';
-    var date_of_birth = dobRaw || null;
-    var rawSec        = ((document.getElementById('em-section') || {}).value || '').trim();
-    var att_section   = (typeof sanitizeText === 'function') ? sanitizeText(rawSec, 50) : rawSec;
-    var secRankFn = (typeof getSectionForRank === 'function')
-      ? getSectionForRank
-      : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
-          ? global.getSectionForRank
-          : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
-    if (!att_section && rank && typeof secRankFn === 'function') {
-      att_section = secRankFn(rank);
-    }
-    var isOfficerSec = (typeof normalizeSection === 'function' ? normalizeSection(att_section) : String(att_section).toLowerCase()) === 'officer';
-    if (isOfficerSec) {
-      squad = '';
-    }
-
-    var rawPName      = ((document.getElementById('em-parent-name') || {}).value || '').trim();
-    var rawPContact   = ((document.getElementById('em-parent-contact') || {}).value || '').trim();
-    var parent_name   = (typeof sanitizeText === 'function') ? sanitizeText(rawPName, 100) : rawPName;
-    var parent_contact= (typeof sanitizeInput === 'function') ? sanitizeInput(rawPContact, 100) : rawPContact;
-
-    var chosenOutlineInput = document.getElementById('em-chosen-outline');
-    if (chosenOutlineInput && typeof saveMemberAvatarOutline === 'function' && typeof isCreatorSession === 'function' && isCreatorSession()) {
-      var outlineToSave = chosenOutlineInput.value;
-      var actorEm = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'jeshuakoh2008@gmail.com';
-      await saveMemberAvatarOutline(ic || originalIc, outlineToSave, actorEm);
-    }
-
-    var pConsentCb    = document.getElementById('em-parent-consent');
-    var parental_consent_signed = pConsentCb ? !!pConsentCb.checked : false;
-
-    var mConsentCb    = document.getElementById('em-media-consent');
-    var media_consent = mConsentCb ? !!mConsentCb.checked : false;
-
-    var emStatusSel   = document.querySelector('#edit-member-modal .em-status-select');
-    var rawStatus     = emStatusSel ? emStatusSel.value : 'not_verified';
-    var verification_status = (rawStatus || 'not_verified').toLowerCase().trim();
-
-    if (!name) {
-      if (typeof showToast === 'function') showToast('Name cannot be empty.', 'warning');
-      return;
-    }
-    if (!ic) {
-      if (typeof showToast === 'function') showToast('Account Email / ID cannot be empty.', 'warning');
-      return;
-    }
-    if (!rank || rank === 'No rank') {
-      if (typeof showToast === 'function') showToast('Please select a valid rank for this member.', 'warning');
-      return;
-    }
-
-    var client = getSupabaseClient();
-    if (!client) {
-      if (typeof showToast === 'function') showToast('Database client unavailable.', 'error');
-      return;
-    }
-
     try {
+      var originalIc = (document.getElementById('em-original-ic') || {}).value || '';
+      var oldName = (editModal && editModal.getAttribute('data-original-name')) || (_adminMembers && _adminMembers[originalIc] && _adminMembers[originalIc].name) || '';
+      var rawIc      = ((document.getElementById('em-ic') || {}).value || '').trim().replace(/\s/g, '');
+      var rawName    = ((document.getElementById('em-name') || {}).value || '').trim();
+      var rawRank    = (document.getElementById('em-rank') || {}).value || '';
+      var rawSquad   = (document.getElementById('em-squad') || {}).value || '';
+      var rawDept    = (document.getElementById('em-dept') || {}).value || '';
+
+      var ic         = (typeof sanitizeInput === 'function') ? sanitizeInput(rawIc, 100) : rawIc;
+      var name       = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 100) : rawName;
+      var rank       = (typeof sanitizeText === 'function') ? sanitizeText(rawRank, 50) : rawRank;
+      var squad      = (typeof sanitizeText === 'function') ? sanitizeText(rawSquad, 50) : rawSquad;
+      var department = (typeof sanitizeText === 'function') ? sanitizeText(rawDept, 50) : rawDept;
+
+      var joinedRaw     = (document.getElementById('em-joined') || {}).value || '';
+      var joined_at     = joinedRaw ? new Date(joinedRaw).toISOString() : null;
+      var dobRaw        = (document.getElementById('em-dob') || {}).value || '';
+      var date_of_birth = dobRaw || null;
+      var rawSec        = ((document.getElementById('em-section') || {}).value || '').trim();
+      var att_section   = (typeof sanitizeText === 'function') ? sanitizeText(rawSec, 50) : rawSec;
+      var secRankFn = (typeof getSectionForRank === 'function')
+        ? getSectionForRank
+        : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
+            ? global.getSectionForRank
+            : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
+      if (!att_section && rank && typeof secRankFn === 'function') {
+        att_section = secRankFn(rank);
+      }
+      var isOfficerSec = (typeof normalizeSection === 'function' ? normalizeSection(att_section) : String(att_section).toLowerCase()) === 'officer';
+      if (isOfficerSec) {
+        squad = '';
+      }
+
+      var rawPName      = ((document.getElementById('em-parent-name') || {}).value || '').trim();
+      var rawPContact   = ((document.getElementById('em-parent-contact') || {}).value || '').trim();
+      var parent_name   = (typeof sanitizeText === 'function') ? sanitizeText(rawPName, 100) : rawPName;
+      var parent_contact= (typeof sanitizeInput === 'function') ? sanitizeInput(rawPContact, 100) : rawPContact;
+
+      var pConsentCb    = document.getElementById('em-parent-consent');
+      var parental_consent_signed = pConsentCb ? !!pConsentCb.checked : false;
+
+      var mConsentCb    = document.getElementById('em-media-consent');
+      var media_consent = mConsentCb ? !!mConsentCb.checked : false;
+
+      var emStatusSel   = document.querySelector('#edit-member-modal .em-status-select');
+      var rawStatus     = emStatusSel ? emStatusSel.value : 'not_verified';
+      var verification_status = (rawStatus || 'not_verified').toLowerCase().trim();
+
+      if (!name) {
+        if (typeof showToast === 'function') showToast('Name cannot be empty.', 'warning');
+        return;
+      }
+      if (!ic || (originalIc ? ic !== originalIc : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ic))) {
+        if (typeof showToast === 'function') showToast('Enter a valid account email. Existing account identifiers are fixed.', 'warning');
+        return;
+      }
+      if (!validSectionRank(att_section, rank) || !VERIFICATION_STATES.includes(verification_status)) {
+        if (typeof showToast === 'function') showToast('Please select a valid rank for this member.', 'warning');
+        return;
+      }
+
+      var client = getSupabaseClient();
+      if (!client) {
+        if (typeof showToast === 'function') showToast('Database client unavailable.', 'error');
+        return;
+      }
+
       var consentTimestamp = parental_consent_signed ? new Date().toISOString() : null;
 
       // Name collision validation: Ensure candidate name does not conflict with another existing member
@@ -3769,24 +3512,13 @@
           return;
         }
 
-        var defaultHash = null;
-        if (typeof hashPassword === 'function') {
-          defaultHash = await hashPassword(ic);
-        } else if (typeof window !== 'undefined' && typeof window.hashPassword === 'function') {
-          defaultHash = await window.hashPassword(ic);
-        } else if (typeof global !== 'undefined' && typeof global.hashPassword === 'function') {
-          defaultHash = await global.hashPassword(ic);
-        }
-        if (!defaultHash) {
-          var safeEncoded = typeof window !== 'undefined' && typeof window.safeBase64Encode === 'function'
-            ? window.safeBase64Encode(ic)
-            : typeof Buffer !== 'undefined'
-              ? Buffer.from(ic, 'utf8').toString('base64')
-              : encodeURIComponent(ic);
-          defaultHash = 'pbkdf2:sha256:100000:legacy:' + safeEncoded;
-        }
+        if (typeof hashPassword !== 'function') throw new Error('Account setup is unavailable.');
+        // New accounts use password reset to establish their first password.
+        var defaultHash = await hashPassword(crypto.randomUUID() + crypto.randomUUID());
         var newPayload = {
           ic: ic,
+          email: ic,
+          section: att_section || null,
           name: name,
           rank: rank,
           squad: squad,
@@ -3806,22 +3538,8 @@
         }
         newPayload.media_consent = media_consent;
 
-        try {
-          await client.post('bb_members', newPayload);
-        } catch (postErr) {
-          // Fallback without extended consent columns
-          await client.post('bb_members', {
-            ic: ic,
-            name: name,
-            rank: rank,
-            squad: squad,
-            department: department,
-            date_of_birth: date_of_birth,
-            password: defaultHash,
-            joined_at: joined_at || new Date().toISOString(),
-            verification_status: verification_status || 'not_verified'
-          });
-        }
+        if (!hasAdminModuleAccess('members')) return false;
+        await client.post('bb_members', newPayload);
 
         try {
           var cfgResNew = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
@@ -3839,11 +3557,11 @@
             targetType: 'member',
             targetId: ic,
             actorRole: 'officer_admin',
-            details: { name: name, rank: rank, squad: squad, department: department, section: att_section }
+            details: { rank: rank, previous_rank: (_adminMembers[originalIc] || {}).rank || null, squad: squad, department: department, section: att_section }
           });
         }
         if (typeof showToast === 'function') {
-          showToast('✅ Member added! Default password is: ' + ic, 'success', 5000);
+          showToast('Member added. Ask them to use password reset to set their password.', 'success', 5000);
         }
       } else {
         var updates = {
@@ -3863,21 +3581,8 @@
         if (parental_consent_signed) updates.parental_consent_date = consentTimestamp;
         updates.media_consent = media_consent;
 
-        try {
-          await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), updates);
-        } catch (patchErr) {
-          var baseUpdates = {
-            name: name,
-            rank: rank,
-            squad: squad,
-            department: department,
-            section: att_section || null,
-            att_section: att_section || null
-          };
-          if (joined_at)     baseUpdates.joined_at     = joined_at;
-          if (date_of_birth) baseUpdates.date_of_birth = date_of_birth;
-          await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), baseUpdates);
-        }
+        if (!hasAdminModuleAccess('members')) return false;
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), updates);
 
         try {
           var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
@@ -3900,6 +3605,13 @@
           });
         }
         if (typeof showToast === 'function') showToast('Member updated!', 'success');
+      }
+
+      var chosenOutlineInput = document.getElementById('em-chosen-outline');
+      if (hasAdminModuleAccess('members') && chosenOutlineInput && typeof saveMemberAvatarOutline === 'function' && typeof isCreatorSession === 'function' && isCreatorSession()) {
+        var outlineToSave = chosenOutlineInput.value;
+        var actorEm = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+        await saveMemberAvatarOutline(ic || originalIc, outlineToSave, actorEm);
       }
 
       // Always persist backup consent audit trail into bb_config
@@ -4092,153 +3804,34 @@
     await deleteMemberAccount(ic, name);
   }
 
+  async function deactivateMemberAccounts(ids) {
+    if (!await authorizeAdminMutation('members')) return false;
+    var client = getSupabaseClient();
+    try {
+      if (!client || await client.rpc('rpc_deactivate_member_accounts', {
+        p_token: _adminSessionToken, p_member_ids: ids
+      }, { maxRetries: 0 }) !== ids.length) throw new Error('Deactivation was not confirmed');
+    } catch (_) {
+      if (typeof showToast === 'function') showToast('Account deactivation was not confirmed. Refresh the roster before retrying.', 'error');
+      return false;
+    }
+    if (typeof cleanMembersCache === 'function') cleanMembersCache();
+    if (global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') global.PortalRealtime.broadcast('blocklist', 'update');
+    if (typeof showToast === 'function') showToast('Deactivated ' + ids.length + ' account(s).', 'success');
+    return true;
+  }
+
   async function deleteMemberAccount(ic, name, e) {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (!ic) return;
-
-    var display = name ? ('member "' + name + '" (' + ic + ')') : ('member account (' + ic + ')');
-    var ok = false;
-    if (typeof showConfirmModal === 'function') {
-      ok = await showConfirmModal(
-        'Are you sure you want to permanently delete ' + display + '? This will delete their account profile and login credentials. This action cannot be undone.',
-        'Delete Member Account'
-      );
-    } else {
-      ok = true;
-    }
-    if (!ok) return;
-
-    // 1. Instant optimistic DOM removal for immediate visual feedback
-    if (typeof document !== 'undefined') {
-      var rowEl = document.querySelector('.admin-row[data-edit-ic="' + ic + '"]');
-      if (rowEl) {
-        rowEl.style.transition = 'all 0.3s ease';
-        rowEl.style.opacity = '0';
-        rowEl.style.transform = 'translateX(20px)';
-        setTimeout(function() {
-          if (rowEl && rowEl.parentNode) rowEl.parentNode.removeChild(rowEl);
-        }, 300);
-      }
-    }
-
-    var client = getSupabaseClient();
-    if (!client) return;
-
-    try {
-      // 2. Add IC to bb_deleted_members in bb_config so they are filtered out immediately
-      try {
-        var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value');
-        var delList = [];
-        if (cfgRes && cfgRes.length && cfgRes[0].value) {
-          try { delList = JSON.parse(cfgRes[0].value); } catch (err) {}
-        }
-        if (!Array.isArray(delList)) delList = [];
-        if (!delList.includes(ic)) delList.push(ic);
-        var archivedIc = 'archived_' + Date.now() + '_' + ic;
-        if (!delList.includes(archivedIc)) delList.push(archivedIc);
-        if (name && !delList.includes(name)) delList.push(name);
-        if (typeof localStorage !== 'undefined') {
-          try { localStorage.setItem('bb_deleted_members', JSON.stringify(delList)); } catch (_) {}
-        }
-
-        try {
-          var consentKey = 'bb_consent_' + ic.replace(/[^a-zA-Z0-9_-]/g, '_');
-          await client.delete('bb_config?key=eq.' + encodeURIComponent(consentKey));
-        } catch (e2) {}
-
-        try {
-          await client.req('POST', 'bb_config?on_conflict=key', {
-            key: 'bb_deleted_members',
-            value: JSON.stringify(delList),
-            updated_at: new Date().toISOString()
-          });
-        } catch (err2) {
-          await client.patch('bb_config?key=eq.bb_deleted_members', {
-            value: JSON.stringify(delList),
-            updated_at: new Date().toISOString()
-          });
-        }
-      } catch (cfgErr) {
-        console.warn('bb_deleted_members update:', cfgErr);
-      }
-
-      // 3. Neutralize account credentials & mark department as deleted
-      // Archive the IC so the original email/IC is immediately freed for future re-registration
-      var archivedIc = 'archived_' + Date.now() + '_' + ic;
-      try {
-        await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), {
-          ic: archivedIc,
-          email: null,
-          department: 'deleted',
-          password: 'DELETED_' + Date.now() + '_' + Math.random().toString(36).substring(2),
-          rank: 'Deleted',
-          squad: null
-        });
-      } catch (patchErr) {
-        console.warn('Account neutralization patch:', patchErr);
-      }
-
-      // 4. Attempt hard delete in Supabase (if RLS delete policy is enabled)
-      try {
-        await client.delete('bb_members?ic=eq.' + encodeURIComponent(ic));
-      } catch (delErr) {}
-      try {
-        await client.delete('bb_members?ic=eq.' + encodeURIComponent(archivedIc));
-      } catch (delErr2) {}
-
-      // 5. Cascade delete member badges
-      try {
-        await client.delete('bb_member_badges?ic=eq.' + encodeURIComponent(ic));
-      } catch (delBadgeErr) {}
-      try {
-        await client.delete('bb_member_badges?ic=eq.' + encodeURIComponent(archivedIc));
-      } catch (delBadgeErr2) {}
-
-      // Purge in-memory and local caches immediately
-      if (typeof cleanMembersCache === 'function') {
-        try { cleanMembersCache(); } catch (_) {}
-      }
-      if (Array.isArray(_adminMembersCache)) {
-        _adminMembersCache = _adminMembersCache.filter(function(m) {
-          return m && m.ic !== ic && m.ic !== archivedIc && m.name !== name;
-        });
-      }
-      if (_adminMembers && typeof _adminMembers === 'object') {
-        delete _adminMembers[ic];
-        delete _adminMembers[archivedIc];
-      }
-
-      // If the deleted account is currently logged in on this browser, revoke access immediately
-      var curIc = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
-      var curEmail = (typeof sessionGet === 'function') ? sessionGet('email') : null;
-      var matchIc = (curIc && String(curIc).toLowerCase().trim() === String(ic).toLowerCase().trim());
-      var matchEmail = (curEmail && String(curEmail).toLowerCase().trim() === String(ic).toLowerCase().trim());
-      if (matchIc || matchEmail) {
-        if (typeof forceKickDeletedAccount === 'function') {
-          forceKickDeletedAccount();
-          return;
-        }
-      }
-
-      if (typeof logAuditEvent === 'function') {
-        logAuditEvent({
-          action: 'member.delete',
-          targetType: 'member',
-          targetId: ic,
-          actorRole: 'officer_admin',
-          details: { name: name || display }
-        });
-      }
-      closeEditMember();
-      await renderAdminList();
-      if (typeof showToast === 'function') {
-        showToast('Account for ' + (name || ic) + ' was permanently deleted.', 'info');
-      }
-    } catch (err) {
-      if (typeof showToast === 'function') {
-        showToast('Failed to delete member: ' + err.message, 'error');
-      }
-    }
+    if (!ic || !await authorizeAdminMutation('members')) return false;
+    if (typeof showConfirmModal === 'function' && !await showConfirmModal(
+      'Remove portal access for ' + (name || 'this member') + '? Their historical records will be retained.',
+      'Deactivate member account'
+    )) return false;
+    if (!await deactivateMemberAccounts([ic])) return false;
+    closeEditMember();
+    await renderAdminList(true);
+    return true;
   }
 
   // ── Admin Tasks Management ────────────────────────────────────────────────
@@ -4269,6 +3862,7 @@
   }
 
   async function saveTask() {
+    if (!await authorizeAdminMutation('tasks')) return false;
     if (typeof document === 'undefined') return;
     var rawTitle = ((document.getElementById('task-title') || {}).value || '').trim();
     var rawDesc  = (typeof reGetValue === 'function') ? reGetValue('task-desc') : '';
@@ -4375,6 +3969,7 @@
   }
 
   async function renderAdminTasks(filter) {
+    if (!hasAdminModuleAccess('tasks')) return;
     if (typeof document === 'undefined') return;
     _adminTaskFilter = filter || 'all';
 
@@ -4470,6 +4065,7 @@
   }
 
   async function updateTaskStatus(id, status) {
+    if (!await authorizeAdminMutation('tasks')) return false;
     var client = getSupabaseClient();
     if (!client || !client.patch) return;
     try {
@@ -4481,6 +4077,7 @@
   }
 
   function editAdminTask(id) {
+    if (!hasAdminModuleAccess('tasks')) return;
     if (typeof document === 'undefined') return;
     var t = _allAdminTasks.find(function(x) { return String(x.id) === String(id); });
     if (!t) return;
@@ -4520,6 +4117,7 @@
   }
 
   async function deleteTask(id) {
+    if (!await authorizeAdminMutation('tasks')) return false;
     var ok = false;
     if (typeof showConfirmModal === 'function') {
       ok = await showConfirmModal('Delete this task?');
@@ -4550,6 +4148,7 @@
 
   // ── Audit Logs Viewer ──────────────────────────────────────────
   async function renderAdminAuditLogs(containerId) {
+    if (!hasAdminModuleAccess('roles')) return;
     if (typeof document === 'undefined') return;
     var el = document.getElementById(containerId || 'admin-audit-logs');
     if (!el) return;
@@ -4584,6 +4183,7 @@
 
   // ── Super Admin Roles & Permissions Management Console ─────────
   async function renderAdminRoles() {
+    if (!hasAdminModuleAccess('roles')) return;
     if (typeof document === 'undefined') return;
     var panel = document.getElementById('admin-panel');
     if (!panel) return;
@@ -4606,8 +4206,7 @@
       } catch (_) {}
     }
 
-    var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
-    if (!isSuper) {
+    if (!hasAdminModuleAccess('roles')) {
       rolesSec.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);"><div style="font-size:32px;margin-bottom:8px;">🔒</div><div style="font-size:16px;font-weight:700;color:var(--text-primary);">Access Denied</div><div>Only Super Admins can manage roles and permissions.</div></div>';
       return;
     }
@@ -4863,6 +4462,7 @@
   }
 
   async function saveMemberRbacPermissions(email, overrideRole) {
+    if (!await authorizeAdminMutation('roles')) return false;
     if (!email) return;
     var row = document.querySelector('.rbac-member-row[data-email="' + email.toLowerCase() + '"]');
     if (!row) return;
@@ -4875,16 +4475,18 @@
       checkedPerms.push(cb.value);
     });
 
-    if (newRole === 'admin' && checkedPerms.length === 0) {
-      row.querySelectorAll('.rbac-mod-checkbox').forEach(function(cb) {
-        cb.checked = true;
-        checkedPerms.push(cb.value);
-      });
-    }
-
     try {
-      if (typeof RBAC !== 'undefined' && typeof RBAC.assignUserRole === 'function') {
-        await RBAC.assignUserRole(email, newRole, checkedPerms);
+      var client = getSupabaseClient();
+      if (client && typeof client.rpc === 'function') {
+        var change = await client.rpc('rpc_set_admin_role', {
+          p_token: getAdminSessionToken(), p_target_email: email, p_role: newRole, p_permissions: checkedPerms
+        });
+        if (!change || change.success !== true) throw new Error('Role update was rejected.');
+        await RBAC.loadRolesConfig(true);
+        if (typeof logAuditEvent === 'function') await logAuditEvent({
+          action: 'admin.role_change', targetType: 'member', targetId: email, actorRole: 'officer_admin',
+          details: { role: newRole, permissions: checkedPerms }
+        });
         row.setAttribute('data-role', newRole);
         if (typeof showToast === 'function') {
           showToast('Updated role to ' + (newRole === 'super_admin' ? 'Super Admin' : (newRole === 'admin' ? 'Admin' : 'Member')) + ' for ' + email, 'success');
@@ -4904,6 +4506,7 @@
 
   // ── Creator Avatar Outlines Studio ───────────────────────────────
   async function renderCreatorAvatarOutlinesStudio() {
+    if (!hasAdminModuleAccess('creator_outlines')) return;
     if (typeof document === 'undefined') return;
 
     var isCreatorUser = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
@@ -5297,10 +4900,11 @@
   }
 
   async function loadBlockedEmails() {
+    if (!hasAdminModuleAccess('members')) return makeBlockedEmailsArray([]);
     var client = getSupabaseClient();
     if (client) {
       try {
-        var res = await client.get('bb_config?key=eq.bb_blocked_emails&select=value');
+        var res = await client.get('bb_config?key=eq.bb_blocked_emails&select=value', { cache: false });
         if (res && res.length && res[0].value) {
           var parsed = typeof res[0].value === 'string' ? JSON.parse(res[0].value) : res[0].value;
           if (Array.isArray(parsed)) {
@@ -5331,35 +4935,30 @@
     return _blockedEmails;
   }
 
-  async function saveBlockedEmails(list) {
-    _blockedEmails = makeBlockedEmailsArray(list);
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('bb_blocked_emails', JSON.stringify(_blockedEmails));
-      }
-    } catch (_) {}
+  var _blockListWrite = false;
 
-    var client = getSupabaseClient();
-    if (client) {
-      try {
-        await client.req('POST', 'bb_config?on_conflict=key', {
-          key: 'bb_blocked_emails',
-          value: JSON.stringify(_blockedEmails),
-          updated_at: new Date().toISOString()
-        });
-      } catch (postErr) {
-        try {
-          await client.patch('bb_config?key=eq.bb_blocked_emails', {
-            value: JSON.stringify(_blockedEmails),
-            updated_at: new Date().toISOString()
-          });
-        } catch (patchErr) {
-          console.warn('saveBlockedEmails db sync note:', patchErr);
-        }
-      }
+  async function saveBlockedEmails(list) {
+    if (!await authorizeAdminMutation('members') || _blockListWrite) return false;
+    _blockListWrite = true;
+    try {
+      var client = getSupabaseClient();
+      if (!client || typeof client.req !== 'function') return false;
+      var next = makeBlockedEmailsArray(list);
+      await client.req('POST', 'bb_config?on_conflict=key', {
+        key: 'bb_blocked_emails', value: JSON.stringify(next), updated_at: new Date().toISOString()
+      });
+      _blockedEmails = next;
+      try { localStorage.setItem('bb_blocked_emails', JSON.stringify(next)); } catch (_) {}
+      updateBlockedEmailsCountBadge();
+      if (global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') global.PortalRealtime.broadcast('blocklist', 'update');
+      if (typeof verifyActiveMemberSession === 'function') verifyActiveMemberSession(true).catch(function() {});
+      return next;
+    } catch (_) {
+      if (typeof showToast === 'function') showToast('The blocklist update could not be saved.', 'error');
+      return false;
+    } finally {
+      _blockListWrite = false;
     }
-    updateBlockedEmailsCountBadge();
-    return _blockedEmails;
   }
 
   function updateBlockedEmailsCountBadge() {
@@ -5368,41 +4967,42 @@
     if (badge) badge.textContent = _blockedEmails.length;
   }
 
-  async function addBlockedEmail(email, reason, blockedBy) {
+  async function addBlockedEmail(email, reason, _blockedBy) {
+    if (!await authorizeAdminMutation('members')) return false;
     var em = String(email || '').trim().toLowerCase();
-    if (!em || em.indexOf('@') === -1) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) {
       if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning');
       return false;
     }
-    if (em === 'jeshuakoh2008@gmail.com') {
-      if (typeof showToast === 'function') showToast('Portal Creator email cannot be blocked.', 'error');
+    if (em === 'jeshuakoh2008@gmail.com' || em === getAdminMemberEmail()) {
+      if (typeof showToast === 'function') showToast('The creator and your active account cannot be blocked here.', 'error');
       return false;
     }
     await loadBlockedEmails();
-    if (_blockedEmails.includes(em)) {
+    if (_blockedEmails.some(function(item) { return item.email === em; })) {
       if (typeof showToast === 'function') showToast('This email is already in the blocklist.', 'warning');
       return false;
     }
 
-    var currentAdmin = 'Admin';
+    var currentAdmin = _adminSessionData.officerEmail;
     if (typeof getAdminSessionData === 'function') {
       var s = getAdminSessionData();
       if (s && (s.name || s.username)) currentAdmin = s.name || s.username;
     }
-    _blockedEmails.push({
+    var nextList = _blockedEmails.concat({
       email: em,
       date: new Date().toISOString().split('T')[0],
       reason: String(reason || '').trim() || 'Account restricted by administrator',
-      blocked_by: blockedBy || currentAdmin
+      blocked_by: currentAdmin
     });
-    await saveBlockedEmails(_blockedEmails);
+    if (!await saveBlockedEmails(nextList)) return false;
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'admin.block_email',
         targetType: 'account',
         targetId: em,
         actorRole: 'officer_admin',
-        details: { reason: String(reason || '').trim(), blocked_by: blockedBy || currentAdmin }
+        details: { reason: String(reason || '').trim(), blocked_by: currentAdmin }
       });
     }
     if (typeof showToast === 'function') showToast('Email ' + em + ' has been blocked.', 'success');
@@ -5411,13 +5011,14 @@
   }
 
   async function removeBlockedEmail(email) {
+    if (!await authorizeAdminMutation('members')) return false;
     var em = String(email || '').trim().toLowerCase();
     await loadBlockedEmails();
-    _blockedEmails = _blockedEmails.filter(function(x) {
+    var remaining = _blockedEmails.filter(function(x) {
       var itmEmail = (x && typeof x === 'object' && x.email) ? String(x.email).toLowerCase().trim() : String(x || '').toLowerCase().trim();
       return itmEmail !== em;
     });
-    await saveBlockedEmails(_blockedEmails);
+    if (!await saveBlockedEmails(remaining)) return false;
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'admin.unblock_email',
@@ -5432,18 +5033,19 @@
   }
 
   async function updateBlockedEmailReason(email, newReason) {
+    if (!await authorizeAdminMutation('members')) return false;
     var em = String(email || '').trim().toLowerCase();
     await loadBlockedEmails();
     var found = false;
-    _blockedEmails.forEach(function(item) {
+    var nextList = _blockedEmails.map(function(item) {
       var itmEmail = (item && typeof item === 'object' && item.email) ? String(item.email).toLowerCase().trim() : String(item || '').toLowerCase().trim();
       if (itmEmail === em) {
-        item.reason = String(newReason || '').trim() || 'Account restricted by administrator';
         found = true;
+        return Object.assign({}, item, { reason: String(newReason || '').trim() || 'Account restricted by administrator' });
       }
+      return item;
     });
-    if (found) {
-      await saveBlockedEmails(_blockedEmails);
+    if (found && await saveBlockedEmails(nextList)) {
       if (typeof logAuditEvent === 'function') {
         logAuditEvent({
           action: 'admin.update_block_reason',
@@ -5541,6 +5143,7 @@
   }
 
   async function openBlockedEmailsModal() {
+    if (!hasAdminModuleAccess('members')) return;
     if (typeof document === 'undefined') return;
     var secEl = document.getElementById('adm-section-members');
     if (secEl && secEl.style.display !== 'none') {
@@ -5644,6 +5247,8 @@
     global.adminLogin               = adminLogin;
     global.verifyAdminSession       = verifyAdminSession;
     global.verifyAdminSessionSync   = verifyAdminSessionSync;
+    global.hasAdminModuleAccess    = hasAdminModuleAccess;
+    global.authorizeAdminMutation = authorizeAdminMutation;
     global.getAdminSessionToken     = getAdminSessionToken;
     global.getAdminSessionData      = getAdminSessionData;
     global.getAdminLockoutStatus    = getAdminLockoutStatus;
@@ -5656,6 +5261,7 @@
     global.calcAge                  = calcAge;
     global.setAdminSort             = setAdminSort;
     global.renderAdminList          = renderAdminList;
+    global.changeAdminRosterPage    = changeAdminRosterPage;
     global.handleAdminSectionChange = handleAdminSectionChange;
     global.handleAdminRankChange    = handleAdminRankChange;
     global.populateSquadOptions     = typeof populateSquadOptions === 'function' ? populateSquadOptions : (typeof window !== 'undefined' ? window.populateSquadOptions : null);
@@ -5748,11 +5354,11 @@
       renderCreatorAvatarOutlinesStudio: renderCreatorAvatarOutlinesStudio,
       closeAdmin: closeAdmin,
       logoutAdmin: logoutAdmin,
-      getAdminPasswordHash: getAdminPasswordHash,
       verifyAdminPassword: verifyAdminPassword,
       adminLogin: adminLogin,
       verifyAdminSession: verifyAdminSession,
       verifyAdminSessionSync: verifyAdminSessionSync,
+      revokeAdminSession: revokeAdminSession,
       getAdminSessionToken: getAdminSessionToken,
       getAdminSessionData: getAdminSessionData,
       getAdminLockoutStatus: getAdminLockoutStatus,
