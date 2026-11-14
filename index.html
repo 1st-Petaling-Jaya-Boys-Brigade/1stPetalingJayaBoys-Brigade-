@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261114a"></script>
+<script src="js/core/theme.js?v=20261114b"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261114a">
-<link rel="stylesheet" href="css/base.css?v=20261114a">
-<link rel="stylesheet" href="css/nav.css?v=20261114a">
-<link rel="stylesheet" href="css/components.css?v=20261114a">
-<link rel="stylesheet" href="css/admin.css?v=20261114a">
+<link rel="stylesheet" href="css/variables.css?v=20261114b">
+<link rel="stylesheet" href="css/base.css?v=20261114b">
+<link rel="stylesheet" href="css/nav.css?v=20261114b">
+<link rel="stylesheet" href="css/components.css?v=20261114b">
+<link rel="stylesheet" href="css/admin.css?v=20261114b">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -182,10 +182,12 @@
     width: 100% !important;
   }
 }
-.hq-carousel-track .hq-card:hover {
-  border-color: var(--accent) !important;
-  transform: translateY(-2px) !important;
-  box-shadow: var(--shadow-elevated) !important;
+@media (hover: hover) {
+  .hq-carousel-track .hq-card:hover {
+    border-color: var(--accent) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--shadow-elevated) !important;
+  }
 }
 /* Floating Arrow Controls (Directional Cursor Hover) */
 .hq-carousel-arrow {
@@ -219,29 +221,26 @@
 .hq-arrow-next {
   right: 8px !important;
 }
-/* Left arrow appears when cursor is on left box / left side */
-.hq-carousel-container.hover-left .hq-arrow-prev {
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  visibility: visible !important;
-  transform: translateY(-50%) scale(1) !important;
-}
-/* Right arrow appears when cursor is on right box / right side */
-.hq-carousel-container.hover-right .hq-arrow-next {
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  visibility: visible !important;
-  transform: translateY(-50%) scale(1) !important;
-}
-.hq-carousel-arrow:hover {
-  background: var(--bg-card-hover) !important;
-  border-color: var(--accent, #eab308) !important;
-  color: var(--accent, #eab308) !important;
-  transform: translateY(-50%) scale(1.1) !important;
-  box-shadow: var(--shadow-elevated) !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  visibility: visible !important;
+@media (hover: hover) {
+  /* Left arrow appears when cursor is on left box / left side */
+  .hq-carousel-container.hover-left .hq-arrow-prev,
+  /* Right arrow appears when cursor is on right box / right side */
+  .hq-carousel-container.hover-right .hq-arrow-next {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    transform: translateY(-50%) scale(1) !important;
+  }
+  .hq-carousel-arrow:hover {
+    background: var(--bg-card-hover) !important;
+    border-color: var(--accent, #eab308) !important;
+    color: var(--accent, #eab308) !important;
+    transform: translateY(-50%) scale(1.1) !important;
+    box-shadow: var(--shadow-elevated) !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+  }
 }
 .hq-carousel-arrow:active {
   transform: translateY(-50%) scale(0.96) !important;
@@ -280,23 +279,41 @@
   opacity: 0.35 !important;
   outline: none !important;
 }
-.hq-dot::after {
-  content: '' !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  min-width: 44px !important;
-  min-height: 44px !important;
-}
-.hq-dot:hover {
-  opacity: 0.75 !important;
+@media (hover: hover) {
+  .hq-dot:hover {
+    opacity: 0.75 !important;
+  }
 }
 .hq-dot.active {
   width: 20px !important;
   border-radius: 4px !important;
   background: var(--accent, #eab308) !important;
   opacity: 1 !important;
+}
+@media (any-pointer: coarse), (max-width: 600px) {
+  .hq-carousel-dots-bar {
+    gap: 0 !important;
+  }
+  .hq-dot,
+  .hq-dot.active {
+    width: var(--min-touch-target) !important;
+    height: var(--min-touch-target) !important;
+    background: transparent !important;
+  }
+  .hq-dot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+    background: var(--text-muted);
+  }
+  .hq-dot.active::before {
+    width: 20px;
+    background: var(--accent);
+  }
 }
 </style>
 <style id="forms-search-critical-css">
@@ -351,9 +368,21 @@
   justify-content: center;
   transition: color 0.15s ease, background 0.15s ease;
 }
-.forms-search-clear:hover {
-  color: var(--accent) !important;
-  background: var(--surface-tint-hover) !important;
+@media (hover: hover) {
+  .forms-search-clear:hover {
+    color: var(--accent) !important;
+    background: var(--surface-tint-hover) !important;
+  }
+}
+@media (any-pointer: coarse), (max-width: 600px) {
+  .forms-search-clear {
+    min-width: var(--min-touch-target);
+    min-height: var(--min-touch-target);
+    right: 0;
+  }
+  .forms-search-input {
+    padding-right: var(--min-touch-target) !important;
+  }
 }
 </style>
 </head>
@@ -2401,7 +2430,7 @@
         </div>
 
         <!-- Uniform Orders Response Availability & Auto-Schedule Modal Overlay -->
-        <div class="uo-schedule-modal-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+        <div class="uo-schedule-modal-overlay" role="dialog" aria-modal="true" aria-label="Uniform Order Availability" onclick="if(event.target===this)closeUniformScheduleModal()" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
           <div class="uo-schedule-box" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:16px;padding:22px;max-width:540px;width:100%;box-shadow:var(--shadow-modal);position:relative;max-height:90vh;overflow-y:auto;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
               <div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">
@@ -2500,7 +2529,7 @@
           </div>
 
           <!-- Add / Edit Product Pop-up Modal Overlay -->
-          <div class="adm-product-modal-overlay" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+          <div class="adm-product-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="prod-form-title" onclick="if(event.target===this)closeProductModal()" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
             <div style="background:var(--bg-card);border-radius:16px;padding:22px;border:1px solid var(--border-card);box-shadow:var(--shadow-modal);max-width:540px;width:100%;max-height:90vh;overflow-y:auto;position:relative;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
                 <div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--gold);display:flex;align-items:center;gap:8px;" id="prod-form-title">
@@ -3432,27 +3461,27 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261114a"></script>
-<script src="js/api/supabase.js?v=20261114a"></script>
-<script src="js/core/session.js?v=20261114a"></script>
-<script src="js/core/rbac.js?v=20261114a"></script>
-<script src="js/core/utils.js?v=20261114a"></script>
-<script src="js/core/ui.js?v=20261114a"></script>
-<script src="js/core/loading.js?v=20261114a"></script>
-<script src="js/modules/member.js?v=20261114a"></script>
-<script src="js/api/sheets.js?v=20261114a"></script>
-<script src="js/modules/attendance.js?v=20261114a"></script>
-<script src="js/modules/announcements.js?v=20261114a"></script>
-<script src="js/modules/gallery.js?v=20261114a"></script>
-<script src="js/modules/resources.js?v=20261114a"></script>
-<script src="js/modules/calendar.js?v=20261114a"></script>
-<script src="js/modules/orders.js?v=20261114a"></script>
-<script src="js/modules/forms.js?v=20261114a"></script>
-<script src="js/modules/badges.js?v=20261114a"></script>
-<script src="js/modules/tasks.js?v=20261114a"></script>
-<script src="js/modules/admin.js?v=20261114a"></script>
-<script src="js/modules/forum.js?v=20261114a"></script>
-<script src="js/modules/arcade.js?v=20261114a"></script>
+<script src="js/config.js?v=20261114b"></script>
+<script src="js/api/supabase.js?v=20261114b"></script>
+<script src="js/core/session.js?v=20261114b"></script>
+<script src="js/core/rbac.js?v=20261114b"></script>
+<script src="js/core/utils.js?v=20261114b"></script>
+<script src="js/core/ui.js?v=20261114b"></script>
+<script src="js/core/loading.js?v=20261114b"></script>
+<script src="js/modules/member.js?v=20261114b"></script>
+<script src="js/api/sheets.js?v=20261114b"></script>
+<script src="js/modules/attendance.js?v=20261114b"></script>
+<script src="js/modules/announcements.js?v=20261114b"></script>
+<script src="js/modules/gallery.js?v=20261114b"></script>
+<script src="js/modules/resources.js?v=20261114b"></script>
+<script src="js/modules/calendar.js?v=20261114b"></script>
+<script src="js/modules/orders.js?v=20261114b"></script>
+<script src="js/modules/forms.js?v=20261114b"></script>
+<script src="js/modules/badges.js?v=20261114b"></script>
+<script src="js/modules/tasks.js?v=20261114b"></script>
+<script src="js/modules/admin.js?v=20261114b"></script>
+<script src="js/modules/forum.js?v=20261114b"></script>
+<script src="js/modules/arcade.js?v=20261114b"></script>
 
 <script>
 

@@ -78,12 +78,16 @@ textarea,
   transition: top 0.2s ease;
 }
 .skip-to-content:focus {
-  top: 16px;
+  top: max(16px, var(--safe-area-top));
+  left: max(16px, var(--safe-area-left));
 }
 
 /* Application Main Landmark */
 .app-main {
   width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -96,11 +100,26 @@ textarea,
   width: 100%;
   max-width: 680px;
   justify-content: center;
-  padding: 20px 16px calc(125px + var(--safe-area-bottom));
-  padding-left: max(16px, var(--safe-area-left));
-  padding-right: max(16px, var(--safe-area-right));
+  padding: 20px max(16px, var(--safe-area-right)) var(--dock-clearance) max(16px, var(--safe-area-left));
   animation: fadeInPage 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   overscroll-behavior-y: contain;
+}
+
+@media (max-width: 1023px) {
+  html {
+    scroll-padding-top: var(--header-height);
+    scroll-padding-bottom: var(--dock-clearance);
+  }
+}
+
+@media (any-pointer: coarse), (max-width: 600px) {
+  :where(.app-main, .admin-overlay, [role='dialog']) :where(
+    button, [role='button'], [role='tab'], input:not([type='checkbox'], [type='radio'], [type='range'], [type='hidden']),
+    select, textarea, a.btn, .submit-btn, .portal-btn
+  ) {
+    min-width: var(--min-touch-target);
+    min-height: var(--min-touch-target);
+  }
 }
 
 @media (min-width: 1024px) {
@@ -301,8 +320,10 @@ textarea,
     border-radius: var(--radius-pill);
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+  @media (hover: hover) {
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
   }
 }
 
