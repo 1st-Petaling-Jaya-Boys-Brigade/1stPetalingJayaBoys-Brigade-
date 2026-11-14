@@ -1122,12 +1122,17 @@ async function getJson(url) {
         const tracker = document.getElementById('presidents-tracker');
         const badgeList = document.getElementById('badges-list');
         const badgeSearch = document.getElementById('badge-search');
+        badgeSearch.value = 'no matching badge fixture';
+        badgeSearch.dispatchEvent(new Event('input', { bubbles: true }));
+        const searchEmpty = document.getElementById('badge-no-results').style.display === 'block';
+        badgeSearch.value = '';
+        badgeSearch.dispatchEvent(new Event('input', { bubbles: true }));
         return {
           gateDisplay: gate ? gate.style.display : null,
           loggedInDisplay: loggedIn ? loggedIn.style.display : null,
           hasTracker: !!tracker,
           trackerHtml: tracker ? tracker.innerHTML : '',
-          hasSearch: !!badgeSearch,
+          searchWorks: searchEmpty && document.getElementById('badge-no-results').style.display === 'none',
           badgeListCount: badgeList ? badgeList.children.length : 0
         };
       })()`,
@@ -1150,7 +1155,8 @@ async function getJson(url) {
       badgesInit.trackerHtml.includes('All Compulsory Awards Received'),
       "President's Award tracker must render criteria checklist"
     );
-    assert.strictEqual(badgesInit.hasSearch, true, 'Badge search input must exist');
+    assert.strictEqual(badgesInit.searchWorks, true, 'Badge search must show an empty state and restore results when cleared');
+    assert.ok(!badgesInit.trackerHtml.includes('<details'), 'The main tracker must omit both extra checklist rows');
     console.log(
       "  ✔ Badges tab renders cleanly with interactive President's Award tracker checklist"
     );
@@ -1653,7 +1659,16 @@ async function getJson(url) {
         }
         const container = document.getElementById('portal-toast-container');
         const closeBtn = toast ? toast.querySelector('.portal-toast-close') : null;
+        const originalNow = Date.now;
+        let duplicate;
+        try {
+          Date.now = () => originalNow() + 2000;
+          duplicate = showToast('Browser test success toast notification', 'success');
+        } finally {
+          Date.now = originalNow;
+        }
         return {
+          suppressedDuplicate: duplicate === null,
           hasContainer: !!container,
           containerAriaLive: container ? container.getAttribute('aria-live') : '',
           hasToast: toast.isConnected,
@@ -1666,6 +1681,7 @@ async function getJson(url) {
       returnByValue: true
     });
     const toastResult = evalToast.result.value;
+    assert.strictEqual(toastResult.suppressedDuplicate, true, 'Identical toasts must not stack while one is still visible');
     assert.strictEqual(
       toastResult.hasContainer,
       true,
@@ -1961,6 +1977,8 @@ async function getJson(url) {
         sessionSet('rank', 'Captain');
         RBAC.renderHeaderRoleBadge();
         anchor.focus();
+        document.querySelectorAll('.portal-toast').forEach(dismissToast);
+        await new Promise(resolve => setTimeout(resolve, 275));
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         layoutObserver.observe({ type: 'layout-shift' });
         await unlockAdmin();
@@ -2820,14 +2838,16 @@ async function getJson(url) {
             problems.push('year view month navigation');
           }
           if (getComputedStyle(dock).display !== 'none') {
-            toggleSidebar();
-            await new Promise(resolve => setTimeout(resolve, 320));
             const drawer = document.querySelector('.sidebar-panel');
+            closeSidebar();
+            toggleSidebar();
+            await frame();
+            await Promise.allSettled(drawer.getAnimations().map(animation => animation.finished));
             const footer = rect(drawer.querySelector('.sidebar-footer'));
             const firstItem = rect(drawer.querySelector('.sidebar-item'));
             if (firstItem.top < 48 || footer.right > viewport - 24 || footer.bottom > innerHeight - 34 ||
                 document.elementFromPoint(rect(dock).left + 3, rect(dock).top + 3)?.closest('#bottom-nav')) {
-              problems.push('drawer safe area or stacking');
+              problems.push('drawer safe area or stacking: ' + JSON.stringify({ top: firstItem.top, right: footer.right, bottom: footer.bottom, height: innerHeight }));
             }
             drawer.parentElement.querySelector('.sidebar-backdrop').click();
             if (drawer.parentElement.classList.contains('open')) problems.push('drawer backdrop dismissal');
