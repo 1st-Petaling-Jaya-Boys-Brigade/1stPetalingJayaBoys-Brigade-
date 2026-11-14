@@ -73,6 +73,9 @@ function createMockElement(tag) {
     getAttribute: function (k) {
       return this._attrs[k] || null;
     },
+    hasAttribute: function (k) {
+      return Object.hasOwn(this._attrs, k);
+    },
     appendChild: function (child) {
       if (child) {
         child.parentNode = this;
@@ -1753,6 +1756,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // 2. Quantity & Cart Calculations
   ordersMod.UNIFORM_ITEMS[0].price = 45;
+  ordersMod.addUniformToCart('shirt', '', 1);
+  assert.strictEqual(ordersMod.uniformCart.length, 0, 'Apparel requires an explicitly selected size');
+  ordersMod.selectSize('shirt', 'M');
+  ordersMod.addUniformToCart('shirt', 'M', 0);
+  assert.strictEqual(ordersMod.uniformCart.length, 0, 'A zero quantity must not add a unit');
   ordersMod.changeQty('shirt', 2);
   assert.strictEqual(ordersMod.itemQtys['shirt'], 2, 'Shirt quantity must be 2');
   let calcTotal = ordersMod.updateTotal();
@@ -1765,6 +1773,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(ordersMod.itemQtys['shirt'], 0, 'Shirt quantity reset to 0');
   calcTotal = ordersMod.updateTotal();
   assert.strictEqual(calcTotal, 0, 'Total resets to 0');
+  const shirt = ordersMod.UNIFORM_ITEMS[0];
+  shirt.stock = 0;
+  assert.strictEqual(ordersMod.stepCardQty('shirt', 1), 0, 'Out-of-stock products cannot be staged');
+  shirt.stock = 2;
+  shirt.price = 19.95;
+  ordersMod.changeQty('shirt', 99);
+  assert.strictEqual(ordersMod.itemQtys.shirt, 2, 'Cart quantity cannot exceed available stock');
+  assert.strictEqual(ordersMod.updateTotal(), 39.90, 'Cart sums integer sen');
+  ordersMod.clearUniformCart();
+  delete shirt.stock;
+  shirt.price = 45;
   console.log('  ✔ changeQty and updateTotal accurately calculate cart values and bounds');
 
   // 3. Size Selection
@@ -1886,14 +1905,64 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // 6. Order Submission
   ordersMod.UNIFORM_ITEMS[0].price = 45;
-  ordersMod.changeQty('shirt', 1);
   ordersMod.selectSize('shirt', 'L');
-  const submittedOrderNum = await ordersMod.submitOrder();
+  ordersMod.changeQty('shirt', 1);
+  let completeCaptcha;
+  const originalCaptcha = global.verifyTurnstileTokenServerSide;
+  global.verifyTurnstileTokenServerSide = () => new Promise(resolve => { completeCaptcha = resolve; });
+  const pendingSubmission = ordersMod.submitOrder();
+  assert.strictEqual(document.getElementById('confirm-btn').disabled, true, 'Checkout is locked during CAPTCHA verification');
+  assert.strictEqual(await ordersMod.submitOrder(), null, 'Double-click cannot start a second submission');
+  completeCaptcha({ success: true, action: 'order' });
+  const submittedOrderNum = await pendingSubmission;
+  global.verifyTurnstileTokenServerSide = originalCaptcha;
+  assert.strictEqual(document.getElementById('confirm-btn').disabled, false);
   assert.ok(
     submittedOrderNum && submittedOrderNum.startsWith('BB-'),
     'Order number must start with BB-'
   );
   assert.strictEqual(lastPosted.path, 'bb_orders', 'Must submit order to bb_orders table');
+  assert.strictEqual(lastPosted.body.total_amount, 45);
+  assert.strictEqual(lastPosted.body.status, 'pending');
+  assert.ok(Array.isArray(JSON.parse(lastPosted.body.items)), 'Checkout writes an array of order lines');
+  assert.ok(!Object.hasOwn(lastPosted.body, 'payment_screenshot'), 'Checkout excludes legacy screenshot fields');
+  const originalOrdersRequest = global.supa.req;
+  const originalOrdersGet = global.supa.get;
+  let savedOrder;
+  let checkoutWrites = 0;
+  try {
+    ordersMod.selectSize('shirt', 'L');
+    ordersMod.changeQty('shirt', 1);
+    global.supa.req = async (method, path, body) => {
+      assert.strictEqual(method, 'POST');
+      assert.strictEqual(path, 'bb_orders');
+      checkoutWrites++;
+      savedOrder = body;
+      throw new Error('Connection dropped after insert');
+    };
+    global.supa.get = async path => path.includes('id=eq.' + savedOrder?.id) ? [savedOrder] : [];
+    const recoveredOrder = await ordersMod.submitOrder();
+    assert.ok(savedOrder, 'Checkout was written before the connection dropped');
+    assert.strictEqual(recoveredOrder, savedOrder.order_number, 'Lost response is reconciled by the original order ID');
+    assert.strictEqual(checkoutWrites, 1, 'A lost response does not cause a second insert');
+
+    let currentStatus = 'paid';
+    let changedPath;
+    global.supa.get = async () => [{ order_number: submittedOrderNum, status: currentStatus, items: [] }];
+    global.supa.req = async (method, path, body) => {
+      assert.strictEqual(method, 'PATCH');
+      changedPath = path;
+      return [body];
+    };
+    assert.strictEqual(await ordersMod.cancelUniformOrder(submittedOrderNum), false, 'A paid order cannot be cancelled by a member');
+    assert.strictEqual(changedPath, undefined);
+    currentStatus = 'pending';
+    assert.strictEqual(await ordersMod.cancelUniformOrder(submittedOrderNum), true, 'A member can cancel a pending order');
+    assert.ok(changedPath.includes('&status=eq.pending') && changedPath.includes('&ic=eq.' + encodeURIComponent(global.sessionGet('ic') || global.sessionGet('email'))));
+  } finally {
+    global.supa.req = originalOrdersRequest;
+    global.supa.get = originalOrdersGet;
+  }
   console.log('  ✔ submitOrder validates items and submits order record with unique order number');
 
   // ── Testing Uniform Order Grid Form & Product Card Redesign ───────
@@ -1988,6 +2057,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // 4. Stepper & Cart Calculations Synchronized with Sticky Summary Bar
   ordersMod.UNIFORM_ITEMS[0].price = 40;
+  ordersMod.selectSize('shirt', 'M');
   ordersMod.changeQty('shirt', 2);
   const stickyTotalEl = document.getElementById('order-total-sticky');
   const itemsCountEl = document.getElementById('checkout-items-count');
@@ -4243,7 +4313,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
 
   // Test missing size rejection on submitOrder
-  ordersMod.changeQty('shirt', 1);
+  ordersMod.itemQtys.shirt = 1;
   const missingSizeSubmitRes = await ordersMod.submitOrder();
   assert.strictEqual(missingSizeSubmitRes, null, 'submitOrder with missing size must return null');
   assert.strictEqual(submitToastMsg, 'Please select a size for BB Uniform Shirt');
@@ -9987,6 +10057,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 4. changeQty Quantity Bounds Protection
     const ordersMod = require('../js/modules/orders.js');
+    ordersMod.UNIFORM_ITEMS.find(item => item.key === 'belt').price = 12;
     ordersMod.changeQty('belt', -10);
     assert.strictEqual(ordersMod.itemQtys['belt'], 0, 'Quantity must never drop below 0');
 
@@ -11965,6 +12036,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(uniformGrid.innerHTML.includes('Name to engrave on tag'), 'Custom prompt rendered on product card');
 
     // Validation: Adding without custom text should fail / warn
+    ordersMod.selectSize('name_tag_custom', 'Standard');
+    ordersMod.stepCardQty('name_tag_custom', 1);
     ordersMod.itemCustomTexts['name_tag_custom'] = '';
     ordersMod.confirmAddToCart('name_tag_custom');
     let cartMatch = ordersMod.uniformCart.find(ci => ci.key === 'name_tag_custom');
