@@ -1896,8 +1896,10 @@ async function getJson(url) {
         const oldRpc = window.supa.rpc;
         let issuedToken = null;
         let issuedEmail = null;
+        let migrationMissing = false;
         window.supa.rpc = async (name, args) => {
           if (name === 'rpc_open_member_admin_session') {
+            if (migrationMissing) throw Object.assign(new Error('Missing RPC'), { code: 'PGRST202' });
             if (args.p_member_token !== 'a'.repeat(64)) return null;
             issuedEmail = sessionGet('email');
             issuedToken = crypto.randomUUID();
@@ -1932,6 +1934,33 @@ async function getJson(url) {
         sessionSet('email', 'jeshuakoh2008@gmail.com');
         sessionSet('rank', 'Captain');
         RBAC.renderHeaderRoleBadge();
+        const oldToast = window.showToast;
+        const oldConfirm = window.showConfirmModal;
+        let deploymentError = '';
+        let confirmCount = 0;
+        window.showToast = message => { deploymentError = message; };
+        window.showConfirmModal = async () => { confirmCount++; return true; };
+        try {
+          migrationMissing = true;
+          await window.openAdmin();
+          if (!deploymentError.includes('database update') || confirmCount !== 0 || !sessionGet('email')) {
+            throw new Error('Missing migration should keep the member signed in and explain the deployment issue');
+          }
+          migrationMissing = false;
+          await window.openAdmin();
+          if (confirmCount !== 1 || document.getElementById('login-email').value !== 'jeshuakoh2008@gmail.com' ||
+              document.activeElement.id !== 'login-pass' || AuthGuard.getRedirectTarget() !== 'admin') {
+            throw new Error('A legacy session should go to regular member sign-in and remember the admin destination');
+          }
+        } finally {
+          window.showToast = oldToast;
+          window.showConfirmModal = oldConfirm;
+        }
+        AuthGuard.clearRedirectTarget();
+        sessionSet('email', 'jeshuakoh2008@gmail.com');
+        sessionSet('rank', 'Captain');
+        RBAC.renderHeaderRoleBadge();
+        anchor.focus();
         await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         layoutObserver.observe({ type: 'layout-shift' });
         await unlockAdmin();
@@ -2103,6 +2132,7 @@ async function getJson(url) {
     });
 
     const adminResult = evalAdminController.result.value;
+    assert.ok(adminResult, JSON.stringify(evalAdminController.exceptionDetails));
     assert.ok(adminResult.visitedSections.every(Boolean), 'All scoped tabs must open');
     assert.strictEqual(adminResult.closeState.wrapped, true, 'Tab wraps within the admin overlay');
     assert.strictEqual(adminResult.closeState.wrappedBack, true, 'Shift+Tab wraps within the admin overlay');

@@ -3748,13 +3748,18 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(await adminModule.updateMemberField('test@pjbb.org', 'rank', 'Captain'), false, 'Roster changes require a verified session');
 
   useAdminFixture();
+  const priorAdminConfirm = global.showConfirmModal;
+  let signInOffers = 0;
+  global.showConfirmModal = async () => { signInOffers++; return false; };
   fixtureMemberSignIn = null;
   adminOverlay.style.display = 'none';
   await adminModule.openAdmin();
   assert.strictEqual(adminOverlay.style.display, 'none', 'An existing profile entry cannot grant access without server proof');
+  assert.strictEqual(signInOffers, 1, 'An older member session offers verification');
   fixtureMemberSignIn = 'rejected-member-proof';
   await adminModule.openAdmin();
   assert.strictEqual(adminOverlay.style.display, 'none', 'Rejected member proof cannot open the console');
+  global.showConfirmModal = priorAdminConfirm;
 
   fixtureMemberSignIn = memberSignInProof;
   await adminModule.openAdmin();
@@ -3777,6 +3782,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(await adminModule.verifyAdminSession(), true);
   const sessionData = adminModule.getAdminSessionData();
   assert.strictEqual(sessionData.officerEmail, fixtureAdminEmail);
+  adminModule.setAdminSessionTokenForTesting(sessionToken, { ...sessionData, lastActiveAt: Date.now() - 3 * 60 * 60 * 1000 });
+  assert.strictEqual(adminModule.verifyAdminSessionSync(), true, 'An idle console remains open while its member sign-in is valid');
+  assert.strictEqual(await adminModule.verifyAdminSession(), true, 'The server still verifies the console after inactivity');
   adminModule.setAdminSessionTokenForTesting('invalid-fixture-token', sessionData);
   assert.strictEqual(await adminModule.verifyAdminSession(), false, 'Server rejects a token it did not issue');
   assert.strictEqual(adminPanel.style.display, 'none', 'Rejected tokens close the admin panel');
@@ -4568,8 +4576,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261114c',
-    'sw.js CACHE_VERSION must be 20261114c'
+    '20261114d',
+    'sw.js CACHE_VERSION must be 20261114d'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4597,7 +4605,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261114c',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261114d',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6131,7 +6139,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(clearRes.failures, 0, 'Failures reset to 0');
     console.log('  ✔ Brute-force rate limiting enforces 15-minute lockout after 5 consecutive failures');
 
-    // 4. Session TTL Expiry (14 days for Remember Me & 60 mins for Admin Inactivity)
+    // 4. Session TTL Expiry (14 days for Remember Me)
     const sessionMod = require('../js/core/session.js');
     assert.strictEqual(sessionMod.REMEMBER_ME_TTL_MS, 14 * 24 * 60 * 60 * 1000, 'Remember Me TTL is exactly 14 days');
     assert.strictEqual(typeof sessionMod.isRememberMeExpired, 'function', 'isRememberMeExpired is defined');
@@ -6142,9 +6150,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const expiredTime = Date.now() - (1000 * 60 * 60 * 24 * 15); // 15 days old
     assert.strictEqual(sessionMod.isRememberMeExpired(expiredTime), true, '15-day-old session is expired');
 
-    const adminMod = require('../js/modules/admin.js');
-    assert.strictEqual(adminMod.SESSION_IDLE_TIMEOUT_MS, 60 * 60 * 1000, 'Officer Admin idle timeout is exactly 60 minutes');
-    console.log('  ✔ 14-day Remember Me session TTL and 60-minute Admin inactivity timeout verified');
+    console.log('  ✔ 14-day Remember Me session TTL verified');
 
     // 5. Sign Out Everywhere functionality
     assert.strictEqual(typeof sessionMod.signOutEverywhere, 'function', 'signOutEverywhere is defined');
@@ -6325,7 +6331,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     AuthGuard.setRedirectTarget('member');
     assert.strictEqual(AuthGuard.getRedirectTarget(), 'attendance', 'AuthGuard ignores member as a redirect target');
     AuthGuard.setRedirectTarget('admin');
-    assert.strictEqual(AuthGuard.getRedirectTarget(), 'attendance', 'AuthGuard ignores admin as a redirect target');
+    assert.strictEqual(AuthGuard.getRedirectTarget(), 'admin', 'Member re-verification can resume at the admin route');
 
     // EnforceRouteProtection routing decisions
     const deniedDecision = AuthGuard.enforceRouteProtection('tasks');
@@ -7437,7 +7443,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261114c'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261114d'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8914,12 +8920,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261114c', 'Service Worker cache version must be 20261114c');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261114d', 'Service Worker cache version must be 20261114d');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261114c and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261114d and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10203,25 +10209,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261114c', 'sw.js CACHE_VERSION must be 20261114c');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261114c', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261114c', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261114d', 'sw.js CACHE_VERSION must be 20261114d');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261114d', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261114d', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261114c cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261114d cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261114c'), 'config.js must use v=20261114c');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261114c'), 'forum.js must use v=20261114c');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261114c'), 'variables.css must use v=20261114c');
-    assert.ok(indexRaw.includes('css/base.css?v=20261114c'), 'base.css must use v=20261114c');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261114c');
+    assert.ok(indexRaw.includes('js/config.js?v=20261114d'), 'config.js must use v=20261114d');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261114d'), 'forum.js must use v=20261114d');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261114d'), 'variables.css must use v=20261114d');
+    assert.ok(indexRaw.includes('css/base.css?v=20261114d'), 'base.css must use v=20261114d');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261114d');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──

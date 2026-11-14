@@ -605,8 +605,7 @@ var AuthGuard = {
   setRedirectTarget: function(route) {
     if (!route) return;
     var cleanRoute = String(route).toLowerCase().trim().replace(/^#/, '');
-    // Do not set 'member' or 'admin' as redirect targets
-    if (cleanRoute === 'member' || cleanRoute === 'admin') return;
+    if (cleanRoute === 'member') return;
     _redirectTarget = cleanRoute;
     try {
       if (typeof sessionStorage !== 'undefined') {
@@ -624,7 +623,7 @@ var AuthGuard = {
     try {
       if (typeof sessionStorage !== 'undefined') {
         var saved = sessionStorage.getItem('bb_redirect_target');
-        if (saved && saved !== 'member' && saved !== 'admin') {
+        if (saved && saved !== 'member') {
           return saved;
         }
       }
