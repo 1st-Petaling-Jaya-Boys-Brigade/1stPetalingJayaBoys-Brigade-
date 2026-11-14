@@ -55,6 +55,33 @@ function getSupa() {
 }
 
 // ── Media Helpers & Link Normalization ─────────────────────────────────────
+function parseGalleryUrl(rawUrl) {
+  try {
+    var url = new URL(rawUrl);
+    if (['https:', 'http:'].includes(url.protocol) && !url.username && !url.password) return url;
+  } catch (_) {}
+  return null;
+}
+
+function galleryMediaSource(url) {
+  var host = url.hostname.toLowerCase();
+  var path = url.pathname.split('/').filter(Boolean);
+  var id;
+  var provider;
+  if (host === 'drive.google.com' || host === 'docs.google.com') {
+    provider = 'drive';
+    id = path[0] === 'file' && path[1] === 'd' ? path[2] : (['open', 'uc', 'thumbnail'].includes(path[0]) ? url.searchParams.get('id') : '');
+  } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com', 'youtu.be'].includes(host)) {
+    provider = 'youtube';
+    id = host === 'youtu.be' ? path[0] : (path[0] === 'watch' ? url.searchParams.get('v') : (['embed', 'shorts', 'live'].includes(path[0]) ? path[1] : ''));
+  } else if (['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'].includes(host)) {
+    provider = 'vimeo';
+    id = path[0] === 'video' ? path[1] : path[0];
+    if (!/^\d+$/.test(id || '')) return null;
+  }
+  return id && /^[a-zA-Z0-9_-]+$/.test(id) ? { provider: provider, id: id } : null;
+}
+
 /**
  * Normalizes media URLs for Google Drive, YouTube, and Vimeo
  * Converts Google Drive sharing links into embeddable / streaming links
@@ -64,32 +91,30 @@ function getSupa() {
  */
 function normalizeMediaUrl(rawUrl, preferType) {
   if (!rawUrl || typeof rawUrl !== 'string') return '';
-  var url = rawUrl.trim();
+  var url = parseGalleryUrl(rawUrl);
+  if (!url) return '';
+  var source = galleryMediaSource(url);
+  if (!source) return rawUrl.trim();
 
   // 1. Google Drive Links
-  var driveMatch = url.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/i);
-  if (driveMatch && driveMatch[1]) {
-    var fileId = driveMatch[1];
+  if (source.provider === 'drive') {
+    var fileId = source.id;
+    var resourceKey = url.searchParams.get('resourcekey');
+    var query = resourceKey ? '?resourcekey=' + encodeURIComponent(resourceKey) : '';
     if (preferType === 'image') {
-      return 'https://lh3.googleusercontent.com/d/' + fileId;
+      return 'https://lh3.googleusercontent.com/d/' + fileId + query;
     }
     // Default or video: return embeddable preview stream
-    return 'https://drive.google.com/file/d/' + fileId + '/preview';
+    return 'https://drive.google.com/file/d/' + fileId + '/preview' + query;
   }
 
   // 2. YouTube Links
-  var ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
-  if (ytMatch && ytMatch[1]) {
-    return 'https://www.youtube-nocookie.com/embed/' + ytMatch[1] + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1';
+  if (source.provider === 'youtube') {
+    return 'https://www.youtube-nocookie.com/embed/' + source.id + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1';
   }
 
   // 3. Vimeo Links
-  var vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?([0-9]+)/i);
-  if (vimeoMatch && vimeoMatch[1]) {
-    return 'https://player.vimeo.com/video/' + vimeoMatch[1] + '?autoplay=1';
-  }
-
-  return url;
+  return 'https://player.vimeo.com/video/' + source.id + '?autoplay=1';
 }
 
 /**
@@ -103,14 +128,15 @@ function isVideoMedia(url, type) {
   if (type === 'video') return true;
   if (type === 'image') return false;
   if (!url || typeof url !== 'string') return false;
-  var clean = url.split('?')[0].toLowerCase();
+  var parsed = parseGalleryUrl(url);
+  if (!parsed) return false;
+  var clean = parsed.pathname.toLowerCase();
   var videoExts = ['.mp4', '.webm', '.mov', '.m4v', '.ogg', '.ogv', '.mkv'];
   for (var i = 0; i < videoExts.length; i++) {
     if (clean.endsWith(videoExts[i])) return true;
   }
-  if (url.indexOf('drive.google.com/file/d/') !== -1 && url.indexOf('/preview') !== -1) return true;
-  if (url.indexOf('youtube.com') !== -1 || url.indexOf('youtu.be') !== -1 || url.indexOf('vimeo.com') !== -1) return true;
-  return false;
+  var source = galleryMediaSource(parsed);
+  return Boolean(source && (source.provider !== 'drive' || clean.endsWith('/preview')));
 }
 
 /**
@@ -122,26 +148,22 @@ function isVideoMedia(url, type) {
  */
 function getGalleryThumbnailUrl(rawUrl, type) {
   if (!rawUrl || typeof rawUrl !== 'string') return '';
-  var url = rawUrl.trim();
+  var url = parseGalleryUrl(rawUrl);
+  if (!url) return '';
+  var source = galleryMediaSource(url);
 
   // 1. Google Drive Links (Photos & Videos both have high-res image thumbnails on lh3.googleusercontent.com)
-  var driveMatch = url.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/i);
-  if (driveMatch && driveMatch[1]) {
-    return 'https://lh3.googleusercontent.com/d/' + driveMatch[1];
+  if (source && source.provider === 'drive') {
+    return normalizeMediaUrl(rawUrl, 'image');
   }
 
   // 2. YouTube Links
-  var ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
-  if (ytMatch && ytMatch[1]) {
-    return 'https://img.youtube.com/vi/' + ytMatch[1] + '/hqdefault.jpg';
+  if (source && source.provider === 'youtube') {
+    return 'https://img.youtube.com/vi/' + source.id + '/hqdefault.jpg';
   }
 
   // 3. Direct Images
-  if (type === 'image' || !isVideoMedia(url, type)) {
-    return normalizeMediaUrl(url, 'image');
-  }
-
-  return url;
+  return type === 'image' ? normalizeMediaUrl(rawUrl, type) : rawUrl.trim();
 }
 
 /**
@@ -384,6 +406,7 @@ async function loadGallery() {
  * @param {HTMLElement} [btn]
  */
 function filterGallery(filter, btn) {
+  if (!['all', 'photos', 'videos'].includes(filter)) return;
   _currentGalleryFilter = filter || 'all';
   if (typeof document !== 'undefined') {
     document.querySelectorAll('.gallery-filter-pill').forEach(function(p) {
@@ -397,6 +420,19 @@ function filterGallery(filter, btn) {
     }
   }
   renderGallery();
+}
+
+function galleryItemIsVideo(item) {
+  return isVideoMedia(typeof item === 'string' ? item : item.url, item.type);
+}
+
+function filteredGalleryItems() {
+  return galleryImages.filter(function(item) {
+    if (!item) return false;
+    if (_currentGalleryFilter === 'photos') return !galleryItemIsVideo(item);
+    if (_currentGalleryFilter === 'videos') return galleryItemIsVideo(item);
+    return true;
+  });
 }
 
 // ── Public & Admin Rendering ───────────────────────────────────────────────
@@ -418,11 +454,7 @@ function renderGallery() {
   renderAdminStoryHighlights();
 
   // Filter items
-  var filtered = galleryImages.filter(function(item) {
-    if (_currentGalleryFilter === 'photos') return !isVideoMedia(item.url, item.type);
-    if (_currentGalleryFilter === 'videos') return isVideoMedia(item.url, item.type);
-    return true;
-  });
+  var filtered = filteredGalleryItems();
 
   if (countBadge) {
     var filterLabel = _currentGalleryFilter === 'photos' ? 'Photos' : (_currentGalleryFilter === 'videos' ? 'Videos' : 'All Media');
@@ -499,7 +531,7 @@ function renderGallery() {
     admHtml += '<div class="gallery-img-wrap">'
       + videoBadgeHtml
       + '<img src="' + safeThumbStr + '" alt="Media ' + (i + 1) + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
-      + '<button type="button" class="del-btn" data-gi="' + i + '" data-gid="' + id + '" title="Delete Media" aria-label="Delete Media">&times;</button>'
+      + '<button type="button" class="del-btn" data-gi="' + galleryImages.indexOf(item) + '" data-gid="' + escapeHtml(id) + '" title="Delete Media" aria-label="Delete Media">&times;</button>'
       + '</div>';
   });
 
@@ -540,6 +572,8 @@ function renderGallery() {
 var _lightboxActiveIdx = 0;
 var _lightboxFiltered = [];
 var _lightboxKeyHandler = null;
+var _lightboxPreviousFocus = null;
+var _lightboxPreviousOverflow = '';
 
 /**
  * Renders or updates the active media content, counter, and filmstrip in the lightbox
@@ -573,9 +607,14 @@ function renderActiveLightboxItem() {
   var wrap = modal.querySelector('#gallery-lb-media-wrap');
   if (wrap) {
     var mediaContentHtml = '';
-    if (isVid) {
-      if (safeUrlStr.indexOf('/preview') !== -1 || safeUrlStr.indexOf('youtube') !== -1 || safeUrlStr.indexOf('vimeo') !== -1) {
-        mediaContentHtml = '<iframe class="gallery-lb-iframe" src="' + safeUrlStr + '" allow="autoplay; fullscreen; encrypted-media"></iframe>';
+    var parsed = validatedUrl && parseGalleryUrl(validatedUrl);
+    var source = parsed && galleryMediaSource(parsed);
+    if (!validatedUrl) {
+      mediaContentHtml = '<p>Media preview unavailable.</p>';
+    } else if (isVid) {
+      if (source) {
+        var referrer = source.provider === 'youtube' ? ' referrerpolicy="strict-origin-when-cross-origin"' : '';
+        mediaContentHtml = '<iframe class="gallery-lb-iframe" title="Video preview" src="' + safeUrlStr + '"' + referrer + ' allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>';
       } else {
         mediaContentHtml = '<video class="gallery-lb-video" src="' + safeUrlStr + '" controls autoplay playsinline></video>';
       }
@@ -593,6 +632,7 @@ function renderActiveLightboxItem() {
   if (track && track.children) {
     for (var i = 0; i < track.children.length; i++) {
       var thumb = track.children[i];
+      thumb.setAttribute('aria-current', String(i === _lightboxActiveIdx));
       if (i === _lightboxActiveIdx) {
         thumb.classList.add('active');
         try {
@@ -643,14 +683,15 @@ function closeGalleryLightbox() {
   var existing = document.getElementById('gallery-lightbox-modal');
   if (existing && existing.parentNode) {
     existing.parentNode.removeChild(existing);
+    document.body.style.overflow = _lightboxPreviousOverflow;
+    if (_lightboxPreviousFocus && typeof _lightboxPreviousFocus.focus === 'function') _lightboxPreviousFocus.focus();
+    _lightboxPreviousFocus = null;
   }
   if (_lightboxKeyHandler) {
     document.removeEventListener('keydown', _lightboxKeyHandler);
     _lightboxKeyHandler = null;
   }
-  try {
-    document.body.style.overflow = '';
-  } catch (_) {}
+  _lightboxFiltered = [];
 }
 
 /**
@@ -662,22 +703,16 @@ function closeGalleryLightbox() {
 function openGalleryLightbox(idx) {
   if (typeof document === 'undefined') return;
 
-  var filtered = galleryImages.filter(function(item) {
-    if (_currentGalleryFilter === 'photos') return !isVideoMedia(item.url, item.type);
-    if (_currentGalleryFilter === 'videos') return isVideoMedia(item.url, item.type);
-    return true;
-  });
+  var filtered = filteredGalleryItems();
 
-  if (!filtered.length) {
-    filtered = galleryImages.slice();
-  }
-  if (!filtered.length) return;
-
-  _lightboxFiltered = filtered;
-  _lightboxActiveIdx = Math.max(0, Math.min(idx, _lightboxFiltered.length - 1));
+  if (!filtered.length || !Number.isInteger(idx) || idx < 0 || idx >= filtered.length) return;
 
   // Remove existing lightbox if present
   closeGalleryLightbox();
+  _lightboxFiltered = filtered;
+  _lightboxActiveIdx = idx;
+  _lightboxPreviousFocus = document.activeElement;
+  _lightboxPreviousOverflow = document.body.style.overflow;
 
   var modal = document.createElement('div');
   modal.id = 'gallery-lightbox-modal';
@@ -744,7 +779,8 @@ function openGalleryLightbox(idx) {
     var validatedThumb = (typeof safeUrl === 'function') ? safeUrl(thumbUrl, '') : thumbUrl;
     var safeThumb = (typeof escapeHtml === 'function') ? escapeHtml(validatedThumb) : validatedThumb;
 
-    var thumbEl = document.createElement('div');
+    var thumbEl = document.createElement('button');
+    thumbEl.type = 'button';
     thumbEl.className = 'gallery-lb-thumb' + (i === _lightboxActiveIdx ? ' active' : '');
     thumbEl.setAttribute('data-idx', String(i));
     thumbEl.title = 'View ' + (isVid ? 'video' : 'photo') + ' ' + (i + 1);
@@ -795,20 +831,17 @@ function openGalleryLightbox(idx) {
   });
 
   // Mobile Swipe Gestures (touch left / right)
-  var touchStartX = 0;
-  var touchStartY = 0;
+  var swipeStart = null;
   stage.addEventListener('touchstart', function(e) {
-    if (e.touches && e.touches.length === 1) {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }
+    swipeStart = e.touches.length === 1 && e.target.tagName !== 'VIDEO' ? e.touches[0] : null;
   }, { passive: true });
+  stage.addEventListener('touchcancel', function() { swipeStart = null; }, { passive: true });
 
   stage.addEventListener('touchend', function(e) {
-    if (e.changedTouches && e.changedTouches.length === 1) {
-      var diffX = e.changedTouches[0].clientX - touchStartX;
-      var diffY = e.changedTouches[0].clientY - touchStartY;
-      if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.3) {
+    if (swipeStart && e.changedTouches.length === 1 && !e.touches.length) {
+      var diffX = e.changedTouches[0].clientX - swipeStart.clientX;
+      var diffY = e.changedTouches[0].clientY - swipeStart.clientY;
+      if (e.changedTouches[0].identifier === swipeStart.identifier && Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.3) {
         if (diffX < 0) {
           nextGallerySlide(); // Swiped left -> next
         } else {
@@ -816,6 +849,7 @@ function openGalleryLightbox(idx) {
         }
       }
     }
+    swipeStart = null;
   }, { passive: true });
 
   // Keyboard navigation
@@ -823,14 +857,19 @@ function openGalleryLightbox(idx) {
     if (e.key === 'Escape') {
       closeGalleryLightbox();
     } else if (e.key === 'ArrowLeft') {
+      if (e.target.tagName === 'VIDEO') return;
+      e.preventDefault();
       prevGallerySlide();
     } else if (e.key === 'ArrowRight') {
+      if (e.target.tagName === 'VIDEO') return;
+      e.preventDefault();
       nextGallerySlide();
     }
   };
   document.addEventListener('keydown', _lightboxKeyHandler);
 
   document.body.appendChild(modal);
+  if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus();
 
   // Render first item
   renderActiveLightboxItem();
@@ -1093,6 +1132,7 @@ async function addGalleryMediaByUrl(explicitUrl, explicitType) {
 async function deleteGalleryImage(idx, rowId) {
   var item = galleryImages[idx];
   if (!item) return;
+  rowId = item.id || rowId;
 
   var confirmed = false;
   var confirmMsg = 'Are you sure you want to delete this media item from the gallery?';
@@ -1102,6 +1142,8 @@ async function deleteGalleryImage(idx, rowId) {
     confirmed = true;
   }
   if (!confirmed) return;
+  idx = galleryImages.indexOf(item);
+  if (idx === -1) return;
 
   var url = item ? (typeof item === 'string' ? item : item.url) : null;
 
@@ -1114,22 +1156,16 @@ async function deleteGalleryImage(idx, rowId) {
     var client = getSupa();
     if (client) {
       if (rowId && client.delete) {
-        await client.delete('bb_gallery?id=eq.' + rowId);
+        await client.delete('bb_gallery?id=eq.' + encodeURIComponent(rowId));
       }
-      var isExternal = url && (
-        url.indexOf('drive.google.com') !== -1 ||
-        url.indexOf('docs.google.com') !== -1 ||
-        url.indexOf('googleusercontent.com') !== -1 ||
-        url.indexOf('youtube.com') !== -1 ||
-        url.indexOf('youtu.be') !== -1 ||
-        url.indexOf('vimeo.com') !== -1 ||
-        url.indexOf('unsplash.com') !== -1 ||
-        url.indexOf('commondatastorage.googleapis.com') !== -1
-      );
-      if (url && !isExternal && client.deleteFile) {
-        var fname = url.split('/').pop();
-        if (fname) {
-          await client.deleteFile('gallery', fname);
+      var parsed = url && parseGalleryUrl(url);
+      var object = parsed && parsed.hostname.endsWith('.supabase.co') && parsed.pathname.match(/^\/storage\/v1\/object\/(?:sign|public|authenticated)\/gallery\/(.+)$/);
+      if (object && client.deleteFile) {
+        try {
+          await client.deleteFile('gallery', decodeURIComponent(object[1]));
+        } catch (_) {
+          if (typeof showToast === 'function') showToast('Media removed from the gallery. Storage cleanup failed.', 'warning');
+          return;
         }
       }
     }
@@ -1139,7 +1175,7 @@ async function deleteGalleryImage(idx, rowId) {
         targetType: 'gallery',
         targetId: rowId ? String(rowId) : (url || 'photo'),
         actorRole: 'officer_admin',
-        details: { url: url }
+        details: { mediaType: item.type || 'image' }
       });
     }
     if (typeof showToast === 'function') {

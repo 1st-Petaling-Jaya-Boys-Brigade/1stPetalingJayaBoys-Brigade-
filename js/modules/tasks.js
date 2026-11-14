@@ -104,6 +104,7 @@ var _taskMap            = {};
 var _deletedTaskIds    = {};
 var _isSubmittingTask   = false;
 var _isDeletingTask     = false;
+var _taskStatusWrites   = new Set();
 
 // Synchronous local memory cache restoration for instant 0ms Projects & Tasks load
 try {
@@ -347,65 +348,60 @@ function switchTaskTab(tab, btn) {
  * @returns {boolean}
  */
 function hasDepartmentRole(memberOrDept, rank) {
-  var dept = '';
-  var rk = rank || '';
-  var sec = '';
-  var explicitMember = false;
+  var explicit = typeof memberOrDept === 'string' || (memberOrDept && typeof memberOrDept === 'object');
+  var profile = typeof memberOrDept === 'string' ? { department: memberOrDept } : memberOrDept;
+  if (!explicit) profile = currentTaskUser();
+  return Boolean(profile && (taskDepartmentKey(profile.department) || isTaskOfficer(profile, rank) ||
+    (!explicit && hasTaskAdminSession())));
+}
 
-  if (memberOrDept && typeof memberOrDept === 'object') {
-    dept = memberOrDept.department || '';
-    rk = memberOrDept.rank || rk;
-    sec = memberOrDept.section || memberOrDept.att_section || '';
-    explicitMember = true;
-  } else if (typeof memberOrDept === 'string') {
-    dept = memberOrDept;
-    explicitMember = true;
+function taskDepartmentKey(value) {
+  var key = String(value || '').toLowerCase().trim();
+  if (['department nco', 'dept nco', 'nco'].includes(key)) return 'department_nco';
+  if (key === 'officer') return 'officers';
+  return Object.hasOwn(DEPT_CONFIG, key) ? key : '';
+}
+
+function currentTaskUser() {
+  if (typeof sessionGet !== 'function' || !(sessionGet('ic') || sessionGet('email'))) return null;
+  return { department: sessionGet('department'), rank: sessionGet('rank'), section: sessionGet('section') };
+}
+
+function isTaskOfficer(profile, rank) {
+  if (!profile) return false;
+  var section = String(profile.att_section || profile.section || '').toLowerCase().trim();
+  return section === 'officer' || ['Officer', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor'].includes(profile.rank || rank);
+}
+
+function hasTaskAdminSession() {
+  try {
+    return typeof verifyAdminSessionSync === 'function' && verifyAdminSessionSync() &&
+      (typeof RBAC === 'undefined' || RBAC.hasModulePermission('tasks'));
+  } catch (_) {
+    return false;
   }
+}
 
-  if (!explicitMember) {
-    if (!dept && typeof sessionGet === 'function') {
-      dept = sessionGet('department') || '';
-    }
-    if (!rk && typeof sessionGet === 'function') {
-      rk = sessionGet('rank') || '';
-    }
-    if (!sec && typeof sessionGet === 'function') {
-      sec = sessionGet('section') || '';
-    }
-  }
+function taskDepartmentForProject(projectName) {
+  var key = taskDepartmentKey(projectName);
+  if (key) return key;
+  var project = _allLoadedTasks.find(function(task) { return getTaskProjectName(task).toLowerCase() === String(projectName || '').toLowerCase(); });
+  var user = currentTaskUser();
+  return taskDepartmentKey(project?.department) || taskDepartmentKey(user?.department) || 'officers';
+}
 
-  // 1. Department Assignment Check (Media, Logistics, Secretariat, HQ, Officers)
-  if (dept) {
-    var dKey = String(dept).toLowerCase().trim();
-    if (
-      dKey === 'department nco' ||
-      dKey === 'dept nco' ||
-      dKey === 'nco' ||
-      dKey === 'secretariat' ||
-      dKey === 'logistics' ||
-      dKey === 'media' ||
-      dKey === 'hq' ||
-      dKey === 'officers' ||
-      dKey === 'officer'
-    ) {
-      return true;
-    }
-  }
-  // 2. Explicit department assignment is required for Projects & Tasks access.
-  // Department 'officers' / 'officer' grants full department access to officers.
+function canManageTaskDepartment(department) {
+  var user = currentTaskUser();
+  if (!user) return false;
+  if (isTaskOfficer(user) || hasTaskAdminSession()) return true;
+  var key = taskDepartmentKey(department);
+  return Boolean(key && taskDepartmentKey(user.department) === key);
+}
 
-  // 3. Officer Admin active session
-  if (!explicitMember) {
-    if (typeof verifyAdminSessionSync === 'function' && verifyAdminSessionSync()) {
-      return true;
-    }
-    if (typeof sessionGet === 'function' && (sessionGet('adminAuthed') === true || sessionGet('isAdmin') === 'true')) {
-      return true;
-    }
-  }
-
-  // Regular members and NCOs without Department NCO role cannot access Projects & Tasks
-  return false;
+function findManagedTask(id) {
+  var task = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id] ||
+    _allLoadedTasks.find(function(row) { return String(row.id) === String(id); });
+  return task && canManageTaskDepartment(task.department) ? task : null;
 }
 
 /**
@@ -444,10 +440,8 @@ function switchTaskSectionView(section) {
   } else {
     // Projects & Tasks section
     if (nd) nd.style.display = 'none';
-    var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
-    var sessionDept = (typeof sessionGet === 'function') ? sessionGet('department') : '';
-    var sessionRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
-    var isAllowed = hasDepartmentRole({ department: sessionDept, rank: sessionRank }, sessionRank);
+    var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : '';
+    var isAllowed = hasDepartmentRole();
 
     if (!ic) {
       if (gate) {
@@ -492,7 +486,7 @@ async function checkTasksAccess() {
   } else if (typeof window !== 'undefined' && typeof window.fetchRemoteMemberPresence === 'function') {
     window.fetchRemoteMemberPresence().catch(function() {});
   }
-  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : '';
   var nd = document.getElementById('tasks-no-dept');
   var gate = document.getElementById('tasks-gate');
   var board = document.getElementById('tasks-board');
@@ -523,7 +517,7 @@ async function checkTasksAccess() {
   var cachedDept = (typeof sessionGet === 'function') ? sessionGet('department') : '';
   var cachedRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
   if (cachedDept || cachedRank) {
-    var fastAllowed = hasDepartmentRole({ department: cachedDept, rank: cachedRank }, cachedRank);
+    var fastAllowed = hasDepartmentRole();
     if (fastAllowed) {
       if (boardPill) boardPill.style.display = 'inline-flex';
       if (snavTasks) snavTasks.style.display = 'flex';
@@ -543,6 +537,7 @@ async function checkTasksAccess() {
   try {
     if (typeof client.get !== 'function') return;
     var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,department,rank,section,att_section,squad');
+    if ((sessionGet('ic') || sessionGet('email')) !== ic) return;
     var m    = data && data[0];
     var dept = m && m.department;
     var rank = (m && m.rank) || (typeof sessionGet === 'function' ? sessionGet('rank') : '');
@@ -554,7 +549,7 @@ async function checkTasksAccess() {
       if (sec && sessionGet('section') !== sec) sessionSet('section', sec, { localOnly: true });
     }
 
-    var isAllowed = hasDepartmentRole(m || { department: dept, rank: rank, section: sec }, rank);
+    var isAllowed = hasDepartmentRole();
 
     if (!isAllowed) {
       if (boardPill) boardPill.style.display = 'none';
@@ -574,13 +569,7 @@ async function checkTasksAccess() {
     if (boardPill) boardPill.style.display = 'inline-flex';
     if (snavTasks) snavTasks.style.display = 'flex';
 
-    var cleanDeptKey = String(dept || '').toLowerCase().trim();
-    if (cleanDeptKey === 'officer') cleanDeptKey = 'officers';
-    var cleanSecKey = String(sec || '').toLowerCase().trim();
-    var isOfficerRankUser = ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer'].indexOf(rank) !== -1;
-    if (!cleanDeptKey && (cleanSecKey === 'officer' || cleanSecKey === 'officers' || isOfficerRankUser)) {
-      cleanDeptKey = 'officers';
-    }
+    var cleanDeptKey = taskDepartmentKey(dept) || 'officers';
 
     if (!cleanDeptKey || !DEPT_CONFIG[cleanDeptKey]) {
       if (boardPill) boardPill.style.display = 'none';
@@ -970,7 +959,10 @@ async function deleteActiveProject() {
  * @param {string} projectName
  */
 async function deleteProject(projectName) {
-  if (!projectName) return;
+  if (!projectName || !hasDepartmentRole()) return;
+  var projectTasks = _allLoadedTasks.filter(function(task) { return getTaskProjectName(task).toLowerCase() === projectName.toLowerCase(); });
+  if (!projectTasks.every(function(task) { return canManageTaskDepartment(task.department); })) return;
+  if (!projectTasks.length && !hasTaskAdminSession() && !isTaskOfficer(currentTaskUser())) return;
   var confirmFn = (typeof showConfirmModal === 'function')
     ? showConfirmModal
     : async function(msg) { return (typeof confirm === 'function') ? confirm(msg) : true; };
@@ -979,69 +971,43 @@ async function deleteProject(projectName) {
     'Are you sure you want to delete project "' + projectName + '" and all its tasks? This action cannot be undone.',
     'Delete Project'
   );
-  if (!confirmed) return;
+  if (!confirmed || !projectTasks.every(function(task) { return canManageTaskDepartment(task.department); })) return;
 
   var lower = projectName.toLowerCase();
-  _companyProjects = _companyProjects.filter(function(p) {
-    return (p || '').toLowerCase() !== lower;
-  });
-
-  var tasksToDelete = _allLoadedTasks.filter(function(t) {
-    return getTaskProjectName(t).toLowerCase() === lower;
-  });
-  var taskIdsToDelete = tasksToDelete.map(function(t) { return t.id; });
-
-  taskIdsToDelete.forEach(function(tid) {
-    _deletedTaskIds[String(tid)] = true;
-    delete _taskMap[tid];
-    if (typeof window !== 'undefined' && window._taskMap) {
-      delete window._taskMap[tid];
-    }
-  });
-
-  _allLoadedTasks = _allLoadedTasks.filter(function(t) {
-    return getTaskProjectName(t).toLowerCase() !== lower;
-  });
-
-  await saveProjectsCatalog();
-  if (typeof logAuditEvent === 'function') {
-    logAuditEvent({
-      action: 'project.delete',
-      targetType: 'project',
-      targetId: projectName,
-      details: { taskCount: taskIdsToDelete.length }
-    });
-  }
-
-  if ((_activeProject || '').toLowerCase() === lower) {
-    _activeProject = '';
-    setTasksViewMode('projects');
-  } else {
-    var container = document.querySelector('.projects-container');
-    if (container) paintProjectsList(container);
-  }
-
-  if (typeof showToast === 'function') {
-    showToast('Project "' + projectName + '" deleted.', 'success');
-  }
-
+  var tasksToDelete = _allLoadedTasks.filter(function(task) { return getTaskProjectName(task).toLowerCase() === lower; });
+  if (!hasDepartmentRole() || !tasksToDelete.every(function(task) { return canManageTaskDepartment(task.department); })) return;
   var client = getSupaClient();
-  if (client && taskIdsToDelete.length) {
-    (async function() {
-      try {
-        var validTaskIds = taskIdsToDelete.filter(function(tid) {
-          return !String(tid).startsWith('temp_');
-        });
-        if (validTaskIds.length) {
-          await Promise.all(validTaskIds.map(function(tid) {
-            return client.delete('bb_tasks?id=eq.' + encodeURIComponent(tid));
-          }));
-        }
-      } catch (err) {
-        console.warn('Failed to delete project tasks from Supabase:', err);
-      }
-    })();
+  if (!client) return;
+  var remoteTasks = tasksToDelete.filter(function(task) { return !String(task.id).startsWith('temp_'); });
+  var deletes = await Promise.allSettled(remoteTasks.map(function(task) {
+    return client.delete('bb_tasks?id=eq.' + encodeURIComponent(task.id));
+  }));
+  var failed = deletes.some(function(result) { return result.status === 'rejected'; });
+  remoteTasks.forEach(function(task, index) {
+    if (deletes[index].status === 'fulfilled') _deletedTaskIds[String(task.id)] = true;
+  });
+  if (!failed) {
+    tasksToDelete.forEach(function(task) { _deletedTaskIds[String(task.id)] = true; });
+    _companyProjects = _companyProjects.filter(function(name) { return name.toLowerCase() !== lower; });
+    await saveProjectsCatalog();
   }
+  _allLoadedTasks = _allLoadedTasks.filter(function(task) {
+    if (!_deletedTaskIds[String(task.id)]) return true;
+    delete _taskMap[task.id];
+    if (typeof window !== 'undefined' && window._taskMap) delete window._taskMap[task.id];
+    return false;
+  });
+  if (failed) {
+    if (typeof showToast === 'function') showToast('Some project tasks could not be deleted. The project is still available.', 'warning');
+    await fetchAllRemoteTasks(true);
+    return;
+  }
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({ action: 'project.delete', targetType: 'project', targetId: projectName, details: { taskCount: tasksToDelete.length } });
+  }
+  if ((_activeProject || '').toLowerCase() === lower) _activeProject = '';
+  setTasksViewMode('projects');
+  if (typeof showToast === 'function') showToast('Project "' + projectName + '" deleted.', 'success');
 }
 
 /**
@@ -1116,6 +1082,7 @@ function resetProjectFilters() {
  * Opens prompt / modal to create a new project
  */
 async function openAddProjectModal() {
+  if (!hasDepartmentRole()) return;
   var name = null;
   if (typeof showPromptModal === 'function') {
     name = await showPromptModal('Create New Project', 'e.g. Officers, Band, Quartermaster', '', {
@@ -1126,7 +1093,7 @@ async function openAddProjectModal() {
   } else if (typeof prompt === 'function') {
     name = prompt('Enter new project name:');
   }
-  if (!name || !name.trim()) return;
+  if (!name || !name.trim() || !hasDepartmentRole()) return;
   var cleanName = (typeof sanitizeText === 'function') ? sanitizeText(name.trim(), 80) : name.trim();
   if (Array.isArray(_allLoadedTasks)) {
     _allLoadedTasks.forEach(function(t) {
@@ -1394,6 +1361,7 @@ function renderColumnsFromTasks(tasksList) {
     }
 
     var cardsHtml = statusItems.map(function(t, idx) {
+      if (!/^[\w-]+$/.test(t.id || '')) return '';
       _taskMap[t.id] = t;
       if (typeof window !== 'undefined') window._taskMap[t.id] = t;
 
@@ -1405,7 +1373,7 @@ function renderColumnsFromTasks(tasksList) {
         projectPillHtml = '<span class="task-card-project-pill">' + safeProj + '</span>';
       }
 
-      var priorityP = (t.priority || 'medium').toLowerCase();
+      var priorityP = ['low', 'medium', 'high'].includes(t.priority) ? t.priority : 'medium';
       var chevronCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
       var priorityChevron = '<span class="task-card-priority-chevron ' + chevronCls + '" title="' + priorityP.toUpperCase() + ' Priority">'
         + getPriorityIconSvg(priorityP, 14)
@@ -1442,7 +1410,7 @@ function renderColumnsFromTasks(tasksList) {
       }
 
       // Modern Task Card Layout (Exact match to Image 3)
-      return '<div class="task-card" draggable="true" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
+      return '<div class="task-card" draggable="' + canManageTaskDepartment(t.department) + '" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
         + '<div class="task-card-id-tag">' + taskId + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
         + metaRowHtml
@@ -1578,6 +1546,7 @@ function renderTasksListView(projectName) {
       html += '<tr class="proj-list-empty-row"><td colspan="6" style="padding:10px 14px;color:var(--text-muted);font-size:12px;font-style:italic;">No tasks in ' + sec.label + '</td></tr>';
     } else {
       secTasks.forEach(function(t, idx) {
+        if (!/^[\w-]+$/.test(t.id || '')) return;
         var tidFormatted = formatTaskId(t, idx);
         var prioIcon = getPriorityIconSvg(t.priority || 'medium', 13);
         var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(t.title || '') : (t.title || '');
@@ -1802,81 +1771,8 @@ function setupKanbanDragAndDrop() {
       var tid = (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '') || _draggedTaskId;
       if (!tid) return;
 
-      var targetStatus = normalizeTaskStatus(col.getAttribute('data-col-status'));
-      var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
-      if (!t) {
-        t = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
-      }
-      if (t && t.status !== targetStatus) {
-        var prevStatus = t.status;
-        t.status = targetStatus;
-        t._justMoved = true;
-        setTimeout(function() { delete t._justMoved; }, 10000);
-        var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
-        if (loaded) {
-          loaded.status = targetStatus;
-          loaded._justMoved = true;
-        }
-
-        // 1. OPTIMISTIC DOM MOVE: 0ms instant transition, zero lag!
-        var cardEl = document.querySelector('.task-card[data-task-id="' + tid + '"], .task-card[data-drag-tid="' + tid + '"]');
-        var targetColBody = getColBody(targetStatus);
-        if (cardEl && targetColBody) {
-          var emptyNotice = targetColBody.querySelector('.task-col-empty, .kanban-empty-state');
-          if (emptyNotice) emptyNotice.remove();
-
-          var addBtn = targetColBody.querySelector('.task-col-add-bottom-btn');
-          if (addBtn) {
-            targetColBody.insertBefore(cardEl, addBtn);
-          } else {
-            targetColBody.appendChild(cardEl);
-            var newAddBtn = document.createElement('button');
-            newAddBtn.type = 'button';
-            newAddBtn.className = 'task-col-add-bottom-btn';
-            newAddBtn.onclick = function() { openCreateTaskModal(targetStatus); };
-            newAddBtn.innerHTML = '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg><span>Add Task</span>';
-            targetColBody.appendChild(newAddBtn);
-          }
-        }
-
-        // If previous column is now empty, render empty state
-        var prevColBody = getColBody(prevStatus);
-        if (prevColBody && !prevColBody.querySelector('.task-card')) {
-          var emptyConf = STATUS_CONFIG[prevStatus] || { label: prevStatus };
-          prevColBody.innerHTML = '<div class="task-col-empty">'
-            + '<div class="task-col-empty-icon">'
-            +   '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m9 12 2 2 4-4"/></svg>'
-            + '</div>'
-            + '<div class="task-col-empty-text">No tasks in ' + emptyConf.label + '</div>'
-            + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + prevStatus + '\')">'
-            +   '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-            +   '<span>Add Task</span>'
-            + '</button>'
-            + '</div>';
-        }
-
-        // 2. OPTIMISTIC COUNTERS: Instant badge update (pure number, no parentheses)
-        STATUS_ORDER.forEach(function(s) {
-          var countBadge = getColCount(s);
-          var tabBadge = getTabCount(s);
-          var cBody = getColBody(s);
-          var count = cBody ? cBody.querySelectorAll('.task-card').length : 0;
-          if (countBadge) countBadge.textContent = String(count);
-          if (tabBadge) tabBadge.textContent = count ? String(count) : '';
-        });
-
-        // 3. BACKGROUND PERSISTENCE
-        var client = getSupaClient();
-        if (client) {
-          (async function() {
-            try {
-              await client.patch('bb_tasks?id=eq.' + tid, { status: targetStatus });
-            } catch (err) {
-              console.warn('Kanban drag sync error:', err);
-            }
-          })();
-        }
-      }
+      var targetStatus = col.getAttribute('data-col-status');
+      memberUpdateTaskStatus(tid, targetStatus, _currentDeptFilter);
     });
   });
 }
@@ -2401,8 +2297,7 @@ function openTaskDetail(id) {
   var cleanDesc = (t.description || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
   var descEl = document.getElementById('tdm-desc');
   if (descEl) {
-    var formattedDesc = formatCommentMentions(cleanDesc);
-    descEl.innerHTML = (typeof sanitizeHtml === 'function') ? sanitizeHtml(formattedDesc) : ((typeof escapeHtml === 'function') ? escapeHtml(formattedDesc) : formattedDesc);
+    descEl.innerHTML = formatTaskDescriptionMentions(cleanDesc);
   }
 
   var modal = document.getElementById('task-detail-modal');
@@ -2431,7 +2326,7 @@ function handleTaskTitleBlur(el) {
 function handleTaskDescBlur(el) {
   if (!_activeDetailTaskId || !el) return;
   var rawHtml = el.innerHTML || el.textContent || '';
-  var formatted = formatCommentMentions(rawHtml);
+  var formatted = formatTaskDescriptionMentions(rawHtml);
   if (formatted !== rawHtml) {
     el.innerHTML = formatted;
   }
@@ -2555,31 +2450,16 @@ function saveTaskComments(taskId, comments) {
   try {
     localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(comments));
   } catch (_) {}
-  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId });
   var client = getSupaClient();
-  if (client) {
-    if (typeof client.req === 'function') {
-      client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }, {
-        headers: { 'Prefer': 'resolution=merge-duplicates' }
-      }).catch(function() {
-        if (typeof client.patch === 'function') {
-          client.patch('bb_config?key=eq.bb_task_comments_' + taskId, { value: JSON.stringify(comments) }).catch(function() {
-            if (typeof client.post === 'function') {
-              client.post('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
-            }
-          });
-        }
-      });
-    } else if (typeof client.upsert === 'function') {
-      client.upsert('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
-    } else if (typeof client.patch === 'function') {
-      client.patch('bb_config?key=eq.bb_task_comments_' + taskId, { value: JSON.stringify(comments) }).catch(function() {
-        if (typeof client.post === 'function') {
-          client.post('bb_config', { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) }).catch(function() {});
-        }
-      });
-    }
-  }
+  if (!client || (typeof client.upsert !== 'function' && typeof client.req !== 'function')) return Promise.resolve(false);
+  var payload = { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) };
+  var save = typeof client.upsert === 'function'
+    ? client.upsert('bb_config', payload, 'key')
+    : client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+  return Promise.resolve(save).then(function() {
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId });
+    return true;
+  }).catch(function() { return false; });
 }
 
 /**
@@ -2656,18 +2536,16 @@ function renderTaskComments(taskId) {
     return;
   }
 
-  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
   var myEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
-  var isSuperAdmin = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin(myEmail) : false;
-  var isAdmin = (typeof RBAC !== 'undefined' && typeof RBAC.isAdmin === 'function') ? RBAC.isAdmin(myEmail) : false;
+  var canModerate = myEmail && hasTaskAdminSession();
 
   var html = '';
   comments.forEach(function(c) {
+    if (!c || !/^[\w-]+$/.test(c.id || '')) return;
     var author = c.author_name || 'Member';
     var email = c.author_email || '';
     var avatarHtml = getAssigneeAvatarHtml(author, email, 30);
     var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(author) : author;
-    var safeText = (typeof escapeHtml === 'function') ? escapeHtml(c.text || '') : (c.text || '');
     var timeStr = 'Just now';
     if (c.created_at) {
       try {
@@ -2678,13 +2556,12 @@ function renderTaskComments(taskId) {
       } catch (_) {}
     }
 
-    var isAuthor = (myEmail && c.author_email && myEmail.toLowerCase() === c.author_email.toLowerCase())
-      || (myName && c.author_name && myName.toLowerCase() === c.author_name.toLowerCase());
+    var isAuthor = ownsTaskComment(c);
     var canEdit = isAuthor;
-    var canDelete = isAuthor || isAdmin || isSuperAdmin;
+    var canDelete = isAuthor || canModerate;
 
     var actionsHtml = '';
-    if (canEdit || canDelete) {
+    if ((canEdit || canDelete) && /^[\w-]+$/.test(tid || '')) {
       actionsHtml = '<div class="tb-comment-actions">'
         + '<button type="button" class="tb-comment-more-btn" onclick="toggleTaskCommentMenu(\'' + c.id + '\', event)" title="Comment options" aria-label="Comment options">'
           + '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>'
@@ -2706,12 +2583,17 @@ function renderTaskComments(taskId) {
           + '<span class="tb-comment-time">' + timeStr + editedHtml + '</span>'
           + actionsHtml
         + '</div>'
-        + '<div class="tb-comment-text" data-comment-id="' + c.id + '">' + formatCommentMentions(safeText) + '</div>'
+        + '<div class="tb-comment-text" data-comment-id="' + _safeCommentMentionToken(c.id) + '">' + formatCommentMentions(c.text || '') + '</div>'
       + '</div>'
       + '</div>';
   });
 
   list.innerHTML = html;
+}
+
+function ownsTaskComment(comment) {
+  var email = typeof sessionGet === 'function' ? sessionGet('email') : '';
+  return Boolean(email && comment && comment.author_email && email.toLowerCase() === comment.author_email.toLowerCase());
 }
 
 /**
@@ -2748,7 +2630,7 @@ function startEditTaskComment(taskId, commentId) {
 
   var comments = getTaskComments(tid);
   var targetComment = comments.find(function(c) { return String(c.id) === String(commentId); });
-  if (!targetComment) return;
+  if (!ownsTaskComment(targetComment) || !/^[\w-]+$/.test(tid) || !/^[\w-]+$/.test(commentId)) return;
 
   var textContainer = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-text[data-comment-id="' + commentId + '"]') : null;
   if (!textContainer) return;
@@ -2799,6 +2681,7 @@ function saveEditTaskComment(taskId, commentId) {
 
   var comments = getTaskComments(tid);
   var targetComment = comments.find(function(c) { return String(c.id) === String(commentId); });
+  if (!ownsTaskComment(targetComment) || updatedText.length > 2000) return;
   if (targetComment) {
     if (targetComment.text !== updatedText) {
       targetComment.text = updatedText;
@@ -2831,6 +2714,8 @@ function cancelEditTaskComment(taskId, _commentId) {
 async function deleteTaskComment(taskId, commentId) {
   var tid = taskId || _activeDetailTaskId;
   if (!tid) return;
+  var comment = getTaskComments(tid).find(function(c) { return String(c.id) === String(commentId); });
+  if (!comment || (!ownsTaskComment(comment) && !hasTaskAdminSession())) return;
 
   // Close menus
   var allMenus = (typeof document !== 'undefined') ? document.querySelectorAll('.tb-comment-dropdown') : [];
@@ -2843,7 +2728,7 @@ async function deleteTaskComment(taskId, commentId) {
       'Delete',
       'Cancel'
     );
-    if (!confirmed) return;
+    if (!confirmed || (!ownsTaskComment(comment) && !hasTaskAdminSession())) return;
   }
 
   var comments = getTaskComments(tid);
@@ -2961,7 +2846,7 @@ var _isSubmittingComment = false;
 /**
  * Handles comment submit on task brief (Image 5)
  */
-function handleTaskCommentSubmit(input) {
+async function handleTaskCommentSubmit(input) {
   if (!input || !input.value.trim() || _isSubmittingComment) return;
   var commentText = input.value.trim();
   if (commentText.length > 2000) {
@@ -2970,47 +2855,48 @@ function handleTaskCommentSubmit(input) {
     }
     return;
   }
-  _isSubmittingComment = true;
-  input.value = '';
-
   var tid = (input && input.dataset && input.dataset.taskId) || (typeof window !== 'undefined' && window._activeDetailTaskId) || (typeof global !== 'undefined' && global._activeDetailTaskId) || _activeDetailTaskId;
-  if (!tid) {
-    _isSubmittingComment = false;
-    return;
-  }
-
+  if (!tid || !findManagedTask(tid)) return;
   var authorName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
   var authorEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  if (!authorEmail) return;
+  _isSubmittingComment = true;
+  var button = input.nextElementSibling;
+  var submit = async function() {
+    input.value = '';
 
-  var newComment = {
-    id: 'cmt_' + Date.now(),
-    task_id: tid,
-    author_name: authorName,
-    author_email: authorEmail,
-    text: commentText,
-    created_at: new Date().toISOString()
+    var newComment = {
+      id: 'cmt_' + crypto.randomUUID(),
+      task_id: tid,
+      author_name: authorName,
+      author_email: authorEmail,
+      text: commentText,
+      created_at: new Date().toISOString()
+    };
+
+    var comments = getTaskComments(tid);
+    comments.push(newComment);
+    var saving = saveTaskComments(tid, comments);
+    renderTaskComments(tid);
+    var saved = await saving;
+
+    // Sync notifications across tasks, ensuring the author is NOT notified
+    if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
+      syncTaskNotifications(_allLoadedTasks);
+    } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function' && typeof window._allLoadedTasks !== 'undefined') {
+      window.syncTaskNotifications(window._allLoadedTasks);
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(saved ? 'Comment posted successfully!' : 'Comment saved on this device. Sync failed.', saved ? 'success' : 'warning', 1500);
+    }
   };
-
-  var comments = getTaskComments(tid);
-  comments.push(newComment);
-  saveTaskComments(tid, comments);
-
-  renderTaskComments(tid);
-
-  // Sync notifications across tasks, ensuring the author is NOT notified
-  if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
-    syncTaskNotifications(_allLoadedTasks);
-  } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function' && typeof window._allLoadedTasks !== 'undefined') {
-    window.syncTaskNotifications(window._allLoadedTasks);
-  }
-
-  if (typeof showToast === 'function') {
-    showToast('Comment posted successfully!', 'success', 1500);
-  }
-
-  setTimeout(function() {
+  try {
+    if (button && typeof withSmartButtonLock === 'function') await withSmartButtonLock(button, submit);
+    else await submit();
+  } finally {
     _isSubmittingComment = false;
-  }, 350);
+  }
 }
 
 /**
@@ -3045,16 +2931,13 @@ function getTaskAttachments(taskId) {
  */
 function saveTaskAttachments(taskId, attachments) {
   var tid = taskId || _activeDetailTaskId;
-  if (!tid) return;
+  if (!tid || !findManagedTask(tid)) return;
   var atts = Array.isArray(attachments) ? attachments : [];
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('bb_task_attachments_' + tid, JSON.stringify(atts));
     }
   } catch (_) {}
-
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
-  if (t) t.attachments = atts;
 
   saveTaskField(tid, 'attachments', atts);
 }
@@ -3182,6 +3065,7 @@ async function openTaskAttachment(taskId, attachmentId) {
  * @param {Event} event
  */
 async function handleTaskAttachmentUpload(event) {
+  if (!findManagedTask(_activeDetailTaskId)) return;
   var files = event && event.target && event.target.files;
   if (!files || !files.length) return;
   var tid = _activeDetailTaskId;
@@ -3267,7 +3151,7 @@ async function handleTaskAttachmentUpload(event) {
  */
 function removeTaskAttachment(taskId, attachmentId) {
   var tid = taskId || _activeDetailTaskId;
-  if (!tid) return;
+  if (!tid || !findManagedTask(tid)) return;
   var attachments = getTaskAttachments(tid);
   var filtered = attachments.filter(function(a) { return String(a.id) !== String(attachmentId); });
   saveTaskAttachments(tid, filtered);
@@ -3643,18 +3527,27 @@ function _safeCommentMentionToken(str) {
  * @returns {string}
  */
 function formatCommentMentions(text) {
-  if (!text) return '';
+  return highlightTaskMentions(String(text || ''), _safeCommentMentionToken);
+}
+
+function formatTaskDescriptionMentions(html) {
+  if (typeof sanitizeHtml !== 'function') return formatCommentMentions(html);
+  return sanitizeHtml(html).split(/(<[^>]+>)/g).map(function(part, index) {
+    return index % 2 ? part : highlightTaskMentions(part, function(value) { return value; });
+  }).join('');
+}
+
+function highlightTaskMentions(text, escapeText) {
   var candidates = getAllMentionCandidateNames();
-  var out = text;
+  var out = escapeText(text);
 
   // 1. Replace known full candidate names (longest first so 3-4 word names match before sub-parts)
   candidates.forEach(function(name) {
     if (!name) return;
-    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
+    var esc = escapeText(name).replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
     var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
     out = out.replace(rx, function(match, prefix, matchedName) {
-      var safe = _safeCommentMentionToken(matchedName);
-      return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
+      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
     });
   });
 
@@ -3707,19 +3600,10 @@ function saveActiveTaskBrief() {
  * Saves a specific field on active task instantly with optimistic update
  */
 async function saveTaskField(id, field, value) {
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id];
-  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
-    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
-  }
-  if (!t) {
-    try {
-      var cached = JSON.parse(localStorage.getItem('bb_cached_tasks') || '[]');
-      if (Array.isArray(cached)) {
-        t = cached.find(function(x) { return String(x.id) === String(id); });
-      }
-    } catch (_) {}
-  }
+  var t = findManagedTask(id);
   if (!t) return;
+  if (!['title', 'description', 'priority', 'due_date', 'estimate', 'project_name', 'attachments', 'status'].includes(field)) return;
+  if (field === 'status') return memberUpdateTaskStatus(id, value);
   var currentVal = t[field];
   if (currentVal === value) return;
   if (typeof currentVal === 'string' && typeof value === 'string' && currentVal.trim() === value.trim()) return;
@@ -3759,8 +3643,7 @@ async function saveTaskField(id, field, value) {
     var patch = {};
     patch[field] = value;
     try {
-      await client.patch('bb_tasks?id=eq.' + id, patch);
-      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
+      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), patch);
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
     } catch (err) {
       console.warn('Background patch error for field ' + field + ':', err);
@@ -3773,7 +3656,7 @@ async function saveTaskField(id, field, value) {
         if (est) extra.push('Estimate: ' + est);
         var updatedDesc = rawDesc + (extra.length ? '\n\n[' + extra.join(' | ') + ']' : '');
         try {
-          await client.patch('bb_tasks?id=eq.' + id, { description: updatedDesc });
+          await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { description: updatedDesc });
         } catch (_) {}
       }
     }
@@ -3809,13 +3692,16 @@ function toggleTaskDetailStatusMenu(e) {
 }
 
 function selectTaskDetailStatus(status) {
-  if (!_activeDetailTaskId) return;
-  saveTaskField(_activeDetailTaskId, 'status', status);
-  var sConf = STATUS_CONFIG[status] || { label: status, color: '#3b82f6' };
-  var statusDot = document.querySelector('.tdm-status-dot');
-  if (statusDot) statusDot.style.background = sConf.color;
-  var statusText = document.querySelector('.tdm-status-text');
-  if (statusText) statusText.textContent = sConf.label;
+  if (!_activeDetailTaskId || !findManagedTask(_activeDetailTaskId) || !STATUS_ORDER.includes(status)) return;
+  var taskId = _activeDetailTaskId;
+  memberUpdateTaskStatus(taskId, status).then(function(updated) {
+    if (!updated || _activeDetailTaskId !== taskId) return;
+    var sConf = STATUS_CONFIG[status];
+    var statusDot = document.querySelector('.tdm-status-dot');
+    if (statusDot) statusDot.style.background = sConf.color;
+    var statusText = document.querySelector('.tdm-status-text');
+    if (statusText) statusText.textContent = sConf.label;
+  });
   var menu = document.querySelector('.tdm-status-dropdown');
   if (menu) menu.style.display = 'none';
 }
@@ -3926,6 +3812,7 @@ async function toggleTaskDetailAssigneeMenu(e) {
 }
 
 async function selectTaskDetailAssignee(ic, name) {
+  if (!findManagedTask(_activeDetailTaskId)) return;
   if (!_activeDetailTaskId) return;
   var tid = _activeDetailTaskId;
   var cleanName = name === 'Unassigned' ? '' : name;
@@ -4001,9 +3888,9 @@ async function selectTaskDetailAssignee(ic, name) {
   var client = getSupaClient();
   if (client) {
     try {
-      await client.patch('bb_tasks?id=eq.' + tid, { assignee_name: cleanName });
+      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(tid), { assignee_name: cleanName });
       if (cleanIc) {
-        try { await client.patch('bb_tasks?id=eq.' + tid, { assignee_ic: cleanIc }); } catch (_) {}
+        try { await client.patch('bb_tasks?id=eq.' + encodeURIComponent(tid), { assignee_ic: cleanIc }); } catch (_) {}
       }
     } catch (err) {
       console.warn('Failed to sync assignee in background:', err);
@@ -4122,7 +4009,7 @@ function closeTaskDetail() {
  * Deletes the active task being viewed in the task brief modal
  */
 async function deleteActiveTask() {
-  if (!_activeDetailTaskId || _isDeletingTask) return;
+  if (!_activeDetailTaskId || _isDeletingTask || !findManagedTask(_activeDetailTaskId)) return;
   var taskId = _activeDetailTaskId;
   _isDeletingTask = true;
   var taskBackup = _taskMap[taskId] || (_allLoadedTasks && _allLoadedTasks.find(function(t) { return String(t.id) === String(taskId); }));
@@ -4134,7 +4021,10 @@ async function deleteActiveTask() {
     'Are you sure you want to delete this task? This action cannot be undone.',
     'Delete Task'
   );
-  if (!confirmed) return;
+  if (!confirmed || !findManagedTask(taskId)) {
+    _isDeletingTask = false;
+    return;
+  }
 
   // 1. Mark in session tombstone map so background queries never resurrect it
   _deletedTaskIds[String(taskId)] = true;
@@ -4172,6 +4062,7 @@ async function deleteActiveTask() {
     try {
       await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskId));
     } catch (err) {
+      _isDeletingTask = false;
       console.error('Failed to delete task from Supabase:', err);
       // Rollback optimistic deletion
       delete _deletedTaskIds[String(taskId)];
@@ -4195,6 +4086,7 @@ async function deleteActiveTask() {
       return;
     }
   }
+  _isDeletingTask = false;
 }
 
 /**
@@ -4203,19 +4095,22 @@ async function deleteActiveTask() {
  * @param {string} status
  * @param {string} dept
  */
-async function memberUpdateTaskStatus(id, status, dept) {
+async function memberUpdateTaskStatus(id, status, _dept) {
+  var task = findManagedTask(id);
+  if (status === 'done') status = 'completed';
+  if (!task || !STATUS_ORDER.includes(status) || normalizeTaskStatus(task.status) === status) return;
   var client = getSupaClient();
-  if (!client) return;
+  if (!client || _taskStatusWrites.has(id)) return;
+  _taskStatusWrites.add(id);
   try {
-    await client.patch('bb_tasks?id=eq.' + id, { status: status });
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
+    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
     if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'task.status_update',
         targetType: 'task',
         targetId: id,
-        details: { status: status, department: dept }
+        details: { status: status, department: task.department }
       });
     }
     // Update local cache
@@ -4229,14 +4124,16 @@ async function memberUpdateTaskStatus(id, status, dept) {
     if (_tasksViewMode === 'mytasks') {
       renderMyTasksView();
     } else {
-      await renderTasksBoard(dept || _currentDeptFilter);
+      if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
+      else renderColumnsFromTasks(_allLoadedTasks);
     }
+    return true;
   } catch (e) {
     if (typeof showToast === 'function') {
       showToast('Failed to update task status.', 'error');
-    } else if (typeof alert === 'function') {
-      alert('Failed to update.');
     }
+  } finally {
+    _taskStatusWrites.delete(id);
   }
 }
 
@@ -4460,11 +4357,8 @@ async function handleCreateTaskSubmit(e) {
   if (!modal) return;
 
   var submitBtn = modal.querySelector('button[type="submit"]');
-  if (submitBtn) submitBtn.disabled = true;
-  _isSubmittingTask = true;
 
   var titleEl    = modal.querySelector('.new-task-title-input');
-  var deptEl     = modal.querySelector('.new-task-dept-input');
   var assEl      = modal.querySelector('.new-task-assignee-input');
   var priorityEl = modal.querySelector('.new-task-priority-input');
   var dueEl      = modal.querySelector('.new-task-due-input');
@@ -4479,18 +4373,6 @@ async function handleCreateTaskSubmit(e) {
     return;
   }
 
-  var matchedDept = 'general';
-  if (projectName) {
-    var prjLower = projectName.toLowerCase().trim();
-    if (DEPT_CONFIG[prjLower]) {
-      matchedDept = prjLower;
-    } else {
-      Object.keys(DEPT_CONFIG).forEach(function(k) {
-        if (DEPT_CONFIG[k].label.toLowerCase() === prjLower) matchedDept = k;
-      });
-    }
-  }
-  var dept = (deptEl && deptEl.value && deptEl.value !== 'logistics') ? deptEl.value : matchedDept;
   var assigneeIc = assEl ? assEl.value : '';
   var assigneeName = (assEl && assEl.selectedIndex >= 0 && assEl.options[assEl.selectedIndex].text) || '';
   if (assigneeName === 'Unassigned') assigneeName = '';
@@ -4502,6 +4384,11 @@ async function handleCreateTaskSubmit(e) {
   var projectName = (projSelEl && projSelEl.style.display !== 'none' && projSelEl.value)
     ? projSelEl.value.trim()
     : (_activeProject || (projEl ? projEl.value.trim() : ''));
+  var dept = taskDepartmentForProject(projectName);
+  if (!canManageTaskDepartment(dept)) {
+    if (typeof showToast === 'function') showToast('You can only add tasks to an authorized department.', 'warning');
+    return;
+  }
   if (!projectName || projectName.toLowerCase() === 'all' || projectName.toLowerCase() === 'all tasks') {
     if (typeof showToast === 'function') {
       showToast('Tasks must belong to a project. Please select or create a project first.', 'warning');
@@ -4511,8 +4398,11 @@ async function handleCreateTaskSubmit(e) {
   }
   var rawDesc = descEl ? (descEl.isContentEditable ? descEl.innerHTML.trim() : descEl.value.trim()) : '';
   var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
-  var targetStatus = modal.getAttribute('data-target-status') || 'todo';
+  var targetStatus = normalizeTaskStatus(modal.getAttribute('data-target-status'));
   var fullDesc = buildTaskDescriptionWithMeta({ project_name: projectName, estimate: estimate }, desc);
+
+  _isSubmittingTask = true;
+  if (submitBtn) submitBtn.disabled = true;
 
   // 1. INSTANT OPTIMISTIC CREATION (< 10ms)
   var tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -4573,7 +4463,6 @@ async function handleCreateTaskSubmit(e) {
 
   if (typeof showToast === 'function') {
     showToast('Task created!', 'success', 1500);
-  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'create', localTask);
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'create', localTask);
   }
 
@@ -4738,6 +4627,7 @@ async function loadAssigneeOptions() {
  * Saves a new task or updates an existing task from Admin panel
  */
 async function saveTask() {
+  if (!hasTaskAdminSession()) return;
   if (typeof document === 'undefined') return;
   var rawTitle = ((document.getElementById('task-title') || {}).value || '').trim();
   var rawDesc  = (typeof reGetValue === 'function') ? (reGetValue('task-desc') || '') : '';
@@ -4792,7 +4682,7 @@ async function saveTask() {
   if (!client) return;
   try {
     if (editId) {
-      await client.patch('bb_tasks?id=eq.' + editId, payload);
+      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(editId), payload);
       if (typeof showToast === 'function') showToast('Task updated successfully!', 'success');
       else if (typeof alert === 'function') alert('\u2705 Task updated!');
       if (typeof logAuditEvent === 'function') {
@@ -4875,6 +4765,7 @@ async function renderAdminTasks(filter) {
 
     var html = '';
     _allAdminTasks.forEach(function(t) {
+      if (!t || !/^[\w-]+$/.test(t.id || '')) return;
       var dept = DEPT_CONFIG[t.department] || { label: t.department || '', cls: '' };
       var pc   = t.priority === 'high' ? 'high' : t.priority === 'low' ? 'low' : 'medium';
 
@@ -4894,7 +4785,7 @@ async function renderAdminTasks(filter) {
         + '<span class="dept-badge ' + dept.cls + '" style="font-size:10px;flex-shrink:0;">' + (typeof escapeHtml === 'function' ? escapeHtml(dept.label) : dept.label) + '</span></div>'
         + descFormatted
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">'
-        + '<span class="task-pill ' + pc + '">' + (t.priority || 'medium') + '</span>'
+        + '<span class="task-pill ' + pc + '">' + pc + '</span>'
         + (t.assignee_name ? '<span style="font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:3px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>' + (typeof escapeHtml === 'function' ? escapeHtml(t.assignee_name) : t.assignee_name) + '</span>' : '')
         + (t.due_date ? '<span style="font-size:11px;color:var(--text-secondary);display:inline-flex;align-items:center;gap:3px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>' + new Date(t.due_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) + '</span>' : '')
         + '</div>'
@@ -4934,10 +4825,11 @@ async function renderAdminTasks(filter) {
  * @param {string} status
  */
 async function updateTaskStatus(id, status) {
+  if (!hasTaskAdminSession() || !STATUS_ORDER.includes(status)) return;
   var client = getSupaClient();
   if (!client) return;
   try {
-    await client.patch('bb_tasks?id=eq.' + id, { status: status });
+    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'task.status_update',
@@ -5003,6 +4895,7 @@ function editAdminTask(id) {
  * @param {string} id
  */
 async function deleteTask(id) {
+  if (!hasTaskAdminSession()) return;
   var ok = (typeof showConfirmModal === 'function')
     ? await showConfirmModal('Delete this task?')
     : (typeof confirm === 'function' ? confirm('Delete this task?') : true);
@@ -5017,8 +4910,7 @@ async function deleteTask(id) {
     if (typeof window !== 'undefined' && window._taskMap) {
       delete window._taskMap[id];
     }
-    await client.delete('bb_tasks?id=eq.' + id);
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'delete', { id: id });
+    await client.delete('bb_tasks?id=eq.' + encodeURIComponent(id));
     if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'delete', { id: id });
     renderAdminTasks(_adminTaskFilter);
     if (typeof logAuditEvent === 'function') {
