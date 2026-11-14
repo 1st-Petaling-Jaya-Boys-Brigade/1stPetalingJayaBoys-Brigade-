@@ -81,10 +81,16 @@
     type = ['info', 'success', 'error', 'warning'].includes(type) ? type : 'info';
     duration = Number.isFinite(duration) ? Math.max(0, Math.min(duration, 30000)) : 3500;
 
-    // Prevent duplicate rapid-fire identical toasts
+    // Prevent identical toasts from stacking or repeatedly entering the queue.
     var text = safeEscapeHtml(message).trim();
     if (!text) return null;
     var dedupKey = type + ':' + text;
+    var container = document.getElementById('portal-toast-container');
+    var visibleToasts = container ? Array.from(container.children) : [];
+    if (visibleToasts.some(function(toast) { return toast._dedupKey === dedupKey; }) ||
+        pendingToasts.some(function(entry) { return entry.toast._dedupKey === dedupKey; })) {
+      return null;
+    }
     var now = Date.now();
     if (_lastToastMap.has(dedupKey) && now - _lastToastMap.get(dedupKey) < 1200) {
       return null;
@@ -94,6 +100,7 @@
     if (_lastToastMap.size > 64) _lastToastMap.delete(_lastToastMap.keys().next().value);
 
     var toast = document.createElement('div');
+    toast._dedupKey = dedupKey;
     toast.className = 'portal-toast portal-toast-' + type;
     toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
 

@@ -1478,18 +1478,6 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
   saved = saved || {};
   var defs = _badgeDefsCache || (await getBadgeDefs());
   var res = evaluatePresidentsCriteria(saved, defs);
-  var founders = evaluateFoundersCriteria(saved, defs);
-  var customRequirements = await getPresidentsReqs();
-  var customChecklist = customRequirements.map(function(req) {
-    if (!req || !req.badgeMatch) return '';
-    var match = String(req.badgeMatch).trim().toLowerCase();
-    var badge = defs.find(function(item) {
-      return String(item.id).toLowerCase() === match || String(item.name).toLowerCase() === match;
-    }) || defs.find(function(item) { return String(item.name).toLowerCase().includes(match); });
-    var entry = safeMigrateEntry(badge && saved[badge.id]);
-    var done = req.tier === 'advanced' ? entry.advanced : entry.basic || entry.advanced;
-    return '<li><strong>' + (done ? 'Complete' : 'Pending') + '</strong> · ' + escapeHtml(req.label || req.badgeMatch) + '</li>';
-  }).join('');
 
   var statusBadgeHtml = res.overallEligible
     ? '<span class="presidents-status-pill eligible"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Eligible for President\'s Award</span>'
@@ -1567,13 +1555,6 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
       '<div class="presidents-reqs-grid">' +
         reqsHtml +
       '</div>' +
-      (customChecklist ? '<details style="margin-top:14px;"><summary>Company President\'s Award checklist</summary><ul>' + customChecklist + '</ul></details>' : '') +
-      '<details style="margin-top:14px;"><summary>Founder\'s Award (' + founders.metCount + ' of ' + founders.reqs.length + ' completed)</summary><ul>' +
-        founders.reqs.map(function(req) {
-          return '<li><strong>' + (req.done ? 'Complete' : 'Pending') + '</strong> · ' + escapeHtml(req.label) +
-            ' <span style="color:var(--text-secondary);">' + escapeHtml(req.detail) + '</span></li>';
-        }).join('') +
-      '</ul></details>' +
     '</div>';
 
   container.style.display = 'block';
