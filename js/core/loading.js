@@ -203,10 +203,10 @@
       ? (typeof document !== 'undefined' ? document.querySelector(options.container) : null)
       : options.container;
 
-    var showDelayMs = options.showDelayMs || SHOW_DELAY_MS;
-    var minDisplayMs = options.minDisplayMs || MIN_DISPLAY_MS;
-    var longWaitMs = options.longWaitMs || LONG_WAIT_THRESHOLD_MS;
-    var timeoutMs = options.timeoutMs || TIMEOUT_MS;
+    var showDelayMs = options.showDelayMs ?? SHOW_DELAY_MS;
+    var minDisplayMs = options.minDisplayMs ?? MIN_DISPLAY_MS;
+    var longWaitMs = options.longWaitMs ?? LONG_WAIT_THRESHOLD_MS;
+    var timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
     var srLabel = options.srLabel || 'Loading content...';
 
     var showTimer = null;
@@ -215,6 +215,19 @@
     var isShown = false;
     var shownAt = 0;
     var isCancelled = false;
+    var placeholder = null;
+    var cancelActive = null;
+    var run = 0;
+    var originalBusy = container?.getAttribute?.('aria-busy');
+    var originalLabel = container?.getAttribute?.('aria-label');
+
+    function restoreAria() {
+      if (!container) return;
+      if (originalBusy == null) container.removeAttribute('aria-busy');
+      else container.setAttribute('aria-busy', originalBusy);
+      if (originalLabel == null) container.removeAttribute('aria-label');
+      else container.setAttribute('aria-label', originalLabel);
+    }
 
     function cleanupTimers() {
       if (showTimer) { clearTimeout(showTimer); showTimer = null; }
@@ -240,6 +253,7 @@
           skeletonHtml +
           '<div id="smart-loader-hint-' + shownAt + '" class="smart-loader-hint-slot"></div>' +
         '</div>';
+      placeholder = container.firstElementChild;
     }
 
     function showLongWaitNotice(retryFn) {
@@ -266,8 +280,7 @@
 
     function showTimeoutError(err, retryFn) {
       if (isCancelled || !container) return;
-      container.removeAttribute('aria-busy');
-      container.removeAttribute('aria-label');
+      restoreAria();
 
       if (typeof options.renderError === 'function') {
         container.innerHTML = options.renderError(err, retryFn);
@@ -304,10 +317,16 @@
        * @returns {Promise<any>}
        */
       execute: async function(asyncFn, retryFn) {
+        if (cancelActive) cancelActive();
+        var currentRun = ++run;
         isCancelled = false;
         isShown = false;
         shownAt = 0;
         cleanupTimers();
+        var abort = new AbortController();
+        var cancelled = new Promise(function(resolve) {
+          cancelActive = function() { resolve(undefined); abort.abort(); };
+        });
 
         // 1. SHOW_DELAY_MS timer: only display skeleton if operation takes >= 200ms
         showTimer = setTimeout(function() {
@@ -325,11 +344,13 @@
             var timeoutErr = new Error('Request timed out. Please check your network and try again.');
             timeoutErr.isTimeout = true;
             reject(timeoutErr);
+            abort.abort();
           }, timeoutMs);
         });
 
         try {
-          var result = await Promise.race([asyncFn(), timeoutPromise]);
+          var result = await Promise.race([Promise.resolve().then(function() { return asyncFn(abort.signal); }), timeoutPromise, cancelled]);
+          if (currentRun !== run) return result;
           cleanupTimers();
 
           // 4. MIN_DISPLAY_MS enforcement: If skeleton was shown, keep visible for at least 400ms
@@ -342,33 +363,32 @@
             }
           }
 
-          if (container) {
-            container.removeAttribute('aria-busy');
-            container.removeAttribute('aria-label');
-          }
+          if (currentRun === run) restoreAria();
 
           return result;
         } catch (err) {
+          if (currentRun !== run) throw err;
           cleanupTimers();
           if (err && err.isTimeout) {
             showTimeoutError(err, retryFn);
           } else {
-            if (container) {
-              container.removeAttribute('aria-busy');
-              container.removeAttribute('aria-label');
-            }
+            restoreAria();
           }
           throw err;
+        } finally {
+          if (currentRun === run) cancelActive = null;
         }
       },
 
       cancel: function() {
         isCancelled = true;
+        run++;
+        if (cancelActive) cancelActive();
+        cancelActive = null;
         cleanupTimers();
-        if (container) {
-          container.removeAttribute('aria-busy');
-          container.removeAttribute('aria-label');
-        }
+        if (placeholder && placeholder.parentNode === container) placeholder.remove();
+        placeholder = null;
+        restoreAria();
       }
     };
   }
@@ -379,55 +399,73 @@
 
   /**
    * Sets localized loading state on an individual button:
-   *   - Locks explicit min-width so button never shrinks/resizes (Zero CLS)
+   *   - Locks the button dimensions and overlays delayed loading feedback
    *   - Disables button and marks aria-disabled / aria-busy
    *   - Injects compact 14px spinner with .sr-only accessible text
-   *   - On restore, reinstates exact original markup and width
+   *   - On restore, reinstates the previous dimensions and disabled state
    *
    * @param {HTMLElement} btn
    * @param {boolean} isLoading
    * @param {string} [loadingText] e.g. 'Submitting...'
    * @param {string} [srLabel] e.g. 'Submitting uniform order...'
    */
+  var buttonLoading = new WeakMap();
+
   function setButtonLoading(btn, isLoading, loadingText, srLabel) {
     if (!btn) return;
+    var state = buttonLoading.get(btn);
 
-    if (isLoading) {
-      if (!btn.hasAttribute('data-loading-orig-html')) {
-        btn.setAttribute('data-loading-orig-html', btn.innerHTML);
-      }
-
-      // Lock current width to guarantee Zero Layout Shift (CLS = 0)
-      var currentWidth = btn.offsetWidth;
-      if (currentWidth > 0 && !btn.style.minWidth) {
-        btn.style.minWidth = currentWidth + 'px';
-      }
-
-      btn.disabled = true;
-      btn.setAttribute('aria-disabled', 'true');
-      btn.setAttribute('aria-busy', 'true');
-      btn.classList.add('btn-loading');
-
-      var label = loadingText || 'Processing...';
-      var accessibleText = srLabel || label;
-
-      btn.innerHTML =
-        '<span class="btn-spinner" aria-hidden="true"></span>' +
-        '<span class="sr-only">' + escapeText(accessibleText) + '</span>' +
-        '<span>' + escapeText(label) + '</span>';
-    } else {
-      var origHtml = btn.getAttribute('data-loading-orig-html');
-      if (origHtml !== null) {
-        btn.innerHTML = origHtml;
-        btn.removeAttribute('data-loading-orig-html');
-      }
-
-      btn.style.minWidth = '';
-      btn.disabled = false;
-      btn.removeAttribute('aria-disabled');
-      btn.removeAttribute('aria-busy');
-      btn.classList.remove('btn-loading');
+    if (!isLoading) {
+      if (!state) return;
+      clearTimeout(state.showTimer);
+      if (state.indicator) state.indicator.remove();
+      else if (state.shownAt) btn.innerHTML = state.html;
+      btn.style.minWidth = state.minWidth;
+      btn.style.minHeight = state.minHeight;
+      btn.disabled = state.disabled;
+      ['aria-busy', 'aria-disabled'].forEach(function(attribute) {
+        if (state[attribute] == null) btn.removeAttribute(attribute);
+        else btn.setAttribute(attribute, state[attribute]);
+      });
+      if (!state.hadLoadingClass) btn.classList.remove('btn-loading');
+      buttonLoading.delete(btn);
+      return;
     }
+
+    if (state) return;
+    state = {
+      html: btn.innerHTML,
+      minWidth: btn.style.minWidth || '',
+      minHeight: btn.style.minHeight || '',
+      disabled: btn.disabled,
+      'aria-busy': btn.getAttribute('aria-busy'),
+      'aria-disabled': btn.getAttribute('aria-disabled'),
+      hadLoadingClass: btn.classList.contains('btn-loading')
+    };
+    buttonLoading.set(btn, state);
+    var computed = btn.ownerDocument?.defaultView?.getComputedStyle(btn);
+    if (btn.offsetWidth > 0) btn.style.minWidth = computed?.width || btn.offsetWidth + 'px';
+    if (btn.offsetHeight > 0) btn.style.minHeight = computed?.height || btn.offsetHeight + 'px';
+    btn.disabled = true;
+    btn.setAttribute('aria-disabled', 'true');
+    btn.setAttribute('aria-busy', 'true');
+    if (!state.hadLoadingClass) btn.classList.add('btn-loading');
+
+    state.showTimer = setTimeout(function() {
+      if (buttonLoading.get(btn) !== state) return;
+      var label = srLabel || loadingText || 'Processing...';
+      var html = '<span class="btn-spinner" aria-hidden="true"></span><span class="sr-only">' + escapeText(label) + '</span>';
+      state.shownAt = Date.now();
+      if (btn.ownerDocument) {
+        var indicator = btn.ownerDocument.createElement('span');
+        indicator.className = 'btn-loading-indicator';
+        indicator.innerHTML = html;
+        btn.appendChild(indicator);
+        state.indicator = indicator;
+      } else {
+        btn.innerHTML += html;
+      }
+    }, SHOW_DELAY_MS);
   }
 
   /**
@@ -437,15 +475,20 @@
    * @param {Object} [options] { loadingText, srLabel }
    */
   async function withSmartButtonLock(btn, asyncFn, options) {
-    if (!btn || typeof asyncFn !== 'function') {
-      return typeof asyncFn === 'function' ? asyncFn() : null;
-    }
+    if (typeof asyncFn !== 'function') return null;
+    if (!btn) return asyncFn();
+    if (btn.disabled || buttonLoading.has(btn)) return null;
     options = options || {};
     setButtonLoading(btn, true, options.loadingText, options.srLabel);
+    var state = buttonLoading.get(btn);
     try {
       return await asyncFn();
     } finally {
-      setButtonLoading(btn, false);
+      if (state.shownAt) {
+        var remaining = MIN_DISPLAY_MS - (Date.now() - state.shownAt);
+        if (remaining > 0) await new Promise(function(resolve) { setTimeout(resolve, remaining); });
+      }
+      if (buttonLoading.get(btn) === state) setButtonLoading(btn, false);
     }
   }
 
@@ -461,6 +504,7 @@
     _el: null,
     _timer: null,
     _current: 0,
+    _transition: null,
 
     init: function() {
       if (typeof document === 'undefined') return;
@@ -483,6 +527,7 @@
       this.init();
       if (!this._el) return;
       if (this._timer) clearInterval(this._timer);
+      clearTimeout(this._transition);
 
       this._current = 15;
       this._el.style.width = '15%';
@@ -503,7 +548,7 @@
     set: function(percent) {
       this.init();
       if (!this._el) return;
-      var p = Math.max(0, Math.min(100, percent));
+      var p = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
       this._current = p;
       this._el.style.width = p + '%';
       this._el.setAttribute('aria-valuenow', String(Math.round(p)));
@@ -519,10 +564,11 @@
       this._el.setAttribute('aria-valuenow', '100');
 
       var self = this;
-      setTimeout(function() {
+      clearTimeout(this._transition);
+      this._transition = setTimeout(function() {
         if (self._el) {
           self._el.style.opacity = '0';
-          setTimeout(function() {
+          self._transition = setTimeout(function() {
             if (self._el) {
               self._el.style.width = '0%';
               self._el.classList.remove('active');
@@ -570,7 +616,7 @@
       element: wrapper,
 
       update: function(stepIndex, stepLabel, percent) {
-        var p = Math.max(0, Math.min(100, Math.round(percent)));
+        var p = Number.isFinite(percent) ? Math.max(0, Math.min(100, Math.round(percent))) : 0;
         if (fillEl) fillEl.style.width = p + '%';
         if (percentEl) percentEl.textContent = p + '%';
         if (statusEl) {

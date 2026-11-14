@@ -515,11 +515,11 @@ async function copyResourceLink(url, title) {
       return true;
     } catch (_) {}
   }
-  fallbackCopyText(target.href);
-  return true;
+  return fallbackCopyText(target.href);
 }
 
-function fallbackCopyText(text) {
+async function fallbackCopyText(text) {
+  var previousFocus = document.activeElement;
   var ta = document.createElement('textarea');
   ta.value = text;
   ta.style.position = 'fixed';
@@ -527,14 +527,22 @@ function fallbackCopyText(text) {
   document.body.appendChild(ta);
   ta.select();
   try {
-    document.execCommand('copy');
-    if (typeof showToast === 'function') {
-      showToast('Link copied to clipboard!', 'success');
+    if (document.execCommand('copy')) {
+      if (typeof showToast === 'function') {
+        showToast('Link copied to clipboard!', 'success');
+      }
+      return true;
     }
-  } catch (e) {
-    prompt('Copy link manually:', text);
+  } catch (_) {
+    // The non-blocking dialog below supports manual copying.
+  } finally {
+    document.body.removeChild(ta);
+    previousFocus?.focus?.({ preventScroll: true });
   }
-  document.body.removeChild(ta);
+  if (typeof showPromptModal === 'function') {
+    await showPromptModal('Copy resource link', '', text, { confirmText: 'Done' });
+  }
+  return false;
 }
 
 // ── Admin Management Panel ──────────────────────────────────────────────────

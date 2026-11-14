@@ -524,23 +524,25 @@ async function loadAnnouncements() {
       })
     : null;
 
-  var fetchFn = async function() {
+  var fetchFn = async function(signal) {
     if (typeof supa !== 'undefined' && supa.get) {
       var annImageMap = {};
       var annPinnedMap = {};
       var annAllowedMap = {};
+      var options = { force: true, cache: false, signal: signal };
       var cfgPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_images', {}, { force: true, cache: false })
-        : supa.get('bb_config?key=eq.bb_announcements_images&select=value', { cache: false });
+        ? supa.safeConfigGet('bb_announcements_images', {}, options)
+        : supa.get('bb_config?key=eq.bb_announcements_images&select=value', options);
       var pinPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_pinned', {}, { force: true, cache: false })
-        : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value', { cache: false });
+        ? supa.safeConfigGet('bb_announcements_pinned', {}, options)
+        : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value', options);
       var allowedPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_allowed_reactions', {}, { force: true, cache: false })
-        : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value', { cache: false });
-      var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*', { cache: false });
+        ? supa.safeConfigGet('bb_announcements_allowed_reactions', {}, options)
+        : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value', options);
+      var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*', options);
 
       var results = await Promise.allSettled([cfgPromise, pinPromise, allowedPromise, annPromise]);
+      if (signal?.aborted) return;
       if (results[0].status === 'fulfilled' && results[0].value) {
         var cfgVal = results[0].value;
         if (Array.isArray(cfgVal) && cfgVal.length && cfgVal[0].value) {

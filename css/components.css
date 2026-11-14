@@ -6699,6 +6699,19 @@ select.form-input,
   cursor: wait !important;
 }
 
+.btn-loading-indicator {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: inherit;
+}
+
+.btn-loading-indicator .btn-spinner {
+  margin: 0;
+}
+
 .btn-spinner {
   display: inline-block;
   width: 14px;
