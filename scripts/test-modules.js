@@ -832,8 +832,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(resourcesModule.resources[0].category, 'Handbooks & Manuals');
   assert.strictEqual(resourcesModule.resources[0].fileSize, '1.8 MB');
   assert.ok(
-    resourcesModule.resources[0].url.includes('gallery'),
-    'Uploaded URL is generated from Supabase Storage'
+    resourcesModule.resources[0].url.includes('/resources/'),
+    'Uploaded URL stays in the resources bucket'
   );
   assert.strictEqual(
     document.getElementById('adm-res-submit-btn').textContent,
@@ -869,6 +869,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
 
   // 6. Role-Based Visibility Checks
+  const originalResourceSessionGet = global.sessionGet;
+  global.sessionGet = key => key === 'rank' ? mockRank : key === 'ic' || key === 'email' ? 'fixture@example.com' : null;
   mockRank = 'Recruit';
   mockAdmin = false;
   assert.strictEqual(
@@ -913,12 +915,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   mockRank = 'Recruit';
   mockAdmin = true;
+  const originalResourcesScope = global.hasAdminModuleAccess;
+  global.hasAdminModuleAccess = scope => scope === 'resources';
   assert.strictEqual(
     resourcesModule.hasResourceAccess('officer'),
     true,
     'Admin can access Officer resources regardless of rank'
   );
   console.log('  ✔ hasResourceAccess correctly enforces Public / NCO / Officer role restrictions');
+  global.hasAdminModuleAccess = originalResourcesScope;
+  assert.strictEqual(resourcesModule.hasResourceAccess('unrecognized'), false);
 
   // 7. Empty State Verification (Confirm NO "Open Admin Upload Console" button)
   resourcesModule.resources.length = 0;
@@ -1000,6 +1006,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   let openedUrl = null;
   let openedTabHref = '';
   const originalWindowOpen = global.window ? global.window.open : null;
+  const originalResourceSupaUrl = global.SUPA_URL;
+  const originalResourceSigner = global.supa.createSignedUrl;
+  global.SUPA_URL = 'https://test.supabase.co';
+  global.supa.createSignedUrl = async (bucket, file, ttl) => {
+    assert.strictEqual(ttl, 300);
+    return { signedUrl: global.SUPA_URL + '/storage/v1/object/sign/' + bucket + '/' + file + '?token=fixture' };
+  };
   if (!global.window) global.window = {};
   global.window.open = (url) => {
     openedUrl = url;
@@ -1019,15 +1032,23 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     category: 'Handbooks & Manuals',
     fileType: 'PDF',
     url: 'https://test.supabase.co/storage/v1/object/authenticated/resources/handbook.pdf',
-    visibility: 'public'
+    visibility: 'officer'
   });
   
+  mockRank = 'Corporal';
+  await resourcesModule.openResourceDocument('res-private-supa-test');
+  assert.strictEqual(openedUrl, null, 'NCO cannot open Officer documents');
+  mockRank = 'Lieutenant';
   await resourcesModule.openResourceDocument('res-private-supa-test');
   assert.ok(openedUrl !== null, 'openResourceDocument must trigger opening of private resource document');
   assert.ok(
-    openedTabHref.includes('/storage/v1/object/public/resources/handbook.pdf') || openedUrl.includes('/storage/v1/object/public/resources/handbook.pdf'),
-    'openResourceDocument must resolve authenticated URL to public URL for public documents to prevent HTTP 400 authorization errors'
+    openedTabHref.includes('/storage/v1/object/sign/resources/handbook.pdf'),
+    'Private previews require a short-lived signed link'
   );
+  global.SUPA_URL = originalResourceSupaUrl;
+  global.supa.createSignedUrl = originalResourceSigner;
+  mockRank = 'Recruit';
+  global.sessionGet = originalResourceSessionGet;
   if (originalWindowOpen) global.window.open = originalWindowOpen;
   console.log('  ✔ openResourceDocument resolves private storage documents and opens them securely');
 
@@ -1413,6 +1434,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   const oct1 = oct2026.find(c => c.dateKey === '2026-10-01');
   assert.ok(oct1 && oct1.isCurrentMonth, 'Oct 1 must be present in current month');
+  const rolledMonth = calendarModule.getMonthMatrix(2025, 13);
+  assert.strictEqual(rolledMonth.filter(c => c.isCurrentMonth).length, 28);
+  assert.ok(rolledMonth.some(c => c.isCurrentMonth && c.dateKey === '2026-02-01'));
   console.log('  ✔ getMonthMatrix correctly generates calendar grid with overflow days');
 
   // 3. Load & Save Calendar Events with Supabase
@@ -1486,6 +1510,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const remoteMatched = calendarModule.getMemberEventsForDate('2026-11-20');
   assert.strictEqual(remoteMatched.length, 1, 'Synced remote reminder must be accessible in calendar module');
   assert.strictEqual(remoteMatched[0].title, 'Remote Rehearsal', 'Synced remote reminder title must match');
+  assert.strictEqual(calendarModule.deletePersonalEvent('rem-sync-1'), true);
+  await calendarModule.fetchRemoteMemberEvents();
+  assert.strictEqual(calendarModule.getMemberEventsForDate('2026-11-20').length, 0, 'Stale remote data cannot revive a deleted reminder');
   global.supa = origSupaCal;
   console.log('  ✔ fetchRemoteMemberEvents synchronizes personal reminders across devices via Supabase bb_config');
 
@@ -2400,7 +2427,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
 
   // 5. Single / Advanced Tier Toggle
-  await await badgesMod.toggleBadge('b_fa', memberIc, 'basic');
+  await badgesMod.toggleBadge('b_fa', memberIc, 'basic');
   assert.strictEqual(
     badgesMod._memberBadgesCache[memberIc]['b_fa'].basic,
     true,
@@ -2412,7 +2439,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     true,
     'toggleBadge advanced must toggle advanced to true'
   );
-  badgesMod.toggleBadge('b_fa', memberIc, 'basic');
+  await badgesMod.toggleBadge('b_fa', memberIc, 'basic');
   assert.strictEqual(
     badgesMod._memberBadgesCache[memberIc]['b_fa'].basic,
     false,
@@ -2497,6 +2524,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     false,
     'Arts badge must NOT be resurrected on refresh/re-fetch'
   );
+  await badgesMod.saveBadgeDefs(defsAfterRefresh.map(b => b.id === 'bb4' ? { ...b, cat: 'Target Awards', image: null } : b));
+  const customized = (await badgesMod.getBadgeDefs(true)).find(b => b.id === 'bb4');
+  assert.strictEqual(customized.cat, 'Target Awards');
+  assert.strictEqual(customized.image, null, 'Clearing an official image persists on refresh');
+  await badgesMod.savePresidentsReqs([]);
+  assert.deepStrictEqual(await badgesMod.getPresidentsReqs(), [], 'An empty configured checklist stays empty');
 
   // Verify enrichBadgeCatalog honors deleted list
   const enrichedWithDeleted = badgesMod.enrichBadgeCatalog(
@@ -7868,6 +7901,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(state0.dateKey, testDate, 'Initial state must match dateKey');
     assert.strictEqual(state0.currentIndex, 0, 'Trivia starts at question index 0');
     assert.strictEqual(state0.isSubmitted, false, 'Trivia starts unsubmitted');
+    arcadeMod.selectTriviaAnswer(99);
+    assert.deepStrictEqual(state0.answers, {}, 'Out-of-range trivia options do not count as answers');
+    assert.strictEqual(arcadeMod.getTodayDateKey(new Date('2026-11-02T16:00:00Z')), '2026-11-03');
 
     // Answer question 0 and navigate forward
     arcadeMod.selectTriviaAnswer(1);
@@ -7909,6 +7945,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(pastArchived.isSubmitted, true, 'Past session must be auto-submitted on date rollover');
     assert.strictEqual(pastArchived.autoSubmitted, true, 'autoSubmitted flag recorded');
     assert.strictEqual(pastArchived.score, 1, 'Correct answer in unsubmitted past session scored and credited');
+    const once = arcadeMod.getArcadeStats().credits;
+    global.localStorage.setItem(uKey + '_active', JSON.stringify(pastSession));
+    arcadeMod.checkAndAutoSubmitPastTrivia(nextDate);
+    assert.strictEqual(arcadeMod.getArcadeStats().credits, once, 'A second device rollover cannot award the same local date twice');
+    const priorArcadeClient = global.supa;
+    const localArcade = arcadeMod.getArcadeStats();
+    global.supa = { getConfig: async () => ({
+      ...localArcade, credits: localArcade.credits + 80, balanceUpdatedAt: 1
+    }) };
+    assert.strictEqual((await arcadeMod.fetchRemoteArcadeStats()).credits, localArcade.credits, 'A stale device cannot restore spent credits');
+    global.supa = priorArcadeClient;
     console.log('  ✔ Unsubmitted trivia session from prior date auto-submits on next day rollover');
 
     // 11. BB Trivia UI Styles & Components
@@ -7925,6 +7972,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof arcadeMod.reconcileArcadeRewards, 'function', 'reconcileArcadeRewards must be exported');
     const todayKey = arcadeMod.getTodayDateKey();
     const yesterdayKey = arcadeMod.getYesterdayDateKey(todayKey);
+    arcadeMod.getCandidateUserKeys('bb_trivia_').forEach(key => {
+      localStorage.removeItem(key + '_active');
+      localStorage.removeItem(key + '_' + todayKey);
+    });
 
     // Set baseline stats
     arcadeMod.saveArcadeStats({
@@ -9599,24 +9650,33 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof arcadeModule.renderArcadeLeaderboardView, 'function', 'renderArcadeLeaderboardView must be exported');
     assert.strictEqual(typeof arcadeModule.switchArcadeLeaderboardCategory, 'function', 'switchArcadeLeaderboardCategory must be exported');
 
+    const savedArcadeRoster = localStorage.getItem('bb_members_cache');
+    const arcadeRoster = ['Fixture Alpha', 'Fixture Papa', 'Fixture Zulu'].map((name, i) => ({
+      name, ic: 'arcade' + i + '@example.com', squad: ['Alpha', 'Papa', 'Zulu'][i]
+    }));
+    localStorage.setItem('bb_members_cache', JSON.stringify(arcadeRoster));
+    arcadeRoster.forEach((member, i) => {
+      localStorage.setItem('bb_arcade_' + member.ic.replace(/[^a-zA-Z0-9_-]/g, '_'), JSON.stringify({
+        credits: i === 2 ? 20 : 40, streak: 3 - i, lastPlayedDate: arcadeModule.getTodayDateKey()
+      }));
+    });
     const streakLeaderboard = arcadeModule.getArcadeLeaderboardData('streak');
-    assert.ok(Array.isArray(streakLeaderboard) && streakLeaderboard.length >= 5, 'Streak leaderboard must contain verified real members');
+    assert.ok(streakLeaderboard.length >= 3, 'Streak leaderboard uses members with saved activity');
     assert.ok(!streakLeaderboard.some(m => ['Benjamin Teoh', 'Ethan Lim', 'Daniel Yap', 'David Choong'].includes(m.name)), 'Streak leaderboard must not contain fake dummy accounts');
     for (let sIdx = 1; sIdx < streakLeaderboard.length; sIdx++) {
       assert.ok(streakLeaderboard[sIdx - 1].streak >= streakLeaderboard[sIdx].streak, 'Streak leaderboard must be sorted descending');
     }
 
     const creditsLeaderboard = arcadeModule.getArcadeLeaderboardData('credits');
-    assert.ok(Array.isArray(creditsLeaderboard) && creditsLeaderboard.length >= 5, 'Credits leaderboard must contain verified real members');
+    assert.ok(creditsLeaderboard.length >= 3, 'Credits leaderboard uses members with saved activity');
     assert.ok(!creditsLeaderboard.some(m => ['Benjamin Teoh', 'Ethan Lim', 'Daniel Yap', 'David Choong'].includes(m.name)), 'Credits leaderboard must not contain fake dummy accounts');
     for (let cIdx = 1; cIdx < creditsLeaderboard.length; cIdx++) {
       assert.ok(creditsLeaderboard[cIdx - 1].credits >= creditsLeaderboard[cIdx].credits, 'Credits leaderboard must be sorted descending');
     }
 
     // Dynamic Placing: spending credits changes rank
-    const jeshuaBefore = creditsLeaderboard.find(m => m.name === 'Jeshua Koh');
-    const jasonBefore = creditsLeaderboard.find(m => m.name === 'Jason Koh');
-    assert.ok(jeshuaBefore && jasonBefore, 'Members must exist in leaderboard');
+    const tied = creditsLeaderboard.filter(member => member.credits === 40);
+    assert.ok(tied.length >= 2 && tied.every(member => member.displayRank === tied[0].displayRank), 'Equal credits share the same rank');
     console.log('  ✔ Arcade streak and credit leaderboards sort descending and support dynamic rankings');
 
     // 3. Arcade Leaderboard Podium & Top 7 List DOM Rendering
@@ -9628,7 +9688,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     }
     arcadeModule.renderArcadeLeaderboardView();
     streakLeaderboard.forEach((m, idx) => {
-      assert.strictEqual(m.displayRank, idx + 1, 'Member ' + m.name + ' must have numeric displayRank matching position');
+      assert.strictEqual(m.rankIndex, idx + 1, 'Rows retain stable ordering when members tie');
       assert.notStrictEqual(m.displayRank, undefined, 'displayRank must never be undefined');
     });
     assert.ok(!streakLeaderboard.some(m => ['Probe 1', 'Probe 2', 'Delete Me Test'].includes(m.name)), 'Probe and test accounts must be excluded from arcade leaderboard');
@@ -9641,6 +9701,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(fakeArcadeContainer.innerHTML.includes('podium-step-3'), 'Arcade leaderboard must render 3rd place podium pillar');
     assert.ok(fakeArcadeContainer.innerHTML.includes('podium-name'), 'Podium must render member name on top of profile icon');
     assert.ok(fakeArcadeContainer.innerHTML.includes('arcade-leaderboard-card'), 'Arcade leaderboard must render top 7 list card');
+    if (savedArcadeRoster === null) localStorage.removeItem('bb_members_cache');
+    else localStorage.setItem('bb_members_cache', savedArcadeRoster);
     console.log('  ✔ Arcade Leaderboard Podium (Top 3 with name on top of icon) and Top 7 list view verified');
 
     // 4. Squad Championship Podium in Company Leaderboard Tab
@@ -11304,14 +11366,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       fields: [{ label: 'Name', type: 'text' }]
     });
 
+    const preFormToggleSupa = global.supa;
+    global.supa = { ...preFormToggleSupa, req: async () => { throw new Error('Database unavailable'); } };
+    assert.strictEqual(await formsMod.toggleCustomFormStatus('test_toggle_form'), false);
+    assert.strictEqual(formsMod._customForms.find(x => x.id === 'test_toggle_form').status, 'active');
+    global.supa = { ...preFormToggleSupa, req: async () => [] };
     await formsMod.toggleCustomFormStatus('test_toggle_form');
-    const toggledForm = formsMod._customForms.find(x => x.id === 'test_toggle_form');
+    let toggledForm = formsMod._customForms.find(x => x.id === 'test_toggle_form');
     assert.strictEqual(toggledForm.status, 'paused', 'toggleCustomFormStatus must set status to paused');
     assert.strictEqual(toggledForm.active, false, 'toggleCustomFormStatus must set active to false');
 
     await formsMod.toggleCustomFormStatus('test_toggle_form');
+    toggledForm = formsMod._customForms.find(x => x.id === 'test_toggle_form');
     assert.strictEqual(toggledForm.status, 'active', 'toggleCustomFormStatus must toggle status back to active');
     assert.strictEqual(toggledForm.active, true, 'toggleCustomFormStatus must toggle active back to true');
+    global.supa = preFormToggleSupa;
     console.log('  ✔ toggleCustomFormStatus accurately toggles pause and resume states');
 
     // 7. Paused form subtitle rendered in white without pill box
@@ -12204,8 +12273,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // 1. Verify submitBuiltinForm payload eliminates payment_method and non-existent columns
     let postedPayload = null;
     let postTable = null;
+    let submitAttempts = 0;
     const testSupa = {
       post: async (table, data) => {
+        if (++submitAttempts === 1) throw new Error(JSON.stringify({ code: 'PGRST204', message: "Could not find the 'notes' column" }));
         postTable = table;
         postedPayload = data;
         return { ok: true };
@@ -12222,7 +12293,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       status: 'active',
       items: [
         { id: 'q1', kind: 'question', title: 'Full Name', type: 'text', required: true },
-        { id: 'q2', kind: 'question', title: 'Health Declaration', type: 'file_upload', required: false }
+        { id: 'q2', kind: 'question', title: 'Health Declaration', type: 'file_upload', required: true }
       ]
     };
 
@@ -12231,10 +12302,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     document.body.appendChild(hostDiv);
     formsMod.renderBuiltinFormInline(testForm, hostDiv);
 
-    // Verify file_upload renders proper file input and Choose File button, not text input
-    assert.ok(hostDiv.innerHTML.includes('type="file"'), 'File upload renders input type="file"');
-    assert.ok(hostDiv.innerHTML.includes('Choose File'), 'File upload renders Choose File button');
-    assert.ok(!hostDiv.innerHTML.includes('type="file_upload"'), 'type="file_upload" invalid HTML input eliminated');
+    assert.ok(!hostDiv.innerHTML.includes('type="file"'), 'Legacy upload fields must not render a file picker');
 
     // Fill answer and submit
     document.getElementById('bff-form_camp_pgrst_test-0').value = 'Lance Corporal John Doe';
@@ -12247,9 +12315,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(postedPayload.payment_method, undefined, 'payment_method column completely removed (PGRST204 fix)');
     assert.strictEqual(postedPayload.payment_proof, undefined, 'payment_proof column completely removed');
     assert.strictEqual(postedPayload.total, undefined, 'total column completely removed');
+    assert.strictEqual(postedPayload.notes, undefined, 'Retry drops only the optional column rejected by PostgREST');
+    assert.strictEqual(submitAttempts, 2);
+    assert.deepStrictEqual(JSON.parse(postedPayload.items).answers, { 'Full Name': 'Lance Corporal John Doe' });
     assert.strictEqual(typeof formsMod.handleFormFileUpload, 'function', 'handleFormFileUpload is exported');
     console.log('  ✔ submitBuiltinForm eliminates payment_method column preventing PGRST204 schema cache errors');
-    console.log('  ✔ File upload question renders native file picker and Choose File button');
+    console.log('  ✔ Legacy file questions are omitted from the form and payload');
 
     // Restore supa
     global.supa = origSupa;
@@ -12790,10 +12861,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     formsMod.renderBuiltinFormInline(formWithFile, formWrap);
     const formInnerHtml = formWrap.innerHTML;
 
-    assert.ok(formInnerHtml.includes('class="form-file-input"'), 'File input element rendered');
-    assert.ok(formInnerHtml.includes('class="form-file-remove-btn"'), 'Remove button rendered for file upload');
-    assert.ok(formInnerHtml.includes('removeFormFileUpload'), 'Remove button calls removeFormFileUpload');
-    assert.ok(formInnerHtml.includes('Choose File'), 'Choose File label rendered');
+    assert.ok(!formInnerHtml.includes('class="form-file-input"'), 'Legacy form fields render without uploads');
+    assert.ok(!formInnerHtml.includes('Choose File'), 'Form must not prompt for attachments');
 
     // Test removeFormFileUpload(fieldId) function logic
     const testFieldId = 'test_field_upload';
@@ -14657,6 +14726,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof resourcesMod.hasResourceAccess, 'function', 'hasResourceAccess must be exported');
 
     const origSessionGet = global.sessionGet;
+    const origResourceScope = global.hasAdminModuleAccess;
     try {
       // Public resources are accessible to everyone
       global.sessionGet = () => null;
@@ -14664,26 +14734,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       assert.strictEqual(resourcesMod.hasResourceAccess(''), true, 'Empty visibility defaults to public access');
 
       // NCO resources
-      global.sessionGet = (k) => (k === 'rank' ? 'Lance Corporal' : null);
+      global.sessionGet = (k) => (k === 'rank' ? 'Lance Corporal' : (k === 'email' ? 'nco@example.com' : null));
       assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'NCO rank accesses NCO resources');
       assert.strictEqual(resourcesMod.hasResourceAccess('officer'), false, 'NCO rank denied officer resources');
 
       // Officer resources
-      global.sessionGet = (k) => (k === 'rank' ? 'Captain' : null);
+      global.sessionGet = (k) => (k === 'rank' ? 'Captain' : (k === 'email' ? 'officer@example.com' : null));
       assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'Officer accesses NCO resources');
       assert.strictEqual(resourcesMod.hasResourceAccess('officer'), true, 'Officer accesses Officer resources');
 
       // Admin override
-      global.sessionGet = (k) => (k === 'adminAuthed' ? true : (k === 'rank' ? 'Private' : null));
+      global.sessionGet = (k) => (k === 'rank' ? 'Private' : (k === 'email' ? 'store@example.com' : null));
+      global.hasAdminModuleAccess = scope => scope === 'resources';
       assert.strictEqual(resourcesMod.hasResourceAccess('officer'), true, 'Admin session accesses Officer resources regardless of rank');
       assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'Admin session accesses NCO resources regardless of rank');
 
       // Private rank denied restricted resources
+      global.hasAdminModuleAccess = origResourceScope;
       global.sessionGet = (k) => (k === 'rank' ? 'Private' : null);
       assert.strictEqual(resourcesMod.hasResourceAccess('nco'), false, 'Private denied NCO resources');
       assert.strictEqual(resourcesMod.hasResourceAccess('officer'), false, 'Private denied Officer resources');
     } finally {
       global.sessionGet = origSessionGet;
+      global.hasAdminModuleAccess = origResourceScope;
     }
     console.log('  ✔ Resource hub visibility tiers (public, NCO, officer, admin) verified');
 

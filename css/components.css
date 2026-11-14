@@ -5512,8 +5512,10 @@ select.form-input,
   padding: 4px 10px;
   border-radius: 16px;
   letter-spacing: 0.3px;
-  white-space: nowrap;
-  flex-shrink: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  flex-shrink: 1;
 }
 
 @media (max-width: 480px) {
@@ -5543,7 +5545,6 @@ select.form-input,
     align-items: flex-start;
   }
   .cal-rundown-time {
-    margin-left: 36px;
     font-size: 10.5px;
   }
 }
