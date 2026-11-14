@@ -4450,8 +4450,8 @@ async function loadMemberOrders() {
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!orders) orders = [];
 
-    var SC = { pending: '#e8b830', processing: '#42a5f5', ready: '#66bb6a', collected: '#888', cancelled: '#ef5350', submitted: '#34d399', approved: '#60a5fa', rejected: '#ef5350' };
-    var SL = { pending: 'Pending', processing: 'Processing', ready: 'Ready for Collection', collected: 'Collected', cancelled: 'Cancelled', submitted: 'Submitted', approved: 'Approved', rejected: 'Rejected' };
+    var SC = { pending: '#e8b830', paid: '#34d399', processing: '#42a5f5', ready: '#66bb6a', completed: '#888', collected: '#888', cancelled: '#ef5350' };
+    var SL = { pending: 'Pending', paid: 'Paid', processing: 'Processing', ready: 'Ready for Collection', completed: 'Completed', collected: 'Collected', cancelled: 'Cancelled' };
     var itemsList = window.UNIFORM_ITEMS || [];
 
     // Separate actual uniform orders from custom form submissions
@@ -4489,15 +4489,17 @@ async function loadMemberOrders() {
 
         var itemLines = '';
         try {
-          var items = JSON.parse(o.items || '{}');
+          var items = typeof o.items === 'string' ? JSON.parse(o.items || '{}') : (o.items || {});
           Object.entries(items).forEach(function(kv) {
             var v = kv[1];
             var baseKey = kv[0].split('__')[0];
             var prod = itemsList.find(function(i) {
               return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
             });
-            var displayName = prod ? prod.name : ((v && v.name) || baseKey);
-            var subtotal = v.price && v.qty ? ' — RM ' + (v.price * v.qty).toFixed(2) : '';
+            if (!v || !Number.isSafeInteger(Number(v.qty)) || Number(v.qty) < 1) return;
+            var displayName = v.name || (prod && prod.name) || baseKey;
+            var price = v.price === null || v.price === undefined ? NaN : Number(v.price);
+            var subtotal = Number.isFinite(price) && price >= 0 ? ' — RM ' + (Math.round(price * 100) * v.qty / 100).toFixed(2) : '';
             var customPart = (v && (v.custom_text || v.customText)) ? ' · "' + escapeHtml(v.custom_text || v.customText) + '"' : '';
             itemLines += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding:3px 0;">'
               + '<span>' + escapeHtml(displayName) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + customPart + '</span>'
@@ -4505,10 +4507,8 @@ async function loadMemberOrders() {
           });
         } catch (e) {}
 
-        var validatedSs = o.payment_screenshot ? ((typeof safeUrl === 'function') ? safeUrl(o.payment_screenshot, '') : o.payment_screenshot) : '';
-        var ssHtml = validatedSs
-          ? '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--green);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Payment screenshot uploaded</div>'
-          : '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--accent);"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg> No payment screenshot</div>';
+        var cancelButton = status === 'pending' && typeof window.cancelUniformOrder === 'function'
+          ? '<button type="button" class="portal-btn portal-btn-secondary" data-cancel-order="' + escapeHtml(o.order_number) + '">Cancel order</button>' : '';
 
         html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">'
           + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
@@ -4516,14 +4516,25 @@ async function loadMemberOrders() {
           + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
           + '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + created + '</div>'
           + '</div>'
-          + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);text-align:center;">' + sl + '</div>'
+          + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);text-align:center;">' + escapeHtml(sl) + '</div>'
           + '</div>'
           + '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' + itemLines + '</div>'
-          + ssHtml
+          + cancelButton
           + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) + '</div>' : '')
           + '</div>';
       });
       container.innerHTML = html;
+      container.querySelectorAll('[data-cancel-order]').forEach(function(button) {
+        button.addEventListener('click', async function() {
+          await withSmartButtonLock(button, async function() {
+            var confirmed = await showConfirmModal('Cancel this pending uniform order?', 'Cancel order', { confirmText: 'Cancel order', cancelText: 'Keep order' });
+            if (confirmed && (sessionGet('ic') || sessionGet('email')) === id) {
+              await window.cancelUniformOrder(button.getAttribute('data-cancel-order'));
+              await loadMemberOrders();
+            }
+          });
+        });
+      });
     }
 
     // 2. Render Member Form Responses

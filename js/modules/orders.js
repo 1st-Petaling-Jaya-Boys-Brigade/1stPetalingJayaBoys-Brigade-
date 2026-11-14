@@ -3,7 +3,7 @@
  * Uniform Store & Orders Module
  *
  * Handles uniform catalog management, pricing, cart calculations,
- * Touch 'n Go payment screenshot preview, order submission,
+ * order submission, legacy receipt helpers,
  * and admin order/product management.
  */
 
@@ -64,6 +64,18 @@ var _uniformOrdersSchedule = {
 };
 var _activeUniformCategory = 'all';
 var _isSubmittingOrder = false;
+// shortcut: retries reuse the order ID on this page, move the key to durable checkout storage for reload recovery.
+var _pendingUniformOrder = null;
+var MAX_UNIFORM_QUANTITY = 99;
+var UNIFORM_ORDER_TRANSITIONS = {
+  pending: ['paid', 'processing', 'cancelled'],
+  paid: ['processing', 'ready'],
+  processing: ['ready'],
+  ready: ['collected', 'completed'],
+  completed: [],
+  collected: [],
+  cancelled: []
+};
 var _tngScreenshotFile = null;
 var _isSavingProduct = false;
 
@@ -85,7 +97,8 @@ function getSupa() {
  * @returns {string}
  */
 function getItemCategory(item) {
-  if (item && item.category) return String(item.category).toLowerCase();
+  var category = item && typeof item.category === 'string' ? item.category.trim().toLowerCase() : '';
+  if (/^[a-z][a-z0-9_-]*$/.test(category) && category !== 'all' && !Object.hasOwn(Object.prototype, category)) return category;
   var name = (((item && item.name) || '') + ' ' + ((item && item.key) || '')).toLowerCase();
   if (
     name.indexOf('shirt') !== -1 ||
@@ -115,7 +128,9 @@ function getItemCategory(item) {
  * @returns {Array<string>}
  */
 function getItemSizes(item) {
-  if (item && item.sizes && item.sizes.length) return item.sizes;
+  if (item && Array.isArray(item.sizes) && item.sizes.length) {
+    return Array.from(new Set(item.sizes.filter(function(size) { return typeof size === 'string' && size.trim(); })));
+  }
   if (item && item.hasSize === 'shirt') return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
   if (item && item.hasSize === 'trousers') return ['24', '26', '28', '30', '32', '34', '36'];
   if (item && item.hasSize === 'cap') return ['S', 'M', 'L'];
@@ -123,6 +138,65 @@ function getItemSizes(item) {
     return ['UK 5', 'UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11'];
   }
   return [];
+}
+
+function uniformPriceInSen(item) {
+  var value = item.price ?? prices[item.key];
+  if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '') return null;
+  var price = Number(value);
+  var sen = Math.round(price * 100);
+  return price >= 0 && Number.isSafeInteger(sen) && sen <= 9999999999 && Math.abs(price * 100 - sen) < 0.000001 ? sen : null;
+}
+
+function uniformQuantityLimit(item) {
+  if (item.outOfStock === true) return 0;
+  return Number.isInteger(item.stock) ? Math.max(0, Math.min(item.stock, MAX_UNIFORM_QUANTITY)) : MAX_UNIFORM_QUANTITY;
+}
+
+function canOrderUniformItem(item) {
+  return item && (!item.ncoOnly || (typeof sessionGet === 'function' && isNCO(sessionGet('rank'))));
+}
+
+function getUniformCartLines() {
+  return uniformCart.length ? uniformCart : UNIFORM_ITEMS.filter(function(item) {
+    return itemQtys[item.key];
+  }).map(function(item) {
+    return { key: item.key, size: itemSizes[item.key], qty: Number(itemQtys[item.key]), customText: itemCustomTexts[item.key] };
+  });
+}
+
+function uniformLineError(item, line, quantity) {
+  if (!canOrderUniformItem(item)) return 'This product is no longer available to order.';
+  var sizes = getItemSizes(item);
+  if (sizes.length && !line.size) return 'Please select a size for ' + item.name;
+  if (sizes.length && !sizes.includes(line.size)) return 'Invalid size selected for ' + item.name;
+  var limit = uniformQuantityLimit(item);
+  if (!limit) return item.name + ' is out of stock.';
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > limit) return 'Only ' + limit + ' units of ' + item.name + ' can be ordered.';
+  if (item.hasCustomText && !line.customText) return 'Please enter the custom details for ' + item.name + '.';
+  if (uniformPriceInSen(item) === null) return 'A price has not been set for ' + item.name + '.';
+  return null;
+}
+
+function readUniformCart() {
+  var totals = new Map();
+  var totalSen = 0;
+  var lines = getUniformCartLines().map(function(line) {
+    totals.set(line.key, (totals.get(line.key) || 0) + line.qty);
+    return line;
+  }).map(function(line) {
+    var item = UNIFORM_ITEMS.find(function(product) { return product.key === line.key; });
+    var customText = line.customText ? sanitizeText(line.customText, 120) : '';
+    var error = uniformLineError(item, { size: line.size, customText: customText }, totals.get(line.key));
+    if (!Number.isSafeInteger(line.qty) || line.qty < 1) error = 'Please enter a whole quantity of at least one.';
+    if (error) throw new Error(error);
+    var sen = uniformPriceInSen(item);
+    totalSen += sen * line.qty;
+    return { key: item.key, name: item.name, size: line.size || null, qty: line.qty, custom_text: customText || null, price: sen / 100 };
+  });
+  if (!lines.length) throw new Error('Please add at least one item.');
+  if (totalSen > 9999999999) throw new Error('The order total exceeds the allowed maximum.');
+  return { lines: lines, total: totalSen / 100 };
 }
 
 /**
@@ -216,31 +290,32 @@ function filterUniformCategory(cat) {
  */
 async function loadPrices() {
   var client = getSupa();
+  var snapshotsLoaded = false;
   if (client && typeof client.getConfigSnapshot === 'function') {
     var snapPrices = client.getConfigSnapshot('bb_prices');
     var snapItems = client.getConfigSnapshot('bb_uniform_items');
     if (snapPrices || snapItems) {
       if (snapPrices) prices = snapPrices;
-      if (snapItems && snapItems.length) UNIFORM_ITEMS = snapItems;
-      return;
+      if (Array.isArray(snapItems)) UNIFORM_ITEMS = snapItems;
+      snapshotsLoaded = true;
     }
   }
-  if (client && client.get) {
+  if (!snapshotsLoaded && client && client.get) {
     try {
       var rows = await client.get('bb_config?key=in.(bb_prices,bb_uniform_items)&select=key,value');
       if (rows && rows.length) {
         rows.forEach(function (row) {
           if (row.key === 'bb_prices') {
             try {
-              prices = JSON.parse(row.value || '{}');
+              prices = (typeof row.value === 'string' ? JSON.parse(row.value) : row.value) || {};
             } catch (e) {
               prices = {};
             }
           }
           if (row.key === 'bb_uniform_items') {
             try {
-              var it = JSON.parse(row.value);
-              if (it && it.length) {
+              var it = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+              if (Array.isArray(it)) {
                 UNIFORM_ITEMS = it;
                 if (client.recordConfigSnapshot)
                   client.recordConfigSnapshot('bb_uniform_items', it);
@@ -254,14 +329,8 @@ async function loadPrices() {
     }
   }
 
-  UNIFORM_ITEMS.forEach(function (item) {
-    if (item.price) prices[item.key] = parseFloat(item.price) || 0;
-    var p = prices[item.key] || 0;
-    if (typeof document !== 'undefined') {
-      var el = document.getElementById(item.key + '-price-label');
-      if (el) el.textContent = p ? 'RM ' + p.toFixed(2) : 'RM TBA';
-    }
-  });
+  if (typeof window !== 'undefined') window.UNIFORM_ITEMS = UNIFORM_ITEMS;
+  if (typeof document !== 'undefined' && document.getElementById('uniform-items')) renderOrderItems();
 
   return prices;
 }
@@ -327,7 +396,9 @@ function toggleProdCustomPrompt(checked) {
  */
 function stepCardQty(key, delta) {
   var current = itemStagedQtys[key] || 0;
-  var next = Math.max(0, current + delta);
+  var item = UNIFORM_ITEMS.find(function(product) { return product.key === key; });
+  if (_isSubmittingOrder || !canOrderUniformItem(item) || !Number.isSafeInteger(delta)) return current;
+  var next = Math.min(uniformQuantityLimit(item), Math.max(0, current + delta));
   itemStagedQtys[key] = next;
 
   if (typeof document !== 'undefined') {
@@ -364,12 +435,13 @@ function stepCardQty(key, delta) {
  * @param {string} key
  */
 function confirmAddToCart(key) {
-  var staged = itemStagedQtys[key] || 1;
+  var staged = itemStagedQtys[key] || 0;
+  if (!staged || _isSubmittingOrder) return;
   var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
   if (!item) return;
 
   var sizes = getItemSizes(item);
-  var size = itemSelectedSizes[key] || itemSizes[key] || (sizes.length ? sizes[0] : '');
+  var size = itemSelectedSizes[key] || itemSizes[key] || '';
   if (sizes.length && !size) {
     if (typeof showToast === 'function') showToast('Please select a size first!', 'warning');
     return;
@@ -394,7 +466,7 @@ function confirmAddToCart(key) {
     }
   }
 
-  addUniformToCart(key, size, staged, customText);
+  if (!addUniformToCart(key, size, staged, customText)) return;
 
   // Reset staged quantity and custom text for this card
   itemStagedQtys[key] = 0;
@@ -430,6 +502,8 @@ function confirmAddToCart(key) {
 }
 
 function selectUniformCardSize(itemKey, size, btn) {
+  var item = UNIFORM_ITEMS.find(function(product) { return product.key === itemKey; });
+  if (_isSubmittingOrder || !getItemSizes(item).includes(size)) return;
   itemSelectedSizes[itemKey] = size;
   itemSizes[itemKey] = size;
 
@@ -438,10 +512,12 @@ function selectUniformCardSize(itemKey, size, btn) {
     if (grid) {
       grid.querySelectorAll('.size-btn, .size-pill').forEach(function (b) {
         b.classList.remove('selected');
+        b.setAttribute('aria-pressed', 'false');
       });
     }
     if (btn && btn.classList) {
       btn.classList.add('selected');
+      btn.setAttribute('aria-pressed', 'true');
     }
     var lbl = document.getElementById(itemKey + '-selected-size-label');
     if (lbl) lbl.textContent = size;
@@ -456,28 +532,30 @@ function selectUniformCardSize(itemKey, size, btn) {
  * @param {string} [customText='']
  */
 function addUniformToCart(key, customSize, quantity, customText) {
+  if (_isSubmittingOrder) return;
   var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
   if (!item) return;
 
   var sizes = getItemSizes(item);
-  var size = customSize || itemSelectedSizes[key] || itemSizes[key] || (sizes.length ? sizes[0] : '');
-  if (sizes.length && !size) {
-    if (typeof showToast === 'function') showToast('Please select a size first!', 'warning');
+  var size = sizes.length ? (customSize || itemSelectedSizes[key] || itemSizes[key] || '') : '';
+  var qtyToAdd = quantity === undefined ? 1 : Number(quantity);
+  if (!Number.isSafeInteger(qtyToAdd) || qtyToAdd < 1) return;
+  customText = item.hasCustomText && typeof customText === 'string' ? sanitizeText(customText, 120) : '';
+  var currentQty = uniformCart.filter(function(line) { return line.key === key; })
+    .reduce(function(sum, line) { return sum + line.qty; }, 0);
+  var error = uniformLineError(item, { size: size, customText: customText }, currentQty + qtyToAdd);
+  if (error) {
+    if (typeof showToast === 'function') showToast(error, 'warning');
     return;
   }
 
-  var qtyToAdd = Math.max(1, parseInt(quantity, 10) || 1);
-  var priceNum = parseFloat(item.price) || prices[key] || 0;
-  var safeSizeId = size ? size.replace(/[^a-zA-Z0-9_-]/g, '_') : 'std';
-  var safeCustomId = customText ? customText.toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 20) : '';
-  var cartId = key + '__' + safeSizeId + (safeCustomId ? '__' + safeCustomId : '');
-
-  var existing = uniformCart.find(function (ci) { return ci.id === cartId; });
+  var priceNum = uniformPriceInSen(item) / 100;
+  var existing = uniformCart.find(function (ci) { return ci.key === key && ci.size === size && ci.customText === customText; });
   if (existing) {
     existing.qty += qtyToAdd;
   } else {
     uniformCart.push({
-      id: cartId,
+      id: crypto.randomUUID(),
       key: key,
       name: item.name,
       size: size || '',
@@ -519,6 +597,7 @@ function addUniformToCart(key, customSize, quantity, customText) {
   if (typeof showToast === 'function') {
     showToast('Added ' + item.name + (size ? ' (' + size + ')' : '') + ' to cart!', 'success', 1800);
   }
+  return true;
 }
 
 /**
@@ -527,10 +606,21 @@ function addUniformToCart(key, customSize, quantity, customText) {
  * @param {number} delta
  */
 function updateCartItemQty(cartId, delta) {
+  if (_isSubmittingOrder || !Number.isSafeInteger(delta)) return;
   var itemIndex = uniformCart.findIndex(function (ci) { return ci.id === cartId; });
   if (itemIndex === -1) return;
 
   var ci = uniformCart[itemIndex];
+  if (delta > 0) {
+    var product = UNIFORM_ITEMS.find(function(item) { return item.key === ci.key; });
+    var total = uniformCart.filter(function(line) { return line.key === ci.key; })
+      .reduce(function(sum, line) { return sum + line.qty; }, 0);
+    var error = uniformLineError(product, ci, total + delta);
+    if (error) {
+      if (typeof showToast === 'function') showToast(error, 'warning');
+      return;
+    }
+  }
   ci.qty += delta;
 
   if (ci.qty <= 0) {
@@ -575,6 +665,7 @@ function removeUniformCartItem(cartId) {
  * Clears all items from the uniform cart
  */
 function clearUniformCart() {
+  if (_isSubmittingOrder) return;
   uniformCart.length = 0;
   Object.keys(itemStagedQtys).forEach(function (k) { delete itemStagedQtys[k]; });
       UNIFORM_ITEMS.forEach(function (i) {
@@ -621,14 +712,16 @@ function renderCartSection() {
   var totalCount = uniformCart.reduce(function (s, ci) { return s + ci.qty; }, 0);
   var rowsHtml = '';
   uniformCart.forEach(function (ci) {
-    var subtotal = ci.qty * ci.price;
+    var product = UNIFORM_ITEMS.find(function(item) { return item.key === ci.key; });
+    var price = product ? uniformPriceInSen(product) : null;
+    var subtotal = price === null ? null : ci.qty * price / 100;
     rowsHtml += '<div class="cart-row" data-cart-id="' + escapeHtml(ci.id) + '">' +
       '<div class="cart-row-main">' +
       '<div class="cart-row-title">' + escapeHtml(ci.name) + '</div>' +
       '<div class="cart-row-details">' +
       (ci.size ? '<span class="cart-row-size-pill">Size: ' + escapeHtml(ci.size) + '</span>' : '') +
       (ci.customText ? '<span class="cart-row-size-pill" style="background:rgba(234,179,8,0.15);color:#f59e0b;border-color:rgba(234,179,8,0.3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(ci.customText) + '">Custom: ' + escapeHtml(ci.customText) + '</span>' : '') +
-      '<span class="cart-row-price">RM ' + ci.price.toFixed(2) + ' each</span>' +
+      '<span class="cart-row-price">' + (price === null ? 'Price unavailable' : 'RM ' + (price / 100).toFixed(2) + ' each') + '</span>' +
       '</div>' +
       '</div>' +
       '<div class="cart-row-actions">' +
@@ -637,7 +730,7 @@ function renderCartSection() {
       '<span class="cart-step-qty">' + ci.qty + '</span>' +
       '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', 1)" aria-label="Increase quantity">+</button>' +
       '</div>' +
-      '<div class="cart-row-subtotal">RM ' + subtotal.toFixed(2) + '</div>' +
+      '<div class="cart-row-subtotal">' + (subtotal === null ? '—' : 'RM ' + subtotal.toFixed(2)) + '</div>' +
       '<button type="button" class="cart-row-remove-btn" onclick="removeUniformCartItem(\'' + escapeHtml(ci.id) + '\')" title="Remove item" aria-label="Remove item">' +
       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
       '</button>' +
@@ -697,24 +790,16 @@ function validateOrderCart(catalog, qtys, sizes) {
  * @returns {number}
  */
 function updateTotal() {
-  var total = 0;
+  var totalSen = 0;
   var totalCount = 0;
-
-  if (uniformCart && uniformCart.length > 0) {
-    uniformCart.forEach(function (ci) {
-      var prod = UNIFORM_ITEMS.find(function (i) { return i.key === ci.key; });
-      var unitPrice = (prod && !isNaN(parseFloat(prod.price))) ? parseFloat(prod.price) : (ci.price || prices[ci.key] || 0);
-      total += ci.qty * unitPrice;
-      totalCount += ci.qty;
-    });
-  } else {
-    UNIFORM_ITEMS.forEach(function (item) {
-      var qty = itemQtys[item.key] || 0;
-      var unitPrice = parseFloat(item.price) || prices[item.key] || 0;
-      total += qty * unitPrice;
-      totalCount += qty;
-    });
-  }
+  getUniformCartLines().forEach(function(line) {
+    if (!Number.isSafeInteger(line.qty) || line.qty < 1) return;
+    var item = UNIFORM_ITEMS.find(function(product) { return product.key === line.key; });
+    var sen = item ? uniformPriceInSen(item) : null;
+    if (sen !== null) totalSen += line.qty * sen;
+    totalCount += line.qty;
+  });
+  var total = totalSen / 100;
 
   if (typeof document !== 'undefined') {
     var el = document.getElementById('order-total');
@@ -743,72 +828,29 @@ function updateTotal() {
  * @param {number} delta
  */
 function changeQty(key, delta) {
+  if (_isSubmittingOrder || !Number.isSafeInteger(delta)) return;
+  var item = UNIFORM_ITEMS.find(function(product) { return product.key === key; });
+  if (!item) return;
   var current = itemQtys[key] || 0;
-  var next = Math.min(99, Math.max(0, current + delta));
-  itemQtys[key] = next;
-
-  // Sync with uniformCart
-  var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
-  var sizes = getItemSizes(item);
-  var size = itemSizes[key] || (sizes.length ? sizes[0] : '');
-
   if (delta > 0) {
-    var safeSizeId = size ? size.replace(/[^a-zA-Z0-9_-]/g, '_') : 'std';
-    var cartId = key + '__' + safeSizeId;
-    var existing = uniformCart.find(function (ci) { return ci.id === cartId; });
-    if (existing) {
-      existing.qty += delta;
-      if (item && !isNaN(parseFloat(item.price))) existing.price = parseFloat(item.price);
-    } else if (item) {
-      uniformCart.push({
-        id: cartId,
-        key: key,
-        name: item.name,
-        size: size || '',
-        qty: delta,
-        price: parseFloat(item.price) || prices[key] || 0
-      });
+    var increment = Math.min(delta, uniformQuantityLimit(item) - current);
+    if (increment > 0) addUniformToCart(key, itemSizes[key], increment);
+  } else {
+    var remaining = Math.min(-delta, current);
+    for (var i = uniformCart.length - 1; i >= 0 && remaining > 0; i--) {
+      var line = uniformCart[i];
+      if (line.key !== key) continue;
+      var removed = Math.min(remaining, line.qty);
+      updateCartItemQty(line.id, -removed);
+      remaining -= removed;
     }
-  } else if (delta < 0) {
-    if (next === 0) {
-      for (var ciIdx = uniformCart.length - 1; ciIdx >= 0; ciIdx--) {
-        if (uniformCart[ciIdx].key === key) {
-          uniformCart.splice(ciIdx, 1);
-        }
-      }
-    } else {
-      for (var i = uniformCart.length - 1; i >= 0; i--) {
-        if (uniformCart[i].key === key) {
-          uniformCart[i].qty += delta;
-          if (uniformCart[i].qty <= 0) {
-            uniformCart.splice(i, 1);
-          }
-          break;
-        }
-      }
-    }
+    if (!uniformCart.some(function(line) { return line.key === key; })) itemQtys[key] = 0;
+    updateTotal();
   }
-
   if (typeof document !== 'undefined') {
     var qtyEl = document.getElementById(key + '-qty');
-    if (qtyEl) qtyEl.textContent = next;
-
-    var wrap = document.getElementById(key + '-size-wrap');
-    var card = document.getElementById('ui-' + key);
-
-    if (wrap) wrap.style.display = sizes.length ? 'block' : 'none';
-    if (card) card.classList.toggle('has-qty', next > 0);
-
-    var inCartEl = document.getElementById(key + '-in-cart');
-    if (inCartEl) {
-      var summary = getProductInCartSummary(key);
-      inCartEl.textContent = summary;
-      inCartEl.style.display = summary ? 'block' : 'none';
-    }
+    if (qtyEl) qtyEl.textContent = itemQtys[key] || 0;
   }
-
-  if (next === 0) delete itemSizes[key];
-  updateTotal();
 }
 
 /**
@@ -1299,8 +1341,10 @@ function renderOrderItems(memberRank) {
 
   var html = '';
   visible.forEach(function (item) {
+    if (!/^[\w-]+$/.test(item.key)) return;
     var sizes = getItemSizes(item);
-    var currentSize = itemSelectedSizes[item.key] || itemSizes[item.key] || (sizes.length ? sizes[0] : '');
+    var currentSize = itemSelectedSizes[item.key] || itemSizes[item.key] || '';
+    if (!sizes.includes(currentSize)) currentSize = '';
     itemSelectedSizes[item.key] = currentSize;
 
     var sizeButtons = '';
@@ -1309,11 +1353,10 @@ function renderOrderItems(memberRank) {
       sizeButtons +=
         '<button type="button" class="size-pill size-btn' +
         (isSel ? ' selected' : '') +
-        '" onclick="selectUniformCardSize(\'' +
-        escapeHtml(item.key) +
-        "\',\'" +
+        '" data-size="' +
         escapeHtml(s) +
-        '\',this)">' +
+        '" aria-pressed="' + isSel + '" onclick="selectUniformCardSize(\'' +
+        escapeHtml(item.key) + '\',this.dataset.size,this)">' +
         escapeHtml(s) +
         '</button>';
     });
@@ -1331,8 +1374,11 @@ function renderOrderItems(memberRank) {
         '" loading="lazy"/>'
       : getItemIcon(item);
 
-    var priceNum = parseFloat(item.price) || prices[item.key] || 0;
-    var priceLabel = priceNum ? 'RM ' + priceNum.toFixed(2) : 'RM TBA';
+    var price = uniformPriceInSen(item);
+    var limit = uniformQuantityLimit(item);
+    var staged = Math.min(itemStagedQtys[item.key] || 0, limit);
+    itemStagedQtys[item.key] = staged;
+    var priceLabel = !limit ? 'Out of stock' : price === null ? 'RM TBA' : 'RM ' + (price / 100).toFixed(2);
     var cat = getItemCategory(item);
     var catLabel =
       cat === 'apparel'
@@ -1390,7 +1436,7 @@ function renderOrderItems(memberRank) {
 
     html +=
       '<div class="uniform-product-card uniform-item' +
-      (currentQty > 0 ? ' has-qty' : '') +
+      (currentQty > 0 ? ' has-qty' : '') + (staged > 0 ? ' has-staged-qty' : '') +
       '" id="ui-' +
       escapeHtml(item.key) +
       '" data-category="' +
@@ -1418,16 +1464,16 @@ function renderOrderItems(memberRank) {
       customWrap +
       '</div>' +
       '<div class="product-card-footer">' +
-      '<div class="product-card-in-cart" id="' + escapeHtml(item.key) + '-in-cart" style="display:' + (inCartText ? 'block' : 'none') + ';">' + inCartText + '</div>' +
+      '<div class="product-card-in-cart" id="' + escapeHtml(item.key) + '-in-cart" style="display:' + (inCartText ? 'block' : 'none') + ';">' + escapeHtml(inCartText) + '</div>' +
       '<div class="product-card-action-row">' +
       '<div class="product-card-stepper qty-ctrl">' +
-      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-minus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity" disabled style="opacity:0.4;">&#8722;</button>' +
-      '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">0</div>' +
-      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-plus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity">+</button>' +
+      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-minus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity"' + (staged ? '' : ' disabled style="opacity:0.4;"') + '>&#8722;</button>' +
+      '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">' + staged + '</div>' +
+      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-plus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity"' + (!limit || price === null ? ' disabled' : '') + '>+</button>' +
       '</div>' +
-      '<button type="button" class="add-to-cart-btn" id="' + escapeHtml(item.key) + '-add-btn" onclick="confirmAddToCart(\'' + escapeHtml(item.key) + '\')" style="display:none;">' +
+      '<button type="button" class="add-to-cart-btn" id="' + escapeHtml(item.key) + '-add-btn" onclick="confirmAddToCart(\'' + escapeHtml(item.key) + '\')" style="display:' + (staged && price !== null ? 'inline-flex' : 'none') + ';">' +
       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
-      '<span id="' + escapeHtml(item.key) + '-add-label">Add to Cart</span>' +
+      '<span id="' + escapeHtml(item.key) + '-add-label">' + (staged ? 'Add ' + staged + ' to Cart' : 'Add to Cart') + '</span>' +
       '</button>' +
       '</div>' +
       '</div>' +
@@ -1441,7 +1487,8 @@ function renderOrderItems(memberRank) {
   setTimeout(function () {
     if (
       typeof createRichEditor === 'function' &&
-      document.getElementById('order-notes-container')
+      document.getElementById('order-notes-container') &&
+      !document.getElementById('order-notes')
     ) {
       createRichEditor(
         'order-notes-container',
@@ -1458,37 +1505,18 @@ function renderOrderItems(memberRank) {
  */
 function goToOrderReview() {
   if (typeof document === 'undefined') return;
-  var validation = validateOrderCart(UNIFORM_ITEMS, itemQtys, itemSizes);
-  if (!validation.valid) {
-    if (typeof showToast === 'function') showToast(validation.error, 'warning');
+  if (_isSubmittingOrder) return;
+  var cart;
+  try {
+    cart = readUniformCart();
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message, 'warning');
     return;
   }
 
-  var lines = [];
-  if (uniformCart && uniformCart.length > 0) {
-    uniformCart.forEach(function (ci) {
-      lines.push({
-        name: ci.name,
-        qty: ci.qty,
-        size: ci.size,
-        customText: ci.customText || '',
-        subtotal: ci.qty * ci.price
-      });
-    });
-  } else {
-    UNIFORM_ITEMS.forEach(function (item) {
-      var qty = itemQtys[item.key] || 0;
-      if (qty > 0) {
-        var size = itemSizes[item.key] || '';
-        var p = parseFloat(item.price) || prices[item.key] || 0;
-        lines.push({ name: item.name, qty: qty, size: size, customText: itemCustomTexts[item.key] || '', subtotal: qty * p });
-      }
-    });
-  }
-
   var html = '';
-  lines.forEach(function (l) {
-    var customLabel = l.customText ? ' · "' + escapeHtml(l.customText) + '"' : '';
+  cart.lines.forEach(function (l) {
+    var customLabel = l.custom_text ? ' · "' + escapeHtml(l.custom_text) + '"' : '';
     html +=
       '<div class="review-row"><span class="review-label">' +
       escapeHtml(l.name) +
@@ -1496,16 +1524,13 @@ function goToOrderReview() {
       escapeHtml(l.qty) +
       (l.size ? ' (' + escapeHtml(l.size) + ')' : '') +
       customLabel +
-      (l.subtotal ? ' \u2014 RM ' + l.subtotal.toFixed(2) : '') +
+      ' — RM ' + (Math.round(l.price * 100) * l.qty / 100).toFixed(2) +
       '</span></div>';
   });
 
-  var total = lines.reduce(function (s, l) {
-    return s + l.subtotal;
-  }, 0);
   html +=
     '<hr style="border:none;border-top:1px dashed #eee;margin:10px 0;"><div class="review-row"><span class="review-label">Total</span><span class="review-value" style="color:var(--accent);font-size:16px;">RM ' +
-    total.toFixed(2) +
+    cart.total.toFixed(2) +
     '</span></div>';
 
   var notes = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
@@ -1517,7 +1542,10 @@ function goToOrderReview() {
   }
 
   var rc = document.getElementById('review-content');
-  if (rc) rc.innerHTML = html;
+  if (rc) {
+    rc.innerHTML = html;
+    rc.dataset.orderItems = JSON.stringify(cart.lines);
+  }
 
   // Show payment instructions with fallback
   var pib = document.getElementById('payment-info-box');
@@ -1548,6 +1576,7 @@ function goToOrderReview() {
  * Returns user back to the uniform order configuration view from review
  */
 function goBackOrder() {
+  if (_isSubmittingOrder) return;
   if (typeof document === 'undefined') return;
   var sf = document.getElementById('step-form');
   if (sf) sf.style.display = 'block';
@@ -1778,220 +1807,144 @@ function getTngScreenshot() {
  * Submits finalized uniform order to Supabase bb_orders table
  */
 async function submitOrder() {
-  if (_isSubmittingOrder) {
-    if (typeof showToast === 'function')
-      showToast('Order submission is already in progress.', 'warning');
+  if (_isSubmittingOrder) return null;
+  var availability = isUniformOrdersAcceptingResponses();
+  if (!availability.open) {
+    if (typeof showToast === 'function') showToast(availability.message || 'Uniform ordering is currently closed.', 'warning');
     return null;
   }
 
-  var avail = typeof isUniformOrdersAcceptingResponses === 'function'
-    ? isUniformOrdersAcceptingResponses()
-    : { open: true };
-  if (!avail.open) {
-    if (typeof showToast === 'function') {
-      showToast(avail.message || 'Uniform ordering is currently closed.', 'warning');
-    }
-    return null;
-  }
-
-  var btn = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
-  var ic = typeof sessionGet === 'function' ? sessionGet('ic') || '' : '';
-
-  if (!ic || !ic.trim()) {
+  var memberId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : '';
+  if (typeof memberId !== 'string' || !memberId.trim()) {
     if (typeof showToast === 'function') showToast('Please log in to submit an order.', 'warning');
     return null;
   }
 
-  var validation = validateOrderCart(UNIFORM_ITEMS, itemQtys, itemSizes);
-  if (!validation.valid) {
-    if (typeof showToast === 'function') showToast(validation.error, 'warning');
-    return null;
-  }
-
-  var screenshot = getTngScreenshot();
-  if (screenshot && typeof screenshot === 'string' && screenshot.length > 14 * 1024 * 1024) {
-    if (typeof showToast === 'function')
-      showToast('Payment screenshot payload is too large (max 10MB).', 'warning');
-    return null;
-  }
-
-  // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('order')
-    : '';
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
-    if (typeof showToast === 'function') {
-      showToast('Please complete the security check before confirming your order.', 'warning');
-    }
-    return null;
-  }
-  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
-    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'order');
-    if (!captchaResult || !captchaResult.success) {
-      if (typeof resetTurnstileWidget === 'function') {
-        resetTurnstileWidget('order');
-      }
-      if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
-      }
-      return null;
-    }
-  }
-
-  _isSubmittingOrder = true;
-  if (typeof setButtonLoading === 'function') {
-    setButtonLoading(btn, true, 'Submitting...', 'Submitting uniform order...');
-  } else if (btn) {
-    btn.innerHTML = 'Submitting...';
-    btn.disabled = true;
-  }
-
-  var client = getSupa();
-  var memberData = {};
-
+  var cart;
   try {
-    if (client && client.get) {
-      try {
-        var d = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,rank,squad');
-        memberData = d && d[0] ? d[0] : {};
-      } catch (e) {}
-    }
+    cart = readUniformCart();
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(err.message, 'warning');
+    return null;
+  }
+  var reviewed = typeof document !== 'undefined' ? document.getElementById('review-content') : null;
+  if (reviewed && reviewed.dataset.orderItems && reviewed.dataset.orderItems !== JSON.stringify(cart.lines)) {
+    goToOrderReview();
+    if (typeof showToast === 'function') showToast('Your cart has changed. Review the updated order before confirming.', 'warning');
+    return null;
+  }
 
-    var items = {};
-    if (uniformCart && uniformCart.length > 0) {
-      uniformCart.forEach(function (ci) {
-        items[ci.id] = {
-          key: ci.key,
-          name: ci.name,
-          qty: ci.qty,
-          size: ci.size || null,
-          custom_text: ci.customText || null,
-          price: ci.price
-        };
-      });
-    } else {
-      UNIFORM_ITEMS.forEach(function (item) {
-        var qty = itemQtys[item.key] || 0;
-        if (qty > 0) {
-          items[item.key] = {
-            qty: qty,
-            size: itemSizes[item.key] || null,
-            custom_text: itemCustomTexts[item.key] || null,
-            price: parseFloat(item.price) || prices[item.key] || 0
-          };
+  var btn = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
+  var lockButton = typeof withSmartButtonLock === 'function' ? withSmartButtonLock : require('../core/loading.js').withSmartButtonLock;
+  _isSubmittingOrder = true;
+  var captchaToken = '';
+  try {
+    return await lockButton(btn, async function() {
+      var client = getSupa();
+      if (!client) throw new Error('Database client unavailable');
+      var notesRaw = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
+      var notes = typeof sanitizeHtml === 'function' ? sanitizeHtml(notesRaw) : escapeHtml(notesRaw);
+      var items = JSON.stringify(cart.lines);
+      if (_pendingUniformOrder && _pendingUniformOrder.ic !== memberId) _pendingUniformOrder = null;
+      if (_pendingUniformOrder && (_pendingUniformOrder.items !== items || _pendingUniformOrder.notes !== notes)) {
+        var previous = await client.get('bb_orders?id=eq.' + _pendingUniformOrder.id + '&ic=eq.' + encodeURIComponent(memberId) + '&select=order_number', { cache: false });
+        if (!Array.isArray(previous)) throw new Error('Order could not be confirmed');
+        var previousOrderNumber = _pendingUniformOrder.order_number;
+        _pendingUniformOrder = null;
+        if (previous.some(function(row) { return row.order_number === previousOrderNumber; })) {
+          if (typeof showToast === 'function') showToast('Order ' + previousOrderNumber + ' was already saved. Review your current cart before confirming another order.', 'warning');
+          if (typeof loadMemberOrders === 'function') loadMemberOrders();
+          return null;
         }
-      });
-    }
-
-    var orderNum = 'BB-' + Date.now().toString(36).toUpperCase();
-    var notesRaw = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
-    var notesClean = typeof sanitizeHtml === 'function' ? sanitizeHtml(notesRaw) : notesRaw;
-
-    // Mitigate PostgreSQL text bloat:
-    // Compress receipt image and upload to Supabase Storage; fallback to compressed data URL (<100KB)
-    var finalScreenshot = null;
-    var rawScreenshot = getTngScreenshot();
-    if (_tngScreenshotFile || rawScreenshot) {
-      try {
-        var comp = await compressReceiptImage(_tngScreenshotFile || rawScreenshot, 1200, 0.75);
-        var uploadBlob = comp.blob;
-        var compDataUrl = comp.dataUrl;
-
-        if (client && typeof client.uploadFile === 'function' && uploadBlob) {
-          var cleanCode = orderNum.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-          var receiptPath = 'receipts/' + cleanCode + '_' + Date.now() + '.jpg';
-          try {
-            await client.uploadFile('receipts', receiptPath, uploadBlob);
-            var signedReceipt = (typeof client.createSignedUrl === 'function')
-              ? await client.createSignedUrl('receipts', receiptPath, 604800)
-              : null;
-            finalScreenshot = (signedReceipt && signedReceipt.signedUrl) ? signedReceipt.signedUrl : client.fileUrl('receipts', receiptPath);
-          } catch (storageErr) {
-            try {
-              var galleryPath = 'orders/' + cleanCode + '_' + Date.now() + '.jpg';
-              await client.uploadFile('gallery', galleryPath, uploadBlob);
-              var signedGal = (typeof client.createSignedUrl === 'function')
-                ? await client.createSignedUrl('gallery', galleryPath, 604800)
-                : null;
-              finalScreenshot = (signedGal && signedGal.signedUrl) ? signedGal.signedUrl : client.fileUrl('gallery', galleryPath);
-            } catch (galleryErr) {
-              // Storage bucket unavailable; fall back to compressed data URL
-            }
-          }
-        }
-
-        if (!finalScreenshot) {
-          finalScreenshot = compDataUrl || rawScreenshot;
-        }
-      } catch (compErr) {
-        finalScreenshot = rawScreenshot;
-      }
-    }
-
-    if (!client || !client.post) throw new Error('Database client unavailable');
-    var orderRecord = {
-      order_number: orderNum,
-      ic: ic,
-      member_name: memberData.name || ic,
-      rank: memberData.rank || '',
-      squad: memberData.squad || '',
-      items: JSON.stringify(items),
-      notes: notesClean,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-      payment_screenshot: finalScreenshot || null
-    };
-    await client.post('bb_orders', orderRecord);
-    syncOrderToGoogleSheetsArchive(orderRecord);
-    _tngScreenshotFile = null;
-    uniformCart.length = 0;
-
-    if (typeof document !== 'undefined') {
-      var sf = document.getElementById('step-review');
-      if (sf) sf.style.display = 'none';
-      var sn = document.getElementById('s-ordernum');
-      if (sn) sn.textContent = orderNum;
-      var scb = document.getElementById('sticky-checkout-bar');
-      if (scb) scb.style.display = 'none';
-      var sb = document.getElementById('order-success');
-      if (sb) {
-        sb.style.display = 'block';
-        if (sb.scrollIntoView) sb.scrollIntoView({ behavior: 'smooth' });
       }
 
-      UNIFORM_ITEMS.forEach(function (i) {
-        itemQtys[i.key] = 0;
-        delete itemSizes[i.key];
-        var el = document.getElementById(i.key + '-qty');
-        if (el) el.textContent = '0';
-        var w = document.getElementById(i.key + '-size-wrap');
-        if (w) w.style.display = 'none';
-        var c = document.getElementById('ui-' + i.key);
-        if (c) c.classList.remove('has-qty');
+      captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('order') : '';
+      if (!captchaToken || String(captchaToken).includes('_FALLBACK_') || typeof verifyTurnstileTokenServerSide !== 'function') {
+        if (typeof showToast === 'function') showToast('Please complete the security check before confirming your order.', 'warning');
+        return null;
+      }
+      var captcha = await verifyTurnstileTokenServerSide(captchaToken, 'order');
+      if (!captcha || captcha.success !== true || (captcha.action && captcha.action !== 'order')) {
+        if (typeof showToast === 'function') showToast('Security verification failed. Please try again.', 'error');
+        return null;
+      }
+      if ((sessionGet('ic') || sessionGet('email')) !== memberId) return null;
+      if (!isUniformOrdersAcceptingResponses().open) {
+        if (typeof showToast === 'function') showToast('Uniform ordering has closed. Your cart is still available.', 'warning');
+        return null;
+      }
+      var currentCart = readUniformCart();
+      if (JSON.stringify(currentCart.lines) !== items) {
+        if (typeof showToast === 'function') showToast('The catalog changed. Edit and review your order again.', 'warning');
+        return null;
+      }
+
+      var wasPending = !!_pendingUniformOrder;
+      var orderId = wasPending ? _pendingUniformOrder.id : crypto.randomUUID();
+      var orderRecord = _pendingUniformOrder || {
+        id: orderId,
+        order_number: 'BB-' + orderId.replace(/-/g, '').slice(0, 16).toUpperCase(),
+        ic: memberId,
+        member_name: sessionGet('name') || memberId,
+        rank: sessionGet('rank') || '',
+        squad: sessionGet('squad') || '',
+        items: items,
+        total_amount: cart.total,
+        notes: notes,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
+      _pendingUniformOrder = orderRecord;
+      var lookup = 'bb_orders?id=eq.' + orderId + '&ic=eq.' + encodeURIComponent(memberId) + '&select=order_number';
+      var saved = wasPending ? await client.get(lookup, { cache: false }) : [];
+      if (!Array.isArray(saved)) throw new Error('Order could not be confirmed');
+      if (!saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
+        try {
+          saved = typeof client.req === 'function'
+            ? await client.req('POST', 'bb_orders', orderRecord, null, { maxRetries: 0 })
+            : await client.post('bb_orders', orderRecord);
+        } catch (_) {
+          saved = await client.get(lookup, { cache: false });
+        }
+        if (!Array.isArray(saved) || !saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
+          throw new Error('Order could not be confirmed');
+        }
+        syncOrderToGoogleSheetsArchive(orderRecord);
+      }
+      _pendingUniformOrder = null;
+      if ((sessionGet('ic') || sessionGet('email')) !== memberId) return orderRecord.order_number;
+
+      uniformCart.length = 0;
+      [itemQtys, itemSizes, itemSelectedSizes, itemStagedQtys, itemCustomTexts].forEach(function(values) {
+        Object.keys(values).forEach(function(key) { delete values[key]; });
       });
-
-      if (typeof reClearValue === 'function') reClearValue('order-notes');
-      clearTngScreenshot();
-      updateTotal();
+      if (typeof document !== 'undefined') {
+        var review = document.getElementById('step-review');
+        if (review) review.style.display = 'none';
+        var number = document.getElementById('s-ordernum');
+        if (number) number.textContent = orderRecord.order_number;
+        var sticky = document.getElementById('sticky-checkout-bar');
+        if (sticky) sticky.style.display = 'none';
+        var success = document.getElementById('order-success');
+        if (success) {
+          success.style.display = 'block';
+          if (success.scrollIntoView) success.scrollIntoView({ behavior: 'smooth' });
+        }
+        if (typeof reClearValue === 'function') reClearValue('order-notes');
+        renderOrderItems();
+        updateTotal();
+      }
+      if (typeof loadMemberOrders === 'function') loadMemberOrders();
+      return orderRecord.order_number;
+    }, { loadingText: 'Submitting...', srLabel: 'Submitting uniform order...' });
+  } catch (_) {
+    if (typeof showToast === 'function') {
+      showToast('The order could not be confirmed. Your cart is still available. Retry on this page or check your order history.', 'error');
     }
-
-    if (typeof loadMemberOrders === 'function') {
-      loadMemberOrders();
-    }
-    return orderNum;
-  } catch (e) {
-    if (typeof showToast === 'function') showToast('Failed to submit order: ' + e.message, 'error');
-
-    if (btn) {
-      btn.innerHTML = '\u2705 Confirm &amp; Submit';
-      btn.disabled = false;
-    }
-    throw e;
+    return null;
   } finally {
     _isSubmittingOrder = false;
-    if (typeof resetTurnstileWidget === 'function') {
-      resetTurnstileWidget('order');
-    }
+    if (captchaToken && typeof resetTurnstileWidget === 'function') resetTurnstileWidget('order');
   }
 }
 
@@ -2028,7 +1981,8 @@ function renderUniformOrderInline() {
     return;
   }
 
-  var categories = getUniformCategories(UNIFORM_ITEMS);
+  var categories = getUniformCategories(UNIFORM_ITEMS.filter(canOrderUniformItem));
+  if (!Object.hasOwn(categories, _activeUniformCategory)) _activeUniformCategory = 'all';
   var catTabsHtml = '<div class="uniform-cat-tabs" id="uniform-cat-tabs">';
   Object.keys(categories).forEach(function (catKey) {
     var c = categories[catKey];
@@ -2154,6 +2108,55 @@ var _adminOrdersMonthFilter = '';
 var _cachedAdminOrdersList = [];
 var _ordersSheetsArchiveUrl = '';
 
+function parseUniformOrderItems(value) {
+  return (typeof value === 'string' ? JSON.parse(value || '{}') : value) || {};
+}
+
+function storedUniformOrderLines(value) {
+  return Object.entries(parseUniformOrderItems(value)).flatMap(function(entry) {
+    var line = entry[1];
+    if (!line || line.qty === undefined) return [];
+    var qty = Number(line.qty);
+    if (!Number.isSafeInteger(qty) || qty < 1) return [];
+    var key = line.key || entry[0].split('__')[0];
+    var product = UNIFORM_ITEMS.find(function(item) { return item.key === key; });
+    var price = uniformPriceInSen({ key: key, price: line.price ?? product?.price });
+    return [{ key: key, name: line.name || product?.name || key, qty: qty, size: line.size, custom_text: line.custom_text || line.customText, price: (price ?? 0) / 100 }];
+  });
+}
+
+function orderArchiveRecord(order) {
+  var lines = [];
+  try {
+    lines = storedUniformOrderLines(order.items);
+  } catch (_) {}
+  return {
+    order_number: order.order_number,
+    member_name: order.member_name,
+    rank: order.rank,
+    squad: order.squad,
+    items: lines,
+    total_price: order.total_amount ?? order.total_price ?? lines.reduce(function(sum, line) { return sum + Math.round(line.price * 100) * line.qty; }, 0) / 100,
+    notes: order.notes,
+    status: order.status,
+    created_at: order.created_at
+  };
+}
+
+function isUniformOrder(order) {
+  if ((order.order_number || '').startsWith('FORM-') || order.payment_method === 'form_submission') return false;
+  try {
+    var items = parseUniformOrderItems(order.items);
+    return !items.form_name && !items.form_id && !items.answers;
+  } catch (_) {
+    return false;
+  }
+}
+
+function getUniformStatusOptions(status) {
+  return Object.hasOwn(UNIFORM_ORDER_TRANSITIONS, status) ? [status].concat(UNIFORM_ORDER_TRANSITIONS[status]) : [];
+}
+
 /**
  * Loads configured Google Sheets permanent archive webhook URL from Supabase bb_config
  */
@@ -2233,7 +2236,7 @@ var UNIFORM_ORDERS_APPS_SCRIPT_CODE = [
   'function doPost(e) {',
   '  var lock = LockService.getScriptLock();',
   '  try {',
-  '    lock.tryLock(30000);',
+  '    lock.waitLock(30000);',
   '    var raw = e && e.postData ? e.postData.contents : "";',
   '    var data = JSON.parse(raw);',
   '    var ss = SpreadsheetApp.getActiveSpreadsheet();',
@@ -2382,29 +2385,10 @@ async function syncOrderToGoogleSheetsArchive(orderRecord) {
     var url = await loadOrdersSheetsArchiveUrl();
     if (!url || !/^https?:\/\//i.test(url)) return;
 
-    var sum = 0;
-    try {
-      var items = typeof orderRecord.items === 'string' ? JSON.parse(orderRecord.items) : (orderRecord.items || {});
-      Object.entries(items).forEach(function(kv) {
-        var v = kv[1];
-        var baseKey = kv[0].split('__')[0];
-        var prod = UNIFORM_ITEMS.find(function(i) {
-          return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
-        });
-        var qty = parseInt(v.qty, 10) || 1;
-        var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
-        sum += qty * p;
-      });
-    } catch (_) {}
-
-    var enrichedRecord = Object.assign({}, orderRecord, {
-      total_price: (orderRecord && orderRecord.total_price !== undefined) ? orderRecord.total_price : sum
-    });
-
     var payload = {
       action: 'archive_order',
       timestamp: new Date().toISOString(),
-      order: enrichedRecord
+      order: orderArchiveRecord(orderRecord)
     };
 
     if (typeof fetch !== 'undefined') {
@@ -2614,7 +2598,7 @@ async function syncAdminOrdersToGoogleSheet() {
     var payload = {
       action: 'sync_all_orders',
       timestamp: new Date().toISOString(),
-      orders: _cachedAdminOrdersList
+      orders: _cachedAdminOrdersList.map(orderArchiveRecord)
     };
 
     await fetch(url, {
@@ -2625,12 +2609,12 @@ async function syncAdminOrdersToGoogleSheet() {
     });
 
     if (typeof showToast === 'function') {
-      showToast('✓ Permanent Google Sheet sync sent (' + _cachedAdminOrdersList.length + ' orders)!', 'success');
+      showToast('Sync request sent for ' + _cachedAdminOrdersList.length + ' orders. Confirm the result in Google Sheets.', 'info');
     }
   } catch (err) {
     console.error('syncAdminOrdersToGoogleSheet error:', err);
     if (typeof showToast === 'function') {
-      showToast('Sync request completed (cross-origin mode). Check your Google Sheet.', 'info');
+      showToast('The Google Sheets sync request could not be sent. Try again.', 'error');
     }
   }
 }
@@ -2672,18 +2656,11 @@ function exportAdminOrdersToCsv(ordersToExport) {
   var itemMap = {};
   list.forEach(function (o) {
     try {
-      var items = JSON.parse(o.items || '{}');
-      Object.entries(items).forEach(function (kv) {
-        var v = kv[1];
-        var baseKey = kv[0].split('__')[0];
-        var prod = UNIFORM_ITEMS.find(function (i) {
-          return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
-        });
-        var displayName = prod ? prod.name : ((v && v.name) || baseKey);
-        var qty = parseInt(v.qty, 10) || 1;
-        var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
-        var sz = (v && v.size) ? v.size : 'Standard';
-        var val = qty * p;
+      storedUniformOrderLines(o.items).forEach(function (v) {
+        var displayName = v.name;
+        var qty = v.qty;
+        var sz = v.size || 'Standard';
+        var val = qty * v.price;
 
         if (!itemMap[displayName]) itemMap[displayName] = {};
         if (!itemMap[displayName][sz]) itemMap[displayName][sz] = { count: 0, value: 0 };
@@ -2727,18 +2704,9 @@ function exportAdminOrdersToCsv(ordersToExport) {
     var itemsFormatted = [];
     var totalPrice = 0;
     try {
-      var items = JSON.parse(o.items || '{}');
-      Object.entries(items).forEach(function (kv) {
-        var v = kv[1];
-        var baseKey = kv[0].split('__')[0];
-        var prod = UNIFORM_ITEMS.find(function (i) {
-          return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
-        });
-        var displayName = prod ? prod.name : ((v && v.name) || baseKey);
-        var qty = parseInt(v.qty, 10) || 1;
-        var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
-        totalPrice += qty * p;
-        itemsFormatted.push(displayName + ' x' + qty + (v.size ? ' (' + v.size + ')' : ''));
+      storedUniformOrderLines(o.items).forEach(function (v) {
+        totalPrice += v.qty * v.price;
+        itemsFormatted.push(v.name + ' x' + v.qty + (v.size ? ' (' + v.size + ')' : ''));
       });
     } catch (_) {}
 
@@ -3006,14 +2974,7 @@ async function renderAdminOrders(forceRefresh) {
     }
 
     // Only show uniform orders (filter out custom form submissions)
-    var uniformOrders = orders.filter(function (o) {
-      try {
-        var items = JSON.parse(o.items || '{}');
-        return items.form_name === undefined;
-      } catch (e) {
-        return true;
-      }
-    });
+    var uniformOrders = orders.filter(isUniformOrder);
 
     var filtered = uniformOrders.filter(function (o) {
       var matchesSearch =
@@ -3032,12 +2993,13 @@ async function renderAdminOrders(forceRefresh) {
 
     var SC = {
       pending: '#eab308',
+      paid: '#34d399',
       processing: '#3b82f6',
       ready: '#10b981',
+      completed: '#6b7280',
       collected: '#6b7280',
       cancelled: '#ef4444'
     };
-    var SL = ['pending', 'processing', 'ready', 'collected', 'cancelled'];
     var monthNames = [
       'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'
@@ -3085,22 +3047,16 @@ async function renderAdminOrders(forceRefresh) {
     var totalOrderRevenue = 0;
 
     filtered.forEach(function (o) {
+      if (['cancelled', 'collected', 'completed'].includes(o.status)) return;
       try {
-        var items = JSON.parse(o.items || '{}');
-        Object.entries(items).forEach(function (kv) {
-          var v = kv[1];
-          var baseKey = kv[0].split('__')[0];
-          var prod = UNIFORM_ITEMS.find(function (i) {
-            return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
-          });
-          var displayName = prod ? prod.name : ((v && v.name) || baseKey);
-          var qty = parseInt(v.qty, 10) || 1;
-          var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
-          var val = qty * p;
+        storedUniformOrderLines(o.items).forEach(function (v) {
+          var displayName = v.name;
+          var qty = v.qty;
+          var val = qty * v.price;
           totalOrderRevenue += val;
           totalPreparationItems += qty;
           itemPreparationCounts[displayName] = (itemPreparationCounts[displayName] || 0) + qty;
-          var sz = (v && v.size) ? v.size : 'Standard';
+          var sz = v.size || 'Standard';
           if (!itemSizeBreakdown[displayName]) itemSizeBreakdown[displayName] = {};
           itemSizeBreakdown[displayName][sz] = (itemSizeBreakdown[displayName][sz] || 0) + qty;
           if (!itemSizeValues[displayName]) itemSizeValues[displayName] = {};
@@ -3139,20 +3095,11 @@ async function renderAdminOrders(forceRefresh) {
         var itemsDisplay = '';
         var total = 0;
         try {
-          var items = JSON.parse(o.items || '{}');
           var itemParts = [];
-          Object.entries(items).forEach(function (kv) {
-            var v = kv[1];
-            var baseKey = kv[0].split('__')[0];
-            var prod = UNIFORM_ITEMS.find(function (i) {
-              return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
-            });
-            var displayName = prod ? prod.name : ((v && v.name) || baseKey);
-            var qty = parseInt(v.qty, 10) || 1;
-            var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
-            total += qty * p;
-            var customBadge = (v && (v.custom_text || v.customText)) ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' + escapeHtml(v.custom_text || v.customText) + '</span>' : '';
-            itemParts.push(escapeHtml(displayName) + ' ×' + escapeHtml(qty) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + customBadge);
+          storedUniformOrderLines(o.items).forEach(function (v) {
+            total += v.qty * v.price;
+            var customBadge = v.custom_text ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' + escapeHtml(v.custom_text) + '</span>' : '';
+            itemParts.push(escapeHtml(v.name) + ' ×' + escapeHtml(v.qty) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + customBadge);
           });
           itemsDisplay = itemParts.join('<br>');
         } catch (_) {}
@@ -3167,7 +3114,8 @@ async function renderAdminOrders(forceRefresh) {
             })
           : '—';
 
-        var statusSelectOptions = SL.map(function(s) {
+        var statusOptions = getUniformStatusOptions(status);
+        var statusSelectOptions = (statusOptions.length ? statusOptions : ['']).map(function(s) {
           return '<option value="' + s + '"' + (s === status ? ' selected' : '') + '>' + s.toUpperCase() + '</option>';
         }).join('');
 
@@ -3184,7 +3132,7 @@ async function renderAdminOrders(forceRefresh) {
           '<td style="font-weight:700;color:var(--brand-gold);white-space:nowrap;">RM ' + total.toFixed(2) + '</td>' +
           '<td style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">' + created + '</td>' +
           '<td>' +
-          '<select data-order-num="' + escapeHtml(o.order_number) + '" class="admin-table-status-select" style="font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid ' + sc + '66;background:' + sc + '22;color:' + sc + ';cursor:pointer;font-family:var(--font-headline);">' +
+          '<select data-order-num="' + escapeHtml(o.order_number) + '" aria-label="Order status" class="admin-table-status-select"' + (statusOptions.length < 2 ? ' disabled' : '') + ' style="font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid ' + sc + '66;background:' + sc + '22;color:' + sc + ';cursor:pointer;font-family:var(--font-headline);">' +
           statusSelectOptions +
           '</select>' +
           '</td>' +
@@ -3233,23 +3181,14 @@ async function renderAdminOrders(forceRefresh) {
         var itemsDisplay = '';
         var total = 0;
         try {
-          var items = JSON.parse(o.items || '{}');
-          Object.entries(items).forEach(function (kv) {
-            var v = kv[1];
-            var baseKey = kv[0].split('__')[0];
-            var prod = UNIFORM_ITEMS.find(function (i) {
-              return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
-            });
-            var displayName = prod ? prod.name : ((v && v.name) || baseKey);
-            var qty = parseInt(v.qty, 10) || 1;
-            var p = parseFloat(v.price) || (prod ? parseFloat(prod.price) : 0) || prices[baseKey] || 0;
-            total += qty * p;
-            var customBadge = (v && (v.custom_text || v.customText)) ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' + escapeHtml(v.custom_text || v.customText) + '</span>' : '';
+          storedUniformOrderLines(o.items).forEach(function (v) {
+            total += v.qty * v.price;
+            var customBadge = v.custom_text ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' + escapeHtml(v.custom_text) + '</span>' : '';
             itemsDisplay +=
               '<div style="font-size:12px;color:var(--text-secondary);">' +
-              escapeHtml(displayName) +
+              escapeHtml(v.name) +
               ' ×' +
-              escapeHtml(qty) +
+              escapeHtml(v.qty) +
               (v.size ? ' (' + escapeHtml(v.size) + ')' : '') +
               customBadge +
               '</div>';
@@ -3266,14 +3205,14 @@ async function renderAdminOrders(forceRefresh) {
             })
           : '';
 
-        var btns = SL.map(function (s) {
+        var btns = getUniformStatusOptions(status).map(function (s) {
           var active = s === status;
           return (
             '<button data-order-num="' +
             escapeHtml(o.order_number) +
             '" data-order-status="' +
             s +
-            '" style="padding:3px 10px;border:1.5px solid ' +
+            '"' + (active ? ' disabled' : '') + ' style="padding:3px 10px;border:1.5px solid ' +
             (active ? SC[s] : 'var(--border-card)') +
             ';border-radius:6px;background:' +
             (active ? SC[s] + '22' : 'transparent') +
@@ -3306,7 +3245,7 @@ async function renderAdminOrders(forceRefresh) {
           ';border:1px solid ' +
           sc +
           "44;font-family:var(--font-headline);margin-bottom:4px;\">" +
-          status.toUpperCase() +
+          escapeHtml(status.toUpperCase()) +
           '</div>' +
           '<div style="font-size:12px;font-weight:700;color:var(--brand-gold);">RM ' + total.toFixed(2) + '</div>' +
           '</div></div>' +
@@ -3333,18 +3272,20 @@ async function renderAdminOrders(forceRefresh) {
 
     // Bind status button clicks
     list.querySelectorAll('[data-order-status]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        updateOrderStatus(
-          btn.getAttribute('data-order-num'),
-          btn.getAttribute('data-order-status')
-        );
+      btn.addEventListener('click', async function () {
+        await withSmartButtonLock(btn, function() {
+          return updateOrderStatus(btn.getAttribute('data-order-num'), btn.getAttribute('data-order-status'));
+        });
+        await renderAdminOrders(true);
       });
     });
 
     // Bind table status select changes
     list.querySelectorAll('.admin-table-status-select').forEach(function (sel) {
-      sel.addEventListener('change', function () {
-        updateOrderStatus(sel.getAttribute('data-order-num'), sel.value);
+      sel.addEventListener('change', async function () {
+        sel.disabled = true;
+        await updateOrderStatus(sel.getAttribute('data-order-num'), sel.value);
+        await renderAdminOrders(true);
       });
     });
 
@@ -3358,17 +3299,15 @@ async function renderAdminOrders(forceRefresh) {
             : true;
         if (!ok) return;
 
-        // Auto-sync status cancellation to Google Sheets Order Tracker
-        syncOrderStatusToGoogleSheet(orderNum, 'CANCELLED');
-
         client
           .delete(
             'bb_orders?order_number=eq.' + encodeURIComponent(orderNum)
           )
           .then(function () {
+            syncOrderStatusToGoogleSheet(orderNum, 'CANCELLED');
             _cachedAdminOrders = null;
             renderAdminOrders(true);
-            if (typeof showToast === 'function') showToast('Order record deleted and marked CANCELLED in Google Sheets.', 'info');
+            if (typeof showToast === 'function') showToast('Order record deleted.', 'info');
           })
           .catch(function (e) {
             if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
@@ -3436,29 +3375,58 @@ function attachToolbarEvents(container) {
  * @param {string} status
  */
 async function updateOrderStatus(orderNum, status) {
-  _cachedAdminOrders = null;
+  if (typeof window !== 'undefined' && typeof window.verifyAdminSessionSync === 'function' && !window.verifyAdminSessionSync()) return false;
+  if (typeof RBAC !== 'undefined' && !RBAC.hasModulePermission('uniform')) return false;
+  return changeUniformOrderStatus(orderNum, status, null);
+}
+
+async function cancelUniformOrder(orderNum) {
+  var memberId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : null;
+  if (!memberId) return false;
+  return changeUniformOrderStatus(orderNum, 'cancelled', memberId);
+}
+
+async function changeUniformOrderStatus(orderNum, status, memberId) {
+  if (typeof orderNum !== 'string' || !orderNum || !Object.hasOwn(UNIFORM_ORDER_TRANSITIONS, status)) return false;
   var client = getSupa();
-  if (!client || !client.patch) return;
+  if (!client) return false;
+  var path = 'bb_orders?order_number=eq.' + encodeURIComponent(orderNum);
+  if (memberId) path += '&ic=eq.' + encodeURIComponent(memberId);
 
   try {
-    await client.patch('bb_orders?order_number=eq.' + encodeURIComponent(orderNum), {
-      status: status
-    });
+    var rows = await client.get(path + '&select=order_number,status,items,payment_method', { cache: false });
+    var order = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+    var current = order && order.status;
+    if (!order || !isUniformOrder(order) || (memberId && current !== 'pending') || !getUniformStatusOptions(current).includes(status) || current === status) {
+      if (typeof showToast === 'function') showToast('This order cannot move to that status.', 'warning');
+      return false;
+    }
+    if (memberId && (sessionGet('ic') || sessionGet('email')) !== memberId) return false;
+    var updatePath = path + '&status=eq.' + encodeURIComponent(current);
+    var changed = typeof client.req === 'function'
+      ? await client.req('PATCH', updatePath, { status: status }, { Prefer: 'return=representation' }, { maxRetries: 0 })
+      : await client.patch(updatePath, { status: status });
+    if (!Array.isArray(changed) || changed.length !== 1) {
+      if (typeof showToast === 'function') showToast('The order changed. Refresh and try again.', 'warning');
+      return false;
+    }
+    _cachedAdminOrders = null;
     // Auto-sync updated status to Google Sheets Order Tracker
     syncOrderStatusToGoogleSheet(orderNum, status);
-    renderAdminOrders();
-    if (typeof showToast === 'function') showToast('Order status updated to ' + status + ' (synced to Google Sheet).', 'success');
+    if (typeof showToast === 'function') showToast('Order status updated to ' + status + '.', 'success');
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'order.status_update',
         targetType: 'order',
         targetId: orderNum,
-        actorRole: 'officer_admin',
+        actorRole: memberId ? 'member' : 'officer_admin',
         details: { status: status }
       });
     }
+    return true;
   } catch (e) {
     if (typeof showToast === 'function') showToast('Failed to update status.', 'error');
+    return false;
   }
 }
 
@@ -3833,7 +3801,7 @@ function saveProduct() {
     var rawName = ((document.getElementById('prod-name') || {}).value || '').trim();
     var name = typeof sanitizeText === 'function' ? sanitizeText(rawName, 100) : rawName;
     var priceVal = (document.getElementById('prod-price') || {}).value;
-    var price = parseFloat(priceVal);
+    var priceInSen = uniformPriceInSen({ price: priceVal });
     var sizesRaw = ((document.getElementById('prod-sizes') || {}).value || '').trim();
     var sizes = sizesRaw
       ? sizesRaw
@@ -3863,11 +3831,12 @@ function saveProduct() {
         showToast('Product name cannot exceed 100 characters.', 'warning');
       return;
     }
-    if (isNaN(price) || price < 0) {
+    if (priceInSen === null) {
       if (typeof showToast === 'function')
-        showToast('Product price must be a valid non-negative number.', 'warning');
+        showToast('Enter a non-negative price with up to two decimal places.', 'warning');
       return;
     }
+    var price = priceInSen / 100;
 
     var key = editKey || name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
     var item = {
@@ -3884,7 +3853,7 @@ function saveProduct() {
       return i.key === key;
     });
 
-    if (idx >= 0) UNIFORM_ITEMS[idx] = item;
+    if (idx >= 0) UNIFORM_ITEMS[idx] = Object.assign({}, UNIFORM_ITEMS[idx], item);
     else UNIFORM_ITEMS.push(item);
 
     saveUniformItems();
@@ -4088,6 +4057,7 @@ if (typeof window !== 'undefined') {
   window.adminSavePaymentInfo = adminSavePaymentInfo;
   window.renderAdminOrders = renderAdminOrders;
   window.updateOrderStatus = updateOrderStatus;
+  window.cancelUniformOrder = cancelUniformOrder;
   window.exportAdminOrdersToCsv = exportAdminOrdersToCsv;
   window.syncAdminOrdersToGoogleSheet = syncAdminOrdersToGoogleSheet;
   window.configureAdminOrdersSheetUrl = configureAdminOrdersSheetUrl;
@@ -4180,6 +4150,7 @@ if (typeof module !== 'undefined' && module.exports) {
     adminSavePaymentInfo: adminSavePaymentInfo,
     renderAdminOrders: renderAdminOrders,
     updateOrderStatus: updateOrderStatus,
+    cancelUniformOrder: cancelUniformOrder,
     exportAdminOrdersToCsv: exportAdminOrdersToCsv,
     syncAdminOrdersToGoogleSheet: syncAdminOrdersToGoogleSheet,
     configureAdminOrdersSheetUrl: configureAdminOrdersSheetUrl,

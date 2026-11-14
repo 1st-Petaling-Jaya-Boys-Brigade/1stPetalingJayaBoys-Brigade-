@@ -1296,6 +1296,7 @@ async function getJson(url) {
           switchTab('order');
         }
         if (typeof renderUniformOrderInline === 'function') {
+          window.UNIFORM_ITEMS = window.DEFAULT_UNIFORM_ITEMS.map(item => ({ ...item, price: 45 }));
           renderUniformOrderInline();
         }
 
@@ -1356,6 +1357,7 @@ async function getJson(url) {
       awaitPromise: true,
       returnByValue: true
     });
+    assert.ok(!evalUniformGrid.exceptionDetails, evalUniformGrid.exceptionDetails?.exception?.description);
     const uniformGrid = evalUniformGrid.result.value;
     assert.strictEqual(uniformGrid.hasCatTabs, true, 'Category tabs container must exist');
     assert.strictEqual(uniformGrid.hasGrid, true, 'Product grid container must exist');
