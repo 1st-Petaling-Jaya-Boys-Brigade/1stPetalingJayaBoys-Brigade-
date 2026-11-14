@@ -833,7 +833,9 @@ async function getJson(url) {
           activeTitle: slideTitle ? slideTitle.textContent : '',
           closedDisplay,
           hasAdminList: !!adminList,
-          hasAdminModal: !!adminModal
+          hasAdminModal: !!adminModal,
+          adminControlsHidden: !!adminList && getComputedStyle(adminList.closest('.admin-story-highlights-section')).display === 'none',
+          adminModalHidden: !!adminModal && getComputedStyle(adminModal).display === 'none'
         };
       })()`,
       awaitPromise: true,
@@ -870,8 +872,10 @@ async function getJson(url) {
       'Admin console has Story Highlights management list'
     );
     assert.strictEqual(shInfo.hasAdminModal, true, 'Admin console has Create/Edit Story Modal');
+    assert.strictEqual(shInfo.adminControlsHidden, true, 'Legacy admin Story Highlights controls stay hidden');
+    assert.strictEqual(shInfo.adminModalHidden, true, 'Legacy admin Story Highlights modal stays closed');
     console.log(
-      '  ✔ Admin console provides complete story highlight and slide management interface'
+      '  ✔ Legacy Story Highlights controls stay hidden in the admin console'
     );
     // 14b. Test Dedicated Gallery Tab & Video Media Support
     console.log('\n[Dedicated Gallery Tab & Video Media Viewer]');
@@ -1671,12 +1675,40 @@ async function getJson(url) {
         const hasOpenAddMember = typeof window.openAddMember === 'function';
         const hasSaveTask = typeof window.saveTask === 'function';
 
+        // Use a local authentication service fixture for browser checks.
+        const oldRpc = window.supa.rpc;
+        let issuedToken = null;
+        let issuedEmail = null;
+        window.supa.rpc = async (name, args) => {
+          if (name === 'rpc_admin_login') {
+            issuedEmail = args.p_officer_email;
+            issuedToken = crypto.randomUUID();
+            return { success: true, token: issuedToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
+          }
+          if (name === 'rpc_verify_admin_session') return {
+            valid: issuedToken === args.p_token, officer_email: issuedEmail, scope: 'super_admin', permissions: []
+          };
+          if (name === 'rpc_admin_logout') return { success: true };
+          return oldRpc.call(window.supa, name, args);
+        };
+        async function unlockAdmin() {
+          await window.openAdmin();
+          document.getElementById('admin-pass').value = 'fixture-officer-passcode';
+          await window.adminLogin();
+        }
+        const layoutEntries = [];
+        const layoutObserver = new PerformanceObserver(list => layoutEntries.push(...list.getEntries()));
+        layoutObserver.observe({ type: 'layout-shift' });
+        const anchor = document.createElement('button');
+        anchor.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+        document.body.appendChild(anchor);
+        anchor.focus();
         // 2. Open admin console and authenticate
         // 2a. RBAC Gatekeeper: Standard member is blocked from opening admin console
-        window.openAdmin();
+        await window.openAdmin();
         const memberBlocked = (!document.getElementById('admin-overlay') || document.getElementById('admin-overlay').style.display === 'none');
 
-        // 2b. Guest / Unauthenticated session displays fallback password prompt
+        // 2b. Guests can view the prompt. The passcode requires an authorized member identity.
         if (typeof sessionClear === 'function') sessionClear();
         await window.openAdmin();
         const overlay = document.getElementById('admin-overlay');
@@ -1705,8 +1737,11 @@ async function getJson(url) {
         if (typeof window.toggleAdminPassVis === 'function') window.toggleAdminPassVis();
         const remasked = passInput ? (passInput.style.webkitTextSecurity || '') : '';
 
-        if (passInput) passInput.value = 'bb2024admin';
+        sessionSet('email', 'jeshuakoh2008@gmail.com');
+        sessionSet('rank', 'Captain');
+        if (passInput) passInput.value = 'fixture-officer-passcode';
         await window.adminLogin();
+        await new Promise(resolve => requestAnimationFrame(resolve));
 
         const authedState = {
           loginBoxHidden: !loginBox || loginBox.style.display === 'none',
@@ -1804,10 +1839,32 @@ async function getJson(url) {
           revertedListBtnActive
         };
 
-        window.closeAdmin();
+        const visitedSections = [];
+        for (const section of ['members', 'orders', 'uniform', 'attendance', 'tasks', 'calendar']) {
+          window.switchAdminSection(section);
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          const current = document.getElementById('adm-section-' + section);
+          visitedSections.push(current && getComputedStyle(current).display !== 'none');
+        }
+        window.backToAdminHome();
+        const tabbable = Array.from(overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]')).filter(node => node.getClientRects().length);
+        tabbable[tabbable.length - 1].focus();
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+        const wrapped = document.activeElement === tabbable[0];
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }));
+        const wrappedBack = document.activeElement === tabbable[tabbable.length - 1];
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
         const closeState = {
-          overlayHidden: !overlay || overlay.style.display === 'none'
+          overlayHidden: overlay.style.display === 'none',
+          focusRestored: document.activeElement === anchor,
+          wrapped,
+          wrappedBack
         };
+        anchor.remove();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        layoutEntries.push(...layoutObserver.takeRecords());
+        layoutObserver.disconnect();
+        const adminLayoutShift = layoutEntries.filter(entry => !entry.hadRecentInput).reduce((total, entry) => total + entry.value, 0);
 
         // Restore authenticated member session for subsequent portal tests
         if (typeof sessionSet === 'function') {
@@ -1817,6 +1874,7 @@ async function getJson(url) {
           sessionSet('squad', 'Hotel Platoon');
         }
 
+        window.supa.rpc = oldRpc;
         return {
           hasOpenAdmin,
           hasSwitchAdminSection,
@@ -1835,6 +1893,8 @@ async function getJson(url) {
           homeState,
           viewModeState,
           closeState,
+          visitedSections,
+          adminLayoutShift,
           passAttributes,
           initialMasked,
           unmasked,
@@ -1846,6 +1906,11 @@ async function getJson(url) {
     });
 
     const adminResult = evalAdminController.result.value;
+    assert.ok(adminResult.visitedSections.every(Boolean), 'All scoped tabs must open');
+    assert.strictEqual(adminResult.closeState.wrapped, true, 'Tab wraps within the admin overlay');
+    assert.strictEqual(adminResult.closeState.wrappedBack, true, 'Shift+Tab wraps within the admin overlay');
+    assert.strictEqual(adminResult.closeState.focusRestored, true, 'Escape closes and restores the opener focus');
+    assert.strictEqual(adminResult.adminLayoutShift, 0, 'Admin overlay open, switch and close must have CLS = 0');
     assert.strictEqual(adminResult.hasOpenAdmin, true, 'openAdmin must be exported globally');
     assert.strictEqual(
       adminResult.hasSwitchAdminSection,
@@ -2662,7 +2727,32 @@ async function getJson(url) {
         const superBadgeClass = badge ? badge.className : '';
         const superBadgeText = textSpan ? textSpan.textContent : '';
 
-        // Test Jeshua Koh Super Admin Badge & Passwordless Admin Access
+        // Use a local authentication service fixture for browser checks.
+        const oldRpc = window.supa.rpc;
+        let issuedToken = null;
+        let issuedEmail = null;
+        window.supa.rpc = async (name, args) => {
+          if (name === 'rpc_admin_login') {
+            issuedEmail = args.p_officer_email;
+            issuedToken = crypto.randomUUID();
+            return { success: true, token: issuedToken, expires_at: new Date(Date.now() + 7200000).toISOString() };
+          }
+          if (name === 'rpc_verify_admin_session') {
+            const scoped = issuedEmail === 'store_officer@example.com';
+            return {
+              valid: issuedToken === args.p_token, officer_email: issuedEmail,
+              scope: scoped ? 'admin' : 'super_admin', permissions: scoped ? ['orders', 'uniform'] : []
+            };
+          }
+          if (name === 'rpc_admin_logout') return { success: true };
+          return oldRpc.call(window.supa, name, args);
+        };
+        async function unlockAdmin() {
+          await window.openAdmin();
+          document.getElementById('admin-pass').value = 'fixture-officer-passcode';
+          await window.adminLogin();
+        }
+        // Test the Super Admin badge and verified console access.
         sessionSet('email', 'jeshuakoh2008@gmail.com');
         sessionSet('name', 'Jeshua Koh');
         sessionSet('rank', 'Captain');
@@ -2670,8 +2760,8 @@ async function getJson(url) {
         const jeshuaBadgeClass = badge ? badge.className : '';
         const jeshuaBadgeText = textSpan ? textSpan.textContent : '';
 
-        // Test Passwordless Admin Console entry for Jeshua Koh
-        await window.openAdmin();
+        // Test verified admin entry for the company administrator
+        await unlockAdmin();
         const adminPanelEl = document.getElementById('admin-panel');
         const loginBoxEl = document.getElementById('admin-login-box');
         const jeshuaPanelDirectOpen = adminPanelEl && getComputedStyle(adminPanelEl).display !== 'none';
@@ -2682,9 +2772,7 @@ async function getJson(url) {
         // Open Admin Console as Scoped Admin
         sessionSet('email', 'store_officer@example.com');
         sessionSet('rank', 'Lieutenant');
-        window.openAdmin();
-        // Passwordless openAdmin automatically unlocks for Scoped Admin
-        await window.openAdmin();
+        await unlockAdmin();
         window.backToAdminHome();
 
         const btnOrders = document.getElementById('sec-btn-orders');
@@ -2702,6 +2790,7 @@ async function getJson(url) {
         // Switch to Super Admin
         sessionSet('email', 'jeshuakoh2008@gmail.com');
         sessionSet('rank', 'Captain');
+        await unlockAdmin();
         window.backToAdminHome();
 
         const superVisibility = {
@@ -2719,6 +2808,7 @@ async function getJson(url) {
 
         window.closeAdmin();
 
+        window.supa.rpc = oldRpc;
         return {
           hasBadgeWrap: !!badgeWrap,
           memberBadgeClass,
@@ -2759,7 +2849,7 @@ async function getJson(url) {
     assert.strictEqual(rbacDiag.jeshuaBadgeText, 'Super Admin', 'Jeshua Koh badge displays Super Admin text');
     assert.strictEqual(rbacDiag.jeshuaPanelDirectOpen, true, 'Jeshua Koh opens Admin Console directly without password');
     assert.strictEqual(rbacDiag.jeshuaLoginBoxHidden, true, 'Admin password login box is hidden for Super Admin');
-    console.log('  ✔ Top navigation dynamic role badge states and passwordless Super Admin access verified for Jeshua Koh in browser');
+    console.log('  ✔ Top navigation dynamic role badge states and verified Super Admin access verified for Jeshua Koh in browser');
     console.log('  ✔ Top navigation dynamic role badge states (Member / Admin / Super Admin) and ARIA status verified in browser');
 
     assert.strictEqual(rbacDiag.hasRoleFilter, true, 'Roles & Permissions Manager provides role filter dropdown');

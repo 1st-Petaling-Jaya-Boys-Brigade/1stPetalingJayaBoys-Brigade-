@@ -2044,6 +2044,7 @@ async function logAuditEvent(params) {
   var action = (params.action || 'unknown').trim();
   var targetType = (params.targetType || 'unknown').trim();
   var targetId = params.targetId ? String(params.targetId).trim() : null;
+  if (targetId && /^\d{6}-?\d{2}-?\d{4}$/.test(targetId)) targetId = sanitizeAuditDetails({ ic: targetId }).ic;
   var details = params.details || {};
 
   // Automated privacy deep-redaction: prevent passwords, tokens, API keys, or OTPs from entering logs
@@ -2093,6 +2094,8 @@ async function logAuditEvent(params) {
   }
 
   // Attempt server-side persistence via Supabase RPC
+  var durable = false;
+  var logId = entryId;
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
@@ -2109,14 +2112,23 @@ async function logAuditEvent(params) {
         p_details: safeDetails
       });
       if (rpcRes && rpcRes.success) {
-        return { success: true, log_id: rpcRes.log_id || entryId, entry: entry };
+        durable = true;
+        logId = rpcRes.log_id || entryId;
       }
     }
-  } catch (err) {
-    console.warn('Audit log server RPC warning:', err);
-  }
+  } catch (_) {}
 
-  return { success: true, log_id: entryId, entry: entry };
+  // A config copy is useful for operations that use bb_config and for deployments without the ledger RPC.
+  if (actorRole === 'officer_admin' && /^(member\.|order\.status_update$|sheets\.|calendar\.|config\.|admin\.(block|unblock|update_block|role_change))/.test(action)) {
+    try {
+      var adminToken = typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function' ? window.getAdminSessionToken() : null;
+      if (adminToken && client && typeof client.rpc === 'function' && await client.rpc('rpc_append_admin_config_audit', { p_token: adminToken, p_entry: entry }) === true) {
+        return { success: true, durable: true, configPersisted: true, log_id: logId, entry: entry };
+      }
+    } catch (_) {}
+    if (typeof showToast === 'function') showToast('The audit copy could not be saved to configuration.', 'warning');
+  }
+  return { success: true, durable: durable, configPersisted: false, log_id: logId, entry: entry };
 }
 
 /**

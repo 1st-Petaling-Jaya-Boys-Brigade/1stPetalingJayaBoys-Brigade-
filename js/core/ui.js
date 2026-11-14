@@ -1567,7 +1567,7 @@
    * Follows WAI-ARIA Dialog recommendations: closes topmost visible dialog/modal on Escape
    */
   function handleGlobalModalEscape(e) {
-    if (!e || (e.key !== 'Escape' && e.keyCode !== 27)) return;
+    if (!e || e.defaultPrevented || (e.key !== 'Escape' && e.keyCode !== 27)) return;
     if (typeof document === 'undefined') return;
 
     // 1. Zoom Modal
@@ -1629,7 +1629,7 @@
     // 9. Edit Member Modal
     var editMemModal = document.getElementById('edit-member-modal');
     if (editMemModal && editMemModal.classList.contains('active')) {
-      var closeEm = _resolveGlobalFn('closeEditMemberModal');
+      var closeEm = _resolveGlobalFn('closeEditMember');
       if (closeEm) { closeEm(); return; }
     }
 
@@ -1666,6 +1666,12 @@
     if (ctxMenu && ctxMenu.style.display !== 'none') {
       closeTableContextMenu();
       return;
+    }
+
+    var admin = document.getElementById('admin-overlay');
+    if (admin && admin.style.display === 'block' && (e.target === admin || admin.contains(e.target))) {
+      var closeAdmin = _resolveGlobalFn('closeAdmin');
+      if (closeAdmin) { e.preventDefault(); closeAdmin(); }
     }
   }
 

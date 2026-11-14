@@ -914,6 +914,7 @@ async function copyMasterSyncToken() {
 }
 
 async function handleSaveMasterConfig() {
+  if (typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) return;
   var sid = ((document.getElementById('master-sheet-id-input') || {}).value || '').trim();
   var url = ((document.getElementById('master-script-url-input') || {}).value || '').trim();
   var tok = ((document.getElementById('master-sync-token-input') || {}).value || '').trim();
@@ -945,6 +946,7 @@ async function triggerMasterSheetFetch() {
   }
 
   try {
+    if (typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) return;
     if (typeof window.fetchMasterAttendanceFromGAS !== 'function') {
       throw new Error('Master Sheet sync is unavailable.');
     }
@@ -962,7 +964,7 @@ async function triggerMasterSheetFetch() {
     await renderAdminMasterSheetPanel();
 
     if (typeof logAuditEvent === 'function') {
-      logAuditEvent({
+      await logAuditEvent({
         action: 'sheets.manual_sync',
         targetType: 'attendance',
         targetId: 'master_attendance',

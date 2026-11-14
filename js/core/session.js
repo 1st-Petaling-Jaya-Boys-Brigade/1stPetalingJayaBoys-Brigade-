@@ -496,6 +496,19 @@ var AuthGuard = {
 
       // Check if user has been revoked/deleted via local cache
       if (typeof localStorage !== 'undefined') {
+        var blocked = localStorage.getItem('bb_blocked_emails');
+        if (blocked) {
+          try {
+            var currentIdentity = [ic, email].filter(Boolean).map(function(id) { return String(id).trim().toLowerCase(); });
+            var entries = JSON.parse(blocked);
+            if (Array.isArray(entries) && entries.some(function(entry) {
+              return currentIdentity.includes(String(entry && (entry.email || entry)).trim().toLowerCase());
+            })) {
+              forceKickDeletedAccount();
+              return false;
+            }
+          } catch (_) {}
+        }
         var delRaw = localStorage.getItem('bb_deleted_members');
         if (delRaw) {
           try {
@@ -689,7 +702,8 @@ async function verifyActiveMemberSession(force) {
 
     // 1. Fetch remote bb_deleted_members list to keep local cache synchronized
     try {
-      var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value');
+      var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value', { cache: !force });
+      if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
       if (cfgRes && cfgRes.length && cfgRes[0].value) {
         var delList = typeof cfgRes[0].value === 'string' ? JSON.parse(cfgRes[0].value) : cfgRes[0].value;
         if (Array.isArray(delList)) {
@@ -710,36 +724,39 @@ async function verifyActiveMemberSession(force) {
             return false;
           }
 
-          // Also check bb_blocked_emails
-          var blkCfg = await client.get('bb_config?key=eq.bb_blocked_emails&select=value');
-          if (blkCfg && blkCfg.length && blkCfg[0].value) {
-            var blkList = JSON.parse(blkCfg[0].value);
-            if (Array.isArray(blkList)) {
-              var isBlockedSess = blkList.some(function(item) {
-                var itm = (item && typeof item === 'object' && item.email) ? String(item.email).toLowerCase().trim() : String(item || '').toLowerCase().trim();
-                return itm && (itm === cleanIc || itm === cleanEmail);
-              });
-              if (isBlockedSess) {
-                forceKickDeletedAccount();
-                return false;
-              }
-            }
+        }
+      }
+    } catch (_) {}
+
+    // Restrictions are independent of the deleted-member registry.
+    try {
+      var blkCfg = await client.get('bb_config?key=eq.bb_blocked_emails&select=value', { cache: !force });
+      if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
+      if (Array.isArray(blkCfg) && blkCfg.length && blkCfg[0].value) {
+        var blkList = typeof blkCfg[0].value === 'string' ? JSON.parse(blkCfg[0].value) : blkCfg[0].value;
+        if (Array.isArray(blkList)) {
+          try { localStorage.setItem('bb_blocked_emails', JSON.stringify(blkList)); } catch (_) {}
+          if (blkList.some(function(item) {
+            var value = String(item && item.email || item || '').trim().toLowerCase();
+            return value && (value === cleanIc || value === cleanEmail);
+          })) {
+            forceKickDeletedAccount();
+            return false;
           }
         }
       }
-    } catch (cfgErr) {
-      // Continue to member query
-    }
+    } catch (_) {}
 
     // 2. Query bb_members table directly for active member row
     var query = 'bb_members?select=ic,email,department&or=(ic.eq.' + encodeURIComponent(lookupId) +
       (email ? (',email.ilike.' + encodeURIComponent(cleanEmail)) : '') + ')';
     var rows = await client.get(query);
+    if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
 
     // Only revoke access if database explicitly returns a record marked as deleted or archived.
     // Transient network timeouts, empty query fallbacks, or offline states must NEVER purge user sessions.
     if (Array.isArray(rows) && rows.length > 0) {
-      if (rows[0].department === 'deleted' || (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)) {
+      if (['deleted', 'archived_deleted'].includes(rows[0].department) || (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)) {
         forceKickDeletedAccount();
         return false;
       }
