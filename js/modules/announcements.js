@@ -304,6 +304,7 @@ async function syncAnnouncementPinConfig(annId, isPinned) {
       }
       if (typeof client.upsert === 'function') {
         await client.upsert('bb_config', { key: 'bb_announcements_pinned', value: JSON.stringify(map) }, 'key');
+        return true;
       }
     }
   } catch (_) {}
@@ -497,6 +498,7 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
  * Loads all announcements from Supabase ordered by creation date ascending
  */
 async function loadAnnouncements() {
+  var version = ++_announcementLoadVersion;
   // Synchronous cache hydration for 0ms instantaneous render on startup
   if (announcements.length === 0 && typeof localStorage !== 'undefined') {
     try {
@@ -528,15 +530,15 @@ async function loadAnnouncements() {
       var annPinnedMap = {};
       var annAllowedMap = {};
       var cfgPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_images', {})
-        : supa.get('bb_config?key=eq.bb_announcements_images&select=value');
+        ? supa.safeConfigGet('bb_announcements_images', {}, { force: true, cache: false })
+        : supa.get('bb_config?key=eq.bb_announcements_images&select=value', { cache: false });
       var pinPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_pinned', {})
-        : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value');
+        ? supa.safeConfigGet('bb_announcements_pinned', {}, { force: true, cache: false })
+        : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value', { cache: false });
       var allowedPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_allowed_reactions', {})
-        : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value');
-      var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*');
+        ? supa.safeConfigGet('bb_announcements_allowed_reactions', {}, { force: true, cache: false })
+        : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value', { cache: false });
+      var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*', { cache: false });
 
       var results = await Promise.allSettled([cfgPromise, pinPromise, allowedPromise, annPromise]);
       if (results[0].status === 'fulfilled' && results[0].value) {
@@ -573,12 +575,15 @@ async function loadAnnouncements() {
       var rows = (results[3].status === 'fulfilled' && Array.isArray(results[3].value)) ? results[3].value : null;
       if (results[3].status !== 'fulfilled' && announcements.length === 0) {
         // Network or server timeout: preserve cached or fallback data
-        announcements = JSON.parse(JSON.stringify(DEFAULT_ANNOUNCEMENTS));
+        if (version === _announcementLoadVersion && !_announcementDeletes.size) {
+          DEFAULT_ANNOUNCEMENTS.forEach(function(item) { announcements.push(JSON.parse(JSON.stringify(item))); });
+        }
       }
       if (rows && rows.length > 0) {
-        announcements.length = 0;
+        var nextAnnouncements = [];
         for (var rIdx = 0; rIdx < rows.length; rIdx++) {
           var r = rows[rIdx];
+          if (!r || !r.id) continue;
           if (typeof r.reactions === 'string') {
             try {
               r.reactions = JSON.parse(r.reactions);
@@ -596,7 +601,7 @@ async function loadAnnouncements() {
             }
           }
 
-          r.is_pinned = !!(r.is_pinned || r.pinned || (annPinnedMap && r.id && annPinnedMap[r.id]));
+          r.is_pinned = Boolean(r.is_pinned ?? (r.pinned || (annPinnedMap && r.id && annPinnedMap[r.id])));
 
           // Resilient allowed reactions recovery: bb_config map -> column -> reactions._allowed
           var resolvedAllowed = null;
@@ -637,14 +642,17 @@ async function loadAnnouncements() {
             }
             r.image_url = resolvedImg;
           }
-          announcements.push(r);
+          if (!_announcementDeletes.has(r.id || r)) nextAnnouncements.push(r);
         }
+        if (version !== _announcementLoadVersion) return;
+        announcements.splice(0, announcements.length, ...nextAnnouncements);
         try {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
           }
         } catch (_) {}
       } else if (results[3].status === 'fulfilled' && rows && rows.length === 0) {
+        if (version !== _announcementLoadVersion) return;
         // Explicit empty announcements confirmed by server
         announcements.length = 0;
         try {
@@ -710,8 +718,8 @@ function renderAnnouncements() {
   });
 
   indexedItems.sort(function(a, b) {
-    var aPinned = !!(a.item.is_pinned || a.item.pinned);
-    var bPinned = !!(b.item.is_pinned || b.item.pinned);
+    var aPinned = Boolean(a.item.is_pinned ?? a.item.pinned);
+    var bPinned = Boolean(b.item.is_pinned ?? b.item.pinned);
     if (aPinned !== bPinned) {
       return aPinned ? -1 : 1;
     }
@@ -722,9 +730,11 @@ function renderAnnouncements() {
   indexedItems.forEach(function(entry) {
     var a = entry.item;
     var realIdx = entry.realIdx;
-    var isPinned = !!(a.is_pinned || a.pinned);
+    var isPinned = Boolean(a.is_pinned ?? a.pinned);
     var sanitizedBody = sanitizeAnnouncementHtml(a.body || '');
-    var formattedBody = formatAnnouncementMentions(sanitizedBody);
+    var formattedBody = sanitizedBody.split(/(<[^>]+>)/g).map(function(part, index) {
+      return index % 2 ? part : formatAnnouncementMentions(part);
+    }).join('');
     var reactions = a.reactions || {};
 
     // Build reaction buttons
@@ -737,7 +747,7 @@ function renderAnnouncements() {
     var reactHtml = '';
     if (allowed.length > 0) {
       reactHtml = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">';
-      allowed.forEach(function(emoji) {
+      allowed.filter(function(emoji) { return ALL_REACTION_EMOJIS.includes(emoji) || SAFE_REACTION_EMOJIS.includes(emoji); }).forEach(function(emoji) {
         var who = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
         var count = who.length;
         var mine = currentUserId && who.indexOf(currentUserId) !== -1;
@@ -844,7 +854,37 @@ function renderAnnouncements() {
 
 // ── Reaction Management ────────────────────────────────────────────────────
 var _isSubmittingAnnouncement = false;
-var _reactionInFlight = {};
+var _reactionInFlight = Object.create(null);
+var _announcementDeletes = new Set();
+var _announcementLoadVersion = 0;
+
+function canManageAnnouncements() {
+  try {
+    return typeof window !== 'undefined' && typeof window.verifyAdminSessionSync === 'function' &&
+      window.verifyAdminSessionSync() && (!window.RBAC || window.RBAC.hasModulePermission('announcements'));
+  } catch (_) {
+    return false;
+  }
+}
+
+function refreshAnnouncementViews() {
+  try {
+    localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
+  } catch (_) {}
+  renderAnnouncements();
+  renderAdminAnnList();
+}
+
+async function publishAnnouncementChange(action) {
+  try {
+    if (typeof supa !== 'undefined' && supa.upsert) {
+      await supa.upsert('bb_config', { key: 'bb_announcements', value: JSON.stringify({ last_updated: new Date().toISOString() }) }, 'key');
+    }
+  } catch (_) {}
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    window.PortalRealtime.broadcast('announcements', action);
+  }
+}
 
 /**
  * Toggles an emoji reaction on an announcement for the authenticated user
@@ -865,9 +905,9 @@ async function toggleReaction(annIdx, emoji) {
   }
 
   var a = announcements[annIdx];
-  if (!a) return false;
+  if (!a || !a.id || typeof supa === 'undefined' || !supa.patch) return false;
 
-  var flightKey = (a.id || annIdx) + ':' + emoji + ':' + currentUserId;
+  var flightKey = a.id || annIdx;
   if (_reactionInFlight[flightKey]) return false;
   _reactionInFlight[flightKey] = true;
 
@@ -920,18 +960,8 @@ async function toggleReaction(annIdx, emoji) {
   // Persist to Supabase
   try {
     if (typeof supa !== 'undefined' && supa.patch && a.id) {
-      await supa.patch('bb_announcements?id=eq.' + a.id, { reactions: a.reactions });
-      try {
-        if (typeof supa !== 'undefined' && supa.upsert) {
-          await supa.upsert('bb_config', {
-            key: 'bb_announcements',
-            value: JSON.stringify({ last_updated: new Date().toISOString() })
-          }, 'key');
-        }
-      } catch (_) {}
-      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-        window.PortalRealtime.broadcast('announcements', 'reaction');
-      }
+      await supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), { reactions: a.reactions });
+      await publishAnnouncementChange('reaction');
     }
   } catch (e) {
     console.error('toggleReaction error:', e);
@@ -951,6 +981,7 @@ async function toggleReaction(annIdx, emoji) {
     if (typeof showToast === 'function') {
       showToast('Could not save reaction. Reverted.', 'warning');
     }
+    return false;
   } finally {
     delete _reactionInFlight[flightKey];
   }
@@ -978,8 +1009,8 @@ function renderAdminAnnList() {
   });
 
   indexedItems.sort(function(a, b) {
-    var aPinned = !!(a.item.is_pinned || a.item.pinned);
-    var bPinned = !!(b.item.is_pinned || b.item.pinned);
+    var aPinned = Boolean(a.item.is_pinned ?? a.item.pinned);
+    var bPinned = Boolean(b.item.is_pinned ?? b.item.pinned);
     if (aPinned !== bPinned) {
       return aPinned ? -1 : 1;
     }
@@ -989,7 +1020,7 @@ function renderAdminAnnList() {
   indexedItems.forEach(function(entry) {
     var a = entry.item;
     var i = entry.realIdx;
-    var isPinned = !!(a.is_pinned || a.pinned);
+    var isPinned = Boolean(a.is_pinned ?? a.pinned);
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || '');
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
 
@@ -1060,40 +1091,26 @@ function renderAdminAnnList() {
  * @param {number} idx
  */
 async function togglePinAnnouncement(idx) {
+  if (!canManageAnnouncements()) return;
   var a = announcements[idx];
-  if (!a) return;
-  a.is_pinned = !a.is_pinned;
-  var newPinnedState = !!a.is_pinned;
-
+  if (!a || !a.id || typeof supa === 'undefined' || !supa.patch) return;
+  var newPinnedState = !(a.is_pinned ?? a.pinned);
   try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
-    }
-  } catch (_) {}
-
-  renderAnnouncements();
-  renderAdminAnnList();
-
-  if (a.id) {
-    await syncAnnouncementPinConfig(a.id, newPinnedState);
-    if (typeof supa !== 'undefined' && supa.patch) {
-      try {
-        await supa.patch('bb_announcements?id=eq.' + a.id, { is_pinned: newPinnedState });
-      } catch (_) {}
-    }
     try {
-      if (typeof supa !== 'undefined' && supa.upsert) {
-        await supa.upsert('bb_config', {
-          key: 'bb_announcements',
-          value: JSON.stringify({ last_updated: new Date().toISOString() })
-        }, 'key');
-      }
-    } catch (_) {}
+      await supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), { is_pinned: newPinnedState });
+    } catch (err) {
+      if (!isAnnouncementSchemaError(err) || !await syncAnnouncementPinConfig(a.id, newPinnedState)) throw err;
+    }
+    _announcementLoadVersion++;
+    var current = announcements.find(function(item) { return item.id === a.id; });
+    if (current) current.is_pinned = newPinnedState;
+    refreshAnnouncementViews();
+  } catch (_) {
+    if (typeof showToast === 'function') showToast('Could not update the pinned status.', 'warning');
+    return;
   }
 
-  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-    window.PortalRealtime.broadcast('announcements', 'pin');
-  }
+  await publishAnnouncementChange('pin');
 
   if (typeof showToast === 'function') {
     showToast(newPinnedState ? '📌 Announcement pinned to top of feed!' : 'Announcement unpinned.', 'info');
@@ -1122,7 +1139,7 @@ function openEditAnnouncement(idxOrId) {
   if (ti) ti.value = a.title || '';
 
   var bi = document.getElementById('ann-body-input');
-  if (bi) bi.innerHTML = a.body || '';
+  if (bi) bi.innerHTML = sanitizeAnnouncementHtml(a.body || '');
 
   var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
   if (pinCheck) {
@@ -1300,10 +1317,28 @@ async function broadcastAnnouncementEmail(ann) {
   }
 }
 
+async function writeAnnouncementWithSchemaFallback(write, payload) {
+  try {
+    return await write(payload);
+  } catch (err) {
+    if (!isAnnouncementSchemaError(err) ||
+        !('is_pinned' in payload || 'image_url' in payload)) throw err;
+    var legacy = Object.assign({}, payload);
+    delete legacy.is_pinned;
+    delete legacy.image_url;
+    return write(legacy);
+  }
+}
+
+function isAnnouncementSchemaError(err) {
+  return /PGRST204|42703|could not find.+column|column.+does not exist/i.test(err && (err.code || err.message) || '');
+}
+
 /**
  * Creates or updates an announcement in Supabase
  */
 async function addAnnouncement() {
+  if (!canManageAnnouncements()) return;
   if (_isSubmittingAnnouncement) return;
   _isSubmittingAnnouncement = true;
   var titleEl = document.getElementById('ann-title-input');
@@ -1372,7 +1407,8 @@ async function addAnnouncement() {
 
     // Embed resilient hidden marker inside body to survive without migration 017
     if (infographicUrl) {
-      var markerTag = '<img src="' + infographicUrl + '" class="ann-embedded-infographic" style="display:none;" data-infographic-url="' + infographicUrl + '" alt="Announcement Infographic" />';
+      var safeInfographic = escapeHtml(infographicUrl);
+      var markerTag = '<img src="' + safeInfographic + '" class="ann-embedded-infographic" style="display:none;" data-infographic-url="' + safeInfographic + '" alt="Announcement Infographic" />';
       if (!sanitizedBody.includes('ann-embedded-infographic')) {
         sanitizedBody += markerTag;
       }
@@ -1387,12 +1423,17 @@ async function addAnnouncement() {
     if (editId) {
       targetAnn = announcements.find(function(item) { return item && String(item.id) === String(editId); });
     }
-    if (!targetAnn && editIdx >= 0 && editIdx < announcements.length) {
+    if (!targetAnn && !editId && editIdx >= 0 && editIdx < announcements.length) {
       targetAnn = announcements[editIdx];
     }
 
+    if ((editId || editIdx >= 0) && !targetAnn) throw new Error('The announcement is no longer available.');
+    if (!canManageAnnouncements() || typeof supa === 'undefined' || !(targetAnn ? supa.patch : supa.post)) {
+      throw new Error('The announcement service is unavailable.');
+    }
+
     if (targetAnn) {
-      var a = targetAnn;
+      var a = Object.assign({}, targetAnn, { reactions: Object.assign({}, targetAnn.reactions) });
       a.title = title;
       a.body  = sanitizedBody;
       a.is_pinned = isPinned;
@@ -1402,29 +1443,13 @@ async function addAnnouncement() {
       if (infographicUrl) a.image_url = infographicUrl;
       else if (!_stagedAnnouncementImage) a.image_url = null;
 
-      try {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
-        }
-      } catch (_) {}
-
-      if (typeof supa !== 'undefined' && supa.patch && a.id) {
-        var patchPayload = {
-          title: title,
-          body: sanitizedBody,
-          reactions: a.reactions,
-          is_pinned: isPinned
-        };
-        if (typeof a.image_url !== 'undefined') patchPayload.image_url = a.image_url;
-        try {
-          await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
-        } catch (_) {
-          try {
-            delete patchPayload.is_pinned;
-            await supa.patch('bb_announcements?id=eq.' + a.id, patchPayload);
-          } catch (_) {}
-        }
-      }
+      if (!a.id) throw new Error('The announcement has no saved record.');
+      var patchPayload = { title: a.title, body: a.body, reactions: a.reactions, is_pinned: isPinned, image_url: a.image_url };
+      await writeAnnouncementWithSchemaFallback(function(payload) {
+        return supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), payload);
+      }, patchPayload);
+      var current = announcements.find(function(item) { return item.id === a.id; });
+      if (current) Object.assign(current, a);
       if (a.id) {
         await syncAnnouncementPinConfig(a.id, isPinned);
         await syncAnnouncementAllowedReactionsConfig(a.id, selectedAllowed);
@@ -1432,14 +1457,6 @@ async function addAnnouncement() {
       if (infographicUrl && a.id) {
         await syncAnnouncementImageConfig(a.id, infographicUrl);
       }
-      try {
-        if (typeof supa !== 'undefined' && supa.upsert) {
-          await supa.upsert('bb_config', {
-            key: 'bb_announcements',
-            value: JSON.stringify({ last_updated: new Date().toISOString() })
-          }, 'key');
-        }
-      } catch (_) {}
       if (btn) {
         btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
         btn.removeAttribute('data-edit-idx');
@@ -1462,42 +1479,19 @@ async function addAnnouncement() {
       }
       if (typeof supa !== 'undefined' && supa.post) {
         var createdAnnId = null;
-        try {
-          var row = await supa.post('bb_announcements', newRecord);
-          if (row && row[0]) {
-            if (infographicUrl) row[0].image_url = infographicUrl;
-            row[0].allowed_reactions = selectedAllowed;
-            row[0].is_pinned = isPinned;
-            announcements.push(row[0]);
-            createdAnnId = row[0].id;
-          }
-        } catch (err) {
-          // Schema fallback if image_url or custom column not yet applied on remote backend
-          delete newRecord.image_url;
-          delete newRecord.allowed_reactions;
-          delete newRecord.is_pinned;
-          var retryRow = await supa.post('bb_announcements', newRecord);
-          if (retryRow && retryRow[0]) {
-            retryRow[0].image_url = infographicUrl;
-            retryRow[0].allowed_reactions = selectedAllowed;
-            retryRow[0].is_pinned = isPinned;
-            announcements.push(retryRow[0]);
-            createdAnnId = retryRow[0].id;
-          }
-        }
-        if (createdAnnId) {
-          if (infographicUrl) await syncAnnouncementImageConfig(createdAnnId, infographicUrl);
-          if (isPinned) await syncAnnouncementPinConfig(createdAnnId, isPinned);
-          await syncAnnouncementAllowedReactionsConfig(createdAnnId, selectedAllowed);
-          try {
-            if (typeof supa !== 'undefined' && supa.upsert) {
-              await supa.upsert('bb_config', {
-                key: 'bb_announcements',
-                value: JSON.stringify({ last_updated: new Date().toISOString() })
-              }, 'key');
-            }
-          } catch (_) {}
-        }
+        var row = await writeAnnouncementWithSchemaFallback(function(payload) {
+          return supa.post('bb_announcements', payload);
+        }, newRecord);
+        if (!Array.isArray(row) || !row[0] || !row[0].id) throw new Error('Could not confirm the saved announcement.');
+        createdAnnId = row[0].id;
+        var created = Object.assign({}, row[0], { allowed_reactions: selectedAllowed, is_pinned: isPinned });
+        if (infographicUrl) created.image_url = infographicUrl;
+        var existing = announcements.find(function(item) { return item.id === createdAnnId; });
+        if (existing) Object.assign(existing, created);
+        else announcements.push(created);
+        if (infographicUrl) await syncAnnouncementImageConfig(createdAnnId, infographicUrl);
+        if (isPinned) await syncAnnouncementPinConfig(createdAnnId, isPinned);
+        await syncAnnouncementAllowedReactionsConfig(createdAnnId, selectedAllowed);
       }
       if (typeof showToast === 'function') {
         showToast('Announcement posted successfully!', 'success');
@@ -1519,11 +1513,9 @@ async function addAnnouncement() {
     if (titleEl) titleEl.value = '';
     if (bodyEl)  bodyEl.innerHTML = '';
     if (pinCheck) pinCheck.checked = false;
-    renderAnnouncements();
-    renderAdminAnnList();
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-      window.PortalRealtime.broadcast('announcements', 'save');
-    }
+    _announcementLoadVersion++;
+    refreshAnnouncementViews();
+    await publishAnnouncementChange('save');
     if (typeof syncAnnouncementNotifications === 'function') {
       syncAnnouncementNotifications(announcements);
     } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
@@ -1550,62 +1542,46 @@ async function addAnnouncement() {
  * @param {number} idx
  */
 async function deleteAnnouncement(idx) {
+  if (!canManageAnnouncements()) return;
   var a = announcements[idx];
   if (!a) return;
-
-  var confirmed = false;
-  var confirmMsg = 'Are you sure you want to delete "' + (a.title || 'this announcement') + '"?';
-  if (typeof showConfirmModal === 'function') {
-    confirmed = await showConfirmModal(confirmMsg, 'Delete Announcement');
-  } else {
-    confirmed = true;
-  }
-  if (!confirmed) return;
-
-  announcements.splice(idx, 1);
-  renderAnnouncements();
-  renderAdminAnnList();
-
+  var key = a.id || a;
+  if (_announcementDeletes.has(key)) return;
+  _announcementDeletes.add(key);
+  var removed = false;
   try {
-    if (a && a.id) {
-      syncAnnouncementPinConfig(a.id, false);
-      syncAnnouncementAllowedReactionsConfig(a.id, null);
-    }
-    if (typeof supa !== 'undefined' && supa.delete && a && a.id) {
-      await supa.delete('bb_announcements?id=eq.' + a.id);
-      try {
-        if (typeof supa !== 'undefined' && supa.upsert) {
-          await supa.upsert('bb_config', {
-            key: 'bb_announcements',
-            value: JSON.stringify({ last_updated: new Date().toISOString() })
-          }, 'key');
-        }
-      } catch (_) {}
-      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-        window.PortalRealtime.broadcast('announcements', 'delete');
-      }
-    }
-    if (typeof logAuditEvent === 'function') {
-      logAuditEvent({
-        action: 'announcement.delete',
-        targetType: 'announcement',
-        targetId: String((a && a.id) || idx),
-        actorRole: 'officer_admin',
-        details: { title: (a && a.title) || 'announcement' }
-      });
-    }
-    if (typeof showToast === 'function') {
-      showToast('Announcement deleted.', 'success');
-    }
-  } catch (e) {
-    console.error('deleteAnnouncement error:', e);
-    // Rollback optimistic removal
-    announcements.splice(idx, 0, a);
+    var confirmed = await showConfirmModal('Are you sure you want to delete "' + (a.title || 'this announcement') + '"?', 'Delete Announcement');
+    if (!confirmed || !canManageAnnouncements()) return;
+    var rowIndex = announcements.findIndex(function(item) { return a.id ? item.id === a.id : item === a; });
+    if (rowIndex === -1) return;
+    a = announcements[rowIndex];
+    announcements.splice(rowIndex, 1);
+    removed = true;
+    _announcementLoadVersion++;
+    // Keep the last confirmed cache until the delete is committed.
     renderAnnouncements();
     renderAdminAnnList();
-    if (typeof showToast === 'function') {
-      showToast('Failed to delete announcement: ' + (e.message || 'Server error') + '. Reverted.', 'error');
+
+    if (!a.id || typeof supa === 'undefined' || !supa.delete) throw new Error('The announcement service is unavailable.');
+    await supa.delete('bb_announcements?id=eq.' + encodeURIComponent(a.id));
+    removed = false;
+    _announcementLoadVersion++;
+    refreshAnnouncementViews();
+    await Promise.all([syncAnnouncementPinConfig(a.id, false), syncAnnouncementAllowedReactionsConfig(a.id, null)]);
+    await publishAnnouncementChange('delete');
+    if (typeof logAuditEvent === 'function') {
+      logAuditEvent({ action: 'announcement.delete', targetType: 'announcement', targetId: String(a.id), actorRole: 'officer_admin' });
     }
+    if (typeof showToast === 'function') showToast('Announcement deleted.', 'success');
+  } catch (_) {
+    if (removed && !announcements.some(function(item) { return item.id === a.id; })) {
+      _announcementLoadVersion++;
+      announcements.splice(Math.min(idx, announcements.length), 0, a);
+      refreshAnnouncementViews();
+    }
+    if (typeof showToast === 'function') showToast('Could not confirm the deletion. Refresh the announcements before trying again.', 'error');
+  } finally {
+    _announcementDeletes.delete(key);
   }
 }
 
@@ -2330,7 +2306,7 @@ function selectAnnouncementMentionCandidate(idx, event) {
       }
     } else {
       var curText = input.innerText || input.textContent || '';
-      input.innerHTML = formatAnnouncementMentions(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' '));
+      input.innerHTML = formatAnnouncementMentions(escapeHtml(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ')));
     }
   } else {
     var val = input.value || '';

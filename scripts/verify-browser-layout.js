@@ -888,6 +888,7 @@ async function getJson(url) {
         const filterBar = document.getElementById('gallery-filter-bar');
         const filterPills = filterBar ? filterBar.querySelectorAll('.gallery-filter-pill') : [];
         const galleryReel = document.getElementById('gallery-story-highlights-reel');
+        const storyCardHidden = getComputedStyle(galleryReel.closest('.story-highlights-card')).display === 'none';
         const reelBubbles = galleryReel ? galleryReel.querySelectorAll('.story-highlight-item') : [];
         const videoElement = document.getElementById('story-viewer-video');
         const soundBtn = document.getElementById('story-btn-sound');
@@ -916,7 +917,7 @@ async function getJson(url) {
           switchTabNav('home');
         }
 
-        return {
+        return { storyCardHidden,
           isPageActive,
           isSnavActive,
           filterPillCount: filterPills.length,
@@ -930,7 +931,46 @@ async function getJson(url) {
       })()`,
       returnByValue: true
     });
+    const galleryViewer = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const prior = galleryImages.slice();
+        galleryImages.splice(0, galleryImages.length,
+          { url: 'https://example.com/photo.jpg', type: 'image' },
+          { url: 'https://www.youtube.com/watch?feature=share&v=dQw4w9WgXcQ', type: 'video' });
+        try {
+          filterGallery('all');
+          openGalleryLightbox(0);
+          const getCounter = () => document.getElementById('gallery-lb-counter').textContent;
+          const initial = getCounter();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true }));
+          const arrow = getCounter();
+          const youtube = document.querySelector('.gallery-lb-iframe').src.includes('youtube-nocookie.com/embed/');
+          document.querySelector('.gallery-lb-thumb').click();
+          const filmstrip = getCounter();
+          const stage = document.querySelector('.gallery-lb-stage');
+          const touch = clientX => new Touch({ identifier: 1, target: stage, clientX, clientY: 100 });
+          stage.dispatchEvent(new TouchEvent('touchstart', { touches: [touch(140)] }));
+          stage.dispatchEvent(new TouchEvent('touchend', { changedTouches: [touch(60)] }));
+          const swipe = getCounter();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+          const closed = !document.getElementById('gallery-lightbox-modal');
+          filterGallery('videos');
+          openGalleryLightbox(0);
+          const videosOnly = getCounter();
+          return { initial, arrow, youtube, filmstrip, swipe, closed, videosOnly };
+        } finally {
+          closeGalleryLightbox();
+          galleryImages.splice(0, galleryImages.length, ...prior);
+          filterGallery('all');
+        }
+      })()`,
+      returnByValue: true
+    });
+    assert.deepStrictEqual(galleryViewer.result.value, {
+      initial: '1 of 2', arrow: '2 of 2', youtube: true, filmstrip: '1 of 2', swipe: '2 of 2', closed: true, videosOnly: '1 of 1'
+    });
     const gtInfo = evalGalleryTab.result.value;
+    assert.strictEqual(gtInfo.storyCardHidden, true, 'Story Highlights card stays hidden');
     assert.strictEqual(
       gtInfo.isPageActive,
       true,
@@ -2761,9 +2801,12 @@ async function getJson(url) {
 
         var commentPostedOk = false;
         if (commentInput && sendBtn && typeof handleTaskCommentSubmit === 'function') {
+          sessionSet('department', 'HQ');
+          window._taskMap = window._taskMap || {};
+          window._taskMap['TES-1'] = { id: 'TES-1', department: 'hq' };
           window._activeDetailTaskId = 'TES-1';
           commentInput.value = 'Browser test comment verification';
-          handleTaskCommentSubmit(commentInput);
+          await handleTaskCommentSubmit(commentInput);
           if (commentsList) {
             commentPostedOk = commentsList.textContent.includes('Browser test comment verification');
           }
@@ -2831,7 +2874,7 @@ async function getJson(url) {
     // [Task Comment Actions (3-Dots Menu, Edit, Delete) & Author Mention Notification Exclusion]
     console.log('\n[Task Comment Actions & Mention Notification Filtering Verification]');
     const commentActionDiag = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
+      expression: `(async () => {
         // Post a comment as Jeshua Koh
         if (typeof sessionSet === 'function') {
           sessionSet('name', 'Jeshua Koh');
@@ -2842,7 +2885,7 @@ async function getJson(url) {
         const input = document.querySelector('.tb-comment-input');
         if (input && typeof handleTaskCommentSubmit === 'function') {
           input.value = 'Browser test comment @Jason Koh please review';
-          handleTaskCommentSubmit(input);
+          await handleTaskCommentSubmit(input);
         }
 
         // Check if 3-dots actions menu button rendered
@@ -2949,7 +2992,7 @@ async function getJson(url) {
     assert.ok(faRes.filterPills >= 6, 'Support forum must render category filter pills');
     console.log('  ✔ Floating Helper Agent ("Ask Stedfast") drawer and Support Forum tab layout verified in browser');
 
-    // ── Stedfast AI Helper Conversational Intelligence & Navigation CDP Verification ──
+    // ── Stedfast Helper Conversational Support & Navigation CDP Verification ──
     const stedfastDiag = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         const greetingRes = (typeof queryHelperAgent === 'function') ? queryHelperAgent('hi') : null;

@@ -1,8 +1,8 @@
 /**
- * 1st Petaling Jaya Boys' Brigade — AI Support Helper Agent & Bug Forum Module
+ * 1st Petaling Jaya Boys' Brigade — Support Helper & Bug Forum Module
  *
  * Implements:
- * 1. "Ask Stedfast" AI Helper Agent:
+ * 1. "Ask Stedfast" Helper Agent:
  *    - Permanent bottom-right floating pill button with quick chat window.
  *    - Interactive FAQ knowledge base answering member inquiries on parade timings,
  *      uniform standards, badge milestone advancement, squad leaderboard, and portal tools.
@@ -155,7 +155,7 @@ var _isHelperAgentOpen = false;
 var _helperMessages = [
   {
     sender: 'agent',
-    text: 'Hello! I am **Stedfast**, your 1st Petaling Jaya Boys\' Brigade AI Helper.\n\nAsk me anything conversationally, or ask where features are located in our portal! I can also check your attendance qualification, search our Support Forum, or escalate technical issues for you.',
+    text: 'Hello! I am **Stedfast**, your 1st Petaling Jaya Boys\' Brigade Helper.\n\nAsk me anything conversationally, or ask where features are located in our portal! I can also check your attendance qualification, search our Support Forum, or escalate technical issues for you.',
     time: 'Just now',
     chips: [
       { label: 'Where is my attendance?', query: 'Where is my attendance status?', icon: 'attendance' },
@@ -1199,7 +1199,7 @@ var PORTAL_100_FAQS = [
   {
     "id": "faq-042",
     "num": 42,
-    "question": "How does Stedfast AI Helper find documents in the Resources tab?",
+    "question": "How does Stedfast Helper find documents in the Resources tab?",
     "category": "Company Resources, Handbooks & Drill Manual",
     "answer": "Stedfast dynamically reads the live `window.resources` repository in real time. When new documents or Google Drive links are uploaded by administrators, Stedfast immediately indexes their titles, descriptions, and URLs.",
     "actions": [
@@ -2385,7 +2385,7 @@ var PORTAL_100_FAQS = [
     "num": 91,
     "question": "What is \"Ask Stedfast\"?",
     "category": "Support Forum, Bug Triage & Admin Console",
-    "answer": "**Stedfast** is the built-in AI Helper for the 1st PJ Web Portal, accessible via the floating anchor button on the bottom right of the screen.",
+    "answer": "**Stedfast** is the built-in Helper for the 1st PJ Web Portal, accessible via the floating anchor button on the bottom right of the screen.",
     "actions": [
       {
         "label": "Open Admin Console",
@@ -2407,7 +2407,7 @@ var PORTAL_100_FAQS = [
   {
     "id": "faq-092",
     "num": 92,
-    "question": "What can I ask Stedfast AI Helper?",
+    "question": "What can I ask Stedfast Helper?",
     "category": "Support Forum, Bug Triage & Admin Console",
     "answer": "You can ask Stedfast about parade schedules, drill commands, badge criteria, uniform standards, where to find portal features, or your personal attendance standing.",
     "actions": [
@@ -2624,13 +2624,14 @@ var PORTAL_100_FAQS = [
 
 
 /**
- * Rigorously sanitizes AI and FAQ responses to eliminate internal task or bug codes
+ * Rigorously sanitizes Helper and FAQ responses to eliminate internal task or bug codes
  * @param {string} text
  * @returns {string}
  */
 function sanitizeStedfastOutput(text) {
   if (!text || typeof text !== 'string') return '';
   return text
+    .replace(/\b(?:artificial intelligence|A[I])\b/gi, 'portal helper')
     .replace(/\s*\((?:TSK|BUG)[-_]?\w*\)/gi, '')
     .replace(/\b(?:TSK|BUG)[-_]?\d+[A-Z]?\b/gi, '')
     .replace(/\b(?:TSK|BUG)[-_]?[A-Z0-9]+\b/gi, '')
@@ -2693,7 +2694,7 @@ function setGeminiApiKey(key) {
 }
 
 /**
- * Synchronizes active Gemini API key from Supabase bb_config so all members automatically get AI intelligence
+ * Synchronizes active Gemini API key from Supabase bb_config so all members automatically get helper access
  * @returns {Promise<string>}
  */
 async function syncRemoteGeminiApiKey() {
@@ -3033,7 +3034,7 @@ async function callGeminiApi(prompt, apiKey, options) {
   _lastGeminiError = '';
   options = options || {};
 
-  var systemPrompt = "You are Stedfast, the official AI mentor and portal assistant for the 1st Petaling Jaya Boys' Brigade Web Portal in Malaysia.\n"
+  var systemPrompt = "Keep your customer-facing responses in the Stedfast Helper / Company Handbook voice. You are Stedfast, the official company handbook helper for the 1st Petaling Jaya Boys' Brigade Web Portal in Malaysia.\n"
     + "Company Knowledge Ground Truth:\n"
     + "• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ), founded 1954 in Petaling Jaya, Malaysia.\n"
     + "• Company Motto: Sure & Stedfast (Hebrews 6:19 - 'Which hope we have as an anchor of the soul, both sure and stedfast').\n"
@@ -3391,14 +3392,16 @@ async function saveForumPosts(posts) {
     }
   } catch (_) {}
 
+  var saved = false;
   try {
     if (typeof supa !== 'undefined') {
       if (typeof supa.setConfig === 'function') {
-        await supa.setConfig('bb_forum_posts', forumPosts);
+        saved = await supa.setConfig('bb_forum_posts', forumPosts) !== false;
       } else {
         var client = supa.getClient ? supa.getClient() : supa;
         if (client && typeof client.upsert === 'function') {
           await client.upsert('bb_config', { key: 'bb_forum_posts', value: JSON.stringify(forumPosts) }, 'key');
+          saved = true;
         }
       }
     }
@@ -3407,6 +3410,10 @@ async function saveForumPosts(posts) {
   }
   renderForumFeed();
   syncForumNotifications(forumPosts);
+  if (saved && typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    window.PortalRealtime.broadcast('forum', 'update');
+  }
+  return saved;
 }
 
 // ── DOM Element Safe Removal Helper ──────────────────────────────────────────
@@ -3531,8 +3538,7 @@ function getForumUserPermissions(post) {
   }
 
   var email = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
-  var role = (typeof sessionGet === 'function') ? (sessionGet('role') || '').toLowerCase().trim() : '';
-  var isSuperAdmin = isSuper || role === 'super_admin';
+  var isSuperAdmin = Boolean(email && isSuper);
   var isAuthor = !!(post && post.authorEmail && email && (post.authorEmail.toLowerCase().trim() === email));
 
   return {
@@ -3542,7 +3548,7 @@ function getForumUserPermissions(post) {
     canEdit: isSuperAdmin,
     canDelete: isSuperAdmin,
     canChangeStatus: isSuperAdmin,
-    canReply: true
+    canReply: Boolean(email)
   };
 }
 
@@ -3939,7 +3945,7 @@ function executeHelperAction(actionType, target) {
 }
 
 /**
- * Central intelligent query interpreter for Stedfast AI Helper
+ * Central intelligent query interpreter for Stedfast Helper
  * @param {string} userText
  * @returns {Object}
  */
@@ -4350,7 +4356,7 @@ function queryHelperAgent(userText) {
                    /^(good morning|morning|good afternoon|afternoon|good evening|evening)\b/i.test(q);
   if (isGreeting && q.split(/\s+/).length <= 4) {
     return {
-      text: 'Hello' + (firstName ? (' ' + firstName) : '') + '! I am **Stedfast**, your 1st Petaling Jaya Boys\' Brigade AI Helper.\n\nHow can I help you today? You can ask me about Saturday parade schedules, badge requirements, where to find things on the portal, or your attendance status!',
+      text: 'Hello' + (firstName ? (' ' + firstName) : '') + '! I am **Stedfast**, your 1st Petaling Jaya Boys\' Brigade Helper.\n\nHow can I help you today? You can ask me about Saturday parade schedules, badge requirements, where to find things on the portal, or your attendance status!',
       triage: null,
       actions: [],
       chips: [
@@ -4404,7 +4410,7 @@ function queryHelperAgent(userText) {
   var isIdentityQuery = /^(who are you|what are you|what can you do|what is stedfast|help me|tell me about yourself)\b/i.test(q);
   if (isIdentityQuery) {
     return {
-      text: 'I am **Stedfast**, the dedicated AI Helper for the **1st Petaling Jaya Boys\' Brigade Web Portal**!\n\n'
+      text: 'I am **Stedfast**, the dedicated Helper for the **1st Petaling Jaya Boys\' Brigade Web Portal**!\n\n'
         + 'Here is what I can do for you:\n'
         + '• **One-Click Navigation**: Ask where any feature is, and I\'ll provide an overview plus a button to jump straight to it (Member Hub, Badges, Leaderboard, Forms, Arcade, etc.).\n'
         + '• **Company Info**: Saturday parade timings (**2:15 PM – 6:00 PM** at TMC PJ), band rehearsals (**9:30 AM**), uniform standards (Kit A/B/C), and boot sizing.\n'
@@ -4631,7 +4637,7 @@ function ensureHelperAgentDOM() {
   trigger.id = 'helper-agent-trigger';
   trigger.className = 'helper-agent-btn';
   trigger.type = 'button';
-  trigger.setAttribute('aria-label', 'Ask Stedfast AI Helper');
+  trigger.setAttribute('aria-label', 'Ask Stedfast Helper');
   trigger.setAttribute('title', 'Ask Stedfast (1st PJ Helper Agent)');
   trigger.onclick = toggleHelperAgent;
 
@@ -4647,26 +4653,26 @@ function ensureHelperAgentDOM() {
   chatBox.className = 'helper-agent-drawer';
   chatBox.style.display = 'none';
   chatBox.setAttribute('role', 'dialog');
-  chatBox.setAttribute('aria-label', 'Stedfast AI Helper Chat');
+  chatBox.setAttribute('aria-label', 'Stedfast Helper Chat');
 
   chatBox.innerHTML = 
     '<div class="helper-drawer-header">' +
       '<div style="display:flex;align-items:center;gap:9px;">' +
         '<div class="helper-drawer-avatar">' + FORUM_ICONS.anchor + '</div>' +
         '<div>' +
-          '<div class="helper-drawer-title">Stedfast AI Helper</div>' +
-          '<div class="helper-drawer-sub" id="helper-engine-indicator">1st PJ Boys\' Brigade Assistant</div>' +
+          '<div class="helper-drawer-title">Stedfast Helper</div>' +
+          '<div class="helper-drawer-sub" id="helper-engine-indicator">Company Handbook</div>' +
         '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px;">' +
-        '<button type="button" class="helper-icon-btn" id="btn-helper-settings" onclick="toggleHelperSettingsPanel()" title="Configure Google Gemini AI">' + FORUM_ICONS.gear + '</button>' +
+        '<button type="button" class="helper-icon-btn" id="btn-helper-settings" onclick="toggleHelperSettingsPanel()" title="Configure Google Gemini">' + FORUM_ICONS.gear + '</button>' +
         '<button type="button" class="helper-icon-btn" onclick="clearHelperChat()" title="Clear conversation">' + FORUM_ICONS.refresh + '</button>' +
         '<button type="button" class="helper-icon-btn" onclick="toggleHelperAgent()" title="Close chat">&times;</button>' +
       '</div>' +
     '</div>' +
     '<div id="helper-settings-panel" class="helper-settings-panel" style="display:none;">' +
       '<div class="helper-settings-row">' +
-        '<span class="helper-settings-title">Google Gemini AI Engine</span>' +
+        '<span class="helper-settings-title">Google Gemini Engine</span>' +
         '<span class="helper-status-pill" id="helper-gemini-status">Checking...</span>' +
       '</div>' +
       '<p class="helper-settings-desc">Activate Google Gemini (Free Tier) for natural, conversational intelligence:</p>' +
@@ -4691,7 +4697,7 @@ function ensureHelperAgentDOM() {
 
 
 /**
- * Toggles visibility of the Google Gemini AI Settings panel in the helper chat drawer
+ * Toggles visibility of the Google Gemini Settings panel in the helper chat drawer
  * @param {boolean} [force]
  */
 function toggleHelperSettingsPanel(force) {
@@ -4713,7 +4719,7 @@ function toggleHelperSettingsPanel(force) {
 }
 
 /**
- * Updates the helper drawer status pill and subtitle reflecting the active AI engine
+ * Updates the helper drawer status pill and subtitle reflecting the active helper engine
  */
 function updateHelperGeminiStatus() {
   if (typeof document === 'undefined') return;
@@ -4730,7 +4736,7 @@ function updateHelperGeminiStatus() {
       pill.className = 'helper-status-pill active';
     }
     if (sub) {
-      sub.textContent = 'Powered by Google ' + cleanLabel;
+      sub.textContent = 'Company Handbook';
     }
   } else {
     if (pill) {
@@ -4738,7 +4744,7 @@ function updateHelperGeminiStatus() {
       pill.className = 'helper-status-pill';
     }
     if (sub) {
-      sub.textContent = '1st PJ Boys\' Brigade Assistant';
+      sub.textContent = 'Company Handbook';
     }
   }
 }
@@ -4767,7 +4773,7 @@ async function saveGeminiKeyFromHelper(btn) {
 
   var performVerification = async function() {
     if (typeof showToast === 'function') {
-      showToast('Connecting to Google Gemini AI...', 'info');
+      showToast('Connecting to Google Gemini...', 'info');
     }
 
     // Step 1: Ultra-fast direct test ping across modern candidate models
@@ -4815,7 +4821,7 @@ async function saveGeminiKeyFromHelper(btn) {
       if (/timed out/i.test(lastErr)) {
         userMsg = 'Connection timed out. Google Gemini servers took longer than expected. Please check your internet connection or try again.';
       } else if (/API_KEY_INVALID|API key not valid|key not found/i.test(lastErr)) {
-        userMsg = 'Invalid Gemini API key. Please check your key from Google AI Studio.';
+        userMsg = 'Invalid Gemini API key. Please check your key from the key setup page.';
       } else if (/PERMISSION_DENIED|disabled/i.test(lastErr)) {
         userMsg = 'Generative Language API is disabled. Please enable it in your Google Cloud Console.';
       } else if (/FAILED_PRECONDITION|location/i.test(lastErr)) {
@@ -4843,7 +4849,7 @@ async function saveGeminiKeyFromHelper(btn) {
 
     var cleanLabel = activeModelName.replace(/^models\//, '').replace(/-/g, ' ').replace(/\b\w/g, function(l) { return l.toUpperCase(); });
     if (typeof showToast === 'function') {
-      showToast('Google Gemini AI (' + cleanLabel + ') activated successfully!', 'success');
+      showToast('Google Gemini (' + cleanLabel + ') activated successfully!', 'success');
     }
   };
 
@@ -5058,7 +5064,7 @@ async function getHelperAgentResponse(userPrompt) {
       if (aiText && aiText.trim()) {
         aiText = sanitizeStedfastOutput(aiText.trim());
 
-        // Derive contextual actions from AI text
+        // Derive contextual actions from the reply
         var derivedActions = [];
         var lowerAi = aiText.toLowerCase();
         if (lowerAi.includes('parade') || lowerAi.includes('saturday')) {
@@ -5165,7 +5171,7 @@ function escalateToForumFromChat(title, category, tag) {
       title: title,
       category: category,
       tag: tag,
-      content: 'Escalated from Stedfast AI Helper conversation regarding ' + (category || 'general issue') + '.'
+      content: 'Escalated from Stedfast Helper conversation regarding ' + (category || 'general issue') + '.'
     });
   }, 200);
 }
@@ -5333,6 +5339,7 @@ function renderForumFeed() {
 
   var html = '';
   filtered.forEach(function(p) {
+    if (!p || !/^[a-z0-9_-]+$/i.test(p.id || '')) return;
     var isResolved = p.status === 'resolved';
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(p.title) : p.title;
     var safeContent = (typeof escapeHtml === 'function') ? escapeHtml(p.content) : p.content;
@@ -5340,7 +5347,7 @@ function renderForumFeed() {
     var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(p.authorRank || 'Member') : p.authorRank;
     var authorTooltip = safeAuthor + (safeRank ? ' • ' + safeRank : '');
     var authorAvatarHtml = getForumMemberAvatarHtml(p.authorName, p.authorEmail || p.authorIc, 24, authorTooltip);
-    var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
+    var catIcon = (Object.hasOwn(FORUM_ICONS, p.category) ? FORUM_ICONS[p.category] : FORUM_ICONS.general);
     var excerpt = formatForumMentions(safeContent.length > 150 ? (safeContent.slice(0, 147) + '...') : safeContent);
     var perms = getForumUserPermissions(p);
 
@@ -5373,14 +5380,14 @@ function renderForumFeed() {
               (isResolved ? 'Resolved' : 'Open') +
             '</span>' +
             '<span class="forum-category-pill" style="display:inline-flex;align-items:center;gap:4px;">' +
-              catIcon + ' <span>' + (p.tag || p.category) + '</span>' +
+              catIcon + ' <span>' + escapeHtml(p.tag || p.category || '') + '</span>' +
             '</span>' +
             (p.triagedByAgent ? '<span class="forum-triaged-badge">Stedfast Triaged</span>' : '') +
             (p.screenshotUrl ? '<span class="forum-triaged-badge" style="background:rgba(59,130,246,0.12);color:#3b82f6;border-color:rgba(59,130,246,0.25);display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Screenshot</span>' : '') +
           '</div>' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             adminActionsHtml +
-            '<span class="forum-post-meta">' + (p.date || '') + '</span>' +
+            '<span class="forum-post-meta">' + escapeHtml(p.date || '') + '</span>' +
           '</div>' +
         '</div>' +
         '<div class="forum-post-title">' + safeTitle + '</div>' +
@@ -5393,7 +5400,7 @@ function renderForumFeed() {
           '</div>' +
           '<div style="display:flex;align-items:center;gap:14px;">' +
             '<button type="button" class="forum-stat-pill" onclick="event.stopPropagation(); upvoteForumPost(\'' + p.id + '\')" title="Upvote discussion">' +
-              FORUM_ICONS.upvote + ' ' + (p.upvotes || 0) +
+              FORUM_ICONS.upvote + ' ' + (Number(p.upvotes) || 0) +
             '</button>' +
             '<div class="forum-stat-pill" title="Replies">' +
               FORUM_ICONS.message + ' ' + (p.replies ? p.replies.length : 0) + ' replies' +
@@ -5406,16 +5413,23 @@ function renderForumFeed() {
   container.innerHTML = html;
 }
 
-function upvoteForumPost(postId, userEmail) {
+function getForumMemberEmail() {
+  var email = typeof sessionGet === 'function' ? String(sessionGet('email') || '').trim().toLowerCase() : '';
+  if (!email && typeof showToast === 'function') showToast('Please log in to participate in the forum.', 'warning');
+  return email;
+}
+
+function upvoteForumPost(postId, _userEmail) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
-  var email = userEmail || ((typeof sessionGet === 'function') ? (sessionGet('email') || 'guest') : 'guest');
+  var email = getForumMemberEmail();
+  if (!email) return;
   p.upvotedBy = p.upvotedBy || [];
   if (p.upvotedBy.indexOf(email) !== -1) {
     p.upvotes = Math.max(0, (p.upvotes || 1) - 1);
     p.upvotedBy = p.upvotedBy.filter(function(e) { return e !== email; });
   } else {
-    p.upvotes = (p.upvotes || 0) + 1;
+    p.upvotes = (Number(p.upvotes) || 0) + 1;
     p.upvotedBy.push(email);
   }
   saveForumPosts(forumPosts);
@@ -5427,6 +5441,7 @@ function upvoteForumPost(postId, userEmail) {
  * Opens modal dialog to create a new discussion thread or report a bug
  */
 var _stagedForumScreenshotFile = null;
+var _isPublishingForumPost = false;
 
 function handleForumScreenshotFile(file) {
   if (!file) return;
@@ -5620,6 +5635,8 @@ function openCreateForumPostModal(prefill) {
 
 async function submitNewForumPost(e, customPost) {
   if (e && e.preventDefault) e.preventDefault();
+  var email = getForumMemberEmail();
+  if (!email || _isPublishingForumPost) return;
   var title = '', cat = 'general', tag = '', content = '';
   if (customPost && typeof customPost === 'object') {
     title = (customPost.title || '').trim();
@@ -5637,18 +5654,13 @@ async function submitNewForumPost(e, customPost) {
     content = (contEl && contEl.value || '').trim();
   }
 
-  if (!title || !content) return;
+  if (!title || !content || title.length > 200 || content.length > 5000 || tag.length > 100) return;
 
   var author = 'Anonymous Member';
   var rank = 'Member';
-  var email = 'guest@bb1pj.my';
-
-  var ic = '';
   if (typeof sessionGet === 'function') {
     author = sessionGet('name') || author;
     rank = sessionGet('rank') || rank;
-    email = sessionGet('email') || email;
-    ic = sessionGet('ic') || ic;
   }
 
   var catLabels = {
@@ -5662,50 +5674,54 @@ async function submitNewForumPost(e, customPost) {
 
   var shotUrl = null;
   var shotName = null;
-  if (_stagedForumScreenshotFile) {
-    var uploadRes = await uploadForumScreenshotFile(_stagedForumScreenshotFile);
-    if (uploadRes) {
-      shotUrl = uploadRes.url || uploadRes;
-      shotName = uploadRes.filename || _stagedForumScreenshotFile.name;
+  _isPublishingForumPost = true;
+  try {
+    if (_stagedForumScreenshotFile) {
+      var uploadRes = await uploadForumScreenshotFile(_stagedForumScreenshotFile);
+      if (uploadRes) {
+        shotUrl = uploadRes.url || uploadRes;
+        shotName = uploadRes.filename || _stagedForumScreenshotFile.name;
+      }
+      _stagedForumScreenshotFile = null;
+    } else if (customPost && customPost.screenshotUrl) {
+      shotUrl = customPost.screenshotUrl;
+      shotName = customPost.screenshotName || 'screenshot.jpg';
     }
-    _stagedForumScreenshotFile = null;
-  } else if (customPost && customPost.screenshotUrl) {
-    shotUrl = customPost.screenshotUrl;
-    shotName = customPost.screenshotName || 'screenshot.jpg';
-  }
+    if (getForumMemberEmail() !== email) return;
 
-  var newPost = {
-    id: 'post-' + Date.now(),
-    title: title,
-    category: cat,
-    categoryLabel: catLabels[cat] || 'General',
-    tag: tag,
-    status: 'open',
-    authorName: author,
-    authorRank: rank,
-    authorEmail: email,
-    authorIc: ic,
-    date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
-    time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
-    content: content,
-    screenshotUrl: shotUrl,
-    screenshotName: shotName,
-    upvotes: 0,
-    upvotedBy: [],
-    replies: [],
-    triagedByAgent: false
-  };
+    var newPost = {
+      id: 'post-' + crypto.randomUUID(),
+      title: title,
+      category: cat,
+      categoryLabel: catLabels[cat] || 'General',
+      tag: tag,
+      status: 'open',
+      authorName: author,
+      authorRank: rank,
+      authorEmail: email,
+      date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
+      time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
+      content: content,
+      screenshotUrl: shotUrl,
+      screenshotName: shotName,
+      upvotes: 0,
+      upvotedBy: [],
+      replies: [],
+      triagedByAgent: false
+    };
 
-  forumPosts.unshift(newPost);
-  saveForumPosts(forumPosts);
-  syncForumNotifications(forumPosts);
+    forumPosts.unshift(newPost);
+    var saved = await saveForumPosts(forumPosts);
 
-  if (typeof document !== 'undefined') {
-    var modal = document.getElementById('forum-create-modal');
-    removeDomElement(modal);
-    if (typeof showToast === 'function') {
-      showToast('Forum post published!', 'success'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'create');
+    if (typeof document !== 'undefined') {
+      var modal = document.getElementById('forum-create-modal');
+      removeDomElement(modal);
+      if (typeof showToast === 'function') {
+        showToast(saved ? 'Forum post published!' : 'Post saved on this device. Sync failed.', saved ? 'success' : 'warning');
+      }
     }
+  } finally {
+    _isPublishingForumPost = false;
   }
 }
 
@@ -5713,6 +5729,7 @@ async function submitNewForumPost(e, customPost) {
  * Opens edit modal (Super Admins only)
  */
 function openEditForumPostModal(postId) {
+  if (!/^[a-z0-9_-]+$/i.test(postId)) return;
   if (typeof document === 'undefined') return;
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
@@ -5786,7 +5803,7 @@ function openEditForumPostModal(postId) {
 function submitEditForumPost(e, postId) {
   if (e && e.preventDefault) e.preventDefault();
   var p = forumPosts.find(function(x) { return x.id === postId; });
-  if (!p) return;
+  if (!p || !getForumUserPermissions(p).canEdit) return;
 
   var titleEl = document.getElementById('forum-edit-title');
   var catEl = document.getElementById('forum-edit-category');
@@ -5827,7 +5844,7 @@ function submitEditForumPost(e, postId) {
   }
 
   if (typeof showToast === 'function') {
-    showToast('Forum post updated!', 'success'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'update');
+    showToast('Forum post updated!', 'success');
   }
 }
 
@@ -5854,7 +5871,7 @@ async function deleteForumPost(postId) {
     );
   }
 
-  if (!confirmed) return;
+  if (!confirmed || !getForumUserPermissions(p).canDelete) return;
 
   forumPosts = forumPosts.filter(function(x) { return x.id !== postId; });
   saveForumPosts(forumPosts);
@@ -5869,7 +5886,7 @@ async function deleteForumPost(postId) {
     var detailModal = document.getElementById('forum-detail-modal');
     removeDomElement(detailModal);
     if (typeof showToast === 'function') {
-      showToast('Post deleted successfully.', 'info'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'delete');
+      showToast('Post deleted successfully.', 'info');
     }
   }
 }
@@ -5920,6 +5937,7 @@ async function deleteForumReply(postId, replyId) {
  * Opens detailed thread view with replies
  */
 function openForumPostDetail(postId) {
+  if (!/^[a-z0-9_-]+$/i.test(postId)) return;
   if (typeof document === 'undefined') return;
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
@@ -5932,12 +5950,13 @@ function openForumPostDetail(postId) {
   var safeContent = formatForumMentions(formatHelperMarkdown(p.content));
   var safeAuthor = (typeof escapeHtml === 'function') ? escapeHtml(p.authorName) : p.authorName;
   var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(p.authorRank || 'Member') : p.authorRank;
-  var catIcon = FORUM_ICONS[p.category] || FORUM_ICONS.general;
+  var catIcon = (Object.hasOwn(FORUM_ICONS, p.category) ? FORUM_ICONS[p.category] : FORUM_ICONS.general);
   var perms = getForumUserPermissions(p);
   var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
   var postTooltip = 'Posted by ' + safeAuthor + (safeRank ? ' (' + safeRank + ')' : '');
   var postAvatarHtml = getForumMemberAvatarHtml(p.authorName, p.authorEmail || p.authorIc, 24, postTooltip);
   var timeStr = '';
+  var screenshotUrl = escapeHtml(safeUrl(p.screenshotUrl, ''));
   if (p.date && p.time) {
     timeStr = p.date + ' at ' + p.time;
   } else if (p.date) {
@@ -5970,7 +5989,7 @@ function openForumPostDetail(postId) {
               (isOff ? '<span class="forum-official-badge" style="display:inline-flex;align-items:center;gap:4px;">' + FORUM_ICONS.check + ' <span>Official Answer</span></span>' : '') +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
-              '<span style="font-size:10.5px;color:var(--text-muted);">' + (r.date || '') + ' ' + (r.time || '') + '</span>' +
+              '<span style="font-size:10.5px;color:var(--text-muted);">' + escapeHtml(r.date || '') + ' ' + escapeHtml(r.time || '') + '</span>' +
               (canDeleteThisReply ? '<button type="button" class="helper-icon-btn" onclick="deleteForumReply(\'' + p.id + '\', \'' + r.id + '\')" title="Delete reply" style="padding:2px;color:var(--text-muted);">' + FORUM_ICONS.delete + '</button>' : '') +
             '</div>' +
           '</div>' +
@@ -6013,7 +6032,7 @@ function openForumPostDetail(postId) {
             (isResolved ? 'Resolved' : 'Open') +
           '</span>' +
           '<span class="forum-category-pill" style="display:inline-flex;align-items:center;gap:4px;">' +
-            catIcon + ' <span>' + (p.tag || p.category) + '</span>' +
+            catIcon + ' <span>' + escapeHtml(p.tag || p.category || '') + '</span>' +
           '</span>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px;">' +
@@ -6027,19 +6046,19 @@ function openForumPostDetail(postId) {
       '<div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-muted);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border-subtle);">' +
         postAvatarHtml +
         '<span>&bull;</span>' +
-        '<span>' + (timeStr || '') + '</span>' +
+        '<span>' + escapeHtml(timeStr) + '</span>' +
       '</div>' +
 
       '<!-- Post Body -->' +
       '<div style="font-size:13.5px;color:var(--text-primary);line-height:1.6;margin-bottom:16px;white-space:pre-wrap;">' + safeContent + '</div>' +
-      (p.screenshotUrl ? 
+      (screenshotUrl ?
         '<div class="forum-post-screenshot-container" style="margin:14px 0;">' +
           '<div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;">' +
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> ' +
             '<span>Attached Bug Screenshot:</span>' +
           '</div>' +
-          '<a href="' + p.screenshotUrl + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;cursor:zoom-in;" title="Click to view full screenshot">' +
-            '<img src="' + p.screenshotUrl + '" alt="Bug Screenshot" style="max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--border-card);box-shadow:0 4px 16px rgba(0,0,0,0.3);object-fit:contain;" />' +
+          '<a href="' + screenshotUrl + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;cursor:zoom-in;" title="Click to view full screenshot">' +
+            '<img src="' + screenshotUrl + '" alt="Bug Screenshot" style="max-width:100%;max-height:360px;border-radius:8px;border:1px solid var(--border-card);box-shadow:0 4px 16px rgba(0,0,0,0.3);object-fit:contain;" />' +
           '</a>' +
         '</div>' : '') +
       
@@ -6085,12 +6104,12 @@ function openForumPostDetail(postId) {
 /**
  * Toggles thread status between open and resolved (Super Admins only)
  */
-function toggleForumPostStatus(postId, bypassPerms) {
+function toggleForumPostStatus(postId, _bypassPerms) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
 
   var perms = getForumUserPermissions(p);
-  if (!bypassPerms && !perms.canChangeStatus) {
+  if (!perms.canChangeStatus) {
     if (typeof showToast === 'function') showToast('Only Super Admins can update thread status.', 'warning');
     return;
   }
@@ -6108,14 +6127,15 @@ function toggleForumPostStatus(postId, bypassPerms) {
   }
 }
 
-function submitForumReply(e, postId, customText) {
+async function submitForumReply(e, postId, customText) {
+  if (e && e.preventDefault) e.preventDefault();
+  var email = getForumMemberEmail();
+  if (!email) return;
   if (typeof e === 'string' && !customText) {
     customText = postId;
     postId = e;
     e = null;
   }
-  if (e && e.preventDefault) e.preventDefault();
-
   var text = '';
   if (customText) {
     text = String(customText).trim();
@@ -6123,11 +6143,10 @@ function submitForumReply(e, postId, customText) {
     var inp = document.getElementById('forum-reply-input-' + postId);
     if (inp) {
       text = (inp.value || '').trim();
-      inp.value = '';
     }
   }
 
-  if (!text) return;
+  if (!text || text.length > 5000) return;
 
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
@@ -6135,15 +6154,11 @@ function submitForumReply(e, postId, customText) {
   var author = 'Anonymous Member';
   var rank = 'Member';
   var role = '';
-  var email = 'guest@bb1pj.my';
-  var ic = '';
   var isOff = false;
 
   if (typeof sessionGet === 'function') {
     author = sessionGet('name') || author;
     rank = sessionGet('rank') || rank;
-    email = sessionGet('email') || email;
-    ic = sessionGet('ic') || ic;
     var isSuper = (typeof RBAC !== 'undefined' && typeof RBAC.isSuperAdmin === 'function') ? RBAC.isSuperAdmin() : false;
     var isOfficerRank = rank && ['Captain', 'Honarary Captain', 'Honorary Captain', 'Lieutenant', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].includes(rank);
     if (isSuper) {
@@ -6160,30 +6175,25 @@ function submitForumReply(e, postId, customText) {
 
   p.replies = p.replies || [];
   p.replies.push({
-    id: 'rep-' + Date.now(),
+    id: 'rep-' + crypto.randomUUID(),
     authorName: author,
     authorRank: rank,
     authorRole: role,
     authorEmail: email,
-    authorIc: ic,
     date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
     time: new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }),
     isOfficial: isOff,
     content: text
   });
 
-  saveForumPosts(forumPosts);
-  if (typeof syncForumNotifications === 'function') {
-    syncForumNotifications(forumPosts);
-  } else if (typeof window !== 'undefined' && typeof window.syncForumNotifications === 'function') {
-    window.syncForumNotifications(forumPosts);
-  }
-
+  if (inp) inp.value = '';
+  var saving = saveForumPosts(forumPosts);
   if (typeof document !== 'undefined') {
     openForumPostDetail(postId);
-    if (typeof showToast === 'function') {
-      showToast('Reply posted!', 'success'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('forum', 'reply');
-    }
+  }
+  var saved = await saving;
+  if (typeof showToast === 'function') {
+    showToast(saved ? 'Reply posted!' : 'Reply saved on this device. Sync failed.', saved ? 'success' : 'warning');
   }
 }
 

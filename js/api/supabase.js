@@ -1273,6 +1273,8 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('calendar', 'update', record);
               } else if (key.startsWith('bb_task_comments_')) {
                 triggerEntityUpdate('comments', 'update', { key: key });
+              } else if (key === 'bb_projects') {
+                triggerEntityUpdate('projects', 'update');
               } else if (key === 'bb_announcements' || key.startsWith('bb_announcements_')) {
                 triggerEntityUpdate('announcements', 'update', record);
               } else if (key === 'bb_admin_roles') {
@@ -1335,7 +1337,7 @@ var PortalRealtime = (function() {
     }
 
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_company_projects,bb_master_attendance)&select=key,updated_at');
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance)&select=key,updated_at');
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r.key) return;
@@ -1344,7 +1346,7 @@ var PortalRealtime = (function() {
             if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update');
             else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update');
             else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update');
-            else if (r.key === 'bb_company_projects') triggerEntityUpdate('projects', 'update');
+            else if (r.key === 'bb_projects') triggerEntityUpdate('projects', 'update');
             else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update');
           }
           _lastEntityTimestamps[r.key] = ts;
@@ -1460,11 +1462,8 @@ var PortalRealtime = (function() {
       }
     } else if (entity === 'announcements') {
       if (typeof window !== 'undefined' && typeof window.loadAnnouncements === 'function') {
-        window.loadAnnouncements().then(function() {
-          if (typeof window.renderAnnouncements === 'function') window.renderAnnouncements();
-          if (typeof window.renderAdminAnnList === 'function') window.renderAdminAnnList();
-          if (typeof window.syncAnnouncementNotifications === 'function') window.syncAnnouncementNotifications();
-        }).catch(function() {});
+        // shortcut: reload the feed for each signal, use row deltas when all legacy metadata is on the row.
+        window.loadAnnouncements().catch(function() {});
       }
     } else if (entity === 'projects') {
       if (typeof window !== 'undefined' && typeof window.loadProjectsCatalog === 'function') {
