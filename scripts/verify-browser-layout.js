@@ -2471,6 +2471,21 @@ async function getJson(url) {
     assert.strictEqual(n360.scrollWidth <= n360.windowWidth, true, 'Zero horizontal overflow allowed at 360px ultra-narrow mobile viewport');
     assert.ok(n360.actionsRight <= n360.headerRight + 0.5, 'Header actions must fit cleanly inside 360px mobile header');
     console.log('  ✔ Ultra-narrow 360px mobile viewport verified with 0px horizontal overflow');
+    const narrowSchedule = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const card = document.createElement('div');
+        card.className = 'cal-rundown-item';
+        card.style.width = '235px';
+        card.innerHTML = '<div class="cal-rundown-info">Parade and uniform inspection</div><div class="cal-rundown-time">Band rehearsal 9:30 AM – 11:30 AM</div>';
+        document.body.appendChild(card);
+        const time = card.querySelector('.cal-rundown-time');
+        const fits = time.getBoundingClientRect().right <= card.getBoundingClientRect().right && time.scrollWidth <= time.clientWidth;
+        card.remove();
+        return fits;
+      })()`,
+      returnByValue: true
+    });
+    assert.strictEqual(narrowSchedule.result.value, true, 'Long schedule times wrap inside narrow mobile cards');
 
     // Test iPad / Tablet 768x1024 viewport
     await sendCmd('Emulation.setDeviceMetricsOverride', {

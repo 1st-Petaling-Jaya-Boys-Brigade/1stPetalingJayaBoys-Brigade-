@@ -122,10 +122,19 @@
 
   function formatDateKey(dateObj) {
     var d = (dateObj instanceof Date) ? dateObj : new Date(dateObj);
-    var y = d.getFullYear();
+    var y = String(d.getFullYear()).padStart(4, '0');
     var m = String(d.getMonth() + 1).padStart(2, '0');
     var day = String(d.getDate()).padStart(2, '0');
     return y + '-' + m + '-' + day;
+  }
+
+  function isCalendarDateKey(key) {
+    return typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key) &&
+      formatDateKey(new Date(key + 'T12:00:00')) === key;
+  }
+
+  function calendarEventId(id) {
+    return typeof id === 'string' && /^[a-zA-Z0-9_-]+$/.test(id) ? id : '';
   }
 
   // ── Zero-Emoji SVG Icon Registry for Calendar ──────────────────────────────
@@ -306,15 +315,17 @@
       var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
       if (!client || typeof client.get !== 'function') return _memberReminders;
 
-      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(configKey) + '&select=value');
+      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(configKey) + '&select=value', { cache: false });
+      if (storageKey !== getMemberStorageKey()) return [];
       if (rows && rows.length && rows[0].value) {
         var remote = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
         if (Array.isArray(remote)) {
-          var existingMap = {};
+          var existingMap = new Map();
           loadMemberEvents();
-          _memberReminders.forEach(function(r) { if (r && r.id) existingMap[r.id] = r; });
-          remote.forEach(function(r) { if (r && r.id) existingMap[r.id] = r; });
-          _memberReminders = Object.values(existingMap);
+          remote.concat(_memberReminders).forEach(function(r) {
+            if (r && r.id && !existingMap.get(r.id)?.deleted) existingMap.set(r.id, r);
+          });
+          _memberReminders = Array.from(existingMap.values());
           try {
             localStorage.setItem(storageKey, JSON.stringify(_memberReminders));
           } catch (_) {}
@@ -330,6 +341,7 @@
   function addPersonalEvent(dateStr, title, time, notes, tag) {
     if (!dateStr || !title) return null;
     var sanitizedTitle = ((typeof sanitizeText === 'function') ? sanitizeText(title, 80) : title).trim();
+    if (!sanitizedTitle || !isCalendarDateKey(dateStr)) return null;
     var sanitizedNotes = ((typeof sanitizeText === 'function') ? sanitizeText(notes || '', 200) : (notes || '')).trim();
     var sanitizedTag   = ((typeof sanitizeText === 'function') ? sanitizeText(tag || 'Personal', 30) : (tag || 'Personal')).trim();
 
@@ -351,7 +363,8 @@
 
   function deletePersonalEvent(reminderId) {
     var list = loadMemberEvents();
-    var updated = list.filter(function(r) { return r.id !== reminderId; });
+    if (!list.some(function(r) { return r && r.id === reminderId && !r.deleted; })) return false;
+    var updated = list.map(function(r) { return r && r.id === reminderId ? { id: r.id, deleted: true } : r; });
     saveMemberEvents(updated);
     return true;
   }
@@ -359,49 +372,31 @@
   // ── Helper Queries ─────────────────────────────────────────────────────────
 
   function getCompanyEventsForDate(dateStr) {
-    return _calendarEvents.filter(function(ev) { return ev.date === dateStr; });
+    return _calendarEvents.filter(function(ev) { return ev && ev.date === dateStr; });
   }
 
   function getMemberEventsForDate(dateStr) {
-    return _memberReminders.filter(function(r) { return r.date === dateStr; });
+    return loadMemberEvents().filter(function(r) { return r && !r.deleted && r.date === dateStr; });
   }
 
   function getNextUpcomingParade(fromDateStr) {
-    var refDate = fromDateStr ? new Date(fromDateStr) : new Date();
-    refDate.setHours(0, 0, 0, 0);
-
-    var sorted = _calendarEvents.slice().sort(function(a, b) {
-      return a.date.localeCompare(b.date);
-    });
+    var refDate = isCalendarDateKey(fromDateStr) ? fromDateStr : formatDateKey(new Date());
+    var sorted = getSortedCompanyEvents();
 
     for (var i = 0; i < sorted.length; i++) {
-      var evDate = new Date(sorted[i].date + 'T00:00:00');
-      if (evDate >= refDate && sorted[i].type !== 'noparade' && sorted[i].type !== 'holiday') {
+      if (sorted[i].date >= refDate && sorted[i].type !== 'noparade' && sorted[i].type !== 'holiday') {
         return sorted[i];
       }
     }
-    return sorted.find(function(s) { return s.type !== 'noparade' && s.type !== 'holiday'; }) || sorted[0];
+    return null;
   }
 
   function getNextUpcomingEvent(fromDateStr) {
-    var refDate = fromDateStr ? new Date(fromDateStr) : new Date();
-    refDate.setHours(0, 0, 0, 0);
-
-    var sorted = _calendarEvents.slice().sort(function(a, b) {
-      return a.date.localeCompare(b.date);
-    });
-
-    for (var i = 0; i < sorted.length; i++) {
-      var evDate = new Date(sorted[i].date + 'T00:00:00');
-      if (evDate >= refDate) {
-        return sorted[i];
-      }
-    }
-    return sorted[0];
+    return getUpcomingEventsList(fromDateStr, 1)[0] || null;
   }
 
   function getSortedCompanyEvents() {
-    return _calendarEvents.slice().sort(function(a, b) {
+    return _calendarEvents.filter(function(event) { return event && isCalendarDateKey(event.date); }).sort(function(a, b) {
       return a.date.localeCompare(b.date);
     });
   }
@@ -419,21 +414,9 @@
   }
 
   function getUpcomingEventsList(fromDateStr, count) {
-    var maxCount = count || 4;
-    var refDate = fromDateStr ? new Date(fromDateStr) : new Date();
-    refDate.setHours(0, 0, 0, 0);
-
-    var sorted = getSortedCompanyEvents();
-
-    var results = [];
-    for (var i = 0; i < sorted.length; i++) {
-      var evDate = new Date(sorted[i].date + 'T00:00:00');
-      if (evDate >= refDate) {
-        results.push(sorted[i]);
-        if (results.length >= maxCount) break;
-      }
-    }
-    return results;
+    var maxCount = count == null ? 4 : Math.max(0, count);
+    var refDate = isCalendarDateKey(fromDateStr) ? fromDateStr : formatDateKey(new Date());
+    return getSortedCompanyEvents().filter(function(event) { return event.date >= refDate; }).slice(0, maxCount);
   }
 
   // ── Calendar Month Mathematics ─────────────────────────────────────────────
@@ -460,50 +443,19 @@
       m = isNaN(m) ? now.getMonth() : m;
     }
 
-    var firstDay = new Date(y, m, 1).getDay();
-    var daysInMonth = new Date(y, m + 1, 0).getDate();
-    var daysInPrevMonth = new Date(y, m, 0).getDate();
-
-    var cells = [];
-
-    // Previous month filler
-    for (var i = firstDay - 1; i >= 0; i--) {
-      var prevDay = daysInPrevMonth - i;
-      var prevMonth = m === 0 ? 11 : m - 1;
-      var prevYear = m === 0 ? y - 1 : y;
-      var dateKey = prevYear + '-' + String(prevMonth + 1).padStart(2, '0') + '-' + String(prevDay).padStart(2, '0');
-      cells.push({
-        dayNumber: prevDay,
-        dateKey: dateKey,
-        isCurrentMonth: false
-      });
-    }
-
-    // Current month days
-    for (var d = 1; d <= daysInMonth; d++) {
-      var curDateKey = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-      cells.push({
-        dayNumber: d,
-        dateKey: curDateKey,
-        isCurrentMonth: true
-      });
-    }
-
-    // Next month filler
-    var totalCells = cells.length > 35 ? 42 : 35;
-    var nextCount = totalCells - cells.length;
-    for (var n = 1; n <= nextCount; n++) {
-      var nextMonth = m === 11 ? 0 : m + 1;
-      var nextYear = m === 11 ? y + 1 : y;
-      var nDateKey = nextYear + '-' + String(nextMonth + 1).padStart(2, '0') + '-' + String(n).padStart(2, '0');
-      cells.push({
-        dayNumber: n,
-        dateKey: nDateKey,
-        isCurrentMonth: false
-      });
-    }
-
-    return cells;
+    var first = new Date();
+    first.setHours(12, 0, 0, 0);
+    first.setFullYear(y, m, 1);
+    if (!Number.isFinite(first.getTime())) return getMonthMatrix();
+    var monthIndex = first.getMonth();
+    var leadingDays = first.getDay();
+    var end = new Date(first);
+    end.setMonth(monthIndex + 1, 0);
+    return Array.from({ length: leadingDays + end.getDate() > 35 ? 42 : 35 }, function(_, index) {
+      var day = new Date(first);
+      day.setDate(index - leadingDays + 1);
+      return { dayNumber: day.getDate(), dateKey: formatDateKey(day), isCurrentMonth: day.getMonth() === monthIndex };
+    });
   }
 
   function getWeekDays(dateObj) {
@@ -531,10 +483,11 @@
 
   function parseEventStartHour(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') return null;
-    var m = timeStr.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    var m = timeStr.trim().match(/^(\d{1,2})(?::([0-5]\d))?\s*(AM|PM)?(?=\s|[-–—]|$)/i);
     if (!m) return null;
     var h = parseInt(m[1], 10);
     var ampm = (m[3] || '').toUpperCase();
+    if (ampm ? h < 1 || h > 12 : h > 23) return null;
     if (ampm === 'PM' && h < 12) h += 12;
     if (ampm === 'AM' && h === 12) h = 0;
     return h;
@@ -641,11 +594,11 @@
       _currentMonth = _calendarDate.getMonth();
       _currentYear  = _calendarDate.getFullYear();
     } else if (_calendarViewMode === 'year') {
-      _calendarDate.setFullYear(_calendarDate.getFullYear() + offset);
+      _calendarDate.setFullYear(_calendarDate.getFullYear() + offset, _calendarDate.getMonth(), 1);
       _currentYear = _calendarDate.getFullYear();
     } else {
       // Month, events
-      _calendarDate.setMonth(_calendarDate.getMonth() + offset);
+      _calendarDate.setMonth(_calendarDate.getMonth() + offset, 1);
       _currentMonth = _calendarDate.getMonth();
       _currentYear  = _calendarDate.getFullYear();
     }
@@ -799,7 +752,7 @@
 
     var diffDays = Math.round((evDateObj - todayObj) / (1000 * 60 * 60 * 24));
     var countdownLabel = '';
-    if (diffDays === 0) countdownLabel = 'Parade Today!';
+    if (diffDays === 0) countdownLabel = upcoming.type === 'parade' ? 'Parade Today!' : 'Today';
     else if (diffDays === 1) countdownLabel = 'Tomorrow';
     else if (diffDays === -1) countdownLabel = 'Yesterday';
     else if (diffDays > 1) countdownLabel = 'In ' + diffDays + ' days (' + upcoming.date + ')';
@@ -813,7 +766,7 @@
 
 
     var cardActionAttr = isAdminView
-      ? (' style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" title="Click to edit schedule"')
+      ? (' style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + calendarEventId(upcoming.id) + '\')" title="Click to edit schedule"')
       : '';
 
     var html = ''
@@ -853,11 +806,12 @@
             + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">There is no standard company parade or uniform inspection for this date.</div>'
           + '</div>'
         + '</div>';
-    } else {
+    } else if (hasCustomSchedule || upcoming.type === 'parade') {
       var activeRundown = hasCustomSchedule ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
       activeRundown.forEach(function(step) {
+        if (!step) return;
         var rowClick = isAdminView
-          ? (' onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="cursor:pointer;"')
+          ? (' onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + calendarEventId(upcoming.id) + '\')" style="cursor:pointer;"')
           : '';
         html += ''
           + '<div class="cal-rundown-item"' + rowClick + '>'
@@ -902,7 +856,7 @@
       // Actions
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">'
         + (isAdminView ? (
-          '<button type="button" class="portal-btn portal-btn-primary" onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + upcoming.id + '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">'
+          '<button type="button" class="portal-btn portal-btn-primary" onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + calendarEventId(upcoming.id) + '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">'
             + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
             + 'Edit Event &amp; Schedule Rundown'
           + '</button>'
@@ -997,13 +951,14 @@
             // 1. Check if event has a custom schedule array
             if (ev.schedule && Array.isArray(ev.schedule) && ev.schedule.length > 0) {
               ev.schedule.forEach(function(step) {
+                if (!step) return;
                 var sH = parseEventStartHour(step.time);
                 if (sH === h) {
                   eventsAtHour.push({
                     title: step.title,
                     time: step.time,
                     desc: step.desc || step.notes || ev.kit,
-                    color: (ev.type === 'ceremonial' ? '#a855f7' : (step.title.toLowerCase().includes('band') ? '#3b82f6' : '#f59e0b')),
+                    color: (ev.type === 'ceremonial' ? '#a855f7' : (String(step.title || '').toLowerCase().includes('band') ? '#3b82f6' : '#f59e0b')),
                     ev: ev
                   });
                 }
@@ -1011,7 +966,7 @@
             } else {
               // 2. Default parade or activity schedule
               var startH = parseEventStartHour(ev.time);
-              if (h === 9 && (ev.type === 'parade' || ev.title.toLowerCase().includes('parade'))) {
+              if (h === 9 && ev.type === 'parade' && day.date.getDay() === 6 && startH !== h) {
                 eventsAtHour.push({
                   title: 'Band Rehearsal',
                   time: '9:30 AM – 11:30 AM',
@@ -1027,7 +982,7 @@
                   color: (ev.type === 'camp' ? '#2563eb' : (ev.type === 'ceremonial' ? '#9333ea' : '#f59e0b')),
                   ev: ev
                 });
-              } else if (h === 14 && (ev.type === 'parade' || ev.title.toLowerCase().includes('parade')) && startH !== 14) {
+              } else if (h === 14 && ev.type === 'parade' && startH === null) {
                 eventsAtHour.push({
                   title: ev.title,
                   time: ev.time || '2:15 PM – 6:00 PM',
@@ -1043,7 +998,7 @@
         html += '<div class="cal-week-hour-cell" onclick="' + clickFn + '(\'' + day.dateKey + '\')">';
         eventsAtHour.forEach(function(item) {
           html += ''
-            + '<div class="cal-week-event-card" style="border-left:3px solid ' + item.color + ';" onclick="event.stopPropagation();' + clickFn + '(\'' + day.dateKey + '\', \'' + (item.ev ? item.ev.id : '') + '\')">'
+            + '<div class="cal-week-event-card" style="border-left:3px solid ' + item.color + ';" onclick="event.stopPropagation();' + clickFn + '(\'' + day.dateKey + '\', \'' + (item.ev ? calendarEventId(item.ev.id) : '') + '\')">'
               + '<div class="cal-we-title">' + escapeHtml(item.title) + '</div>'
               + '<div class="cal-we-time">' + escapeHtml(item.time) + '</div>'
               + (item.desc ? ('<div class="cal-we-desc">' + escapeHtml(item.desc) + '</div>') : '')
@@ -1249,6 +1204,7 @@
   // ═══════════════════════════════════════════════════════════════════════════
 
   function openCalendarDayModal(dateStr, focusAddReminder) {
+    if (!isCalendarDateKey(dateStr)) return;
     var modal = document.getElementById('calendar-day-modal');
     if (!modal) return;
 
@@ -1423,7 +1379,7 @@
           + '</div>'
           + (rem.notes ? ('<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;padding-left:14px;">' + escapeHtml(rem.notes) + '</div>') : '')
         + '</div>'
-        + '<button type="button" class="portal-btn-sm portal-btn-danger" onclick="deleteModalReminder(\'' + rem.id + '\', \'' + dateStr + '\')" style="padding:3px 8px;font-size:11px;" title="Remove reminder">&times;</button>'
+        + '<button type="button" class="portal-btn-sm portal-btn-danger" onclick="deleteModalReminder(\'' + calendarEventId(rem.id) + '\', \'' + dateStr + '\')" style="padding:3px 8px;font-size:11px;" title="Remove reminder">&times;</button>'
       + '</div>';
     });
 
@@ -1440,7 +1396,7 @@
       return;
     }
 
-    addPersonalEvent(_selectedDateStr, titleEl.value, timeEl ? timeEl.value : '', notesEl ? notesEl.value : '');
+    if (!addPersonalEvent(_selectedDateStr, titleEl.value, timeEl ? timeEl.value : '', notesEl ? notesEl.value : '')) return;
     titleEl.value = '';
     if (notesEl) notesEl.value = '';
     if (timeEl) timeEl.value = '';
@@ -1452,7 +1408,7 @@
   }
 
   function deleteModalReminder(id, dateStr) {
-    deletePersonalEvent(id);
+    if (!deletePersonalEvent(id)) return;
     renderModalPersonalReminders(dateStr);
     renderCalendarWidget();
     if (typeof showToast === 'function') showToast('Reminder removed.');
@@ -1505,10 +1461,10 @@
       _adminMonth = _calendarDate.getMonth();
       _adminYear  = _calendarDate.getFullYear();
     } else if (_adminCalendarViewMode === 'year') {
-      _calendarDate.setFullYear(_calendarDate.getFullYear() + offset);
+      _calendarDate.setFullYear(_calendarDate.getFullYear() + offset, _calendarDate.getMonth(), 1);
       _adminYear = _calendarDate.getFullYear();
     } else {
-      _calendarDate.setMonth(_calendarDate.getMonth() + offset);
+      _calendarDate.setMonth(_calendarDate.getMonth() + offset, 1);
       _adminMonth = _calendarDate.getMonth();
       _adminYear  = _calendarDate.getFullYear();
     }
@@ -1763,7 +1719,7 @@
           var kitMeta = KIT_BADGES[ev.kit] || { label: ev.kit, bg: 'var(--surface-tint-hover)', color: 'var(--text-primary)' };
           var typeMeta = TYPE_BADGES[ev.type] || { bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
 
-          html += '<div class="adm-cell-event-pill" style="border-left:3px solid ' + typeMeta.color + ';" onclick="event.stopPropagation();openAdminEventModal(\'' + cell.dateKey + '\', \'' + ev.id + '\')">'
+          html += '<div class="adm-cell-event-pill" style="border-left:3px solid ' + typeMeta.color + ';" onclick="event.stopPropagation();openAdminEventModal(\'' + cell.dateKey + '\', \'' + calendarEventId(ev.id) + '\')">'
             + '<div class="adm-pill-title">' + escapeHtml(ev.title) + '</div>'
             + '<div class="adm-pill-meta">'
               + '<span class="adm-pill-kit" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span>'
@@ -1853,7 +1809,7 @@
     var jrVal    = document.getElementById('adm-ev-jr').value;
     var notesVal = document.getElementById('adm-ev-notes').value;
 
-    if (!dateVal || !titleVal.trim()) {
+    if (!isCalendarDateKey(dateVal) || !titleVal.trim()) {
       if (typeof showToast === 'function') showToast('Please enter both date and title.');
       return;
     }
@@ -1861,7 +1817,7 @@
     var cleanTitle = (typeof sanitizeText === 'function') ? sanitizeText(titleVal, 100) : titleVal.trim();
     var cleanSr    = (typeof sanitizeText === 'function') ? sanitizeText(srVal, 500) : srVal.trim();
     var cleanJr    = (typeof sanitizeText === 'function') ? sanitizeText(jrVal, 500) : jrVal.trim();
-        var cleanNotes = (typeof sanitizeText === 'function') ? sanitizeText(notesVal, 500) : notesVal.trim();
+    var cleanNotes = (typeof sanitizeText === 'function') ? sanitizeText(notesVal, 500) : notesVal.trim();
 
     var scheduleRows = [];
     var tbody = document.getElementById('adm-schedule-tbody');
@@ -2107,19 +2063,18 @@
       _currentMonth = 11;
       _currentYear--;
     }
-    _calendarDate.setFullYear(_currentYear);
-    _calendarDate.setMonth(_currentMonth);
+    _calendarDate.setFullYear(_currentYear, _currentMonth, 1);
     renderCalendarWidget();
   }
 
   function calSelectDate(dateStr) {
+    if (!isCalendarDateKey(dateStr)) return;
     _selectedDateStr = dateStr;
     var parts = dateStr.split('-');
     if (parts.length === 3) {
       _currentYear = parseInt(parts[0], 10);
       _currentMonth = parseInt(parts[1], 10) - 1;
-      _calendarDate.setFullYear(_currentYear);
-      _calendarDate.setMonth(_currentMonth);
+      _calendarDate.setFullYear(_currentYear, _currentMonth, parseInt(parts[2], 10));
     }
     renderCalendarWidget();
   }
