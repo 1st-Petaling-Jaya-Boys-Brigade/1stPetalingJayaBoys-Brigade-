@@ -495,7 +495,6 @@ async function checkTasksAccess() {
   var nd = document.getElementById('tasks-no-dept');
   var gate = document.getElementById('tasks-gate');
   var board = document.getElementById('tasks-board');
-  var snavTasks = document.getElementById('snav-tasks');
   var boardPill = document.querySelector('.tasks-nav-pill[data-task-view="board"]');
   if (!boardPill) {
     var allPills = document.querySelectorAll('.tasks-nav-pill');
@@ -512,25 +511,17 @@ async function checkTasksAccess() {
 
   if (!ic) {
     if (boardPill) boardPill.style.display = 'none';
-    if (snavTasks) snavTasks.style.display = 'none';
     if (gate) gate.style.display = 'block';
     if (board) board.style.display = 'none';
     return;
   }
 
-  // Fast-path: reveal instantly (< 1ms) if permissions are already in active session
-  var cachedDept = (typeof sessionGet === 'function') ? sessionGet('department') : '';
-  var cachedRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
-  if (cachedDept || cachedRank) {
-    var fastAllowed = hasDepartmentRole();
-    if (fastAllowed) {
-      if (boardPill) boardPill.style.display = 'inline-flex';
-      if (snavTasks) snavTasks.style.display = 'flex';
-      if (gate) gate.style.display = 'none';
-      if (board) board.style.display = 'block';
-      setTasksViewMode(_tasksViewMode || 'projects');
-    }
-  }
+  // Use the current grant while refreshing the member record.
+  var fastAllowed = hasDepartmentRole();
+  if (boardPill) boardPill.style.display = fastAllowed ? 'inline-flex' : 'none';
+  if (gate) gate.style.display = fastAllowed ? 'none' : 'block';
+  if (board) board.style.display = fastAllowed ? 'block' : 'none';
+  if (fastAllowed) setTasksViewMode(_tasksViewMode || 'projects');
 
   var client = getSupaClient();
   if (!client) {
@@ -558,7 +549,6 @@ async function checkTasksAccess() {
 
     if (!isAllowed) {
       if (boardPill) boardPill.style.display = 'none';
-      if (snavTasks) snavTasks.style.display = 'none';
       if (gate) {
         gate.style.display = 'block';
         var gateBtn = gate.querySelector('.submit-btn');
@@ -572,13 +562,11 @@ async function checkTasksAccess() {
 
     // Member has department role or officer rank: reveal Projects & Tasks
     if (boardPill) boardPill.style.display = 'inline-flex';
-    if (snavTasks) snavTasks.style.display = 'flex';
 
     var cleanDeptKey = taskDepartmentKey(dept) || 'officers';
 
     if (!cleanDeptKey || !DEPT_CONFIG[cleanDeptKey]) {
       if (boardPill) boardPill.style.display = 'none';
-      if (snavTasks) snavTasks.style.display = 'none';
       if (gate) {
         gate.style.display = 'block';
         var gateBtn2 = gate.querySelector('.submit-btn');

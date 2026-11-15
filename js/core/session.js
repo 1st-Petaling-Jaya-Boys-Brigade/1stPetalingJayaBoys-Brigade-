@@ -345,6 +345,9 @@ function sessionSet(key, value, options) {
   } catch (e) {
     console.warn('Session storage unavailable:', e);
   }
+  if (typeof window !== 'undefined' && ['ic', 'email', 'rank', 'section', 'department', 'role'].includes(key)) {
+    window.syncSidebarAccess?.();
+  }
 }
 
 function sessionGet(key) {
@@ -437,6 +440,7 @@ function sessionClear(options) {
   if (typeof window !== 'undefined') {
     window._session = _session;
     window.RBAC?.syncAdminButtonVisibility?.();
+    window.syncSidebarAccess?.();
   }
 }
 

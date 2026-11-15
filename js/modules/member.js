@@ -1612,7 +1612,6 @@ async function finalizeMemberRegistration(data) {
     var dashBox = document.getElementById('m-dashboard');
     if (dashBox) dashBox.style.display = 'block';
     var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
-    var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
   }
 
   if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
@@ -2160,7 +2159,6 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
     var sb = document.getElementById('sidebar-user-badge');
     if (sb) sb.textContent = m.rank || 'Member';
     var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
-    var sbt = document.getElementById('snav-badges'); if (sbt) sbt.style.display = 'flex';
   }
 
   if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
@@ -4448,7 +4446,6 @@ async function renderDashboard() {
     if (typeof loadMemberAttendanceStats === 'function') loadMemberAttendanceStats(m.name);
 
     var bt = document.getElementById('tab-badges');  if (bt) bt.style.display = 'block';
-    var sb = document.getElementById('snav-badges'); if (sb) sb.style.display = 'flex';
 
     if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
   } catch (e) {
@@ -4772,8 +4769,6 @@ function logoutMember() {
   var tt = document.getElementById('tab-tasks');       if (tt) tt.style.display = 'none';
   var bt = document.getElementById('tab-badges');      if (bt) bt.style.display = 'none';
   var at = document.getElementById('tab-attendance');  if (at) at.style.display = 'none';
-  var sat = document.getElementById('snav-attendance'); if (sat) sat.style.display = 'none';
-  var sba = document.getElementById('snav-badges');     if (sba) sba.style.display = 'none';
 
   var authBox = document.getElementById('m-auth');
   var dashBox = document.getElementById('m-dashboard');
@@ -4936,7 +4931,9 @@ async function refreshLoggedInUserProfile() {
           if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = m.photo_url;
         }
       }
-      if (m.department && sessionGet('department') !== m.department) sessionSet('department', m.department, { localOnly: true });
+      if (m.department !== undefined && sessionGet('department') !== (m.department || '')) {
+        sessionSet('department', m.department || '', { localOnly: true });
+      }
       if ((m.att_section || m.section) && sessionGet('section') !== (m.att_section || m.section)) sessionSet('section', m.att_section || m.section, { localOnly: true });
     }
   } catch (err) {

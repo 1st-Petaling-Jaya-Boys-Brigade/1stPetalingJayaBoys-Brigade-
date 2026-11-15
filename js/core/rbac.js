@@ -454,6 +454,7 @@
    */
   function syncAdminButtonVisibility() {
     if (typeof document === 'undefined') return;
+    if (typeof window !== 'undefined') window.syncSidebarAccess?.();
     var adminBtns = document.querySelectorAll('.sidebar-admin-btn');
     if (!adminBtns || !adminBtns.length) return;
 

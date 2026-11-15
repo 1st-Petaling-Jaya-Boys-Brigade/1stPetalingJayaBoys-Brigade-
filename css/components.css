@@ -13620,26 +13620,7 @@ body.light-theme .tb-mention-pill,
   }
 }
 
-/* ── SETTINGS MODAL & SIDEBAR SETTINGS BUTTON ── */
-.sidebar-settings-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-@media (hover: hover) {
-  .sidebar-settings-btn:hover {
-    border-color: var(--accent);
-    background: var(--bg-card-subtle);
-  }
-}
-
+/* ── SETTINGS MODAL ── */
 .settings-modal-card {
   max-width: 560px;
   width: 100%;
