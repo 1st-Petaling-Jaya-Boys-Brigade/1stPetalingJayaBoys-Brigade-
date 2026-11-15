@@ -151,7 +151,9 @@ async function getJson(url) {
           canActivateTasks,
           canActivateMember,
           tasksIntercepted,
-          redirectTarget
+          redirectTarget,
+          hasProtectedSidebarLinks: Array.from(document.querySelectorAll('.sidebar-nav button')).some(button => getComputedStyle(button).display !== 'none'),
+          guestProfileCurrent: document.getElementById('sidebar-user-card').getAttribute('aria-current') === 'page'
         };
       })()`,
       returnByValue: true
@@ -165,6 +167,8 @@ async function getJson(url) {
     assert.strictEqual(gDiag.canActivateMember, true, 'AuthGuard must allow public access to Member tab');
     assert.strictEqual(gDiag.tasksIntercepted, true, 'Unauthorized tab switch must be intercepted and redirected to Member');
     assert.strictEqual(gDiag.redirectTarget, 'tasks', 'AuthGuard must remember intended destination');
+    assert.strictEqual(gDiag.hasProtectedSidebarLinks, false, 'Signed-out desktop sidebar must hide protected links');
+    assert.strictEqual(gDiag.guestProfileCurrent, true, 'Profile footer marks sign-in as the current page');
     console.log('\n[Authenticated Portal Gatekeeper]');
     console.log('  ✔ Unauthenticated user automatically redirected to Member Login/Registration screen');
     console.log('  ✔ Internal portal tabs (home, tasks, badges, attendance) blocked by AuthGuard');
@@ -807,6 +811,93 @@ async function getJson(url) {
     console.log(
       '  ✔ Sidebar navigation cleanly displays Leaderboard and Resources on one line without pills'
     );
+
+    const sidebarReview = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const fields = ['ic', 'email', 'rank', 'department', 'section'];
+        const session = fields.map(key => [key, sessionGet(key)]);
+        const roles = RBAC._getRolesConfig();
+        const originalGet = supa.get;
+        const originalVerify = window.verifyActiveMemberSession;
+        const account = 'sidebar-review@example.test';
+        const tasks = document.getElementById('snav-tasks');
+        const footer = document.getElementById('sidebar-user-card');
+        const admin = document.querySelector('.sidebar-admin-btn');
+        const settings = document.querySelector('.sidebar-settings-btn');
+        const active = () => document.querySelector('.page.active')?.id;
+        const shown = node => getComputedStyle(node).display !== 'none';
+        const order = () => [...document.querySelectorAll('.sidebar-nav .sidebar-item')]
+          .filter(shown).map(node => node.textContent.trim());
+        const replaceRoles = permissions => {
+          RBAC._setRolesConfig({ super_admins: [], admins: permissions ? { [account]: permissions } : {} });
+          RBAC.syncAdminButtonVisibility();
+        };
+        try {
+          window.verifyActiveMemberSession = async () => true;
+          supa.get = async path => path.startsWith('bb_members?') ? [{ rank: 'Member', section: 'Senior', department: '' }] : [];
+          sessionSet('ic', account, { localOnly: true });
+          sessionSet('email', account, { localOnly: true });
+          sessionSet('rank', 'Member', { localOnly: true });
+          sessionSet('section', 'Senior', { localOnly: true });
+          sessionSet('department', '', { localOnly: true });
+          replaceRoles(null);
+          switchTabNav('home', true);
+          const memberOrder = order();
+          executeHeaderSearch('kanban');
+          const deniedSearchStaysOnHome = active() === 'page-home';
+          executeHeaderSearch('parade schedule');
+          const calendarSearchWorks = active() === 'page-parade' &&
+            document.querySelector('[data-nav="parade"]').getAttribute('aria-current') === 'page';
+          switchTabNav('tasks', true);
+          await checkTasksAccess();
+          const deniedDirectLink = !shown(document.getElementById('tasks-board')) &&
+            shown(document.getElementById('tasks-gate')) && !shown(tasks);
+          sessionSet('department', 'Media', { localOnly: true });
+          const departmentOrder = order();
+          sessionSet('department', '', { localOnly: true });
+          const departmentRemovalHides = !shown(tasks);
+          sessionSet('rank', 'Lieutenant', { localOnly: true });
+          const officerCanSee = shown(tasks) && !shown(admin);
+          sessionSet('rank', 'Member', { localOnly: true });
+          replaceRoles(['orders']);
+          const ordersAdminScoped = shown(admin) && !shown(tasks);
+          const rowStyles = node => {
+            const css = getComputedStyle(node);
+            return [node.offsetWidth, node.offsetHeight, css.fontFamily, css.fontWeight, css.padding, css.textAlign];
+          };
+          const footerMatches = settings instanceof HTMLButtonElement &&
+            JSON.stringify(rowStyles(settings)) === JSON.stringify(rowStyles(admin)) &&
+            admin.querySelector('.sidebar-footer-icon path')?.getAttribute('d').startsWith('M12 22');
+          replaceRoles(['tasks']);
+          const taskAdminCanSee = shown(tasks) && shown(admin);
+          executeHeaderSearch('kanban');
+          const authorizedSearchWorks = active() === 'page-tasks';
+          await checkTasksAccess();
+          replaceRoles(null);
+          const roleRemovalHides = !shown(tasks) && !shown(admin);
+          footer.click();
+          const profileCurrent = active() === 'page-member' && footer.getAttribute('aria-current') === 'page';
+          return { memberOrder, departmentOrder, deniedSearchStaysOnHome, calendarSearchWorks, deniedDirectLink,
+            departmentRemovalHides, officerCanSee, ordersAdminScoped, footerMatches, taskAdminCanSee,
+            authorizedSearchWorks, roleRemovalHides, profileCurrent };
+        } finally {
+          for (const [key, value] of session) sessionSet(key, value, { localOnly: true });
+          RBAC._setRolesConfig(roles);
+          RBAC.syncAdminButtonVisibility();
+          supa.get = originalGet;
+          window.verifyActiveMemberSession = originalVerify;
+          switchTabNav('home', true);
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(sidebarReview.result.value, JSON.stringify(sidebarReview.exceptionDetails));
+    const { memberOrder, departmentOrder, ...sidebarChecks } = sidebarReview.result.value;
+    assert.deepStrictEqual(memberOrder, ['Home', 'Calendar', 'Forms & Store', 'My Badges', 'Leaderboard', 'Resources', 'Gallery', 'Support Forum', '1stPJ Arcade']);
+    assert.deepStrictEqual(departmentOrder, [...memberOrder.slice(0, 3), 'Projects & Tasks', ...memberOrder.slice(3)]);
+    for (const [check, passed] of Object.entries(sidebarChecks)) assert.strictEqual(passed, true, 'Sidebar: ' + check);
+    console.log('  ✔ Sidebar order, account access, search routing, and matching footer controls verified');
 
     assert.notStrictEqual(
       pnInfo.trackWillChange,
@@ -2710,6 +2801,10 @@ async function getJson(url) {
           pointerEvents: cs ? cs.pointerEvents : 'none',
           panelWidth: rect ? rect.width : 0,
           panelRight: rect ? rect.right : 0,
+          focusOnFirstLink: document.activeElement === (panel?.querySelector('.sidebar-item:not([hidden])') ||
+            panel?.querySelector('.sidebar-user-card')),
+          focusedElement: document.activeElement.id || document.activeElement.tagName,
+          footerTouchTarget: panel?.querySelector('.sidebar-settings-btn').getBoundingClientRect().height >= 44,
           ariaExpanded: moreBtn ? moreBtn.getAttribute('aria-expanded') : null
         };
       })()`,
@@ -2721,6 +2816,8 @@ async function getJson(url) {
     assert.strictEqual(mdo.visibility, 'visible', 'Sidebar panel must be visible on mobile when More is tapped');
     assert.strictEqual(mdo.pointerEvents, 'auto', 'Sidebar panel must receive pointer events when open on mobile');
     assert.ok(mdo.panelWidth >= 240 && mdo.panelRight <= 390.5, 'Sidebar panel must slide fully into the 390px mobile viewport');
+    assert.strictEqual(mdo.focusOnFirstLink, true, 'Opening More places focus on the first visible page link, focused ' + mdo.focusedElement);
+    assert.strictEqual(mdo.footerTouchTarget, true, 'Sidebar footer rows must have a 44px touch target');
     assert.strictEqual(mdo.ariaExpanded, 'true', '#bnav-more aria-expanded must be "true" when drawer is open');
 
     await sendCmd('Runtime.evaluate', {
@@ -2736,6 +2833,7 @@ async function getJson(url) {
         return {
           overlayOpen: overlay ? overlay.classList.contains('open') : true,
           visibility: panel ? getComputedStyle(panel).visibility : 'visible',
+          focusRestored: document.activeElement === moreBtn,
           ariaExpanded: moreBtn ? moreBtn.getAttribute('aria-expanded') : null
         };
       })()`,
@@ -2744,6 +2842,7 @@ async function getJson(url) {
     const mdc = moreDrawerClosedDiag.result.value;
     assert.strictEqual(mdc.overlayOpen, false, 'Escape key must close mobile sidebar overlay');
     assert.strictEqual(mdc.visibility, 'hidden', 'Closed mobile sidebar panel must return to visibility: hidden');
+    assert.strictEqual(mdc.focusRestored, true, 'Escape returns focus to the More button');
     assert.strictEqual(mdc.ariaExpanded, 'false', '#bnav-more aria-expanded must reset to "false" when closed');
     console.log('  ✔ Mobile More drawer opens visibly into viewport and dismisses cleanly on Escape');
 
@@ -2958,7 +3057,7 @@ async function getJson(url) {
             await frame();
             await Promise.allSettled(drawer.getAnimations().map(animation => animation.finished));
             const footer = rect(drawer.querySelector('.sidebar-footer'));
-            const firstItem = rect(drawer.querySelector('.sidebar-item'));
+            const firstItem = rect(drawer.querySelector('.sidebar-item:not([hidden])') || drawer.querySelector('.sidebar-user-card'));
             if (firstItem.top < 48 || footer.right > viewport - 24 || footer.bottom > innerHeight - 34 ||
                 document.elementFromPoint(rect(dock).left + 3, rect(dock).top + 3)?.closest('#bottom-nav')) {
               problems.push('drawer safe area or stacking: ' + JSON.stringify({ top: firstItem.top, right: footer.right, bottom: footer.bottom, height: innerHeight }));
