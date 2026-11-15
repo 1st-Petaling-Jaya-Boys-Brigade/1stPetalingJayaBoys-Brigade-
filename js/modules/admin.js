@@ -1250,7 +1250,7 @@
         var safeBlockedBy = (typeof escapeHtml === 'function') ? escapeHtml(blockedBy) : blockedBy;
 
         rowsHtml += '<tr>' +
-          '<td style="font-family:var(--font-mono,monospace);font-weight:600;color:var(--text-primary);">' +
+          '<td style="font-family: var(--font-body);font-weight:600;color:var(--text-primary);">' +
             '<div style="display:flex;align-items:center;gap:8px;">' +
               '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(239,68,68,0.15);color:#ef4444;flex-shrink:0;">' +
                 '<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +
@@ -2673,12 +2673,12 @@
                 '</div>' +
               '</td>' +
               '<td style="white-space:nowrap;">' +
-                '<span class="admin-member-email" style="font-family:var(--font-mono, monospace);font-size:12px;">' + safeEmail + '</span>' +
+                '<span class="admin-member-email" style="font-family: var(--font-body);font-size:12px;">' + safeEmail + '</span>' +
               '</td>' +
               '<td style="white-space:nowrap;font-weight:600;color:var(--text-secondary);">' +
                 safeSection +
               '</td>' +
-              '<td style="white-space:nowrap;font-size:14px;font-family:\'Inter\',sans-serif;">' +
+              '<td style="white-space:nowrap;font-size:14px;font-family:var(--font-body);">' +
                 '<span class="crm-rank-text" style="display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:14px;color:var(--text-primary);white-space:nowrap;">' +
                   getRankInsigniaSvg(m.rank) +
                   '<span>' + safeRank + '</span>' +
@@ -2693,7 +2693,7 @@
               '<td style="white-space:nowrap;font-weight:600;color:var(--text-primary);font-size:12px;">' +
                 ageStr +
               '</td>' +
-              '<td style="white-space:nowrap;font-family:var(--font-mono, monospace);font-size:12px;color:var(--text-secondary);" class="admin-member-dob">' +
+              '<td style="white-space:nowrap;font-family: var(--font-body);font-size:12px;color:var(--text-secondary);" class="admin-member-dob">' +
                 dobStr +
               '</td>' +
               '<td style="white-space:nowrap;" onclick="event.stopPropagation();">' +
@@ -2711,7 +2711,7 @@
                   avatarHtml +
                   '<div style="flex:1;min-width:0;">' +
                     '<input type="text" class="admin-inline-input" value="' + safeName + '" onchange="updateMemberField(\'' + safeIc + '\', \'name\', this.value)" title="Edit Name (Autosaves on change)" />' +
-                    '<div class="admin-member-email" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono,monospace);margin-top:2px;overflow:hidden;text-overflow:ellipsis;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
+                    '<div class="admin-member-email" style="font-size:10px;color:var(--text-muted);font-family: var(--font-body);margin-top:2px;overflow:hidden;text-overflow:ellipsis;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + '</div>' +
                   '</div>' +
                 '</div>' +
               '</td>' +
@@ -4005,7 +4005,7 @@
         '<td style="padding:8px;color:var(--text-muted);white-space:nowrap;">' + timeStr + '</td>' +
         '<td style="padding:8px;font-weight:600;">' + safeActor + '</td>' +
         '<td style="padding:8px;"><span class="badge-role">' + safeRole + '</span></td>' +
-        '<td style="padding:8px;color:var(--accent);font-family:var(--font-mono);">' + safeAction + '</td>' +
+        '<td style="padding:8px;color:var(--accent);font-family: var(--font-body);">' + safeAction + '</td>' +
         '<td style="padding:8px;">' + safeTarget + '</td>' +
         '</tr>';
     });
@@ -4566,7 +4566,7 @@
               '<div style="flex:1;min-width:0;">' +
                 '<div style="font-weight:700;font-size:14px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + '</div>' +
                 '<div style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeRank + ' &middot; ' + safeSquad + '</div>' +
-                '<div style="font-size:10px;color:var(--accent);margin-top:2px;font-family:monospace;">' + safeTarget + '</div>' +
+                '<div style="font-size:10px;color:var(--accent);margin-top:2px;font-family:var(--font-body);font-variant-numeric:tabular-nums;">' + safeTarget + '</div>' +
               '</div>' +
             '</div>' +
             '<div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">' +
@@ -4914,7 +4914,7 @@
       var safeBlockedBy = (typeof escapeHtml === 'function') ? escapeHtml(blockedBy) : blockedBy;
 
       rowsHtml += '<tr>' +
-        '<td style="font-family:var(--font-mono,monospace);font-weight:600;color:var(--text-primary);">' +
+        '<td style="font-family: var(--font-body);font-weight:600;color:var(--text-primary);">' +
           '<div style="display:flex;align-items:center;gap:6px;">' +
             '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,0.15);color:#ef4444;flex-shrink:0;">' +
               '<svg style="width:11px;height:11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' +

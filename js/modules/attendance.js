@@ -781,7 +781,7 @@ async function renderAdminMasterSheetPanel() {
       '<div style="margin-bottom:14px;">' +
         '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-sync-token-input">Shared-Secret Proxy Sync Token (Protects against unauthorized scraping)</label>' +
         '<div style="display:flex;gap:8px;align-items:center;">' +
-          '<input type="text" id="master-sync-token-input" class="form-input" placeholder="bb_sec_..." value="' + escapeAttHtml(cfg.syncToken || '') + '" style="font-size:12px;padding:7px 10px;flex:1;font-family:monospace;box-sizing:border-box;" />' +
+          '<input type="text" id="master-sync-token-input" class="form-input" placeholder="bb_sec_..." value="' + escapeAttHtml(cfg.syncToken || '') + '" style="font-size:12px;padding:7px 10px;flex:1;font-family:var(--font-body);font-variant-numeric:tabular-nums;box-sizing:border-box;" />' +
           '<button type="button" onclick="generateNewMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Generate Token</button>' +
           '<button type="button" onclick="copyMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Copy Token</button>' +
         '</div>' +
@@ -821,7 +821,7 @@ async function renderAdminMasterSheetPanel() {
         '</button>' +
       '</div>' +
 
-      '<pre id="gas-snippet-pre" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:12px;font-size:11px;color:#66bb6a;font-family:monospace;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:0;">' +
+      '<pre id="gas-snippet-pre" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:12px;font-size:11px;color:#66bb6a;font-family:var(--font-body);font-variant-numeric:tabular-nums;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:0;">' +
         escapeAttHtml(scriptCode) +
       '</pre>' +
     '</div>';

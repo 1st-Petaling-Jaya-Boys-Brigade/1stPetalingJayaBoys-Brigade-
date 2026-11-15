@@ -215,11 +215,10 @@
   --font-xl: 22px;
   --font-2xl: 28px;
   --font-3xl: 36px;
-  --font-headline: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-headline: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-display: var(--font-headline);
   --font-brand: var(--font-headline);
-  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-body: 'Inter', system-ui, sans-serif;
 
   --transition-smooth: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
   --transition-fast: background-color 0.08s ease, border-color 0.08s ease, color 0.08s ease, box-shadow 0.08s ease;

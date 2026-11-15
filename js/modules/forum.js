@@ -4937,7 +4937,7 @@ function formatHelperMarkdown(text) {
   var clean = sanitizeStedfastOutput(text);
   var safe = (typeof escapeHtml === 'function') ? escapeHtml(clean) : clean;
   safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  safe = safe.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;font-family:var(--font-mono);font-size:11px;">$1</code>');
+  safe = safe.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;font-family: var(--font-body);font-size:11px;">$1</code>');
   safe = safe.replace(/\n- /g, '<br>&bull; ');
   safe = safe.replace(/\n\n/g, '<br><br>');
   safe = safe.replace(/\n/g, '<br>');

@@ -554,7 +554,7 @@ async function getJson(url) {
         const cancelled = { date: today.toLocaleDateString('sv-SE'), type: 'noparade', title: 'No parade' };
         const parade = {
           date: nextDate, type: 'parade', title: 'Drill & Assessments',
-          time: '2:15 PM – 6:00 PM', kit: 'Drill Kit', location: 'Church Hall'
+          time: '1:30 PM – 6:00 PM', kit: 'Drill Kit', location: 'Church Hall'
         };
         const card = document.querySelector('.home-next-parade');
         const modal = document.getElementById('calendar-day-modal');
@@ -569,19 +569,48 @@ async function getJson(url) {
           const correctDate = card.querySelector('time').dateTime === nextDate;
           const correctTitle = card.querySelector('h2').textContent === parade.title;
           const meta = card.querySelector('.home-next-parade-meta').textContent;
-          const correctMeta = ['2:15 PM', parade.kit, parade.location].every(item => meta.includes(item)) &&
+          const correctMeta = ['9:30 AM', parade.kit, parade.location].every(item => meta.includes(item)) &&
                               !meta.includes('6:00 PM');
+          calJumpToEventIndex(1);
+          const range = () => document.querySelector('.cal-hero-meta-item strong')?.textContent;
+          const correctCalendarRange = range() === '9:30 AM – 6:00 PM';
+          const bodyFont = node => getComputedStyle(node).fontFamily.startsWith('Inter');
+          const correctFonts = bodyFont(document.body) && bodyFont(card.querySelector('.portal-btn')) &&
+            bodyFont(document.getElementById('forgot-code')) &&
+            getComputedStyle(document.querySelector('.hero-title')).fontFamily.startsWith('"Plus Jakarta Sans"');
           const [view, reminder] = card.querySelectorAll('button');
           view.click();
           const opensDetails = modal.style.display === 'flex' &&
-                               document.getElementById('cdm-event-name').textContent.includes(parade.title);
+                               document.getElementById('cdm-event-name').textContent.includes(parade.title) &&
+                               document.getElementById('cdm-venue-time').textContent.includes('9:30 AM – 6:00 PM');
           closeCalendarDayModal();
           reminder.click();
           const focusesReminder = modal.style.display === 'flex' && document.activeElement.id === 'cdm-rem-input';
+          closeCalendarDayModal();
+          events = [cancelled, {
+            ...parade, schedule: [
+              { time: '18:45 – 19:30', title: 'Closing' },
+              { time: 'TBC', title: 'Break' },
+              { time: '11.10 AM – 12 PM', title: 'Briefing' },
+              { time: '11:05 AM – 11:10 AM', title: 'Arrival' }
+            ]
+          }];
+          await loadCalendarEvents();
+          renderCalendarWidget();
+          renderCalendarTab('upcoming');
+          const usesCustomRundown = card.querySelector('.home-next-parade-meta strong').textContent === '11:05 AM' &&
+                                   range() === '11:05 AM – 7:30 PM';
+          events = [cancelled, { ...parade, type: 'special', time: 'All day' }];
+          await loadCalendarEvents();
+          renderCalendarWidget();
+          renderCalendarTab('upcoming');
+          const preservesUntimedEvent = card.querySelector('.home-next-parade-meta strong').textContent === 'All day' &&
+                                        range() === 'All day';
           events = [cancelled];
           await loadCalendarEvents();
           renderCalendarWidget();
-          return { correctPlacement, correctDate, correctTitle, correctMeta, opensDetails, focusesReminder, hidesWithoutParade: card.hidden };
+          return { correctPlacement, correctDate, correctTitle, correctMeta, correctCalendarRange, correctFonts,
+                   opensDetails, focusesReminder, usesCustomRundown, preservesUntimedEvent, hidesWithoutParade: card.hidden };
         } finally {
           closeCalendarDayModal();
           events = originalEvents;
@@ -1357,6 +1386,15 @@ async function getJson(url) {
           const findColumn = status => document.querySelector('.task-col[data-col-status="' + status + '"]');
           const card = findCard();
           if (!card) throw new Error('Task card fixture did not render');
+          const plans = findColumn('planning');
+          const todo = findColumn('todo');
+          const styles = element => getComputedStyle(element);
+          const badge = column => column.querySelector('.task-col-count-badge');
+          const cleanLanes = styles(plans).borderTopWidth === '0px' &&
+                             styles(todo.querySelector('.task-col-empty')).borderTopWidth === '0px' &&
+                             styles(plans.querySelector('.task-col-title')).color === styles(todo.querySelector('.task-col-title')).color &&
+                             badge(plans).textContent === '1' && badge(todo).textContent === '0' &&
+                             styles(badge(plans)).backgroundColor !== styles(badge(todo)).backgroundColor;
           const drag = async status => {
             const source = findCard();
             const target = findColumn(status);
@@ -1373,7 +1411,7 @@ async function getJson(url) {
           await drag('inreview');
           const rolledBack = findCard()?.closest('.task-col') === findColumn('inprogress');
 
-          return { moved, rolledBack, updates };
+          return { cleanLanes, moved, rolledBack, updates };
         } finally {
           RBAC._setRolesConfig(beforeRoles);
           for (const [key, value] of Object.entries(beforeMember)) sessionSet(key, value);
@@ -1386,9 +1424,9 @@ async function getJson(url) {
     });
     assert.ok(restoredWorkflows.result.value, JSON.stringify(restoredWorkflows.exceptionDetails));
     assert.deepStrictEqual(restoredWorkflows.result.value, {
-      moved: true, rolledBack: true, updates: ['todo', 'inprogress', 'inreview']
+      cleanLanes: true, moved: true, rolledBack: true, updates: ['todo', 'inprogress', 'inreview']
     }, 'Task drops update the board and failed saves restore the prior column');
-    console.log('  ✔ Task drag between columns and failed-move rollback verified');
+    console.log('  ✔ Borderless lanes, status count pills, task drag, and failed-move rollback verified');
 
     // Exercise the gallery lightbox with a fresh signature and real image bytes.
     const fixturePhoto = fs.readFileSync(path.resolve('assets/logo.png')).toString('base64');
