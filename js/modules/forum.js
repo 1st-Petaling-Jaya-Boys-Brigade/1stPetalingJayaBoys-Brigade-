@@ -4686,7 +4686,7 @@ function ensureHelperAgentDOM() {
     '</div>' +
     '<div class="helper-drawer-body" id="helper-chat-body"></div>' +
     '<form class="helper-drawer-footer" onsubmit="handleHelperSubmit(event)">' +
-      '<input type="text" id="helper-agent-input" class="helper-chat-input" placeholder="Ask about parades, badges, uniform..." autocomplete="off" />' +
+      '<input type="text" id="helper-agent-input" class="helper-chat-input" placeholder="Type your question…" aria-label="Question for Stedfast" autocomplete="off" />' +
       '<button type="submit" class="helper-send-btn" aria-label="Send">' + FORUM_ICONS.send + '</button>' +
     '</form>';
 
@@ -4863,10 +4863,10 @@ async function saveGeminiKeyFromHelper(btn) {
   }
 }
 function toggleHelperAgent() {
-  _isHelperAgentOpen = !_isHelperAgentOpen;
   var drawer = document.getElementById('helper-agent-drawer');
-  var trigger = document.getElementById('helper-agent-trigger');
   if (!drawer) return;
+  var trigger = document.getElementById('helper-agent-trigger');
+  _isHelperAgentOpen = !drawer.classList.contains('open');
 
   if (_isHelperAgentOpen) {
     updateHelperGeminiStatus();
@@ -4877,10 +4877,11 @@ function toggleHelperAgent() {
     drawer.classList.add('open');
     if (trigger) trigger.classList.add('active');
     renderHelperMessages();
-    setTimeout(function() {
-      var inp = document.getElementById('helper-agent-input');
-      if (inp) inp.focus();
-    }, 100);
+    if (typeof window !== 'undefined' && !window.matchMedia?.('(max-width: 1023px), (pointer: coarse)').matches) {
+      setTimeout(function() {
+        if (_isHelperAgentOpen) document.getElementById('helper-agent-input')?.focus();
+      }, 100);
+    }
   } else {
     drawer.style.display = 'none';
     drawer.classList.remove('open');
@@ -5245,10 +5246,10 @@ function renderForumPage() {
       '<div class="forum-controls-bar">' +
         '<div class="forum-search-wrap">' +
           '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
-          '<input type="text" id="forum-search-input" class="forum-search-input" placeholder="Search discussions &amp; bugs..." oninput="handleForumSearch(this.value)" />' +
+          '<input type="text" id="forum-search-input" class="forum-search-input" placeholder="Search discussions &amp; bugs..." aria-label="Search discussions and bugs" oninput="handleForumSearch(this.value)" />' +
         '</div>' +
         '<div class="forum-status-select-wrap">' +
-          '<select id="forum-status-filter" class="form-select" onchange="filterForumStatus(this.value)" style="padding:7px 12px;font-size:12.5px;height:auto;min-width:130px;">' +
+          '<select id="forum-status-filter" class="form-select" aria-label="Filter discussions by status" onchange="filterForumStatus(this.value)" style="padding:7px 12px;font-size:12.5px;height:auto;min-width:130px;">' +
             '<option value="all">All Status</option>' +
             '<option value="open">Open</option>' +
             '<option value="resolved">Resolved</option>' +
@@ -5385,7 +5386,7 @@ function renderForumFeed() {
             (p.triagedByAgent ? '<span class="forum-triaged-badge">Stedfast Triaged</span>' : '') +
             (p.screenshotUrl ? '<span class="forum-triaged-badge" style="background:rgba(59,130,246,0.12);color:#3b82f6;border-color:rgba(59,130,246,0.25);display:inline-flex;align-items:center;gap:3px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg> Screenshot</span>' : '') +
           '</div>' +
-          '<div style="display:flex;align-items:center;gap:6px;">' +
+          '<div class="forum-post-actions">' +
             adminActionsHtml +
             '<span class="forum-post-meta">' + escapeHtml(p.date || '') + '</span>' +
           '</div>' +

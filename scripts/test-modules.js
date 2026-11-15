@@ -1670,85 +1670,52 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(carouselScriptMatch, 'Carousel controller script block found in index.html');
   eval(carouselScriptMatch[0]);
 
-  // 1. Desktop mode: 2 cards per page, 2 total pages
-  global.window.innerWidth = 1024;
-  assert.strictEqual(getHqCardsPerPage(), 2, 'Desktop must display 2 cards per view');
-  assert.strictEqual(getHqTotalPages(), 2, 'Desktop must have 2 total pages for 4 cards');
-
-  // 2. Mobile mode: 1 card per page, 4 total pages
-  global.window.innerWidth = 480;
-  assert.strictEqual(getHqCardsPerPage(), 1, 'Mobile must display 1 card per view');
-  assert.strictEqual(getHqTotalPages(), 4, 'Mobile must have 4 total pages for 4 cards');
-
-  // Reset to desktop for navigation tests
-  global.window.innerWidth = 1024;
-  _hqCurrentPage = 0;
-
-  // Track DOM mock
   const mockTrack = document.getElementById('hq-carousel-track');
-  const mockDotsContainer = document.getElementById('hq-carousel-dots');
-  const mockDot0 = document.getElementById('hq-dot-0');
-  const mockDot1 = document.getElementById('hq-dot-1');
-
-  mockDotsContainer.querySelectorAll = () => [mockDot0, mockDot1];
-  mockDot0.classList = { add: () => {}, remove: () => {} };
-  mockDot1.classList = { add: () => {}, remove: () => {} };
-
-  // Page 0 initial state
-  updateQuickCardsCarousel();
-  assert.strictEqual(
-    mockTrack.style.transform,
-    'translateX(calc(-0% - 0px))',
-    'Page 0 must translate by 0%'
-  );
-
-  // Cycle forward to Page 1
-  cycleQuickCards(1);
-  assert.strictEqual(_hqCurrentPage, 1, 'cycleQuickCards(1) must advance to page 1');
-  assert.strictEqual(
-    mockTrack.style.transform,
-    'translateX(calc(-100% - 14px))',
-    'Page 1 must translate by -100% - 14px'
-  );
-
-  // Cycle forward from Page 1 should wrap around to Page 0
-  cycleQuickCards(1);
-  assert.strictEqual(
-    _hqCurrentPage,
-    0,
-    'cycleQuickCards(1) from page 1 must wrap around to page 0'
-  );
-  assert.strictEqual(
-    mockTrack.style.transform,
-    'translateX(calc(-0% - 0px))',
-    'Page 0 wrap-around transform'
-  );
-
-  // Cycle backward from Page 0 should wrap around to Page 1
-  cycleQuickCards(-1);
-  assert.strictEqual(
-    _hqCurrentPage,
-    1,
-    'cycleQuickCards(-1) from page 0 must wrap around to page 1'
-  );
-  assert.strictEqual(mockTrack.style.transform, 'translateX(calc(-100% - 14px))');
-
-  // Direct page setter
-  setQuickCardsPage(0);
-  assert.strictEqual(_hqCurrentPage, 0, 'setQuickCardsPage(0) sets page to 0');
-  setQuickCardsPage(1);
-  assert.strictEqual(_hqCurrentPage, 1, 'setQuickCardsPage(1) sets page to 1');
-  setQuickCardsPage(99); // out of bounds should be ignored
-  assert.strictEqual(_hqCurrentPage, 1, 'Out-of-bounds page index must be ignored');
-
-  console.log(
-    '  ✔ getHqCardsPerPage and getHqTotalPages accurately calculate responsive page distribution'
-  );
-  console.log('  ✔ cycleQuickCards smoothly navigates and wraps around card pages');
-  console.log('  ✔ setQuickCardsPage bounds checks and directly navigates to valid card tabs');
-  console.log(
-    '  ✔ updateQuickCardsCarousel applies exact pixel-aligned translateX transform to card track'
-  );
+  const mockDots = document.getElementById('hq-carousel-dots');
+  const originalQuery = document.querySelectorAll;
+  const originalDotsQuery = mockDots.querySelectorAll;
+  const originalWidth = global.window.innerWidth;
+  const cards = Array.from({ length: 10 }, (_, index) => ({
+    querySelector: () => ({ textContent: 'Shortcut ' + (index + 1) }),
+    classList: { toggle: () => {} },
+    contains: () => false
+  }));
+  const dots = Array.from({ length: 5 }, () => ({
+    classList: { toggle: () => {} }, setAttribute: () => {}, removeAttribute: () => {}
+  }));
+  let eligibleForTasks = false;
+  document.querySelectorAll = selector => selector.startsWith('#hq-carousel-track')
+    ? cards.filter((_, index) => eligibleForTasks || index !== 2) : originalQuery.call(document, selector);
+  mockDots.querySelectorAll = () => dots;
+  try {
+    global.window.innerWidth = 480;
+    assert.strictEqual(getHqCardsPerPage(), 1);
+    assert.strictEqual(getHqTotalPages(), 9, 'Mobile pages exclude the hidden Tasks card');
+    eligibleForTasks = true;
+    assert.strictEqual(getHqTotalPages(), 10, 'Eligible accounts can reach all ten cards');
+    global.window.innerWidth = 1024;
+    assert.strictEqual(getHqCardsPerPage(), 2);
+    assert.strictEqual(getHqTotalPages(), 5);
+    setQuickCardsPage(0);
+    assert.strictEqual(mockTrack.style.transform, 'translateX(calc(-0% - 0px))');
+    assert.strictEqual(cards[0].inert, false, 'Current page cards remain interactive');
+    assert.strictEqual(cards[2].inert, true, 'Offscreen cards are excluded from keyboard focus');
+    cycleQuickCards(1);
+    assert.strictEqual(_hqCurrentPage, 1);
+    assert.strictEqual(mockTrack.style.transform, 'translateX(calc(-100% - 14px))');
+    setQuickCardsPage(4);
+    cycleQuickCards(1);
+    assert.strictEqual(_hqCurrentPage, 0, 'Next wraps from the final page');
+    cycleQuickCards(-1);
+    assert.strictEqual(_hqCurrentPage, 4, 'Previous wraps from the first page');
+    setQuickCardsPage(99);
+    assert.strictEqual(_hqCurrentPage, 4, 'Out-of-range requests keep the current page');
+  } finally {
+    document.querySelectorAll = originalQuery;
+    mockDots.querySelectorAll = originalDotsQuery;
+    global.window.innerWidth = originalWidth;
+  }
+  console.log('  ✔ Quick access pagination, role-filtered card counts, wrapping, and focus verified');
 
   // ── Testing Uniform Store & Orders Module ───────────────────────
   console.log('Testing Uniform Store & Orders Module...');
@@ -4606,8 +4573,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261115e',
-    'sw.js CACHE_VERSION must be 20261115e'
+    '20261115f',
+    'sw.js CACHE_VERSION must be 20261115f'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4635,7 +4602,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261115e',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261115f',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7473,7 +7440,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261115e'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261115f'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8950,12 +8917,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261115e', 'Service Worker cache version must be 20261115e');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261115f', 'Service Worker cache version must be 20261115f');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261115e and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261115f and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10239,25 +10206,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261115e', 'sw.js CACHE_VERSION must be 20261115e');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261115e', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261115e', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261115f', 'sw.js CACHE_VERSION must be 20261115f');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261115f', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261115f', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261115e cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261115f cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261115e'), 'config.js must use v=20261115e');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261115e'), 'forum.js must use v=20261115e');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261115e'), 'variables.css must use v=20261115e');
-    assert.ok(indexRaw.includes('css/base.css?v=20261115e'), 'base.css must use v=20261115e');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261115e');
+    assert.ok(indexRaw.includes('js/config.js?v=20261115f'), 'config.js must use v=20261115f');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261115f'), 'forum.js must use v=20261115f');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261115f'), 'variables.css must use v=20261115f');
+    assert.ok(indexRaw.includes('css/base.css?v=20261115f'), 'base.css must use v=20261115f');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261115f');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──

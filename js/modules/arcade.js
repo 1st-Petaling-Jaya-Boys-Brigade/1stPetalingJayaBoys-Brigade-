@@ -2013,9 +2013,6 @@
       var safePlatoon = (typeof escapeHtml === 'function') ? escapeHtml(m.platoon || '1st PJ') : (m.platoon || '1st PJ');
       var rowAvatar = getLeaderboardAvatarHtml(m.name, m.email, 34);
 
-      var rankColor = m.displayRank === 1
-        ? 'color:var(--brand-gold,#f5c542);'
-        : (m.displayRank === 2 ? 'color:#cbd5e1;' : (m.displayRank === 3 ? 'color:#ea580c;' : 'color:var(--text-muted);'));
 
       var calloutBadge = isUserPlacingCallout
         ? '<div style="font-size:11.5px;font-weight:700;color:var(--accent);margin-top:2px;">You are placed #' + m.displayRank + ' in 1st PJ Company</div>'
@@ -2023,20 +2020,20 @@
 
       return '<div class="arcade-leaderboard-row' + (isMe ? ' row-current-user' : '') + '">' +
         '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">' +
-          '<div class="arcade-leaderboard-rank" style="' + rankColor + '">#' + m.displayRank + '</div>' +
+          '<div class="arcade-leaderboard-rank' + (m.displayRank === 1 ? ' is-first' : '') + '">#' + m.displayRank + '</div>' +
           '<div style="flex-shrink:0;">' + rowAvatar + '</div>' +
           '<div style="min-width:0;flex:1;">' +
             '<div style="font-weight:700;font-size:13.5px;color:var(--text-primary);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
-              '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + safeName + '</span>' +
+              '<span class="arcade-leaderboard-name">' + safeName + '</span>' +
               (isMe ? '<span style="font-size:10px;font-weight:800;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:10px;">You</span>' : '') +
             '</div>' +
-            '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + safeRank + ' &bull; ' + safePlatoon + '</div>' +
+            '<div class="arcade-leaderboard-detail">' + safeRank + ' &bull; ' + safePlatoon + '</div>' +
             calloutBadge +
           '</div>' +
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;padding-left:12px;">' +
-          '<div style="font-size:16px;font-weight:800;' + (isStreak ? 'color:var(--orange);' : 'color:var(--gold);') + '">' + val + '</div>' +
-          '<div style="font-size:10.5px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">' + metricUnit + '</div>' +
+          '<div class="arcade-leaderboard-score">' + val + '</div>' +
+          '<div class="arcade-leaderboard-unit">' + metricUnit + '</div>' +
         '</div>' +
       '</div>';
     }
@@ -2055,14 +2052,14 @@
     var html =
       '<div style="display:flex;flex-direction:column;gap:16px;width:100%;">' +
         // Category Pills
-        '<div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;">' +
+        '<div class="arcade-leaderboard-switcher" role="group" aria-label="Leaderboard category">' +
           '<button type="button" class="portal-btn ' + (isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') + '" onclick="switchArcadeLeaderboardCategory(\'streak\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
             '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
-            '<span>Daily Streak Leaderboard</span>' +
+            '<span>Daily Streak</span>' +
           '</button>' +
           '<button type="button" class="portal-btn ' + (!isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') + '" onclick="switchArcadeLeaderboardCategory(\'credits\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
             '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
-            '<span>Credits Leaderboard</span>' +
+            '<span>Credits</span>' +
           '</button>' +
         '</div>' +
 
@@ -2082,7 +2079,7 @@
 
         // Top 7 List View
         '<div class="arcade-leaderboard-card">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-subtle);">' +
+          '<div class="arcade-leaderboard-heading">' +
             '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">TOP 7 RANKINGS</div>' +
             '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">' + (isStreak ? 'Active Consecutive Days' : 'Current Available Balance') + '</div>' +
           '</div>' +

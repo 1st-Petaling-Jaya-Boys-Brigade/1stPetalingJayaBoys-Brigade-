@@ -203,7 +203,7 @@ async function getJson(url) {
         const container = document.getElementById('hq-carousel-container');
         const track = document.getElementById('hq-carousel-track');
         const viewport = document.getElementById('hq-carousel-viewport');
-        const cards = track ? track.querySelectorAll('.hq-card') : [];
+        const cards = track ? track.querySelectorAll('.hq-card:not([hidden])') : [];
         const prevBtn = document.getElementById('hq-carousel-prev');
         const nextBtn = document.getElementById('hq-carousel-next');
         const dots = document.querySelectorAll('.hq-dot');
@@ -262,10 +262,12 @@ async function getJson(url) {
     );
 
     assert.strictEqual(info.hasWrapper, true, 'Carousel wrapper must be rendered');
-    assert.strictEqual(info.cardCount, 4, 'Must have 4 total quick action cards');
+    assert.strictEqual(info.cardCount, 9, 'An ordinary member sees nine quick action cards');
     assert.strictEqual(info.hasPrevBtn, true, 'Prev button must exist');
     assert.strictEqual(info.hasNextBtn, true, 'Next button must exist');
-    assert.strictEqual(info.dotsCount, 2, 'Desktop must display 2 dots');
+    assert.strictEqual(info.dotsCount, 5, 'Desktop has five pages for the ordinary member');
+    assert.strictEqual(info.prevVisibilityDefault, 'visible', 'Previous arrow is always discoverable');
+    assert.strictEqual(info.nextVisibilityDefault, 'visible', 'Next arrow is always discoverable');
 
     // Verify 2 cards are in view on Page 0
     assert.ok(
@@ -277,259 +279,44 @@ async function getJson(url) {
       'Card 1 must end at viewport right edge'
     );
     console.log(
-      '  ✔ Page 0 displays exactly 2 cards side-by-side in viewport (Forms & Store, Member Hub)'
+      '  ✔ Page 0 displays exactly 2 cards side-by-side in viewport (Calendar, Forms & Store)'
     );
 
-    // 2. Test default arrow hidden state (when cursor is NOT on boxes)
-    console.log('\n[Directional Hover Arrow Verification]');
-    console.log('  Default Prev Opacity (Cursor outside):', info.prevOpacityDefault);
-    console.log('  Default Next Opacity (Cursor outside):', info.nextOpacityDefault);
-    assert.strictEqual(
-      info.prevOpacityDefault,
-      '0',
-      'Prev arrow must be hidden by default when cursor is not on box'
-    );
-    assert.strictEqual(
-      info.nextOpacityDefault,
-      '0',
-      'Next arrow must be hidden by default when cursor is not on box'
-    );
-    console.log('  ✔ Arrow buttons are completely hidden when cursor is not on the boxes');
 
-    // 3. Move cursor to Left Box: verify ONLY Left arrow appears
-    await sendCmd('Runtime.evaluate', {
+    console.log('\n[Quick Access Navigation]');
+    const carouselNav = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
-        const container = document.getElementById('hq-carousel-container');
-        const r = container.getBoundingClientRect();
-        const evt = new MouseEvent('mousemove', {
-          clientX: r.left + (r.width * 0.25),
-          clientY: r.top + (r.height * 0.5),
-          bubbles: true
-        });
-        container.dispatchEvent(evt);
-      })()`
-    });
-    await new Promise(r => setTimeout(r, 250));
-
-    const evalHoverLeft = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        const prevStyle = window.getComputedStyle(document.getElementById('hq-carousel-prev'));
-        const nextStyle = window.getComputedStyle(document.getElementById('hq-carousel-next'));
-        const container = document.getElementById('hq-carousel-container');
-        return {
-          hasHoverLeft: container.classList.contains('hover-left'),
-          hasHoverRight: container.classList.contains('hover-right'),
-          prevOpacity: prevStyle.opacity,
-          prevVisibility: prevStyle.visibility,
-          nextOpacity: nextStyle.opacity,
-          nextVisibility: nextStyle.visibility
-        };
-      })()`,
-      returnByValue: true
-    });
-    const leftHoverState = evalHoverLeft.result.value;
-    console.log(
-      '  Cursor on Left Box -> Prev Opacity:',
-      leftHoverState.prevOpacity,
-      'Next Opacity:',
-      leftHoverState.nextOpacity
-    );
-    assert.strictEqual(leftHoverState.hasHoverLeft, true, 'Container should have hover-left class');
-    assert.strictEqual(
-      leftHoverState.hasHoverRight,
-      false,
-      'Container must NOT have hover-right class'
-    );
-    assert.strictEqual(
-      leftHoverState.prevOpacity,
-      '1',
-      'Left arrow MUST appear when cursor is on the left box'
-    );
-    assert.strictEqual(
-      leftHoverState.nextOpacity,
-      '0',
-      'Right arrow MUST remain hidden when cursor is on the left box'
-    );
-    console.log('  ✔ When cursor is on left box, ONLY left arrow button appears');
-
-    // 4. Move cursor to Right Box: verify ONLY Right arrow appears
-    await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        const container = document.getElementById('hq-carousel-container');
-        const r = container.getBoundingClientRect();
-        const evt = new MouseEvent('mousemove', {
-          clientX: r.left + (r.width * 0.75),
-          clientY: r.top + (r.height * 0.5),
-          bubbles: true
-        });
-        container.dispatchEvent(evt);
-      })()`
-    });
-    await new Promise(r => setTimeout(r, 250));
-
-    const evalHoverRight = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        const prevStyle = window.getComputedStyle(document.getElementById('hq-carousel-prev'));
-        const nextStyle = window.getComputedStyle(document.getElementById('hq-carousel-next'));
-        const container = document.getElementById('hq-carousel-container');
-        return {
-          hasHoverLeft: container.classList.contains('hover-left'),
-          hasHoverRight: container.classList.contains('hover-right'),
-          prevOpacity: prevStyle.opacity,
-          prevVisibility: prevStyle.visibility,
-          nextOpacity: nextStyle.opacity,
-          nextVisibility: nextStyle.visibility
-        };
-      })()`,
-      returnByValue: true
-    });
-    const rightHoverState = evalHoverRight.result.value;
-    console.log(
-      '  Cursor on Right Box -> Prev Opacity:',
-      rightHoverState.prevOpacity,
-      'Next Opacity:',
-      rightHoverState.nextOpacity
-    );
-    assert.strictEqual(
-      rightHoverState.hasHoverRight,
-      true,
-      'Container should have hover-right class'
-    );
-    assert.strictEqual(
-      rightHoverState.hasHoverLeft,
-      false,
-      'Container must NOT have hover-left class'
-    );
-    assert.strictEqual(
-      rightHoverState.nextOpacity,
-      '1',
-      'Right arrow MUST appear when cursor is on the right box'
-    );
-    assert.strictEqual(
-      rightHoverState.prevOpacity,
-      '0',
-      'Left arrow MUST remain hidden when cursor is on the right box'
-    );
-    console.log('  ✔ When cursor is on right box, ONLY right arrow button appears');
-
-    // 5. Move cursor outside: verify BOTH arrows disappear
-    await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        const container = document.getElementById('hq-carousel-container');
-        container.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
-      })()`
-    });
-    await new Promise(r => setTimeout(r, 250));
-
-    const evalHoverLeave = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        const prevStyle = window.getComputedStyle(document.getElementById('hq-carousel-prev'));
-        const nextStyle = window.getComputedStyle(document.getElementById('hq-carousel-next'));
-        return {
-          prevOpacity: prevStyle.opacity,
-          nextOpacity: nextStyle.opacity
-        };
-      })()`,
-      returnByValue: true
-    });
-    console.log(
-      '  Cursor leaves boxes -> Prev Opacity:',
-      evalHoverLeave.result.value.prevOpacity,
-      'Next Opacity:',
-      evalHoverLeave.result.value.nextOpacity
-    );
-    assert.strictEqual(
-      evalHoverLeave.result.value.prevOpacity,
-      '0',
-      'Prev arrow hides on mouse leave'
-    );
-    assert.strictEqual(
-      evalHoverLeave.result.value.nextOpacity,
-      '0',
-      'Next arrow hides on mouse leave'
-    );
-    console.log('  ✔ When cursor leaves boxes, arrow buttons completely disappear');
-
-    // 6. Test cycling forward to Page 1
-    const evalNext = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        document.getElementById('hq-carousel-next').click();
-        const r2 = document.querySelectorAll('.hq-card')[2].getBoundingClientRect();
-        const r3 = document.querySelectorAll('.hq-card')[3].getBoundingClientRect();
-        const vp = document.getElementById('hq-carousel-viewport').getBoundingClientRect();
-        return {
-          page: window._hqCurrentPage,
-          transform: document.getElementById('hq-carousel-track').style.transform,
-          dot0Active: document.getElementById('hq-dot-0').classList.contains('active'),
-          dot1Active: document.getElementById('hq-dot-1').classList.contains('active'),
-          card2Left: r2.left,
-          card3Right: r3.right,
-          vpLeft: vp.left,
-          vpRight: vp.right
-        };
-      })()`,
-      returnByValue: true
-    });
-
-    const nextInfo = evalNext.result.value;
-    console.log('\n[Click Next Button]');
-    console.log('  Current Page:', nextInfo.page);
-    console.log('  Track Transform:', nextInfo.transform);
-    console.log('  Dot 1 Active:', nextInfo.dot1Active);
-    assert.strictEqual(nextInfo.page, 1, 'Should navigate to page 1');
-    assert.strictEqual(nextInfo.dot1Active, true, 'Dot 1 must become active');
-    assert.strictEqual(nextInfo.dot0Active, false, 'Dot 0 must become inactive');
-    console.log('  ✔ Next button cycles to Page 1 (Weekly Parade, Company Resources)');
-
-    // 7. Test cycling forward again (wrap-around to Page 0)
-    const evalWrap = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        document.getElementById('hq-carousel-next').click();
-        return {
-          page: window._hqCurrentPage,
-          transform: document.getElementById('hq-carousel-track').style.transform,
-          dot0Active: document.getElementById('hq-dot-0').classList.contains('active')
-        };
-      })()`,
-      returnByValue: true
-    });
-    const wrapInfo = evalWrap.result.value;
-    assert.strictEqual(wrapInfo.page, 0, 'Should wrap back around to page 0');
-    assert.strictEqual(wrapInfo.dot0Active, true, 'Dot 0 must become active again');
-    console.log('  ✔ Next button wraps around from Page 1 back to Page 0');
-
-    // 8. Test cycling backward (wrap-around to Page 1)
-    const evalPrevWrap = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
-        document.getElementById('hq-carousel-prev').click();
-        return {
-          page: window._hqCurrentPage,
-          dot1Active: document.getElementById('hq-dot-1').classList.contains('active')
-        };
-      })()`,
-      returnByValue: true
-    });
-    const prevWrapInfo = evalPrevWrap.result.value;
-    assert.strictEqual(prevWrapInfo.page, 1, 'Prev button should wrap around backwards to page 1');
-    console.log('  ✔ Prev button wraps around backwards from Page 0 to Page 1');
-
-    // 9. Test clicking Dot 0 directly
-    const evalDotClick = await sendCmd('Runtime.evaluate', {
-      expression: `(() => {
+        const prev = document.getElementById('hq-carousel-prev');
+        const next = document.getElementById('hq-carousel-next');
+        const viewport = document.getElementById('hq-carousel-viewport');
+        const cards = [...document.querySelectorAll('.hq-card:not([hidden])')];
+        const page = () => window._hqCurrentPage;
+        const activeRoutes = () => cards.filter(card => !card.inert).map(card => card.dataset.quickRoute);
+        const initialRoutes = activeRoutes();
+        const routes = cards.map(card => card.dataset.quickRoute);
+        next.click();
+        const nextClickWorks = page() === 1 && document.getElementById('hq-dot-1').getAttribute('aria-current') === 'page';
+        viewport.focus();
+        viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+        const keyboardWorks = page() === 2;
+        document.getElementById('hq-dot-4').click();
+        const finalPage = page() === 4 && activeRoutes().join() === 'member' &&
+          cards.at(-1).offsetWidth === viewport.clientWidth;
+        next.click();
+        const wrapsNext = page() === 0;
+        prev.click();
+        const wrapsPrevious = page() === 4;
         document.getElementById('hq-dot-0').click();
-        return {
-          page: window._hqCurrentPage,
-          dot0Active: document.getElementById('hq-dot-0').classList.contains('active')
-        };
+        return { initialRoutes, routes, nextClickWorks, keyboardWorks, finalPage, wrapsNext, wrapsPrevious, reset: page() === 0 };
       })()`,
       returnByValue: true
     });
-    assert.strictEqual(
-      evalDotClick.result.value.page,
-      0,
-      'Clicking dot 0 navigates directly to page 0'
-    );
-    console.log('  ✔ Clicking pagination dot directly navigates to selected page');
+    assert.ok(carouselNav.result.value, JSON.stringify(carouselNav.exceptionDetails));
+    const { initialRoutes, routes: carouselRoutes, ...carouselChecks } = carouselNav.result.value;
+    assert.deepStrictEqual(initialRoutes, ['parade', 'order']);
+    assert.deepStrictEqual(carouselRoutes, ['parade','order','badges','attendance','resources','gallery','forum','arcade','member']);
+    for (const [check, passed] of Object.entries(carouselChecks)) assert.strictEqual(passed, true, 'Quick Access: ' + check);
+    console.log('  ✔ Quick Access priority order, visible arrow buttons, keyboard navigation, and wrap-around verified');
 
     // 10. Verify column alignment
     const heightDiff = Math.abs(info.leftColRect.height - info.rightColRect.height);
@@ -752,7 +539,7 @@ async function getJson(url) {
         }
 
         const cards = Array.from(document.querySelectorAll('#hq-carousel-track .hq-card'));
-        const paradeCard = cards.find(c => (c.getAttribute('data-index') === '2') || c.textContent.includes('Weekly Parade') || c.textContent.includes('Calendar'));
+        const paradeCard = cards.find(card => card.dataset.quickRoute === 'parade');
         const paradeDesc = paradeCard ? paradeCard.querySelector('.hq-desc').textContent : '';
 
         const attItem = document.getElementById('snav-attendance');
@@ -821,6 +608,7 @@ async function getJson(url) {
         const originalVerify = window.verifyActiveMemberSession;
         const account = 'sidebar-review@example.test';
         const tasks = document.getElementById('snav-tasks');
+        const taskShortcut = document.querySelector('.hq-card[data-quick-route="tasks"]');
         const footer = document.getElementById('sidebar-user-card');
         const admin = document.querySelector('.sidebar-admin-btn');
         const settings = document.querySelector('.sidebar-settings-btn');
@@ -855,7 +643,7 @@ async function getJson(url) {
           sessionSet('department', 'Media', { localOnly: true });
           const departmentOrder = order();
           sessionSet('department', '', { localOnly: true });
-          const departmentRemovalHides = !shown(tasks);
+          const departmentRemovalHides = !shown(tasks) && !shown(taskShortcut);
           sessionSet('rank', 'Lieutenant', { localOnly: true });
           const officerCanSee = shown(tasks) && !shown(admin);
           sessionSet('rank', 'Member', { localOnly: true });
@@ -869,7 +657,7 @@ async function getJson(url) {
             JSON.stringify(rowStyles(settings)) === JSON.stringify(rowStyles(admin)) &&
             admin.querySelector('.sidebar-footer-icon path')?.getAttribute('d').startsWith('M12 22');
           replaceRoles(['tasks']);
-          const taskAdminCanSee = shown(tasks) && shown(admin);
+          const taskAdminCanSee = shown(tasks) && shown(admin) && shown(taskShortcut);
           executeHeaderSearch('kanban');
           const authorizedSearchWorks = active() === 'page-tasks';
           await checkTasksAccess();
@@ -2716,6 +2504,95 @@ async function getJson(url) {
     assert.strictEqual(m.themeHidden, true, 'Desktop theme text button must be hidden on mobile header');
     console.log('  ✔ Mobile header alignment, 44px targets, and 0px overflow verified at 390px viewport');
 
+    const mobileUsability = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const layoutFits = selector => {
+          const controls = [...document.querySelectorAll(selector)];
+          return controls.length > 0 && controls.every(el => el.scrollWidth <= el.clientWidth + 1 && el.offsetHeight >= 44);
+        };
+        switchTabNav('home', true);
+        setQuickCardsPage(0);
+        const viewport = document.getElementById('hq-carousel-viewport');
+        const track = document.getElementById('hq-carousel-track');
+        const swipe = (type, x, y) => {
+          const touch = new Touch({ identifier: 1, target: viewport, clientX: x, clientY: y });
+          viewport.dispatchEvent(new TouchEvent(type, {
+            bubbles: true, touches: ['touchend','touchcancel'].includes(type) ? [] : [touch], changedTouches: [touch]
+          }));
+        };
+        swipe('touchstart', 260, 300);
+        swipe('touchmove', 130, 304);
+        swipe('touchend', 90, 310);
+        const swipeWorks = window._hqCurrentPage === 1 && document.querySelector('.hq-page-count').textContent.startsWith('2 of ');
+        swipe('touchstart', 260, 300);
+        swipe('touchmove', 130, 304);
+        swipe('touchcancel', 130, 304);
+        const cancelledSwipeResets = window._hqCurrentPage === 1 && !track.style.transition && !track.style.willChange;
+        swipe('touchstart', 250, 280);
+        swipe('touchmove', 240, 420);
+        swipe('touchend', 240, 480);
+        const verticalGestureKeepsPage = window._hqCurrentPage === 1;
+        setQuickCardsPage(0);
+        switchTabNav('forum', true);
+        const forumPillsFit = layoutFits('.forum-filter-pill');
+        switchTabNav('resources', true);
+        const resourcePillsFit = layoutFits('.resource-pill');
+        const trigger = document.querySelector('.bottom-nav button[aria-label="Ask Stedfast"]');
+        trigger.focus();
+        trigger.click();
+        await pause(150);
+        const input = document.getElementById('helper-agent-input');
+        const drawer = document.getElementById('helper-agent-drawer');
+        const helperOpensWithoutFocus = drawer.classList.contains('open') && document.activeElement !== input;
+        input.focus();
+        const helperAllowsTyping = document.activeElement === input;
+        drawer.querySelector('button[title="Close chat"]').click();
+        const helperCloses = !drawer.classList.contains('open');
+        const oldTheme = document.documentElement.getAttribute('data-theme');
+        themeApply('light');
+        showToast('Mobile position verification', 'warning', 1200);
+        await pause(90);
+        const container = document.getElementById('portal-toast-container');
+        const toastTop = container.getBoundingClientRect().top;
+        const headerBottom = document.querySelector('.nav').getBoundingClientRect().bottom;
+        const toastAtTop = toastTop >= headerBottom && toastTop < headerBottom + 24;
+        switchTabNav('arcade', true);
+        switchArcadeSubtab('leaderboard');
+        const highlightMatches = category => {
+          switchArcadeLeaderboardCategory(category);
+          const current = document.querySelector('.arcade-leaderboard-row.row-current-user');
+          if (!current) return false;
+          const peer = current.parentNode.querySelector('.arcade-leaderboard-row:not(.row-current-user)');
+          const baseline = peer || (() => {
+            const row = document.createElement('div');
+            row.className = 'arcade-leaderboard-row';
+            current.after(row);
+            return row;
+          })();
+          const actual = getComputedStyle(current);
+          const normal = getComputedStyle(baseline);
+          return actual.backgroundColor === normal.backgroundColor && actual.borderColor !== normal.borderColor &&
+            current.querySelector('.arcade-leaderboard-rank').textContent.startsWith('#');
+        };
+        const streakOutline = highlightMatches('streak');
+        const creditsOutline = highlightMatches('credits');
+        themeApply('dark');
+        const darkOutline = highlightMatches('credits') && highlightMatches('streak');
+        themeApply(oldTheme || 'light');
+        switchTabNav('home', true);
+        return { swipeWorks, cancelledSwipeResets, verticalGestureKeepsPage, forumPillsFit, resourcePillsFit,
+          helperOpensWithoutFocus, helperAllowsTyping, helperCloses, toastAtTop, streakOutline, creditsOutline, darkOutline };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(mobileUsability.result.value, JSON.stringify(mobileUsability.exceptionDetails));
+    for (const [check, passed] of Object.entries(mobileUsability.result.value)) {
+      assert.strictEqual(passed, true, 'Mobile usability: ' + check);
+    }
+    console.log('  ✔ Mobile swipe, filter labels, helper focus, top messages, and both leaderboard highlights verified');
+
     // Test top-left logo home navigation
     await sendCmd('Runtime.evaluate', {
       expression: `(() => {
@@ -2984,7 +2861,11 @@ async function getJson(url) {
             const dockBox = rect(dock);
             const actions = rect(document.querySelector('.nav-actions'));
             if (actions.top < 48 || actions.right > viewport - 24 || actions.bottom > rect(header).bottom) {
-              problems.push('header safe area');
+              const controls = [...document.querySelector('.nav-actions').children]
+                .filter(el => el.getClientRects().length)
+                .map(el => [el.className, rect(el).width, el.textContent.trim().slice(0, 12)]);
+              problems.push('header safe area: ' + JSON.stringify({ top: actions.top, right: actions.right,
+                bottom: actions.bottom, headerBottom: rect(header).bottom, controls }));
             }
             if (dockBox.left < 16 || dockBox.right > viewport - 24 || dockBox.bottom > innerHeight - 34) problems.push('dock safe area');
             problems.push(...sizes(['.bnav-btn']));
@@ -3024,10 +2905,13 @@ async function getJson(url) {
           }
           switchTabNav('home', true);
           await frame();
-          problems.push(...sizes(['.cal-day-cell', '.hq-dot']));
+          problems.push(...sizes(['.cal-day-cell', '.hq-carousel-arrow']));
+          if (viewport <= 600 && !document.querySelector('.hq-page-count').getClientRects().length) {
+            problems.push('carousel page count missing on mobile');
+          }
           const carousel = document.querySelector('.hq-carousel-container');
           carousel.classList.add('hover-left');
-          if (getComputedStyle(carousel.querySelector('.hq-arrow-prev')).visibility !== 'hidden') problems.push('hover arrow shown on touch');
+          if (getComputedStyle(carousel.querySelector('.hq-arrow-prev')).visibility !== 'visible') problems.push('carousel arrow missing on touch');
           carousel.classList.remove('hover-left');
           switchTabNav('parade', true);
           switchCalendarView('month');
@@ -3635,6 +3519,7 @@ async function getJson(url) {
         // Test Drawer Toggle
         let drawerOpened = false;
         if (trigger && drawer) {
+          if (drawer.classList.contains('open')) toggleHelperAgent();
           trigger.click();
           drawerOpened = drawer.classList.contains('open');
         }
