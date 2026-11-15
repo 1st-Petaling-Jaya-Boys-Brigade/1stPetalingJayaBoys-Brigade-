@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">1st PJ BB Portal</string>
+    <string name="title_activity_main">1st PJ BB Portal</string>
+    <string name="package_name">org.firstpjbb.portal</string>
+    <string name="custom_url_scheme">org.firstpjbb.portal</string>
+</resources>
