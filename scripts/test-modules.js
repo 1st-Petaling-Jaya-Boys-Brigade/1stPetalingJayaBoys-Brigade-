@@ -3888,7 +3888,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
           squad: 'Beta',
           department: 'media',
           date_of_birth: '2016-01-01',
-          att_section: 'Junior',
+          att_section: 'Junior Section',
           parental_consent_signed: true
         }
       ];
@@ -3945,6 +3945,23 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'secretariat',
     'saveEditMember must persist updated department role'
   );
+
+  // Junior Section includes the Pre-Junior rank in the member editor.
+  adminModule.openEditMember('junior@pjbb.org');
+  assert.strictEqual(document.getElementById('em-section').value, 'Junior', 'Legacy section labels resolve to the visible select option');
+  document.getElementById('em-rank').value = 'Pre-Junior';
+  savedMemberPayload = null;
+  await adminModule.saveEditMember();
+  assert.ok(savedMemberPayload, 'The displayed Pre-Junior rank must save under Junior Section');
+  assert.strictEqual(savedMemberPayload.body.rank, 'Pre-Junior');
+  assert.strictEqual(savedMemberPayload.body.att_section, 'Junior');
+
+  adminModule.openEditMember('junior@pjbb.org');
+  document.getElementById('em-section').value = 'Pre-Junior';
+  document.getElementById('em-rank').value = 'Pre-Junior';
+  savedMemberPayload = null;
+  await adminModule.saveEditMember();
+  assert.strictEqual(savedMemberPayload?.body.att_section, 'Pre-Junior', 'An existing Pre-Junior section value can still be saved');
 
   // Department Sorting & Badges in Admin Console
   assert.ok(adminModule.DEFAULT_DEPT_CONFIG.secretariat, 'DEFAULT_DEPT_CONFIG must contain secretariat');
@@ -4589,8 +4606,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261115a',
-    'sw.js CACHE_VERSION must be 20261115a'
+    '20261115b',
+    'sw.js CACHE_VERSION must be 20261115b'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4618,7 +4635,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261115a',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261115b',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7456,7 +7473,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261115a'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261115b'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8933,12 +8950,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261115a', 'Service Worker cache version must be 20261115a');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261115b', 'Service Worker cache version must be 20261115b');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261115a and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261115b and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10222,25 +10239,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261115a', 'sw.js CACHE_VERSION must be 20261115a');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261115a', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261115a', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261115b', 'sw.js CACHE_VERSION must be 20261115b');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261115b', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261115b', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261115a cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261115b cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261115a'), 'config.js must use v=20261115a');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261115a'), 'forum.js must use v=20261115a');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261115a'), 'variables.css must use v=20261115a');
-    assert.ok(indexRaw.includes('css/base.css?v=20261115a'), 'base.css must use v=20261115a');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261115a');
+    assert.ok(indexRaw.includes('js/config.js?v=20261115b'), 'config.js must use v=20261115b');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261115b'), 'forum.js must use v=20261115b');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261115b'), 'variables.css must use v=20261115b');
+    assert.ok(indexRaw.includes('css/base.css?v=20261115b'), 'base.css must use v=20261115b');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261115b');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──

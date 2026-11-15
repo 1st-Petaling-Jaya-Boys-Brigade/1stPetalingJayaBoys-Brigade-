@@ -743,6 +743,18 @@ async function getJson(url) {
         'const pMediaCb = document.getElementById("reg-media-consent");' +
         'const policyModal = document.getElementById("child-safety-modal");' +
         'const emSectionSel = document.getElementById("em-section");' +
+        'const emRankSel = document.getElementById("em-rank");' +
+        'const chooseRank = (section, rank) => {' +
+        '  emSectionSel.value = section;' +
+        '  emSectionSel.dispatchEvent(new Event("change"));' +
+        '  emRankSel.value = rank;' +
+        '  emRankSel.dispatchEvent(new Event("change"));' +
+        '  return emSectionSel.value === section && emRankSel.value === rank;' +
+        '};' +
+        'const preJuniorStaysInJunior = chooseRank("Junior", "Pre-Junior");' +
+        'const staffSergeantStaysInOfficer = chooseRank("Officer", "Staff Sergeant");' +
+        'emSectionSel.value = "";' +
+        'emSectionSel.dispatchEvent(new Event("change"));' +
         'const emChildSafetyBox = document.getElementById("em-child-safety-box");' +
         'const galleryAdvisory = document.getElementById("adm-section-gallery");' +
         'return {' +
@@ -754,6 +766,8 @@ async function getJson(url) {
         'mediaDefaultChecked: pMediaCb ? pMediaCb.checked : null,' +
         'hasPolicyModal: !!policyModal,' +
         'hasEmSection: !!emSectionSel,' +
+        'preJuniorStaysInJunior,' +
+        'staffSergeantStaysInOfficer,' +
         'hasEmChildSafety: !!emChildSafetyBox,' +
         'hasGalleryAdvisory: galleryAdvisory ? galleryAdvisory.textContent.includes("Child Safety & Media Release Advisory") : false' +
         '};' +
@@ -761,6 +775,8 @@ async function getJson(url) {
       returnByValue: true
     });
     const csInfo = evalChildSafety.result.value;
+    assert.ok(csInfo.preJuniorStaysInJunior, 'Selecting Pre-Junior keeps the Junior Section selected');
+    assert.ok(csInfo.staffSergeantStaysInOfficer, 'Selecting Staff Sergeant keeps the Officer section selected');
     assert.strictEqual(csInfo.hasConsentBox, true, 'Parent consent box must exist');
     assert.strictEqual(csInfo.hasParentName, true, 'Parent name input must exist');
     assert.strictEqual(csInfo.hasParentContact, true, 'Parent contact input must exist');
@@ -3082,6 +3098,15 @@ async function getJson(url) {
     console.log('\n[Granular RBAC, Scoped Admin Console & Header Role Badge Verification]');
     const rbacBrowserDiag = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
+        const previousConfig = RBAC._getRolesConfig();
+        const oldGet = window.supa.get;
+        const fixtureRoles = {
+          super_admins: ['jeshuakoh2008@gmail.com'],
+          admins: { 'store_officer@example.com': { role: 'admin', permissions: ['orders', 'uniform'] } }
+        };
+        window.supa.get = (path, ...args) => path.startsWith('bb_config?key=eq.bb_admin_roles&')
+          ? Promise.resolve([{ value: fixtureRoles }]) : oldGet.call(window.supa, path, ...args);
+        await RBAC.loadRolesConfig(true);
         // 1. Header Role Badge for Member, Admin, and Super Admin
         const badge = document.querySelector('.nav-role-badge');
         const badgeWrap = document.querySelector('.nav-role-badge-wrap');
@@ -3096,7 +3121,6 @@ async function getJson(url) {
         const memberBadgeRole = badge ? badge.getAttribute('role') : '';
 
         // Test Scoped Admin Badge
-        await RBAC.assignUserRole('store_officer@example.com', 'admin', ['orders', 'uniform'], 'jeshuakoh2008@gmail.com');
         sessionSet('email', 'store_officer@example.com');
         sessionSet('rank', 'Lieutenant');
         RBAC.renderHeaderRoleBadge();
@@ -3192,6 +3216,8 @@ async function getJson(url) {
         window.closeAdmin();
 
         window.supa.rpc = oldRpc;
+        window.supa.get = oldGet;
+        RBAC._setRolesConfig(previousConfig);
         return {
           hasBadgeWrap: !!badgeWrap,
           memberBadgeClass,
