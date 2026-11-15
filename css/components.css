@@ -1378,40 +1378,61 @@ select.form-input,
 
 /* ── HERO BANNER ── */
 .hero-banner {
+  --crest-column: clamp(126px, 31cqi, 228px);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(100px, 27cqi, 168px);
+  grid-template-columns: minmax(0, 1fr) var(--crest-column);
   flex: 1 0 auto;
   min-height: 186px;
-  background: var(--bg-card);
+  background: linear-gradient(112deg, #101929 34%, #182943);
   border-radius: var(--radius-xl);
-  border: 1px solid var(--border-card);
+  border: 1px solid #3c4657;
   box-shadow: var(--shadow-card);
   overflow: hidden;
+  isolation: isolate;
 }
 
 .hero-copy {
   align-self: center;
-  padding: 24px clamp(20px, 6cqi, 48px);
+  position: relative;
+  z-index: 1;
+  padding: 24px 0 24px clamp(24px, 6cqi, 48px);
 }
 
 .hero-crest {
   display: grid;
   place-items: center;
-  background: var(--bg-card-subtle);
-  border-inline-start: 1px solid var(--border-card);
+  position: relative;
+}
+
+.hero-crest::before {
+  --crest-ring: clamp(74px, 19.5cqi, 135px);
+  --crest-center: calc(100% - var(--crest-column) / 2);
+  content: '';
+  position: absolute;
+  inset: 0 0 0 -100px;
+  background: radial-gradient(circle at var(--crest-center) 50%,
+    transparent calc(var(--crest-ring) - 1px),
+    rgb(241 196 83 / 38%) var(--crest-ring),
+    rgb(241 196 83 / 8%) calc(var(--crest-ring) + 1px) calc(var(--crest-ring) + 17px),
+    rgb(241 196 83 / 4%) calc(var(--crest-ring) + 17px) calc(var(--crest-ring) + 34px),
+    transparent calc(var(--crest-ring) + 34px));
+  pointer-events: none;
 }
 
 .hero-bb-logo {
   display: block;
-  border-radius: var(--radius-md);
+  width: clamp(86px, 23cqi, 136px);
+  height: auto;
+  position: relative;
+  mix-blend-mode: screen;
 }
 
 .hero-title {
   margin: 0;
   font-family: var(--font-headline);
-  font-size: clamp(28px, 7cqi, 48px);
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: clamp(28px, 7.2cqi, 48px);
+  font-weight: 800;
+  color: #f7f3eb;
   line-height: 1.1;
   letter-spacing: -0.04em;
   text-wrap: balance;
@@ -1422,18 +1443,26 @@ select.form-input,
   font-size: clamp(15px, 3.6cqi, 19px);
   font-weight: 600;
   line-height: 1.35;
-  color: var(--text-secondary);
+  color: #c0cbda;
 }
 
 .hero-subtitle {
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   margin: 14px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--accent-border);
+  padding: 0;
   font-size: 12px;
   font-weight: 700;
-  color: var(--accent);
-  letter-spacing: 0.08em;
+  color: #f1c453;
+  letter-spacing: 0.1em;
+}
+
+.hero-subtitle::before {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: currentColor;
 }
 
 @container (max-width: 400px) {
@@ -1441,24 +1470,31 @@ select.form-input,
     grid-template-columns: minmax(0, 1fr);
     align-content: center;
     justify-items: center;
-    gap: 14px;
-    padding: 24px 16px;
+    gap: 12px;
+    padding: 22px 16px 20px;
     text-align: center;
   }
 
   .hero-crest {
     order: -1;
-    border: 0;
-    background: transparent;
+  }
+
+  .hero-crest::before {
+    --crest-ring: 50px;
+    --crest-center: 50%;
+    inset: -48px;
   }
 
   .hero-bb-logo {
-    width: 60px;
-    height: 60px;
+    width: 72px;
   }
 
   .hero-copy {
     padding: 0;
+  }
+
+  .hero-subtitle {
+    justify-content: center;
   }
 }
 
@@ -2952,6 +2988,10 @@ select.form-input,
 
 /* Kanban Columns & Drag-and-Drop */
 /* ── Kanban Columns: 5-Column Responsive Grid with Zero Horizontal Scroll (Image 3) ── */
+#tasks-board {
+  container-type: inline-size;
+}
+
 .tasks-board-columns {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2964,7 +3004,7 @@ select.form-input,
   box-sizing: border-box;
 }
 
-@media (max-width: 960px) and (min-width: 769px) {
+@container (max-width: 760px) {
   .tasks-board-columns {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
@@ -2984,17 +3024,13 @@ select.form-input,
   content-visibility: auto;
   contain-intrinsic-size: auto 260px auto 650px;
   background: var(--bg-card-subtle);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: var(--radius-lg);
-  padding: 16px 14px;
+  border-radius: var(--radius-md);
+  padding: 10px 8px;
   min-width: 0 !important;
   width: 100%;
-  border: 1px solid var(--border-card);
-  box-shadow: var(--shadow-subtle);
   display: flex;
   flex-direction: column;
-  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+  transition: background-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
 }
 
@@ -3004,20 +3040,29 @@ select.form-input,
   }
 }
 
-@media (hover: hover) {
-  .task-col:hover {
-    border-color: var(--border-hover);
-  }
+.task-col[data-col-status="planning"] {
+  --task-count-color: var(--purple);
+}
+
+.task-col[data-col-status="inprogress"] {
+  --task-count-color: var(--blue);
+}
+
+.task-col[data-col-status="inreview"] {
+  --task-count-color: var(--accent);
+}
+
+.task-col[data-col-status="completed"] {
+  --task-count-color: var(--green);
 }
 
 .task-col-count-badge {
   font-size: 11px;
   color: var(--text-primary);
   font-weight: 600;
-  background: rgba(59, 130, 246, 0.16);
+  background: color-mix(in srgb, var(--task-count-color, var(--text-secondary)) 24%, transparent);
   padding: 2px 8px;
   border-radius: 12px;
-  margin-left: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3025,6 +3070,7 @@ select.form-input,
   height: 18px;
   line-height: 1;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .task-col-body {
@@ -3035,68 +3081,15 @@ select.form-input,
   gap: 10px;
 }
 
-.task-col-empty,
-.kanban-empty-state {
-  flex: 1;
-  min-height: 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1.5px dashed var(--border-card);
-  border-radius: var(--radius-md);
-  padding: 24px 12px;
-  background: var(--surface-tint);
-  color: var(--text-muted);
+.task-col-empty {
+  padding: 16px 4px 0;
   text-align: center;
 }
 
-.task-col-empty-icon,
-.kanban-empty-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--surface-tint-hover);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  margin-bottom: 2px;
-}
-
-.task-col-empty-text,
-.kanban-empty-title {
+.task-col-empty-text {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
-}
-
-.task-col-empty-btn,
-.kanban-empty-btn {
-  margin-top: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  background: rgba(217, 163, 35, 0.08);
-  border: 1px solid rgba(217, 163, 35, 0.25);
-  border-radius: 6px;
-  padding: 6px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s ease;
-}
-
-@media (hover: hover) {
-  .task-col-empty-btn:hover,
-  .kanban-empty-btn:hover {
-    background: rgba(217, 163, 35, 0.2);
-    border-color: var(--accent);
-    transform: translateY(-1px);
-  }
 }
 
 @supports not (content-visibility: auto) {
@@ -3106,9 +3099,8 @@ select.form-input,
 }
 
 .task-col.drag-over {
-  border-color: var(--accent) !important;
-  border-style: dashed !important;
-  background: rgba(217, 163, 35, 0.08) !important;
+  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--accent-soft);
 }
 
 .task-col.drag-over * {
@@ -3118,36 +3110,20 @@ select.form-input,
 .task-col-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-subtle);
-  white-space: nowrap;
-}
-
-.task-col[data-col-status="planning"] .task-col-header {
-  border-bottom-color: rgba(168, 85, 247, 0.25);
-}
-.task-col[data-col-status="todo"] .task-col-header {
-  border-bottom-color: rgba(148, 163, 184, 0.2);
-}
-.task-col[data-col-status="inprogress"] .task-col-header {
-  border-bottom-color: rgba(59, 130, 246, 0.25);
-}
-.task-col[data-col-status="inreview"] .task-col-header {
-  border-bottom-color: rgba(245, 158, 11, 0.25);
-}
-.task-col[data-col-status="completed"] .task-col-header {
-  border-bottom-color: rgba(16, 185, 129, 0.25);
+  gap: 5px;
+  margin-bottom: 8px;
+  padding-inline-start: 4px;
 }
 
 .task-col-quick-add {
   background: transparent;
-  border: 1px dashed var(--border-card);
-  color: var(--text-muted);
+  border: 0;
+  color: var(--text-secondary);
   width: 26px;
-  height: 26px;
+  min-height: 28px;
+  flex: 0 0 auto;
+  padding: 0;
+  margin-inline-start: auto;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -3158,8 +3134,7 @@ select.form-input,
 
 @media (hover: hover) {
   .task-col-quick-add:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+    color: var(--text-primary);
     background: var(--bg-card);
   }
 }
@@ -3230,13 +3205,10 @@ select.form-input,
   font-weight: 700;
   letter-spacing: normal !important;
   text-transform: none;
-  margin-bottom: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  line-height: 1.35;
   color: var(--text-primary);
-  white-space: nowrap !important;
-  flex-shrink: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .task-card {
@@ -7062,7 +7034,7 @@ select.form-input,
 
 .task-progress-percent {
   font-size: 12px;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-body);
   color: var(--accent);
 }
 
@@ -7830,11 +7802,11 @@ select.form-input,
   padding: 8px 12px;
   margin-top: 4px;
   background: transparent;
-  border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  font-family: var(--font-headline);
-  font-size: 11.5px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition-smooth);
@@ -7843,12 +7815,17 @@ select.form-input,
 @media (hover: hover) {
   .task-col-add-bottom-btn:hover {
     background: var(--surface-tint);
-    border-color: var(--accent);
-    color: var(--accent);
-    border-style: solid;
+    color: var(--text-primary);
   }
 }
 
+@media (pointer: coarse) {
+  .task-col-quick-add,
+  .task-col-add-bottom-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
 /* ── Interactive Task Brief Modal (Image 5) ── */
 #task-detail-modal[style*="display: block"] {
   display: flex !important;
@@ -9141,7 +9118,7 @@ body.light-theme .tb-mention-pill,
 }
 
 .reg-verify-code-input {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-body);
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 10px;
@@ -10090,7 +10067,7 @@ body.light-theme .tb-mention-pill,
   background: rgba(0, 0, 0, 0.2);
   padding: 1px 5px;
   border-radius: 4px;
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11.5px;
 }
 
@@ -10168,7 +10145,7 @@ body.light-theme .tb-mention-pill,
 }
 
 .helper-tag-pill {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 10.5px;
   font-weight: 700;
   padding: 1.5px 7px;
@@ -10391,7 +10368,7 @@ body.light-theme .tb-mention-pill,
 }
 
 .forum-category-pill {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
   color: var(--accent);
@@ -10829,7 +10806,7 @@ body.light-theme .tb-mention-pill,
 .wordle-toast {
   background: #ffffff;
   color: #111827;
-  font-family: var(--font-headline, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-family: var(--font-headline);
   font-size: 14px;
   font-weight: 700;
   padding: 8px 16px;
@@ -12701,7 +12678,7 @@ body.light-theme .tb-mention-pill,
   gap: 8px;
 }
 .proj-task-id-badge {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;
   color: var(--accent, #f59e0b);
@@ -14827,7 +14804,7 @@ body.light-theme .tb-mention-pill,
 }
 
 .onboarding-tz-clock {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
   color: var(--accent);

@@ -505,6 +505,50 @@
     { time: '5:45 PM', title: 'Dismissal', desc: 'Announcements, vespers & dismissal', icon: 'dismissal' }
   ];
 
+  function getEventRundown(event) {
+    if (Array.isArray(event.schedule) && event.schedule.length) return event.schedule;
+    var cancelled = typeof event.title === 'string' && event.title.toLowerCase().includes('no parade');
+    return event.type === 'parade' && !cancelled ? DEFAULT_PARADE_RUNDOWN : [];
+  }
+
+  function parseScheduleClock(value) {
+    var match = value && value.match(/^(\d{1,2})(?:[:.]([0-5]\d))?\s*(AM|PM)?$/i);
+    if (!match) return null;
+    var hour = Number(match[1]);
+    var period = (match[3] || '').toUpperCase();
+    if (period ? hour < 1 || hour > 12 : hour > 23) return null;
+    if (period) hour = hour % 12 + (period === 'PM' ? 12 : 0);
+    return hour * 60 + Number(match[2] || 0);
+  }
+
+  function splitScheduleTime(value) {
+    return typeof value === 'string' ? value.trim().split(/\s*(?:[-–—]|\bto\b)\s*/i, 2) : [];
+  }
+
+  function formatScheduleClock(minutes) {
+    var hour = Math.floor(minutes / 60);
+    return (hour % 12 || 12) + ':' + String(minutes % 60).padStart(2, '0') + (hour < 12 ? ' AM' : ' PM');
+  }
+
+  function getEventScheduleTimes(event, rundown) {
+    var fallback = event.time || (rundown === DEFAULT_PARADE_RUNDOWN ? '2:15 PM – 6:00 PM' : '');
+    var eventTimes = splitScheduleTime(fallback);
+    var start = Infinity;
+    var end = parseScheduleClock(eventTimes[1]) ?? -Infinity;
+    rundown.forEach(function(step) {
+      var times = splitScheduleTime(step && step.time);
+      var stepStart = parseScheduleClock(times[0]);
+      if (stepStart === null) return;
+      start = Math.min(start, stepStart);
+      end = Math.max(end, stepStart, parseScheduleClock(times[1]) ?? stepStart);
+    });
+    if (!Number.isFinite(start)) {
+      return { start: eventTimes[0] || '', range: fallback };
+    }
+    var startLabel = formatScheduleClock(start);
+    return { start: startLabel, range: end > start ? startLabel + ' – ' + formatScheduleClock(end) : startLabel };
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // MASTER CALENDAR TAB CONTROLLER & 5-VIEW SYSTEM
   // ═══════════════════════════════════════════════════════════════════════════
@@ -763,7 +807,8 @@
 
     var kitMeta  = KIT_BADGES[upcoming.kit] || { label: upcoming.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)' };
     var typeMeta = TYPE_BADGES[upcoming.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
-
+    var activeRundown = getEventRundown(upcoming);
+    var scheduleTime = getEventScheduleTimes(upcoming, activeRundown).range;
 
     var cardActionAttr = isAdminView
       ? (' style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + calendarEventId(upcoming.id) + '\')" title="Click to edit schedule"')
@@ -782,7 +827,7 @@
         + '</div>'
 
         + '<div class="cal-hero-meta-strip">'
-          + '<div class="cal-hero-meta-item">' + CAL_ICONS.clock + ' <strong>' + escapeHtml(upcoming.time || '2:15 PM – 6:00 PM') + '</strong></div>'
+          + (scheduleTime ? '<div class="cal-hero-meta-item">' + CAL_ICONS.clock + ' <strong>' + escapeHtml(scheduleTime) + '</strong></div>' : '')
           + '<div class="cal-hero-meta-item">' + CAL_ICONS.pin + ' <strong>' + escapeHtml(upcoming.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</strong></div>'
           + (upcoming.kit && upcoming.kit !== 'None' ? ('<div class="cal-hero-meta-item">' + CAL_ICONS.shirt + ' Uniform of the Day: <strong style="color:var(--accent);">' + escapeHtml(kitMeta.label) + '</strong></div>') : '')
         + '</div>';
@@ -793,9 +838,7 @@
       + '<div class="schedule-table">';
 
     var isNoParadeEvent = upcoming && (upcoming.type === 'noparade' || (upcoming.title && upcoming.title.toLowerCase().includes('no parade')));
-    var hasCustomSchedule = upcoming && Array.isArray(upcoming.schedule) && upcoming.schedule.length > 0;
-
-    if (isNoParadeEvent && !hasCustomSchedule) {
+    if (isNoParadeEvent && !activeRundown.length) {
       html += ''
         + '<div class="cal-noparade-banner" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;box-sizing:border-box;">'
           + '<div style="width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,0.12);color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
@@ -806,8 +849,7 @@
             + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">There is no standard company parade or uniform inspection for this date.</div>'
           + '</div>'
         + '</div>';
-    } else if (hasCustomSchedule || upcoming.type === 'parade') {
-      var activeRundown = hasCustomSchedule ? upcoming.schedule : DEFAULT_PARADE_RUNDOWN;
+    } else {
       activeRundown.forEach(function(step) {
         if (!step) return;
         var rowClick = isAdminView
@@ -1269,19 +1311,21 @@
     if (venueEl) {
       var vHtml = '';
       if (ev && ev.type !== 'noparade') {
+        var activeDayRundown = getEventRundown(ev);
+        var dayScheduleTime = getEventScheduleTimes(ev, activeDayRundown).range;
         vHtml += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;">'
-          + '<span style="color:var(--accent);font-weight:600;">' + CAL_ICONS.clock + ' ' + escapeHtml(ev.time || '2:15 PM – 6:00 PM') + '</span>'
+          + (dayScheduleTime ? '<span style="color:var(--accent);font-weight:600;">' + CAL_ICONS.clock + ' ' + escapeHtml(dayScheduleTime) + '</span>' : '')
           + '<span>' + CAL_ICONS.pin + ' ' + escapeHtml(ev.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</span>'
         + '</div>';
 
         // Parade Detailed Rundown
-        if (ev.type === 'parade' || ev.type === 'special' || ev.type === 'ceremonial') {
+        if (activeDayRundown.length) {
           vHtml += ''
             + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-top:10px;">'
               + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Schedule Rundown &bull; Saturday Timeline</div>'
               + '<div style="display:flex;flex-direction:column;gap:6px;">';
-          var activeDayRundown = (ev && Array.isArray(ev.schedule) && ev.schedule.length > 0) ? ev.schedule : DEFAULT_PARADE_RUNDOWN;
           activeDayRundown.forEach(function(r) {
+            if (!r) return;
             vHtml += ''
               + '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;font-size:12px;">'
                 + '<div><strong>' + escapeHtml(r.title) + '</strong> &bull; <span style="color:var(--text-secondary);">' + escapeHtml(r.desc) + '</span></div>'
@@ -1504,7 +1548,7 @@
     return ''
       + '<tr class="adm-sched-row" style="border-bottom:1px solid var(--border-card);">'
         + '<td style="padding:6px 8px;">'
-          + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml(item.time || '') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:monospace;" />'
+          + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml(item.time || '') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:var(--font-body);font-variant-numeric:tabular-nums;" />'
         + '</td>'
         + '<td style="padding:6px 8px;">'
           + '<input type="text" class="form-input adm-row-title" value="' + escapeHtml(item.title || '') + '" placeholder="e.g. Fall-In" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />'
@@ -1530,7 +1574,7 @@
     tr.style.borderBottom = '1px solid var(--border-card)';
     tr.innerHTML = ''
       + '<td style="padding:6px 8px;">'
-        + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml((item && item.time) || '2:15 PM') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:monospace;" />'
+        + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml((item && item.time) || '2:15 PM') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:var(--font-body);font-variant-numeric:tabular-nums;" />'
       + '</td>'
       + '<td style="padding:6px 8px;">'
         + '<input type="text" class="form-input adm-row-title" value="' + escapeHtml((item && item.title) || '') + '" placeholder="e.g. Activity Name" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />'
@@ -1942,7 +1986,7 @@
 
     var date = new Date(event.date + 'T00:00:00');
     var weekday = date.toLocaleDateString('en-MY', { weekday: 'short' });
-    var startTime = typeof event.time === 'string' ? event.time.split(/[–—]|\s+-\s+/, 1)[0].trim() : '';
+    var startTime = getEventScheduleTimes(event, getEventRundown(event)).start;
     var kit = event.kit === 'None' ? '' : event.kit;
 
     card.innerHTML =

@@ -1348,21 +1348,6 @@ function renderColumnsFromTasks(tasksList) {
     if (tcnt) tcnt.textContent = statusItems.length ? String(statusItems.length) : '';
     if (!el) return;
 
-    if (!statusItems.length) {
-      var emptyConf = STATUS_CONFIG[status] || { label: status };
-      el.innerHTML = '<div class="task-col-empty">'
-        + '<div class="task-col-empty-icon">'
-        +   '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="m9 12 2 2 4-4"/></svg>'
-        + '</div>'
-        + '<div class="task-col-empty-text">No tasks in ' + emptyConf.label + '</div>'
-        + '<button type="button" class="task-col-empty-btn" onclick="openCreateTaskModal(\'' + status + '\')">'
-        +   '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-        +   '<span>Add Task</span>'
-        + '</button>'
-        + '</div>';
-      return;
-    }
-
     var cardsHtml = statusItems.map(function(t, idx) {
       if (!/^[\w-]+$/.test(t.id || '')) return '';
       _taskMap[t.id] = t;
@@ -1429,6 +1414,9 @@ function renderColumnsFromTasks(tasksList) {
       + '<span>Add Task</span>'
       + '</button>';
 
+    if (!statusItems.length) {
+      cardsHtml = '<div class="task-col-empty"><div class="task-col-empty-text">No tasks</div></div>';
+    }
     el.innerHTML = cardsHtml + bottomAddBtn;
   });
 

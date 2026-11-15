@@ -2464,7 +2464,7 @@ async function configureAdminOrdersSheetUrl() {
             '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Script Code' +
           '</button>' +
         '</div>' +
-        '<div style="background:#0f172a;color:#f8fafc;border:1px solid var(--border-card);border-radius:8px;padding:12px;font-family:monospace;font-size:11px;max-height:180px;overflow-y:auto;white-space:pre;line-height:1.4;">' +
+        '<div style="background:#0f172a;color:#f8fafc;border:1px solid var(--border-card);border-radius:8px;padding:12px;font-family:var(--font-body);font-variant-numeric:tabular-nums;font-size:11px;max-height:180px;overflow-y:auto;white-space:pre;line-height:1.4;">' +
           (typeof escapeHtml === 'function' ? escapeHtml(UNIFORM_ORDERS_APPS_SCRIPT_CODE) : UNIFORM_ORDERS_APPS_SCRIPT_CODE) +
         '</div>' +
       '</div>' +
