@@ -541,6 +541,66 @@ async function getJson(url) {
       '  ✔ Left column and Right column achieve exact visual height alignment with calendar widget!'
     );
 
+    const homeParade = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const originalClient = window.getSupaClient;
+        const originalEvents = getUpcomingEventsList('0001-01-01', Infinity);
+        const cacheKey = 'bb_company_calendar_cache';
+        const originalCache = localStorage.getItem(cacheKey);
+        const today = new Date();
+        const next = new Date(today);
+        next.setDate(today.getDate() + 7);
+        const nextDate = next.toLocaleDateString('sv-SE');
+        const cancelled = { date: today.toLocaleDateString('sv-SE'), type: 'noparade', title: 'No parade' };
+        const parade = {
+          date: nextDate, type: 'parade', title: 'Drill & Assessments',
+          time: '2:15 PM – 6:00 PM', kit: 'Drill Kit', location: 'Church Hall'
+        };
+        const card = document.querySelector('.home-next-parade');
+        const modal = document.getElementById('calendar-day-modal');
+        let events = [cancelled, parade];
+        window.getSupaClient = () => ({ get: async () => [{ value: events }] });
+        try {
+          await loadCalendarEvents();
+          renderCalendarWidget();
+          calSelectDate(cancelled.date);
+          const correctPlacement = card.previousElementSibling.matches('.hero-banner') &&
+                                   card.nextElementSibling.id === 'hq-carousel-wrapper';
+          const correctDate = card.querySelector('time').dateTime === nextDate;
+          const correctTitle = card.querySelector('h2').textContent === parade.title;
+          const meta = card.querySelector('.home-next-parade-meta').textContent;
+          const correctMeta = ['2:15 PM', parade.kit, parade.location].every(item => meta.includes(item)) &&
+                              !meta.includes('6:00 PM');
+          const [view, reminder] = card.querySelectorAll('button');
+          view.click();
+          const opensDetails = modal.style.display === 'flex' &&
+                               document.getElementById('cdm-event-name').textContent.includes(parade.title);
+          closeCalendarDayModal();
+          reminder.click();
+          const focusesReminder = modal.style.display === 'flex' && document.activeElement.id === 'cdm-rem-input';
+          events = [cancelled];
+          await loadCalendarEvents();
+          renderCalendarWidget();
+          return { correctPlacement, correctDate, correctTitle, correctMeta, opensDetails, focusesReminder, hidesWithoutParade: card.hidden };
+        } finally {
+          closeCalendarDayModal();
+          events = originalEvents;
+          await loadCalendarEvents();
+          window.getSupaClient = originalClient;
+          if (originalCache === null) localStorage.removeItem(cacheKey);
+          else localStorage.setItem(cacheKey, originalCache);
+          calSelectDate(today.toLocaleDateString('sv-SE'));
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(homeParade.result.value, JSON.stringify(homeParade.exceptionDetails));
+    for (const [check, result] of Object.entries(homeParade.result.value)) {
+      assert.strictEqual(result, true, 'Home Next parade: ' + check);
+    }
+    console.log('  ✔ Home Next parade uses the scheduled event and opens its details and reminder');
+
     // 11. Test Forms Tab Search Bar in Browser
     console.log('\n[Forms Tab Search Bar Verification]');
     const evalFormsInit = await sendCmd('Runtime.evaluate', {

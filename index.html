@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261115b"></script>
+<script src="js/core/theme.js?v=20261115c"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261115b">
-<link rel="stylesheet" href="css/base.css?v=20261115b">
-<link rel="stylesheet" href="css/nav.css?v=20261115b">
-<link rel="stylesheet" href="css/components.css?v=20261115b">
-<link rel="stylesheet" href="css/admin.css?v=20261115b">
+<link rel="stylesheet" href="css/variables.css?v=20261115c">
+<link rel="stylesheet" href="css/base.css?v=20261115c">
+<link rel="stylesheet" href="css/nav.css?v=20261115c">
+<link rel="stylesheet" href="css/components.css?v=20261115c">
+<link rel="stylesheet" href="css/admin.css?v=20261115c">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -60,14 +60,6 @@
   flex-direction: column !important;
   justify-content: space-between !important;
   height: 100% !important;
-}
-.home-left-col .hero-banner {
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: center !important;
-  align-items: center !important;
-  margin-bottom: 14px !important;
 }
 .home-right-col {
   width: 100% !important;
@@ -637,11 +629,17 @@
     <div class="home-left-col">
       <!-- Hero -->
       <div class="hero-banner">
-        <img src="assets/logo.png" class="hero-bb-logo" style="background:transparent;box-shadow:none;padding:0;" alt="BB Logo"/>
-        <div class="hero-title">1st Petaling Jaya</div><div style="font-family:var(--font-headline);font-size:20px;font-weight:600;color:var(--text-primary);letter-spacing:-0.01em;margin-bottom:2px;">Boys' Brigade Company</div>
-        <div class="hero-subtitle">Sure &amp; Stedfast</div>
-        <div class="hero-desc">Welcome to the official 1stPJ Boys' Brigade Portal, which serves as an all-in-one hub for parade and calendar schedules, badge tracking, uniform store, forms, company announcements and more.</div>
+        <div class="hero-copy">
+          <h1 class="hero-title">1st Petaling Jaya</h1>
+          <p class="hero-company">Boys' Brigade Company</p>
+          <p class="hero-subtitle">Sure &amp; Stedfast</p>
+        </div>
+        <div class="hero-crest">
+          <img src="assets/logo.png" class="hero-bb-logo" width="72" height="72" alt=""/>
+        </div>
       </div>
+
+      <div class="home-next-parade" role="region" aria-label="Next parade" hidden></div>
 
       <!-- Quick Dashboard Carousel -->
       <div class="hq-carousel-wrapper" id="hq-carousel-wrapper" aria-label="Quick Access Carousel">
@@ -3449,27 +3447,27 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261115b"></script>
-<script src="js/api/supabase.js?v=20261115b"></script>
-<script src="js/core/session.js?v=20261115b"></script>
-<script src="js/core/rbac.js?v=20261115b"></script>
-<script src="js/core/utils.js?v=20261115b"></script>
-<script src="js/core/ui.js?v=20261115b"></script>
-<script src="js/core/loading.js?v=20261115b"></script>
-<script src="js/modules/member.js?v=20261115b"></script>
-<script src="js/api/sheets.js?v=20261115b"></script>
-<script src="js/modules/attendance.js?v=20261115b"></script>
-<script src="js/modules/announcements.js?v=20261115b"></script>
-<script src="js/modules/gallery.js?v=20261115b"></script>
-<script src="js/modules/resources.js?v=20261115b"></script>
-<script src="js/modules/calendar.js?v=20261115b"></script>
-<script src="js/modules/orders.js?v=20261115b"></script>
-<script src="js/modules/forms.js?v=20261115b"></script>
-<script src="js/modules/badges.js?v=20261115b"></script>
-<script src="js/modules/tasks.js?v=20261115b"></script>
-<script src="js/modules/admin.js?v=20261115b"></script>
-<script src="js/modules/forum.js?v=20261115b"></script>
-<script src="js/modules/arcade.js?v=20261115b"></script>
+<script src="js/config.js?v=20261115c"></script>
+<script src="js/api/supabase.js?v=20261115c"></script>
+<script src="js/core/session.js?v=20261115c"></script>
+<script src="js/core/rbac.js?v=20261115c"></script>
+<script src="js/core/utils.js?v=20261115c"></script>
+<script src="js/core/ui.js?v=20261115c"></script>
+<script src="js/core/loading.js?v=20261115c"></script>
+<script src="js/modules/member.js?v=20261115c"></script>
+<script src="js/api/sheets.js?v=20261115c"></script>
+<script src="js/modules/attendance.js?v=20261115c"></script>
+<script src="js/modules/announcements.js?v=20261115c"></script>
+<script src="js/modules/gallery.js?v=20261115c"></script>
+<script src="js/modules/resources.js?v=20261115c"></script>
+<script src="js/modules/calendar.js?v=20261115c"></script>
+<script src="js/modules/orders.js?v=20261115c"></script>
+<script src="js/modules/forms.js?v=20261115c"></script>
+<script src="js/modules/badges.js?v=20261115c"></script>
+<script src="js/modules/tasks.js?v=20261115c"></script>
+<script src="js/modules/admin.js?v=20261115c"></script>
+<script src="js/modules/forum.js?v=20261115c"></script>
+<script src="js/modules/arcade.js?v=20261115c"></script>
 
 <script>
 

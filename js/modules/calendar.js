@@ -1930,6 +1930,42 @@
   // COMPACT HOME PAGE WIDGET RENDERING
   // ═══════════════════════════════════════════════════════════════════════════
 
+  function renderHomeNextParade(event) {
+    var card = document.querySelector('#page-home .home-next-parade');
+    if (!card) return;
+
+    card.hidden = !event;
+    if (!event) {
+      card.replaceChildren();
+      return;
+    }
+
+    var date = new Date(event.date + 'T00:00:00');
+    var weekday = date.toLocaleDateString('en-MY', { weekday: 'short' });
+    var startTime = typeof event.time === 'string' ? event.time.split(/[–—]|\s+-\s+/, 1)[0].trim() : '';
+    var kit = event.kit === 'None' ? '' : event.kit;
+
+    card.innerHTML =
+      '<div class="home-next-parade-header">'
+        + '<div>'
+          + '<div class="home-next-parade-label"><span aria-hidden="true">' + CAL_ICONS.calendar + '</span>Next parade</div>'
+          + '<h2>' + escapeHtml(event.title || 'Company parade') + '</h2>'
+        + '</div>'
+        + '<time class="home-next-parade-date" datetime="' + event.date + '">'
+          + '<strong>' + date.getDate() + '</strong> ' + weekday + ' ' + MONTH_SHORT_NAMES[date.getMonth()]
+        + '</time>'
+      + '</div>'
+      + '<div class="home-next-parade-meta">'
+        + (startTime ? '<span><span aria-hidden="true">' + CAL_ICONS.clock + '</span><strong>' + escapeHtml(startTime) + '</strong></span>' : '')
+        + (kit ? '<span><span aria-hidden="true">' + CAL_ICONS.shirt + '</span><strong>' + escapeHtml(kit) + '</strong></span>' : '')
+        + (event.location ? '<span><span aria-hidden="true">' + CAL_ICONS.pin + '</span>' + escapeHtml(event.location) + '</span>' : '')
+      + '</div>'
+      + '<div class="home-next-parade-actions">'
+        + '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' + event.date + '\')">View parade</button>'
+        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="openCalendarDayModal(\'' + event.date + '\', true)">Add reminder</button>'
+      + '</div>';
+  }
+
   function renderCalendarWidget(containerId) {
     var container = document.getElementById(containerId || 'company-calendar-widget');
     if (!container) return;
@@ -1945,6 +1981,7 @@
     var primaryEvent = selectedCompanyEvents.length > 0 ? selectedCompanyEvents[0] : null;
 
     var nextParade = getNextUpcomingParade(todayStr);
+    renderHomeNextParade(nextParade);
     var badgeMonth = MONTH_SHORT_NAMES[_currentMonth];
 
     var countdownText = '';
