@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261115e"></script>
+<script src="js/core/theme.js?v=20261115f"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261115e">
-<link rel="stylesheet" href="css/base.css?v=20261115e">
-<link rel="stylesheet" href="css/nav.css?v=20261115e">
-<link rel="stylesheet" href="css/components.css?v=20261115e">
-<link rel="stylesheet" href="css/admin.css?v=20261115e">
+<link rel="stylesheet" href="css/variables.css?v=20261115f">
+<link rel="stylesheet" href="css/base.css?v=20261115f">
+<link rel="stylesheet" href="css/nav.css?v=20261115f">
+<link rel="stylesheet" href="css/components.css?v=20261115f">
+<link rel="stylesheet" href="css/admin.css?v=20261115f">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -73,239 +73,6 @@
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
-}
-.hq-carousel-wrapper {
-  width: 100% !important;
-  position: relative !important;
-  display: flex !important;
-  flex-direction: column !important;
-  margin-bottom: 0 !important;
-}
-.hq-carousel-container {
-  position: relative !important;
-  width: 100% !important;
-  display: block !important;
-}
-.hq-carousel-viewport {
-  width: 100% !important;
-  overflow: hidden !important;
-  position: relative !important;
-  border-radius: var(--radius-lg, 14px) !important;
-  outline: none !important;
-  touch-action: pan-y !important;
-  -webkit-overflow-scrolling: touch !important;
-}
-.hq-carousel-track {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-  align-items: stretch !important;
-  gap: 14px !important;
-  width: 100% !important;
-  transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1) !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-  text-rendering: optimizeLegibility !important;
-}
-.hq-carousel-track .hq-card {
-  flex: 0 0 calc(50% - 7px) !important;
-  min-width: calc(50% - 7px) !important;
-  max-width: calc(50% - 7px) !important;
-  width: calc(50% - 7px) !important;
-  box-sizing: border-box !important;
-  margin: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  min-height: 142px !important;
-  background: var(--bg-card) !important;
-  border: 1px solid var(--border-card) !important;
-  border-radius: var(--radius-lg, 14px) !important;
-  padding: 16px 18px !important;
-  cursor: pointer !important;
-  transition: var(--transition-smooth) !important;
-  box-shadow: var(--shadow-card) !important;
-  user-select: none !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-  text-rendering: optimizeLegibility !important;
-}
-.hq-title {
-  font-family: var(--font-headline) !important;
-  font-size: 16px !important;
-  font-weight: 700 !important;
-  color: var(--text-primary) !important;
-  margin-bottom: 4px !important;
-  letter-spacing: -0.01em !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-  text-rendering: optimizeLegibility !important;
-}
-.hq-desc {
-  font-family: var(--font-body) !important;
-  font-size: 13px !important;
-  font-weight: 400 !important;
-  color: var(--text-secondary) !important;
-  line-height: 1.45 !important;
-  margin-bottom: 10px !important;
-  flex: 1 !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-  text-rendering: optimizeLegibility !important;
-}
-.hq-link {
-  font-family: var(--font-body) !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  color: var(--accent) !important;
-  letter-spacing: 0.5px !important;
-  text-transform: uppercase !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 4px !important;
-  -webkit-font-smoothing: antialiased !important;
-  -moz-osx-font-smoothing: grayscale !important;
-}
-@media (max-width: 600px) {
-  .hq-carousel-track .hq-card {
-    flex: 0 0 100% !important;
-    min-width: 100% !important;
-    max-width: 100% !important;
-    width: 100% !important;
-  }
-}
-@media (hover: hover) {
-  .hq-carousel-track .hq-card:hover {
-    border-color: var(--accent) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: var(--shadow-elevated) !important;
-  }
-}
-/* Floating Arrow Controls (Directional Cursor Hover) */
-.hq-carousel-arrow {
-  position: absolute !important;
-  top: 50% !important;
-  transform: translateY(-50%) scale(0.85) !important;
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 50% !important;
-  background: var(--bg-card) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1.5px solid var(--border-hover, var(--border-card)) !important;
-  color: var(--text-primary) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  z-index: 10 !important;
-  box-shadow: var(--shadow-md) !important;
-  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease !important;
-  padding: 0 !important;
-  outline: none !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
-}
-.hq-arrow-prev {
-  left: 8px !important;
-}
-.hq-arrow-next {
-  right: 8px !important;
-}
-@media (hover: hover) {
-  /* Left arrow appears when cursor is on left box / left side */
-  .hq-carousel-container.hover-left .hq-arrow-prev,
-  /* Right arrow appears when cursor is on right box / right side */
-  .hq-carousel-container.hover-right .hq-arrow-next {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    visibility: visible !important;
-    transform: translateY(-50%) scale(1) !important;
-  }
-  .hq-carousel-arrow:hover {
-    background: var(--bg-card-hover) !important;
-    border-color: var(--accent, #eab308) !important;
-    color: var(--accent, #eab308) !important;
-    transform: translateY(-50%) scale(1.1) !important;
-    box-shadow: var(--shadow-elevated) !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    visibility: visible !important;
-  }
-}
-.hq-carousel-arrow:active {
-  transform: translateY(-50%) scale(0.96) !important;
-}
-.hq-carousel-arrow:focus-visible {
-  border-color: var(--accent, #eab308) !important;
-  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.4) !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-  visibility: visible !important;
-  transform: translateY(-50%) scale(1) !important;
-}
-.hq-arrow-icon {
-  width: 18px !important;
-  height: 18px !important;
-  display: block !important;
-  pointer-events: none !important;
-}
-.hq-carousel-dots-bar {
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-  gap: 6px !important;
-  margin-top: 10px !important;
-}
-.hq-dot {
-  position: relative !important;
-  width: 8px !important;
-  height: 8px !important;
-  border-radius: 50% !important;
-  background: var(--text-muted, #94a3b8) !important;
-  border: none !important;
-  padding: 0 !important;
-  cursor: pointer !important;
-  transition: all 0.25s ease !important;
-  opacity: 0.35 !important;
-  outline: none !important;
-}
-@media (hover: hover) {
-  .hq-dot:hover {
-    opacity: 0.75 !important;
-  }
-}
-.hq-dot.active {
-  width: 20px !important;
-  border-radius: 4px !important;
-  background: var(--accent, #eab308) !important;
-  opacity: 1 !important;
-}
-@media (any-pointer: coarse), (max-width: 600px) {
-  .hq-carousel-dots-bar {
-    gap: 0 !important;
-  }
-  .hq-dot,
-  .hq-dot.active {
-    width: var(--min-touch-target) !important;
-    height: var(--min-touch-target) !important;
-    background: transparent !important;
-  }
-  .hq-dot::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    width: 8px;
-    height: 8px;
-    border-radius: var(--radius-pill);
-    background: var(--text-muted);
-  }
-  .hq-dot.active::before {
-    width: 20px;
-    background: var(--accent);
-  }
 }
 </style>
 <style id="forms-search-critical-css">
@@ -391,7 +158,7 @@
     <div class="nav-logo" onclick="navigateHome()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navigateHome();}" role="button" tabindex="0" title="1st Petaling Jaya Boys' Brigade — Return to Home" aria-label="1st Petaling Jaya Boys' Brigade Home">
       <img src="assets/logo.png" style="width:34px;height:34px;object-fit:contain;border-radius:8px;" alt="BB Logo"/>
       <div>
-        <div class="nav-name">1st Petaling Jaya</div>
+        <div class="nav-name"><span class="nav-name-full">1st Petaling Jaya</span><span class="nav-name-short">1st PJ</span></div>
         <div class="nav-sub">Boys Brigade</div>
       </div>
     </div>
@@ -648,56 +415,77 @@
 
           <div class="hq-carousel-viewport" id="hq-carousel-viewport" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Quick Action Cards">
             <div class="hq-carousel-track" id="hq-carousel-track">
-              <!-- Card 1: Forms & Store -->
-              <div class="hq-card" onclick="switchTabNav('order')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="0">
-                <div class="hq-icon" style="color:var(--accent);">
-                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                </div>
-                <div class="hq-title">Forms &amp; Store</div>
-                <div class="hq-desc">Uniform catalog, order tracking, and dynamic event forms.</div>
-                <div class="hq-link">Access Forms &rarr;</div>
-              </div>
-
-              <!-- Card 2: Member Hub -->
-              <div class="hq-card" onclick="switchTabNav('member')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="1">
-                <div class="hq-icon" style="color:var(--brand-blue);">
-                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </div>
-                <div class="hq-title">Member Hub</div>
-                <div class="hq-desc">Member credentials, rank, section, and order history.</div>
-                <div class="hq-link">View Member &rarr;</div>
-              </div>
-
-              <!-- Card 3: Weekly Parade -->
-              <div class="hq-card" onclick="switchTabNav('parade')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="2">
-                <div class="hq-icon" style="color:var(--green);">
-                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
-                </div>
-                <div class="hq-title">Company Calendar</div>
-                <div class="hq-desc">Saturdays 2:15 PM &ndash; 6:00 PM (Band 9:30 AM &ndash; 11:30 AM) at Trinity Methodist Church PJ.</div>
-                <div class="hq-link">View Calendar &rarr;</div>
-              </div>
-
-              <!-- Card 4: Company Resources -->
-              <div class="hq-card" onclick="switchTabNav('resources')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" role="button" tabindex="0" data-index="3">
-                <div class="hq-icon" style="color:var(--brand-blue);">
-                  <svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg>
-                </div>
-                <div class="hq-title">Company Resources</div>
-                <div class="hq-desc">BB Member Handbook, Drill Manual, and official award syllabi.</div>
-                <div class="hq-link">Browse Files &rarr;</div>
-              </div>
+              <button class="hq-card" type="button" data-quick-route="parade" onclick="switchTabNav('parade')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+                <span class="hq-title">Company Calendar</span>
+                <span class="hq-desc">Saturdays 2:15 PM &ndash; 6:00 PM (Band 9:30 AM &ndash; 11:30 AM) at Trinity Methodist Church PJ.</span>
+                <span class="hq-link">View calendar &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="order" onclick="switchTabNav('order')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+                <span class="hq-title">Forms &amp; Store</span>
+                <span class="hq-desc">Browse uniforms, track orders, and find company forms.</span>
+                <span class="hq-link">Open Forms &amp; Store &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="tasks" onclick="switchTabNav('tasks')" hidden>
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span>
+                <span class="hq-title">Projects &amp; Tasks</span>
+                <span class="hq-desc">Check your department board and upcoming work.</span>
+                <span class="hq-link">Open projects &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="badges" onclick="switchTabNav('badges')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></span>
+                <span class="hq-title">My Badges</span>
+                <span class="hq-desc">Track badges and progress toward company awards.</span>
+                <span class="hq-link">View badges &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="attendance" onclick="switchTabNav('attendance')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg></span>
+                <span class="hq-title">Leaderboard</span>
+                <span class="hq-desc">Check attendance and company standings.</span>
+                <span class="hq-link">View standings &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="resources" onclick="switchTabNav('resources')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/></svg></span>
+                <span class="hq-title">Company Resources</span>
+                <span class="hq-desc">Find handbooks, drill manuals, and award syllabi.</span>
+                <span class="hq-link">Browse resources &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="gallery" onclick="switchTabNav('gallery')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
+                <span class="hq-title">Gallery</span>
+                <span class="hq-desc">Browse photos and videos from company activities.</span>
+                <span class="hq-link">Open gallery &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="forum" onclick="switchTabNav('forum')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg></span>
+                <span class="hq-title">Support Forum</span>
+                <span class="hq-desc">Ask a question, report an issue, or browse discussions.</span>
+                <span class="hq-link">Open forum &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="arcade" onclick="switchTabNav('arcade')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg></span>
+                <span class="hq-title">1stPJ Arcade</span>
+                <span class="hq-desc">Play games and check the arcade leaderboards.</span>
+                <span class="hq-link">Open arcade &rarr;</span>
+              </button>
+              <button class="hq-card" type="button" data-quick-route="member" onclick="switchTabNav('member')">
+                <span class="hq-icon" aria-hidden="true"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                <span class="hq-title">Member Hub</span>
+                <span class="hq-desc">View your profile, rank, section, and order history.</span>
+                <span class="hq-link">View profile &rarr;</span>
+              </button>
             </div>
           </div>
 
           <button type="button" class="hq-carousel-arrow hq-arrow-next" id="hq-carousel-next" onclick="cycleQuickCards(1)" aria-label="Next cards" title="Next cards">
             <svg class="hq-arrow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
-        </div>
-
-        <div class="hq-carousel-dots-bar" id="hq-carousel-dots" role="tablist" aria-label="Card Pages">
-          <button type="button" class="hq-dot active" id="hq-dot-0" onclick="setQuickCardsPage(0)" role="tab" aria-selected="true" aria-label="Page 1: Forms &amp; Member Hub" title="Forms &amp; Member Hub"></button>
-          <button type="button" class="hq-dot" id="hq-dot-1" onclick="setQuickCardsPage(1)" role="tab" aria-selected="false" aria-label="Page 2: Calendar &amp; Resources" title="Calendar &amp; Resources"></button>
+          <div class="hq-carousel-dots-bar" id="hq-carousel-dots" role="group" aria-label="Quick access pages">
+            <button type="button" class="hq-dot active" id="hq-dot-0" onclick="setQuickCardsPage(0)" aria-current="page" aria-label="Page 1"></button>
+            <button type="button" class="hq-dot" id="hq-dot-1" onclick="setQuickCardsPage(1)" aria-label="Page 2"></button>
+          </div>
+          <span class="hq-page-count" role="status"></span>
         </div>
       </div>
     </div>
@@ -1888,7 +1676,7 @@
       <!-- Search & Category Filters -->
       <div style="margin-top:16px;">
         <div style="position:relative;margin-bottom:12px;">
-          <input type="text" id="resource-search-input" class="form-input" placeholder="Search by document title, syllabus, keyword or file type..." oninput="searchResources(this.value)" style="padding-left:38px;"/>
+          <input type="text" id="resource-search-input" class="form-input" placeholder="Search company resources" aria-label="Search company resources" oninput="searchResources(this.value)" style="padding-left:38px;"/>
           <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
@@ -3435,27 +3223,27 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261115e"></script>
-<script src="js/api/supabase.js?v=20261115e"></script>
-<script src="js/core/session.js?v=20261115e"></script>
-<script src="js/core/rbac.js?v=20261115e"></script>
-<script src="js/core/utils.js?v=20261115e"></script>
-<script src="js/core/ui.js?v=20261115e"></script>
-<script src="js/core/loading.js?v=20261115e"></script>
-<script src="js/modules/member.js?v=20261115e"></script>
-<script src="js/api/sheets.js?v=20261115e"></script>
-<script src="js/modules/attendance.js?v=20261115e"></script>
-<script src="js/modules/announcements.js?v=20261115e"></script>
-<script src="js/modules/gallery.js?v=20261115e"></script>
-<script src="js/modules/resources.js?v=20261115e"></script>
-<script src="js/modules/calendar.js?v=20261115e"></script>
-<script src="js/modules/orders.js?v=20261115e"></script>
-<script src="js/modules/forms.js?v=20261115e"></script>
-<script src="js/modules/badges.js?v=20261115e"></script>
-<script src="js/modules/tasks.js?v=20261115e"></script>
-<script src="js/modules/admin.js?v=20261115e"></script>
-<script src="js/modules/forum.js?v=20261115e"></script>
-<script src="js/modules/arcade.js?v=20261115e"></script>
+<script src="js/config.js?v=20261115f"></script>
+<script src="js/api/supabase.js?v=20261115f"></script>
+<script src="js/core/session.js?v=20261115f"></script>
+<script src="js/core/rbac.js?v=20261115f"></script>
+<script src="js/core/utils.js?v=20261115f"></script>
+<script src="js/core/ui.js?v=20261115f"></script>
+<script src="js/core/loading.js?v=20261115f"></script>
+<script src="js/modules/member.js?v=20261115f"></script>
+<script src="js/api/sheets.js?v=20261115f"></script>
+<script src="js/modules/attendance.js?v=20261115f"></script>
+<script src="js/modules/announcements.js?v=20261115f"></script>
+<script src="js/modules/gallery.js?v=20261115f"></script>
+<script src="js/modules/resources.js?v=20261115f"></script>
+<script src="js/modules/calendar.js?v=20261115f"></script>
+<script src="js/modules/orders.js?v=20261115f"></script>
+<script src="js/modules/forms.js?v=20261115f"></script>
+<script src="js/modules/badges.js?v=20261115f"></script>
+<script src="js/modules/tasks.js?v=20261115f"></script>
+<script src="js/modules/admin.js?v=20261115f"></script>
+<script src="js/modules/forum.js?v=20261115f"></script>
+<script src="js/modules/arcade.js?v=20261115f"></script>
 
 <script>
 
@@ -3584,65 +3372,75 @@ function switchTabNav(tab, skipPush) {
 
 // ── Quick Access Carousel Controller ────────────────────────
 var _hqCurrentPage = 0;
-var _hqTouchStartX = 0;
-var _hqTouchEndX = 0;
 
 function getHqCardsPerPage() {
   return (typeof window !== 'undefined' && window.innerWidth <= 600) ? 1 : 2;
 }
 
 function getHqTotalPages() {
-  var totalCards = 4;
-  return Math.ceil(totalCards / getHqCardsPerPage());
+  return Math.ceil(getHqVisibleCards().length / getHqCardsPerPage());
 }
 
-function syncCarouselDots() {
+function getHqVisibleCards() {
+  return Array.from(document.querySelectorAll('#hq-carousel-track .hq-card:not([hidden])'));
+}
+
+function syncCarouselDots(cards, cardsPerPage) {
   var dotsContainer = document.getElementById('hq-carousel-dots');
   if (!dotsContainer) return;
-  var totalPages = getHqTotalPages();
+  var totalPages = Math.ceil(cards.length / cardsPerPage);
   var currentDots = dotsContainer.querySelectorAll('.hq-dot');
   if (currentDots.length !== totalPages) {
     var html = '';
-    var pageTitlesDesktop = ['Forms & Member Hub', 'Calendar & Resources'];
-    var pageTitlesMobile = ['Forms & Store', 'Member Hub', 'Calendar', 'Company Resources'];
     for (var i = 0; i < totalPages; i++) {
-      var title = (totalPages === 2) ? (pageTitlesDesktop[i] || 'Page ' + (i + 1)) : (pageTitlesMobile[i] || 'Page ' + (i + 1));
-      html += '<button type="button" class="hq-dot' + (i === _hqCurrentPage ? ' active' : '') + '" id="hq-dot-' + i + '" onclick="setQuickCardsPage(' + i + ')" role="tab" aria-selected="' + (i === _hqCurrentPage ? 'true' : 'false') + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(title) : title) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(title) : title) + '"></button>';
+      html += '<button type="button" class="hq-dot" id="hq-dot-' + i + '" onclick="setQuickCardsPage(' + i + ')"></button>';
     }
     dotsContainer.innerHTML = html;
   }
+  dotsContainer.querySelectorAll('.hq-dot').forEach(function(dot, page) {
+    var titles = cards.slice(page * cardsPerPage, (page + 1) * cardsPerPage).map(function(card) {
+      return card.querySelector('.hq-title').textContent;
+    });
+    var label = 'Page ' + (page + 1) + ': ' + titles.join(', ');
+    dot.title = label;
+    dot.setAttribute('aria-label', label);
+    dot.classList.toggle('active', page === _hqCurrentPage);
+    if (page === _hqCurrentPage) dot.setAttribute('aria-current', 'page');
+    else dot.removeAttribute('aria-current');
+  });
 }
 
 function updateQuickCardsCarousel() {
   var track = document.getElementById('hq-carousel-track');
   if (!track) return;
-  var totalPages = getHqTotalPages();
-  if (_hqCurrentPage >= totalPages) _hqCurrentPage = 0;
-  if (_hqCurrentPage < 0) _hqCurrentPage = totalPages - 1;
+  var cards = getHqVisibleCards();
+  var cardsPerPage = getHqCardsPerPage();
+  var totalPages = Math.ceil(cards.length / cardsPerPage);
+  if (!totalPages) return;
+  _hqCurrentPage = Math.min(Math.max(0, _hqCurrentPage), totalPages - 1);
 
-  syncCarouselDots();
+  syncCarouselDots(cards, cardsPerPage);
 
   var gap = 14;
   var translateVal = 'translateX(calc(-' + (_hqCurrentPage * 100) + '% - ' + (_hqCurrentPage * gap) + 'px))';
   track.style.transform = translateVal;
 
-  var dotsContainer = document.getElementById('hq-carousel-dots');
-  if (dotsContainer) {
-    var dots = dotsContainer.querySelectorAll('.hq-dot');
-    dots.forEach(function(dot, idx) {
-      if (idx === _hqCurrentPage) {
-        dot.classList.add('active');
-        dot.setAttribute('aria-selected', 'true');
-      } else {
-        dot.classList.remove('active');
-        dot.setAttribute('aria-selected', 'false');
-      }
-    });
-  }
+  cards.forEach(function(card, index) {
+    var onPage = Math.floor(index / cardsPerPage) === _hqCurrentPage;
+    if (!onPage && card.contains(document.activeElement)) {
+      document.getElementById('hq-carousel-viewport').focus({ preventScroll: true });
+    }
+    card.inert = !onPage;
+    card.classList.toggle('hq-card-full', cardsPerPage === 2 && index === cards.length - 1 && cards.length % 2 === 1);
+  });
+  var count = document.querySelector('.hq-page-count');
+  var label = (_hqCurrentPage + 1) + ' of ' + totalPages;
+  if (count && count.textContent !== label) count.textContent = label;
 }
 
 function cycleQuickCards(dir) {
   var totalPages = getHqTotalPages();
+  if (!totalPages) return;
   _hqCurrentPage = (_hqCurrentPage + dir + totalPages) % totalPages;
   updateQuickCardsCarousel();
 }
@@ -3661,12 +3459,14 @@ function initQuickCardsCarousel() {
 
   var trackEl = document.getElementById('hq-carousel-track');
   var isSwiping = false;
+  var startX = 0;
+  var startY = 0;
 
   // Touch swipe support with real-time smooth drag
   viewport.addEventListener('touchstart', function(e) {
     if (e.touches && e.touches.length > 0) {
-      _hqTouchStartX = e.touches[0].clientX;
-      _hqTouchStartY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
       isSwiping = false;
       if (trackEl) {
         trackEl.style.transition = 'none';
@@ -3679,8 +3479,8 @@ function initQuickCardsCarousel() {
     if (!e.touches || !e.touches.length) return;
     var curX = e.touches[0].clientX;
     var curY = e.touches[0].clientY;
-    var diffX = curX - _hqTouchStartX;
-    var diffY = curY - _hqTouchStartY;
+    var diffX = curX - startX;
+    var diffY = curY - startY;
 
     if (!isSwiping) {
       if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 8) {
@@ -3695,16 +3495,14 @@ function initQuickCardsCarousel() {
     }
   }, { passive: true });
 
-  viewport.addEventListener('touchend', function(e) {
+  function finishSwipe(e) {
     if (trackEl) {
-      trackEl.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1)';
-      trackEl.style.willChange = 'auto';
+      trackEl.style.transition = '';
+      trackEl.style.willChange = '';
     }
-    if (e.changedTouches && e.changedTouches.length > 0) {
-      _hqTouchEndX = e.changedTouches[0].clientX;
-      _hqTouchEndY = e.changedTouches[0].clientY;
-      var diffX = _hqTouchEndX - _hqTouchStartX;
-      var diffY = _hqTouchEndY - _hqTouchStartY;
+    if (e.type === 'touchend' && e.changedTouches?.length) {
+      var diffX = e.changedTouches[0].clientX - startX;
+      var diffY = e.changedTouches[0].clientY - startY;
 
       if (isSwiping || (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY))) {
         if (diffX < -40) {
@@ -3717,10 +3515,12 @@ function initQuickCardsCarousel() {
       }
     }
     updateQuickCardsCarousel();
-  }, { passive: true });
+  }
+  viewport.addEventListener('touchend', finishSwipe, { passive: true });
+  viewport.addEventListener('touchcancel', finishSwipe, { passive: true });
 
   // Keyboard navigation
-  viewport.addEventListener('keydown', function(e) {
+  document.getElementById('hq-carousel-container').addEventListener('keydown', function(e) {
     if (e.key === 'ArrowRight') {
       e.preventDefault();
       cycleQuickCards(1);
@@ -3729,28 +3529,6 @@ function initQuickCardsCarousel() {
       cycleQuickCards(-1);
     }
   });
-
-  // Directional Hover Support (Arrows appear only when cursor is on the respective box)
-  var container = document.getElementById('hq-carousel-container');
-  if (container) {
-    container.addEventListener('mousemove', function(e) {
-      var rect = container.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      var x = e.clientX - rect.left;
-      var mid = rect.width / 2;
-      if (x < mid) {
-        container.classList.add('hover-left');
-        container.classList.remove('hover-right');
-      } else {
-        container.classList.add('hover-right');
-        container.classList.remove('hover-left');
-      }
-    });
-
-    container.addEventListener('mouseleave', function() {
-      container.classList.remove('hover-left', 'hover-right');
-    });
-  }
 
   // Window resize handler
   if (typeof window !== 'undefined') {
@@ -3802,6 +3580,11 @@ function syncSidebarAccess() {
     item.hidden = !signedIn || item.id === 'snav-member' || (item.id === 'snav-tasks' && !canUseTasks);
     if (item.hidden && item === focused) document.getElementById('sidebar-user-card')?.focus();
   });
+  var taskCard = document.querySelector('.hq-card[data-quick-route="tasks"]');
+  if (taskCard && taskCard.hidden === canUseTasks) {
+    taskCard.hidden = !canUseTasks;
+    updateQuickCardsCarousel();
+  }
 }
 
 orderSidebarLinks();
