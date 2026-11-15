@@ -1379,124 +1379,81 @@ select.form-input,
 
 /* ── HERO BANNER ── */
 .hero-banner {
-  --crest-column: clamp(126px, 31cqi, 228px);
+  --letterhead-surface: #262521;
+  --letterhead-border: #514a3d;
+  --letterhead-title: #fff3df;
+  --letterhead-company: #d1c4ad;
+  --letterhead-motto: #f1c875;
+  --letterhead-rule: #a3854b;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--crest-column);
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
   flex: 1 0 auto;
   min-height: 186px;
-  background: linear-gradient(112deg, #101929 34%, #182943);
+  padding: 15px 16px 16px;
+  text-align: center;
+  background: var(--letterhead-surface);
   border-radius: var(--radius-xl);
-  border: 1px solid #3c4657;
+  border: 1px solid var(--letterhead-border);
   box-shadow: var(--shadow-card);
-  overflow: hidden;
-  isolation: isolate;
 }
 
-.hero-copy {
-  align-self: center;
-  position: relative;
-  z-index: 1;
-  padding: 24px 0 24px clamp(24px, 6cqi, 48px);
+[data-theme='light'] .hero-banner {
+  --letterhead-surface: #fbf7ee;
+  --letterhead-border: #d8cdb5;
+  --letterhead-title: #142338;
+  --letterhead-company: #455269;
+  --letterhead-motto: #794c0c;
+  --letterhead-rule: #b48b40;
 }
 
 .hero-crest {
-  display: grid;
-  place-items: center;
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
 }
 
-.hero-crest::before {
-  --crest-ring: clamp(74px, 19.5cqi, 135px);
-  --crest-center: calc(100% - var(--crest-column) / 2);
+.hero-crest::before,
+.hero-crest::after {
   content: '';
-  position: absolute;
-  inset: 0 0 0 -100px;
-  background: radial-gradient(circle at var(--crest-center) 50%,
-    transparent calc(var(--crest-ring) - 1px),
-    rgb(241 196 83 / 38%) var(--crest-ring),
-    rgb(241 196 83 / 8%) calc(var(--crest-ring) + 1px) calc(var(--crest-ring) + 17px),
-    rgb(241 196 83 / 4%) calc(var(--crest-ring) + 17px) calc(var(--crest-ring) + 34px),
-    transparent calc(var(--crest-ring) + 34px));
-  pointer-events: none;
+  width: clamp(24px, 12cqi, 72px);
+  height: 1px;
+  background: var(--letterhead-rule);
 }
 
 .hero-bb-logo {
   display: block;
-  width: clamp(86px, 23cqi, 136px);
-  height: auto;
-  position: relative;
-  mix-blend-mode: screen;
+  border-radius: 50%;
 }
 
 .hero-title {
   margin: 0;
   font-family: var(--font-headline);
-  font-size: clamp(28px, 7.2cqi, 48px);
+  font-size: clamp(24px, 6.65cqi, 42px);
   font-weight: 800;
-  color: #f7f3eb;
+  color: var(--letterhead-title);
   line-height: 1.1;
   letter-spacing: -0.04em;
   text-wrap: balance;
 }
 
 .hero-company {
-  margin: 6px 0 0;
-  font-size: clamp(15px, 3.6cqi, 19px);
+  margin: 3px 0 0;
+  font-size: clamp(13px, 3.5cqi, 17px);
   font-weight: 600;
   line-height: 1.35;
-  color: #c0cbda;
+  color: var(--letterhead-company);
+  text-wrap: balance;
 }
 
 .hero-subtitle {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 14px 0 0;
-  padding: 0;
+  margin: 9px 0 0;
   font-size: 12px;
   font-weight: 700;
-  color: #f1c453;
+  line-height: 1.35;
+  color: var(--letterhead-motto);
   letter-spacing: 0.1em;
-}
-
-.hero-subtitle::before {
-  content: '';
-  width: 20px;
-  height: 1px;
-  background: currentColor;
-}
-
-@container (max-width: 400px) {
-  .hero-banner {
-    grid-template-columns: minmax(0, 1fr);
-    align-content: center;
-    justify-items: center;
-    gap: 12px;
-    padding: 22px 16px 20px;
-    text-align: center;
-  }
-
-  .hero-crest {
-    order: -1;
-  }
-
-  .hero-crest::before {
-    --crest-ring: 50px;
-    --crest-center: 50%;
-    inset: -48px;
-  }
-
-  .hero-bb-logo {
-    width: 72px;
-  }
-
-  .hero-copy {
-    padding: 0;
-  }
-
-  .hero-subtitle {
-    justify-content: center;
-  }
 }
 
 .home-next-parade {
