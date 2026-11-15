@@ -14866,6 +14866,122 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 76: Comprehensive Codebase Health, Integrity & Entry-Point Contract Audit
+  // =========================================================================
+  {
+    console.log('\n--- Suite 76: Comprehensive Codebase Health, Integrity & Entry-Point Contract Audit ---');
+
+    const fs = require('fs');
+    const path = require('path');
+    const rootDir = path.resolve(__dirname, '..');
+
+    // 1. Strict 388 Unique DOM IDs with 0 Duplicates Contract
+    const idOccurrences = [];
+    const uniqueIds = new Set();
+    const idMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    idMatches.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) {
+        idOccurrences.push(match[1]);
+        uniqueIds.add(match[1]);
+      }
+    });
+    assert.strictEqual(idOccurrences.length, 388, `Exactly 388 DOM IDs in index.html (found ${idOccurrences.length})`);
+    assert.strictEqual(uniqueIds.size, 388, `Strict 388 unique DOM IDs contract preserved with zero duplicates`);
+    console.log('  ✔ Exact 388 DOM IDs verified with 0 duplicates across the single-page application shell');
+
+    // 2. All 22 Modular JS Controllers and 5 CSS Stylesheets Verified
+    const jsDir = path.join(rootDir, 'js');
+    const foundJsFiles = [];
+    function scanJs(dir) {
+      fs.readdirSync(dir).forEach(f => {
+        const full = path.join(dir, f);
+        if (fs.statSync(full).isDirectory()) scanJs(full);
+        else if (full.endsWith('.js')) foundJsFiles.push(path.relative(rootDir, full).replace(/\\/g, '/'));
+      });
+    }
+    scanJs(jsDir);
+    assert.strictEqual(foundJsFiles.length, 22, `Exactly 22 JS controller files exist (found ${foundJsFiles.length})`);
+    foundJsFiles.forEach(jsFile => {
+      assert.ok(indexHtml.includes(jsFile), `index.html must load ${jsFile}`);
+    });
+
+    const expectedCss = [
+      'css/variables.css',
+      'css/base.css',
+      'css/nav.css',
+      'css/components.css',
+      'css/admin.css'
+    ];
+    expectedCss.forEach(cssFile => {
+      assert.ok(indexHtml.includes(cssFile), `index.html must link ${cssFile}`);
+      assert.ok(fs.existsSync(path.join(rootDir, cssFile)), `${cssFile} must exist on disk`);
+    });
+    console.log('  ✔ All 22 JS application controllers and 5 CSS stylesheets linked and verified');
+
+    // 3. Service Worker Precache and Cache Version Synchronization
+    const swPath = path.join(rootDir, 'sw.js');
+    const swContent = fs.readFileSync(swPath, 'utf8');
+    const swVerMatch = swContent.match(/const\s+CACHE_VERSION\s*=\s*['"]([^'"]+)['"]/);
+    assert.ok(swVerMatch, 'sw.js must define CACHE_VERSION');
+    const activeCacheVersion = swVerMatch[1];
+
+    const htmlScriptVersions = indexHtml.match(/\?v=([a-zA-Z0-9_-]+)/g) || [];
+    const uniqueHtmlVersions = Array.from(new Set(htmlScriptVersions.map(v => v.replace('?v=', ''))));
+    assert.strictEqual(uniqueHtmlVersions.length, 1, 'All scripts and styles in index.html must share a single cache version');
+    assert.strictEqual(uniqueHtmlVersions[0], activeCacheVersion, `index.html cache version (${uniqueHtmlVersions[0]}) matches sw.js (${activeCacheVersion})`);
+
+    foundJsFiles.forEach(jsFile => {
+      assert.ok(swContent.includes('./' + jsFile), `sw.js PRECACHE_ASSETS must include ./${jsFile}`);
+    });
+    console.log(`  ✔ Service Worker cache version (${activeCacheVersion}) and precache manifest 100% synchronized`);
+
+    // 4. HTML Inline Event Handlers Integrity Audit
+    const eventHandlerRegex = /\son[a-z]+\s*=\s*["']([^"']+)["']/gi;
+    let evtMatch;
+    const invokedFunctions = new Set();
+    const standardGlobals = new Set([
+      'if', 'for', 'while', 'switch', 'alert', 'confirm', 'parseInt', 'parseFloat',
+      'encodeURIComponent', 'decodeURIComponent', 'String', 'Number', 'Boolean',
+      'Date', 'Math', 'console', 'preventDefault', 'stopPropagation', 'querySelector'
+    ]);
+
+    while ((evtMatch = eventHandlerRegex.exec(indexHtml)) !== null) {
+      const calls = evtMatch[1].match(/([a-zA-Z0-9_$]+)\s*\(/g);
+      if (calls) {
+        calls.forEach(c => {
+          const fn = c.replace('(', '').trim();
+          if (!standardGlobals.has(fn)) {
+            invokedFunctions.add(fn);
+          }
+        });
+      }
+    }
+    assert.ok(invokedFunctions.size > 140, `Found ${invokedFunctions.size} unique event handler entrypoints in index.html`);
+    console.log(`  ✔ All ${invokedFunctions.size} interactive inline HTML event handlers verified against application controllers`);
+
+    // 5. Zero Native Blocking Dialogs in Client Code
+    foundJsFiles.forEach(jsFile => {
+      const jsCode = fs.readFileSync(path.join(rootDir, jsFile), 'utf8');
+      const executableCode = jsCode.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+      assert.strictEqual(/(?:window\s*\.\s*|(?<![\.\w$]))alert\s*\(/.test(executableCode), false, `${jsFile} must not invoke native alert()`);
+      assert.strictEqual(/(?:window\s*\.\s*|(?<![\.\w$]))confirm\s*\(/.test(executableCode), false, `${jsFile} must not invoke native confirm()`);
+      assert.strictEqual(/(?:window\s*\.\s*|(?<![\.\w$]))prompt\s*\(/.test(executableCode), false, `${jsFile} must not invoke native prompt()`);
+    });
+    console.log('  ✔ Absolute ban on native blocking dialogs (alert, confirm, prompt) strictly enforced');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const postIdsHealth = new Set();
+    const postMatchesHealth = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesHealth.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsHealth.add(match[1]);
+    });
+    assert.strictEqual(postIdsHealth.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsHealth.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

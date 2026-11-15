@@ -32,3 +32,10 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/extensions.json
 .idea/
+
+# Supabase Local CLI Cache
+supabase/.temp/
+
+# AI Agent Local Skill Caches
+.agents/
+skills-lock.json
