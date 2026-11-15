@@ -1375,7 +1375,7 @@
 
     var member = _adminMembers[ic];
     if (!member) return false;
-    var section = member.att_section || member.section || sectionForAdminRank(member.rank);
+    var section = normalizeAdminSection(member.att_section) || normalizeAdminSection(member.section) || sectionForAdminRank(member.rank);
     if (field === 'name') {
       if (!cleanVal || cleanVal.length > 100) return false;
       patchObj.name = cleanVal;
@@ -2171,24 +2171,30 @@
     '</span>';
   }
 
+  function normalizeAdminSection(section) {
+    var label = String(section || '').trim().toLowerCase().replace(/ section$/, '');
+    var sections = { 'pre-junior': 'Pre-Junior', junior: 'Junior', senior: 'Senior', officer: 'Officer', 'officer / staff': 'Officer', 'staff / officer': 'Officer' };
+    return Object.hasOwn(sections, label) ? sections[label] : '';
+  }
+
   function sectionForAdminRank(rank) {
     rank = String(rank || '');
-    if (rank === 'Pre-Junior') return 'Pre-Junior';
-    if (rank.startsWith('Junior ') || ['Junior', 'Assistance Junior Leader', 'Assistant Junior Leader', 'Chief Junior Leader'].includes(rank)) return 'Junior';
-    if (rank.endsWith(' Year Service') || ['Recruit', 'Private', 'Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant'].includes(rank)) return 'Senior';
+    if (rank.startsWith('Junior ') || ['Pre-Junior', 'Junior', 'Assistance Junior Leader', 'Assistant Junior Leader', 'Chief Junior Leader'].includes(rank)) return 'Junior';
+    if (rank.endsWith(' Year Service') || ['Recruit', 'Private', 'Lance Corporal', 'Corporal', 'Sergeant'].includes(rank)) return 'Senior';
     return RANK_ORDER.includes(rank) ? 'Officer' : '';
   }
 
   function validSectionRank(section, rank) {
     return Boolean(section && RANK_ORDER.includes(rank) &&
-      (sectionForAdminRank(rank) === section || (rank === 'Staff Sergeant' && section === 'Officer')));
+      (sectionForAdminRank(rank) === section || (rank === 'Pre-Junior' && section === 'Pre-Junior') ||
+       (rank === 'Staff Sergeant' && section === 'Senior')));
   }
 
   function renderSectionSelectOptions(curSec) {
     var secs = ['Pre-Junior', 'Junior', 'Senior', 'Officer'];
-    var cur = (curSec || '').trim().toLowerCase();
+    var cur = normalizeAdminSection(curSec);
     return secs.map(function(s) {
-      var isSel = (s.toLowerCase() === cur) ? ' selected' : '';
+      var isSel = s === cur ? ' selected' : '';
       return '<option value="' + s + '"' + isSel + '>' + s + '</option>';
     }).join('');
   }
@@ -2894,22 +2900,15 @@
     var secEl = document.getElementById('em-section');
     if (!rankEl || !secEl) return;
     var r = rankEl.value;
-    if (!r) return;
-    var secRankFn = (typeof getSectionForRank === 'function')
-      ? getSectionForRank
-      : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
-          ? global.getSectionForRank
-          : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
-    if (typeof secRankFn === 'function') {
-      var inferred = secRankFn(r);
-      if (inferred && secEl.value !== inferred) {
-        secEl.value = inferred;
-        handleAdminSectionChange(true);
-      }
+    if (validSectionRank(secEl.value, r)) return;
+    var inferred = sectionForAdminRank(r);
+    if (inferred) {
+      secEl.value = inferred;
+      handleAdminSectionChange(true);
     }
   }
 
-  function handleAdminSectionChange(preserveRank) {
+  function handleAdminSectionChange(preserveRank, savedRank) {
     if (typeof document === 'undefined') return;
     var sec = (document.getElementById('em-section') || {}).value || '';
     var dob = (document.getElementById('em-dob') || {}).value || '';
@@ -2925,8 +2924,12 @@
           ? global.populateRankOptions
           : (typeof window !== 'undefined' && typeof window.populateRankOptions === 'function' ? window.populateRankOptions : null));
     if (rankEl && typeof popRank === 'function') {
-      var curRank = rankEl.value;
-      popRank(rankEl, sec, curRank, sec ? null : 'Select section first...', !!preserveRank);
+      var curRank = savedRank ?? rankEl.value;
+      var compatible = validSectionRank(sec, curRank);
+      var placeholder = sec ? (savedRank !== undefined && !compatible ? 'Select rank...' : null) : 'Select section first...';
+      popRank(rankEl, sec, compatible ? curRank : '', placeholder, !!preserveRank && compatible);
+    } else if (rankEl && savedRank !== undefined) {
+      rankEl.value = validSectionRank(sec, savedRank) ? savedRank : '';
     }
 
     var squadEl = document.getElementById('em-squad');
@@ -3148,28 +3151,8 @@
 
     set('em-name',    m.name);
     set('em-ic',      m.ic);
-    var secRankFn = (typeof getSectionForRank === 'function')
-      ? getSectionForRank
-      : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
-          ? global.getSectionForRank
-          : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
-    var editSec = m.att_section || m.section || '';
-    var rankInferredSec = (m.rank && typeof secRankFn === 'function') ? secRankFn(m.rank) : '';
-    if (!editSec) {
-      if (rankInferredSec) editSec = rankInferredSec;
-    }
+    var editSec = normalizeAdminSection(m.att_section) || normalizeAdminSection(m.section) || sectionForAdminRank(m.rank);
     set('em-section', editSec);
-    var emRankEdit = document.getElementById('em-rank');
-    var popRank = (typeof populateRankOptions === 'function')
-      ? populateRankOptions
-      : (typeof global !== 'undefined' && typeof global.populateRankOptions === 'function'
-          ? global.populateRankOptions
-          : (typeof window !== 'undefined' && typeof window.populateRankOptions === 'function' ? window.populateRankOptions : null));
-    if (emRankEdit && typeof popRank === 'function') {
-      popRank(emRankEdit, editSec, m.rank, editSec ? null : 'Select section first...', true);
-    } else {
-      set('em-rank', m.rank);
-    }
     var emSquadEdit = document.getElementById('em-squad');
     var popSquad = (typeof populateSquadOptions === 'function')
       ? populateSquadOptions
@@ -3186,7 +3169,7 @@
     }
     set('em-dept',    m.department);
 
-    handleAdminSectionChange(true);
+    handleAdminSectionChange(true, m.rank || '');
 
     set('em-joined',       m.joined_at ? m.joined_at.slice(0, 10) : '');
     set('em-dob',          m.date_of_birth ? m.date_of_birth.slice(0, 10) : '');
@@ -3307,17 +3290,8 @@
       var joined_at     = joinedRaw ? new Date(joinedRaw).toISOString() : null;
       var dobRaw        = (document.getElementById('em-dob') || {}).value || '';
       var date_of_birth = dobRaw || null;
-      var rawSec        = ((document.getElementById('em-section') || {}).value || '').trim();
-      var att_section   = (typeof sanitizeText === 'function') ? sanitizeText(rawSec, 50) : rawSec;
-      var secRankFn = (typeof getSectionForRank === 'function')
-        ? getSectionForRank
-        : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
-            ? global.getSectionForRank
-            : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
-      if (!att_section && rank && typeof secRankFn === 'function') {
-        att_section = secRankFn(rank);
-      }
-      var isOfficerSec = (typeof normalizeSection === 'function' ? normalizeSection(att_section) : String(att_section).toLowerCase()) === 'officer';
+      var att_section   = normalizeAdminSection((document.getElementById('em-section') || {}).value) || sectionForAdminRank(rank);
+      var isOfficerSec = att_section === 'Officer';
       if (isOfficerSec) {
         squad = '';
       }
@@ -3346,8 +3320,12 @@
         if (typeof showToast === 'function') showToast('Enter a valid account email. Existing account identifiers are fixed.', 'warning');
         return;
       }
-      if (!validSectionRank(att_section, rank) || !VERIFICATION_STATES.includes(verification_status)) {
-        if (typeof showToast === 'function') showToast('Please select a valid rank for this member.', 'warning');
+      if (!validSectionRank(att_section, rank)) {
+        if (typeof showToast === 'function') showToast('Please select a rank for the chosen section.', 'warning');
+        return;
+      }
+      if (!VERIFICATION_STATES.includes(verification_status)) {
+        if (typeof showToast === 'function') showToast('Please select a valid verification status.', 'warning');
         return;
       }
       if (canEditConsent && parental_consent_signed && (!parent_name || !parent_contact)) {
