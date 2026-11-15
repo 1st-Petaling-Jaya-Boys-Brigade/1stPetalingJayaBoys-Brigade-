@@ -1959,8 +1959,8 @@ async function getJson(url) {
         try {
           migrationMissing = true;
           await window.openAdmin();
-          if (!deploymentError.includes('database update') || confirmCount !== 0 || !sessionGet('email')) {
-            throw new Error('Missing migration should keep the member signed in and explain the deployment issue');
+          if (!deploymentError.includes('verify your Admin Console session') || confirmCount !== 0 || !sessionGet('email') || overlay.style.display !== 'none') {
+            throw new Error('A browser role without a server-issued session must stay signed in without opening the console');
           }
           migrationMissing = false;
           await window.openAdmin();

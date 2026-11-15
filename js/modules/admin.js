@@ -706,16 +706,7 @@
     var client = getSupabaseClient();
     var member = _adminMembers[ic];
     try {
-      if (!client || !client.patch) throw new Error('Member service unavailable.');
-      try {
-        await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic), { verification_status: cleanVal });
-      } catch (error) {
-        if (!/PGRST204|42703/i.test(error.message || '')) throw error;
-        if (!client.safeConfigUpdate) throw error;
-        await client.safeConfigUpdate('bb_verification_statuses', function(map) {
-          return Object.assign({}, map, { [ic]: cleanVal });
-        }, { fallback: {} });
-      }
+      await persistAdminMember(client, ic, false, { verification_status: cleanVal });
       if (member) {
         member.verification_status = cleanVal;
         member.v_status = cleanVal;
@@ -1534,7 +1525,7 @@
     if (!isAdminSessionCurrent()) return false;
     var token = _adminSessionToken;
     var client = getSupabaseClient();
-    if (!client || typeof client.rpc !== 'function') return false;
+    if (!client || typeof client.rpc !== 'function') return renewing === true && verifyAdminSessionSync();
     try {
       var result = await client.rpc('rpc_verify_admin_session', { p_token: token });
       if (_adminSessionToken !== token) return false;
@@ -1549,7 +1540,10 @@
         return true;
       }
       if (!renewing && result && typeof result.valid === 'boolean') revokeAdminSession();
-    } catch (_) {}
+    } catch (error) {
+      var unavailable = error?.code === 'PGRST202' || !error?.status || error.status >= 500 || error.status === 408 || error.status === 429;
+      return unavailable && renewing === true && _adminSessionToken === token && verifyAdminSessionSync();
+    }
     return false;
   }
 
@@ -1685,11 +1679,9 @@
         if (typeof logAuditEvent === 'function') {
           logAuditEvent({ action: 'admin.login_success', targetType: 'admin_auth', actorId: identity, actorRole: 'officer_admin' });
         }
-      } catch (error) {
+      } catch (_) {
         if (request !== _adminLifecycle || identity !== getAdminMemberEmail()) return;
-        if (typeof showToast === 'function') showToast(error?.code === 'PGRST202'
-          ? 'The Admin Console database update hasn’t been applied yet.'
-          : 'Admin access is temporarily unavailable. Please try again.', 'error');
+        if (typeof showToast === 'function') showToast('Could not verify your Admin Console session. Please try again.', 'warning');
         return;
       }
     }
@@ -3004,6 +2996,8 @@
 
     var pc = document.getElementById('em-parent-consent');
     if (pc) pc.checked = false;
+    setAdminConsentControlsDisabled(false);
+    _adminConsentRequest++;
     var existingPresCard = document.querySelector('.em-profile-presence-card');
     if (existingPresCard) existingPresCard.style.display = 'none';
 
@@ -3219,20 +3213,26 @@
       }
     }
 
-    if (!m.parent_name && !m.parental_consent_signed && typeof fetchMemberConsent === 'function') {
-      fetchMemberConsent(ic, m).then(function(cData) {
-        if (cData) {
-          var pn = document.getElementById('em-parent-name');
-          var pcon = document.getElementById('em-parent-contact');
-          if (pn && !pn.value) pn.value = cData.parent_name || '';
-          if (pcon && !pcon.value) pcon.value = cData.parent_contact || '';
-          if (pc) pc.checked = !!cData.parental_consent_signed;
-          if (mc) mc.checked = !!cData.media_consent;
-          if (cm && cData.parental_consent_date) {
-            cm.textContent = 'Consent recorded on ' + new Date(cData.parental_consent_date).toLocaleString('en-MY');
-          }
-        }
-      }).catch(function() {});
+    var request = ++_adminConsentRequest;
+    var client = getSupabaseClient();
+    setAdminConsentControlsDisabled(true);
+    if (cm) cm.textContent = 'Loading consent details…';
+    if (client && typeof client.rpc === 'function') {
+      client.rpc('rpc_admin_get_member_consent', { p_token: getAdminSessionToken(), p_member_id: ic }).then(function(consent) {
+        if (request !== _adminConsentRequest || !hasAdminModuleAccess('members')) return;
+        if (!consent || typeof consent.parental_consent_signed !== 'boolean') throw new Error('Consent unavailable');
+        set('em-parent-name', consent.parent_name);
+        set('em-parent-contact', consent.parent_contact);
+        if (pc) pc.checked = consent.parental_consent_signed;
+        if (mc) mc.checked = consent.media_consent === true;
+        if (cm) cm.textContent = consent.parental_consent_date
+          ? 'Consent recorded on ' + new Date(consent.parental_consent_date).toLocaleString('en-MY') : '';
+        setAdminConsentControlsDisabled(false);
+      }).catch(function() {
+        if (request === _adminConsentRequest && cm) cm.textContent = 'Consent details are unavailable. Profile edits can still be saved.';
+      });
+    } else if (cm) {
+      cm.textContent = 'Consent details are unavailable. Profile edits can still be saved.';
     }
 
     var icEl = document.getElementById('em-ic');
@@ -3253,11 +3253,28 @@
 
   function closeEditMember() {
     if (typeof document === 'undefined') return;
+    _adminConsentRequest++;
     var modal = document.getElementById('edit-member-modal');
     if (modal) modal.style.display = 'none';
   }
 
+  async function persistAdminMember(client, memberId, create, updates) {
+    if (!client || typeof client.rpc !== 'function') throw new Error('Member service unavailable.');
+    var saved = await client.rpc('rpc_admin_save_member', {
+      p_token: getAdminSessionToken(), p_member_id: memberId, p_create: create, p_updates: updates
+    });
+    if (saved !== true) throw new Error('Member save was not confirmed.');
+  }
+
   var _isSavingEditMember = false;
+  var _adminConsentRequest = 0;
+
+  function setAdminConsentControlsDisabled(disabled) {
+    ['em-parent-name', 'em-parent-contact', 'em-parent-consent', 'em-media-consent'].forEach(function(id) {
+      var control = document.getElementById(id);
+      if (control) control.disabled = disabled;
+    });
+  }
 
   async function saveEditMember() {
     if (!await authorizeAdminMutation('members')) return false;
@@ -3312,6 +3329,7 @@
 
       var pConsentCb    = document.getElementById('em-parent-consent');
       var parental_consent_signed = pConsentCb ? !!pConsentCb.checked : false;
+      var canEditConsent = !pConsentCb?.disabled;
 
       var mConsentCb    = document.getElementById('em-media-consent');
       var media_consent = mConsentCb ? !!mConsentCb.checked : false;
@@ -3332,14 +3350,16 @@
         if (typeof showToast === 'function') showToast('Please select a valid rank for this member.', 'warning');
         return;
       }
+      if (canEditConsent && parental_consent_signed && (!parent_name || !parent_contact)) {
+        if (typeof showToast === 'function') showToast('Add the guardian’s name and contact before recording verified consent.', 'warning');
+        return;
+      }
 
       var client = getSupabaseClient();
       if (!client) {
         if (typeof showToast === 'function') showToast('Database client unavailable.', 'error');
         return;
       }
-
-      var consentTimestamp = parental_consent_signed ? new Date().toISOString() : null;
 
       // Name collision validation: Ensure candidate name does not conflict with another existing member
       var conflictFn = (typeof isNameConflict === 'function')
@@ -3408,25 +3428,11 @@
 
         if (parent_name) newPayload.parent_name = parent_name;
         if (parent_contact) newPayload.parent_contact = parent_contact;
-        if (parental_consent_signed) {
-          newPayload.parental_consent_signed = true;
-          newPayload.parental_consent_date = consentTimestamp;
-        }
+        newPayload.parental_consent_signed = parental_consent_signed;
         newPayload.media_consent = media_consent;
 
         if (!hasAdminModuleAccess('members')) return false;
-        await client.post('bb_members', newPayload);
-
-        try {
-          var cfgResNew = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
-          var vMapNew = (cfgResNew && cfgResNew.length && cfgResNew[0].value) ? JSON.parse(cfgResNew[0].value) : {};
-          vMapNew[ic] = verification_status || 'not_verified';
-          if (client.upsert) {
-            await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMapNew) }, 'key');
-          } else if (client.patch) {
-            await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMapNew) });
-          }
-        } catch (_) {}
+        await persistAdminMember(client, ic, true, newPayload);
         if (typeof logAuditEvent === 'function') {
           logAuditEvent({
             action: 'member.create',
@@ -3451,26 +3457,15 @@
         };
         if (joined_at)     updates.joined_at     = joined_at;
         if (date_of_birth) updates.date_of_birth = date_of_birth;
-        updates.parent_name = parent_name || null;
-        updates.parent_contact = parent_contact || null;
-        updates.parental_consent_signed = parental_consent_signed;
-        if (parental_consent_signed) updates.parental_consent_date = consentTimestamp;
-        updates.media_consent = media_consent;
+        if (canEditConsent) {
+          updates.parent_name = parent_name || null;
+          updates.parent_contact = parent_contact || null;
+          updates.parental_consent_signed = parental_consent_signed;
+          updates.media_consent = media_consent;
+        }
 
         if (!hasAdminModuleAccess('members')) return false;
-        await client.patch('bb_members?ic=eq.' + encodeURIComponent(originalIc), updates);
-
-        try {
-          var cfgRes = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
-          var vMap = (cfgRes && cfgRes.length && cfgRes[0].value) ? JSON.parse(cfgRes[0].value) : {};
-          vMap[originalIc || ic] = verification_status;
-          if (ic) vMap[ic] = verification_status;
-          if (client.upsert) {
-            await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMap) }, 'key');
-          } else if (client.patch) {
-            await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
-          }
-        } catch (_) {}
+        await persistAdminMember(client, originalIc, false, updates);
         if (typeof logAuditEvent === 'function') {
           logAuditEvent({
             action: 'member.update',
@@ -3490,23 +3485,6 @@
         await saveMemberAvatarOutline(ic || originalIc, outlineToSave, actorEm);
       }
 
-      // Always persist backup consent audit trail into bb_config
-      try {
-        var consentRecord = {
-          email: ic,
-          name: name,
-          section: att_section || (_adminMembers && _adminMembers[ic] && (_adminMembers[ic].att_section || _adminMembers[ic].section)) || '',
-          parent_name: parent_name,
-          parent_contact: parent_contact,
-          parental_consent_signed: parental_consent_signed,
-          parental_consent_date: consentTimestamp,
-          media_consent: media_consent,
-          updated_at: new Date().toISOString()
-        };
-        var consentKey = 'bb_consent_' + ic.replace(/[^a-zA-Z0-9_-]/g, '_');
-        await client.upsert('bb_config', { key: consentKey, value: JSON.stringify(consentRecord) }, 'key');
-      } catch (cfgErr) {}
-
       var memberTargetKey = originalIc || ic;
       if (_adminMembers && _adminMembers[memberTargetKey]) {
         _adminMembers[memberTargetKey].name = name;
@@ -3515,10 +3493,10 @@
         _adminMembers[memberTargetKey].department = department;
         _adminMembers[memberTargetKey].section = att_section;
         _adminMembers[memberTargetKey].att_section = att_section;
-        _adminMembers[memberTargetKey].parent_name = parent_name;
-        _adminMembers[memberTargetKey].parent_contact = parent_contact;
-        _adminMembers[memberTargetKey].parental_consent_signed = parental_consent_signed;
-        _adminMembers[memberTargetKey].media_consent = media_consent;
+        if (canEditConsent) {
+          _adminMembers[memberTargetKey].parental_consent_signed = parental_consent_signed;
+          _adminMembers[memberTargetKey].media_consent = media_consent;
+        }
         _adminMembers[memberTargetKey].verification_status = verification_status;
         _adminMembers[memberTargetKey].v_status = verification_status;
       }
@@ -3532,10 +3510,10 @@
             m.department = department;
             m.section = att_section;
             m.att_section = att_section;
-            m.parent_name = parent_name;
-            m.parent_contact = parent_contact;
-            m.parental_consent_signed = parental_consent_signed;
-            m.media_consent = media_consent;
+            if (canEditConsent) {
+              m.parental_consent_signed = parental_consent_signed;
+              m.media_consent = media_consent;
+            }
             m.verification_status = verification_status;
             m.v_status = verification_status;
           }
@@ -3662,8 +3640,8 @@
 
       closeEditMember();
       renderAdminList(true);
-    } catch (e) {
-      if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
+    } catch (_) {
+      if (typeof showToast === 'function') showToast('Could not save this member. Review the details and try again.', 'error');
     } finally {
       _isSavingEditMember = false;
       if (saveBtn) {
