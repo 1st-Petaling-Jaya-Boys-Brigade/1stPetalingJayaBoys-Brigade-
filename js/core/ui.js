@@ -1297,6 +1297,38 @@
 
   // ── Native OS Desktop & Mobile Web Notifications ─────────────────────────
   var _lastSystemNotifTs = 0;
+  var nativeNotificationId = Math.floor(Date.now() / 1000);
+
+  function nativeNotificationPlugin() {
+    if (typeof window === 'undefined' || !window.Capacitor?.isNativePlatform?.()) return null;
+    return window.Capacitor.Plugins?.LocalNotifications || null;
+  }
+
+  async function scheduleNativeNotification(plugin, test, sound) {
+    if ((await plugin.checkPermissions()).display !== 'granted') return false;
+
+    var notification = {
+      id: ++nativeNotificationId,
+      title: "1st Petaling Jaya Boys' Brigade",
+      body: test ? 'This is a test notification.' : 'Open the portal to see your new notification.',
+      foreground: true,
+      isExactNotification: false
+    };
+
+    if (window.Capacitor.getPlatform() === 'android') {
+      notification.channelId = sound ? 'portal-alerts-v1' : 'portal-alerts-silent-v1';
+      await plugin.createChannel({
+        id: notification.channelId,
+        name: sound ? 'Portal alerts' : 'Silent portal alerts',
+        importance: 4,
+        visibility: 0,
+        ...(sound ? { sound: 'portal_chime.wav' } : {})
+      });
+    }
+    if (sound) notification.sound = 'portal_chime.wav';
+    await plugin.schedule({ notifications: [notification] });
+    return true;
+  }
 
   function triggerPortalSystemNotification(title, body, options) {
     options = options || {};
@@ -1311,6 +1343,14 @@
     } catch (_) {}
 
     var isSilentSound = options && options.silentSound === true;
+    var nativePlugin = nativeNotificationPlugin();
+    if (nativePlugin) {
+      try {
+        if (localStorage.getItem('bb_notif_system_enabled') !== 'true' || now - _lastSystemNotifTs < 800) return null;
+      } catch (_) { return null; }
+      _lastSystemNotifTs = now;
+      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound).catch(function() { return false; });
+    }
     if (!isSilentSound && soundEnabled && typeof playNotificationSound === 'function') {
       playNotificationSound();
     }
@@ -1386,6 +1426,16 @@
   }
 
   async function requestNotificationPermission() {
+    var nativePlugin = nativeNotificationPlugin();
+    if (nativePlugin) {
+      try {
+        var permission = (await nativePlugin.requestPermissions()).display;
+        localStorage.setItem('bb_notif_system_enabled', String(permission === 'granted'));
+        return permission;
+      } catch (_) {
+        return 'error';
+      }
+    }
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return 'unsupported';
     }
@@ -1409,6 +1459,26 @@
 
   async function testNotificationPopup() {
     if (typeof window === 'undefined') return;
+    var nativePlugin = nativeNotificationPlugin();
+    if (nativePlugin) {
+      try {
+        if (await requestNotificationPermission() !== 'granted') {
+          showToast('Allow app notifications in your phone settings to send a test.', 'warning', 4000, { silent: true });
+          return;
+        }
+        var sound = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
+        if (!await scheduleNativeNotification(nativePlugin, true, sound)) {
+          showToast('Your phone blocked the test notification.', 'warning', 3000, { silent: true });
+          return;
+        }
+        var nativeToggle = document.getElementById('settings-toggle-sysnotif');
+        if (nativeToggle) nativeToggle.checked = true;
+        showToast('Test notification sent.', 'success', 2500, { silent: true });
+      } catch (_) {
+        showToast('Could not send the test notification. Try again from Settings.', 'warning', 3000, { silent: true });
+      }
+      return;
+    }
     if (!('Notification' in window)) {
       if (typeof showToast === 'function') {
         showToast('System notifications are not supported in this browser.', 'warning');

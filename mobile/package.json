@@ -1,0 +1,19 @@
+{
+  "name": "first-pjbb-mobile",
+  "private": true,
+  "scripts": {
+    "test": "node --test notifications.test.cjs",
+    "sync": "npm --prefix .. run build && cap sync",
+    "sync:android": "npm --prefix .. run build && cap sync android",
+    "sync:ios": "npm --prefix .. run build && cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/ios": "8.6.2",
+    "@capacitor/local-notifications": "8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2"
+  }
+}

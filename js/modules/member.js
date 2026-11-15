@@ -5542,7 +5542,16 @@ function handleSettingsNotificationToggle(type) {
       var sysEnabled = sysEl ? sysEl.checked : true;
       localStorage.setItem('bb_notif_system_enabled', sysEnabled ? 'true' : 'false');
       if (sysEnabled && typeof window !== 'undefined' && typeof window.requestNotificationPermission === 'function') {
-        window.requestNotificationPermission();
+        if (window.Capacitor?.isNativePlatform?.()) {
+          window.requestNotificationPermission().then(function(perm) {
+            if (perm === 'granted') return;
+            localStorage.setItem('bb_notif_system_enabled', 'false');
+            if (sysEl) sysEl.checked = false;
+            showToast('You can allow app notifications in your phone settings.', 'info', 3500, { silent: true });
+          }).catch(function() {});
+        } else {
+          window.requestNotificationPermission();
+        }
       } else if (typeof showToast === 'function') {
         showToast('System popup notifications disabled.', 'info', 2000, { silent: true });
       }
@@ -5703,7 +5712,10 @@ function openSettingsModal() {
   var defaultTab = 'home';
   try {
     soundEnabled = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
-    sysNotifEnabled = localStorage.getItem('bb_notif_system_enabled') !== 'false';
+    var systemPreference = localStorage.getItem('bb_notif_system_enabled');
+    sysNotifEnabled = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()
+      ? systemPreference === 'true'
+      : systemPreference !== 'false';
     defaultTab = localStorage.getItem('bb_default_tab') || 'home';
   } catch (_) {}
 
@@ -6220,7 +6232,9 @@ function handleOnboardingCheckboxChange() {
  * Step 2: OS Device Notifications & Audio Chime
  */
 function renderStep2NotificationsHtml() {
+  var nativeApp = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
   var perm = (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default';
+  if (nativeApp) perm = localStorage.getItem('bb_notif_system_enabled') === 'true' ? 'granted' : 'default';
   var statusBadge = '';
   if (perm === 'granted') {
     statusBadge = '<span class="onboarding-status-pill granted"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Device Notifications Active</span>';
@@ -6235,7 +6249,10 @@ function renderStep2NotificationsHtml() {
   return ''
     + '<div class="onboarding-step-badge">Step 2 of 4 · Stay Connected</div>'
     + '<h3 class="onboarding-step-title">Device Pop-up Notifications &amp; Sound</h3>'
-    + '<p class="onboarding-step-desc">Receive instant pop-up notifications directly on your Windows, Mac, or mobile screen so you never miss urgent company events.</p>'
+    + '<p class="onboarding-step-desc">' + (nativeApp
+      ? 'Allow optional notifications and the company chime for updates received while the app is open. You can continue and enable them later in Settings.'
+      : 'Receive pop-up notifications directly on your Windows, Mac, or mobile screen.')
+    + '</p>'
     + '<div class="onboarding-grid">'
       + '<div class="onboarding-card-mini">'
         + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></div>'
@@ -6281,6 +6298,16 @@ function renderStep2NotificationsHtml() {
 }
 
 function handleOnboardingEnableNotifications() {
+  if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+    return window.requestNotificationPermission().then(function(perm) {
+      renderOnboardingWizardDom();
+      if (perm === 'granted') {
+        showToast('App notifications enabled.', 'success', 2500, { silent: true });
+      } else {
+        showToast('You can allow app notifications in your phone settings.', 'info', 3500, { silent: true });
+      }
+    });
+  }
   if (typeof window !== 'undefined' && 'Notification' in window) {
     Notification.requestPermission().then(function(perm) {
       if (typeof localStorage !== 'undefined') {
@@ -6300,6 +6327,9 @@ function handleOnboardingEnableNotifications() {
 }
 
 function handleOnboardingTestNotification() {
+  if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+    return window.testNotificationPopup().then(renderOnboardingWizardDom);
+  }
   if (typeof triggerPortalSystemNotification === 'function') {
     triggerPortalSystemNotification(
       "1st Petaling Jaya Boys\' Brigade",
@@ -6337,18 +6367,18 @@ function renderStep3UploadsHtml() {
 
   return ''
     + '<div class="onboarding-step-badge">Step 3 of 4 · Media &amp; Attachments</div>'
-    + '<h3 class="onboarding-step-title">File System &amp; Upload Permissions</h3>'
-    + '<p class="onboarding-step-desc">The portal allows members and parents to submit documents and photos directly from your device.</p>'
+    + '<h3 class="onboarding-step-title">Photos &amp; Attachments</h3>'
+    + '<p class="onboarding-step-desc">You choose which photos and documents to share when using a feature that accepts attachments.</p>'
     + '<div class="onboarding-grid">'
       + '<div class="onboarding-card-mini">'
         + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Uniform Store Orders</div>'
-        + '<div class="onboarding-card-mini-desc">Upload TnG e-Wallet or bank transfer payment slips for fast uniform order verification.</div>'
+        + '<div class="onboarding-card-mini-title">Support Forum</div>'
+        + '<div class="onboarding-card-mini-desc">Choose a screenshot to include with a support request if it helps explain the issue.</div>'
       + '</div>'
       + '<div class="onboarding-card-mini">'
         + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Parade Leave Forms</div>'
-        + '<div class="onboarding-card-mini-desc">Attach medical certificates (MC) or parent excuse letters for approved parade leave.</div>'
+        + '<div class="onboarding-card-mini-title">Gallery</div>'
+        + '<div class="onboarding-card-mini-desc">Authorized members can select photos and videos to share with the company.</div>'
       + '</div>'
       + '<div class="onboarding-card-mini">'
         + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>'
@@ -6366,8 +6396,8 @@ function renderStep3UploadsHtml() {
         + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
       + '</div>'
       + '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;">'
-        + '<strong style="color:var(--text-primary);display:block;margin-bottom:2px;">Browser Permission Note:</strong>'
-        + 'When uploading files, your browser will prompt for file access. Select <strong>Allow</strong> or choose files from your device to proceed smoothly.'
+        + '<strong style="color:var(--text-primary);display:block;margin-bottom:2px;">Device file picker</strong>'
+        + 'When you choose to upload a file, your device opens a file picker. Select the items you want to share or close the picker to skip.'
       + '</div>'
     + '</div>'
     + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;">'
