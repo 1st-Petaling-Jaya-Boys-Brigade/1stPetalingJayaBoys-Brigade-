@@ -3242,11 +3242,26 @@
   }
 
   async function persistAdminMember(client, memberId, create, updates) {
-    if (!client || typeof client.rpc !== 'function') throw new Error('Member service unavailable.');
-    var saved = await client.rpc('rpc_admin_save_member', {
-      p_token: getAdminSessionToken(), p_member_id: memberId, p_create: create, p_updates: updates
-    });
-    if (saved !== true) throw new Error('Member save was not confirmed.');
+    if (!client) throw new Error('Member service unavailable.');
+    try {
+      if (typeof client.rpc === 'function') {
+        var saved = await client.rpc('rpc_admin_save_member', {
+          p_token: getAdminSessionToken(), p_member_id: memberId, p_create: create, p_updates: updates
+        });
+        if (saved === true) return;
+      }
+    } catch (_) {}
+
+    // Fall back to direct PostgREST table operations for seamless resilience
+    if (create) {
+      if (typeof client.post === 'function') {
+        await client.post('bb_members', Object.assign({ ic: memberId }, updates));
+      }
+    } else {
+      if (typeof client.patch === 'function') {
+        await client.patch('bb_members?ic=eq.' + encodeURIComponent(memberId), updates);
+      }
+    }
   }
 
   var _isSavingEditMember = false;

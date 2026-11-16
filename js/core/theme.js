@@ -19,7 +19,7 @@
   }
 
   function getPreferredTheme() {
-    return getStoredTheme() || (systemScheme && systemScheme.matches ? 'dark' : 'light');
+    return getStoredTheme() || 'light';
   }
 
   function syncThemeMetaTags(theme) {
@@ -42,6 +42,12 @@
     if (persist !== false) {
       try {
         localStorage.setItem('bb_theme', resolved);
+        var userKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+        var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+        if (userKey && client && typeof client.upsert === 'function') {
+          var pKey = 'bb_pref_theme_' + String(userKey).toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
+          client.upsert('bb_config', { key: pKey, value: resolved, updated_at: new Date().toISOString() }).catch(function() {});
+        }
       } catch (e) {}
     }
 
@@ -116,7 +122,7 @@
   ];
 
   var _particlesState = {
-    enabled: true,
+    enabled: false,
     mode: 'both', // 'both' | 'snow' | 'leaves'
     canvas: null,
     ctx: null,
@@ -130,13 +136,13 @@
   };
 
   function getAmbientParticlesState() {
-    var enabled = true;
+    var enabled = false;
     var mode = 'both';
     try {
       if (typeof localStorage !== 'undefined') {
         var savedEn = localStorage.getItem('bb_ambient_particles_enabled');
         if (savedEn !== null) {
-          enabled = savedEn !== 'false';
+          enabled = savedEn === 'true';
         }
         var savedMode = localStorage.getItem('bb_ambient_particles_mode');
         if (savedMode === 'snow' || savedMode === 'leaves' || savedMode === 'both') {
@@ -461,6 +467,12 @@
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('bb_ambient_particles_enabled', next ? 'true' : 'false');
+      }
+      var userKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+      if (userKey && client && typeof client.upsert === 'function') {
+        var pKey = 'bb_pref_particles_' + String(userKey).toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
+        client.upsert('bb_config', { key: pKey, value: next ? 'true' : 'false', updated_at: new Date().toISOString() }).catch(function() {});
       }
     } catch (_) {}
 

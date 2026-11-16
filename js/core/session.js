@@ -1346,6 +1346,14 @@ function isOnboardingCompleted(identifier) {
       return true;
     }
 
+    // On native mobile app (Capacitor), verify if the app on this device has completed onboarding
+    var isNativeApp = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    if (isNativeApp) {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true') {
+        return false;
+      }
+    }
+
     // Portal Creator / Super Admin pre-assigned bypass: never repeatedly force onboarding
     if (cleanId === 'jeshuakoh2008@gmail.com' || cleanId === 'jeshua koh') {
       return true;
@@ -1424,6 +1432,7 @@ function markOnboardingCompleted(identifier, details) {
 
   if (typeof localStorage !== 'undefined') {
     try {
+      localStorage.setItem('bb_native_onboarding_completed', 'true');
       localStorage.setItem('bb_onboarding_completed_universal', 'true');
       localStorage.setItem('bb_onboarding_universal', JSON.stringify(payload));
       localStorage.setItem('bb_onboarding_completed_' + cleanId, 'true');
@@ -1522,6 +1531,20 @@ async function fetchRemoteOnboardingStatus(identifier) {
                 }
               } catch (_) {}
             }
+            try {
+              if (parsed.theme && typeof window !== 'undefined' && typeof window.themeApply === 'function') {
+                window.themeApply(parsed.theme, true);
+              }
+              if (typeof parsed.seasonal_particles_enabled !== 'undefined' && typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {
+                window.toggleAmbientParticles(Boolean(parsed.seasonal_particles_enabled));
+              }
+              if (parsed.seasonal_particles_mode && typeof window !== 'undefined' && typeof window.setAmbientParticlesMode === 'function') {
+                window.setAmbientParticlesMode(parsed.seasonal_particles_mode);
+              }
+              if (typeof parsed.notification_sound !== 'undefined' && typeof localStorage !== 'undefined') {
+                localStorage.setItem('bb_notif_sound_enabled', parsed.notification_sound ? 'true' : 'false');
+              }
+            } catch (_) {}
             return true;
           }
         }
@@ -1543,6 +1566,7 @@ function resetOnboarding(identifier) {
     sessionSet('onboarding_completed', false);
   }
   if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('bb_native_onboarding_completed');
     localStorage.removeItem('bb_onboarding_completed_universal');
     localStorage.removeItem('bb_onboarding_universal');
     localStorage.removeItem('bb_onboarding_completed_' + cleanId);
