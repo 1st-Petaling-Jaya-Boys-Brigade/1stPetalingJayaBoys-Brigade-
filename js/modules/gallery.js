@@ -437,9 +437,9 @@ async function loadGallery() {
     if (client && client.req) {
       var rows = null;
       try {
-        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url,type');
-      } catch (errGet) {
         rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=*');
+      } catch (errGet) {
+        rows = [];
       }
       if (Array.isArray(rows) && rows.length > 0) {
         galleryImages.length = 0;

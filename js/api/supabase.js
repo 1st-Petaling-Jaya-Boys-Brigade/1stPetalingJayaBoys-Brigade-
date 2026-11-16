@@ -1374,7 +1374,12 @@ var PortalRealtime = (function() {
       var curUserKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
       if (curUserKey) {
         var cleanU = String(curUserKey).trim();
-        var orderRows = await client.get('bb_orders?select=id,status,created_at&or=(ic.eq.' + encodeURIComponent(cleanU) + ',email.ilike.' + encodeURIComponent(cleanU) + ')&order=created_at.desc&limit=5', { cache: false });
+        var orderRows = null;
+        try {
+          orderRows = await client.get('bb_orders?select=id,status,created_at&ic=eq.' + encodeURIComponent(cleanU) + '&order=created_at.desc&limit=5', { cache: false });
+        } catch (_) {
+          orderRows = null;
+        }
         if (Array.isArray(orderRows) && orderRows.length) {
           var ordKey = orderRows.map(function(o) { return o.id + ':' + (o.status || ''); }).join('|');
           if (_lastEntityTimestamps['bb_orders_latest'] && _lastEntityTimestamps['bb_orders_latest'] !== ordKey) {
@@ -1415,7 +1420,16 @@ var PortalRealtime = (function() {
         _lastEntityTimestamps['bb_tasks_fingerprint'] = taskFp;
       }
 
-      var memberRows = await client.get('bb_members?select=ic,updated_at&order=updated_at.desc&limit=1', { cache: false });
+      var memberRows = null;
+      try {
+        memberRows = await client.get('bb_members?select=ic,updated_at&order=updated_at.desc&limit=1', { cache: false });
+      } catch (_) {
+        try {
+          memberRows = await client.get('bb_members?select=ic&limit=1', { cache: false });
+        } catch (__) {
+          memberRows = null;
+        }
+      }
       if (Array.isArray(memberRows) && memberRows.length) {
         var mKey = (memberRows[0].ic || '') + ':' + (memberRows[0].updated_at || '');
         if (_lastEntityTimestamps['bb_members_latest'] && _lastEntityTimestamps['bb_members_latest'] !== mKey) {
