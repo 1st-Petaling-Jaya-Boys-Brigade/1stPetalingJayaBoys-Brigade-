@@ -73,6 +73,7 @@ var _projectDisplayMode = (typeof localStorage !== 'undefined' && localStorage.g
 var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;
+var _activeTaskPollTimer = null;
 var _initialTaskDetailState = null;
 var _justDragged = false;
 var _draggedTaskId = null;
@@ -1684,6 +1685,15 @@ async function fetchAllRemoteTasks(andRerender) {
             }
           } else if (_tasksViewMode === 'mytasks') {
             renderMyTasksView();
+          } else {
+            renderColumnsFromTasks(_allLoadedTasks);
+          }
+        }
+        if (_activeDetailTaskId && _taskMap[_activeDetailTaskId]) {
+          var curActiveT = _taskMap[_activeDetailTaskId];
+          var titleEl = document.getElementById('tdm-title');
+          if (titleEl && document.activeElement !== titleEl && curActiveT.title) {
+            titleEl.textContent = curActiveT.title;
           }
         }
       }
@@ -2313,6 +2323,20 @@ function openTaskDetail(id) {
       }
     }).catch(function() {});
   }
+  if (typeof _activeTaskPollTimer !== 'undefined' && _activeTaskPollTimer) {
+    clearInterval(_activeTaskPollTimer);
+    _activeTaskPollTimer = null;
+  }
+  _activeTaskPollTimer = setInterval(function() {
+    var curActiveId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+    if (!curActiveId) {
+      if (_activeTaskPollTimer) { clearInterval(_activeTaskPollTimer); _activeTaskPollTimer = null; }
+      return;
+    }
+    if (typeof fetchRemoteTaskComments === 'function') {
+      fetchRemoteTaskComments(curActiveId).catch(function() {});
+    }
+  }, 4000);
 }
 
 function handleTaskTitleBlur(el) {
@@ -2480,7 +2504,11 @@ function saveTaskComments(taskId, comments, options) {
       } catch (_) {}
     }
 
-    var payload = { key: 'bb_task_comments_' + taskId, value: JSON.stringify(finalComments) };
+    var payload = {
+      key: 'bb_task_comments_' + taskId,
+      value: JSON.stringify(finalComments),
+      updated_at: new Date().toISOString()
+    };
     var saveReq = typeof client.upsert === 'function'
       ? client.upsert('bb_config', payload, 'key')
       : client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
@@ -2580,6 +2608,7 @@ async function fetchRemoteTaskComments(taskId) {
  */
 function renderTaskComments(taskId) {
   if (typeof document === 'undefined') return;
+  if (document.querySelector('.tb-comment-edit-input')) return;
   var list = document.querySelector('.tb-comments-list');
   if (!list) return;
 
@@ -3697,6 +3726,7 @@ async function saveTaskField(id, field, value) {
   if (client) {
     var patch = {};
     patch[field] = value;
+    patch.updated_at = new Date().toISOString();
     try {
       await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), patch);
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
@@ -4058,6 +4088,10 @@ function closeTaskDetail() {
   if (typeof window !== 'undefined') {
     window._activeDetailTaskId = null;
   }
+  if (typeof _activeTaskPollTimer !== 'undefined' && _activeTaskPollTimer) {
+    clearInterval(_activeTaskPollTimer);
+    _activeTaskPollTimer = null;
+  }
   _initialTaskDetailState = null;
 }
 
@@ -4170,7 +4204,7 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   if (_taskMap[id]) _taskMap[id].status = status;
   try {
     paint();
-    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
+    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status, updated_at: new Date().toISOString() });
   } catch (e) {
     task.status = oldStatus;
     if (cachedTask) cachedTask.status = oldStatus;
@@ -4885,7 +4919,7 @@ async function updateTaskStatus(id, status) {
   var client = getSupaClient();
   if (!client) return;
   try {
-    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
+    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status, updated_at: new Date().toISOString() });
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'task.status_update',

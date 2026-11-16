@@ -1317,8 +1317,8 @@ var PortalRealtime = (function() {
     } catch (_) {}
   }
 
-  // 3. Smart Adaptive Delta Poller (25s interval, backoff on error, paused when hidden or WebSocket active)
-  var _deltaSyncBackoff = 25000;
+  // 3. Smart Adaptive Delta Poller (5s interval, backoff on error, paused when hidden or WebSocket active)
+  var _deltaSyncBackoff = 5000;
   var _deltaSyncInFlight = false;
 
   async function checkDeltaSync() {
@@ -1344,7 +1344,7 @@ var PortalRealtime = (function() {
     }
     var client = (typeof getSupaClient === 'function') ? getSupaClient() : null;
     if (!client || typeof client.get !== 'function') {
-      scheduleNextDeltaSync(15000);
+      scheduleNextDeltaSync(5000);
       return;
     }
 
@@ -1426,7 +1426,18 @@ var PortalRealtime = (function() {
         }
         _lastEntityTimestamps['bb_members_latest'] = mKey;
       }
-      _deltaSyncBackoff = (_ws && _ws.readyState === 1) ? 25000 : 12000;
+
+      var activeTid = (typeof window !== 'undefined' && window._activeDetailTaskId)
+        ? window._activeDetailTaskId
+        : ((typeof global !== 'undefined' && global._activeDetailTaskId) ? global._activeDetailTaskId : null);
+      if (activeTid && typeof window !== 'undefined' && typeof window.fetchRemoteTaskComments === 'function') {
+        window.fetchRemoteTaskComments(activeTid).then(function() {
+          if (typeof window.renderTaskComments === 'function') {
+            window.renderTaskComments(activeTid);
+          }
+        }).catch(function() {});
+      }
+      _deltaSyncBackoff = 5000;
     } catch (_) {
       // Back off on error to prevent database saturation
       _deltaSyncBackoff = Math.min(120000, _deltaSyncBackoff * 2);
@@ -1438,13 +1449,13 @@ var PortalRealtime = (function() {
 
   function scheduleNextDeltaSync(delayMs) {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 15000);
+    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 5000);
   }
 
   function startDeltaSync() {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncBackoff = 12000;
-    scheduleNextDeltaSync(12000);
+    _deltaSyncBackoff = 5000;
+    scheduleNextDeltaSync(5000);
   }
 
   if (typeof document !== 'undefined' && document.addEventListener) {

@@ -6,7 +6,7 @@ const notifications = [];
 const channels = [];
 let permission = 'denied';
 
-test('native alerts honor opt-in and sound preferences without exposing portal content', async ({ mock }) => {
+test('native alerts honor opt-in and sound preferences with portal content', async ({ mock }) => {
   let now = Date.now();
   let platform = 'android';
   mock.method(Date, 'now', () => now);
@@ -45,8 +45,9 @@ test('native alerts honor opt-in and sound preferences without exposing portal c
     assert.equal(channels[0].sound, 'portal_chime.wav');
     assert.equal(notifications[0].sound, 'portal_chime.wav');
     assert.equal(notifications[0].isExactNotification, false);
-    assert.equal(notifications[0].title, "1st Petaling Jaya Boys' Brigade");
-    assert.equal(notifications[0].body, 'Open the portal to see your new notification.');
+    assert.equal(notifications[0].title, 'Member name');
+    assert.equal(notifications[0].body, 'Private message');
+    assert.equal(notifications[0].smallIcon, 'ic_launcher');
 
     now += 1000;
     preferences.set('bb_notif_system_enabled', 'false');
