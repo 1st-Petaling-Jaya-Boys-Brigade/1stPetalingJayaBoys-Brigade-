@@ -1346,8 +1346,14 @@ function isOnboardingCompleted(identifier) {
       return true;
     }
 
-    // On native mobile app (Capacitor), verify if the app on this device has completed onboarding
-    var isNativeApp = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    // On native mobile app (Capacitor/PWA/Android WebView), verify if the app on this device has completed onboarding
+    var isNativeApp = typeof window !== 'undefined' && (
+      (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+      Boolean(window.androidBridge) ||
+      (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.navigator && window.navigator.standalone === true)
+    );
     if (isNativeApp) {
       if (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true') {
         return false;

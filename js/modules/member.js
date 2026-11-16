@@ -2130,7 +2130,11 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   if (typeof checkTasksAccess === 'function') checkTasksAccess();
   if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
 
-  if (typeof loadMemberCosmetics === 'function') loadMemberCosmetics();
+  if (typeof loadMemberCosmetics === 'function') {
+    loadMemberCosmetics(true).then(function() {
+      if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
+    }).catch(function() {});
+  }
   if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
   if (typeof window !== 'undefined' && typeof window.fetchRemoteArcadeStats === 'function') {
     window.fetchRemoteArcadeStats();
@@ -2146,8 +2150,17 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   var fnTrivia = getGlobalFn('fetchRemoteTriviaState'); if (fnTrivia) fnTrivia();
   var fnBadges = getGlobalFn('loadBadges'); if (fnBadges) fnBadges();
   var fnReminders = getGlobalFn('fetchRemoteMemberEvents'); if (fnReminders) fnReminders();
-  var fnDismissed = getGlobalFn('fetchRemoteDismissedNotifs'); if (fnDismissed) fnDismissed();
-  var fnNotifs = getGlobalFn('syncAllPortalNotifications'); if (fnNotifs) fnNotifs();
+  var fnDismissed = getGlobalFn('fetchRemoteDismissedNotifs');
+  var fnNotifs = getGlobalFn('syncAllPortalNotifications');
+  if (fnDismissed) {
+    fnDismissed().then(function() {
+      if (fnNotifs) fnNotifs();
+    }).catch(function() {
+      if (fnNotifs) fnNotifs();
+    });
+  } else if (fnNotifs) {
+    fnNotifs();
+  }
   if (typeof updateArcadeHeaderBadge === 'function') updateArcadeHeaderBadge();
   if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
 
@@ -2173,7 +2186,13 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
 
   // Trigger onboarding wizard if user has not completed onboarding
   var checkLoginOnboarding = async function() {
-    var isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    var isNative = typeof window !== 'undefined' && (
+      (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+      Boolean(window.androidBridge) ||
+      (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.navigator && window.navigator.standalone === true)
+    );
     var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
 
     if (!nativeNeeded && typeof isOnboardingCompleted === 'function' && isOnboardingCompleted(userEmail)) {
@@ -2966,7 +2985,7 @@ function getMemberCosmeticsMap() {
   return _memberCosmeticsMap;
 }
 
-async function loadMemberCosmetics() {
+async function loadMemberCosmetics(force) {
   if (typeof localStorage !== 'undefined') {
     try {
       var cached = localStorage.getItem('bb_member_cosmetics');
@@ -2979,27 +2998,44 @@ async function loadMemberCosmetics() {
 
   if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
 
-  if (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
-    var snapCosm = await supa.safeConfigGet('bb_member_cosmetics');
-    if (snapCosm && typeof snapCosm === 'object') {
-      Object.keys(snapCosm).forEach(function(k) {
-        if (!_memberCosmeticsMap[k]) {
-          _memberCosmeticsMap[k] = snapCosm[k];
-        } else {
-          var localInv = Array.isArray(_memberCosmeticsMap[k].inventory) ? _memberCosmeticsMap[k].inventory : [];
-          var remoteInv = Array.isArray(snapCosm[k].inventory) ? snapCosm[k].inventory : [];
-          _memberCosmeticsMap[k].inventory = Array.from(new Set(localInv.concat(remoteInv)));
-          if (!_memberCosmeticsMap[k].equipped || _memberCosmeticsMap[k].equipped === 'none') {
-            if (snapCosm[k].equipped && snapCosm[k].equipped !== 'none') {
-              _memberCosmeticsMap[k].equipped = snapCosm[k].equipped;
-            }
+  function mergeCosmeticsSnapshot(remoteMap) {
+    if (!remoteMap || typeof remoteMap !== 'object') return;
+    Object.keys(remoteMap).forEach(function(k) {
+      var rem = remoteMap[k];
+      if (!rem || typeof rem !== 'object') return;
+      if (!_memberCosmeticsMap[k]) {
+        _memberCosmeticsMap[k] = rem;
+      } else {
+        var localInv = Array.isArray(_memberCosmeticsMap[k].inventory) ? _memberCosmeticsMap[k].inventory : [];
+        var remoteInv = Array.isArray(rem.inventory) ? rem.inventory : [];
+        _memberCosmeticsMap[k].inventory = Array.from(new Set(localInv.concat(remoteInv)));
+
+        var remTs = rem.updatedAt ? new Date(rem.updatedAt).getTime() : 0;
+        var locTs = _memberCosmeticsMap[k].updatedAt ? new Date(_memberCosmeticsMap[k].updatedAt).getTime() : 0;
+        if (remTs > 0 && remTs >= locTs) {
+          _memberCosmeticsMap[k].equipped = rem.equipped;
+          _memberCosmeticsMap[k].updatedAt = rem.updatedAt;
+        } else if (!_memberCosmeticsMap[k].equipped || _memberCosmeticsMap[k].equipped === 'none') {
+          if (rem.equipped && rem.equipped !== 'none') {
+            _memberCosmeticsMap[k].equipped = rem.equipped;
           }
         }
-      });
+      }
+    });
+  }
+
+  var supaOpts = force ? { force: true } : {};
+  if (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
+    var snapCosm = await supa.safeConfigGet('bb_member_cosmetics', null, supaOpts);
+    if (snapCosm && typeof snapCosm === 'object') {
+      mergeCosmeticsSnapshot(snapCosm);
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap)); } catch (_) {}
       }
       if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
+      if (typeof refreshActiveAvatarCosmetics === 'function') {
+        refreshActiveAvatarCosmetics();
+      }
       return _memberCosmeticsMap;
     }
   }
@@ -3012,24 +3048,7 @@ async function loadMemberCosmetics() {
     if (res && res.length && res[0].value) {
       var parsed = JSON.parse(res[0].value);
       if (parsed && typeof parsed === 'object') {
-        // Non-destructive merge: Never blow away local unlocked cosmetics if remote is stale
-        Object.keys(parsed).forEach(function(k) {
-          if (!_memberCosmeticsMap[k]) {
-            _memberCosmeticsMap[k] = parsed[k];
-          } else {
-            var localInv = Array.isArray(_memberCosmeticsMap[k].inventory) ? _memberCosmeticsMap[k].inventory : [];
-            var remoteInv = Array.isArray(parsed[k].inventory) ? parsed[k].inventory : [];
-            var mergedInv = Array.from(new Set(localInv.concat(remoteInv)));
-            _memberCosmeticsMap[k].inventory = mergedInv;
-
-            if (!_memberCosmeticsMap[k].equipped || _memberCosmeticsMap[k].equipped === 'none') {
-              if (parsed[k].equipped && parsed[k].equipped !== 'none') {
-                _memberCosmeticsMap[k].equipped = parsed[k].equipped;
-              }
-            }
-          }
-        });
-
+        mergeCosmeticsSnapshot(parsed);
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
         }
@@ -3052,6 +3071,17 @@ function getMemberCosmetic(emailOrIc, memberName) {
 
   var cosMap = (typeof global !== 'undefined' && global._memberCosmeticsMap) ? global._memberCosmeticsMap : _memberCosmeticsMap;
 
+  // Ensure cosMap is populated from localStorage if in-memory cache is empty
+  if ((!cosMap || Object.keys(cosMap).length === 0) && typeof localStorage !== 'undefined') {
+    try {
+      var cachedCosm = localStorage.getItem('bb_member_cosmetics');
+      if (cachedCosm) {
+        cosMap = JSON.parse(cachedCosm) || {};
+        _memberCosmeticsMap = cosMap;
+      }
+    } catch (_) {}
+  }
+
   var isCreator = false;
   if (typeof isPortalCreator === 'function') {
     isCreator = isPortalCreator(cleanName, cleanKey);
@@ -3060,13 +3090,14 @@ function getMemberCosmetic(emailOrIc, memberName) {
   }
 
   var record = null;
+  // 1. Direct match by cleanKey or cleanName
   if (cleanKey && cosMap[cleanKey]) {
     record = cosMap[cleanKey];
   } else if (cleanName && cosMap[cleanName]) {
     record = cosMap[cleanName];
   }
 
-  // Scan entries if not matched directly
+  // 2. Scan entries if not matched directly
   if (!record && (cleanKey || cleanName)) {
     var mapKeys = Object.keys(cosMap);
     for (var i = 0; i < mapKeys.length; i++) {
@@ -3082,6 +3113,51 @@ function getMemberCosmetic(emailOrIc, memberName) {
           break;
         }
       }
+    }
+  }
+
+  // 3. Fallback: Lookup in member directory / caches to cross-resolve name <-> email/ic
+  if (!record && (cleanName || cleanKey)) {
+    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+      ? resolveMemberDirectoryInfo
+      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    if (resolver) {
+      var resolved = resolver(cleanName || cleanKey);
+      if (resolved) {
+        var rEmail = String(resolved.email || '').toLowerCase().trim();
+        var rIc = String(resolved.ic || '').toLowerCase().trim();
+        var rName = String(resolved.name || '').toLowerCase().trim();
+        if (rEmail && cosMap[rEmail]) {
+          record = cosMap[rEmail];
+        } else if (rIc && cosMap[rIc]) {
+          record = cosMap[rIc];
+        } else if (rName && cosMap[rName]) {
+          record = cosMap[rName];
+        }
+      }
+    }
+  }
+
+  // 4. Creator fallback: Jeshua Koh aliases
+  if (!record && isCreator) {
+    record = cosMap['jeshuakoh2008@gmail.com'] || cosMap['jeshua koh'] || null;
+  }
+
+  // 5. Fallback to user-specific localStorage key
+  if (!record && typeof localStorage !== 'undefined') {
+    var checkKeys = [cleanKey, cleanName].filter(Boolean);
+    if (isCreator) checkKeys.push('jeshuakoh2008@gmail.com', 'jeshua koh');
+    for (var j = 0; j < checkKeys.length; j++) {
+      try {
+        var userCached = localStorage.getItem('bb_member_cosmetic_' + checkKeys[j].replace(/[^a-zA-Z0-9_-]/g, '_'));
+        if (userCached) {
+          var parsedUser = JSON.parse(userCached);
+          if (parsedUser && parsedUser.equipped) {
+            record = parsedUser;
+            break;
+          }
+        }
+      } catch (_) {}
     }
   }
 
@@ -3235,6 +3311,21 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
   if (cleanName && cleanName !== cleanTarget) {
     _memberCosmeticsMap[cleanName] = entry;
   }
+  var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+    ? resolveMemberDirectoryInfo
+    : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+  if (resolver) {
+    var dirInfo = resolver(cleanTarget) || resolver(cleanName);
+    if (dirInfo) {
+      if (dirInfo.email) _memberCosmeticsMap[String(dirInfo.email).trim().toLowerCase()] = entry;
+      if (dirInfo.ic) _memberCosmeticsMap[String(dirInfo.ic).trim().toLowerCase()] = entry;
+      if (dirInfo.name) _memberCosmeticsMap[String(dirInfo.name).trim().toLowerCase()] = entry;
+    }
+  }
+  if (isCreator) {
+    _memberCosmeticsMap['jeshuakoh2008@gmail.com'] = entry;
+    _memberCosmeticsMap['jeshua koh'] = entry;
+  }
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
@@ -3263,6 +3354,18 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
     } catch (dbErr) {
       console.warn('saveMemberCosmetic db sync warning:', dbErr);
     }
+  }
+
+  if (typeof supa !== 'undefined' && typeof supa.recordConfigSnapshot === 'function') {
+    try { supa.recordConfigSnapshot('bb_member_cosmetics', _memberCosmeticsMap); } catch (_) {}
+  }
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    try { window.PortalRealtime.broadcast('cosmetics', 'update', { key: 'bb_member_cosmetics' }); } catch (_) {}
+  } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+    try { global.PortalRealtime.broadcast('cosmetics', 'update', { key: 'bb_member_cosmetics' }); } catch (_) {}
+  }
+  if (typeof window !== 'undefined') {
+    try { window.dispatchEvent(new CustomEvent('bb_cosmetics_changed')); } catch (_) {}
   }
 
   refreshActiveAvatarCosmetics();
@@ -3386,11 +3489,17 @@ function refreshActiveAvatarCosmetics() {
   if (typeof renderMemberAvatar === 'function') {
     renderMemberAvatar(myName, myEmail);
   }
+  if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') {
+    window.updateNavUserHeader();
+  }
   if (typeof renderForumFeed === 'function') {
     var forumContainer = document.getElementById('forum-feed-container');
     if (forumContainer) {
       renderForumFeed();
     }
+  }
+  if (typeof window !== 'undefined') {
+    try { window.dispatchEvent(new CustomEvent('bb_cosmetics_changed')); } catch (_) {}
   }
 }
 
@@ -6007,7 +6116,14 @@ function launchOnboardingWizard(options) {
   var isReview = (options && options.isReview === true);
   var isNewAccount = (options && options.isNewAccount === true);
   var email = user ? (user.email || user.ic || '') : '';
-  var alreadyDone = !isNewAccount && ((typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false);
+  var isNativeOnboarding = typeof window !== 'undefined' && (
+    (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+    Boolean(window.androidBridge) ||
+    (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+    (window.navigator && window.navigator.standalone === true)
+  ) && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
+  var alreadyDone = !isNewAccount && !isNativeOnboarding && ((typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false);
 
   var isDark = false;
   try {
