@@ -5061,7 +5061,7 @@ function executeHeaderSearch(q) {
 
 function updateNavUserHeader() {
   syncSidebarAccess();
-  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+  var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   var ptsVal = document.getElementById('nav-points-val');
   var avatarImg = document.getElementById('nav-avatar-img');
   var avatarPh = document.getElementById('nav-avatar-placeholder');
@@ -5113,7 +5113,7 @@ function updateNavUserHeader() {
       if (avatarImg) avatarImg.style.display = 'none';
       if (avatarPh) avatarPh.style.display = 'flex';
       var mName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
-      var mEmail = (typeof sessionGet === 'function') ? sessionGet('email') : '';
+      var mEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
       if (typeof renderMemberAvatar === 'function') {
         renderMemberAvatar(mName, mEmail);
       }
@@ -5133,6 +5133,24 @@ function updateNavUserHeader() {
         if (curCosmetic) {
           applyMemberCosmeticElement(navAvatarCircle, curCosmetic.id, 'cosmetic-sm');
         }
+      }
+    }
+    var mRing = document.getElementById('m-pfp-ring');
+    if (mRing && typeof applyMemberCosmeticElement === 'function') {
+      var curEmailRing = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+      var curNameRing = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      var curCosmeticRing = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(curEmailRing, curNameRing) : null;
+      if (curCosmeticRing) {
+        applyMemberCosmeticElement(mRing, curCosmeticRing.id, 'cosmetic-lg');
+      }
+    }
+    var sucAvatar = document.querySelector('.suc-avatar');
+    if (sucAvatar && typeof applyMemberCosmeticElement === 'function') {
+      var curEmailSuc = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+      var curNameSuc = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      var curCosmeticSuc = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(curEmailSuc, curNameSuc) : null;
+      if (curCosmeticSuc) {
+        applyMemberCosmeticElement(sucAvatar, curCosmeticSuc.id, 'cosmetic-sm');
       }
     }
     if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {
@@ -5169,6 +5187,10 @@ function updateNavUserHeader() {
 function handleNavProfileClick() {
   switchTabNav('member');
 }
+
+window.addEventListener('bb_cosmetics_changed', function() {
+  if (typeof updateNavUserHeader === 'function') updateNavUserHeader();
+});
 
 // Global Keyboard Shortcuts (Ctrl+K for search, Escape for popups)
 document.addEventListener('keydown', function(e) {

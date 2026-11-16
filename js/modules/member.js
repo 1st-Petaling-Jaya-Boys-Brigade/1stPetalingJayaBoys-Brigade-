@@ -3438,6 +3438,10 @@ async function equipCosmetic(cosmeticId) {
     }
     renderCosmeticShopCards();
     renderCosmeticLivePreview(cosmeticId);
+    refreshActiveAvatarCosmetics();
+    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') {
+      window.updateNavUserHeader();
+    }
   }
   return res;
 }
@@ -3491,6 +3495,15 @@ function refreshActiveAvatarCosmetics() {
   }
   if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') {
     window.updateNavUserHeader();
+  }
+  var activeCosmetic = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(myEmail, myName) : null;
+  if (activeCosmetic && typeof applyMemberCosmeticElement === 'function') {
+    var navCircle = document.querySelector('.nav-avatar-circle');
+    if (navCircle) applyMemberCosmeticElement(navCircle, activeCosmetic.id, 'cosmetic-sm');
+    var mRing = document.getElementById('m-pfp-ring');
+    if (mRing) applyMemberCosmeticElement(mRing, activeCosmetic.id, 'cosmetic-lg');
+    var sucAvatar = document.querySelector('.suc-avatar');
+    if (sucAvatar) applyMemberCosmeticElement(sucAvatar, activeCosmetic.id, 'cosmetic-sm');
   }
   if (typeof renderForumFeed === 'function') {
     var forumContainer = document.getElementById('forum-feed-container');
@@ -4073,7 +4086,7 @@ function refreshActiveAvatarOutlines() {
 function renderMemberAvatar(memberName, memberEmail) {
   if (typeof document === 'undefined') return;
   var name = memberName || (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
-  var email = memberEmail || (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  var email = memberEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
   var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshua\s+koh/i.test(name);
   var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name.trim().charAt(0).toUpperCase() || '?'));
   var color = isCreator ? '' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');

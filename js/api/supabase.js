@@ -1473,6 +1473,9 @@ var PortalRealtime = (function() {
       if (loadCosmFn) {
         loadCosmFn(true).then(function() {
           if (refreshCosmFn) refreshCosmFn();
+          if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') {
+            window.updateNavUserHeader();
+          }
         }).catch(function() {});
       }
       return;
