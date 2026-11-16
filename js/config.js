@@ -3,6 +3,11 @@
  * Application Configuration & Constants
  */
 
+if (typeof window !== 'undefined') {
+  // Use a stable HTTPS download endpoint with its own access controls.
+  window.ANDROID_APK_URL = window.__ENV__?.VITE_ANDROID_APK_URL || '';
+}
+
 var SUPA_URL = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_URL)
   || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL))
   || 'https://mjfclxcklkbgsivvvlfe.supabase.co';

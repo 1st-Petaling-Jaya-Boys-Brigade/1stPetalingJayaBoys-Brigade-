@@ -1,5 +1,8 @@
 apply plugin: 'com.android.application'
 
+def releaseStore = providers.environmentVariable('PORTAL_RELEASE_KEYSTORE')
+def releasePassword = providers.environmentVariable('PORTAL_RELEASE_PASSWORD')
+
 android {
     namespace = "org.firstpjbb.portal"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +19,28 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile rootProject.file(releaseStore.orElse('release-signing.p12').get())
+            storeType 'PKCS12'
+            storePassword releasePassword.orNull
+            keyAlias 'portal-release'
+            keyPassword releasePassword.orNull
+        }
+    }
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+tasks.matching { it.name == 'validateSigningRelease' }.configureEach {
+    doFirst {
+        if (!releasePassword.orNull || !android.signingConfigs.release.storeFile.isFile()) {
+            throw new GradleException('Set PORTAL_RELEASE_KEYSTORE and PORTAL_RELEASE_PASSWORD before building a release. See mobile/README.md.')
         }
     }
 }

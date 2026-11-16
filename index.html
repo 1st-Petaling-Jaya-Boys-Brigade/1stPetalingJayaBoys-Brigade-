@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261115h"></script>
+<script src="js/core/theme.js?v=20261116a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261115h">
-<link rel="stylesheet" href="css/base.css?v=20261115h">
-<link rel="stylesheet" href="css/nav.css?v=20261115h">
-<link rel="stylesheet" href="css/components.css?v=20261115h">
-<link rel="stylesheet" href="css/admin.css?v=20261115h">
+<link rel="stylesheet" href="css/variables.css?v=20261116a">
+<link rel="stylesheet" href="css/base.css?v=20261116a">
+<link rel="stylesheet" href="css/nav.css?v=20261116a">
+<link rel="stylesheet" href="css/components.css?v=20261116a">
+<link rel="stylesheet" href="css/admin.css?v=20261116a">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -376,6 +376,11 @@
       <button class="sidebar-admin-btn sidebar-footer-action" onclick="openAdmin();closeSidebar()" type="button" hidden>
         <svg class="ui-icon sidebar-footer-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.8 8-10V5l-8-3-8 3v7c0 6.2 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Admin Console</span>
+        <svg class="ui-icon-xs sidebar-footer-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+      <button class="sidebar-footer-action" data-install-app onclick="openInstallApp()" type="button" aria-haspopup="dialog" hidden>
+        <svg class="ui-icon sidebar-footer-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg>
+        <span>Install App</span>
         <svg class="ui-icon-xs sidebar-footer-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
       </button>
     </div>
@@ -3223,27 +3228,61 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstileCallback" async defer onerror="window.__TURNSTILE_BLOCKED__=true"></script>
 
 <!-- Core API & State Modules -->
-<script src="js/config.js?v=20261115h"></script>
-<script src="js/api/supabase.js?v=20261115h"></script>
-<script src="js/core/session.js?v=20261115h"></script>
-<script src="js/core/rbac.js?v=20261115h"></script>
-<script src="js/core/utils.js?v=20261115h"></script>
-<script src="js/core/ui.js?v=20261115h"></script>
-<script src="js/core/loading.js?v=20261115h"></script>
-<script src="js/modules/member.js?v=20261115h"></script>
-<script src="js/api/sheets.js?v=20261115h"></script>
-<script src="js/modules/attendance.js?v=20261115h"></script>
-<script src="js/modules/announcements.js?v=20261115h"></script>
-<script src="js/modules/gallery.js?v=20261115h"></script>
-<script src="js/modules/resources.js?v=20261115h"></script>
-<script src="js/modules/calendar.js?v=20261115h"></script>
-<script src="js/modules/orders.js?v=20261115h"></script>
-<script src="js/modules/forms.js?v=20261115h"></script>
-<script src="js/modules/badges.js?v=20261115h"></script>
-<script src="js/modules/tasks.js?v=20261115h"></script>
-<script src="js/modules/admin.js?v=20261115h"></script>
-<script src="js/modules/forum.js?v=20261115h"></script>
-<script src="js/modules/arcade.js?v=20261115h"></script>
+<dialog class="install-app-dialog" aria-label="Install the portal">
+  <header class="install-app-heading">
+    <h2>Install the portal</h2>
+    <form method="dialog"><button class="portal-btn" aria-label="Close install dialog" data-no-debounce autofocus>Close</button></form>
+  </header>
+  <div class="install-app-platforms" role="group" aria-label="Choose your phone">
+    <button type="button" class="portal-btn" data-install-platform="android" data-no-debounce aria-pressed="true">Android</button>
+    <button type="button" class="portal-btn" data-install-platform="ios" data-no-debounce aria-pressed="false">iPhone</button>
+  </div>
+  <section data-install-panel="android" aria-label="Android installation">
+    <p data-install-unavailable>The Android download will appear here when the signed APK is available.</p>
+    <div data-install-download hidden>
+      <a class="portal-btn portal-btn-primary" data-install-apk rel="noreferrer">Download Android App (APK)</a>
+      <p>Open the downloaded APK. If Android asks, allow installs from the app that opened it.</p>
+    </div>
+    <figure class="install-app-qr" hidden>
+      <canvas role="img" aria-label="QR code for the Android APK"></canvas>
+      <figcaption>Scan to download on another device</figcaption>
+    </figure>
+  </section>
+  <section data-install-panel="ios" aria-label="iPhone installation" hidden>
+    <ol class="install-app-steps">
+      <li><strong>Open in Safari.</strong> <a data-install-portal rel="noreferrer">Open the portal</a>.</li>
+      <li><strong>Tap Share <span aria-hidden="true">⎋</span> → Add to Home Screen <span aria-hidden="true">⊞</span>.</strong> Turn on <strong>Open as Web App</strong> if shown, then tap <strong>Add</strong>.</li>
+    </ol>
+    <figure class="install-app-qr" hidden>
+      <canvas role="img" aria-label="QR code for the portal website"></canvas>
+      <figcaption>Scan to open the portal on an iPhone</figcaption>
+    </figure>
+  </section>
+</dialog>
+
+<script src="js/config.js?v=20261116a"></script>
+<script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
+<script src="js/core/install.js?v=20261116a" defer></script>
+<script src="js/api/supabase.js?v=20261116a"></script>
+<script src="js/core/session.js?v=20261116a"></script>
+<script src="js/core/rbac.js?v=20261116a"></script>
+<script src="js/core/utils.js?v=20261116a"></script>
+<script src="js/core/ui.js?v=20261116a"></script>
+<script src="js/core/loading.js?v=20261116a"></script>
+<script src="js/modules/member.js?v=20261116a"></script>
+<script src="js/api/sheets.js?v=20261116a"></script>
+<script src="js/modules/attendance.js?v=20261116a"></script>
+<script src="js/modules/announcements.js?v=20261116a"></script>
+<script src="js/modules/gallery.js?v=20261116a"></script>
+<script src="js/modules/resources.js?v=20261116a"></script>
+<script src="js/modules/calendar.js?v=20261116a"></script>
+<script src="js/modules/orders.js?v=20261116a"></script>
+<script src="js/modules/forms.js?v=20261116a"></script>
+<script src="js/modules/badges.js?v=20261116a"></script>
+<script src="js/modules/tasks.js?v=20261116a"></script>
+<script src="js/modules/admin.js?v=20261116a"></script>
+<script src="js/modules/forum.js?v=20261116a"></script>
+<script src="js/modules/arcade.js?v=20261116a"></script>
 
 <script>
 
@@ -3574,6 +3613,9 @@ function orderSidebarLinks() {
 
 function syncSidebarAccess() {
   var signedIn = typeof AuthGuard !== 'undefined' && AuthGuard.isUserAuthenticated();
+  var installButton = document.querySelector('[data-install-app]');
+  if (installButton) installButton.hidden = !signedIn || Boolean(window.Capacitor?.isNativePlatform?.());
+  if (!signedIn) document.querySelector('.install-app-dialog[open]')?.close();
   var canUseTasks = signedIn && typeof hasDepartmentRole === 'function' && hasDepartmentRole();
   var focused = document.activeElement;
   document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-nav .sidebar-divider').forEach(function(item) {

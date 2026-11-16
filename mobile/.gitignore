@@ -1,8 +1,11 @@
 /assets/
 /icons/
+.kotlin/
 *.jks
 *.keystore
 *.p12
+*.pfx
+keystore.properties
 *.mobileprovision
 google-services.json
 GoogleService-Info.plist

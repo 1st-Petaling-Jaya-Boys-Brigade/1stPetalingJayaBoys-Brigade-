@@ -6,7 +6,7 @@
  * and company parade schedules with network-first recovery for the shell and data.
  */
 
-const CACHE_VERSION = '20261115h';
+const CACHE_VERSION = '20261116a';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -16,6 +16,8 @@ const PRECACHE_ASSETS = [
   './index.html',
   './manifest.json',
   './assets/logo.png',
+  './assets/portal-icon-192.png',
+  './assets/portal-icon-512.png',
   './css/variables.css',
   './css/base.css',
   './css/nav.css',
@@ -27,6 +29,8 @@ const PRECACHE_ASSETS = [
   './js/core/rbac.js',
   './js/core/utils.js',
   './js/core/ui.js',
+  './js/core/install.js',
+  './assets/vendor/qrcode-generator.js',
   './js/core/loading.js',
   './js/api/supabase.js',
   './js/api/sheets.js',

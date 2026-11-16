@@ -65,6 +65,7 @@ function envInjectionPlugin(mode) {
         VITE_SUPABASE_URL: env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
         VITE_SUPABASE_ANON_KEY: env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         VITE_TURNSTILE_SITE_KEY: env.VITE_TURNSTILE_SITE_KEY || process.env.VITE_TURNSTILE_SITE_KEY || '',
+        VITE_ANDROID_APK_URL: env.VITE_ANDROID_APK_URL || process.env.VITE_ANDROID_APK_URL || '',
         VITE_GEMINI_API_KEY: env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '',
       };
       const nonNullEnv = Object.fromEntries(

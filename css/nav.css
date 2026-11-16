@@ -1141,7 +1141,8 @@
   transition: var(--transition-smooth);
 }
 
-.sidebar-admin-btn[hidden] {
+.sidebar-admin-btn[hidden],
+[data-install-app][hidden] {
   display: none !important;
 }
 
