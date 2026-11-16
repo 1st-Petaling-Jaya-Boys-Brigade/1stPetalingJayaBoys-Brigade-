@@ -1661,6 +1661,105 @@ async function renderTasksBoard(deptOrProject) {
 }
 
 /**
+ * Live re-renders the current Projects & Tasks view in real-time (Google Docs style)
+ * @param {string} [affectedTaskId]
+ */
+function refreshCurrentTasksView(affectedTaskId) {
+  if (typeof document === 'undefined') return;
+  var pTasks = document.getElementById('page-tasks');
+  if (!pTasks) return;
+
+  var isTasksActive = pTasks.classList.contains('active') || (pTasks.style && pTasks.style.display !== 'none');
+  if (isTasksActive) {
+    if (_tasksViewMode === 'mytasks') {
+      if (typeof renderMyTasksView === 'function') renderMyTasksView();
+    } else if (_tasksViewMode === 'board') {
+      if (_activeProject) {
+        if (_projectDisplayMode === 'list' && typeof renderTasksListView === 'function') {
+          renderTasksListView(_activeProject);
+        } else if (typeof renderColumnsFromTasks === 'function') {
+          renderColumnsFromTasks(_allLoadedTasks);
+        }
+      } else if (typeof renderColumnsFromTasks === 'function') {
+        renderColumnsFromTasks(_allLoadedTasks);
+      }
+    } else if (_tasksViewMode === 'projects') {
+      if (_activeProject) {
+        if (_projectDisplayMode === 'list' && typeof renderTasksListView === 'function') {
+          renderTasksListView(_activeProject);
+        } else if (typeof renderColumnsFromTasks === 'function') {
+          renderColumnsFromTasks(_allLoadedTasks);
+        }
+      } else {
+        var prContainer = document.querySelector('.projects-container');
+        if (prContainer && typeof paintProjectsList === 'function') paintProjectsList(prContainer);
+      }
+    }
+  }
+
+  // Update open task detail modal in-place if viewing the affected task
+  var activeModalId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+  if (activeModalId && (!affectedTaskId || String(activeModalId) === String(affectedTaskId))) {
+    var curT = (typeof window !== 'undefined' && window._taskMap && window._taskMap[activeModalId]) || _taskMap[activeModalId];
+    if (!curT) curT = _allLoadedTasks.find(function(t) { return String(t.id) === String(activeModalId); });
+    if (curT) {
+      var modalTitle = document.getElementById('tdm-title');
+      if (modalTitle && document.activeElement !== modalTitle && curT.title) {
+        modalTitle.textContent = curT.title;
+      }
+      var modalDesc = document.getElementById('tdm-desc');
+      if (modalDesc && document.activeElement !== modalDesc) {
+        var cleanDesc = (curT.description || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
+        modalDesc.innerHTML = formatTaskDescriptionMentions(cleanDesc);
+      }
+      if (curT.status) {
+        var normStatus = normalizeTaskStatus(curT.status);
+        var sConf = STATUS_CONFIG[normStatus] || { label: normStatus, color: '#3b82f6' };
+        var statusDot = document.querySelector('.tdm-status-dot');
+        if (statusDot) statusDot.style.background = sConf.color;
+        var statusText = document.querySelector('.tdm-status-text');
+        if (statusText) statusText.textContent = sConf.label;
+      }
+      if (curT.priority) {
+        var priorityVal = (curT.priority || 'medium').toLowerCase();
+        var pLabel = priorityVal === 'high' ? 'High' : (priorityVal === 'low' ? 'Low' : 'Medium');
+        var pCls = priorityVal === 'high' ? 'priority-high' : (priorityVal === 'low' ? 'priority-low' : 'priority-medium');
+        var pIconEl = document.querySelector('.tdm-priority-icon');
+        if (pIconEl) {
+          pIconEl.innerHTML = getPriorityIconSvg(priorityVal, 14);
+          pIconEl.className = 'tdm-priority-icon ' + pCls;
+        }
+        var pTextEl = document.querySelector('.tdm-priority-text');
+        if (pTextEl) {
+          pTextEl.textContent = pLabel;
+          pTextEl.className = 'tdm-priority-text ' + pCls;
+        }
+        var pBtn = document.querySelector('.tdm-priority-btn');
+        if (pBtn) {
+          pBtn.className = 'task-prop-pill-btn tdm-priority-btn ' + pCls;
+        }
+      }
+      if (curT.due_date !== undefined) {
+        var dueStr = formatTaskDueDateStr(curT.due_date);
+        var dueEl = document.getElementById('tdm-due');
+        if (dueEl) dueEl.textContent = dueStr;
+        var dueInput = document.querySelector('.tdm-due-input');
+        if (dueInput) {
+          dueInput.value = (curT.due_date && typeof curT.due_date === 'string') ? curT.due_date.split('T')[0] : '';
+        }
+      }
+      var estValEl = document.querySelector('.tdm-estimate-val');
+      if (estValEl && curT.estimate !== undefined) {
+        estValEl.textContent = curT.estimate || 'Estimate';
+      }
+    } else if (_deletedTaskIds[String(activeModalId)] || (_allLoadedTasks && _allLoadedTasks.length > 0)) {
+      if (typeof closeTaskDetail === 'function') closeTaskDetail();
+      if (typeof showToast === 'function') showToast('This task is no longer available.', 'info');
+    }
+  }
+}
+
+/**
  * Fetches all tasks from Supabase and synchronizes in-memory collection
  * @param {boolean} [andRerender]
  */
@@ -1685,29 +1784,7 @@ async function fetchAllRemoteTasks(andRerender) {
       try { if (typeof localStorage !== 'undefined') localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
 
       if (andRerender && typeof document !== 'undefined') {
-        var pTasks = document.getElementById('page-tasks');
-        if (pTasks && pTasks.style.display !== 'none') {
-          if (_tasksViewMode === 'projects') {
-            if (_activeProject) {
-              if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-              else renderColumnsFromTasks(_allLoadedTasks);
-            } else {
-              var prContainer = document.querySelector('.projects-container');
-              if (prContainer) paintProjectsList(prContainer);
-            }
-          } else if (_tasksViewMode === 'mytasks') {
-            renderMyTasksView();
-          } else {
-            renderColumnsFromTasks(_allLoadedTasks);
-          }
-        }
-        if (_activeDetailTaskId && _taskMap[_activeDetailTaskId]) {
-          var curActiveT = _taskMap[_activeDetailTaskId];
-          var titleEl = document.getElementById('tdm-title');
-          if (titleEl && document.activeElement !== titleEl && curActiveT.title) {
-            titleEl.textContent = curActiveT.title;
-          }
-        }
+        refreshCurrentTasksView();
       }
       if (typeof syncTaskNotifications === 'function') {
         syncTaskNotifications(_allLoadedTasks);
@@ -3738,12 +3815,17 @@ async function saveTaskField(id, field, value) {
   if (client) {
     var patch = {};
     patch[field] = value;
-    patch.updated_at = new Date().toISOString();
     try {
       await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), patch);
-      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
+      }
+      if (typeof showToast === 'function') {
+        showToast('Task updated', 'info', 1000);
+      }
     } catch (err) {
       console.warn('Background patch error for field ' + field + ':', err);
+      var errHandled = false;
       if (field === 'estimate' || field === 'project_name') {
         var pName = getTaskProjectName(t);
         var est = t.estimate || '';
@@ -3754,11 +3836,20 @@ async function saveTaskField(id, field, value) {
         var updatedDesc = rawDesc + (extra.length ? '\n\n[' + extra.join(' | ') + ']' : '');
         try {
           await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { description: updatedDesc });
+          errHandled = true;
+          if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+            window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: 'description', value: updatedDesc });
+          }
+          if (typeof showToast === 'function') {
+            showToast('Task updated', 'info', 1000);
+          }
         } catch (_) {}
       }
+      if (!errHandled && typeof showToast === 'function') {
+        showToast('Failed to save task update.', 'error');
+      }
     }
-  }
-  if (typeof showToast === 'function') {
+  } else if (typeof showToast === 'function') {
     showToast('Task updated', 'info', 1000);
   }
 }
@@ -4163,6 +4254,9 @@ async function deleteActiveTask() {
   if (client && !String(taskId).startsWith('temp_')) {
     try {
       await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskId));
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('tasks', 'delete', { id: taskId });
+      }
     } catch (err) {
       _isDeletingTask = false;
       console.error('Failed to delete task from Supabase:', err);
@@ -4216,7 +4310,7 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   if (_taskMap[id]) _taskMap[id].status = status;
   try {
     paint();
-    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status, updated_at: new Date().toISOString() });
+    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
   } catch (e) {
     task.status = oldStatus;
     if (cachedTask) cachedTask.status = oldStatus;
@@ -4931,7 +5025,10 @@ async function updateTaskStatus(id, status) {
   var client = getSupaClient();
   if (!client) return;
   try {
-    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status, updated_at: new Date().toISOString() });
+    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
+    }
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'task.status_update',
@@ -5153,11 +5250,13 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
   window.getAssigneeAvatarHtml      = getAssigneeAvatarHtml;
   window.fetchAllRemoteTasks        = fetchAllRemoteTasks;
+  window.refreshCurrentTasksView    = refreshCurrentTasksView;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     fetchAllRemoteTasks,
+    refreshCurrentTasksView,
     getAssigneeAvatarHtml,
     DEPT_CONFIG,
     _activeTasksSection,

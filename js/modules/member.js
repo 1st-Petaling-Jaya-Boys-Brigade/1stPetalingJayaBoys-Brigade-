@@ -4596,7 +4596,7 @@ async function loadMemberOrders() {
 
   try {
     var client = getSupa();
-    var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');
+    var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc', { cache: false });
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!orders) orders = [];
 

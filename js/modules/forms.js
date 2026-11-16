@@ -1442,6 +1442,15 @@ async function submitBuiltinForm(form) {
     if (typeof showToast === 'function')
       showToast('Form submitted successfully!', 'success');
 
+    if (typeof loadMemberOrders === 'function') {
+      try { loadMemberOrders(); } catch (_) {}
+    } else if (typeof window !== 'undefined' && typeof window.loadMemberOrders === 'function') {
+      try { window.loadMemberOrders(); } catch (_) {}
+    }
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      try { window.PortalRealtime.broadcast('orders', 'insert', payload); } catch (_) {}
+    }
+
     setTimeout(function () {
       backToFormsHub();
     }, 1800);

@@ -1191,7 +1191,8 @@ var PortalRealtime = (function() {
                 { event: '*', schema: 'public', table: 'bb_config' },
                 { event: '*', schema: 'public', table: 'bb_tasks' },
                 { event: '*', schema: 'public', table: 'bb_announcements' },
-                { event: '*', schema: 'public', table: 'bb_members' }
+                { event: '*', schema: 'public', table: 'bb_members' },
+                { event: '*', schema: 'public', table: 'bb_orders' }
               ]
             }
           },
@@ -1297,6 +1298,8 @@ var PortalRealtime = (function() {
               triggerEntityUpdate('announcements', evType || 'update', record);
             } else if (table === 'bb_members') {
               triggerEntityUpdate('members', evType || 'update', record);
+            } else if (table === 'bb_orders') {
+              triggerEntityUpdate('orders', evType || 'update', record);
             }
           }
         } catch (_) {}
@@ -1370,20 +1373,14 @@ var PortalRealtime = (function() {
 
       var curUserKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
       if (curUserKey) {
-        var cleanU = String(curUserKey).toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
-        var prefRows = await client.get('bb_config?key=in.(bb_pref_theme_' + cleanU + ',bb_pref_particles_' + cleanU + ')&select=key,value,updated_at', { cache: false });
-        if (Array.isArray(prefRows)) {
-          prefRows.forEach(function(pr) {
-            var pts = pr.updated_at || '';
-            if (_lastEntityTimestamps[pr.key] && _lastEntityTimestamps[pr.key] !== pts) {
-              if (pr.key === 'bb_pref_theme_' + cleanU && pr.value && typeof window !== 'undefined' && typeof window.themeApply === 'function') {
-                window.themeApply(pr.value, false);
-              } else if (pr.key === 'bb_pref_particles_' + cleanU && typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {
-                window.toggleAmbientParticles(pr.value === 'true');
-              }
-            }
-            _lastEntityTimestamps[pr.key] = pts;
-          });
+        var cleanU = String(curUserKey).trim();
+        var orderRows = await client.get('bb_orders?select=id,status,created_at&or=(ic.eq.' + encodeURIComponent(cleanU) + ',email.ilike.' + encodeURIComponent(cleanU) + ')&order=created_at.desc&limit=5', { cache: false });
+        if (Array.isArray(orderRows) && orderRows.length) {
+          var ordKey = orderRows.map(function(o) { return o.id + ':' + (o.status || ''); }).join('|');
+          if (_lastEntityTimestamps['bb_orders_latest'] && _lastEntityTimestamps['bb_orders_latest'] !== ordKey) {
+            triggerEntityUpdate('orders', 'update');
+          }
+          _lastEntityTimestamps['bb_orders_latest'] = ordKey;
         }
       }
 
@@ -1409,13 +1406,13 @@ var PortalRealtime = (function() {
         _lastEntityTimestamps['bb_announcements_latest'] = annKey;
       }
 
-      var taskRows = await client.get('bb_tasks?select=id,updated_at&order=updated_at.desc&limit=1', { cache: false });
-      if (Array.isArray(taskRows) && taskRows.length) {
-        var tId = taskRows[0].id + ':' + (taskRows[0].updated_at || '');
-        if (_lastEntityTimestamps['bb_tasks_latest'] && _lastEntityTimestamps['bb_tasks_latest'] !== tId) {
+      var taskRows = await client.get('bb_tasks?select=id,status,title&order=id.asc', { cache: false });
+      if (Array.isArray(taskRows)) {
+        var taskFp = taskRows.map(function(t) { return t.id + ':' + (t.status || ''); }).join('|');
+        if (_lastEntityTimestamps['bb_tasks_fingerprint'] && _lastEntityTimestamps['bb_tasks_fingerprint'] !== taskFp) {
           triggerEntityUpdate('tasks', 'update');
         }
-        _lastEntityTimestamps['bb_tasks_latest'] = tId;
+        _lastEntityTimestamps['bb_tasks_fingerprint'] = taskFp;
       }
 
       var memberRows = await client.get('bb_members?select=ic,updated_at&order=updated_at.desc&limit=1', { cache: false });
@@ -1430,12 +1427,27 @@ var PortalRealtime = (function() {
       var activeTid = (typeof window !== 'undefined' && window._activeDetailTaskId)
         ? window._activeDetailTaskId
         : ((typeof global !== 'undefined' && global._activeDetailTaskId) ? global._activeDetailTaskId : null);
-      if (activeTid && typeof window !== 'undefined' && typeof window.fetchRemoteTaskComments === 'function') {
-        window.fetchRemoteTaskComments(activeTid).then(function() {
-          if (typeof window.renderTaskComments === 'function') {
-            window.renderTaskComments(activeTid);
+      if (activeTid) {
+        if (typeof window !== 'undefined' && typeof window.fetchRemoteTaskComments === 'function') {
+          window.fetchRemoteTaskComments(activeTid).then(function() {
+            if (typeof window.renderTaskComments === 'function') {
+              window.renderTaskComments(activeTid);
+            }
+          }).catch(function() {});
+        }
+        var activeTaskRow = await client.get('bb_tasks?id=eq.' + encodeURIComponent(activeTid) + '&select=id,title,description,status,priority,due_date,estimate', { cache: false });
+        if (Array.isArray(activeTaskRow)) {
+          if (activeTaskRow.length === 0) {
+            triggerEntityUpdate('tasks', 'delete', { id: activeTid });
+          } else {
+            var at = activeTaskRow[0];
+            var atKey = [at.id, at.title, at.status, at.priority, at.due_date, at.estimate, (at.description || '').length].join(':');
+            if (_lastEntityTimestamps['bb_task_active_' + activeTid] && _lastEntityTimestamps['bb_task_active_' + activeTid] !== atKey) {
+              triggerEntityUpdate('tasks', 'update', at);
+            }
+            _lastEntityTimestamps['bb_task_active_' + activeTid] = atKey;
           }
-        }).catch(function() {});
+        }
       }
       _deltaSyncBackoff = 5000;
     } catch (_) {
@@ -1510,6 +1522,22 @@ var PortalRealtime = (function() {
   function triggerEntityUpdate(entity, action, data, fromBroadcast) {
     if (!fromBroadcast) {
       broadcastLocalChange(entity, action, data);
+    }
+
+    if (entity === 'orders' || entity === 'forms') {
+      var loadOrdersFn = (typeof window !== 'undefined' && typeof window.loadMemberOrders === 'function')
+        ? window.loadMemberOrders
+        : null;
+      if (loadOrdersFn) {
+        try { loadOrdersFn(); } catch (_) {}
+      }
+      var loadAdminOrdersFn = (typeof window !== 'undefined' && typeof window.loadAdminOrders === 'function')
+        ? window.loadAdminOrders
+        : null;
+      if (loadAdminOrdersFn) {
+        try { loadAdminOrdersFn(); } catch (_) {}
+      }
+      return;
     }
 
     if (entity === 'blocklist') {
@@ -1635,6 +1663,34 @@ var PortalRealtime = (function() {
           if (typeof window.renderTaskComments === 'function') window.renderTaskComments(tid);
         }
 
+        // Immediate 0ms local update for task cards/columns (instant Google Docs-style sync)
+        if (entity === 'tasks' && data && data.id) {
+          var tIdStr = String(data.id);
+          var allTasks = window._allLoadedTasks || [];
+          var existingT = allTasks.find(function(t) { return String(t.id) === tIdStr; });
+          if (action === 'delete') {
+            if (window._allLoadedTasks) {
+              window._allLoadedTasks = window._allLoadedTasks.filter(function(t) { return String(t.id) !== tIdStr; });
+            }
+            if (window._taskMap) delete window._taskMap[tIdStr];
+          } else if (action === 'create' && data.title) {
+            if (!existingT && window._allLoadedTasks) {
+              window._allLoadedTasks.push(data);
+            }
+            if (window._taskMap) window._taskMap[tIdStr] = data;
+          } else if (existingT) {
+            if (data.status) existingT.status = data.status;
+            if (data.field && data.value !== undefined) existingT[data.field] = data.value;
+            if (window._taskMap && window._taskMap[tIdStr]) {
+              if (data.status) window._taskMap[tIdStr].status = data.status;
+              if (data.field && data.value !== undefined) window._taskMap[tIdStr][data.field] = data.value;
+            }
+          }
+          if (typeof window.refreshCurrentTasksView === 'function') {
+            try { window.refreshCurrentTasksView(tIdStr); } catch (_) {}
+          }
+        }
+
         var fetchTasksP = (typeof window.fetchAllRemoteTasks === 'function')
           ? window.fetchAllRemoteTasks(true)
           : Promise.resolve();
@@ -1647,6 +1703,9 @@ var PortalRealtime = (function() {
           if (typeof window.syncTaskNotifications === 'function') window.syncTaskNotifications(tList);
           if (typeof window.renderNotifications === 'function') window.renderNotifications();
           if (tid && typeof window.renderTaskComments === 'function') window.renderTaskComments(tid);
+          if (typeof window.refreshCurrentTasksView === 'function') {
+            try { window.refreshCurrentTasksView(tid); } catch (_) {}
+          }
         }).catch(function() {});
       }
     } else if (entity === 'announcements') {

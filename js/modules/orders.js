@@ -1535,11 +1535,6 @@ function goToOrderReview() {
   if (typeof window !== 'undefined' && window.scrollTo) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  if (typeof renderTurnstileWidget === 'function') {
-    setTimeout(function () {
-      renderTurnstileWidget('.cf-turnstile-container[data-action="order"]', 'order');
-    }, 50);
-  }
 }
 
 /**
@@ -1807,7 +1802,6 @@ async function submitOrder() {
   var btn = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
   var lockButton = typeof withSmartButtonLock === 'function' ? withSmartButtonLock : require('../core/loading.js').withSmartButtonLock;
   _isSubmittingOrder = true;
-  var captchaToken = '';
   try {
     return await lockButton(btn, async function() {
       var client = getSupa();
@@ -1828,16 +1822,6 @@ async function submitOrder() {
         }
       }
 
-      captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('order') : '';
-      if (!captchaToken || String(captchaToken).includes('_FALLBACK_') || typeof verifyTurnstileTokenServerSide !== 'function') {
-        if (typeof showToast === 'function') showToast('Please complete the security check before confirming your order.', 'warning');
-        return null;
-      }
-      var captcha = await verifyTurnstileTokenServerSide(captchaToken, 'order');
-      if (!captcha || captcha.success !== true || (captcha.action && captcha.action !== 'order')) {
-        if (typeof showToast === 'function') showToast('Security verification failed. Please try again.', 'error');
-        return null;
-      }
       if ((sessionGet('ic') || sessionGet('email')) !== memberId) return null;
       if (!isUniformOrdersAcceptingResponses().open) {
         if (typeof showToast === 'function') showToast('Uniform ordering has closed. Your cart is still available.', 'warning');
@@ -1905,6 +1889,9 @@ async function submitOrder() {
         updateTotal();
       }
       if (typeof loadMemberOrders === 'function') loadMemberOrders();
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('orders', 'insert', orderRecord);
+      }
       return orderRecord.order_number;
     }, { loadingText: 'Submitting...', srLabel: 'Submitting uniform order...' });
   } catch (_) {
@@ -1914,7 +1901,6 @@ async function submitOrder() {
     return null;
   } finally {
     _isSubmittingOrder = false;
-    if (captchaToken && typeof resetTurnstileWidget === 'function') resetTurnstileWidget('order');
   }
 }
 
@@ -2012,7 +1998,6 @@ function renderUniformOrderInline() {
     '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> Payment Instructions</div>' +
     '<div id="payment-info-text" style="font-size:13px;color:var(--text-secondary);line-height:1.75;white-space:pre-wrap;"></div>' +
     '</div>' +
-    '<div class="cf-turnstile-container" data-action="order" style="margin-bottom:14px;min-height:65px;display:flex;justify-content:center;"></div>' +
     '<div style="display:flex;gap:10px;"><button class="submit-btn danger btn-with-icon" style="flex:1;margin-top:0;justify-content:center;" onclick="goBackOrder()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit</button><button class="submit-btn btn-with-icon" style="flex:2;margin-top:0;justify-content:center;" onclick="submitOrder()" id="confirm-btn"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirm &amp; Submit</button></div>' +
     '</div></div>' +
     '<div class="success-box" id="order-success" style="display:none;"><div class="s-icon"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="s-title">Order Submitted!</div><div class="s-msg">Order <strong id="s-ordernum" style="color:var(--accent);"></strong> received! The officer will contact you when ready.</div></div>';
