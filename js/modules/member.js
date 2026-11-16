@@ -2128,6 +2128,9 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   renderDashboard();
 
   if (typeof checkTasksAccess === 'function') checkTasksAccess();
+  if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
+    window.syncSidebarAccess();
+  }
   if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
 
   if (typeof loadMemberCosmetics === 'function') {

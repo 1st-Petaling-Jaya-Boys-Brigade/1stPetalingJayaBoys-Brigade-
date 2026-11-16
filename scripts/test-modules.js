@@ -2774,10 +2774,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Staff Sergeant' }), false, 'Staff Sergeant NCO without dept must not have access');
 
   // Officers without explicit department assignment MUST NOT have access (revoked officer oversight)
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Officer' }), true, 'Officer profiles can access Tasks without a separate assignment');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Captain' }), true, 'Officer profiles can access Tasks without a separate assignment');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), true, 'Officer profiles can access Tasks without a separate assignment');
-  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Chaplain' }), true, 'Officer profiles can access Tasks without a separate assignment');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Officer' }), false, 'Officer profiles without department must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Captain' }), false, 'Captain profiles without department must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), false, 'Lieutenant profiles without department must not have access');
+  assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Chaplain' }), false, 'Chaplain profiles without department must not have access');
 
   // Gating visibility verification
   let boardPillEl = document.querySelector('.tasks-nav-pill[data-task-view="board"]');
@@ -8637,9 +8637,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Avatar creator bleed resolved: each member correctly renders their own initial and palette color');
 
     // 2. Officer Tasks Access Revocation & Officer Oversight Board Removal
-    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Officer' }), true, 'Officer profiles can access Tasks without a separate assignment');
-    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Captain' }), true, 'Officer profiles can access Tasks without a separate assignment');
-    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Instructor' }), true, 'Officer profiles can access Tasks without a separate assignment');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Officer' }), false, 'Officer profiles without department must not have access');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Captain' }), false, 'Captain profiles without department must not have access');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: null, rank: 'Instructor' }), false, 'Instructor profiles without department must not have access');
     assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'Media', rank: 'Officer' }), true, 'Officer assigned to Media department can access Tasks');
     assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'Logistics', rank: 'Corporal' }), true, 'Corporal assigned to Logistics can access Tasks');
     console.log('  ✔ Officer automatic task oversight revoked; task access strictly requires explicit department assignment');
@@ -10934,7 +10934,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'officers', rank: 'Captain' }), true, 'Department officers (lowercase) must have access');
     assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'officer', rank: 'Lieutenant' }), true, 'Department officer (singular) must have access');
     assert.strictEqual(tasksMod.hasDepartmentRole({ department: 'Media', rank: 'Corporal' }), true, 'Department Media must have access');
-    assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), true, 'Officer profiles can access Tasks without a separate assignment');
+    assert.strictEqual(tasksMod.hasDepartmentRole({ department: '', rank: 'Lieutenant' }), false, 'Officer profiles without department must not have access');
     console.log('  ✔ Projects & Tasks department role gating correctly admits Officers department and requires explicit assignment');
 
     // 2. Real-time Member Profile Updates & Sidebar Badge Formatting

@@ -3616,6 +3616,9 @@
         if (typeof checkTasksAccess === 'function') {
           try { checkTasksAccess(); } catch (_) {}
         }
+        if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
+          try { window.syncSidebarAccess(); } catch (_) {}
+        }
       }
 
       // 6. Broadcast member update to all clients & devices in real time

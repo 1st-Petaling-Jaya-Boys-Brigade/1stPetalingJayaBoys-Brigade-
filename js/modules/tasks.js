@@ -342,18 +342,20 @@ function switchTaskTab(tab, btn) {
 /**
  * Checks whether a member or rank has permission to view the Projects & Tasks tab.
  * Gating rule: Members and even NCOs cannot see or access Projects & Tasks unless
- * explicitly assigned a department role by an admin, OR they are an officer.
+ * Checks whether a member has an assigned department role.
+ * A member has department role access ONLY if they have been
+ * explicitly assigned to a department by an admin.
  *
  * @param {Object|string} [memberOrDept] Member object or department string
- * @param {string} [rank] Optional rank string
+ * @param {string} [_rank] Optional rank string
  * @returns {boolean}
  */
-function hasDepartmentRole(memberOrDept, rank) {
+function hasDepartmentRole(memberOrDept, _rank) {
   var explicit = typeof memberOrDept === 'string' || (memberOrDept && typeof memberOrDept === 'object');
   var profile = typeof memberOrDept === 'string' ? { department: memberOrDept } : memberOrDept;
   if (!explicit) profile = currentTaskUser();
-  return Boolean(profile && (taskDepartmentKey(profile.department) || isTaskOfficer(profile, rank) ||
-    (!explicit && hasTaskBoardAdminAccess())));
+  if (!profile) return false;
+  return Boolean(taskDepartmentKey(profile.department));
 }
 
 function taskDepartmentKey(value) {
@@ -523,6 +525,9 @@ async function checkTasksAccess() {
   if (gate) gate.style.display = fastAllowed ? 'none' : 'block';
   if (board) board.style.display = fastAllowed ? 'block' : 'none';
   if (fastAllowed) setTasksViewMode(_tasksViewMode || 'projects');
+  if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
+    window.syncSidebarAccess();
+  }
 
   var client = getSupaClient();
   if (!client) {
@@ -558,13 +563,20 @@ async function checkTasksAccess() {
         }
       }
       if (board) board.style.display = 'none';
+      var pTasks = document.getElementById('page-tasks');
+      if (pTasks && pTasks.classList.contains('active') && typeof switchTabNav === 'function') {
+        switchTabNav('home');
+      }
+      if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
+        window.syncSidebarAccess();
+      }
       return;
     }
 
-    // Member has department role or officer rank: reveal Projects & Tasks
+    // Member has department role: reveal Projects & Tasks
     if (boardPill) boardPill.style.display = 'inline-flex';
 
-    var cleanDeptKey = taskDepartmentKey(dept) || 'officers';
+    var cleanDeptKey = taskDepartmentKey(dept);
 
     if (!cleanDeptKey || !DEPT_CONFIG[cleanDeptKey]) {
       if (boardPill) boardPill.style.display = 'none';
