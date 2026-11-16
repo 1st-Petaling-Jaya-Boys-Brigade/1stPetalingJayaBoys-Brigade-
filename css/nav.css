@@ -1349,9 +1349,10 @@
 
   .sidebar-nav {
     flex: 1 1 auto !important;
-    overflow: hidden !important;
-    overflow-y: hidden !important;
-    overscroll-behavior: none !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
     scrollbar-width: none !important;
     padding: 4px 6px 4px !important;
     display: flex !important;
@@ -1362,65 +1363,91 @@
   .sidebar-item {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
-    padding: 7px 10px !important;
-    min-height: 38px !important;
+    gap: 9px !important;
+    padding: 5px 8px !important;
+    min-height: 32px !important;
     border-radius: var(--radius-md) !important;
     margin-bottom: 2px !important;
   }
 
   .sidebar-item .si-icon {
-    width: 30px !important;
-    height: 30px !important;
+    width: 26px !important;
+    height: 26px !important;
     border-radius: var(--radius-sm) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
   }
 
   .sidebar-item .si-icon svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 14px !important;
+    height: 14px !important;
   }
 
   .sidebar-item .si-label {
     font-family: var(--font-body) !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     font-weight: 600 !important;
-    letter-spacing: 0.3px !important;
+    letter-spacing: 0.2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .sidebar-divider {
+    margin: 4px 6px !important;
   }
 
   .sidebar-footer {
-    padding: 8px 6px 10px !important;
+    padding: 6px 6px 8px !important;
     border-top: 1px solid var(--border-subtle) !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 5px !important;
+    gap: 3px !important;
     flex-shrink: 0 !important;
+    margin-top: auto !important;
   }
 
   .sidebar-user-card {
-    padding: 7px 10px !important;
-    min-height: 44px !important;
-    gap: 10px !important;
+    padding: 5px 8px !important;
+    min-height: 38px !important;
+    gap: 8px !important;
     margin-bottom: 2px !important;
   }
 
   .sidebar-user-card .suc-avatar {
-    width: 32px !important;
-    height: 32px !important;
+    width: 28px !important;
+    height: 28px !important;
   }
 
   .sidebar-user-card .suc-name {
-    font-size: 13px !important;
+    font-size: 12px !important;
     line-height: 1.2 !important;
   }
 
   .sidebar-user-card .suc-badge {
-    font-size: 10px !important;
+    font-size: 9.5px !important;
   }
 
   .sidebar-theme-toggle {
-    padding: 6px 10px !important;
-    min-height: 34px !important;
+    padding: 5px 8px !important;
+    min-height: 30px !important;
     margin-bottom: 2px !important;
+  }
+
+  .sidebar-footer-action {
+    padding: 5px 8px !important;
+    min-height: 30px !important;
+    gap: 8px !important;
+    font-size: 12px !important;
+    margin-bottom: 1px !important;
+  }
+
+  .sidebar-footer-icon {
+    width: 15px !important;
+    height: 15px !important;
+    flex-shrink: 0 !important;
   }
 
   .app-main {
@@ -1438,36 +1465,41 @@
   /* Collapsed (Unextended) Desktop Sidebar Mode (Image 2 style) */
   body.sidebar-collapsed .sidebar-overlay,
   body.sidebar-collapsed .sidebar-panel {
-    width: 68px !important;
-  }
-
-  body.sidebar-collapsed .sidebar-panel {
-    padding: 10px 6px 14px !important;
+    padding: 8px 6px 10px !important;
   }
 
   body.sidebar-collapsed .sidebar-nav {
-    padding: 4px 0 !important;
+    padding: 2px 0 !important;
     align-items: center !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    scrollbar-width: none !important;
   }
 
   body.sidebar-collapsed .sidebar-item {
-    width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
     padding: 0 !important;
     justify-content: center !important;
-    margin: 0 auto 4px !important;
+    margin: 0 auto 3px !important;
     border-radius: var(--radius-md) !important;
     gap: 0 !important;
   }
 
   body.sidebar-collapsed .sidebar-item .si-icon {
-    width: 32px !important;
-    height: 32px !important;
+    width: 30px !important;
+    height: 30px !important;
     margin: 0 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+  }
+
+  body.sidebar-collapsed .sidebar-item .si-icon svg {
+    width: 15px !important;
+    height: 15px !important;
   }
 
   body.sidebar-collapsed .sidebar-item .si-label {
@@ -1475,22 +1507,25 @@
   }
 
   body.sidebar-collapsed .sidebar-divider {
-    width: 32px !important;
-    margin: 8px auto !important;
+    width: 28px !important;
+    margin: 4px auto !important;
   }
 
   body.sidebar-collapsed .sidebar-footer {
-    padding: 8px 0 10px !important;
+    padding: 6px 0 8px !important;
     align-items: center !important;
+    gap: 3px !important;
+    flex-shrink: 0 !important;
+    margin-top: auto !important;
   }
 
   body.sidebar-collapsed .sidebar-user-card {
-    width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
     padding: 0 !important;
     justify-content: center !important;
-    margin: 0 auto 4px !important;
+    margin: 0 auto 3px !important;
     gap: 0 !important;
   }
 
@@ -1500,18 +1535,18 @@
   }
 
   body.sidebar-collapsed .sidebar-user-card .suc-avatar {
-    width: 32px !important;
-    height: 32px !important;
+    width: 28px !important;
+    height: 28px !important;
     margin: 0 !important;
   }
 
   body.sidebar-collapsed .sidebar-footer-action {
-    width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
     padding: 0 !important;
     justify-content: center !important;
-    margin: 0 auto 4px !important;
+    margin: 0 auto 3px !important;
     gap: 0 !important;
   }
 
@@ -1522,6 +1557,88 @@
 
   body.sidebar-collapsed .sidebar-footer-icon {
     margin: 0 !important;
+  }
+
+  @media (max-height: 820px) {
+    .sidebar-item {
+      min-height: 28px !important;
+      padding: 3px 6px !important;
+      gap: 7px !important;
+      margin-bottom: 1px !important;
+    }
+    .sidebar-item .si-icon {
+      width: 24px !important;
+      height: 24px !important;
+    }
+    .sidebar-item .si-icon svg {
+      width: 13px !important;
+      height: 13px !important;
+    }
+    .sidebar-item .si-label {
+      font-size: 12px !important;
+    }
+    .sidebar-divider {
+      margin: 3px 6px !important;
+    }
+    .sidebar-footer {
+      padding: 4px 6px 6px !important;
+      gap: 2px !important;
+    }
+    .sidebar-user-card {
+      min-height: 32px !important;
+      padding: 3px 6px !important;
+      margin-bottom: 1px !important;
+    }
+    .sidebar-user-card .suc-avatar {
+      width: 24px !important;
+      height: 24px !important;
+    }
+    .sidebar-user-card .suc-name {
+      font-size: 11px !important;
+    }
+    .sidebar-user-card .suc-badge {
+      font-size: 9px !important;
+    }
+    .sidebar-footer-action {
+      min-height: 26px !important;
+      padding: 3px 6px !important;
+      font-size: 11.5px !important;
+      margin-bottom: 1px !important;
+    }
+    .sidebar-footer-icon {
+      width: 13px !important;
+      height: 13px !important;
+    }
+
+    body.sidebar-collapsed .sidebar-item {
+      width: 32px !important;
+      height: 32px !important;
+      min-height: 32px !important;
+      margin: 0 auto 2px !important;
+    }
+    body.sidebar-collapsed .sidebar-item .si-icon {
+      width: 24px !important;
+      height: 24px !important;
+    }
+    body.sidebar-collapsed .sidebar-item .si-icon svg {
+      width: 13px !important;
+      height: 13px !important;
+    }
+    body.sidebar-collapsed .sidebar-user-card,
+    body.sidebar-collapsed .sidebar-footer-action {
+      width: 32px !important;
+      height: 32px !important;
+      min-height: 32px !important;
+      margin: 0 auto 2px !important;
+    }
+    body.sidebar-collapsed .sidebar-user-card .suc-avatar {
+      width: 24px !important;
+      height: 24px !important;
+    }
+    body.sidebar-collapsed .sidebar-footer-icon {
+      width: 14px !important;
+      height: 14px !important;
+    }
   }
 
   body.sidebar-collapsed .app-main {
