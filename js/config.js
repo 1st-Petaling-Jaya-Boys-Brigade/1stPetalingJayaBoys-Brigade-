@@ -5,7 +5,8 @@
 
 if (typeof window !== 'undefined') {
   // Use a stable HTTPS download endpoint with its own access controls.
-  window.ANDROID_APK_URL = window.__ENV__?.VITE_ANDROID_APK_URL || '';
+  window.ANDROID_APK_URL = window.__ENV__?.VITE_ANDROID_APK_URL
+    || 'https://github.com/1st-Petaling-Jaya-Boys-Brigade/1stPetalingJayaBoys-Brigade-/releases/download/v1.0.0/app-release.apk';
 }
 
 var SUPA_URL = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_URL)
