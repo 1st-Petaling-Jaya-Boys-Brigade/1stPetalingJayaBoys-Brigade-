@@ -7,6 +7,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      target_release_tag:
+        description: 'Release Tag to attach the APK to (e.g. v1.0.0)'
+        required: false
+        default: 'v1.0.0'
 
 permissions:
   contents: write
@@ -32,8 +37,11 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verify Android SDK Environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "Using Android SDK at: $ANDROID_HOME"
+          ls -la "$ANDROID_HOME/build-tools"
 
       - name: Install dependencies
         run: |
@@ -62,6 +70,9 @@ jobs:
             echo "PORTAL_RELEASE_PASSWORD=$AUTOGEN_KEY_SECRET" >> $GITHUB_ENV
           fi
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x mobile/android/gradlew
+
       - name: Build Standalone Release APK
         working-directory: mobile/android
         run: ./gradlew assembleRelease
@@ -83,9 +94,10 @@ jobs:
           if-no-files-found: error
 
       - name: Attach APK to GitHub Release
-        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.target_release_tag != '')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.target_release_tag || github.ref_name }}
           files: |
             mobile/android/app/build/outputs/apk/release/app-release.apk
             mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
