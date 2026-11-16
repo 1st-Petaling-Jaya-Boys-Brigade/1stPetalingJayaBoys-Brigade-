@@ -1,0 +1,93 @@
+name: Build and Attach Standalone Android APK
+
+on:
+  release:
+    types: [published, created]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix mobile
+
+      - name: Build portal web assets
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        run: npm run sync:android --prefix mobile
+
+      - name: Configure Android release signing keystore
+        run: |
+          mkdir -p mobile/android/signing
+          if [ -n "${{ secrets.PORTAL_RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.PORTAL_RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > mobile/android/signing/portal-release.p12
+            echo "PORTAL_RELEASE_KEYSTORE=$(pwd)/mobile/android/signing/portal-release.p12" >> $GITHUB_ENV
+            echo "PORTAL_RELEASE_PASSWORD=${{ secrets.PORTAL_RELEASE_PASSWORD }}" >> $GITHUB_ENV
+          else
+            AUTOGEN_KEY_SECRET=$(openssl rand -hex 24)
+            keytool -genkeypair -storetype PKCS12 -keystore mobile/android/signing/portal-release.p12 \
+              -storepass "$AUTOGEN_KEY_SECRET" -alias portal-release -keyalg RSA -keysize 3072 \
+              -validity 10000 -dname "CN=1st PJ BB Portal, O=1st Petaling Jaya Boys Brigade, C=MY"
+            echo "PORTAL_RELEASE_KEYSTORE=$(pwd)/mobile/android/signing/portal-release.p12" >> $GITHUB_ENV
+            echo "PORTAL_RELEASE_PASSWORD=$AUTOGEN_KEY_SECRET" >> $GITHUB_ENV
+          fi
+
+      - name: Build Standalone Release APK
+        working-directory: mobile/android
+        run: ./gradlew assembleRelease
+
+      - name: Verify APK Signature
+        run: |
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Calculate APK SHA-256
+        run: |
+          sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk > mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
+          cat mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Attach APK to GitHub Release
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mobile/android/app/build/outputs/apk/release/app-release.apk
+            mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

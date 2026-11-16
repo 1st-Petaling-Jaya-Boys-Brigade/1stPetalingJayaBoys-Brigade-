@@ -3348,7 +3348,13 @@ function switchTab(tab, btn, skipPush) {
 
   if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email'))) {
     var curSessionUser = sessionGet('email') || sessionGet('ic');
-    var isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    var isNative = typeof window !== 'undefined' && (
+      (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+      Boolean(window.androidBridge) ||
+      (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.navigator && window.navigator.standalone === true)
+    );
     var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
     if ((nativeNeeded || (typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curSessionUser))) && tab !== 'member' && tab !== 'admin') {
       if (typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
@@ -3907,7 +3913,12 @@ window.addEventListener('load', function() {
   deferBackgroundInit(function() {
     loadGallery();
     if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
-    if (typeof loadMemberCosmetics === 'function') loadMemberCosmetics();
+    if (typeof loadMemberCosmetics === 'function') {
+      loadMemberCosmetics().then(function() {
+        if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
+        if (typeof updateNavUserHeader === 'function') updateNavUserHeader();
+      }).catch(function() {});
+    }
     if (typeof loadMemberProfilePictures === 'function') loadMemberProfilePictures();
     if (typeof fetchRemoteArcadeStats === 'function') {
       fetchRemoteArcadeStats();
@@ -3926,7 +3937,13 @@ window.addEventListener('load', function() {
     }
     // Check if member has completed onboarding
     var curUser = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : ic) || ic;
-    var isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    var isNative = typeof window !== 'undefined' && (
+      (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+      Boolean(window.androidBridge) ||
+      (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.navigator && window.navigator.standalone === true)
+    );
     var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
     if (curUser && (nativeNeeded || (typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curUser)))) {
       if (!nativeNeeded && typeof fetchRemoteOnboardingStatus === 'function') {
@@ -4165,9 +4182,18 @@ function getAccountCreationTimestamp() {
 
 var _activeNotifFilter = 'all';
 
-function getDismissedNotifStorageKey() {
+function getCanonicalNotifUserKey() {
   var u = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic') || sessionGet('name') || '') : '';
-  return u ? ('bb_dismissed_notifs_' + encodeURIComponent(u.toLowerCase().trim())) : 'bb_dismissed_notifications';
+  var name = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (typeof isPortalCreator === 'function' && isPortalCreator(name, u)) {
+    return 'jeshuakoh2008@gmail.com';
+  }
+  return u ? u.toLowerCase().trim() : '';
+}
+
+function getDismissedNotifStorageKey() {
+  var u = getCanonicalNotifUserKey();
+  return u ? ('bb_dismissed_notifs_' + encodeURIComponent(u)) : 'bb_dismissed_notifications';
 }
 
 function getDismissedNotifIds() {
@@ -4191,11 +4217,11 @@ function setDismissedNotifId(id) {
       localStorage.setItem('bb_dismissed_notifications', JSON.stringify(ids));
 
       // Asynchronously persist to Supabase bb_config so it syncs across devices & logins
-      var u = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic') || sessionGet('name') || '') : '';
-      if (u) {
+      var uKey = getCanonicalNotifUserKey();
+      if (uKey) {
         var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
         if (client) {
-          var configKey = 'bb_notif_dismissed_' + encodeURIComponent(u.toLowerCase().trim());
+          var configKey = 'bb_notif_dismissed_' + encodeURIComponent(uKey);
           if (typeof client.upsert === 'function') {
             client.upsert('bb_config', { key: configKey, value: JSON.stringify(ids) }, 'key').catch(function() {});
           } else if (typeof client.safeConfigUpdate === 'function') {
@@ -4208,36 +4234,44 @@ function setDismissedNotifId(id) {
 }
 
 async function fetchRemoteDismissedNotifs() {
-  var u = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic') || sessionGet('name') || '') : '';
-  if (!u) return getDismissedNotifIds();
+  var uKey = getCanonicalNotifUserKey();
+  var rawEmail = (typeof sessionGet === 'function') ? sessionGet('email') : '';
+  var rawIc = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var candidates = Array.from(new Set([uKey, rawEmail, rawIc].filter(Boolean).map(function(s) { return String(s).toLowerCase().trim(); })));
+  if (!candidates.length) return getDismissedNotifIds();
 
   var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
   if (!client) return getDismissedNotifIds();
 
   try {
-    var configKey = 'bb_notif_dismissed_' + encodeURIComponent(u.toLowerCase().trim());
+    var keysToFetch = candidates.map(function(c) { return 'bb_notif_dismissed_' + encodeURIComponent(c); });
+    var inClause = keysToFetch.map(function(k) { return encodeURIComponent(k); }).join(',');
     var rows = null;
     if (typeof client.get === 'function') {
-      rows = await client.get('bb_config?key=eq.' + encodeURIComponent(configKey) + '&select=value');
-    } else if (typeof client.getConfig === 'function') {
-      var cfgVal = await client.getConfig(configKey);
-      if (cfgVal) rows = [{ value: cfgVal }];
+      rows = await client.get('bb_config?key=in.(' + inClause + ')&select=value');
     }
 
-    if (rows && rows.length && rows[0].value) {
-      var remoteIds = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
-      if (Array.isArray(remoteIds)) {
-        var localIds = getDismissedNotifIds();
-        var mergedMap = {};
-        localIds.forEach(function(i) { mergedMap[i] = true; });
-        remoteIds.forEach(function(i) { mergedMap[i] = true; });
-        var mergedList = Object.keys(mergedMap);
+    if (Array.isArray(rows) && rows.length) {
+      var localIds = getDismissedNotifIds();
+      var mergedMap = {};
+      localIds.forEach(function(i) { mergedMap[i] = true; });
 
-        var key = getDismissedNotifStorageKey();
-        localStorage.setItem(key, JSON.stringify(mergedList));
-        localStorage.setItem('bb_dismissed_notifications', JSON.stringify(mergedList));
-        renderNotifications();
-      }
+      rows.forEach(function(r) {
+        if (!r || !r.value) return;
+        var parsed = null;
+        try {
+          parsed = (typeof r.value === 'string') ? JSON.parse(r.value) : r.value;
+        } catch (_) {}
+        if (Array.isArray(parsed)) {
+          parsed.forEach(function(i) { mergedMap[i] = true; });
+        }
+      });
+
+      var mergedList = Object.keys(mergedMap);
+      var key = getDismissedNotifStorageKey();
+      localStorage.setItem(key, JSON.stringify(mergedList));
+      localStorage.setItem('bb_dismissed_notifications', JSON.stringify(mergedList));
+      renderNotifications();
     }
   } catch (err) {
     console.warn('fetchRemoteDismissedNotifs error:', err);
@@ -4305,6 +4339,30 @@ function syncTaskNotifications(tasks) {
 
   var dismissed = getDismissedNotifIds();
 
+  function getTaskNotifDateMeta(dateStr) {
+    var ts = dateStr ? new Date(dateStr).getTime() : Date.now();
+    if (isNaN(ts) || ts <= 0) ts = Date.now();
+    var now = Date.now();
+    var diffMs = now - ts;
+    var diffDays = diffMs / (1000 * 60 * 60 * 24);
+    var group = (diffDays < 1) ? 'Today' : (diffDays < 2 ? 'Yesterday' : (diffDays < 7 ? 'This Week' : 'Earlier'));
+    var timeStr = 'Today';
+    if (diffDays < 1) {
+      var diffMins = Math.floor(diffMs / (1000 * 60));
+      var diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+      if (diffMins < 5) timeStr = 'Just now';
+      else if (diffMins < 60) timeStr = diffMins + 'm ago';
+      else timeStr = diffHrs + 'h ago';
+    } else if (diffDays < 2) {
+      timeStr = 'Yesterday';
+    } else if (dateStr && String(dateStr).indexOf('T') !== -1) {
+      timeStr = String(dateStr).split('T')[0];
+    } else {
+      timeStr = (diffDays < 7) ? Math.floor(diffDays) + 'd ago' : 'Earlier';
+    }
+    return { timestamp: ts, group: group, time: timeStr, isStale: diffDays > 14 };
+  }
+
   var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
   taskList.forEach(function(t) {
     if (!t || !t.id) return;
@@ -4319,26 +4377,34 @@ function syncTaskNotifications(tasks) {
       || (t.department && myDept && myDept.toLowerCase() !== 'none' && t.department.toLowerCase().trim() === myDept.toLowerCase().trim());
     if (!isAssigned) return;
 
+    // Do not notify creator when assigning tasks to themselves
+    var isSelfAssigned = (myIc && t.creator_ic === myIc)
+      || (myName && t.creator_name && t.creator_name.toLowerCase().trim() === myName.toLowerCase().trim())
+      || (myEmail && t.creator_email && t.creator_email.toLowerCase().trim() === myEmail.toLowerCase().trim());
+    if (isSelfAssigned) return;
+
     // 1. Task Assigned Notification
     var notifId = 'notif-task-' + t.id;
     if (dismissed.indexOf(notifId) === -1) {
       var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
       if (!existing) {
+        var dMeta = getTaskNotifDateMeta(t.updated_at || t.created_at);
+        if (dMeta.isStale) return;
         var creatorName = t.creator_name || 'Jeshua Koh';
         var creatorIc = t.creator_ic || '';
         var initials = creatorName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-        var timeStr = 'Today';
 
         pushPortalNotification({
           id: notifId,
           category: 'tasks',
-          group: 'Today',
+          group: dMeta.group,
+          timestamp: dMeta.timestamp,
           avatarInitials: initials,
           avatarMemberName: creatorName,
           avatarMemberIc: creatorIc,
           title: creatorName + ' assigned a task',
           snippet: (t.id ? (String(t.id).toUpperCase() + ' - ') : '') + t.title,
-          time: timeStr,
+          time: dMeta.time,
           unread: true,
           action: function() {
             switchTabNav('tasks');
@@ -4365,6 +4431,7 @@ function syncTaskNotifications(tasks) {
                 id: dueId,
                 category: 'tasks',
                 group: 'Today',
+                timestamp: dueTime,
                 icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
                 title: 'Due Date Nearing: ' + t.title,
                 snippet: dueNotice + ' (' + String(t.due_date).split('T')[0] + ') - ' + (t.department || 'Department'),
@@ -4398,6 +4465,14 @@ function syncTaskNotifications(tasks) {
     var notifId = 'notif-task-desc-mention-' + t.id;
     if (dismissed.indexOf(notifId) !== -1) return;
 
+    var isSelfCreated = (myIc && t.creator_ic === myIc)
+      || (myName && t.creator_name && t.creator_name.toLowerCase().trim() === myName.toLowerCase().trim())
+      || (myEmail && t.creator_email && t.creator_email.toLowerCase().trim() === myEmail.toLowerCase().trim());
+    if (isSelfCreated) return;
+
+    var dMeta = getTaskNotifDateMeta(t.updated_at || t.created_at);
+    if (dMeta.isStale) return;
+
     var isMentioned = checkFn ? checkFn(t.description, t.creator_email || '', t.creator_name || '', myName, myEmail, myDept, myRank) : false;
     if (isMentioned) {
       var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
@@ -4407,11 +4482,12 @@ function syncTaskNotifications(tasks) {
         pushPortalNotification({
           id: notifId,
           category: 'tasks',
-          group: 'Today',
+          group: dMeta.group,
+          timestamp: dMeta.timestamp,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
           title: (t.creator_name ? (t.creator_name + ' mentioned you in a task brief') : 'You were mentioned in a task brief'),
           snippet: (t.id ? (String(t.id).toUpperCase() + ' - ') : '') + (t.title || cleanSnippet),
-          time: 'Today',
+          time: dMeta.time,
           unread: true,
           action: function() {
             switchTabNav('tasks');
@@ -4434,6 +4510,13 @@ function syncTaskNotifications(tasks) {
         var notifId = 'notif-mention-' + c.id;
         if (dismissed.indexOf(notifId) !== -1) return;
 
+        var isSelfComment = (myEmail && c.author_email && c.author_email.toLowerCase().trim() === myEmail.toLowerCase().trim())
+          || (myName && c.author_name && c.author_name.toLowerCase().trim() === myName.toLowerCase().trim());
+        if (isSelfComment) return;
+
+        var cMeta = getTaskNotifDateMeta(c.created_at);
+        if (cMeta.isStale) return;
+
         var isMentioned = checkFn ? checkFn(c.text, c.author_email, c.author_name, myName, myEmail, myDept, myRank) : false;
         if (isMentioned) {
           var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
@@ -4443,11 +4526,12 @@ function syncTaskNotifications(tasks) {
             pushPortalNotification({
               id: notifId,
               category: 'tasks',
-              group: 'Today',
+              group: cMeta.group,
+              timestamp: cMeta.timestamp,
               icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
               title: (c.author_name ? (c.author_name + ' mentioned you in a task') : 'You were mentioned in a task'),
               snippet: cSnippet,
-              time: 'Today',
+              time: cMeta.time,
               unread: true,
               action: function() {
                 switchTabNav('tasks');
@@ -4462,9 +4546,6 @@ function syncTaskNotifications(tasks) {
   }
 
   renderNotifications();
-  if (typeof triggerNewPortalNotifications === 'function') {
-    triggerNewPortalNotifications();
-  }
 }
 
 function syncAnnouncementNotifications(annList) {
@@ -5038,12 +5119,20 @@ function updateNavUserHeader() {
       }
     }
     var navAvatarCircle = document.querySelector('.nav-avatar-circle');
-    if (navAvatarCircle && typeof applyAvatarOutlineElement === 'function') {
+    if (navAvatarCircle) {
       var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
       var curName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
-      var curOutline = (typeof getMemberAvatarOutline === 'function') ? getMemberAvatarOutline(curEmail, curName) : null;
-      if (curOutline) {
-        applyAvatarOutlineElement(navAvatarCircle, curOutline.style);
+      if (typeof applyAvatarOutlineElement === 'function') {
+        var curOutline = (typeof getMemberAvatarOutline === 'function') ? getMemberAvatarOutline(curEmail, curName) : null;
+        if (curOutline) {
+          applyAvatarOutlineElement(navAvatarCircle, curOutline.style);
+        }
+      }
+      if (typeof applyMemberCosmeticElement === 'function') {
+        var curCosmetic = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(curEmail, curName) : null;
+        if (curCosmetic) {
+          applyMemberCosmeticElement(navAvatarCircle, curCosmetic.id, 'cosmetic-sm');
+        }
       }
     }
     if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {

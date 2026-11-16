@@ -1264,6 +1264,12 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('blocklist', 'update');
               } else if (key === 'bb_master_attendance') {
                 triggerEntityUpdate('attendance', 'update');
+              } else if (key === 'bb_member_cosmetics') {
+                triggerEntityUpdate('cosmetics', 'update', record);
+              } else if (key === 'bb_custom_avatar_outlines') {
+                triggerEntityUpdate('avatar_outlines', 'update', record);
+              } else if (key.startsWith('bb_notif_dismissed_')) {
+                triggerEntityUpdate('notifications', 'update', record);
               } else {
                 triggerEntityUpdate('config', 'update', { key: key });
               }
@@ -1326,7 +1332,7 @@ var PortalRealtime = (function() {
 
     _deltaSyncInFlight = true;
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance)&select=key,updated_at');
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines)&select=key,updated_at');
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r?.key) return;
@@ -1337,6 +1343,8 @@ var PortalRealtime = (function() {
             else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update');
             else if (r.key === 'bb_projects') triggerEntityUpdate('projects', 'update');
             else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update');
+            else if (r.key === 'bb_member_cosmetics') triggerEntityUpdate('cosmetics', 'update');
+            else if (r.key === 'bb_custom_avatar_outlines') triggerEntityUpdate('avatar_outlines', 'update');
           }
           _lastEntityTimestamps[r.key] = ts;
         });
@@ -1451,6 +1459,50 @@ var PortalRealtime = (function() {
     if (entity === 'attendance') {
       if (typeof window !== 'undefined' && typeof window.onMasterAttendanceChanged === 'function') {
         window.onMasterAttendanceChanged().catch(function() {});
+      }
+      return;
+    }
+
+    if (entity === 'cosmetics') {
+      var loadCosmFn = (typeof window !== 'undefined' && typeof window.loadMemberCosmetics === 'function')
+        ? window.loadMemberCosmetics
+        : (typeof global !== 'undefined' && typeof global.loadMemberCosmetics === 'function' ? global.loadMemberCosmetics : null);
+      var refreshCosmFn = (typeof window !== 'undefined' && typeof window.refreshActiveAvatarCosmetics === 'function')
+        ? window.refreshActiveAvatarCosmetics
+        : (typeof global !== 'undefined' && typeof global.refreshActiveAvatarCosmetics === 'function' ? global.refreshActiveAvatarCosmetics : null);
+      if (loadCosmFn) {
+        loadCosmFn(true).then(function() {
+          if (refreshCosmFn) refreshCosmFn();
+        }).catch(function() {});
+      }
+      return;
+    }
+
+    if (entity === 'avatar_outlines') {
+      var loadOutFn = (typeof window !== 'undefined' && typeof window.loadCustomAvatarOutlines === 'function')
+        ? window.loadCustomAvatarOutlines
+        : (typeof global !== 'undefined' && typeof global.loadCustomAvatarOutlines === 'function' ? global.loadCustomAvatarOutlines : null);
+      var refreshOutFn = (typeof window !== 'undefined' && typeof window.refreshActiveAvatarOutlines === 'function')
+        ? window.refreshActiveAvatarOutlines
+        : (typeof global !== 'undefined' && typeof global.refreshActiveAvatarOutlines === 'function' ? global.refreshActiveAvatarOutlines : null);
+      if (loadOutFn) {
+        loadOutFn().then(function() {
+          if (refreshOutFn) refreshOutFn();
+        }).catch(function() {});
+      }
+      return;
+    }
+
+    if (entity === 'notifications') {
+      var fetchDismissedFn = (typeof window !== 'undefined' && typeof window.fetchRemoteDismissedNotifs === 'function')
+        ? window.fetchRemoteDismissedNotifs
+        : (typeof global !== 'undefined' && typeof global.fetchRemoteDismissedNotifs === 'function' ? global.fetchRemoteDismissedNotifs : null);
+      if (fetchDismissedFn) {
+        fetchDismissedFn().then(function() {
+          if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
+            window.renderNotifications();
+          }
+        }).catch(function() {});
       }
       return;
     }

@@ -1297,6 +1297,7 @@
 
   // ── Native OS Desktop & Mobile Web Notifications ─────────────────────────
   var _lastSystemNotifTs = 0;
+  var _recentDispatchedTags = new Map();
   var nativeNotificationId = Math.floor(Date.now() / 1000);
 
   function nativeNotificationPlugin() {
@@ -1304,11 +1305,23 @@
     return window.Capacitor.Plugins?.LocalNotifications || null;
   }
 
-  async function scheduleNativeNotification(plugin, test, sound) {
+  async function scheduleNativeNotification(plugin, test, sound, tag) {
     if ((await plugin.checkPermissions()).display !== 'granted') return false;
 
+    var schedId = ++nativeNotificationId;
+    if (tag) {
+      var hash = 0;
+      var strTag = String(tag);
+      for (var i = 0; i < strTag.length; i++) {
+        hash = ((hash << 5) - hash) + strTag.charCodeAt(i);
+        hash |= 0;
+      }
+      schedId = Math.abs(hash) % 2147483647;
+      if (schedId === 0) schedId = 1;
+    }
+
     var notification = {
-      id: ++nativeNotificationId,
+      id: schedId,
       title: "1st Petaling Jaya Boys' Brigade",
       body: test ? 'This is a test notification.' : 'Open the portal to see your new notification.',
       foreground: true,
@@ -1333,6 +1346,22 @@
   function triggerPortalSystemNotification(title, body, options) {
     options = options || {};
     var now = Date.now();
+    var isForce = options && options.force === true;
+
+    if (options.tag && !isForce) {
+      var tagKey = String(options.tag);
+      if (_recentDispatchedTags.has(tagKey)) {
+        var lastDispatch = _recentDispatchedTags.get(tagKey);
+        if (now - lastDispatch < 60000) {
+          return null;
+        }
+      }
+      _recentDispatchedTags.set(tagKey, now);
+      if (_recentDispatchedTags.size > 128) {
+        var firstTag = _recentDispatchedTags.keys().next().value;
+        _recentDispatchedTags.delete(firstTag);
+      }
+    }
 
     // 1. Notification Sound Chime - strictly for inbox arrivals and device notifications
     var soundEnabled = true;
@@ -1346,10 +1375,11 @@
     var nativePlugin = nativeNotificationPlugin();
     if (nativePlugin) {
       try {
-        if (localStorage.getItem('bb_notif_system_enabled') !== 'true' || now - _lastSystemNotifTs < 800) return null;
+        if (localStorage.getItem('bb_notif_system_enabled') !== 'true') return null;
+        if (!isForce && (now - _lastSystemNotifTs < 1500)) return null;
       } catch (_) { return null; }
       _lastSystemNotifTs = now;
-      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound).catch(function() { return false; });
+      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound, options && options.tag).catch(function() { return false; });
     }
     if (!isSilentSound && soundEnabled && typeof playNotificationSound === 'function') {
       playNotificationSound();
@@ -1363,10 +1393,9 @@
       }
     } catch (_) {}
 
-    var isForce = options && options.force === true;
     if (!isForce && !sysEnabled) return null;
 
-    if (!isForce && (now - _lastSystemNotifTs < 800)) return null;
+    if (!isForce && (now - _lastSystemNotifTs < 1500)) return null;
     _lastSystemNotifTs = now;
 
     if (typeof window !== 'undefined' && 'Notification' in window) {
