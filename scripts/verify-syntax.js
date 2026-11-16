@@ -12,6 +12,8 @@ const jsFiles = [
   'js/core/rbac.js',
   'js/core/utils.js',
   'js/core/ui.js',
+  'js/core/install.js',
+  'assets/vendor/qrcode-generator.js',
   'js/core/loading.js',
   'js/api/supabase.js',
   'js/api/sheets.js',

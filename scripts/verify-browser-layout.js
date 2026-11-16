@@ -687,6 +687,50 @@ async function getJson(url) {
     for (const [check, passed] of Object.entries(sidebarChecks)) assert.strictEqual(passed, true, 'Sidebar: ' + check);
     console.log('  ✔ Sidebar order, account access, search routing, and matching footer controls verified');
 
+    const installReview = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        const install = document.querySelector('[data-install-app]');
+        const dialog = document.querySelector('.install-app-dialog');
+        const apk = dialog.querySelector('[data-install-apk]');
+        const portal = dialog.querySelector('[data-install-portal]');
+        const android = dialog.querySelector('[data-install-panel="android"]');
+        const iphone = dialog.querySelector('[data-install-panel="ios"]');
+        const currentApk = window.ANDROID_APK_URL;
+        const originalAuth = AuthGuard.isUserAuthenticated;
+        try {
+          AuthGuard.isUserAuthenticated = () => false;
+          syncSidebarAccess();
+          openInstallApp();
+          const blocked = install.hidden && !dialog.open;
+          AuthGuard.isUserAuthenticated = () => true;
+          syncSidebarAccess();
+          window.ANDROID_APK_URL = 'https://downloads.example.test/app-release.apk';
+          install.click();
+          const servesApk = !install.hidden && dialog.open && !android.hidden && !android.querySelector('figure').hidden &&
+            android.querySelector('canvas').width > 150 && apk.href === window.ANDROID_APK_URL;
+          dialog.querySelector('[data-install-platform="ios"]').click();
+          const servesIphone = !iphone.hidden && android.hidden && !iphone.querySelector('figure').hidden &&
+            iphone.querySelector('canvas').width > 150 && new URL(portal.href).protocol === 'https:' &&
+            iphone.textContent.includes('Open as Web App');
+          dialog.close();
+          window.ANDROID_APK_URL = 'javascript:void(0)';
+          openInstallApp();
+          const rejectsInvalid = !apk.hasAttribute('href') && android.querySelector('[data-install-download]').hidden;
+          return { blocked, servesApk, servesIphone, rejectsInvalid };
+        } finally {
+          dialog.close();
+          window.ANDROID_APK_URL = currentApk;
+          AuthGuard.isUserAuthenticated = originalAuth;
+          syncSidebarAccess();
+        }
+      })()`,
+      returnByValue: true
+    });
+    assert.deepStrictEqual(installReview.result.value, {
+      blocked: true, servesApk: true, servesIphone: true, rejectsInvalid: true
+    }, 'Install App dialog must use safe links and show QR codes for both member install options');
+    console.log('  ✔ Member Install App dialog, safe download links, and both QR codes verified');
+
     assert.notStrictEqual(
       pnInfo.trackWillChange,
       'transform',
