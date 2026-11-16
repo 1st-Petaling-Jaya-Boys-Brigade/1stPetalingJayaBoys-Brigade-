@@ -9,6 +9,8 @@ const path = require('path');
 global.window = global;
 global.__SKIP_REG_OTP__ = true;
 global.window.__SKIP_REG_OTP__ = true;
+global.__IS_TEST__ = true;
+global.window.__IS_TEST__ = true;
 
 const mockElements = {};
 
@@ -1909,15 +1911,20 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   ordersMod.UNIFORM_ITEMS[0].price = 45;
   ordersMod.selectSize('shirt', 'L');
   ordersMod.changeQty('shirt', 1);
-  let completeCaptcha;
-  const originalCaptcha = global.verifyTurnstileTokenServerSide;
-  global.verifyTurnstileTokenServerSide = () => new Promise(resolve => { completeCaptcha = resolve; });
+  let completePost;
+  const originalOrdersReq = global.supa.req;
+  global.supa.req = (method, path, body) => new Promise(resolve => {
+    completePost = () => {
+      lastPosted = { path, body };
+      resolve([body]);
+    };
+  });
   const pendingSubmission = ordersMod.submitOrder();
-  assert.strictEqual(document.getElementById('confirm-btn').disabled, true, 'Checkout is locked during CAPTCHA verification');
+  assert.strictEqual(document.getElementById('confirm-btn').disabled, true, 'Checkout is locked during order submission');
   assert.strictEqual(await ordersMod.submitOrder(), null, 'Double-click cannot start a second submission');
-  completeCaptcha({ success: true, action: 'order' });
+  completePost();
   const submittedOrderNum = await pendingSubmission;
-  global.verifyTurnstileTokenServerSide = originalCaptcha;
+  global.supa.req = originalOrdersReq;
   assert.strictEqual(document.getElementById('confirm-btn').disabled, false);
   assert.ok(
     submittedOrderNum && submittedOrderNum.startsWith('BB-'),

@@ -1563,7 +1563,7 @@ async function fetchRemoteOnboardingStatus(identifier) {
               } catch (_) {}
             }
             try {
-              if (parsed.theme && typeof window !== 'undefined' && typeof window.themeApply === 'function') {
+              if (parsed.theme && (!localStorage.getItem('bb_theme')) && typeof window !== 'undefined' && typeof window.themeApply === 'function') {
                 window.themeApply(parsed.theme, true);
               }
               if (typeof parsed.seasonal_particles_enabled !== 'undefined' && typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {

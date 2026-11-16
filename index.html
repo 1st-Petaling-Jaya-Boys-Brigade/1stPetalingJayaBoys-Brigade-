@@ -3401,7 +3401,7 @@ function switchTab(tab, btn, skipPush) {
   if (tab === 'order')      checkOrderAccess();
   if (tab === 'tasks')      checkTasksAccess();
   if (tab === 'badges')     checkBadgesAccess();
-  if (tab === 'member')     { if (typeof initAllTurnstileWidgets === 'function') initAllTurnstileWidgets(); }
+  if (tab === 'member')     { if (typeof initAllTurnstileWidgets === 'function') initAllTurnstileWidgets(); if (typeof loadMemberOrders === 'function') loadMemberOrders(); }
   if (tab === 'attendance') { if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard(); }
   if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
   if (tab === 'gallery')    { if (typeof renderGallery === 'function') renderGallery(); }
