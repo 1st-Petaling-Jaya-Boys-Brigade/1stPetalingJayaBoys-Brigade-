@@ -1305,7 +1305,7 @@
     return window.Capacitor.Plugins?.LocalNotifications || null;
   }
 
-  async function scheduleNativeNotification(plugin, test, sound, tag) {
+  async function scheduleNativeNotification(plugin, test, sound, tag, title, body) {
     if ((await plugin.checkPermissions()).display !== 'granted') return false;
 
     var schedId = ++nativeNotificationId;
@@ -1322,8 +1322,11 @@
 
     var notification = {
       id: schedId,
-      title: "1st Petaling Jaya Boys' Brigade",
-      body: test ? 'This is a test notification.' : 'Open the portal to see your new notification.',
+      title: title || "1st Petaling Jaya Boys' Brigade",
+      body: body || (test ? 'This is a test notification.' : 'Open the portal to see your new notification.'),
+      smallIcon: 'ic_launcher',
+      largeIcon: 'ic_launcher',
+      iconColor: '#002B49',
       foreground: true,
       isExactNotification: false
     };
@@ -1379,7 +1382,7 @@
         if (!isForce && (now - _lastSystemNotifTs < 1500)) return null;
       } catch (_) { return null; }
       _lastSystemNotifTs = now;
-      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound, options && options.tag).catch(function() { return false; });
+      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound, options && options.tag, title, body).catch(function() { return false; });
     }
     if (!isSilentSound && soundEnabled && typeof playNotificationSound === 'function') {
       playNotificationSound();
@@ -1583,7 +1586,7 @@
       var activeList = notifList.filter(function(n) { return n && n.unread; });
       var latest = activeList[0];
       var title = latest ? (latest.title || "1st PJ Notification") : "1st PJ Boys' Brigade";
-      var body = latest ? (latest.message || latest.text || "You have a new unread notification.") : "You have new unread notifications.";
+      var body = latest ? (latest.snippet || latest.message || latest.text || "You have a new unread notification.") : "You have new unread notifications.";
       triggerPortalSystemNotification(title, body, { tag: latest ? latest.id : undefined });
     } else {
       _lastSeenNotifUnread = count;
