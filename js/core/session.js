@@ -82,8 +82,18 @@ var _leaderListeners = [];
 var LEADER_HEARTBEAT_INTERVAL_MS = 2000;
 var LEADER_HEARTBEAT_TIMEOUT_MS = 5000;
 
+function isNativeOrStandalone() {
+  if (typeof window === 'undefined') return true;
+  if (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) return true;
+  if (window.androidBridge) return true;
+  if (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:')) return true;
+  if (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) return true;
+  if (window.navigator && window.navigator.standalone === true) return true;
+  return false;
+}
+
 function isLeaderTab() {
-  return _isLeader;
+  return _isLeader || isNativeOrStandalone();
 }
 
 function onLeaderChange(callback) {
@@ -111,15 +121,30 @@ function _setLeaderState(newState) {
 }
 
 function initLeaderElection() {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || isNativeOrStandalone()) {
     _setLeaderState(true);
     return;
   }
 
   // Tier 1: Web Locks API (automatic unlock on tab crash/close, zero collision)
   if (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') {
+    var lockResolved = false;
+    setTimeout(function() {
+      if (!lockResolved && !_isLeader) {
+        try {
+          var raw = localStorage.getItem('bb_leader_heartbeat');
+          var hb = raw ? JSON.parse(raw) : null;
+          var now = Date.now();
+          if (!hb || !hb.tabId || (now - hb.ts) > LEADER_HEARTBEAT_TIMEOUT_MS) {
+            _setLeaderState(true);
+          }
+        } catch (_) {}
+      }
+    }, 300);
+
     try {
       navigator.locks.request('bb_tab_leader', function() {
+        lockResolved = true;
         _setLeaderState(true);
         return new Promise(function() {
           // Lock held until tab is closed or navigated away

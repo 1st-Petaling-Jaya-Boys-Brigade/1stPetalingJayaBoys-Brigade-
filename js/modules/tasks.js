@@ -2166,6 +2166,9 @@ function openTaskDetail(id) {
   if (!t) t = {};
 
   _activeDetailTaskId = id;
+  if (typeof window !== 'undefined') {
+    window._activeDetailTaskId = id;
+  }
   if (typeof setDismissedNotifId === 'function') {
     var toDismiss = ['notif-task-' + id, 'notif-task-desc-mention-' + id];
     var openComments = getTaskComments(id);
@@ -2302,6 +2305,14 @@ function openTaskDetail(id) {
   };
   renderTaskComments(id);
   renderTaskAttachments(id);
+  if (typeof fetchRemoteTaskComments === 'function') {
+    fetchRemoteTaskComments(id).then(function() {
+      var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+      if (activeId === id && typeof renderTaskComments === 'function') {
+        renderTaskComments(id);
+      }
+    }).catch(function() {});
+  }
 }
 
 function handleTaskTitleBlur(el) {
@@ -2434,7 +2445,7 @@ function getTaskComments(taskId) {
 /**
  * Persists comments for a specific task
  */
-function saveTaskComments(taskId, comments) {
+function saveTaskComments(taskId, comments, options) {
   if (!taskId || !Array.isArray(comments)) return;
   _taskCommentsMap[taskId] = comments;
   try {
@@ -2442,14 +2453,46 @@ function saveTaskComments(taskId, comments) {
   } catch (_) {}
   var client = getSupaClient();
   if (!client || (typeof client.upsert !== 'function' && typeof client.req !== 'function')) return Promise.resolve(false);
-  var payload = { key: 'bb_task_comments_' + taskId, value: JSON.stringify(comments) };
-  var save = typeof client.upsert === 'function'
-    ? client.upsert('bb_config', payload, 'key')
-    : client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
-  return Promise.resolve(save).then(function() {
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId });
+
+  var doSave = async function() {
+    var finalComments = comments;
+    if (options && options.isAppend && options.newComment) {
+      try {
+        var remoteRows = await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value', { cache: false });
+        if (Array.isArray(remoteRows) && remoteRows.length && remoteRows[0].value) {
+          var remoteList = JSON.parse(remoteRows[0].value);
+          if (Array.isArray(remoteList) && remoteList.length) {
+            var cMap = new Map();
+            remoteList.forEach(function(c) { if (c && c.id) cMap.set(c.id, c); });
+            comments.forEach(function(c) { if (c && c.id) cMap.set(c.id, c); });
+            cMap.set(options.newComment.id, options.newComment);
+            finalComments = Array.from(cMap.values()).sort(function(a, b) {
+              return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+            });
+            _taskCommentsMap[taskId] = finalComments;
+            try { localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(finalComments)); } catch (_) {}
+            var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+            if (activeId === taskId && typeof renderTaskComments === 'function') {
+              renderTaskComments(taskId);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    var payload = { key: 'bb_task_comments_' + taskId, value: JSON.stringify(finalComments) };
+    var saveReq = typeof client.upsert === 'function'
+      ? client.upsert('bb_config', payload, 'key')
+      : client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+    await saveReq;
+
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId, comments: finalComments });
+    }
     return true;
-  }).catch(function() { return false; });
+  };
+
+  return doSave().catch(function() { return false; });
 }
 
 /**
@@ -2459,11 +2502,11 @@ var _isFetchingRemoteTaskComments = false;
 var _lastFetchRemoteTaskCommentsTime = 0;
 
 /**
- * Fetches all persisted task comments from Supabase bb_config with 30s throttle
+ * Fetches all persisted task comments from Supabase bb_config
  */
 async function fetchAllRemoteTaskComments(force) {
   var now = Date.now();
-  if (!force && (_isFetchingRemoteTaskComments || (now - _lastFetchRemoteTaskCommentsTime < 30000))) return;
+  if (!force && (_isFetchingRemoteTaskComments || (now - _lastFetchRemoteTaskCommentsTime < 5000))) return;
   _isFetchingRemoteTaskComments = true;
   _lastFetchRemoteTaskCommentsTime = now;
   var client = getSupaClient();
@@ -2472,7 +2515,7 @@ async function fetchAllRemoteTaskComments(force) {
     return;
   }
   try {
-    var rows = await client.get('bb_config?key=like.bb_task_comments_*&select=key,value');
+    var rows = await client.get('bb_config?key=like.bb_task_comments_*&select=key,value', { cache: false });
     if (Array.isArray(rows) && rows.length) {
       rows.forEach(function(r) {
         if (!r.key || !r.value) return;
@@ -2499,6 +2542,10 @@ async function fetchAllRemoteTaskComments(force) {
   } else if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
     window.renderNotifications();
   }
+  var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+  if (activeId && typeof renderTaskComments === 'function') {
+    renderTaskComments(activeId);
+  }
 }
 
 async function fetchRemoteTaskComments(taskId) {
@@ -2506,7 +2553,7 @@ async function fetchRemoteTaskComments(taskId) {
   var client = getSupaClient();
   if (client) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value');
+      var rows = await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value', { cache: false });
       if (Array.isArray(rows) && rows.length && rows[0].value) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
@@ -2516,6 +2563,10 @@ async function fetchRemoteTaskComments(taskId) {
           else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') window.syncTaskNotifications();
           if (typeof renderNotifications === 'function') renderNotifications();
           else if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') window.renderNotifications();
+          var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+          if (activeId === taskId && typeof renderTaskComments === 'function') {
+            renderTaskComments(taskId);
+          }
           return parsed;
         }
       }
@@ -2880,7 +2931,7 @@ async function handleTaskCommentSubmit(input) {
 
     var comments = getTaskComments(tid);
     comments.push(newComment);
-    var saving = saveTaskComments(tid, comments);
+    var saving = saveTaskComments(tid, comments, { newComment: newComment, isAppend: true });
     renderTaskComments(tid);
     var saved = await saving;
 
@@ -4004,6 +4055,9 @@ function closeTaskDetail() {
   var aMenu = document.querySelector('.tdm-assignee-dropdown');
   if (aMenu) aMenu.style.display = 'none';
   _activeDetailTaskId = null;
+  if (typeof window !== 'undefined') {
+    window._activeDetailTaskId = null;
+  }
   _initialTaskDetailState = null;
 }
 

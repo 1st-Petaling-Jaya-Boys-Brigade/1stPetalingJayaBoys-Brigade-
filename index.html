@@ -4878,14 +4878,14 @@ function syncAllPortalNotifications() {
     fetchRemoteMemberPresence().catch(function() {});
   }
   if (typeof fetchAllRemoteTasks === 'function') {
-    fetchAllRemoteTasks().then(function(tasks) {
+    fetchAllRemoteTasks(true).then(function(tasks) {
       if (typeof syncTaskNotifications === 'function') syncTaskNotifications(tasks);
     }).catch(function() {});
   } else if (typeof syncTaskNotifications === 'function') {
     syncTaskNotifications();
   }
   if (typeof fetchAllRemoteTaskComments === 'function') {
-    fetchAllRemoteTaskComments().then(function() {
+    fetchAllRemoteTaskComments(true).then(function() {
       if (typeof syncTaskNotifications === 'function') syncTaskNotifications();
     }).catch(function() {});
   }
