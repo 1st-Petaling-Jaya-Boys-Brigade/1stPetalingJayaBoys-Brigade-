@@ -3982,8 +3982,20 @@ window.addEventListener('load', function() {
     else if (typeof renderCalendarTab === 'function') renderCalendarTab('upcoming');
   }
     updateNavUserHeader();
-  if (typeof fetchRemoteDismissedNotifs === 'function') fetchRemoteDismissedNotifs();
-  renderNotifications();
+  if (typeof fetchRemoteDismissedNotifs === 'function') {
+    fetchRemoteDismissedNotifs().then(function() {
+      if (typeof syncAllPortalNotifications === 'function') syncAllPortalNotifications();
+      renderNotifications();
+    }).catch(function() {
+      if (typeof syncAllPortalNotifications === 'function') syncAllPortalNotifications();
+      renderNotifications();
+    });
+  } else if (typeof syncAllPortalNotifications === 'function') {
+    syncAllPortalNotifications();
+    renderNotifications();
+  } else {
+    renderNotifications();
+  }
 
   // Complete initial notification hydration; enable audio chime for live incoming notifications
   setTimeout(function() {
@@ -4150,6 +4162,10 @@ function pushPortalNotification(notif, isSilent) {
 
   _allPortalNotifications.unshift(notif);
   if (_initialNotifSyncDone && !isSilent) {
+    if (typeof showToast === 'function') {
+      var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
+      showToast('🔔 ' + (notif.title || 'New Notification') + snippetText, 'info', 5000);
+    }
     if (typeof triggerPortalSystemNotification === 'function') {
       triggerPortalSystemNotification(
         notif.title || "1st Petaling Jaya Boys' Brigade",
@@ -4206,12 +4222,20 @@ function getDismissedNotifIds() {
   }
 }
 
-function setDismissedNotifId(id) {
-  if (!id) return;
+function setDismissedNotifId(idOrIds) {
+  if (!idOrIds) return;
+  var toAdd = Array.isArray(idOrIds) ? idOrIds.filter(Boolean) : [idOrIds];
+  if (!toAdd.length) return;
   try {
     var ids = getDismissedNotifIds();
-    if (ids.indexOf(id) === -1) {
-      ids.push(id);
+    var newAdded = [];
+    toAdd.forEach(function(item) {
+      if (ids.indexOf(item) === -1) {
+        ids.push(item);
+        newAdded.push(item);
+      }
+    });
+    if (newAdded.length) {
       var key = getDismissedNotifStorageKey();
       localStorage.setItem(key, JSON.stringify(ids));
       localStorage.setItem('bb_dismissed_notifications', JSON.stringify(ids));
@@ -4227,6 +4251,9 @@ function setDismissedNotifId(id) {
           } else if (typeof client.safeConfigUpdate === 'function') {
             client.safeConfigUpdate(configKey, ids).catch(function() {});
           }
+        }
+        if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+          window.PortalRealtime.broadcast('notifications', 'dismiss', { userKey: uKey, ids: newAdded });
         }
       }
     }
@@ -4287,6 +4314,12 @@ function addPortalNotification(notif) {
 
 function syncTaskNotifications(tasks) {
   var taskList = Array.isArray(tasks) ? tasks : ((typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) ? _allLoadedTasks : ((typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks)) ? window._allLoadedTasks : []));
+  if ((!taskList || !taskList.length) && typeof localStorage !== 'undefined') {
+    try {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_tasks') || '[]');
+      if (Array.isArray(cached) && cached.length) taskList = cached;
+    } catch (_) {}
+  }
   if (!Array.isArray(taskList)) return;
 
   var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
@@ -4324,6 +4357,8 @@ function syncTaskNotifications(tasks) {
       client.get('bb_tasks?order=created_at.asc').then(function(fetched) {
         if (Array.isArray(fetched) && fetched.length) {
           if (typeof _allLoadedTasks !== 'undefined') _allLoadedTasks = fetched;
+          if (typeof window !== 'undefined') window._allLoadedTasks = fetched;
+          try { localStorage.setItem('bb_cached_tasks', JSON.stringify(fetched)); } catch (_) {}
           syncTaskNotifications(fetched);
         }
       }).catch(function() {});
@@ -4459,21 +4494,50 @@ function syncTaskNotifications(tasks) {
     ? isUserMentionedInComment
     : (typeof window !== 'undefined' && typeof window.isUserMentionedInComment === 'function' ? window.isUserMentionedInComment : null);
 
-  // 3A. Mentions in Task Brief Description
+  function isExplicitSelfMention(text, name, email) {
+    if (!text) return false;
+    var lower = String(text).toLowerCase();
+    if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
+    if (name) {
+      var nameLower = name.toLowerCase().trim();
+      if (lower.indexOf('@' + nameLower) !== -1) return true;
+      var parts = nameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
+      for (var i = 0; i < parts.length; i++) {
+        var rx = new RegExp('(?:^|\\W)@' + parts[i] + '\\b', 'i');
+        if (rx.test(lower)) return true;
+      }
+    }
+    if (email) {
+      var emailLower = email.toLowerCase().trim();
+      if (lower.indexOf('@' + emailLower) !== -1) return true;
+      var prefix = emailLower.split('@')[0];
+      if (prefix && prefix.length >= 3) {
+        var erx = new RegExp('(?:^|\\W)@' + prefix + '\\b', 'i');
+        if (erx.test(lower)) return true;
+      }
+    }
+    if (typeof isPortalCreator === 'function' && isPortalCreator(name, email)) {
+      if (/(?:^|\W)@creator\b/i.test(lower)) return true;
+    }
+    return false;
+  }
+
+  // 3A. Mentions in Task Brief Description & Title
   taskList.forEach(function(t) {
-    if (!t || !t.id || !t.description) return;
+    if (!t || !t.id || (!t.description && !t.title)) return;
     var notifId = 'notif-task-desc-mention-' + t.id;
     if (dismissed.indexOf(notifId) !== -1) return;
-
-    var isSelfCreated = (myIc && t.creator_ic === myIc)
-      || (myName && t.creator_name && t.creator_name.toLowerCase().trim() === myName.toLowerCase().trim())
-      || (myEmail && t.creator_email && t.creator_email.toLowerCase().trim() === myEmail.toLowerCase().trim());
-    if (isSelfCreated) return;
 
     var dMeta = getTaskNotifDateMeta(t.updated_at || t.created_at);
     if (dMeta.isStale) return;
 
-    var isMentioned = checkFn ? checkFn(t.description, t.creator_email || '', t.creator_name || '', myName, myEmail, myDept, myRank) : false;
+    var fullTaskText = (t.title || '') + ' ' + (t.description || '');
+    var isSelfCreated = (myIc && t.creator_ic === myIc)
+      || (myName && t.creator_name && t.creator_name.toLowerCase().trim() === myName.toLowerCase().trim())
+      || (myEmail && t.creator_email && t.creator_email.toLowerCase().trim() === myEmail.toLowerCase().trim());
+    if (isSelfCreated && !isExplicitSelfMention(fullTaskText, myName, myEmail)) return;
+
+    var isMentioned = checkFn ? checkFn(fullTaskText, t.creator_email || '', t.creator_name || '', myName, myEmail, myDept, myRank) : false;
     if (isMentioned) {
       var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
       if (!existing) {
@@ -4500,10 +4564,13 @@ function syncTaskNotifications(tasks) {
   });
 
   // 3B. Mentions in Task Comments
-  if (typeof getTaskComments === 'function') {
+  var getCommentsFn = (typeof getTaskComments === 'function')
+    ? getTaskComments
+    : (typeof window !== 'undefined' && typeof window.getTaskComments === 'function' ? window.getTaskComments : null);
+  if (getCommentsFn) {
     taskList.forEach(function(t) {
       if (!t || !t.id) return;
-      var comments = getTaskComments(t.id);
+      var comments = getCommentsFn(t.id);
       if (!Array.isArray(comments)) return;
       comments.forEach(function(c) {
         if (!c || !c.id || !c.text) return;
@@ -4512,7 +4579,7 @@ function syncTaskNotifications(tasks) {
 
         var isSelfComment = (myEmail && c.author_email && c.author_email.toLowerCase().trim() === myEmail.toLowerCase().trim())
           || (myName && c.author_name && c.author_name.toLowerCase().trim() === myName.toLowerCase().trim());
-        if (isSelfComment) return;
+        if (isSelfComment && !isExplicitSelfMention(c.text, myName, myEmail)) return;
 
         var cMeta = getTaskNotifDateMeta(c.created_at);
         if (cMeta.isStale) return;
@@ -4810,11 +4877,17 @@ function syncAllPortalNotifications() {
   if (typeof fetchRemoteMemberPresence === 'function') {
     fetchRemoteMemberPresence().catch(function() {});
   }
-  if (typeof fetchAllRemoteTaskComments === 'function') {
-    fetchAllRemoteTaskComments().catch(function() {});
+  if (typeof fetchAllRemoteTasks === 'function') {
+    fetchAllRemoteTasks().then(function(tasks) {
+      if (typeof syncTaskNotifications === 'function') syncTaskNotifications(tasks);
+    }).catch(function() {});
+  } else if (typeof syncTaskNotifications === 'function') {
+    syncTaskNotifications();
   }
-  if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
-    syncTaskNotifications(_allLoadedTasks);
+  if (typeof fetchAllRemoteTaskComments === 'function') {
+    fetchAllRemoteTaskComments().then(function() {
+      if (typeof syncTaskNotifications === 'function') syncTaskNotifications();
+    }).catch(function() {});
   }
   if (typeof loadAnnouncements === 'function') {
     loadAnnouncements().catch(function() {});
@@ -4827,7 +4900,12 @@ function syncAllPortalNotifications() {
   if (typeof syncHighlightNotifications === 'function') {
     syncHighlightNotifications();
   }
-  if (typeof syncForumNotifications === 'function') {
+  if (typeof loadForumPosts === 'function') {
+    loadForumPosts().then(function(posts) {
+      if (typeof syncForumNotifications === 'function') syncForumNotifications(posts);
+      if (typeof renderNotifications === 'function') renderNotifications();
+    }).catch(function() {});
+  } else if (typeof syncForumNotifications === 'function') {
     syncForumNotifications();
   }
   if (typeof syncResourceNotifications === 'function') {
@@ -4947,10 +5025,14 @@ function filterNotifications(cat, btn) {
 }
 
 function markAllNotificationsRead() {
+  var allIds = [];
   _allPortalNotifications.forEach(function(n) {
-    setDismissedNotifId(n.id);
     n.unread = false;
+    allIds.push(n.id);
   });
+  if (allIds.length) {
+    setDismissedNotifId(allIds);
+  }
   renderNotifications();
   if (typeof showToast === 'function') {
     showToast('All notifications dismissed and marked as read', 'info', 2500);
@@ -5252,8 +5334,11 @@ window.syncResourceNotifications  = syncResourceNotifications;
 window.syncForumNotifications     = syncForumNotifications;
 window.syncAllPortalNotifications = syncAllPortalNotifications;
 window.fetchRemoteDismissedNotifs = fetchRemoteDismissedNotifs;
+window.getCanonicalNotifUserKey    = getCanonicalNotifUserKey;
+window.getDismissedNotifStorageKey = getDismissedNotifStorageKey;
 window.getDismissedNotifIds       = getDismissedNotifIds;
 window.setDismissedNotifId        = setDismissedNotifId;
+window.syncTaskNotifications       = syncTaskNotifications;
 window.updateNavUserHeader        = updateNavUserHeader;
 window.handleNavProfileClick      = handleNavProfileClick;
 window.handleHeaderSearchKeyDown  = handleHeaderSearchKeyDown;

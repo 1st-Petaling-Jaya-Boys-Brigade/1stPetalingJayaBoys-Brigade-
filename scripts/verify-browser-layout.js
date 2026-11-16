@@ -3506,6 +3506,7 @@ async function getJson(url) {
           sessionSet('department', 'HQ');
         }
 
+        if (typeof markAllNotificationsRead === 'function') markAllNotificationsRead();
         const input = document.querySelector('.tb-comment-input');
         if (input && typeof handleTaskCommentSubmit === 'function') {
           input.value = 'Browser test comment @Jason Koh please review';
