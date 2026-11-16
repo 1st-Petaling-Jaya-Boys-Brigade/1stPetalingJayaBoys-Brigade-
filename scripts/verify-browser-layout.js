@@ -2417,8 +2417,8 @@ async function getJson(url) {
     );
     assert.strictEqual(
       appShellResult.panelOffsetWidth,
-      270,
-      'Sidebar panel must be widened to 270px'
+      210,
+      'Sidebar panel must be 210px'
     );
     assert.strictEqual(
       appShellResult.panelComputed ? appShellResult.panelComputed.overflowY : '',
@@ -2461,6 +2461,45 @@ async function getJson(url) {
       appShellResult.panelComputed ? appShellResult.panelComputed.borderRadius : '',
       '0px',
       'Sidebar panel must have 0 border-radius (not a floating card/box)'
+    );
+    // Verify edge collapse toggle shrinks sidebar to 60px and shifts main content
+    const collapseResult = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const panelBefore = document.querySelector('.sidebar-panel')?.offsetWidth;
+        if (typeof window.toggleSidebarCollapse === 'function') {
+          window.toggleSidebarCollapse();
+        }
+        await new Promise(r => setTimeout(r, 350));
+        const panelCollapsed = document.querySelector('.sidebar-panel')?.offsetWidth;
+        const mainCollapsed = Math.round(document.querySelector('.app-main')?.getBoundingClientRect()?.left || 0);
+        const hasBodyClass = document.body.classList.contains('sidebar-collapsed');
+        // Re-expand back to extended mode
+        if (typeof window.toggleSidebarCollapse === 'function') {
+          window.toggleSidebarCollapse();
+        }
+        await new Promise(r => setTimeout(r, 350));
+        const panelRestored = document.querySelector('.sidebar-panel')?.offsetWidth;
+        const mainRestored = Math.round(document.querySelector('.app-main')?.getBoundingClientRect()?.left || 0);
+        return {
+          panelBefore,
+          panelCollapsed,
+          mainCollapsed,
+          hasBodyClass,
+          panelRestored,
+          mainRestored
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(collapseResult.result.value, 'Must evaluate sidebar collapse toggle in browser');
+    const cDiag = collapseResult.result.value;
+    assert.strictEqual(cDiag.panelCollapsed, 60, 'Collapsed sidebar panel must shrink to 60px');
+    assert.strictEqual(cDiag.mainCollapsed, 60, 'Main content must shift to 60px left when sidebar is collapsed');
+    assert.strictEqual(cDiag.panelRestored, 210, 'Re-extended sidebar panel must restore to 210px');
+    assert.strictEqual(cDiag.mainRestored, 210, 'Main content must restore to 210px left when sidebar is re-extended');
+    console.log(
+      '  ✔ Interactive edge toggle collapses sidebar to 60px and restores to 210px with aligned main content'
     );
     console.log(
       '  ✔ Modern app shell container with fixed viewport sidebar, search pill, notification box, points badge, and profile button verified in browser'
