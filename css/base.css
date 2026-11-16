@@ -159,6 +159,10 @@ textarea,
     padding-right: clamp(20px, 2.5vw, 44px) !important;
     box-sizing: border-box !important;
   }
+  #page-home.page {
+    padding-left: clamp(12px, 3vw, 20px) !important;
+    padding-right: clamp(12px, 3vw, 20px) !important;
+  }
   .page > * {
     width: 100%;
   }
