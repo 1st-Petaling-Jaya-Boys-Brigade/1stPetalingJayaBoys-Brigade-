@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -2166,6 +2166,17 @@ function openTaskDetail(id) {
   if (!t) t = {};
 
   _activeDetailTaskId = id;
+  if (typeof setDismissedNotifId === 'function') {
+    var toDismiss = ['notif-task-' + id, 'notif-task-desc-mention-' + id];
+    var openComments = getTaskComments(id);
+    if (Array.isArray(openComments)) {
+      openComments.forEach(function(c) {
+        if (c && c.id) toDismiss.push('notif-mention-' + c.id);
+      });
+    }
+    setDismissedNotifId(toDismiss);
+    if (typeof renderNotifications === 'function') renderNotifications();
+  }
   if (t && t.id) {
     _taskMap[t.id] = t;
     if (typeof window !== 'undefined') {
@@ -2450,9 +2461,9 @@ var _lastFetchRemoteTaskCommentsTime = 0;
 /**
  * Fetches all persisted task comments from Supabase bb_config with 30s throttle
  */
-async function fetchAllRemoteTaskComments() {
+async function fetchAllRemoteTaskComments(force) {
   var now = Date.now();
-  if (_isFetchingRemoteTaskComments || (now - _lastFetchRemoteTaskCommentsTime < 30000)) return;
+  if (!force && (_isFetchingRemoteTaskComments || (now - _lastFetchRemoteTaskCommentsTime < 30000))) return;
   _isFetchingRemoteTaskComments = true;
   _lastFetchRemoteTaskCommentsTime = now;
   var client = getSupaClient();
@@ -2478,6 +2489,16 @@ async function fetchAllRemoteTaskComments() {
   } catch (_) {} finally {
     _isFetchingRemoteTaskComments = false;
   }
+  if (typeof syncTaskNotifications === 'function') {
+    syncTaskNotifications();
+  } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
+    window.syncTaskNotifications();
+  }
+  if (typeof renderNotifications === 'function') {
+    renderNotifications();
+  } else if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
+    window.renderNotifications();
+  }
 }
 
 async function fetchRemoteTaskComments(taskId) {
@@ -2491,6 +2512,10 @@ async function fetchRemoteTaskComments(taskId) {
         if (Array.isArray(parsed)) {
           _taskCommentsMap[taskId] = parsed;
           try { localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(parsed)); } catch (_) {}
+          if (typeof syncTaskNotifications === 'function') syncTaskNotifications();
+          else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') window.syncTaskNotifications();
+          if (typeof renderNotifications === 'function') renderNotifications();
+          else if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') window.renderNotifications();
           return parsed;
         }
       }

@@ -1497,15 +1497,34 @@ var PortalRealtime = (function() {
     }
 
     if (entity === 'notifications') {
-      var fetchDismissedFn = (typeof window !== 'undefined' && typeof window.fetchRemoteDismissedNotifs === 'function')
-        ? window.fetchRemoteDismissedNotifs
-        : (typeof global !== 'undefined' && typeof global.fetchRemoteDismissedNotifs === 'function' ? global.fetchRemoteDismissedNotifs : null);
-      if (fetchDismissedFn) {
-        fetchDismissedFn().then(function() {
-          if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
-            window.renderNotifications();
-          }
-        }).catch(function() {});
+      var uKey = (typeof window !== 'undefined' && typeof window.getCanonicalNotifUserKey === 'function')
+        ? window.getCanonicalNotifUserKey()
+        : '';
+      if (!data || !data.userKey || !uKey || data.userKey.toLowerCase() === uKey.toLowerCase()) {
+        if (data && Array.isArray(data.ids) && data.ids.length && typeof localStorage !== 'undefined') {
+          var localKey = (typeof window !== 'undefined' && typeof window.getDismissedNotifStorageKey === 'function')
+            ? window.getDismissedNotifStorageKey()
+            : 'bb_dismissed_notifications';
+          try {
+            var rawExisting = localStorage.getItem(localKey) || localStorage.getItem('bb_dismissed_notifications');
+            var existingIds = rawExisting ? JSON.parse(rawExisting) : [];
+            var merged = Array.from(new Set(existingIds.concat(data.ids)));
+            localStorage.setItem(localKey, JSON.stringify(merged));
+            localStorage.setItem('bb_dismissed_notifications', JSON.stringify(merged));
+          } catch (_) {}
+        }
+        var fetchDismissedFn = (typeof window !== 'undefined' && typeof window.fetchRemoteDismissedNotifs === 'function')
+          ? window.fetchRemoteDismissedNotifs
+          : (typeof global !== 'undefined' && typeof global.fetchRemoteDismissedNotifs === 'function' ? global.fetchRemoteDismissedNotifs : null);
+        if (fetchDismissedFn) {
+          fetchDismissedFn().then(function() {
+            if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
+              window.renderNotifications();
+            }
+          }).catch(function() {});
+        } else if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
+          window.renderNotifications();
+        }
       }
       return;
     }
@@ -1537,11 +1556,21 @@ var PortalRealtime = (function() {
         }).catch(function() {});
       }
     } else if (entity === 'tasks' || entity === 'comments') {
-      if (typeof window !== 'undefined' && typeof window.fetchAllRemoteTasks === 'function') {
-        window.fetchAllRemoteTasks(true).catch(function() {});
-      }
-      if (typeof window !== 'undefined' && typeof window.fetchAllRemoteTaskComments === 'function') {
-        window.fetchAllRemoteTaskComments().catch(function() {});
+      var tid = (data && (data.taskId || data.id)) || (data && data.key && data.key.startsWith('bb_task_comments_') ? data.key.replace('bb_task_comments_', '') : null);
+      if (typeof window !== 'undefined') {
+        var fetchTasksP = (typeof window.fetchAllRemoteTasks === 'function')
+          ? window.fetchAllRemoteTasks(true)
+          : Promise.resolve();
+        var fetchCommentsP = (tid && typeof window.fetchRemoteTaskComments === 'function')
+          ? window.fetchRemoteTaskComments(tid)
+          : ((typeof window.fetchAllRemoteTaskComments === 'function') ? window.fetchAllRemoteTaskComments(true) : Promise.resolve());
+
+        Promise.all([fetchTasksP, fetchCommentsP]).then(function(results) {
+          var tList = results[0] || (window._allLoadedTasks || []);
+          if (typeof window.syncTaskNotifications === 'function') window.syncTaskNotifications(tList);
+          if (typeof window.renderNotifications === 'function') window.renderNotifications();
+          if (tid && typeof window.renderTaskComments === 'function') window.renderTaskComments(tid);
+        }).catch(function() {});
       }
     } else if (entity === 'announcements') {
       if (typeof window !== 'undefined' && typeof window.loadAnnouncements === 'function') {

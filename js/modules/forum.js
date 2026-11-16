@@ -16,7 +16,7 @@
  *    - Supabase bb_config persistence with offline state fallback.
  */
 
-/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet */
+/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet, setDismissedNotifId, renderNotifications */
 
 // ── SVG Icon Registry (Zero Emojis) ──────────────────────────────────────────
 var FORUM_ICONS = {
@@ -5942,6 +5942,18 @@ function openForumPostDetail(postId) {
   if (typeof document === 'undefined') return;
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
+
+  if (typeof setDismissedNotifId === 'function') {
+    var toDismiss = ['notif-forum-post-mention-' + postId];
+    if (p.replies && p.replies.length) {
+      p.replies.forEach(function(r, idx) {
+        var rId = r.id || (postId + '-rep-' + idx);
+        toDismiss.push('notif-forum-reply-' + rId);
+      });
+    }
+    setDismissedNotifId(toDismiss);
+    if (typeof renderNotifications === 'function') renderNotifications();
+  }
 
   var existing = document.getElementById('forum-detail-modal');
   removeDomElement(existing);

@@ -247,6 +247,14 @@ export default [
         syncAttendanceToSheets: 'readonly',
         isMinorSection: 'readonly',
         fetchMemberConsent: 'readonly',
+        // Notification & Real-Time Sync Globals
+        setDismissedNotifId: 'readonly',
+        renderNotifications: 'readonly',
+        syncTaskNotifications: 'readonly',
+        syncForumNotifications: 'readonly',
+        fetchAllRemoteTasks: 'readonly',
+        fetchAllRemoteTaskComments: 'readonly',
+        fetchRemoteTaskComments: 'readonly',
         // Audit Logs, Lockout & Session Lifecycle
         logAuditEvent: 'readonly',
         getAuditLogs: 'readonly',
