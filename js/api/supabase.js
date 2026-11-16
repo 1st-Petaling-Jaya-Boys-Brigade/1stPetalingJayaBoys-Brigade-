@@ -1743,6 +1743,9 @@ var PortalRealtime = (function() {
           if (checkTasksFn) {
             try { checkTasksFn(); } catch (_) {}
           }
+          if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
+            try { window.syncSidebarAccess(); } catch (_) {}
+          }
         }
 
         if (!data || !data.department || !data.ic) {

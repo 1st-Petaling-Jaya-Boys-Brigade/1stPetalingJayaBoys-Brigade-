@@ -3338,6 +3338,18 @@ function switchTab(tab, btn, skipPush) {
     }
   }
 
+  // Gating for Projects & Tasks: strictly requires an assigned department
+  if (tab === 'tasks' && typeof hasDepartmentRole === 'function' && !hasDepartmentRole()) {
+    if (typeof showToast === 'function') {
+      showToast('Projects & Tasks is only accessible to members assigned to a department.', 'warning');
+    }
+    tab = 'home';
+    btn = document.getElementById('tab-home');
+    if (typeof history !== 'undefined' && history.replaceState) {
+      history.replaceState({ tab: 'home' }, '', '#home');
+    }
+  }
+
   // Record browser history state on tab navigation for native Undo/Redo
   if (!skipPush && typeof history !== 'undefined' && history.pushState && typeof window !== 'undefined') {
     var curHash = (window.location.hash || '').replace('#', '').trim();

@@ -644,8 +644,10 @@ async function getJson(url) {
           const departmentOrder = order();
           sessionSet('department', '', { localOnly: true });
           const departmentRemovalHides = !shown(tasks) && !shown(taskShortcut);
+          sessionSet('department', 'Officers', { localOnly: true });
           sessionSet('rank', 'Lieutenant', { localOnly: true });
           const officerCanSee = shown(tasks) && !shown(admin);
+          sessionSet('department', '', { localOnly: true });
           sessionSet('rank', 'Member', { localOnly: true });
           replaceRoles(['orders']);
           const ordersAdminScoped = shown(admin) && !shown(tasks);
@@ -656,11 +658,13 @@ async function getJson(url) {
           const footerMatches = settings instanceof HTMLButtonElement &&
             JSON.stringify(rowStyles(settings)) === JSON.stringify(rowStyles(admin)) &&
             admin.querySelector('.sidebar-footer-icon path')?.getAttribute('d').startsWith('M12 22');
+          sessionSet('department', 'HQ', { localOnly: true });
           replaceRoles(['tasks']);
           const taskAdminCanSee = shown(tasks) && shown(admin) && shown(taskShortcut);
           executeHeaderSearch('kanban');
           const authorizedSearchWorks = active() === 'page-tasks';
           await checkTasksAccess();
+          sessionSet('department', '', { localOnly: true });
           replaceRoles(null);
           const roleRemovalHides = !shown(tasks) && !shown(admin);
           footer.click();
@@ -1292,7 +1296,7 @@ async function getJson(url) {
           sessionSet('email', 'board-admin@example.test');
           sessionSet('ic', 'board-admin@example.test');
           sessionSet('rank', 'Sergeant');
-          sessionSet('department', '');
+          sessionSet('department', 'media');
           RBAC._setRolesConfig({ super_admins: [], admins: { 'board-admin@example.test': ['tasks'] } });
           supa.get = async path => path.startsWith('bb_tasks?') ? [{
             id: 'restore-drag-task', title: 'Drag between columns', status: 'planning',
@@ -2876,6 +2880,18 @@ async function getJson(url) {
     console.log('  ✔ Tablet 768px viewport verified with 0px horizontal overflow');
 
     console.log('\n[Mobile Touch Targets, Safe Areas & Dock Clearance]');
+    await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        window.__origSupaGet = window.supa.get;
+        window.supa.get = async (path, ...args) => {
+          if (path.startsWith('bb_members?')) {
+            return [{ ic: '010101-14-1234', name: 'Joshua Koh', rank: 'Sergeant', department: 'Media', section: 'Senior' }];
+          }
+          return window.__origSupaGet.call(window.supa, path, ...args);
+        };
+        sessionSet('department', 'Media', { localOnly: true });
+      })()`
+    });
     await sendCmd('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     for (const [width, height] of [[360, 780], [390, 844], [430, 932], [768, 1024], [1024, 768]]) {
       await sendCmd('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: true });
@@ -3005,7 +3021,14 @@ async function getJson(url) {
       console.log('  ✔ ' + width + 'px touch layout, route overflow, and dock clearance');
     }
     await sendCmd('Runtime.evaluate', {
-      expression: `['top', 'bottom', 'left', 'right'].forEach(side => document.documentElement.style.removeProperty('--safe-area-' + side))`
+      expression: `(() => {
+        ['top', 'bottom', 'left', 'right'].forEach(side => document.documentElement.style.removeProperty('--safe-area-' + side));
+        if (window.__origSupaGet) {
+          window.supa.get = window.__origSupaGet;
+          delete window.__origSupaGet;
+        }
+        sessionSet('department', '', { localOnly: true });
+      })()`
     });
     await sendCmd('Emulation.setTouchEmulationEnabled', { enabled: false });
 
