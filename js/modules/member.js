@@ -2173,16 +2173,19 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
 
   // Trigger onboarding wizard if user has not completed onboarding
   var checkLoginOnboarding = async function() {
-    if (typeof isOnboardingCompleted === 'function' && isOnboardingCompleted(userEmail)) {
+    var isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
+
+    if (!nativeNeeded && typeof isOnboardingCompleted === 'function' && isOnboardingCompleted(userEmail)) {
       return;
     }
     var remoteDone = false;
-    if (typeof fetchRemoteOnboardingStatus === 'function') {
+    if (!nativeNeeded && typeof fetchRemoteOnboardingStatus === 'function') {
       try {
         remoteDone = await fetchRemoteOnboardingStatus(userEmail);
       } catch (_) {}
     }
-    if (!remoteDone && typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+    if ((nativeNeeded || !remoteDone) && typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
       launchOnboardingWizard({ user: m });
     }
   };
@@ -6024,10 +6027,10 @@ function launchOnboardingWizard(options) {
     termsAccepted: !isNewAccount && (alreadyDone || isReview),
     privacyAccepted: !isNewAccount && (alreadyDone || isReview),
     notifSound: (typeof localStorage !== 'undefined') ? (localStorage.getItem('bb_notif_sound_enabled') !== 'false') : true,
-    theme: isDark ? 'dark' : 'light',
+    theme: isReview ? (isDark ? 'dark' : 'light') : 'light',
     defaultView: (typeof localStorage !== 'undefined' ? (localStorage.getItem('bb_default_calendar_view') || 'upcoming') : 'upcoming'),
-    particlesEnabled: currentParticles.enabled,
-    particlesMode: currentParticles.mode
+    particlesEnabled: isReview ? currentParticles.enabled : false,
+    particlesMode: currentParticles.mode || 'both'
   };
 
   var overlay = document.querySelector('.portal-onboarding-overlay');
@@ -6623,6 +6626,21 @@ function completeOnboardingWizard() {
       seasonal_particles_enabled: _onboardingState.particlesEnabled,
       seasonal_particles_mode: _onboardingState.particlesMode
     });
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('bb_native_onboarding_completed', 'true');
+    } catch (_) {}
+  }
+  if (typeof window !== 'undefined' && typeof window.themeApply === 'function') {
+    window.themeApply(_onboardingState.theme, true);
+  }
+  if (typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {
+    window.toggleAmbientParticles(_onboardingState.particlesEnabled);
+  }
+  if (typeof window !== 'undefined' && typeof window.setAmbientParticlesMode === 'function') {
+    window.setAmbientParticlesMode(_onboardingState.particlesMode);
   }
 
   // Smooth dismiss animation

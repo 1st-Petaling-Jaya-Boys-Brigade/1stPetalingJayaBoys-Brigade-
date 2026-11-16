@@ -3348,7 +3348,9 @@ function switchTab(tab, btn, skipPush) {
 
   if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email'))) {
     var curSessionUser = sessionGet('email') || sessionGet('ic');
-    if (typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curSessionUser) && tab !== 'member' && tab !== 'admin') {
+    var isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
+    if ((nativeNeeded || (typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curSessionUser))) && tab !== 'member' && tab !== 'admin') {
       if (typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
         launchOnboardingWizard();
       }
@@ -3924,8 +3926,10 @@ window.addEventListener('load', function() {
     }
     // Check if member has completed onboarding
     var curUser = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : ic) || ic;
-    if (curUser && typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curUser)) {
-      if (typeof fetchRemoteOnboardingStatus === 'function') {
+    var isNative = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+    var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
+    if (curUser && (nativeNeeded || (typeof isOnboardingCompleted === 'function' && !isOnboardingCompleted(curUser)))) {
+      if (!nativeNeeded && typeof fetchRemoteOnboardingStatus === 'function') {
         fetchRemoteOnboardingStatus(curUser).then(function(done) {
           if (!done && typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
             launchOnboardingWizard();

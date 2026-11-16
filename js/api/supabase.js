@@ -1342,6 +1342,25 @@ var PortalRealtime = (function() {
         });
       }
 
+      var curUserKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+      if (curUserKey) {
+        var cleanU = String(curUserKey).toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
+        var prefRows = await client.get('bb_config?key=in.(bb_pref_theme_' + cleanU + ',bb_pref_particles_' + cleanU + ')&select=key,value,updated_at');
+        if (Array.isArray(prefRows)) {
+          prefRows.forEach(function(pr) {
+            var pts = pr.updated_at || '';
+            if (_lastEntityTimestamps[pr.key] && _lastEntityTimestamps[pr.key] !== pts) {
+              if (pr.key === 'bb_pref_theme_' + cleanU && pr.value && typeof window !== 'undefined' && typeof window.themeApply === 'function') {
+                window.themeApply(pr.value, false);
+              } else if (pr.key === 'bb_pref_particles_' + cleanU && typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {
+                window.toggleAmbientParticles(pr.value === 'true');
+              }
+            }
+            _lastEntityTimestamps[pr.key] = pts;
+          });
+        }
+      }
+
       var annRows = await client.get('bb_announcements?select=id,created_at&order=created_at.desc&limit=1');
       if (Array.isArray(annRows) && annRows.length) {
         var annKey = (annRows[0].id || '') + ':' + (annRows[0].created_at || '');
@@ -1397,6 +1416,12 @@ var PortalRealtime = (function() {
         }
         checkDeltaSync();
       }
+    });
+    document.addEventListener('resume', function() {
+      if (!_ws || _ws.readyState !== 1) {
+        connectWebSocket();
+      }
+      checkDeltaSync();
     });
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('focus', function() {
