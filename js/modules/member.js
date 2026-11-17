@@ -1,4 +1,4 @@
-/* global isOnboardingCompleted, markOnboardingCompleted, fetchRemoteOnboardingStatus, triggerPortalSystemNotification, playNotificationSound, setTheme, getAmbientParticlesState, toggleAmbientParticles, setAmbientParticlesMode */
+/* global isOnboardingCompleted, markOnboardingCompleted, fetchRemoteOnboardingStatus, triggerPortalSystemNotification, playNotificationSound, setTheme, getAmbientParticlesState, toggleAmbientParticles, setAmbientParticlesMode, syncMobileDeviceSubscriptions, unsubscribeMobileDevice */
 
 /**
  * 1st Petaling Jaya Boys\' Brigade Portal
@@ -2124,6 +2124,13 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   sessionSet('created_at', m.created_at || m.joined_at || '');
   sessionSet('department', m.department || '');
   sessionSet('photo_url', m.photo_url || '');
+
+  // Synchronize mobile topic subscriptions with active member identity
+  if (typeof syncMobileDeviceSubscriptions === 'function') {
+    syncMobileDeviceSubscriptions();
+  } else if (typeof window !== 'undefined' && typeof window.syncMobileDeviceSubscriptions === 'function') {
+    window.syncMobileDeviceSubscriptions();
+  }
 
   renderDashboard();
 
@@ -4835,6 +4842,15 @@ function logoutMember() {
 
   var curUser = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'member';
   var curRole = (typeof sessionGet === 'function' ? sessionGet('role') : '') || 'member';
+  var curEmail = (typeof sessionGet === 'function' ? sessionGet('email') : '');
+  var curIc = (typeof sessionGet === 'function' ? sessionGet('ic') : '');
+  var curDept = (typeof sessionGet === 'function' ? sessionGet('department') : '');
+
+  if (typeof unsubscribeMobileDevice === 'function') {
+    unsubscribeMobileDevice(curEmail, curIc, curDept);
+  } else if (typeof window !== 'undefined' && typeof window.unsubscribeMobileDevice === 'function') {
+    window.unsubscribeMobileDevice(curEmail, curIc, curDept);
+  }
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
       action: 'auth.logout',

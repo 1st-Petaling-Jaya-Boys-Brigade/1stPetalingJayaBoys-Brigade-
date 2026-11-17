@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications, sendPortalPushNotification */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -3063,6 +3063,45 @@ async function handleTaskCommentSubmit(input) {
     if (typeof showToast === 'function') {
       showToast(saved ? 'Comment posted successfully!' : 'Comment saved on this device. Sync failed.', saved ? 'success' : 'warning', 1500);
     }
+
+    // Real-time WhatsApp-style FCM push notification for task comments & mentions
+    var commentDispatcher = (typeof sendPortalPushNotification === 'function')
+      ? sendPortalPushNotification
+      : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+    if (commentDispatcher) {
+      var taskObj = findManagedTask(tid);
+      var targetUsers = [];
+      if (taskObj) {
+        if (taskObj.assignee_ic) {
+          taskObj.assignee_ic.split(',').forEach(function(ic) {
+            var trimmed = ic.trim();
+            if (trimmed && trimmed.toLowerCase() !== authorEmail.toLowerCase()) targetUsers.push(trimmed);
+          });
+        }
+        if (taskObj.creator_email && taskObj.creator_email.toLowerCase() !== authorEmail.toLowerCase()) {
+          targetUsers.push(taskObj.creator_email.trim());
+        }
+      }
+      var mentionMatches = commentText.match(/@([a-zA-Z0-9._-]+)/g) || [];
+      var isAllMention = /(?:^|\W)@(all|everyone|everybody)\b/i.test(commentText);
+      mentionMatches.forEach(function(m) {
+        var cleanM = m.slice(1).trim();
+        if (cleanM && !/^(all|everyone|everybody)$/i.test(cleanM)) {
+          targetUsers.push(cleanM);
+        }
+      });
+      commentDispatcher({
+        type: 'mention',
+        title: '💬 ' + authorName + ' commented on a task',
+        body: (taskObj ? taskObj.title + ': ' : '') + commentText,
+        targetTopic: isAllMention ? 'announcements' : null,
+        targetUsers: targetUsers,
+        tab: 'tasks',
+        targetId: tid
+      }).catch(function(err) {
+        console.warn('Task comment FCM push error:', err);
+      });
+    }
   };
   try {
     if (button && typeof withSmartButtonLock === 'function') await withSmartButtonLock(button, submit);
@@ -4903,6 +4942,30 @@ async function saveTask() {
           details: { title: title, department: dept }
         });
       }
+    }
+
+    // Real-time WhatsApp-style FCM push notification for task assignment
+    var taskDispatcher = (typeof sendPortalPushNotification === 'function')
+      ? sendPortalPushNotification
+      : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+    if (taskDispatcher) {
+      var targetUsers = [];
+      if (payload.assignee_ic) {
+        payload.assignee_ic.split(',').forEach(function(ic) {
+          var trimmed = ic.trim();
+          if (trimmed) targetUsers.push(trimmed);
+        });
+      }
+      taskDispatcher({
+        type: 'task_assigned',
+        title: '🎯 Task Assigned: ' + title,
+        body: (payload.creator_name || 'An officer') + ' assigned a task: ' + title,
+        targetUsers: targetUsers,
+        targetDept: dept,
+        tab: 'tasks'
+      }).catch(function(pushErr) {
+        console.warn('Task assignment FCM push error:', pushErr);
+      });
     }
     clearTaskForm();
     var body = document.getElementById('task-form-body');

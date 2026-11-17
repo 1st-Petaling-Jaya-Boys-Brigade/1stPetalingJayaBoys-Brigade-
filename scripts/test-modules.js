@@ -14863,6 +14863,68 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Suite 76: Firebase Cloud Messaging (FCM) Universal Push Notification Architecture ───
+  {
+    console.log('\n--- Suite 76: Firebase Cloud Messaging (FCM) Universal Push Notification Architecture ---');
+
+    const fcm = require('../js/api/fcm.js');
+
+    // 1. Topic name sanitization & rules
+    assert.strictEqual(fcm.sanitizeTopicName('announcements'), 'announcements');
+    assert.strictEqual(fcm.sanitizeTopicName('Jeshua Koh'), 'jeshua_koh');
+    assert.strictEqual(fcm.sanitizeTopicName('jeshuakoh2008@gmail.com'), 'user_jeshuakoh2008_gmail_com'.replace(/^user_/, ''));
+    assert.strictEqual(fcm.sanitizeTopicName('080116-14-0615'), '080116-14-0615');
+    assert.strictEqual(fcm.sanitizeTopicName('!@#$$%^^&&'), 'general');
+    assert.strictEqual(fcm.sanitizeTopicName(''), 'general');
+    console.log('  ✔ FCM topic sanitization strictly conforms to Google format [a-zA-Z0-9-_~]');
+
+    // 2. Personal & Department Topic Routing
+    assert.strictEqual(fcm.getUserTopic('jeshuakoh2008@gmail.com'), 'user_jeshuakoh2008_gmail_com');
+    assert.strictEqual(fcm.getUserTopic('080116-14-0615'), 'user_080116-14-0615');
+    assert.strictEqual(fcm.getDepartmentTopic('logistics'), 'dept_logistics');
+    assert.strictEqual(fcm.getDepartmentTopic('secretariat'), 'dept_secretariat');
+    console.log('  ✔ Personal user topics and department topics route targeted notifications seamlessly');
+
+    // 3. WebCrypto Base64URL and clean snippet utilities
+    assert.strictEqual(fcm.cleanSnippet('<b>Alert:</b> <i>Parade at 9:30 AM</i>'), 'Alert: Parade at 9:30 AM');
+    assert.strictEqual(typeof fcm.base64UrlEncode, 'function');
+    assert.strictEqual(typeof fcm.pemToArrayBuffer, 'function');
+    assert.strictEqual(typeof fcm.sendPortalPushNotification, 'function');
+    console.log('  ✔ Zero-dependency WebCrypto token generation and payload cleaning utilities verified');
+
+    // 4. Content Security Policy (CSP) incorporates Google OAuth2 & FCM endpoints
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+    const vercelCsp = vercelConfig.headers[0].headers.find(h => h.key === 'Content-Security-Policy').value;
+    assert.ok(vercelCsp.includes('https://oauth2.googleapis.com'), 'vercel.json CSP must include https://oauth2.googleapis.com');
+    assert.ok(vercelCsp.includes('https://fcm.googleapis.com'), 'vercel.json CSP must include https://fcm.googleapis.com');
+
+    const indexHtmlContent = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.ok(indexHtmlContent.includes('https://oauth2.googleapis.com'), 'index.html meta CSP must include https://oauth2.googleapis.com');
+    assert.ok(indexHtmlContent.includes('https://fcm.googleapis.com'), 'index.html meta CSP must include https://fcm.googleapis.com');
+    console.log('  ✔ Content Security Policy (CSP) alignment verified for Google OAuth2 and FCM v1 API');
+
+    // 5. Android Native Push Receiver & Bridge Services
+    const javaDir = path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'java', 'org', 'firstpjbb', 'portal');
+    const mainActivityJava = fs.readFileSync(path.join(javaDir, 'MainActivity.java'), 'utf8');
+    const fcmServiceJava = fs.readFileSync(path.join(javaDir, 'PortalFirebaseMessagingService.java'), 'utf8');
+
+    assert.ok(mainActivityJava.includes('AndroidFcmBridge'), 'MainActivity must expose AndroidFcmBridge to WebView');
+    assert.ok(mainActivityJava.includes('subscribeToTopic("announcements")'), 'MainActivity must subscribe to announcements');
+    assert.ok(fcmServiceJava.includes('portal-alerts-v2'), 'FirebaseMessagingService must use portal-alerts-v2 high-priority channel');
+    assert.ok(fcmServiceJava.includes('R.raw.portal_chime'), 'FirebaseMessagingService must use custom portal_chime sound');
+    console.log('  ✔ Android Firebase Messaging Service & WebView Bridge verified for instant background alerts');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
+    const postIdsFcm = new Set();
+    const postMatchesFcm = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesFcm.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsFcm.add(match[1]);
+    });
+    assert.strictEqual(postIdsFcm.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsFcm.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {

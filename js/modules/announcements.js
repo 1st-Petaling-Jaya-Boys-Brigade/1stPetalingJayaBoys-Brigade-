@@ -6,7 +6,7 @@
  * emoji reactions, and admin post/edit/delete operations.
  */
 
-/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator */
+/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sendPortalPushNotification */
 
 // ── Default Fallback Announcements (Zero-Blank Offline Resilience) ────────
 var DEFAULT_ANNOUNCEMENTS = [
@@ -1524,6 +1524,24 @@ async function addAnnouncement() {
       snippet: cleanSnippet,
       created_at: (typeof newRecord !== 'undefined' && newRecord && newRecord.created_at) ? newRecord.created_at : new Date().toISOString()
     });
+
+    // Real-time WhatsApp-style Google FCM push broadcast to all mobile devices
+    if (!editId) {
+      var fcmDispatcher = (typeof sendPortalPushNotification === 'function')
+        ? sendPortalPushNotification
+        : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+      if (fcmDispatcher) {
+        fcmDispatcher({
+          type: 'announcement',
+          title: '📢 ' + title,
+          body: cleanSnippet || 'New company announcement posted.',
+          tab: 'home',
+          targetId: editId || createdAnnId || ''
+        }).catch(function (pushErr) {
+          console.warn('Announcement FCM push error:', pushErr);
+        });
+      }
+    }
     if (typeof syncAnnouncementNotifications === 'function') {
       syncAnnouncementNotifications(announcements, true);
     } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {

@@ -3367,7 +3367,7 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
   if (memberId) path += '&ic=eq.' + encodeURIComponent(memberId);
 
   try {
-    var rows = await client.get(path + '&select=order_number,status,items', { cache: false });
+    var rows = await client.get(path + '&select=order_number,status,items,ic,email', { cache: false });
     var order = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
     var current = order && order.status;
     if (!order || !isUniformOrder(order) || (memberId && current !== 'pending') || !getUniformStatusOptions(current).includes(status) || current === status) {
@@ -3388,6 +3388,26 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
     // Auto-sync updated status to Google Sheets Order Tracker
     syncOrderStatusToGoogleSheet(orderNum, status);
     if (typeof showToast === 'function') showToast('Order status updated to ' + status + '.', 'success');
+
+    // Real-time WhatsApp-style FCM push notification for order updates
+    var orderDispatcher = (typeof sendPortalPushNotification === 'function')
+      ? sendPortalPushNotification
+      : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+    if (orderDispatcher && order) {
+      var targetUsers = [order.ic, order.email].filter(Boolean);
+      if (targetUsers.length > 0) {
+        orderDispatcher({
+          type: 'order_status',
+          title: '📦 Uniform Order Update',
+          body: 'Order #' + orderNum + ' status updated to ' + status.toUpperCase() + '.',
+          targetUsers: targetUsers,
+          tab: 'orders',
+          targetId: orderNum
+        }).catch(function(err) {
+          console.warn('Order FCM push error:', err);
+        });
+      }
+    }
     if (typeof logAuditEvent === 'function') {
       await logAuditEvent({
         action: 'order.status_update',

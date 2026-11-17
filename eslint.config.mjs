@@ -380,7 +380,14 @@ export default [
         syncFormNotifications: 'readonly',
         syncHighlightNotifications: 'readonly',
         addPortalNotification: 'readonly',
-        switchTabNav: 'readonly'
+        switchTabNav: 'readonly',
+        sendPortalPushNotification: 'readonly',
+        sendFcmTopicPush: 'readonly',
+        sanitizeTopicName: 'readonly',
+        getUserTopic: 'readonly',
+        getDepartmentTopic: 'readonly',
+        syncMobileDeviceSubscriptions: 'readonly',
+        unsubscribeMobileDevice: 'readonly'
       }
     },
     rules: {
