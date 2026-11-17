@@ -34,7 +34,7 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
     private static final String PREFS_NAME = "bb_portal_sync_prefs";
     private static final String PREF_LAST_ANN_KEY = "last_seen_announcement_key";
     public static final String CHANNEL_ID = "portal-alerts-v2";
-    private static final long INTERVAL_MS = 15000L; // 15s background polling cadence
+    private static final long INTERVAL_MS = 900000L; // 15-minute passive background safety fallback
 
     private static final String SUPA_URL = "https://mjfclxcklkbgsivvvlfe.supabase.co/rest/v1/bb_announcements?order=created_at.desc&limit=1&select=id,title,body,created_at";
     private static final String SUPA_KEY_B64 = "ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQmhZbUZ6WlNJc0luSmxaaUk2SW0xcVptTnNlR05yYkd0aVozTnBkbloyYkdabElpd2ljbTlzWlNJNkltRnViMjRpTENKcFlYUWlPakUzTnpReE9EVXlNRFlzSW1WNGNDSTZNakE0T1RjMk1USXdObjAuWllzYUhuUEoxTFhyazRpWVA1cFlnTktqeWtzWFBzSzhaeGtYUEZlRWNPTQ==";
@@ -46,6 +46,23 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    public static String cleanText(String raw) {
+        if (raw == null) return "";
+        return raw
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&apos;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replaceAll("<[^>]*>", " ")
+            .replaceAll("[\\p{So}\\p{Cn}\\uFE0F\\u200D\\u2600-\\u26FF\\u2700-\\u27BF]", "")
+            .replaceAll("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]", "")
+            .replaceAll("\\s+", " ")
+            .trim();
     }
 
     private static long parseIsoTimestamp(String iso) {
@@ -206,24 +223,37 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
             }
 
             if (shouldNotify) {
-                String title = latest.optString("title", "Company Announcement");
+                String notifTag = "portal_" + idStr;
+                SharedPreferences dedup = context.getSharedPreferences("bb_portal_dedup", Context.MODE_PRIVATE);
+                long lastSeen = dedup.getLong("seen_" + notifTag, 0L);
+                long now = System.currentTimeMillis();
+                if ((now - lastSeen) < 7200000L) {
+                    // Already notified by FCM push within 2 hours; skip duplicate card
+                    return;
+                }
+
+                String title = cleanText(latest.optString("title", "Company Announcement"));
                 String body = latest.optString("body", "");
-                String cleanSnippet = body.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
+                String cleanSnippet = cleanText(body);
                 if (cleanSnippet.length() > 120) {
                     cleanSnippet = cleanSnippet.substring(0, 117) + "...";
                 }
                 if (cleanSnippet.isEmpty()) {
-                    cleanSnippet = "Tap to open and view announcement.";
+                    cleanSnippet = "New company announcement posted. Tap to view full details.";
+                }
+                if (title.isEmpty()) {
+                    title = "Company Announcement";
                 }
 
-                // Deterministic notification ID aligned with FCM targetId to avoid dual cards
-                int notifId = Math.abs(idStr.trim().hashCode() % 100000) + 1000;
-                postNativeNotification(context, notifId, title, cleanSnippet);
+                // Deterministic notification ID and tag aligned with FCM targetId to avoid dual cards
+                int notifId = Math.abs(idStr.hashCode() % 100000) + 1000;
+                dedup.edit().putLong("seen_" + notifTag, now).apply();
+                postNativeNotification(context, notifTag, notifId, title, cleanSnippet);
             }
         } catch (Exception ignored) {}
     }
 
-    private void postNativeNotification(Context context, int notifId, String title, String snippet) {
+    private void postNativeNotification(Context context, String notifTag, int notifId, String title, String snippet) {
         try {
             createNotificationChannel(context);
 
@@ -241,7 +271,7 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher))
-                .setContentTitle("📢 " + title)
+                .setContentTitle(title.trim())
                 .setContentText(snippet)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(snippet))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -260,7 +290,7 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
             }
 
             NotificationManagerCompat nmCompat = NotificationManagerCompat.from(context);
-            nmCompat.notify(notifId, builder.build());
+            nmCompat.notify(notifTag, notifId, builder.build());
         } catch (Exception ignored) {}
     }
 }

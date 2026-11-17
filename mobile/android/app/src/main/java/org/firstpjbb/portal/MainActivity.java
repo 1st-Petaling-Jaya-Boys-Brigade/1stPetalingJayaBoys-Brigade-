@@ -191,6 +191,14 @@ public class MainActivity extends BridgeActivity {
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 getBridge().getWebView().addJavascriptInterface(new AndroidFcmBridge(), "AndroidFCM");
+                getBridge().getWebView().post(() -> {
+                    try {
+                        getBridge().getWebView().evaluateJavascript(
+                            "if (typeof syncMobileDeviceSubscriptions === 'function') { syncMobileDeviceSubscriptions(); }",
+                            null
+                        );
+                    } catch (Exception ignored) {}
+                });
             }
         } catch (Exception ignored) {}
     }

@@ -7,6 +7,8 @@
  * with role-based visibility (All, NCOs, Officers) and Supabase/Drive integration.
  */
 
+/* global sendPortalPushNotification */
+
 // ── Default Resources (Empty by default; managed via Admin Console) ────────
 var DEFAULT_COMPANY_RESOURCES = [];
 
@@ -940,6 +942,25 @@ async function addOrUpdateResource() {
       };
       resources.unshift(newRes);
       await saveResources(resources);
+
+      // Real-time FCM push notification for resource upload
+      var resDispatcher = (typeof sendPortalPushNotification === 'function')
+        ? sendPortalPushNotification
+        : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+      if (resDispatcher) {
+        var resTopic = vis === 'nco' ? 'dept_nco' : (vis === 'officers' ? 'dept_officers' : 'announcements');
+        resDispatcher({
+          type: 'resource',
+          title: 'New Resource: ' + title,
+          body: desc || ('New official ' + cat + ' document published: ' + title),
+          targetTopic: resTopic,
+          tab: 'resources',
+          targetId: newRes.id
+        }).catch(function(err) {
+          console.warn('Resource upload FCM push error:', err);
+        });
+      }
+
       if (typeof logAuditEvent === 'function') {
         logAuditEvent({
           action: 'resource.upload',

@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications, sendPortalPushNotification */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -3090,10 +3090,13 @@ async function handleTaskCommentSubmit(input) {
           targetUsers.push(cleanM);
         }
       });
+      var cleanCommentText = (typeof cleanSnippet === 'function')
+        ? cleanSnippet(commentText, 140)
+        : (commentText || '').replace(/&nbsp;/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
       commentDispatcher({
-        type: 'mention',
-        title: '💬 ' + authorName + ' commented on a task',
-        body: (taskObj ? taskObj.title + ': ' : '') + commentText,
+        type: 'task_comment',
+        title: authorName + ' commented on a task',
+        body: (taskObj ? taskObj.title + ': ' : '') + cleanCommentText,
         targetTopic: isAllMention ? 'announcements' : null,
         targetUsers: targetUsers,
         tab: 'tasks',
@@ -4119,6 +4122,22 @@ async function selectTaskDetailAssignee(ic, name) {
       if (cleanIc) {
         try { await client.patch('bb_tasks?id=eq.' + encodeURIComponent(tid), { assignee_ic: cleanIc }); } catch (_) {}
       }
+      if (cleanName && cleanName !== 'Unassigned') {
+        var assignDispatcher = (typeof sendPortalPushNotification === 'function')
+          ? sendPortalPushNotification
+          : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+        if (assignDispatcher) {
+          assignDispatcher({
+            type: 'task_assigned',
+            title: 'Task Assigned: ' + (t.title || 'Task Update'),
+            body: 'You have been assigned to: ' + (t.title || 'Task Update'),
+            targetUsers: [cleanIc, cleanName].filter(Boolean),
+            targetDept: t.department || '',
+            tab: 'tasks',
+            targetId: tid
+          }).catch(function() {});
+        }
+      }
     } catch (err) {
       console.warn('Failed to sync assignee in background:', err);
     }
@@ -4956,9 +4975,15 @@ async function saveTask() {
           if (trimmed) targetUsers.push(trimmed);
         });
       }
+      if (payload.assignee_name) {
+        payload.assignee_name.split(',').forEach(function(n) {
+          var trimmed = n.trim();
+          if (trimmed && trimmed !== 'Unassigned') targetUsers.push(trimmed);
+        });
+      }
       taskDispatcher({
         type: 'task_assigned',
-        title: '🎯 Task Assigned: ' + title,
+        title: 'Task Assigned: ' + title,
         body: (payload.creator_name || 'An officer') + ' assigned a task: ' + title,
         targetUsers: targetUsers,
         targetDept: dept,

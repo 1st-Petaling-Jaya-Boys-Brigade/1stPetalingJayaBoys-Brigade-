@@ -5,6 +5,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.BitmapFactory;
 import android.media.AudioAttributes;
 import android.net.Uri;
@@ -28,6 +29,27 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
         try {
             FirebaseMessaging.getInstance().subscribeToTopic("announcements");
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * Sanitizes notification text: strips emojis, unescapes HTML entities, removes HTML tags,
+     * and collapses consecutive whitespace for clean, professional alert cards.
+     */
+    public static String cleanText(String raw) {
+        if (raw == null) return "";
+        return raw
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replace("&apos;", "'")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replaceAll("<[^>]*>", " ")
+            .replaceAll("[\\p{So}\\p{Cn}\\uFE0F\\u200D\\u2600-\\u26FF\\u2700-\\u27BF]", "")
+            .replaceAll("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]", "")
+            .replaceAll("\\s+", " ")
+            .trim();
     }
 
     @Override
@@ -71,22 +93,48 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
                 }
             }
 
-            if (title == null || title.isEmpty()) title = "1st Petaling Jaya Boys' Brigade";
-            if (body == null || body.isEmpty()) body = "Tap to view updates in the 1st PJ BB portal.";
+            title = cleanText(title);
+            body = cleanText(body);
 
             String tab = (data != null && data.containsKey("tab")) ? data.get("tab") : "home";
             String targetId = (data != null && data.containsKey("targetId")) ? data.get("targetId") : "";
             String category = (data != null && data.containsKey("category")) ? data.get("category") : "announcements";
 
-            // Deterministic notification ID so repeated/overlapping updates never create stacked duplicate cards
+            if (title.isEmpty()) {
+                title = "1st Petaling Jaya Boys' Brigade";
+            }
+            if (body.isEmpty()) {
+                if ("task_assigned".equals(category)) {
+                    body = "You have been assigned to a new task. Tap to view requirements.";
+                } else if ("mention".equals(category) || "task_comment".equals(category)) {
+                    body = "You were mentioned in a task discussion. Tap to view.";
+                } else if ("resource".equals(category)) {
+                    body = "A new resource document has been published. Tap to view.";
+                } else if ("order_status".equals(category)) {
+                    body = "Your uniform store order status has been updated.";
+                } else if ("forum_reply".equals(category)) {
+                    body = "You received a reply on the community forum.";
+                } else {
+                    body = "New company announcement posted. Tap to view full details.";
+                }
+            }
+
+            // Deterministic notification tag and ID so repeated/overlapping updates never create stacked duplicate cards
+            String notifTag = "portal_" + (targetId != null && !targetId.trim().isEmpty() ? targetId.trim() : (category + "_" + Math.abs(title.hashCode() % 10000)));
             int notifId;
             if (targetId != null && !targetId.trim().isEmpty()) {
                 notifId = Math.abs(targetId.trim().hashCode() % 100000) + 1000;
             } else {
-                notifId = Math.abs((title.trim() + ":" + category).hashCode() % 100000) + 1000;
+                notifId = Math.abs((title + ":" + category).hashCode() % 100000) + 1000;
             }
 
-            showPushNotification(this, notifId, title, body, tab, targetId, category);
+            // Register in shared deduplication cache to prevent AnnouncementSyncReceiver race conditions
+            try {
+                SharedPreferences dedup = getSharedPreferences("bb_portal_dedup", Context.MODE_PRIVATE);
+                dedup.edit().putLong("seen_" + notifTag, System.currentTimeMillis()).apply();
+            } catch (Exception ignored) {}
+
+            showPushNotification(this, notifTag, notifId, title, body, tab, targetId, category);
         } finally {
             try {
                 if (wakeLock != null && wakeLock.isHeld()) {
@@ -97,6 +145,11 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     public static void showPushNotification(Context context, int notifId, String title, String snippet, String tab, String targetId, String category) {
+        String notifTag = "portal_" + (targetId != null && !targetId.trim().isEmpty() ? targetId.trim() : String.valueOf(notifId));
+        showPushNotification(context, notifTag, notifId, title, snippet, tab, targetId, category);
+    }
+
+    public static void showPushNotification(Context context, String notifTag, int notifId, String title, String snippet, String tab, String targetId, String category) {
         try {
             createNotificationChannel(context);
 
@@ -115,12 +168,17 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
 
             Uri soundUri = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.portal_chime);
 
+            String cleanTitle = cleanText(title);
+            String cleanBody = cleanText(snippet);
+            if (cleanTitle.isEmpty()) cleanTitle = "1st Petaling Jaya Boys' Brigade";
+            if (cleanBody.isEmpty()) cleanBody = "Tap to open and view update in the portal.";
+
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher))
-                .setContentTitle(title.trim())
-                .setContentText(snippet)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(snippet))
+                .setContentTitle(cleanTitle)
+                .setContentText(cleanBody)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(cleanBody))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -137,7 +195,7 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
             }
 
             NotificationManagerCompat nmCompat = NotificationManagerCompat.from(context);
-            nmCompat.notify(notifId, builder.build());
+            nmCompat.notify(notifTag, notifId, builder.build());
         } catch (Exception ignored) {}
     }
 
