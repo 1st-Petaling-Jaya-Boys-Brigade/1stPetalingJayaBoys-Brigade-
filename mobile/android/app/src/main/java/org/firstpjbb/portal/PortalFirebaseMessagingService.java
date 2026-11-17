@@ -9,6 +9,7 @@ import android.graphics.BitmapFactory;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -33,39 +34,66 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        String title = "";
-        String body = "";
-
-        if (remoteMessage.getNotification() != null) {
-            if (remoteMessage.getNotification().getTitle() != null) {
-                title = remoteMessage.getNotification().getTitle();
-            }
-            if (remoteMessage.getNotification().getBody() != null) {
-                body = remoteMessage.getNotification().getBody();
-            }
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        PowerManager.WakeLock wakeLock = (pm != null)
+            ? pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "1stPJBB:FCMPushWakeLock")
+            : null;
+        if (wakeLock != null) {
+            try {
+                wakeLock.acquire(10000L); // 10s wake lock for background notification processing
+            } catch (Exception ignored) {}
         }
 
-        Map<String, String> data = remoteMessage.getData();
-        if (data != null && !data.isEmpty()) {
-            if (data.containsKey("title") && data.get("title") != null && title.isEmpty()) {
-                title = data.get("title");
+        try {
+            String title = "";
+            String body = "";
+
+            if (remoteMessage.getNotification() != null) {
+                if (remoteMessage.getNotification().getTitle() != null) {
+                    title = remoteMessage.getNotification().getTitle();
+                }
+                if (remoteMessage.getNotification().getBody() != null) {
+                    body = remoteMessage.getNotification().getBody();
+                }
             }
-            if (data.containsKey("body") && data.get("body") != null && body.isEmpty()) {
-                body = data.get("body");
-            } else if (data.containsKey("message") && data.get("message") != null && body.isEmpty()) {
-                body = data.get("message");
+
+            Map<String, String> data = remoteMessage.getData();
+            if (data != null && !data.isEmpty()) {
+                if (data.containsKey("title") && data.get("title") != null && title.isEmpty()) {
+                    title = data.get("title");
+                }
+                if (data.containsKey("body") && data.get("body") != null && body.isEmpty()) {
+                    body = data.get("body");
+                } else if (data.containsKey("snippet") && data.get("snippet") != null && body.isEmpty()) {
+                    body = data.get("snippet");
+                } else if (data.containsKey("message") && data.get("message") != null && body.isEmpty()) {
+                    body = data.get("message");
+                }
             }
+
+            if (title == null || title.isEmpty()) title = "1st Petaling Jaya Boys' Brigade";
+            if (body == null || body.isEmpty()) body = "Tap to view updates in the 1st PJ BB portal.";
+
+            String tab = (data != null && data.containsKey("tab")) ? data.get("tab") : "home";
+            String targetId = (data != null && data.containsKey("targetId")) ? data.get("targetId") : "";
+            String category = (data != null && data.containsKey("category")) ? data.get("category") : "announcements";
+
+            // Deterministic notification ID so repeated/overlapping updates never create stacked duplicate cards
+            int notifId;
+            if (targetId != null && !targetId.trim().isEmpty()) {
+                notifId = Math.abs(targetId.trim().hashCode() % 100000) + 1000;
+            } else {
+                notifId = Math.abs((title.trim() + ":" + category).hashCode() % 100000) + 1000;
+            }
+
+            showPushNotification(this, notifId, title, body, tab, targetId, category);
+        } finally {
+            try {
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    wakeLock.release();
+                }
+            } catch (Exception ignored) {}
         }
-
-        if (title == null || title.isEmpty()) title = "1st PJ BB Notification";
-        if (body == null || body.isEmpty()) body = "Tap to open and view update.";
-
-        String tab = (data != null && data.containsKey("tab")) ? data.get("tab") : "home";
-        String targetId = (data != null && data.containsKey("targetId")) ? data.get("targetId") : "";
-        String category = (data != null && data.containsKey("category")) ? data.get("category") : "announcements";
-
-        int notifId = (int) (System.currentTimeMillis() % 100000);
-        showPushNotification(this, notifId, title, body, tab, targetId, category);
     }
 
     public static void showPushNotification(Context context, int notifId, String title, String snippet, String tab, String targetId, String category) {

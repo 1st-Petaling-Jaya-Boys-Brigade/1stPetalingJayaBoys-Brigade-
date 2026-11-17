@@ -216,7 +216,8 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
                     cleanSnippet = "Tap to open and view announcement.";
                 }
 
-                int notifId = Math.abs(uniqueKey.hashCode() % 100000) + 100;
+                // Deterministic notification ID aligned with FCM targetId to avoid dual cards
+                int notifId = Math.abs(idStr.trim().hashCode() % 100000) + 1000;
                 postNativeNotification(context, notifId, title, cleanSnippet);
             }
         } catch (Exception ignored) {}

@@ -41,7 +41,14 @@
             </intent-filter>
         </receiver>
 
-        <!-- Firebase Cloud Messaging Push Service -->
+        <!-- Firebase Cloud Messaging Push Service & Defaults -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="portal-alerts-v2" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+
         <service
             android:name=".PortalFirebaseMessagingService"
             android:exported="false">

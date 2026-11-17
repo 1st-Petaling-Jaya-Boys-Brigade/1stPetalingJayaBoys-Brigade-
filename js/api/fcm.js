@@ -262,16 +262,21 @@
         data: {
           title: title,
           body: cleanBody,
+          snippet: cleanBody,
           category: String(options.category || 'announcements'),
           tab: String(options.tab || 'home'),
           targetId: String(options.targetId || '')
         },
         android: {
-          priority: 'high',
+          priority: 'HIGH',
           notification: {
             channel_id: 'portal-alerts-v2',
+            notification_priority: 'PRIORITY_MAX',
+            visibility: 'PUBLIC',
+            default_sound: true,
+            default_vibrate_timings: true,
             sound: 'portal_chime',
-            default_vibrate_timings: true
+            icon: 'ic_launcher'
           }
         }
       }

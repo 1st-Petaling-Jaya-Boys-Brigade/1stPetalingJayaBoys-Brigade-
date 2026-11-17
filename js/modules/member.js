@@ -5904,6 +5904,7 @@ function openSettingsModal() {
     : { enabled: true, mode: 'both' };
   var particlesEnabled = particlesState.enabled !== false;
   var particlesMode = particlesState.mode || 'both';
+  var isNativeAndroid = (typeof window !== 'undefined' && Boolean(window.AndroidFCM || (window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android')));
 
   var modalHtml = ''
     + '<div class="portal-modal-card settings-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);">'
@@ -6038,10 +6039,11 @@ function openSettingsModal() {
         + '<div class="settings-row">'
           + '<div style="flex:1;">'
             + '<div class="settings-row-label">Desktop &amp; Mobile System Popups</div>'
-            + '<div class="settings-row-desc">Display notification</div>'
+            + '<div class="settings-row-desc">Display real-time banner notifications on your phone lock screen and PC</div>'
           + '</div>'
           + '<div style="display:flex;align-items:center;gap:8px;">'
             + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.testNotificationPopup===\'function\')window.testNotificationPopup();else if(typeof window!==\'undefined\'&&typeof window.requestNotificationPermission===\'function\')window.requestNotificationPermission();" style="font-size:11.5px;padding:5px 10px;">Test</button>'
+            + (isNativeAndroid ? '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&window.AndroidFCM&&typeof window.AndroidFCM.openNotificationSettings===\'function\')window.AndroidFCM.openNotificationSettings();" style="font-size:11.5px;padding:5px 10px;" title="Open device app notification and battery optimization settings">Device</button>' : '')
             + '<input type="checkbox" id="settings-toggle-sysnotif" onchange="handleSettingsNotificationToggle(\'system\')" ' + (sysNotifEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
           + '</div>'
         + '</div>'
