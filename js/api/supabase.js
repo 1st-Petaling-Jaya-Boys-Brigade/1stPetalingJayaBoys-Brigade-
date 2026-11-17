@@ -1336,10 +1336,9 @@ var PortalRealtime = (function() {
       scheduleNextDeltaSync(120000);
       return;
     }
-    // If tab is hidden, back off to avoid battery drain
+    // If tab is hidden, poll with 15s cadence so background alerts arrive promptly without skipping
     if (typeof document !== 'undefined' && (document.hidden || document.visibilityState === 'hidden')) {
-      scheduleNextDeltaSync(60000);
-      return;
+      _deltaSyncBackoff = 15000;
     }
     if (isCircuitBreakerOpen()) {
       scheduleNextDeltaSync(60000);
@@ -1402,11 +1401,11 @@ var PortalRealtime = (function() {
         });
       }
 
-      var annRows = await client.get('bb_announcements?select=id,created_at&order=created_at.desc&limit=1', { cache: false });
+      var annRows = await client.get('bb_announcements?select=id,created_at' + ',title,body,date&order=created_at.desc&limit=1', { cache: false });
       if (Array.isArray(annRows) && annRows.length) {
         var annKey = (annRows[0].id || '') + ':' + (annRows[0].created_at || '');
         if (_lastEntityTimestamps['bb_announcements_latest'] && _lastEntityTimestamps['bb_announcements_latest'] !== annKey) {
-          triggerEntityUpdate('announcements', 'update');
+          triggerEntityUpdate('announcements', 'create', annRows[0]);
         }
         _lastEntityTimestamps['bb_announcements_latest'] = annKey;
       }

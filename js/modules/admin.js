@@ -1467,6 +1467,27 @@
   var _adminPreviousOverflow = '';
   var _adminPreviousTitle = '';
 
+  (function restoreAdminSession() {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        var _sToken = sessionStorage.getItem('bb_admin_session_token');
+        var _sData = sessionStorage.getItem('bb_admin_session_data');
+        if (_sToken && _sData) {
+          var _pData = JSON.parse(_sData);
+          var _initEmail = getAdminMemberEmail();
+          if (_pData && Number.isFinite(_pData.expiresAt) && _pData.expiresAt > Date.now() &&
+              (!_initEmail || _pData.officerEmail === _initEmail) && getAdminRole(_pData.officerEmail) !== 'member') {
+            _adminSessionToken = _sToken;
+            _adminSessionData = _pData;
+          } else {
+            sessionStorage.removeItem('bb_admin_session_token');
+            sessionStorage.removeItem('bb_admin_session_data');
+          }
+        }
+      }
+    } catch (_) {}
+  })();
+
   function getAdminMemberEmail() {
     if (typeof sessionGet !== 'function') return '';
     return String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
@@ -1503,6 +1524,12 @@
   function establishAdminSession(token, data) {
     _adminSessionToken = token;
     _adminSessionData = data;
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('bb_admin_session_token', token);
+        sessionStorage.setItem('bb_admin_session_data', JSON.stringify(data));
+      }
+    } catch (_) {}
   }
 
   function setAdminSessionTokenForTesting(token, data) {
@@ -1629,6 +1656,40 @@
     if (typeof document === 'undefined') return;
     var request = ++_adminLifecycle;
     var identity = getAdminMemberEmail();
+    if (!identity || getAdminRole(identity) === 'member') {
+      if (_adminSessionToken) revokeAdminSession();
+      closeAdmin(true);
+      if (typeof showToast === 'function') showToast('Administrative privileges are required.', 'error');
+      return;
+    }
+
+    var overlay = document.getElementById('admin-overlay');
+
+    // 0ms Fast Path: If session is already confirmed and active, display console instantly without network lag
+    if (overlay && verifyAdminSessionSync()) {
+      if (overlay.style.display !== 'block') {
+        _adminPreviousFocus = document.activeElement;
+        _adminPreviousOverflow = document.body ? document.body.style.overflow : '';
+        _adminPreviousTitle = document.title;
+      }
+      if (!skipPush && typeof history !== 'undefined' && history.pushState && window.location.hash !== '#admin') {
+        var activePage = document.querySelector('.page.active');
+        history.pushState({ tab: activePage ? activePage.id.replace('page-', '') : 'home', admin: true }, '', '#admin');
+      }
+      document.title = 'Admin Console — 1st PJ Boys’ Brigade';
+      overlay.style.display = 'block';
+      if (document.body) document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', adminOverlayKeys);
+      initAdminDomGuard();
+      showAuthenticatedAdmin();
+      // Asynchronous background revalidation without blocking UI opening
+      if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
+        RBAC.loadRolesConfig(false).catch(function() {});
+      }
+      verifyAdminSession(true).catch(function() {});
+      return;
+    }
+
     if (identity && typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
       try { await RBAC.loadRolesConfig(true); } catch (_) {}
     }

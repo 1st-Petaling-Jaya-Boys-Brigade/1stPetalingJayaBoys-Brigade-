@@ -4037,6 +4037,9 @@ window.addEventListener('load', function() {
     else if (typeof renderCalendarTab === 'function') renderCalendarTab('upcoming');
   }
     updateNavUserHeader();
+  if (window.Capacitor?.isNativePlatform?.() && typeof requestNotificationPermission === 'function' && typeof localStorage !== 'undefined' && localStorage.getItem('bb_notif_system_enabled') !== 'false') {
+    requestNotificationPermission().catch(function() {});
+  }
   function completeInitialSync() {
     _initialNotifSyncDone = true;
   }
@@ -4205,6 +4208,16 @@ if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
     navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
       .then(function(reg) {
         reg.update().catch(function () {});
+        if ('periodicSync' in reg) {
+          try {
+            reg.periodicSync.register('bb-announcements-sync', { minInterval: 15 * 60 * 1000 }).catch(function() {});
+          } catch (_) {}
+        }
+        if ('sync' in reg) {
+          try {
+            reg.sync.register('bb-announcements-sync').catch(function() {});
+          } catch (_) {}
+        }
         reg.addEventListener('updatefound', function() {
           var newWorker = reg.installing;
           if (newWorker) {
@@ -4253,8 +4266,7 @@ function pushPortalNotification(notif, isSilent) {
   if (existing) return false;
 
   _allPortalNotifications.unshift(notif);
-  var isRecent = !notif.timestamp || (Date.now() - notif.timestamp) < 180000;
-  if (_initialNotifSyncDone && !isSilent && isRecent) {
+  if (_initialNotifSyncDone && !isSilent) {
     if (typeof showToast === 'function') {
       var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
       showToast('🔔 ' + (notif.title || 'New Notification') + snippetText, 'info', 5000);
@@ -5143,8 +5155,12 @@ function toggleNotificationDropdown(force) {
   card.style.display = nextState ? 'block' : 'none';
   if (btn) btn.setAttribute('aria-expanded', String(nextState));
   if (nextState) {
-    if (!window.Capacitor?.isNativePlatform?.() && typeof Notification !== 'undefined' && Notification.permission === 'default' && typeof requestNotificationPermission === 'function') {
-      requestNotificationPermission();
+    if (typeof requestNotificationPermission === 'function') {
+      if (window.Capacitor?.isNativePlatform?.()) {
+        requestNotificationPermission().catch(function() {});
+      } else if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        requestNotificationPermission().catch(function() {});
+      }
     }
     renderNotifications();
   }
