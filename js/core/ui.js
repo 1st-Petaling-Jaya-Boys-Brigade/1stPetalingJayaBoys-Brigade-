@@ -1298,6 +1298,7 @@
   // ── Native OS Desktop & Mobile Web Notifications ─────────────────────────
   var _lastSystemNotifTs = 0;
   var _recentDispatchedTags = new Map();
+  var _recentNativeDispatchedTags = new Map();
   var nativeNotificationId = Math.floor(Date.now() / 1000);
 
   function nativeNotificationPlugin() {
@@ -1307,6 +1308,22 @@
 
   async function scheduleNativeNotification(plugin, test, sound, tag, title, body) {
     if ((await plugin.checkPermissions()).display !== 'granted') return false;
+
+    var now = Date.now();
+    var tagKey = tag ? String(tag) : null;
+    if (tagKey && !test) {
+      if (_recentNativeDispatchedTags.has(tagKey)) {
+        var last = _recentNativeDispatchedTags.get(tagKey);
+        if (now - last < 300000) {
+          return true; // Deduplicated within 5 minutes to prevent dual cards
+        }
+      }
+      _recentNativeDispatchedTags.set(tagKey, now);
+      if (_recentNativeDispatchedTags.size > 128) {
+        var firstKey = _recentNativeDispatchedTags.keys().next().value;
+        _recentNativeDispatchedTags.delete(firstKey);
+      }
+    }
 
     var schedId = ++nativeNotificationId;
     if (tag) {
@@ -1320,10 +1337,13 @@
       if (schedId === 0) schedId = 1;
     }
 
+    var finalTitle = title || "1st Petaling Jaya Boys' Brigade";
+    var finalBody = body || (test ? 'This is a test notification.' : (title ? ('Update: ' + title) : 'Tap to view company updates.'));
+
     var notification = {
       id: schedId,
-      title: title || "1st Petaling Jaya Boys' Brigade",
-      body: body || (test ? 'This is a test notification.' : 'Open the portal to see your new notification.'),
+      title: finalTitle,
+      body: finalBody,
       smallIcon: 'ic_launcher',
       largeIcon: 'ic_launcher',
       iconColor: '#002B49',
@@ -1332,10 +1352,10 @@
     };
 
     if (window.Capacitor.getPlatform() === 'android') {
-      notification.channelId = sound ? 'portal-alerts-v1' : 'portal-alerts-silent-v1';
+      notification.channelId = 'portal-alerts-v2';
       await plugin.createChannel({
-        id: notification.channelId,
-        name: sound ? 'Portal alerts' : 'Silent portal alerts',
+        id: 'portal-alerts-v2',
+        name: sound ? '1st PJ BB Alerts' : 'Silent portal alerts',
         importance: 5,
         visibility: 1,
         vibration: true,
@@ -1356,7 +1376,7 @@
       var tagKey = String(options.tag);
       if (_recentDispatchedTags.has(tagKey)) {
         var lastDispatch = _recentDispatchedTags.get(tagKey);
-        if (now - lastDispatch < 60000) {
+        if (now - lastDispatch < 300000) {
           return null;
         }
       }

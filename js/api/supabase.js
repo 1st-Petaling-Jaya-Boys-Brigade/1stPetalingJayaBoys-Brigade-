@@ -1735,7 +1735,7 @@ var PortalRealtime = (function() {
               {
                 tag: 'notif-announcement-' + (data.id || Date.now()),
                 silentSound: false,
-                force: true
+                force: false
               }
             );
           }

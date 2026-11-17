@@ -4272,15 +4272,22 @@ function pushPortalNotification(notif, isSilent) {
       var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
       showToast('🔔 ' + (notif.title || 'New Notification') + snippetText, 'info', 5000);
     }
-    if (typeof triggerPortalSystemNotification === 'function') {
-      triggerPortalSystemNotification(
-        notif.title || "1st Petaling Jaya Boys' Brigade",
-        notif.snippet || notif.message || notif.text || '',
-        {
-          tag: notif.id,
-          silentSound: false
-        }
-      );
+    // On native mobile (Capacitor), do not schedule a duplicate OS notification card if app is already active in the foreground
+    var isBackgrounded = (typeof document !== 'undefined' && document.hidden);
+    var isNative = (typeof window !== 'undefined' && Boolean(window.Capacitor?.isNativePlatform?.()));
+    if (!isNative || isBackgrounded) {
+      if (typeof triggerPortalSystemNotification === 'function') {
+        var notifTitle = notif.title || "1st Petaling Jaya Boys' Brigade";
+        var notifBody = notif.snippet || notif.message || notif.text || (notif.title ? ('Update: ' + notif.title) : 'Tap to view company updates.');
+        triggerPortalSystemNotification(
+          notifTitle,
+          notifBody,
+          {
+            tag: notif.id,
+            silentSound: false
+          }
+        );
+      }
     } else if (typeof playNotificationSound === 'function') {
       playNotificationSound();
     }
@@ -4418,7 +4425,7 @@ function addPortalNotification(notif) {
   }
 }
 
-function syncTaskNotifications(tasks) {
+function syncTaskNotifications(tasks, isSilent) {
   var taskList = Array.isArray(tasks) ? tasks : ((typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) ? _allLoadedTasks : ((typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks)) ? window._allLoadedTasks : []));
   if ((!taskList || !taskList.length) && typeof localStorage !== 'undefined') {
     try {
@@ -4552,7 +4559,7 @@ function syncTaskNotifications(tasks) {
             if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
             if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
           }
-        });
+        }, isSilent);
       }
     }
 
@@ -4583,7 +4590,7 @@ function syncTaskNotifications(tasks) {
                   if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
                   if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
                 }
-              });
+              }, isSilent);
             }
           }
         }
@@ -4664,7 +4671,7 @@ function syncTaskNotifications(tasks) {
             if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
             if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
           }
-        });
+        }, isSilent);
       }
     }
   });
@@ -4711,7 +4718,7 @@ function syncTaskNotifications(tasks) {
                 if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
                 if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
               }
-            });
+            }, isSilent);
           }
         }
       });
@@ -4774,7 +4781,7 @@ function syncAnnouncementNotifications(annList, isSilent) {
   renderNotifications();
 }
 
-function syncFormNotifications(formsList) {
+function syncFormNotifications(formsList, isSilent) {
   var list = Array.isArray(formsList) ? formsList : (typeof _customForms !== 'undefined' ? _customForms : []);
   if (!Array.isArray(list) || !list.length) return;
   var dismissed = getDismissedNotifIds();
@@ -4795,14 +4802,14 @@ function syncFormNotifications(formsList) {
         time: 'Today',
         unread: true,
         action: function() { switchTabNav('order'); }
-      });
+      }, isSilent);
     }
   });
 
   renderNotifications();
 }
 
-function syncHighlightNotifications(highlightsList) {
+function syncHighlightNotifications(highlightsList, isSilent) {
   var list = Array.isArray(highlightsList) ? highlightsList : (typeof storyHighlights !== 'undefined' ? storyHighlights : []);
   if (!Array.isArray(list) || !list.length) return;
   var dismissed = getDismissedNotifIds();
@@ -4824,14 +4831,14 @@ function syncHighlightNotifications(highlightsList) {
         time: 'Today',
         unread: true,
         action: function() { switchTabNav('gallery'); }
-      });
+      }, isSilent);
     }
   });
 
   renderNotifications();
 }
 
-function syncResourceNotifications(resourcesList) {
+function syncResourceNotifications(resourcesList, isSilent) {
   var list = Array.isArray(resourcesList) ? resourcesList : ((typeof _companyResources !== 'undefined' && Array.isArray(_companyResources)) ? _companyResources : ((typeof resources !== 'undefined' && Array.isArray(resources)) ? resources : []));
   if (!Array.isArray(list) || !list.length) return;
   var dismissed = getDismissedNotifIds();
@@ -4852,14 +4859,14 @@ function syncResourceNotifications(resourcesList) {
         time: 'Today',
         unread: true,
         action: function() { switchTabNav('resources'); }
-      });
+      }, isSilent);
     }
   });
 
   renderNotifications();
 }
 
-function syncForumNotifications(postsList) {
+function syncForumNotifications(postsList, isSilent) {
   var list = Array.isArray(postsList) ? postsList : ((typeof forumPosts !== 'undefined' && Array.isArray(forumPosts)) ? forumPosts : ((typeof window !== 'undefined' && Array.isArray(window.forumPosts)) ? window.forumPosts : []));
   if (!Array.isArray(list) || !list.length) return;
 
@@ -4914,7 +4921,7 @@ function syncForumNotifications(postsList) {
                 window.openForumPostDetail(p.id);
               }
             }
-          });
+          }, isSilent);
         }
       }
     }
@@ -4971,7 +4978,7 @@ function syncForumNotifications(postsList) {
               window.openForumPostDetail(p.id);
             }
           }
-        });
+        }, isSilent);
       }
     });
   });
@@ -4979,44 +4986,45 @@ function syncForumNotifications(postsList) {
   renderNotifications();
 }
 
-function syncAllPortalNotifications() {
+function syncAllPortalNotifications(isSilent) {
+  if (typeof isSilent === 'undefined') isSilent = true;
   var promises = [];
   if (typeof fetchRemoteMemberPresence === 'function') {
     promises.push(fetchRemoteMemberPresence().catch(function() {}));
   }
   if (typeof fetchAllRemoteTasks === 'function') {
     promises.push(fetchAllRemoteTasks(true).then(function(tasks) {
-      if (typeof syncTaskNotifications === 'function') syncTaskNotifications(tasks);
+      if (typeof syncTaskNotifications === 'function') syncTaskNotifications(tasks, isSilent);
     }).catch(function() {}));
   } else if (typeof syncTaskNotifications === 'function') {
-    syncTaskNotifications();
+    syncTaskNotifications(null, isSilent);
   }
   if (typeof fetchAllRemoteTaskComments === 'function') {
     promises.push(fetchAllRemoteTaskComments(true).then(function() {
-      if (typeof syncTaskNotifications === 'function') syncTaskNotifications();
+      if (typeof syncTaskNotifications === 'function') syncTaskNotifications(null, isSilent);
     }).catch(function() {}));
   }
   if (typeof loadAnnouncements === 'function') {
     promises.push(loadAnnouncements().catch(function() {}));
   } else if (typeof syncAnnouncementNotifications === 'function') {
-    syncAnnouncementNotifications();
+    syncAnnouncementNotifications(null, isSilent);
   }
   if (typeof syncFormNotifications === 'function') {
-    syncFormNotifications();
+    syncFormNotifications(null, isSilent);
   }
   if (typeof syncHighlightNotifications === 'function') {
-    syncHighlightNotifications();
+    syncHighlightNotifications(null, isSilent);
   }
   if (typeof loadForumPosts === 'function') {
     promises.push(loadForumPosts().then(function(posts) {
-      if (typeof syncForumNotifications === 'function') syncForumNotifications(posts);
+      if (typeof syncForumNotifications === 'function') syncForumNotifications(posts, isSilent);
       if (typeof renderNotifications === 'function') renderNotifications();
     }).catch(function() {}));
   } else if (typeof syncForumNotifications === 'function') {
-    syncForumNotifications();
+    syncForumNotifications(null, isSilent);
   }
   if (typeof syncResourceNotifications === 'function') {
-    syncResourceNotifications();
+    syncResourceNotifications(null, isSilent);
   }
   return (typeof Promise !== 'undefined' && Promise.allSettled) ? Promise.allSettled(promises) : Promise.all(promises);
 }

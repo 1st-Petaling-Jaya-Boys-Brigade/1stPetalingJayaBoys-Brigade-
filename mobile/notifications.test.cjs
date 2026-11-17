@@ -66,6 +66,18 @@ test('native alerts honor opt-in and sound preferences with portal content', asy
     assert.equal(await send(), true);
     assert.equal(notifications[1].sound, undefined);
     assert.equal(channels.length, 1);
+
+    // Verify tag deduplication prevents duplicate notifications within 5 minutes
+    now += 2000;
+    const sendTagged = () => ui.triggerPortalSystemNotification('Announcement', 'Content', { tag: 'ann-123' });
+    assert.equal(await sendTagged(), true);
+    assert.equal(notifications.length, 3);
+    assert.equal(notifications[2].title, 'Announcement');
+
+    // Immediate second send with same tag must be deduplicated
+    now += 2000;
+    assert.equal(sendTagged(), null);
+    assert.equal(notifications.length, 3);
   } finally {
     delete global.window;
     delete global.localStorage;
