@@ -1336,8 +1336,9 @@
       await plugin.createChannel({
         id: notification.channelId,
         name: sound ? 'Portal alerts' : 'Silent portal alerts',
-        importance: 4,
-        visibility: 0,
+        importance: 5,
+        visibility: 1,
+        vibration: true,
         ...(sound ? { sound: 'portal_chime.wav' } : {})
       });
     }
@@ -1418,9 +1419,11 @@
           tag: (options && options.tag) || ('bb-notif-' + now),
           renotify: true,
           requireInteraction: false,
+          vibrate: [200, 100, 200, 100, 200],
+          sound: NOTIF_SOUND_URL,
           data: {
-            url: (options && options.url) || './',
-            tab: (options && options.tab) || ''
+            url: (options && options.url) || './#page-home',
+            tab: (options && options.tab) || 'home'
           }
         };
 
@@ -1441,13 +1444,16 @@
           return notif;
         } catch (_) {
           // Mobile fallback for environments that disallow window Notification constructor (e.g. Android Chrome)
-          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
             try {
-              navigator.serviceWorker.getRegistration().then(function(reg) {
-                if (reg && typeof reg.showNotification === 'function') {
-                return reg.showNotification(notifTitle, notifOpts);
-                }
-              }).catch(function() {});
+              var swPromise = navigator.serviceWorker.ready || navigator.serviceWorker.getRegistration();
+              if (swPromise && typeof swPromise.then === 'function') {
+                swPromise.then(function(reg) {
+                  if (reg && typeof reg.showNotification === 'function') {
+                    return reg.showNotification(notifTitle, notifOpts);
+                  }
+                }).catch(function() {});
+              }
             } catch (_) {}
           }
           return null;
@@ -1474,6 +1480,15 @@
     try {
       var perm = await Notification.requestPermission();
       if (perm === 'granted') {
+        if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(function(reg) {
+            if (reg && 'periodicSync' in reg) {
+              try {
+                reg.periodicSync.register('bb-announcements-sync', { minInterval: 60 * 1000 }).catch(function() {});
+              } catch (_) {}
+            }
+          }).catch(function() {});
+        }
         triggerPortalSystemNotification(
           "1st Petaling Jaya Boys' Brigade",
           "System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.",

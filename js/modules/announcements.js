@@ -877,14 +877,14 @@ function refreshAnnouncementViews() {
   renderAdminAnnList();
 }
 
-async function publishAnnouncementChange(action) {
+async function publishAnnouncementChange(action, data) {
   try {
     if (typeof supa !== 'undefined' && supa.upsert) {
       await supa.upsert('bb_config', { key: 'bb_announcements', value: JSON.stringify({ last_updated: new Date().toISOString() }) }, 'key');
     }
   } catch (_) {}
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-    window.PortalRealtime.broadcast('announcements', action);
+    window.PortalRealtime.broadcast('announcements', action, data || null);
   }
 }
 
@@ -1517,11 +1517,17 @@ async function addAnnouncement() {
     if (pinCheck) pinCheck.checked = false;
     _announcementLoadVersion++;
     refreshAnnouncementViews();
-    await publishAnnouncementChange('save');
+    var cleanSnippet = (sanitizedBody || '').replace(/<[^>]+>/g, '').trim().slice(0, 70);
+    await publishAnnouncementChange(editId ? 'update' : 'create', {
+      id: editId || createdAnnId,
+      title: title,
+      snippet: cleanSnippet,
+      created_at: (typeof newRecord !== 'undefined' && newRecord && newRecord.created_at) ? newRecord.created_at : new Date().toISOString()
+    });
     if (typeof syncAnnouncementNotifications === 'function') {
-      syncAnnouncementNotifications(announcements);
+      syncAnnouncementNotifications(announcements, true);
     } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
-      window.syncAnnouncementNotifications(announcements);
+      window.syncAnnouncementNotifications(announcements, true);
     }
     if (typeof syncAllPortalNotifications === 'function') {
       syncAllPortalNotifications();
