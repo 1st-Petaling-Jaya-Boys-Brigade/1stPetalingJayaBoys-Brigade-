@@ -28,6 +28,12 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
         super.onNewToken(token);
         try {
             FirebaseMessaging.getInstance().subscribeToTopic("announcements");
+            SharedPreferences topicPrefs = getSharedPreferences("bb_portal_topics", Context.MODE_PRIVATE);
+            for (String t : topicPrefs.getAll().keySet()) {
+                if (t != null && !t.trim().isEmpty()) {
+                    FirebaseMessaging.getInstance().subscribeToTopic(t.trim());
+                }
+            }
         } catch (Exception ignored) {}
     }
 
@@ -120,7 +126,7 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
             }
 
             // Deterministic notification tag and ID so repeated/overlapping updates never create stacked duplicate cards
-            String notifTag = "portal_" + (targetId != null && !targetId.trim().isEmpty() ? targetId.trim() : (category + "_" + Math.abs(title.hashCode() % 10000)));
+            String notifTag = "portal_" + (targetId != null && !targetId.trim().isEmpty() ? targetId.trim() : (category + "_" + Math.abs((title + ":" + body).hashCode() % 100000)));
             int notifId;
             if (targetId != null && !targetId.trim().isEmpty()) {
                 notifId = Math.abs(targetId.trim().hashCode() % 100000) + 1000;
@@ -128,10 +134,15 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
                 notifId = Math.abs((title + ":" + category).hashCode() % 100000) + 1000;
             }
 
-            // Register in shared deduplication cache to prevent AnnouncementSyncReceiver race conditions
+            // Deduplicate across duplicate FCM arrivals, broadcast + personal topic overlaps, and rapid retries
             try {
                 SharedPreferences dedup = getSharedPreferences("bb_portal_dedup", Context.MODE_PRIVATE);
-                dedup.edit().putLong("seen_" + notifTag, System.currentTimeMillis()).apply();
+                long lastSeen = dedup.getLong("seen_" + notifTag, 0L);
+                long now = System.currentTimeMillis();
+                if ((now - lastSeen) < 15000L) {
+                    return; // Skip duplicate notification card within 15 seconds
+                }
+                dedup.edit().putLong("seen_" + notifTag, now).apply();
             } catch (Exception ignored) {}
 
             showPushNotification(this, notifTag, notifId, title, body, tab, targetId, category);
@@ -151,6 +162,16 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
 
     public static void showPushNotification(Context context, String notifTag, int notifId, String title, String snippet, String tab, String targetId, String category) {
         try {
+            if (context != null && notifTag != null) {
+                SharedPreferences dedup = context.getSharedPreferences("bb_portal_dedup", Context.MODE_PRIVATE);
+                long lastShown = dedup.getLong("shown_" + notifTag, 0L);
+                long now = System.currentTimeMillis();
+                if ((now - lastShown) < 15000L) {
+                    return; // Skip repeated post within 15 seconds
+                }
+                dedup.edit().putLong("shown_" + notifTag, now).apply();
+            }
+
             createNotificationChannel(context);
 
             Intent openIntent = new Intent(context, MainActivity.class);

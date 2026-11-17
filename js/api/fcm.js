@@ -7,7 +7,7 @@
  * Zero external dependencies. Zero npm runtime libraries.
  */
 
-/* global supa, sessionGet, isNCO */
+/* global supa, sessionGet, isNCO, _cachedDepartmentMembers */
 
 (function (global) {
   'use strict';
@@ -103,6 +103,108 @@
       return text.slice(0, maxLen - 3) + '...';
     }
     return text;
+  }
+
+  function escapeRegExp(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function addResolvedMember(identifier, dir, targetSet) {
+    if (!identifier) return;
+    var trimmed = String(identifier).trim();
+    if (!trimmed) return;
+
+    if (Array.isArray(dir)) {
+      var lowerId = trimmed.toLowerCase();
+      var cleanDigits = trimmed.replace(/[^0-9]/g, '');
+      var found = dir.find(function(m) {
+        if (!m) return false;
+        var mName = (m.name || '').toLowerCase().trim();
+        var mEmail = (m.email || '').toLowerCase().trim();
+        var mIc = (m.ic || '').toLowerCase().replace(/[^0-9]/g, '');
+        return mName === lowerId || mEmail === lowerId || (cleanDigits && mIc === cleanDigits) || (mName && (mName.indexOf(lowerId) !== -1 || lowerId.indexOf(mName) !== -1));
+      });
+      if (found) {
+        if (found.name) {
+          targetSet.add(found.name.trim());
+        } else if (found.email) {
+          targetSet.add(found.email.trim());
+        } else if (found.ic) {
+          targetSet.add(found.ic.trim());
+        }
+        return;
+      }
+    }
+
+    targetSet.add(trimmed);
+  }
+
+  /**
+   * Resolves mentions from raw text, HTML mention pills, or member names against directory.
+   * @param {string} text
+   * @param {Array<Object>} [memberDirectory]
+   * @returns {{ targetUsers: Array<string>, topics: Array<string> }}
+   */
+  function resolveMentionTargets(text, memberDirectory) {
+    if (!text || typeof text !== 'string') return { targetUsers: [], topics: [] };
+    var targetUsers = new Set();
+    var topics = new Set();
+
+    var dir = Array.isArray(memberDirectory) ? memberDirectory : ((typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) ? _cachedDepartmentMembers : []);
+    if (!dir.length && typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
+      dir = window._cachedDepartmentMembers;
+    }
+    if (!dir.length && typeof localStorage !== 'undefined') {
+      try {
+        var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
+        if (Array.isArray(cached) && cached.length) dir = cached;
+      } catch (_) {}
+    }
+
+    // 1. Group mentions
+    if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(text)) topics.add('announcements');
+    if (/(?:^|\W)@secretariat\b/i.test(text)) topics.add('dept_secretariat');
+    if (/(?:^|\W)@logistics\b/i.test(text)) topics.add('dept_logistics');
+    if (/(?:^|\W)@media\b/i.test(text)) topics.add('dept_media');
+    if (/(?:^|\W)@hq\b/i.test(text)) topics.add('dept_hq');
+    if (/(?:^|\W)@officers?\b/i.test(text)) topics.add('dept_officers');
+    if (/(?:^|\W)@ncos?\b/i.test(text)) topics.add('dept_nco');
+
+    // 2. HTML pills: <span class="tb-mention-pill">@Name</span>
+    var pillMatches = text.match(/<span[^>]*class=["'][^"']*tb-mention-pill[^"']*["'][^>]*>@([^<]+)<\/span>/gi) || [];
+    pillMatches.forEach(function(p) {
+      var m = p.match(/>@([^<]+)</);
+      if (m && m[1]) {
+        addResolvedMember(m[1].trim(), dir, targetUsers);
+      }
+    });
+
+    // 3. Match against known members in directory
+    if (Array.isArray(dir)) {
+      dir.forEach(function(member) {
+        if (!member || !member.name) return;
+        var mName = member.name.trim();
+        if (mName.length < 2) return;
+        var rx = new RegExp('(?:^|\\W)@' + escapeRegExp(mName) + '(?=[\\s,;!?.)\'"]|$)', 'i');
+        if (rx.test(text)) {
+          addResolvedMember(mName, dir, targetUsers);
+        }
+      });
+    }
+
+    // 4. Raw @ single words or email addresses
+    var singleMatches = text.match(/@([a-zA-Z0-9._-]+)/g) || [];
+    singleMatches.forEach(function(sw) {
+      var word = sw.slice(1).trim();
+      if (word && !/^(all|everyone|everybody|secretariat|logistics|media|hq|officers?|ncos?)$/i.test(word)) {
+        addResolvedMember(word, dir, targetUsers);
+      }
+    });
+
+    return {
+      targetUsers: Array.from(targetUsers),
+      topics: Array.from(topics)
+    };
   }
 
   /**
@@ -405,7 +507,8 @@
     }
 
     // 2. Announcements broadcast
-    if (type === 'announcement' && !params.targetTopic) {
+    var isBroadcast = (type === 'announcement' && !params.targetTopic);
+    if (isBroadcast) {
       promises.push(sendFcmTopicPush('announcements', title, body, options));
     }
 
@@ -418,19 +521,47 @@
     }
 
     // 4. Targeted Users (Mentions, Task Assignees, Customers, Forum Authors)
-    if (Array.isArray(params.targetUsers) && params.targetUsers.length > 0) {
+    // Note: If broadcasting to company-wide 'announcements', every member device already receives the broadcast.
+    // Suppress individual member topic pushes for announcements to prevent dual notification cards.
+    if (Array.isArray(params.targetUsers) && params.targetUsers.length > 0 && !isBroadcast) {
       var uniqueTopics = new Set();
+      var dir = (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) ? _cachedDepartmentMembers : [];
+      if (!dir.length && typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
+        dir = window._cachedDepartmentMembers;
+      }
+      var seenMemberKeys = new Set();
+
       params.targetUsers.forEach(function (userKey) {
         if (!userKey) return;
-        var userTopic = getUserTopic(userKey);
-        if (userTopic && userTopic !== 'user_general') {
-          uniqueTopics.add(userTopic);
+        var cleanKey = String(userKey).trim();
+        if (!cleanKey) return;
+
+        var matched = null;
+        if (Array.isArray(dir) && dir.length > 0) {
+          var lk = cleanKey.toLowerCase();
+          var cleanNum = lk.replace(/[^0-9]/g, '');
+          matched = dir.find(function(m) {
+            if (!m) return false;
+            var mn = (m.name || '').toLowerCase().trim();
+            var me = (m.email || '').toLowerCase().trim();
+            var mic = (m.ic || '').toLowerCase().replace(/[^0-9]/g, '');
+            return mn === lk || me === lk || (cleanNum && mic && mic === cleanNum) || (m.name && m.name.toLowerCase().replace(/\s+/g, '') === lk.replace(/\s+/g, ''));
+          });
         }
-        if (typeof userKey === 'string' && userKey.indexOf(' ') !== -1) {
-          var compact = userKey.replace(/\s+/g, '');
-          var compactTopic = getUserTopic(compact);
-          if (compactTopic && compactTopic !== 'user_general') {
-            uniqueTopics.add(compactTopic);
+
+        if (matched) {
+          var memberId = (matched.name || matched.email || matched.ic || '').toLowerCase();
+          if (seenMemberKeys.has(memberId)) return;
+          seenMemberKeys.add(memberId);
+          var canonicalName = matched.name ? matched.name.trim() : (matched.email ? matched.email.trim() : matched.ic);
+          var canonicalTopic = getUserTopic(canonicalName);
+          if (canonicalTopic && canonicalTopic !== 'user_general') {
+            uniqueTopics.add(canonicalTopic);
+          }
+        } else {
+          var userTopic = getUserTopic(cleanKey);
+          if (userTopic && userTopic !== 'user_general') {
+            uniqueTopics.add(userTopic);
           }
         }
       });
@@ -475,13 +606,21 @@
 
         if (email) {
           bridge.subscribeTopic(getUserTopic(email));
+          var emailPrefix = email.split('@')[0];
+          if (emailPrefix) bridge.subscribeTopic(getUserTopic(emailPrefix));
         }
         if (ic) {
           bridge.subscribeTopic(getUserTopic(ic));
+          var rawIc = String(ic).replace(/[^0-9]/g, '');
+          if (rawIc && rawIc !== ic) bridge.subscribeTopic(getUserTopic(rawIc));
         }
         if (name) {
           bridge.subscribeTopic(getUserTopic(name));
           bridge.subscribeTopic(getUserTopic(name.replace(/\s+/g, '')));
+          var nameParts = String(name).trim().split(/\s+/);
+          if (nameParts[0] && nameParts[0].length >= 2) {
+            bridge.subscribeTopic(getUserTopic(nameParts[0]));
+          }
         }
         if (dept && dept.toLowerCase() !== 'none') {
           bridge.subscribeTopic(getDepartmentTopic(dept));
@@ -511,12 +650,24 @@
     if (!bridge || typeof bridge.unsubscribeTopic !== 'function') return;
 
     try {
-      if (email) bridge.unsubscribeTopic(getUserTopic(email));
-      if (ic) bridge.unsubscribeTopic(getUserTopic(ic));
+      if (email) {
+        bridge.unsubscribeTopic(getUserTopic(email));
+        var emailPrefix = email.split('@')[0];
+        if (emailPrefix) bridge.unsubscribeTopic(getUserTopic(emailPrefix));
+      }
+      if (ic) {
+        bridge.unsubscribeTopic(getUserTopic(ic));
+        var rawIc = String(ic).replace(/[^0-9]/g, '');
+        if (rawIc && rawIc !== ic) bridge.unsubscribeTopic(getUserTopic(rawIc));
+      }
       if (dept) bridge.unsubscribeTopic(getDepartmentTopic(dept));
       if (name) {
         bridge.unsubscribeTopic(getUserTopic(name));
         bridge.unsubscribeTopic(getUserTopic(name.replace(/\s+/g, '')));
+        var nameParts = String(name).trim().split(/\s+/);
+        if (nameParts[0] && nameParts[0].length >= 2) {
+          bridge.unsubscribeTopic(getUserTopic(nameParts[0]));
+        }
       }
     } catch (_) {}
   }
@@ -529,6 +680,7 @@
     window.getUserTopic = getUserTopic;
     window.getDepartmentTopic = getDepartmentTopic;
     window.cleanSnippet = cleanSnippet;
+    window.resolveMentionTargets = resolveMentionTargets;
     window.pemToArrayBuffer = pemToArrayBuffer;
     window.base64UrlEncode = base64UrlEncode;
     window.getFcmCredentials = getFcmCredentials;
@@ -557,6 +709,7 @@
       getUserTopic: getUserTopic,
       getDepartmentTopic: getDepartmentTopic,
       cleanSnippet: cleanSnippet,
+      resolveMentionTargets: resolveMentionTargets,
       pemToArrayBuffer: pemToArrayBuffer,
       base64UrlEncode: base64UrlEncode,
       getFcmCredentials: getFcmCredentials,

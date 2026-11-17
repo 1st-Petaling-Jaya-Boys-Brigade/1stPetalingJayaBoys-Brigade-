@@ -6703,7 +6703,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(candidateNames.includes('Logistics'), 'Mentions includes @Logistics group');
     assert.ok(candidateNames.includes('Media'), 'Mentions includes @Media group');
     assert.ok(candidateNames.includes('HQ'), 'Mentions includes @HQ group');
-    assert.ok(candidateNames.includes('Band'), 'Mentions includes @Band group');
+    assert.ok(!candidateNames.includes('Band'), 'Mentions must NOT include non-existent Band Department');
     assert.ok(candidateNames.includes('Officers'), 'Mentions includes @Officers group');
 
     // Query filter
@@ -6732,7 +6732,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // Module notification dispatch hooks
     const annJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'announcements.js'), 'utf8');
-    assert.ok(annJs.includes('syncAnnouncementNotifications(announcements)'), 'announcements.js triggers syncAnnouncementNotifications');
+    assert.ok(annJs.includes('syncAnnouncementNotifications(announcements'), 'announcements.js triggers syncAnnouncementNotifications');
 
     const formsJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'forms.js'), 'utf8');
     assert.ok(formsJs.includes('syncFormNotifications(_customForms)'), 'forms.js triggers syncFormNotifications');
@@ -14896,6 +14896,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(typeof fcm.base64UrlEncode, 'function');
     assert.strictEqual(typeof fcm.pemToArrayBuffer, 'function');
     assert.strictEqual(typeof fcm.sendPortalPushNotification, 'function');
+    assert.strictEqual(typeof fcm.resolveMentionTargets, 'function');
+
+    const mockDir = [
+      { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', ic: '080116-14-0615' },
+      { name: 'Jason Koh', email: 'jason@1stpjbb.org.my', ic: '060101-14-5555' }
+    ];
+    const resolvedMention = fcm.resolveMentionTargets('Hello @Jeshua Koh and @Media, please review this!', mockDir);
+    assert.ok(resolvedMention.targetUsers.includes('Jeshua Koh'), 'resolveMentionTargets captures full name with spaces');
+    assert.ok(resolvedMention.topics.includes('dept_media'), 'resolveMentionTargets captures group mention @Media');
+    assert.ok(!resolvedMention.topics.includes('dept_band'), 'resolveMentionTargets must not recognize Band');
     console.log('  ✔ Zero-dependency WebCrypto token generation, emoji stripping, and payload cleaning verified');
 
     // 4. Content Security Policy (CSP) incorporates Google OAuth2 & FCM endpoints

@@ -4,6 +4,7 @@
 *.jks
 *.keystore
 *.p12
+!android/signing/portal-release.p12
 *.pfx
 keystore.properties
 *.mobileprovision

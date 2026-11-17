@@ -140,6 +140,19 @@ test('Firebase Cloud Messaging (FCM) universal push notification engine', async 
     assert.ok(subscribedTopics.includes('user_jeshuakoh'));
     assert.ok(subscribedTopics.includes('dept_logistics'));
 
+    // 5. resolveMentionTargets extracts full names, HTML pills, and group mentions (no Band)
+    const mockDir = [
+      { name: 'Jeshua Koh', email: 'jeshuakoh2008@gmail.com', ic: '080116-14-0615' },
+      { name: 'Jason Koh', email: 'jason@1stpjbb.org.my', ic: '060101-14-5555' }
+    ];
+    const mentionTestText = 'Hello @Jeshua Koh and <span class="tb-mention-pill">@Jason Koh</span>, please check with @Media and @Logistics! (ignore @Band)';
+    const resolved = fcm.resolveMentionTargets(mentionTestText, mockDir);
+    assert.ok(resolved.targetUsers.includes('Jeshua Koh'), 'resolveMentionTargets captures full name with spaces');
+    assert.ok(resolved.targetUsers.includes('Jason Koh'), 'resolveMentionTargets captures HTML mention pill name');
+    assert.ok(resolved.topics.includes('dept_media'), 'resolveMentionTargets captures group topic @Media');
+    assert.ok(resolved.topics.includes('dept_logistics'), 'resolveMentionTargets captures group topic @Logistics');
+    assert.ok(!resolved.topics.includes('dept_band'), 'Band Department must NOT exist or be routed');
+
     fcm.unsubscribeMobileDevice('jeshuakoh2008@gmail.com', '080116-14-0615', 'logistics', 'Jeshua Koh');
     assert.ok(unsubscribedTopics.includes('user_jeshuakoh2008_gmail_com'));
     assert.ok(unsubscribedTopics.includes('user_080116-14-0615'));

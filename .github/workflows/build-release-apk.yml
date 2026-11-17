@@ -63,6 +63,9 @@ jobs:
             echo "${{ secrets.PORTAL_RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > mobile/android/signing/portal-release.p12
             echo "PORTAL_RELEASE_KEYSTORE=$(pwd)/mobile/android/signing/portal-release.p12" >> $GITHUB_ENV
             echo "PORTAL_RELEASE_PASSWORD=${{ secrets.PORTAL_RELEASE_PASSWORD }}" >> $GITHUB_ENV
+          elif [ -f "mobile/android/signing/portal-release.p12" ]; then
+            echo "PORTAL_RELEASE_KEYSTORE=$(pwd)/mobile/android/signing/portal-release.p12" >> $GITHUB_ENV
+            echo "PORTAL_RELEASE_PASSWORD=portal-release-firstpjbb-2026" >> $GITHUB_ENV
           else
             AUTOGEN_KEY_SECRET=$(openssl rand -hex 24)
             keytool -genkeypair -storetype PKCS12 -keystore mobile/android/signing/portal-release.p12 \
