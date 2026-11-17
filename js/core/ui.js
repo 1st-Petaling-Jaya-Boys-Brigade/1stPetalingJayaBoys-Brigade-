@@ -1610,6 +1610,60 @@
     }
   }
 
+  function isAndroidNative() {
+    return typeof window !== 'undefined' && Boolean(
+      window.AndroidFCM || (window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android')
+    );
+  }
+
+  function isXiaomiDevice() {
+    if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.isXiaomiDevice === 'function') {
+      try {
+        return Boolean(window.AndroidFCM.isXiaomiDevice());
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  function isAndroidBatteryOptimized() {
+    if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.isIgnoringBatteryOptimizations === 'function') {
+      try {
+        return Boolean(window.AndroidFCM.isIgnoringBatteryOptimizations());
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  function requestAndroidBatteryExemption() {
+    if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.requestIgnoreBatteryOptimizations === 'function') {
+      try {
+        window.AndroidFCM.requestIgnoreBatteryOptimizations();
+        return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  function openAndroidAutostart() {
+    if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.openAutostartSettings === 'function') {
+      try {
+        window.AndroidFCM.openAutostartSettings();
+        return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  function openAndroidNotificationSettings() {
+    if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.openNotificationSettings === 'function') {
+      try {
+        window.AndroidFCM.openNotificationSettings();
+        return true;
+      } catch (_) {}
+    }
+    return false;
+  }
+
   var _lastSeenNotifUnread = -1;
   function triggerNewPortalNotifications() {
     if (typeof document === 'undefined') return;
@@ -1830,6 +1884,12 @@
     global.testNotificationPopup = testNotificationPopup;
     global.triggerNewPortalNotifications = triggerNewPortalNotifications;
     global.handleGlobalModalEscape = handleGlobalModalEscape;
+    global.isAndroidNative = isAndroidNative;
+    global.isXiaomiDevice = isXiaomiDevice;
+    global.isAndroidBatteryOptimized = isAndroidBatteryOptimized;
+    global.requestAndroidBatteryExemption = requestAndroidBatteryExemption;
+    global.openAndroidAutostart = openAndroidAutostart;
+    global.openAndroidNotificationSettings = openAndroidNotificationSettings;
   }
 
   // CommonJS export for Node testing
@@ -1864,7 +1924,13 @@
       requestNotificationPermission: requestNotificationPermission,
       testNotificationPopup: testNotificationPopup,
       triggerNewPortalNotifications: triggerNewPortalNotifications,
-      handleGlobalModalEscape: handleGlobalModalEscape
+      handleGlobalModalEscape: handleGlobalModalEscape,
+      isAndroidNative: isAndroidNative,
+      isXiaomiDevice: isXiaomiDevice,
+      isAndroidBatteryOptimized: isAndroidBatteryOptimized,
+      requestAndroidBatteryExemption: requestAndroidBatteryExemption,
+      openAndroidAutostart: openAndroidAutostart,
+      openAndroidNotificationSettings: openAndroidNotificationSettings
     };
   }
 })(typeof window !== 'undefined' ? window : this);

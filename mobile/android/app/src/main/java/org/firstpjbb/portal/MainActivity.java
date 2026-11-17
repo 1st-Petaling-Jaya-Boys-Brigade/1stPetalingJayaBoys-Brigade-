@@ -1,11 +1,14 @@
 package org.firstpjbb.portal;
 
 import android.Manifest;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.webkit.JavascriptInterface;
 import androidx.core.app.ActivityCompat;
@@ -54,6 +57,96 @@ public class MainActivity extends BridgeActivity {
                     startActivity(intent);
                 } catch (Exception ignored) {}
             }
+        }
+
+        @JavascriptInterface
+        public boolean isIgnoringBatteryOptimizations() {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                    if (pm != null) {
+                        return pm.isIgnoringBatteryOptimizations(getPackageName());
+                    }
+                }
+            } catch (Exception ignored) {}
+            return false;
+        }
+
+        @JavascriptInterface
+        public void requestIgnoreBatteryOptimizations() {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                }
+            } catch (Exception e) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    startActivity(intent);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        @JavascriptInterface
+        public boolean isXiaomiDevice() {
+            try {
+                String manufacturer = Build.MANUFACTURER;
+                if (manufacturer != null) {
+                    String m = manufacturer.toLowerCase();
+                    return m.contains("xiaomi") || m.contains("redmi") || m.contains("poco");
+                }
+            } catch (Exception ignored) {}
+            return false;
+        }
+
+        @JavascriptInterface
+        public void openAutostartSettings() {
+            Intent intent = new Intent();
+            try {
+                intent.setComponent(new ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"));
+                startActivity(intent);
+                return;
+            } catch (Exception ignored) {}
+
+            try {
+                intent.setComponent(new ComponentName("com.miui.securitycenter", "com.miui.powercenter.PowerSettings"));
+                startActivity(intent);
+                return;
+            } catch (Exception ignored) {}
+
+            try {
+                intent.setComponent(new ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"));
+                startActivity(intent);
+                return;
+            } catch (Exception ignored) {}
+
+            try {
+                intent.setComponent(new ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"));
+                startActivity(intent);
+                return;
+            } catch (Exception ignored) {}
+
+            try {
+                intent.setComponent(new ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"));
+                startActivity(intent);
+                return;
+            } catch (Exception ignored) {}
+
+            try {
+                Intent fallback = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                fallback.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(fallback);
+            } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public void openAppDetails() {
+            try {
+                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            } catch (Exception ignored) {}
         }
     }
 
