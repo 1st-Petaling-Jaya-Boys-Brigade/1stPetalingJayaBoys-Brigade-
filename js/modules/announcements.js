@@ -1525,9 +1525,9 @@ async function addAnnouncement() {
       created_at: (typeof newRecord !== 'undefined' && newRecord && newRecord.created_at) ? newRecord.created_at : new Date().toISOString()
     });
     if (typeof syncAnnouncementNotifications === 'function') {
-      syncAnnouncementNotifications(announcements, false);
+      syncAnnouncementNotifications(announcements, true);
     } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
-      window.syncAnnouncementNotifications(announcements, false);
+      window.syncAnnouncementNotifications(announcements, true);
     }
     if (typeof syncAllPortalNotifications === 'function') {
       syncAllPortalNotifications();

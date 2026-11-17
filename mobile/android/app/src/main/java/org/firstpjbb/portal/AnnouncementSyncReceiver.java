@@ -23,6 +23,10 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.TimeZone;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -30,7 +34,7 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
     private static final String PREFS_NAME = "bb_portal_sync_prefs";
     private static final String PREF_LAST_ANN_KEY = "last_seen_announcement_key";
     public static final String CHANNEL_ID = "portal-alerts-v2";
-    private static final long INTERVAL_MS = 25000L; // 25s background polling cadence
+    private static final long INTERVAL_MS = 15000L; // 15s background polling cadence
 
     private static final String SUPA_URL = "https://mjfclxcklkbgsivvvlfe.supabase.co/rest/v1/bb_announcements?order=created_at.desc&limit=1&select=id,title,body,created_at";
     private static final String SUPA_KEY_B64 = "ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQmhZbUZ6WlNJc0luSmxaaUk2SW0xcVptTnNlR05yYkd0aVozTnBkbloyYkdabElpd2ljbTlzWlNJNkltRnViMjRpTENKcFlYUWlPakUzTnpReE9EVXlNRFlzSW1WNGNDSTZNakE0T1RjMk1USXdObjAuWllzYUhuUEoxTFhyazRpWVA1cFlnTktqeWtzWFBzSzhaeGtYUEZlRWNPTQ==";
@@ -42,6 +46,21 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private static long parseIsoTimestamp(String iso) {
+        if (iso == null || iso.isEmpty()) return 0;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                return Instant.parse(iso).toEpochMilli();
+            }
+        } catch (Exception ignored) {}
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+            sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            return sdf.parse(iso).getTime();
+        } catch (Exception ignored) {}
+        return 0;
     }
 
     @Override
@@ -172,16 +191,21 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String lastSeenKey = prefs.getString(PREF_LAST_ANN_KEY, null);
 
+            boolean shouldNotify = false;
             if (lastSeenKey == null) {
-                // Initial launch: seed with current latest announcement key so historical records do not fire
+                // If initial launch or cold cache, notify if announcement was published recently (< 10 mins)
+                long createdTs = parseIsoTimestamp(createdAt);
+                long now = System.currentTimeMillis();
+                if (createdTs > 0 && (now - createdTs) < 600000L) {
+                    shouldNotify = true;
+                }
                 prefs.edit().putString(PREF_LAST_ANN_KEY, uniqueKey).apply();
-                return;
+            } else if (!uniqueKey.equals(lastSeenKey)) {
+                shouldNotify = true;
+                prefs.edit().putString(PREF_LAST_ANN_KEY, uniqueKey).apply();
             }
 
-            if (!uniqueKey.equals(lastSeenKey)) {
-                // New announcement detected while in background! Record key and dispatch heads-up notification
-                prefs.edit().putString(PREF_LAST_ANN_KEY, uniqueKey).apply();
-
+            if (shouldNotify) {
                 String title = latest.optString("title", "Company Announcement");
                 String body = latest.optString("body", "");
                 String cleanSnippet = body.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
@@ -224,6 +248,7 @@ public class AnnouncementSyncReceiver extends BroadcastReceiver {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSound(soundUri)
                 .setVibrate(new long[]{ 0, 300, 150, 300 })
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent);
 
