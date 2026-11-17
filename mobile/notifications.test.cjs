@@ -71,3 +71,59 @@ test('native alerts honor opt-in and sound preferences with portal content', asy
     delete global.localStorage;
   }
 });
+
+test('Firebase Cloud Messaging (FCM) universal push notification engine', async () => {
+  const fcm = require('../js/api/fcm.js');
+
+  // 1. Topic name sanitization conforming to FCM rules [a-zA-Z0-9-_.~%]+
+  assert.equal(fcm.sanitizeTopicName('announcements'), 'announcements');
+  assert.equal(fcm.sanitizeTopicName('Jeshua Koh'), 'jeshua_koh');
+  assert.equal(fcm.sanitizeTopicName('jeshuakoh2008@gmail.com'), 'jeshuakoh2008_gmail_com');
+  assert.equal(fcm.sanitizeTopicName('080116-14-0615'), '080116-14-0615');
+  assert.equal(fcm.sanitizeTopicName('special!@#$%^&*()chars'), 'special_chars');
+  assert.equal(fcm.sanitizeTopicName(''), 'general');
+  assert.equal(fcm.sanitizeTopicName(null), 'general');
+
+  // 2. Personal and Department topic formatting
+  assert.equal(fcm.getUserTopic('jeshuakoh2008@gmail.com'), 'user_jeshuakoh2008_gmail_com');
+  assert.equal(fcm.getUserTopic('080116-14-0615'), 'user_080116-14-0615');
+  assert.equal(fcm.getUserTopic(''), '');
+  assert.equal(fcm.getDepartmentTopic('logistics'), 'dept_logistics');
+  assert.equal(fcm.getDepartmentTopic('Secretariat & HQ'), 'dept_secretariat_hq');
+
+  // 3. HTML snippet cleaning
+  assert.equal(fcm.cleanSnippet('<b>Parade</b> at <i>9:30 AM</i>'), 'Parade at 9:30 AM');
+  assert.equal(fcm.cleanSnippet('A'.repeat(200), 20), 'AAAAAAAAAAAAAAAAA...');
+
+  // 4. AndroidFCM JavaScript interface bridge synchronization
+  const subscribedTopics = [];
+  const unsubscribedTopics = [];
+  global.window = {
+    AndroidFCM: {
+      subscribeTopic: topic => subscribedTopics.push(topic),
+      unsubscribeTopic: topic => unsubscribedTopics.push(topic)
+    }
+  };
+  global.sessionGet = key => {
+    if (key === 'email') return 'jeshuakoh2008@gmail.com';
+    if (key === 'ic') return '080116-14-0615';
+    if (key === 'department') return 'logistics';
+    return '';
+  };
+
+  try {
+    fcm.syncMobileDeviceSubscriptions();
+    assert.ok(subscribedTopics.includes('announcements'));
+    assert.ok(subscribedTopics.includes('user_jeshuakoh2008_gmail_com'));
+    assert.ok(subscribedTopics.includes('user_080116-14-0615'));
+    assert.ok(subscribedTopics.includes('dept_logistics'));
+
+    fcm.unsubscribeMobileDevice('jeshuakoh2008@gmail.com', '080116-14-0615', 'logistics');
+    assert.ok(unsubscribedTopics.includes('user_jeshuakoh2008_gmail_com'));
+    assert.ok(unsubscribedTopics.includes('user_080116-14-0615'));
+    assert.ok(unsubscribedTopics.includes('dept_logistics'));
+  } finally {
+    delete global.window;
+    delete global.sessionGet;
+  }
+});

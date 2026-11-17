@@ -33,7 +33,7 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        String title = "Company Announcement";
+        String title = "";
         String body = "";
 
         if (remoteMessage.getNotification() != null) {
@@ -47,30 +47,38 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
 
         Map<String, String> data = remoteMessage.getData();
         if (data != null && !data.isEmpty()) {
-            if (data.containsKey("title") && data.get("title") != null) {
+            if (data.containsKey("title") && data.get("title") != null && title.isEmpty()) {
                 title = data.get("title");
             }
-            if (data.containsKey("body") && data.get("body") != null) {
+            if (data.containsKey("body") && data.get("body") != null && body.isEmpty()) {
                 body = data.get("body");
             } else if (data.containsKey("message") && data.get("message") != null && body.isEmpty()) {
                 body = data.get("message");
             }
         }
 
-        if (title == null || title.isEmpty()) title = "1st PJ BB Announcement";
-        if (body == null || body.isEmpty()) body = "Tap to open and view announcement.";
+        if (title == null || title.isEmpty()) title = "1st PJ BB Notification";
+        if (body == null || body.isEmpty()) body = "Tap to open and view update.";
+
+        String tab = (data != null && data.containsKey("tab")) ? data.get("tab") : "home";
+        String targetId = (data != null && data.containsKey("targetId")) ? data.get("targetId") : "";
+        String category = (data != null && data.containsKey("category")) ? data.get("category") : "announcements";
 
         int notifId = (int) (System.currentTimeMillis() % 100000);
-        showPushNotification(this, notifId, title, body);
+        showPushNotification(this, notifId, title, body, tab, targetId, category);
     }
 
-    public static void showPushNotification(Context context, int notifId, String title, String snippet) {
+    public static void showPushNotification(Context context, int notifId, String title, String snippet, String tab, String targetId, String category) {
         try {
             createNotificationChannel(context);
 
             Intent openIntent = new Intent(context, MainActivity.class);
             openIntent.setAction(Intent.ACTION_VIEW);
             openIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            if (tab != null && !tab.isEmpty()) openIntent.putExtra("tab", tab);
+            if (targetId != null && !targetId.isEmpty()) openIntent.putExtra("targetId", targetId);
+            if (category != null && !category.isEmpty()) openIntent.putExtra("category", category);
+
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 flags |= PendingIntent.FLAG_IMMUTABLE;
@@ -82,7 +90,7 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher))
-                .setContentTitle("📢 " + title)
+                .setContentTitle(title.trim())
                 .setContentText(snippet)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(snippet))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -111,10 +119,10 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
             if (nm != null) {
                 NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Company Announcements",
+                    "1st PJ BB Alerts",
                     NotificationManager.IMPORTANCE_HIGH
                 );
-                channel.setDescription("Instant company announcements and parade alerts");
+                channel.setDescription("Instant real-time alerts for announcements, task assignments, and mentions");
                 channel.enableVibration(true);
                 channel.setVibrationPattern(new long[]{ 0, 300, 150, 300 });
                 channel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);

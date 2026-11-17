@@ -16,6 +16,7 @@ const jsFiles = [
   'assets/vendor/qrcode-generator.js',
   'js/core/loading.js',
   'js/api/supabase.js',
+  'js/api/fcm.js',
   'js/api/sheets.js',
   'js/modules/member.js',
   'js/modules/attendance.js',
