@@ -3824,9 +3824,9 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
 
   var isCreator = false;
   if (typeof isPortalCreator === 'function') {
-    isCreator = isPortalCreator(cleanName, cleanKey);
+    isCreator = isPortalCreator(cleanName, cleanKey) || isPortalCreator(cleanKey, cleanName);
   } else {
-    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh');
+    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh' || cleanKey === '080116-14-0615');
   }
 
   // 1. Direct key match (by email, ic, or name)

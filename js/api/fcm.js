@@ -150,15 +150,26 @@
     var targetUsers = new Set();
     var topics = new Set();
 
-    var dir = Array.isArray(memberDirectory) ? memberDirectory : ((typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) ? _cachedDepartmentMembers : []);
+    var dir = Array.isArray(memberDirectory) ? memberDirectory.slice() : ((typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) ? _cachedDepartmentMembers.slice() : []);
     if (!dir.length && typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
-      dir = window._cachedDepartmentMembers;
+      dir = window._cachedDepartmentMembers.slice();
     }
-    if (!dir.length && typeof localStorage !== 'undefined') {
-      try {
-        var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
-        if (Array.isArray(cached) && cached.length) dir = cached;
-      } catch (_) {}
+    if (typeof localStorage !== 'undefined') {
+      ['bb_members_cache', 'bb_all_members', 'bb_cached_members'].forEach(function(key) {
+        try {
+          var raw = localStorage.getItem(key);
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach(function(m) {
+                if (m && m.name && !dir.some(function(x) { return x.name === m.name; })) {
+                  dir.push(m);
+                }
+              });
+            }
+          }
+        } catch (_) {}
+      });
     }
 
     // 1. Group mentions

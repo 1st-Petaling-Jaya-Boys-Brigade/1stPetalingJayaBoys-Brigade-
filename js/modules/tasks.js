@@ -360,8 +360,13 @@ function hasDepartmentRole(memberOrDept, _rank) {
 
 function taskDepartmentKey(value) {
   var key = String(value || '').toLowerCase().trim();
-  if (['department nco', 'dept nco', 'nco'].includes(key)) return 'department_nco';
-  if (key === 'officer') return 'officers';
+  if (!key) return '';
+  if (['department nco', 'dept nco', 'nco'].includes(key) || key.indexOf('department nco') !== -1 || key.indexOf('dept nco') !== -1) return 'department_nco';
+  if (key === 'officer' || key === 'officers' || key.indexOf('officer') !== -1) return 'officers';
+  if (key === 'secretariat' || key.indexOf('secretariat') !== -1) return 'secretariat';
+  if (key === 'logistics' || key.indexOf('logistics') !== -1) return 'logistics';
+  if (key === 'media' || key.indexOf('media') !== -1) return 'media';
+  if (key === 'hq' || key.indexOf('hq') !== -1) return 'hq';
   return Object.hasOwn(DEPT_CONFIG, key) ? key : '';
 }
 
@@ -419,7 +424,34 @@ function findManagedTask(id) {
  */
 function isMemberDepartmentRole(m) {
   if (!m) return false;
-  return hasDepartmentRole(m);
+  if (hasDepartmentRole(m)) return true;
+
+  // Direct department name check
+  if (m.department && taskDepartmentKey(m.department)) return true;
+
+  // Check NCO ranks and Officer ranks
+  var rankStr = String(m.rank || '').trim().toLowerCase();
+  var isRankEligible = ['captain', 'lieutenant', 'chaplain', 'warrant officer', 'instructor', 'officer',
+                        'staff sergeant', 'sergeant', 'corporal', 'lance corporal'].includes(rankStr);
+  if (isRankEligible) return true;
+
+  // Check section
+  var secStr = String(m.att_section || m.section || '').trim().toLowerCase();
+  if (secStr === 'officer' || secStr === 'nco') return true;
+
+  // Check role
+  var roleStr = String(m.role || '').trim().toLowerCase();
+  if (['admin', 'super_admin', 'officer', 'nco'].includes(roleStr)) return true;
+
+  // Known testing or administrative accounts
+  var nameStr = String(m.name || '').trim().toLowerCase();
+  var idStr = String(m.email || m.ic || '').trim().toLowerCase();
+  if (nameStr === 'tester account' || idStr === 'jeshuakoh1601@gmail.com' ||
+      nameStr === 'jeshua koh' || idStr === 'jeshuakoh2008@gmail.com') {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -524,7 +556,10 @@ async function checkTasksAccess() {
   if (boardPill) boardPill.style.display = fastAllowed ? 'inline-flex' : 'none';
   if (gate) gate.style.display = fastAllowed ? 'none' : 'block';
   if (board) board.style.display = fastAllowed ? 'block' : 'none';
-  if (fastAllowed) setTasksViewMode(_tasksViewMode || 'projects');
+  if (fastAllowed) {
+    setTasksViewMode(_tasksViewMode || 'projects');
+    fetchDepartmentMembers().catch(function() {});
+  }
   if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
     window.syncSidebarAccess();
   }
@@ -1233,13 +1268,29 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
     return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;line-height:1;' + styleAttr + '" title="Unassigned" aria-label="Unassigned">U</span>';
   }
 
-  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name) : /jeshua\s+koh/i.test(name);
-  var safeName = (typeof escapeHtml === 'function') ? escapeHtml(name) : name;
+  // Cross-resolve member identity so name or IC or email resolves canonically
+  var cleanName = String(name || '').trim();
+  var cleanIc = String(ic || '').trim();
+  if (cleanName && (!cleanIc || cleanIc.indexOf('@') === -1)) {
+    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+      ? resolveMemberDirectoryInfo
+      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    if (resolver) {
+      var dirMember = resolver(cleanName || cleanIc);
+      if (dirMember) {
+        if (!cleanName && dirMember.name) cleanName = dirMember.name;
+        if (!cleanIc && (dirMember.email || dirMember.ic)) cleanIc = dirMember.email || dirMember.ic;
+      }
+    }
+  }
+
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(cleanName, cleanIc) : /jeshua\s+koh/i.test(cleanName);
+  var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanName) : cleanName;
   var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');
-  var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(name, ic) : null;
+  var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(cleanName, cleanIc) : null;
 
   var outlineInfo = (typeof getMemberAvatarOutline === 'function')
-    ? getMemberAvatarOutline(ic || name, name)
+    ? getMemberAvatarOutline(cleanIc || cleanName, cleanName)
     : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
 
   var outlineHtml = '';
@@ -1247,10 +1298,13 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
     hasOutlineCls = ' has-custom-outline avatar-outline-container';
     outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
+  } else if (isCreator && (!outlineInfo || outlineInfo.style === 'rgb')) {
+    hasOutlineCls = ' has-custom-outline avatar-outline-container';
+    outlineHtml = '<span class="avatar-outline-overlay avatar-outline-rgb" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
   }
 
   var cosmeticInfo = (typeof getMemberCosmetic === 'function')
-    ? getMemberCosmetic(ic || name, name)
+    ? getMemberCosmetic(cleanIc || cleanName, cleanName)
     : null;
   var cosmeticHtml = '';
   if (cosmeticInfo && cosmeticInfo.id && cosmeticInfo.id !== 'none' && cosmeticInfo.svg) {
@@ -1263,9 +1317,9 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   // 4. Live Presence Status Dot
   var pInfo = null;
   if (typeof getMemberPresenceStatus === 'function') {
-    pInfo = getMemberPresenceStatus({ name: name, email: ic, ic: ic });
+    pInfo = getMemberPresenceStatus({ name: cleanName, email: cleanIc, ic: cleanIc });
   } else if (typeof window !== 'undefined' && typeof window.getMemberPresenceStatus === 'function') {
-    pInfo = window.getMemberPresenceStatus({ name: name, email: ic, ic: ic });
+    pInfo = window.getMemberPresenceStatus({ name: cleanName, email: cleanIc, ic: cleanIc });
   } else {
     pInfo = { status: 'offline', label: 'Offline', color: '#6b7280' };
   }
@@ -1274,8 +1328,8 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
   var dotTitle = safeName + ' (' + dotLabel + ')';
   var dotSz = Math.max(8, Math.round(sz * 0.32));
-  var presId = (ic && ic.indexOf('@') !== -1) ? ic : (ic || name);
-  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+  var presId = (cleanIc && cleanIc.indexOf('@') !== -1) ? cleanIc : (cleanIc || cleanName);
+  var dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanName) : cleanName) + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
 
   var overflowRule = 'visible';
 
@@ -1284,13 +1338,13 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   }
 
   if (isCreator) {
-    var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
+    var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
     return '<span class="task-card-avatar' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
 
-  var initial = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name) : (name.trim().charAt(0).toUpperCase() || '?');
-  var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : getAssigneeAvatarBg(name);
+  var initial = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(cleanName) : (cleanName.trim().charAt(0).toUpperCase() || '?');
+  var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(cleanName) : getAssigneeAvatarBg(cleanName);
   return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml + '</span>';
 }
 
@@ -1786,6 +1840,7 @@ async function fetchAllRemoteTasks(andRerender) {
       if (andRerender && typeof document !== 'undefined') {
         refreshCurrentTasksView();
       }
+      fetchDepartmentMembers().catch(function() {});
       if (typeof syncTaskNotifications === 'function') {
         syncTaskNotifications(_allLoadedTasks);
       } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
@@ -2318,17 +2373,30 @@ function openTaskDetail(id) {
 
   // Assignee Pill matching Image 2
   var aName = t.assignee_name || 'Unassigned';
-  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(aName) : /jeshua\s+koh/i.test(aName);
+  var aIc = t.assignee_ic || '';
+  if (aName && (!aIc || aIc.indexOf('@') === -1)) {
+    var aResolver = (typeof resolveMemberDirectoryInfo === 'function')
+      ? resolveMemberDirectoryInfo
+      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    if (aResolver) {
+      var dirA = aResolver(aName || aIc);
+      if (dirA) {
+        if (!aName && dirA.name) aName = dirA.name;
+        if (!aIc && (dirA.email || dirA.ic)) aIc = dirA.email || dirA.ic;
+      }
+    }
+  }
+  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(aName, aIc) : /jeshua\s+koh/i.test(aName);
   var aAvatar = document.querySelector('.tdm-assignee-avatar');
   if (aAvatar) {
-    var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(aName, t.assignee_ic) : null;
+    var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(aName, aIc) : null;
     var tooltip = aName + (isCreator ? ' (Portal Creator)' : '');
     aAvatar.title = tooltip;
     aAvatar.setAttribute('aria-label', tooltip);
     aAvatar.style.cursor = 'pointer';
     var outlineInfo = (typeof getMemberAvatarOutline === 'function')
-      ? getMemberAvatarOutline(t.assignee_ic || aName, aName)
-      : null;
+      ? getMemberAvatarOutline(aIc || aName, aName)
+      : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
     if (photoUrl) {
       aAvatar.innerHTML = '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(aName) : aName) + '"/>';
       aAvatar.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
@@ -2336,7 +2404,7 @@ function openTaskDetail(id) {
     } else if (isCreator) {
       aAvatar.innerHTML = '';
       aAvatar.textContent = 'J';
-      var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
+      var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
       if (isRgb) {
         aAvatar.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       } else {
@@ -2351,7 +2419,7 @@ function openTaskDetail(id) {
       aAvatar.style.background = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(aName) : getAssigneeAvatarBg(aName);
     }
     if (typeof applyAvatarOutlineElement === 'function') {
-      applyAvatarOutlineElement(aAvatar, outlineInfo ? outlineInfo.style : 'none');
+      applyAvatarOutlineElement(aAvatar, outlineInfo ? outlineInfo.style : (isCreator ? 'rgb' : 'none'));
     }
   }
   set('tdm-assignee', aName);
@@ -3394,6 +3462,30 @@ var _activeMentionIndex = 0;
 var _currentMentionCandidates = [];
 
 /**
+ * Asynchronously pre-fetches and caches department members for mentions and assignees
+ */
+async function fetchDepartmentMembers() {
+  var client = getSupaClient();
+  if (!client) return _cachedDepartmentMembers;
+  try {
+    var members = await client.get('bb_members?select=ic,name,rank,department,email,section,att_section,role&order=name.asc');
+    if (Array.isArray(members) && members.length) {
+      var eligible = members.filter(isMemberDepartmentRole);
+      _cachedDepartmentMembers = eligible;
+      if (typeof window !== 'undefined') window._cachedDepartmentMembers = eligible;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_cached_members', JSON.stringify(eligible));
+        }
+      } catch (_) {}
+    }
+  } catch (e) {
+    console.warn('fetchDepartmentMembers error:', e);
+  }
+  return _cachedDepartmentMembers;
+}
+
+/**
  * Retrieves mention candidate list for department groups and members
  * @param {string} query
  * @returns {Array<Object>}
@@ -3420,45 +3512,104 @@ function getDepartmentMentionCandidates(query) {
 
   // Department members
   var memberMap = {};
+
+  var addCandidateMember = function(m) {
+    if (!m || !m.name) return;
+    var safeName = String(m.name).trim();
+    if (!safeName || safeName.toLowerCase() === 'unassigned') return;
+    if (memberMap[safeName]) return;
+    if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return;
+
+    if (isMemberDepartmentRole(m)) {
+      var dTag = m.department ? (m.department.toLowerCase() === 'department nco' ? 'Department NCO' : m.department) : (m.rank || 'NCO');
+      memberMap[safeName] = {
+        name: safeName,
+        label: '@' + safeName,
+        role: dTag,
+        email: m.email || m.ic || '',
+        ic: m.ic || '',
+        desc: (m.rank || 'NCO') + (m.department ? (' · ' + m.department) : '')
+      };
+    }
+  };
+
+  // Source A: In-memory cached department members
   if (Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
-      if (m && m.name && isMemberDepartmentRole(m)) {
-        memberMap[m.name] = {
-          name: m.name,
-          label: '@' + m.name,
-          role: m.department || m.rank || 'NCO',
-          email: m.email || '',
-          desc: (m.rank || 'NCO') + (m.department ? (' · ' + m.department) : '')
-        };
-      }
+    _cachedDepartmentMembers.forEach(addCandidateMember);
+  }
+
+  // Source B: LocalStorage caches (bb_members_cache, bb_all_members, bb_cached_members)
+  if (typeof localStorage !== 'undefined') {
+    ['bb_members_cache', 'bb_all_members', 'bb_cached_members'].forEach(function(key) {
+      try {
+        var raw = localStorage.getItem(key);
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(addCandidateMember);
+          }
+        }
+      } catch (_) {}
     });
   }
 
-  // Also include current user and assignees from loaded tasks
-  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
-  if (myName && !memberMap[myName]) {
-    memberMap[myName] = {
-      name: myName,
-      label: '@' + myName,
-      role: (typeof sessionGet === 'function' ? sessionGet('department') : '') || 'Member',
-      desc: (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Member'
-    };
+  // Source C: Window global cached members if available
+  if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
+    window._cachedDepartmentMembers.forEach(addCandidateMember);
   }
 
+  // Source D: Current user from session
+  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
+  if (myName && !memberMap[myName]) {
+    addCandidateMember({
+      name: myName,
+      department: (typeof sessionGet === 'function' ? sessionGet('department') : '') || 'HQ',
+      rank: (typeof sessionGet === 'function' ? sessionGet('rank') : '') || 'Sergeant',
+      email: (typeof sessionGet === 'function' ? sessionGet('email') : '') || '',
+      ic: (typeof sessionGet === 'function' ? sessionGet('ic') : '') || ''
+    });
+  }
+
+  // Source E: Assignees from loaded tasks
   _allLoadedTasks.forEach(function(t) {
     if (t.assignee_name && t.assignee_name !== 'Unassigned' && !memberMap[t.assignee_name]) {
-      memberMap[t.assignee_name] = {
+      addCandidateMember({
         name: t.assignee_name,
-        label: '@' + t.assignee_name,
-        role: t.department || 'NCO',
-        desc: t.department ? (t.department + ' NCO') : 'Assignee'
-      };
+        department: t.department || 'Department NCO',
+        rank: 'NCO',
+        email: t.assignee_ic || '',
+        ic: t.assignee_ic || ''
+      });
     }
   });
 
+  // Source F: Authorized accounts (Creator and testing accounts)
+  if (!memberMap['Jeshua Koh']) {
+    addCandidateMember({
+      name: 'Jeshua Koh',
+      department: 'HQ',
+      rank: 'Sergeant',
+      email: 'jeshuakoh2008@gmail.com',
+      ic: '080116-14-0615',
+      section: 'Senior',
+      att_section: 'Senior'
+    });
+  }
+  if (!memberMap['Tester Account']) {
+    addCandidateMember({
+      name: 'Tester Account',
+      department: 'Officers',
+      rank: 'Lieutenant',
+      email: 'jeshuakoh1601@gmail.com',
+      ic: 'tester-sync@pjbb.org',
+      section: 'Officer',
+      att_section: 'Officer'
+    });
+  }
+
   Object.keys(memberMap).sort().forEach(function(k) {
     var m = memberMap[k];
-    if (!q || m.name.toLowerCase().indexOf(q) !== -1 || m.label.toLowerCase().indexOf(q) !== -1) {
+    if (!q || m.name.toLowerCase().indexOf(q) !== -1 || m.label.toLowerCase().indexOf(q) !== -1 || (m.desc && m.desc.toLowerCase().indexOf(q) !== -1)) {
       candidates.push(m);
     }
   });
@@ -3523,6 +3674,34 @@ function handleTaskCommentInput(inputEl) {
 }
 
 /**
+ * Renders HTML items inside the mention dropdown
+ * @param {HTMLElement} dropdown
+ * @param {Array<Object>} candidates
+ */
+function renderMentionDropdownItems(dropdown, candidates) {
+  if (!dropdown) return;
+  var html = '';
+  candidates.slice(0, 8).forEach(function(c, i) {
+    var isGroup = c.role === 'Group';
+    var iconHtml = isGroup
+      ? '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">#</span>'
+      : getAssigneeAvatarHtml(c.name, c.email || c.ic, 24);
+
+    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onpointerdown="selectMentionCandidate(' + i + ', event)" ontouchstart="selectMentionCandidate(' + i + ', event)" onmousedown="selectMentionCandidate(' + i + ', event)">'
+      + iconHtml
+      + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">'
+        + '<div class="tb-mention-name">' + (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) + '</div>'
+        + '<div style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(c.desc || '') : (c.desc || '')) + '</div>'
+      + '</div>'
+      + '<span class="tb-mention-type">' + (isGroup ? 'Group' : (c.role || 'Member')) + '</span>'
+      + '</div>';
+  });
+
+  dropdown.innerHTML = html;
+  dropdown.style.display = 'block';
+}
+
+/**
  * Renders the floating mention dropdown menu
  * @param {HTMLInputElement} inputEl
  * @param {string} query
@@ -3538,28 +3717,36 @@ function showMentionDropdown(inputEl, query) {
   if (!candidates.length) {
     dropdown.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);font-style:italic;">No matching department members</div>';
     dropdown.style.display = 'block';
+
+    // Trigger async search if query provided and nothing found in memory
+    var client = getSupaClient();
+    if (client && typeof client.get === 'function' && query && query.trim().length >= 2) {
+      var qClean = query.trim();
+      client.get('bb_members?name=ilike.*' + encodeURIComponent(qClean) + '*&select=ic,name,rank,department,email,section,att_section,role&limit=8')
+        .then(function(res) {
+          if (Array.isArray(res) && res.length && _activeMentionTarget === inputEl) {
+            var eligible = res.filter(isMemberDepartmentRole);
+            if (eligible.length) {
+              if (!Array.isArray(_cachedDepartmentMembers)) _cachedDepartmentMembers = [];
+              eligible.forEach(function(em) {
+                if (!_cachedDepartmentMembers.some(function(x) { return x.name === em.name; })) {
+                  _cachedDepartmentMembers.push(em);
+                }
+              });
+              var updated = getDepartmentMentionCandidates(query);
+              if (updated.length && _activeMentionTarget === inputEl) {
+                _currentMentionCandidates = updated;
+                _activeMentionIndex = 0;
+                renderMentionDropdownItems(dropdown, updated);
+              }
+            }
+          }
+        }).catch(function() {});
+    }
     return;
   }
 
-  var html = '';
-  candidates.slice(0, 8).forEach(function(c, i) {
-    var isGroup = c.role === 'Group';
-    var iconHtml = isGroup
-      ? '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">#</span>'
-      : getAssigneeAvatarHtml(c.name, c.email, 24);
-
-    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onpointerdown="selectMentionCandidate(' + i + ', event)" ontouchstart="selectMentionCandidate(' + i + ', event)" onmousedown="selectMentionCandidate(' + i + ', event)">'
-      + iconHtml
-      + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">'
-        + '<div class="tb-mention-name">' + (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) + '</div>'
-        + '<div style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(c.desc || '') : (c.desc || '')) + '</div>'
-      + '</div>'
-      + '<span class="tb-mention-type">' + (isGroup ? 'Group' : (c.role || 'Member')) + '</span>'
-      + '</div>';
-  });
-
-  dropdown.innerHTML = html;
-  dropdown.style.display = 'block';
+  renderMentionDropdownItems(dropdown, candidates);
 }
 
 /**
@@ -3697,7 +3884,7 @@ function selectMentionCandidate(idx, event) {
  * @returns {Array<string>}
  */
 function getAllMentionCandidateNames() {
-  var list = ['all', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers', 'Jeshua Koh'];
+  var list = ['all', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers', 'Jeshua Koh', 'Tester Account'];
   if (Array.isArray(_cachedDepartmentMembers)) {
     _cachedDepartmentMembers.forEach(function(m) {
       if (m && m.name && m.name.trim()) list.push(m.name.trim());
@@ -3714,12 +3901,17 @@ function getAllMentionCandidateNames() {
   }
   try {
     if (typeof localStorage !== 'undefined') {
-      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
-      if (Array.isArray(cached)) {
-        cached.forEach(function(m) {
-          if (m && m.name && m.name.trim()) list.push(m.name.trim());
-        });
-      }
+      ['bb_members_cache', 'bb_all_members', 'bb_cached_members'].forEach(function(key) {
+        var raw = localStorage.getItem(key);
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(function(m) {
+              if (m && m.name && m.name.trim()) list.push(m.name.trim());
+            });
+          }
+        }
+      });
     }
   } catch (_) {}
 
@@ -4078,7 +4270,19 @@ async function selectTaskDetailAssignee(ic, name) {
   if (aNameEl) aNameEl.textContent = cleanName || 'Unassigned';
   var aAvatar = document.querySelector('.tdm-assignee-avatar');
   if (aAvatar) {
-    var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(cleanName) : /jeshua\s+koh/i.test(cleanName);
+    if (cleanName && (!cleanIc || cleanIc.indexOf('@') === -1)) {
+      var sResolver = (typeof resolveMemberDirectoryInfo === 'function')
+        ? resolveMemberDirectoryInfo
+        : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+      if (sResolver) {
+        var dirS = sResolver(cleanName || cleanIc);
+        if (dirS) {
+          if (!cleanName && dirS.name) cleanName = dirS.name;
+          if (!cleanIc && (dirS.email || dirS.ic)) cleanIc = dirS.email || dirS.ic;
+        }
+      }
+    }
+    var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(cleanName, cleanIc) : /jeshua\s+koh/i.test(cleanName);
     var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(cleanName, cleanIc) : null;
     var tooltip = (cleanName || 'Unassigned') + (isCreator ? ' (Portal Creator)' : '');
     aAvatar.title = tooltip;
@@ -4086,7 +4290,7 @@ async function selectTaskDetailAssignee(ic, name) {
     aAvatar.style.cursor = 'pointer';
     var outlineInfo = (typeof getMemberAvatarOutline === 'function')
       ? getMemberAvatarOutline(cleanIc || cleanName, cleanName)
-      : null;
+      : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
     if (photoUrl) {
       aAvatar.innerHTML = '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanName) : cleanName) + '"/>';
       aAvatar.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
@@ -4094,7 +4298,7 @@ async function selectTaskDetailAssignee(ic, name) {
     } else if (isCreator) {
       aAvatar.innerHTML = '';
       aAvatar.textContent = 'J';
-      var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
+      var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
       if (isRgb) {
         aAvatar.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       } else {
@@ -4109,7 +4313,7 @@ async function selectTaskDetailAssignee(ic, name) {
       aAvatar.style.background = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(cleanName) : getAssigneeAvatarBg(cleanName);
     }
     if (typeof applyAvatarOutlineElement === 'function') {
-      applyAvatarOutlineElement(aAvatar, outlineInfo ? outlineInfo.style : 'none');
+      applyAvatarOutlineElement(aAvatar, outlineInfo ? outlineInfo.style : (isCreator ? 'rgb' : 'none'));
     }
   }
   var menu = document.querySelector('.tdm-assignee-dropdown');
@@ -5359,6 +5563,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.handleTaskCommentKeyDown   = handleTaskCommentKeyDown;
   window.selectMentionCandidate     = selectMentionCandidate;
   window.formatCommentMentions      = formatCommentMentions;
+  window.formatTaskDescriptionMentions = formatTaskDescriptionMentions;
   window.getAllMentionCandidateNames= getAllMentionCandidateNames;
   window.toggleTaskCommentMenu      = toggleTaskCommentMenu;
   window.startEditTaskComment       = startEditTaskComment;
@@ -5369,12 +5574,14 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
   window.getAssigneeAvatarHtml      = getAssigneeAvatarHtml;
   window.fetchAllRemoteTasks        = fetchAllRemoteTasks;
+  window.fetchDepartmentMembers     = fetchDepartmentMembers;
   window.refreshCurrentTasksView    = refreshCurrentTasksView;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     fetchAllRemoteTasks,
+    fetchDepartmentMembers,
     refreshCurrentTasksView,
     getAssigneeAvatarHtml,
     DEPT_CONFIG,
@@ -5473,6 +5680,7 @@ if (typeof module !== 'undefined' && module.exports) {
     handleTaskCommentKeyDown,
     selectMentionCandidate,
     formatCommentMentions,
+    formatTaskDescriptionMentions,
     getAllMentionCandidateNames,
     toggleTaskCommentMenu,
     startEditTaskComment,

@@ -1090,21 +1090,35 @@ function isPortalCreator(name, email) {
   if (cleanEmail && cleanEmail.indexOf('@') !== -1) {
     return cleanEmail === 'jeshuakoh2008@gmail.com';
   }
+  if (cleanName && cleanName.indexOf('@') !== -1) {
+    return cleanName === 'jeshuakoh2008@gmail.com';
+  }
 
   // 2. If explicit name is provided, verify it is 'jeshua koh'
   if (cleanName) {
     if (cleanName === 'jeshua koh') {
-      // If a non-creator email was also passed along with the name, it's not the creator
-      if (cleanEmail && cleanEmail !== 'jeshuakoh2008@gmail.com') return false;
+      // If an explicit non-creator email was also passed along with the name, it's not the creator
+      if (cleanEmail && cleanEmail.indexOf('@') !== -1 && cleanEmail !== 'jeshuakoh2008@gmail.com') return false;
       return true;
     }
+    if (cleanName === '080116-14-0615' || cleanName === '080116140615') return true;
     return false;
   }
 
-  // 3. ONLY if NEITHER name NOR email was provided, check the current session
+  // 3. If identifier is passed as emailOrIc / cleanEmail
+  if (cleanEmail) {
+    if (cleanEmail === 'jeshua koh' || cleanEmail === '080116-14-0615' || cleanEmail === '080116140615') return true;
+    return false;
+  }
+
+  // 4. ONLY if NEITHER name NOR email was provided, check the current session
   if (typeof sessionGet === 'function') {
-    var sessEmail = String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
+    var sessEmail = String(sessionGet('email') || '').trim().toLowerCase();
     if (sessEmail) return sessEmail === 'jeshuakoh2008@gmail.com';
+    var sessName = String(sessionGet('name') || '').trim().toLowerCase();
+    if (sessName === 'jeshua koh') return true;
+    var sessIc = String(sessionGet('ic') || '').trim().toLowerCase();
+    if (sessIc === '080116-14-0615' || sessIc === '080116140615') return true;
   }
   return false;
 }
