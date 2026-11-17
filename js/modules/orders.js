@@ -3394,11 +3394,11 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
       ? sendPortalPushNotification
       : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
     if (orderDispatcher && order) {
-      var targetUsers = [order.ic, order.email].filter(Boolean);
+      var targetUsers = [order.ic, order.email, order.name].filter(Boolean);
       if (targetUsers.length > 0) {
         orderDispatcher({
           type: 'order_status',
-          title: '📦 Uniform Order Update',
+          title: 'Uniform Order Update',
           body: 'Order #' + orderNum + ' status updated to ' + status.toUpperCase() + '.',
           targetUsers: targetUsers,
           tab: 'orders',

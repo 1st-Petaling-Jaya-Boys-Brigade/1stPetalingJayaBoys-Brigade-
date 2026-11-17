@@ -6,7 +6,7 @@
  * emoji reactions, and admin post/edit/delete operations.
  */
 
-/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sendPortalPushNotification */
+/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sendPortalPushNotification, cleanSnippet */
 
 // ── Default Fallback Announcements (Zero-Blank Offline Resilience) ────────
 var DEFAULT_ANNOUNCEMENTS = [
@@ -1517,11 +1517,13 @@ async function addAnnouncement() {
     if (pinCheck) pinCheck.checked = false;
     _announcementLoadVersion++;
     refreshAnnouncementViews();
-    var cleanSnippet = (sanitizedBody || '').replace(/<[^>]+>/g, '').trim().slice(0, 70);
+    var cleanSnippetText = (typeof cleanSnippet === 'function')
+      ? cleanSnippet(sanitizedBody, 120)
+      : (sanitizedBody || '').replace(/&nbsp;/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
     await publishAnnouncementChange(editId ? 'update' : 'create', {
       id: editId || createdAnnId,
       title: title,
-      snippet: cleanSnippet,
+      snippet: cleanSnippetText,
       created_at: (typeof newRecord !== 'undefined' && newRecord && newRecord.created_at) ? newRecord.created_at : new Date().toISOString()
     });
 
@@ -1531,12 +1533,21 @@ async function addAnnouncement() {
         ? sendPortalPushNotification
         : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
       if (fcmDispatcher) {
+        var targetUsers = [];
+        var mentionMatches = (sanitizedBody || '').match(/@([a-zA-Z0-9._-]+)/g) || [];
+        mentionMatches.forEach(function (m) {
+          var cleanM = m.slice(1).trim();
+          if (cleanM && !/^(all|everyone|everybody)$/i.test(cleanM)) {
+            targetUsers.push(cleanM);
+          }
+        });
         fcmDispatcher({
           type: 'announcement',
-          title: '📢 ' + title,
-          body: cleanSnippet || 'New company announcement posted.',
+          title: title,
+          body: cleanSnippetText || 'New company announcement posted. Tap to view full details.',
           tab: 'home',
-          targetId: editId || createdAnnId || ''
+          targetId: editId || createdAnnId || '',
+          targetUsers: targetUsers
         }).catch(function (pushErr) {
           console.warn('Announcement FCM push error:', pushErr);
         });

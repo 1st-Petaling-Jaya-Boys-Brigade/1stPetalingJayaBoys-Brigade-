@@ -103,7 +103,14 @@ test('Firebase Cloud Messaging (FCM) universal push notification engine', async 
   assert.equal(fcm.getDepartmentTopic('logistics'), 'dept_logistics');
   assert.equal(fcm.getDepartmentTopic('Secretariat & HQ'), 'dept_secretariat_hq');
 
-  // 3. HTML snippet cleaning
+  // 3. HTML snippet cleaning, emoji stripping, and entity decoding
+  assert.equal(fcm.stripEmojis('📢 Company Announcement 🎉'), 'Company Announcement');
+  assert.equal(fcm.stripEmojis('🎯 Task: Setup BB Portal 📦'), 'Task: Setup BB Portal');
+  assert.equal(fcm.stripEmojis('💬 Jeshua commented 👍'), 'Jeshua commented');
+  assert.equal(fcm.decodeHtmlEntities('test&nbsp;&nbsp;'), 'test  ');
+  assert.equal(fcm.decodeHtmlEntities('Band &amp; Drill &quot;Manual&quot; &#39;2026&#39; &lt;v1&gt;'), 'Band & Drill "Manual" \'2026\' <v1>');
+  assert.equal(fcm.cleanSnippet('📢 test&nbsp;&nbsp;'), 'test');
+  assert.equal(fcm.cleanSnippet('<b>📢 Parade Notice</b>&nbsp;&nbsp;<i>Bring full kit</i>'), 'Parade Notice Bring full kit');
   assert.equal(fcm.cleanSnippet('<b>Parade</b> at <i>9:30 AM</i>'), 'Parade at 9:30 AM');
   assert.equal(fcm.cleanSnippet('A'.repeat(200), 20), 'AAAAAAAAAAAAAAAAA...');
 
@@ -119,6 +126,7 @@ test('Firebase Cloud Messaging (FCM) universal push notification engine', async 
   global.sessionGet = key => {
     if (key === 'email') return 'jeshuakoh2008@gmail.com';
     if (key === 'ic') return '080116-14-0615';
+    if (key === 'name') return 'Jeshua Koh';
     if (key === 'department') return 'logistics';
     return '';
   };
@@ -128,11 +136,15 @@ test('Firebase Cloud Messaging (FCM) universal push notification engine', async 
     assert.ok(subscribedTopics.includes('announcements'));
     assert.ok(subscribedTopics.includes('user_jeshuakoh2008_gmail_com'));
     assert.ok(subscribedTopics.includes('user_080116-14-0615'));
+    assert.ok(subscribedTopics.includes('user_jeshua_koh'));
+    assert.ok(subscribedTopics.includes('user_jeshuakoh'));
     assert.ok(subscribedTopics.includes('dept_logistics'));
 
-    fcm.unsubscribeMobileDevice('jeshuakoh2008@gmail.com', '080116-14-0615', 'logistics');
+    fcm.unsubscribeMobileDevice('jeshuakoh2008@gmail.com', '080116-14-0615', 'logistics', 'Jeshua Koh');
     assert.ok(unsubscribedTopics.includes('user_jeshuakoh2008_gmail_com'));
     assert.ok(unsubscribedTopics.includes('user_080116-14-0615'));
+    assert.ok(unsubscribedTopics.includes('user_jeshua_koh'));
+    assert.ok(unsubscribedTopics.includes('user_jeshuakoh'));
     assert.ok(unsubscribedTopics.includes('dept_logistics'));
   } finally {
     delete global.window;

@@ -5361,6 +5361,9 @@ function updateNavUserHeader() {
     if (typeof RBAC !== 'undefined' && typeof RBAC.syncAdminButtonVisibility === 'function') {
       RBAC.syncAdminButtonVisibility();
     }
+    if (typeof syncMobileDeviceSubscriptions === 'function') {
+      syncMobileDeviceSubscriptions();
+    }
   } else {
     if (statusDot) statusDot.style.background = '#6b7280';
     if (avatarImg) avatarImg.style.display = 'none';

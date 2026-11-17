@@ -16,7 +16,7 @@
  *    - Supabase bb_config persistence with offline state fallback.
  */
 
-/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet, setDismissedNotifId, renderNotifications */
+/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet */
 
 // ── SVG Icon Registry (Zero Emojis) ──────────────────────────────────────────
 var FORUM_ICONS = {
@@ -6207,6 +6207,41 @@ async function submitForumReply(e, postId, customText) {
   var saved = await saving;
   if (typeof showToast === 'function') {
     showToast(saved ? 'Reply posted!' : 'Reply saved on this device. Sync failed.', saved ? 'success' : 'warning');
+  }
+
+  // Real-time FCM push notification for forum replies & mentions
+  var replyDispatcher = (typeof sendPortalPushNotification === 'function')
+    ? sendPortalPushNotification
+    : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+  if (replyDispatcher) {
+    var targetUsers = [];
+    if (p.authorEmail && p.authorEmail.toLowerCase() !== email.toLowerCase()) {
+      targetUsers.push(p.authorEmail.trim());
+    }
+    var mentionMatches = text.match(/@([a-zA-Z0-9._-]+)/g) || [];
+    var isAllMention = /(?:^|\W)@(all|everyone|everybody)\b/i.test(text);
+    mentionMatches.forEach(function(m) {
+      var cleanM = m.slice(1).trim();
+      if (cleanM && !/^(all|everyone|everybody)$/i.test(cleanM)) {
+        targetUsers.push(cleanM);
+      }
+    });
+    if (targetUsers.length > 0 || isAllMention) {
+      var cleanReply = (typeof cleanSnippet === 'function')
+        ? cleanSnippet(text, 140)
+        : text.replace(/&nbsp;/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+      replyDispatcher({
+        type: 'forum_reply',
+        title: author + ' replied on Support Forum',
+        body: p.title + ': ' + cleanReply,
+        targetTopic: isAllMention ? 'announcements' : null,
+        targetUsers: targetUsers,
+        tab: 'forum',
+        targetId: postId
+      }).catch(function(err) {
+        console.warn('Forum reply FCM push error:', err);
+      });
+    }
   }
 }
 

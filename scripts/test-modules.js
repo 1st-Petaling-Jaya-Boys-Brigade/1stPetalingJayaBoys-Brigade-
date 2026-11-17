@@ -14888,12 +14888,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(fcm.getDepartmentTopic('secretariat'), 'dept_secretariat');
     console.log('  ✔ Personal user topics and department topics route targeted notifications seamlessly');
 
-    // 3. WebCrypto Base64URL and clean snippet utilities
+    // 3. WebCrypto Base64URL and clean snippet utilities with emoji stripping and entity decoding
     assert.strictEqual(fcm.cleanSnippet('<b>Alert:</b> <i>Parade at 9:30 AM</i>'), 'Alert: Parade at 9:30 AM');
+    assert.strictEqual(fcm.stripEmojis('📢 Parade Announcement 🏆'), 'Parade Announcement');
+    assert.strictEqual(fcm.decodeHtmlEntities('test&nbsp;&nbsp;'), 'test  ');
+    assert.strictEqual(fcm.cleanSnippet('📢 test&nbsp;&nbsp;'), 'test');
     assert.strictEqual(typeof fcm.base64UrlEncode, 'function');
     assert.strictEqual(typeof fcm.pemToArrayBuffer, 'function');
     assert.strictEqual(typeof fcm.sendPortalPushNotification, 'function');
-    console.log('  ✔ Zero-dependency WebCrypto token generation and payload cleaning utilities verified');
+    console.log('  ✔ Zero-dependency WebCrypto token generation, emoji stripping, and payload cleaning verified');
 
     // 4. Content Security Policy (CSP) incorporates Google OAuth2 & FCM endpoints
     const vercelConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
@@ -14910,18 +14913,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const javaDir = path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'java', 'org', 'firstpjbb', 'portal');
     const mainActivityJava = fs.readFileSync(path.join(javaDir, 'MainActivity.java'), 'utf8');
     const fcmServiceJava = fs.readFileSync(path.join(javaDir, 'PortalFirebaseMessagingService.java'), 'utf8');
+    const syncReceiverJava = fs.readFileSync(path.join(javaDir, 'AnnouncementSyncReceiver.java'), 'utf8');
 
     assert.ok(mainActivityJava.includes('AndroidFcmBridge'), 'MainActivity must expose AndroidFcmBridge to WebView');
     assert.ok(mainActivityJava.includes('subscribeToTopic("announcements")'), 'MainActivity must subscribe to announcements');
+    assert.ok(mainActivityJava.includes('syncMobileDeviceSubscriptions'), 'MainActivity must trigger subscription sync on resume');
     assert.ok(mainActivityJava.includes('requestIgnoreBatteryOptimizations'), 'MainActivity must expose requestIgnoreBatteryOptimizations');
     assert.ok(mainActivityJava.includes('openAutostartSettings'), 'MainActivity must expose openAutostartSettings');
     assert.ok(mainActivityJava.includes('isIgnoringBatteryOptimizations'), 'MainActivity must expose isIgnoringBatteryOptimizations');
     assert.ok(mainActivityJava.includes('isXiaomiDevice'), 'MainActivity must expose isXiaomiDevice');
     assert.ok(fcmServiceJava.includes('portal-alerts-v2'), 'FirebaseMessagingService must use portal-alerts-v2 high-priority channel');
     assert.ok(fcmServiceJava.includes('R.raw.portal_chime'), 'FirebaseMessagingService must use custom portal_chime sound');
+    assert.ok(fcmServiceJava.includes('cleanText'), 'FirebaseMessagingService must implement cleanText for entity/emoji stripping');
+    assert.ok(fcmServiceJava.includes('bb_portal_dedup'), 'FirebaseMessagingService must register in bb_portal_dedup cache');
+    assert.ok(syncReceiverJava.includes('INTERVAL_MS = 900000L'), 'AnnouncementSyncReceiver must use 15-minute passive safety fallback');
+    assert.ok(syncReceiverJava.includes('bb_portal_dedup'), 'AnnouncementSyncReceiver must check bb_portal_dedup cache to prevent duplicate alerts');
+    assert.ok(syncReceiverJava.includes('cleanText'), 'AnnouncementSyncReceiver must sanitize notification text');
     const manifestXml = fs.readFileSync(path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'AndroidManifest.xml'), 'utf8');
     assert.ok(manifestXml.includes('REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'), 'AndroidManifest.xml must declare REQUEST_IGNORE_BATTERY_OPTIMIZATIONS');
-    console.log('  ✔ Android Firebase Messaging Service & WebView Bridge verified for instant background alerts');
+    console.log('  ✔ Android Firebase Messaging Service, deduplication cache & WebView Bridge verified for instant background alerts');
 
     // 6. Strict 388 Unique DOM IDs Invariant
     const postIdsFcm = new Set();
