@@ -28,6 +28,18 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <receiver
+            android:name=".AnnouncementSyncReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
+                <action android:name="org.firstpjbb.portal.SYNC_ANNOUNCEMENTS" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->
