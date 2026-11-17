@@ -5905,6 +5905,7 @@ function openSettingsModal() {
   var particlesEnabled = particlesState.enabled !== false;
   var particlesMode = particlesState.mode || 'both';
   var isNativeAndroid = (typeof window !== 'undefined' && Boolean(window.AndroidFCM || (window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android')));
+  var isXiaomi = (typeof window !== 'undefined' && Boolean(window.AndroidFCM?.isXiaomiDevice?.()));
 
   var modalHtml = ''
     + '<div class="portal-modal-card settings-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);">'
@@ -6047,6 +6048,19 @@ function openSettingsModal() {
             + '<input type="checkbox" id="settings-toggle-sysnotif" onchange="handleSettingsNotificationToggle(\'system\')" ' + (sysNotifEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
           + '</div>'
         + '</div>'
+        + (isNativeAndroid ? (
+          '<div class="settings-row" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-card);">'
+            + '<div style="flex:1;">'
+              + '<div class="settings-row-label">Instant Background Alerts (WhatsApp-Style)</div>'
+              + '<div class="settings-row-desc">Allow unrestricted battery &amp; autostart for real-time delivery when closed</div>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
+              + '<button type="button" class="portal-btn" onclick="if(typeof handleOnboardingBatteryOpt===\'function\')handleOnboardingBatteryOpt();" style="font-size:11px;padding:4px 9px;" title="Prompt system to allow unrestricted background alerts">Battery Saver</button>'
+              + (isXiaomi ? '<button type="button" class="portal-btn" onclick="if(typeof handleOnboardingAutostart===\'function\')handleOnboardingAutostart();" style="font-size:11px;padding:4px 9px;" title="Xiaomi HyperOS Autostart settings">Autostart</button>' : '')
+              + '<button type="button" class="portal-btn" onclick="if(typeof handleOnboardingNotifSettings===\'function\')handleOnboardingNotifSettings();" style="font-size:11px;padding:4px 9px;" title="Lock screen and floating banner settings">Lock Screen</button>'
+            + '</div>'
+          + '</div>'
+        ) : '')
         + '<div class="settings-row">'
           + '<div style="flex:1;">'
             + '<div class="settings-row-label">Notification Sound</div>'
@@ -6386,6 +6400,9 @@ function handleOnboardingCheckboxChange() {
  */
 function renderStep2NotificationsHtml() {
   var nativeApp = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
+  var isAndroid = typeof window !== 'undefined' && Boolean(window.AndroidFCM || (nativeApp && window.Capacitor?.getPlatform?.() === 'android'));
+  var isXiaomi = typeof window !== 'undefined' && Boolean(window.AndroidFCM?.isXiaomiDevice?.());
+  var isBatteryIgnored = typeof window !== 'undefined' && Boolean(window.AndroidFCM?.isIgnoringBatteryOptimizations?.());
   var perm = (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default';
   if (nativeApp) perm = localStorage.getItem('bb_notif_system_enabled') === 'true' ? 'granted' : 'default';
   var statusBadge = '';
@@ -6399,11 +6416,41 @@ function renderStep2NotificationsHtml() {
 
   var soundChecked = _onboardingState.notifSound ? 'checked' : '';
 
+  var bgCardHtml = '';
+  if (isAndroid) {
+    bgCardHtml = ''
+      + '<div style="background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.25);border-radius:12px;padding:14px 16px;margin-bottom:14px;">'
+        + '<div style="display:flex;align-items:flex-start;gap:12px;">'
+          + '<div style="color:var(--accent);flex-shrink:0;margin-top:2px;">'
+            + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>'
+          + '</div>'
+          + '<div style="flex:1;">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">'
+              + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Instant Background Alerts (WhatsApp-Style)</span>'
+              + (isBatteryIgnored
+                  ? '<span class="onboarding-status-pill granted" style="font-size:11px;padding:2px 8px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Unrestricted Active</span>'
+                  : '<span class="onboarding-status-pill default" style="font-size:11px;padding:2px 8px;">Recommended for Instant Popups</span>')
+            + '</div>'
+            + '<p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px 0;line-height:1.45;">'
+              + 'Android battery saver and OEM task managers may delay notifications when the portal is closed. Tap below to enable unrestricted background popups.'
+            + '</p>'
+            + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+              + '<button type="button" class="portal-btn' + (isBatteryIgnored ? '' : ' portal-btn-primary') + '" onclick="handleOnboardingBatteryOpt()" style="font-size:11.5px;padding:6px 12px;font-weight:600;">'
+                + (isBatteryIgnored ? '✓ Battery: No Restrictions' : 'Allow Background Battery (1-Tap Prompt)')
+              + '</button>'
+              + (isXiaomi ? '<button type="button" class="portal-btn" onclick="handleOnboardingAutostart()" style="font-size:11.5px;padding:6px 12px;" title="Xiaomi HyperOS requires Autostart enabled for alerts when app is closed">Enable Xiaomi Autostart</button>' : '')
+              + '<button type="button" class="portal-btn" onclick="handleOnboardingNotifSettings()" style="font-size:11.5px;padding:6px 12px;" title="Configure floating banners and lock screen preview">Floating &amp; Lock Screen Banners</button>'
+            + '</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>';
+  }
+
   return ''
     + '<div class="onboarding-step-badge">Step 2 of 4 · Stay Connected</div>'
     + '<h3 class="onboarding-step-title">Device Pop-up Notifications &amp; Sound</h3>'
     + '<p class="onboarding-step-desc">' + (nativeApp
-      ? 'Allow optional notifications and the company chime for updates received while the app is open. You can continue and enable them later in Settings.'
+      ? 'Instant real-time popups (WhatsApp-style) for company parade announcements, task assignments, and direct mentions even when your phone is locked or the app is closed.'
       : 'Receive pop-up notifications directly on your Windows, Mac, or mobile screen.')
     + '</p>'
     + '<div class="onboarding-grid">'
@@ -6428,6 +6475,7 @@ function renderStep2NotificationsHtml() {
         + '<div class="onboarding-card-mini-desc">Notifications when officers or cadets reply to your questions and bug reports.</div>'
       + '</div>'
     + '</div>'
+    + bgCardHtml
     + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;">'
       + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">'
         + '<div style="display:flex;align-items:center;gap:10px;">'
@@ -6501,6 +6549,42 @@ function handleOnboardingSoundToggle(checked) {
   _onboardingState.notifSound = !!checked;
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('bb_notif_sound_enabled', checked ? 'true' : 'false');
+  }
+}
+
+function handleOnboardingBatteryOpt() {
+  if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.requestIgnoreBatteryOptimizations === 'function') {
+    window.AndroidFCM.requestIgnoreBatteryOptimizations();
+    if (typeof showToast === 'function') {
+      showToast('Tap "Allow" on the system dialog to permit background alerts.', 'info', 4000);
+    }
+    setTimeout(function() {
+      if (typeof renderOnboardingWizardDom === 'function') renderOnboardingWizardDom();
+    }, 1500);
+  } else if (typeof showToast === 'function') {
+    showToast('Background battery optimization prompt is available on the Android app.', 'info', 3000);
+  }
+}
+
+function handleOnboardingAutostart() {
+  if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.openAutostartSettings === 'function') {
+    window.AndroidFCM.openAutostartSettings();
+    if (typeof showToast === 'function') {
+      showToast('Toggle "Allow Autostart" for 1st PJ BB Portal, then return.', 'info', 4500);
+    }
+  } else if (typeof showToast === 'function') {
+    showToast('Autostart settings are available on Xiaomi / HyperOS devices.', 'info', 3000);
+  }
+}
+
+function handleOnboardingNotifSettings() {
+  if (typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.openNotificationSettings === 'function') {
+    window.AndroidFCM.openNotificationSettings();
+    if (typeof showToast === 'function') {
+      showToast('Enable Floating notifications & Lock screen notifications, then return.', 'info', 4500);
+    }
+  } else if (typeof showToast === 'function') {
+    showToast('Device notification settings are available on the Android app.', 'info', 3000);
   }
 }
 
@@ -6933,6 +7017,9 @@ if (typeof window !== 'undefined') {
   window.handleOnboardingTestNotification = handleOnboardingTestNotification;
   window.handleOnboardingEnableNotifications = handleOnboardingEnableNotifications;
   window.handleOnboardingSoundToggle    = handleOnboardingSoundToggle;
+  window.handleOnboardingBatteryOpt     = handleOnboardingBatteryOpt;
+  window.handleOnboardingAutostart      = handleOnboardingAutostart;
+  window.handleOnboardingNotifSettings  = handleOnboardingNotifSettings;
   window.handleOnboardingCheckboxChange = handleOnboardingCheckboxChange;
   window.handleOnboardingCalendarViewChange = handleOnboardingCalendarViewChange;
   window.handleOnboardingParticlesToggle  = handleOnboardingParticlesToggle;
@@ -7045,6 +7132,9 @@ if (typeof module !== 'undefined' && module.exports) {
     handleOnboardingTestNotification,
     handleOnboardingEnableNotifications,
     handleOnboardingSoundToggle,
+    handleOnboardingBatteryOpt,
+    handleOnboardingAutostart,
+    handleOnboardingNotifSettings,
     handleOnboardingCheckboxChange,
     handleOnboardingCalendarViewChange,
     handleOnboardingParticlesToggle,

@@ -10714,6 +10714,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(step2Body.includes('handleOnboardingEnableNotifications'), 'Step 2 must wire notification permission request');
     assert.ok(step2Body.includes('handleOnboardingTestNotification'), 'Step 2 must provide test notification pop-up');
     assert.ok(step2Body.includes('handleOnboardingSoundToggle'), 'Step 2 must allow toggling audio notification sound');
+    assert.ok(step2Body.includes('handleOnboardingBatteryOpt'), 'Step 2 must provide 1-tap background battery optimization prompt');
+    assert.ok(step2Body.includes('handleOnboardingAutostart'), 'Step 2 must provide Xiaomi HyperOS autostart action');
+    assert.ok(step2Body.includes('handleOnboardingNotifSettings'), 'Step 2 must provide notification banner & lock screen settings action');
     console.log('  ✔ Step 2 OS Device Notifications & Audio Chime verified');
 
     // 4. Step 3: Photos & Attachments
@@ -14910,8 +14913,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     assert.ok(mainActivityJava.includes('AndroidFcmBridge'), 'MainActivity must expose AndroidFcmBridge to WebView');
     assert.ok(mainActivityJava.includes('subscribeToTopic("announcements")'), 'MainActivity must subscribe to announcements');
+    assert.ok(mainActivityJava.includes('requestIgnoreBatteryOptimizations'), 'MainActivity must expose requestIgnoreBatteryOptimizations');
+    assert.ok(mainActivityJava.includes('openAutostartSettings'), 'MainActivity must expose openAutostartSettings');
+    assert.ok(mainActivityJava.includes('isIgnoringBatteryOptimizations'), 'MainActivity must expose isIgnoringBatteryOptimizations');
+    assert.ok(mainActivityJava.includes('isXiaomiDevice'), 'MainActivity must expose isXiaomiDevice');
     assert.ok(fcmServiceJava.includes('portal-alerts-v2'), 'FirebaseMessagingService must use portal-alerts-v2 high-priority channel');
     assert.ok(fcmServiceJava.includes('R.raw.portal_chime'), 'FirebaseMessagingService must use custom portal_chime sound');
+    const manifestXml = fs.readFileSync(path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'AndroidManifest.xml'), 'utf8');
+    assert.ok(manifestXml.includes('REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'), 'AndroidManifest.xml must declare REQUEST_IGNORE_BATTERY_OPTIMIZATIONS');
     console.log('  ✔ Android Firebase Messaging Service & WebView Bridge verified for instant background alerts');
 
     // 6. Strict 388 Unique DOM IDs Invariant
