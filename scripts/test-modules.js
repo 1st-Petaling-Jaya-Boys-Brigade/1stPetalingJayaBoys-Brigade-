@@ -1949,7 +1949,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       savedOrder = body;
       throw new Error('Connection dropped after insert');
     };
-    global.supa.get = async path => path.includes('id=eq.' + savedOrder?.id) ? [savedOrder] : [];
+    global.supa.get = async path => (path.includes('order_number=eq.' + encodeURIComponent(savedOrder?.order_number)) || path.includes('id=eq.' + savedOrder?.id)) ? [savedOrder] : [];
     const recoveredOrder = await ordersMod.submitOrder();
     assert.ok(savedOrder, 'Checkout was written before the connection dropped');
     assert.strictEqual(recoveredOrder, savedOrder.order_number, 'Lost response is reconciled by the original order ID');

@@ -1811,7 +1811,8 @@ async function submitOrder() {
       var items = JSON.stringify(cart.lines);
       if (_pendingUniformOrder && _pendingUniformOrder.ic !== memberId) _pendingUniformOrder = null;
       if (_pendingUniformOrder && (_pendingUniformOrder.items !== items || _pendingUniformOrder.notes !== notes)) {
-        var previous = await client.get('bb_orders?id=eq.' + _pendingUniformOrder.id + '&ic=eq.' + encodeURIComponent(memberId) + '&select=order_number', { cache: false });
+        var previousLookup = 'bb_orders?order_number=eq.' + encodeURIComponent(_pendingUniformOrder.order_number) + '&select=order_number';
+        var previous = await client.get(previousLookup, { cache: false });
         if (!Array.isArray(previous)) throw new Error('Order could not be confirmed');
         var previousOrderNumber = _pendingUniformOrder.order_number;
         _pendingUniformOrder = null;
@@ -1834,14 +1835,16 @@ async function submitOrder() {
       }
 
       var wasPending = !!_pendingUniformOrder;
-      var orderId = wasPending ? _pendingUniformOrder.id : crypto.randomUUID();
+      var orderCode = wasPending && _pendingUniformOrder.order_number
+        ? _pendingUniformOrder.order_number
+        : 'BB-' + crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase();
       var orderRecord = _pendingUniformOrder || {
-        id: orderId,
-        order_number: 'BB-' + orderId.replace(/-/g, '').slice(0, 16).toUpperCase(),
+        order_number: orderCode,
         ic: memberId,
-        member_name: sessionGet('name') || memberId,
-        rank: sessionGet('rank') || '',
-        squad: sessionGet('squad') || '',
+        email: (typeof sessionGet === 'function' ? sessionGet('email') : null) || (memberId.includes('@') ? memberId : null),
+        member_name: (typeof sessionGet === 'function' ? sessionGet('name') : null) || memberId,
+        rank: (typeof sessionGet === 'function' ? sessionGet('rank') : null) || '',
+        squad: (typeof sessionGet === 'function' ? sessionGet('squad') : null) || '',
         items: items,
         total_amount: cart.total,
         notes: notes,
@@ -1849,15 +1852,28 @@ async function submitOrder() {
         created_at: new Date().toISOString()
       };
       _pendingUniformOrder = orderRecord;
-      var lookup = 'bb_orders?id=eq.' + orderId + '&ic=eq.' + encodeURIComponent(memberId) + '&select=order_number';
+      var lookup = 'bb_orders?order_number=eq.' + encodeURIComponent(orderRecord.order_number) + '&select=order_number';
       var saved = wasPending ? await client.get(lookup, { cache: false }) : [];
       if (!Array.isArray(saved)) throw new Error('Order could not be confirmed');
       if (!saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
+        var payload = Object.assign({}, orderRecord);
+        delete payload.id;
         try {
           saved = typeof client.req === 'function'
-            ? await client.req('POST', 'bb_orders', orderRecord, null, { maxRetries: 0 })
-            : await client.post('bb_orders', orderRecord);
-        } catch (_) {
+            ? await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 })
+            : await client.post('bb_orders', payload);
+        } catch (postErr) {
+          var postErrMsg = String(postErr && (postErr.message || postErr.code) || '');
+          if (postErrMsg.includes('PGRST204') || postErrMsg.includes('42703') || postErrMsg.includes('total_amount')) {
+            delete payload.total_amount;
+            saved = typeof client.req === 'function'
+              ? await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 })
+              : await client.post('bb_orders', payload);
+          } else {
+            saved = await client.get(lookup, { cache: false });
+          }
+        }
+        if (!Array.isArray(saved) || !saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
           saved = await client.get(lookup, { cache: false });
         }
         if (!Array.isArray(saved) || !saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
@@ -2909,7 +2925,16 @@ async function renderAdminOrders(forceRefresh) {
     if (!forceRefresh && _cachedAdminOrders && (now - _cachedAdminOrdersTime < ADMIN_ORDERS_CACHE_TTL)) {
       orders = _cachedAdminOrders;
     } else {
-      orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,total_amount&order=created_at.desc', { cache: !forceRefresh });
+      try {
+        orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,total_amount&order=created_at.desc', { cache: !forceRefresh });
+      } catch (getErr) {
+        var getErrMsg = String(getErr && (getErr.message || getErr.code) || '');
+        if (getErrMsg.includes('42703') || getErrMsg.includes('PGRST204') || getErrMsg.includes('total_amount')) {
+          orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes&order=created_at.desc', { cache: !forceRefresh });
+        } else {
+          throw getErr;
+        }
+      }
       if (Array.isArray(orders)) {
         _cachedAdminOrders = orders;
         _cachedAdminOrdersTime = now;
