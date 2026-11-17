@@ -6,6 +6,12 @@
  * and company parade schedules with network-first recovery for the shell and data.
  */
 
+if (typeof importScripts === 'function') {
+  try {
+    importScripts('./js/config.js');
+  } catch (_) {}
+}
+
 const CACHE_VERSION = '20261116a';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
@@ -246,6 +252,105 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
   });
 
 
+  // Handle Web Push notifications when app is closed or in background
+  self.addEventListener('push', function (event) {
+    var payload = {};
+    if (event.data) {
+      try {
+        payload = event.data.json();
+      } catch (_) {
+        payload = { title: "1st Petaling Jaya Boys' Brigade", body: event.data.text() };
+      }
+    }
+    var title = payload.title || "1st Petaling Jaya Boys' Brigade";
+    var body = payload.body || payload.snippet || 'New company announcement posted.';
+    var tag = payload.tag || ('bb-notif-' + Date.now());
+    var iconUrl = payload.icon || './assets/portal-icon-192.png';
+    var badgeUrl = payload.badge || './assets/logo.png';
+    var soundUrl = './assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav';
+
+    var notifOptions = {
+      body: body,
+      icon: iconUrl,
+      badge: badgeUrl,
+      tag: tag,
+      renotify: true,
+      requireInteraction: false,
+      vibrate: [200, 100, 200, 100, 200],
+      sound: soundUrl,
+      data: {
+        url: (payload.data && payload.data.url) || payload.url || './#page-home',
+        tab: (payload.data && payload.data.tab) || payload.tab || 'home'
+      },
+      actions: [
+        { action: 'open', title: 'Open' },
+        { action: 'dismiss', title: 'Dismiss' }
+      ]
+    };
+
+    event.waitUntil(self.registration.showNotification(title, notifOptions));
+  });
+
+  // Handle Periodic Background Sync for background announcement polling
+  async function checkBackgroundAnnouncements() {
+    try {
+      var supaBaseUrl = (typeof self !== 'undefined' && self.SUPA_URL) ? self.SUPA_URL : 'https://mjfclxcklkbgsivvvlfe.supabase.co';
+      var supaKey = (typeof self !== 'undefined' && self.SUPA_KEY) ? self.SUPA_KEY : '';
+      if (!supaKey) return;
+      var endpoint = supaBaseUrl + '/rest/v1/bb_announcements?order=created_at.desc&limit=1&select=id,title,body,created_at';
+      var res = await fetchWithTimeout(fetch, new Request(endpoint, {
+        headers: {
+          'apikey': supaKey,
+          'Authorization': 'Bearer ' + supaKey,
+          'Accept': 'application/json'
+        }
+      }), 4000);
+      if (!res || res.status !== 200) return;
+      var rows = await res.json();
+      if (!Array.isArray(rows) || !rows.length || !rows[0] || !rows[0].id) return;
+      var latest = rows[0];
+
+      // Check against stored latest announcement ID in cache
+      var cache = await caches.open(DATA_CACHE_NAME);
+      var cacheKey = new Request('./__bb_latest_seen_announcement__');
+      var cached = await cache.match(cacheKey);
+      var lastSeenId = cached ? await cached.text() : null;
+
+      if (lastSeenId !== String(latest.id)) {
+        await cache.put(cacheKey, new Response(String(latest.id), { headers: { 'Content-Type': 'text/plain' } }));
+        // If there was a previous seen ID and this is a new one, show notification
+        if (lastSeenId) {
+          var cleanSnippet = (latest.body || '').replace(/<[^>]+>/g, '').trim().slice(0, 70);
+          await self.registration.showNotification(
+            '📢 ' + (latest.title || "New Company Announcement"),
+            {
+              body: cleanSnippet || 'Tap to view announcement.',
+              icon: './assets/portal-icon-192.png',
+              badge: './assets/logo.png',
+              tag: 'bb-announcement-' + latest.id,
+              renotify: true,
+              vibrate: [200, 100, 200, 100, 200],
+              sound: './assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav',
+              data: { url: './#page-home', tab: 'home' }
+            }
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  self.addEventListener('periodicsync', function (event) {
+    if (event.tag === 'bb-announcements-sync' || event.tag === 'bb-portal-sync') {
+      event.waitUntil(checkBackgroundAnnouncements());
+    }
+  });
+
+  self.addEventListener('sync', function (event) {
+    if (event.tag === 'bb-announcements-sync' || event.tag === 'bb-portal-sync') {
+      event.waitUntil(checkBackgroundAnnouncements());
+    }
+  });
+
   // Handle notification clicks from OS device popups
   self.addEventListener('notificationclick', function (event) {
     if (event.notification) {
@@ -254,16 +359,22 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
     if (event.action === 'dismiss') {
       return;
     }
+    var targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : './#page-home';
+    var targetTab = (event.notification.data && event.notification.data.tab) ? event.notification.data.tab : 'home';
+
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
         for (var i = 0; i < clientList.length; i++) {
           var client = clientList[i];
           if (client.url && 'focus' in client) {
+            try {
+              client.postMessage({ type: 'PORTAL_NAVIGATE_TAB', tab: targetTab });
+            } catch (_) {}
             return client.focus();
           }
         }
         if (self.clients.openWindow) {
-          return self.clients.openWindow('./');
+          return self.clients.openWindow(targetUrl);
         }
       })
     );

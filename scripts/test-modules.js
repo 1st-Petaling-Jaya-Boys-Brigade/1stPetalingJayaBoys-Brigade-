@@ -8944,6 +8944,18 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(idxHtmlCheck.includes('playNotificationSound'), 'index.html must invoke playNotificationSound');
     const swRaw = fs.readFileSync(path.resolve(__dirname, '..', 'sw.js'), 'utf8');
     assert.ok(swRaw.includes('Notification%20Sound_PopSound'), 'sw.js must precache notification sound effect');
+    assert.ok(swRaw.includes("addEventListener('push'"), 'sw.js must implement Web Push event listener');
+    assert.ok(swRaw.includes("addEventListener('periodicsync'"), 'sw.js must implement periodic background sync');
+    assert.ok(swRaw.includes("PORTAL_NAVIGATE_TAB"), 'sw.js must post PORTAL_NAVIGATE_TAB on notification click');
+
+    const manifestXml = fs.readFileSync(path.resolve(__dirname, '..', 'mobile/android/app/src/main/AndroidManifest.xml'), 'utf8');
+    assert.ok(manifestXml.includes('android.permission.POST_NOTIFICATIONS'), 'AndroidManifest.xml must declare POST_NOTIFICATIONS');
+    assert.ok(manifestXml.includes('android.permission.VIBRATE'), 'AndroidManifest.xml must declare VIBRATE');
+
+    const supaJsRaw = fs.readFileSync(path.resolve(__dirname, '..', 'js/api/supabase.js'), 'utf8');
+    assert.ok(supaJsRaw.includes("entity === 'announcements'"), 'supabase.js must handle announcements entity');
+    assert.ok(supaJsRaw.includes('triggerPortalSystemNotification'), 'supabase.js must trigger system notification on announcement arrival');
+    console.log('  ✔ Web Push, Periodic Background Sync, Android notifications, and Realtime instant announcement chime verified');
     const idMatchesFinal = idxHtmlCheck.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIdsFinal = idMatchesFinal.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIdsFinal = Array.from(new Set(extractedIdsFinal));

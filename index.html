@@ -4037,29 +4037,57 @@ window.addEventListener('load', function() {
     else if (typeof renderCalendarTab === 'function') renderCalendarTab('upcoming');
   }
     updateNavUserHeader();
-  if (typeof fetchRemoteDismissedNotifs === 'function') {
-    fetchRemoteDismissedNotifs().then(function() {
-      if (typeof syncAllPortalNotifications === 'function') syncAllPortalNotifications();
-      renderNotifications();
-    }).catch(function() {
-      if (typeof syncAllPortalNotifications === 'function') syncAllPortalNotifications();
-      renderNotifications();
-    });
-  } else if (typeof syncAllPortalNotifications === 'function') {
-    syncAllPortalNotifications();
-    renderNotifications();
-  } else {
-    renderNotifications();
+  function completeInitialSync() {
+    _initialNotifSyncDone = true;
   }
 
-  // Complete initial notification hydration; enable audio chime for live incoming notifications
+  if (typeof fetchRemoteDismissedNotifs === 'function') {
+    fetchRemoteDismissedNotifs().then(function() {
+      var syncP = (typeof syncAllPortalNotifications === 'function') ? syncAllPortalNotifications() : null;
+      if (syncP && typeof syncP.then === 'function') {
+        syncP.then(function() {
+          renderNotifications();
+          completeInitialSync();
+        });
+      } else {
+        renderNotifications();
+        completeInitialSync();
+      }
+    }).catch(function() {
+      var syncP = (typeof syncAllPortalNotifications === 'function') ? syncAllPortalNotifications() : null;
+      if (syncP && typeof syncP.then === 'function') {
+        syncP.then(function() {
+          renderNotifications();
+          completeInitialSync();
+        });
+      } else {
+        renderNotifications();
+        completeInitialSync();
+      }
+    });
+  } else if (typeof syncAllPortalNotifications === 'function') {
+    var sp = syncAllPortalNotifications();
+    if (sp && typeof sp.then === 'function') {
+      sp.then(function() {
+        renderNotifications();
+        completeInitialSync();
+      });
+    } else {
+      renderNotifications();
+      completeInitialSync();
+    }
+  } else {
+    renderNotifications();
+    completeInitialSync();
+  }
+
+  // Safety fallback: if initial hydration takes longer than 4s, mark initial sync done
   setTimeout(function() {
     _initialNotifSyncDone = true;
-  }, 1200);
+  }, 4000);
 
-  // Periodic background notification polling (every 2 minutes, visible tabs only)
+  // Periodic background notification polling (runs even when screen is locked or tab is in background)
   setInterval(function() {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email') || sessionGet('name'))) {
       if (typeof fetchRemoteDismissedNotifs === 'function') fetchRemoteDismissedNotifs();
       if (typeof syncAllPortalNotifications === 'function') {
@@ -4197,6 +4225,15 @@ if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
     navigator.serviceWorker.addEventListener('controllerchange', function() {
       // New controller claimed active clients; network-first auto-serves fresh assets
     });
+
+    navigator.serviceWorker.addEventListener('message', function(event) {
+      if (!event || !event.data) return;
+      if (event.data.type === 'PORTAL_NAVIGATE_TAB' && event.data.tab) {
+        if (typeof switchTabNav === 'function') {
+          switchTabNav(event.data.tab);
+        }
+      }
+    });
   });
 }
 
@@ -4216,7 +4253,8 @@ function pushPortalNotification(notif, isSilent) {
   if (existing) return false;
 
   _allPortalNotifications.unshift(notif);
-  if (_initialNotifSyncDone && !isSilent) {
+  var isRecent = !notif.timestamp || (Date.now() - notif.timestamp) < 180000;
+  if (_initialNotifSyncDone && !isSilent && isRecent) {
     if (typeof showToast === 'function') {
       var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
       showToast('🔔 ' + (notif.title || 'New Notification') + snippetText, 'info', 5000);
@@ -4670,7 +4708,7 @@ function syncTaskNotifications(tasks) {
   renderNotifications();
 }
 
-function syncAnnouncementNotifications(annList) {
+function syncAnnouncementNotifications(annList, isSilent) {
   var list = Array.isArray(annList) ? annList : (typeof announcements !== 'undefined' ? announcements : []);
   if (!Array.isArray(list) || !list.length) return;
   var dismissed = getDismissedNotifIds();
@@ -4716,7 +4754,7 @@ function syncAnnouncementNotifications(annList) {
         time: a.date || 'Today',
         unread: true,
         action: function() { switchTabNav('home'); }
-      });
+      }, isSilent);
     }
   });
 
@@ -4929,23 +4967,24 @@ function syncForumNotifications(postsList) {
 }
 
 function syncAllPortalNotifications() {
+  var promises = [];
   if (typeof fetchRemoteMemberPresence === 'function') {
-    fetchRemoteMemberPresence().catch(function() {});
+    promises.push(fetchRemoteMemberPresence().catch(function() {}));
   }
   if (typeof fetchAllRemoteTasks === 'function') {
-    fetchAllRemoteTasks(true).then(function(tasks) {
+    promises.push(fetchAllRemoteTasks(true).then(function(tasks) {
       if (typeof syncTaskNotifications === 'function') syncTaskNotifications(tasks);
-    }).catch(function() {});
+    }).catch(function() {}));
   } else if (typeof syncTaskNotifications === 'function') {
     syncTaskNotifications();
   }
   if (typeof fetchAllRemoteTaskComments === 'function') {
-    fetchAllRemoteTaskComments(true).then(function() {
+    promises.push(fetchAllRemoteTaskComments(true).then(function() {
       if (typeof syncTaskNotifications === 'function') syncTaskNotifications();
-    }).catch(function() {});
+    }).catch(function() {}));
   }
   if (typeof loadAnnouncements === 'function') {
-    loadAnnouncements().catch(function() {});
+    promises.push(loadAnnouncements().catch(function() {}));
   } else if (typeof syncAnnouncementNotifications === 'function') {
     syncAnnouncementNotifications();
   }
@@ -4956,16 +4995,17 @@ function syncAllPortalNotifications() {
     syncHighlightNotifications();
   }
   if (typeof loadForumPosts === 'function') {
-    loadForumPosts().then(function(posts) {
+    promises.push(loadForumPosts().then(function(posts) {
       if (typeof syncForumNotifications === 'function') syncForumNotifications(posts);
       if (typeof renderNotifications === 'function') renderNotifications();
-    }).catch(function() {});
+    }).catch(function() {}));
   } else if (typeof syncForumNotifications === 'function') {
     syncForumNotifications();
   }
   if (typeof syncResourceNotifications === 'function') {
     syncResourceNotifications();
   }
+  return (typeof Promise !== 'undefined' && Promise.allSettled) ? Promise.allSettled(promises) : Promise.all(promises);
 }
 
 function renderNotifications() {

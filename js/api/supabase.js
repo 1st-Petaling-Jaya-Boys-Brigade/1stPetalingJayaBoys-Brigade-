@@ -1723,9 +1723,28 @@ var PortalRealtime = (function() {
         }).catch(function() {});
       }
     } else if (entity === 'announcements') {
-      if (typeof window !== 'undefined' && typeof window.loadAnnouncements === 'function') {
-        // shortcut: reload the feed for each signal, use row deltas when all legacy metadata is on the row.
-        window.loadAnnouncements().catch(function() {});
+      if (typeof window !== 'undefined') {
+        if (data && data.title && (action === 'create' || action === 'save' || action === 'INSERT' || action === 'insert')) {
+          var sysNotifFn = (typeof window !== 'undefined' && typeof window.triggerPortalSystemNotification === 'function')
+            ? window.triggerPortalSystemNotification
+            : ((typeof global !== 'undefined' && typeof global.triggerPortalSystemNotification === 'function') ? global.triggerPortalSystemNotification : null);
+          if (sysNotifFn) {
+            var annSnippet = data.snippet || (data.body ? String(data.body).replace(/<[^>]+>/g, '').trim().slice(0, 70) : 'A new company announcement was posted.');
+            sysNotifFn(
+              '📢 ' + (data.title || "New Announcement"),
+              annSnippet,
+              {
+                tag: 'notif-announcement-' + (data.id || Date.now()),
+                silentSound: false,
+                force: true
+              }
+            );
+          }
+        }
+        if (typeof window.loadAnnouncements === 'function') {
+          // shortcut: reload the feed for each signal, use row deltas when all legacy metadata is on the row.
+          window.loadAnnouncements().catch(function() {});
+        }
       }
     } else if (entity === 'projects') {
       if (typeof window !== 'undefined' && typeof window.loadProjectsCatalog === 'function') {
