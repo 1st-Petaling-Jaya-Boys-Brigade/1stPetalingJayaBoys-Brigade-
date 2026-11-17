@@ -7,6 +7,7 @@ import android.os.Bundle;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQUEST_POST_NOTIFICATIONS = 101;
@@ -16,6 +17,11 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         AnnouncementSyncReceiver.createNotificationChannel(this);
         AnnouncementSyncReceiver.scheduleNext(this);
+
+        // Subscribe device to Firebase Cloud Messaging announcements topic
+        try {
+            FirebaseMessaging.getInstance().subscribeToTopic("announcements");
+        } catch (Exception ignored) {}
 
         // Explicitly prompt for POST_NOTIFICATIONS runtime permission on Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -34,5 +40,8 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         AnnouncementSyncReceiver.createNotificationChannel(this);
         AnnouncementSyncReceiver.scheduleNext(this);
+        try {
+            FirebaseMessaging.getInstance().subscribeToTopic("announcements");
+        } catch (Exception ignored) {}
     }
 }

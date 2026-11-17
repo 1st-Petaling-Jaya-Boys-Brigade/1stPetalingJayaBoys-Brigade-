@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "728446967392",
+    "project_id": "portal-1stpjbb",
+    "storage_bucket": "portal-1stpjbb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:728446967392:android:11bdf9f3f2b3b3cd2aad05",
+        "android_client_info": {
+          "package_name": "org.firstpjbb.portal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCREfrizhFOrIWivYj-gNBPDz20xXpZPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
