@@ -27,6 +27,8 @@ public class MainActivity extends BridgeActivity {
                 if (!clean.isEmpty()) {
                     try {
                         FirebaseMessaging.getInstance().subscribeToTopic(clean);
+                        getSharedPreferences("bb_portal_topics", Context.MODE_PRIVATE)
+                            .edit().putBoolean(clean, true).apply();
                     } catch (Exception ignored) {}
                 }
             }
@@ -39,6 +41,8 @@ public class MainActivity extends BridgeActivity {
                 if (!clean.isEmpty()) {
                     try {
                         FirebaseMessaging.getInstance().unsubscribeFromTopic(clean);
+                        getSharedPreferences("bb_portal_topics", Context.MODE_PRIVATE)
+                            .edit().remove(clean).apply();
                     } catch (Exception ignored) {}
                 }
             }
@@ -159,6 +163,12 @@ public class MainActivity extends BridgeActivity {
         // Always subscribe to general announcements topic
         try {
             FirebaseMessaging.getInstance().subscribeToTopic("announcements");
+            SharedPreferences topicPrefs = getSharedPreferences("bb_portal_topics", Context.MODE_PRIVATE);
+            for (String t : topicPrefs.getAll().keySet()) {
+                if (t != null && !t.trim().isEmpty()) {
+                    FirebaseMessaging.getInstance().subscribeToTopic(t.trim());
+                }
+            }
         } catch (Exception ignored) {}
 
         // Expose AndroidFCM JavaScript bridge on the WebView
@@ -187,6 +197,12 @@ public class MainActivity extends BridgeActivity {
         AnnouncementSyncReceiver.scheduleNext(this);
         try {
             FirebaseMessaging.getInstance().subscribeToTopic("announcements");
+            SharedPreferences topicPrefs = getSharedPreferences("bb_portal_topics", Context.MODE_PRIVATE);
+            for (String t : topicPrefs.getAll().keySet()) {
+                if (t != null && !t.trim().isEmpty()) {
+                    FirebaseMessaging.getInstance().subscribeToTopic(t.trim());
+                }
+            }
         } catch (Exception ignored) {}
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {

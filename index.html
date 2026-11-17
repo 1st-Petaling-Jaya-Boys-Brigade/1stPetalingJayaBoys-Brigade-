@@ -4043,6 +4043,9 @@ window.addEventListener('load', function() {
   }
   function completeInitialSync() {
     _initialNotifSyncDone = true;
+    _allPortalNotifications.forEach(function(n) {
+      if (n && n.id && typeof markNotifSeen === 'function') markNotifSeen(n.id);
+    });
   }
 
   if (typeof fetchRemoteDismissedNotifs === 'function') {
@@ -4088,6 +4091,9 @@ window.addEventListener('load', function() {
   // Safety fallback: if initial hydration takes longer than 4s, mark initial sync done
   setTimeout(function() {
     _initialNotifSyncDone = true;
+    _allPortalNotifications.forEach(function(n) {
+      if (n && n.id && typeof markNotifSeen === 'function') markNotifSeen(n.id);
+    });
   }, 4000);
 
   // Periodic background notification polling (runs even when screen is locked or tab is in background)
@@ -4255,6 +4261,25 @@ if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
 var _allPortalNotifications = [];
 var _initialNotifSyncDone = false;
 
+function getSeenNotifIds() {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    return JSON.parse(localStorage.getItem('bb_seen_notifications') || '[]');
+  } catch (_) { return []; }
+}
+
+function markNotifSeen(id) {
+  if (!id || typeof localStorage === 'undefined') return;
+  try {
+    var seen = getSeenNotifIds();
+    if (seen.indexOf(id) === -1) {
+      seen.push(id);
+      if (seen.length > 500) seen = seen.slice(-400);
+      localStorage.setItem('bb_seen_notifications', JSON.stringify(seen));
+    }
+  } catch (_) {}
+}
+
 function pushPortalNotification(notif, isSilent) {
   if (!notif || !notif.id) return false;
   var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
@@ -4266,8 +4291,12 @@ function pushPortalNotification(notif, isSilent) {
   var existing = _allPortalNotifications.find(function(n) { return n.id === notif.id; });
   if (existing) return false;
 
+  var seenList = getSeenNotifIds();
+  var alreadySeen = (seenList.indexOf(notif.id) !== -1);
+
   _allPortalNotifications.unshift(notif);
-  if (_initialNotifSyncDone && !isSilent) {
+  if (_initialNotifSyncDone && !isSilent && !alreadySeen) {
+    markNotifSeen(notif.id);
     if (typeof showToast === 'function') {
       var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
       showToast('🔔 ' + (notif.title || 'New Notification') + snippetText, 'info', 5000);
@@ -5461,6 +5490,8 @@ window.getCanonicalNotifUserKey    = getCanonicalNotifUserKey;
 window.getDismissedNotifStorageKey = getDismissedNotifStorageKey;
 window.getDismissedNotifIds       = getDismissedNotifIds;
 window.setDismissedNotifId        = setDismissedNotifId;
+window.getSeenNotifIds            = getSeenNotifIds;
+window.markNotifSeen              = markNotifSeen;
 window.syncTaskNotifications       = syncTaskNotifications;
 window.updateNavUserHeader        = updateNavUserHeader;
 window.handleNavProfileClick      = handleNavProfileClick;

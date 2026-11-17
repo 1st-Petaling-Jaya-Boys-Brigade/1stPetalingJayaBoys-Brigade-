@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet, resolveMentionTargets */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -2958,7 +2958,7 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
     }
   }
 
-  // Rule 3: Department group mention (e.g. @Secretariat, @Logistics, @Media, @HQ, @Officers, @Band)
+  // Rule 3: Department group mention (e.g. @Secretariat, @Logistics, @Media, @HQ, @Officers)
   if (myDept) {
     var cleanDept = myDept.toLowerCase().trim();
     if (cleanDept && lower.indexOf('@' + cleanDept) !== -1) return true;
@@ -2966,7 +2966,6 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
     if (cleanDept.indexOf('logistics') !== -1 && lower.indexOf('@logistics') !== -1) return true;
     if (cleanDept.indexOf('media') !== -1 && lower.indexOf('@media') !== -1) return true;
     if (cleanDept.indexOf('hq') !== -1 && lower.indexOf('@hq') !== -1) return true;
-    if (cleanDept.indexOf('band') !== -1 && lower.indexOf('@band') !== -1) return true;
     if ((cleanDept === 'officers' || cleanDept === 'officer') && /(?:^|\W)@officers?\b/i.test(lower)) return true;
   }
 
@@ -2995,11 +2994,7 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   var isOfficerDept = myDept && (myDept.toLowerCase().trim() === 'officers' || myDept.toLowerCase().trim() === 'officer');
   if ((isOfficerRank || isOfficerDept) && /(?:^|\W)@officers?\b/i.test(lower)) return true;
 
-  // Rule 7: Band mention matching rank or department
-  var isBand = (myRank && myRank.toLowerCase().indexOf('band') !== -1) || (myDept && myDept.toLowerCase().indexOf('band') !== -1);
-  if (isBand && lower.indexOf('@band') !== -1) return true;
-
-  // Rule 8: Admin & Super Admin mention
+  // Rule 7: Admin & Super Admin mention
   var isAdminOrSuper = (typeof isAdmin === 'function' && isAdmin()) || (typeof isSuperAdmin === 'function' && isSuperAdmin()) || (typeof window !== 'undefined' && typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
   if (!isAdminOrSuper && typeof sessionGet === 'function') {
     var sRole = (sessionGet('role') || '').toLowerCase();
@@ -3082,14 +3077,17 @@ async function handleTaskCommentSubmit(input) {
           targetUsers.push(taskObj.creator_email.trim());
         }
       }
-      var mentionMatches = commentText.match(/@([a-zA-Z0-9._-]+)/g) || [];
+      var mentionRes = (typeof resolveMentionTargets === 'function')
+        ? resolveMentionTargets(commentText)
+        : ((typeof window !== 'undefined' && typeof window.resolveMentionTargets === 'function')
+          ? window.resolveMentionTargets(commentText)
+          : { targetUsers: [], topics: [] });
+      if (Array.isArray(mentionRes.targetUsers)) {
+        mentionRes.targetUsers.forEach(function(u) {
+          if (u && targetUsers.indexOf(u) === -1) targetUsers.push(u);
+        });
+      }
       var isAllMention = /(?:^|\W)@(all|everyone|everybody)\b/i.test(commentText);
-      mentionMatches.forEach(function(m) {
-        var cleanM = m.slice(1).trim();
-        if (cleanM && !/^(all|everyone|everybody)$/i.test(cleanM)) {
-          targetUsers.push(cleanM);
-        }
-      });
       var cleanCommentText = (typeof cleanSnippet === 'function')
         ? cleanSnippet(commentText, 140)
         : (commentText || '').replace(/&nbsp;/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
@@ -3104,6 +3102,21 @@ async function handleTaskCommentSubmit(input) {
       }).catch(function(err) {
         console.warn('Task comment FCM push error:', err);
       });
+
+      if (Array.isArray(mentionRes.topics)) {
+        mentionRes.topics.forEach(function(deptTopic) {
+          if (deptTopic && deptTopic !== 'announcements') {
+            commentDispatcher({
+              type: 'task_comment',
+              title: authorName + ' mentioned department in task comment',
+              body: (taskObj ? taskObj.title + ': ' : '') + cleanCommentText,
+              targetTopic: deptTopic,
+              tab: 'tasks',
+              targetId: tid
+            }).catch(function() {});
+          }
+        });
+      }
     }
   };
   try {
@@ -3389,14 +3402,13 @@ function getDepartmentMentionCandidates(query) {
   var q = (query || '').toLowerCase().trim();
   var candidates = [];
 
-  // Group mentions requested by user: @all, @Secretariat, @Logistics, @Media, @HQ, @Band, @Officers
+  // Group mentions: @all, @Secretariat, @Logistics, @Media, @HQ, @Officers
   var groups = [
     { name: 'all', label: '@all', role: 'Group', desc: 'All department members' },
     { name: 'Secretariat', label: '@Secretariat', role: 'Group', desc: 'Secretariat Department' },
     { name: 'Logistics', label: '@Logistics', role: 'Group', desc: 'Logistics Department' },
     { name: 'Media', label: '@Media', role: 'Group', desc: 'Media Department' },
     { name: 'HQ', label: '@HQ', role: 'Group', desc: 'HQ Management' },
-    { name: 'Band', label: '@Band', role: 'Group', desc: 'Band Department' },
     { name: 'Officers', label: '@Officers', role: 'Group', desc: 'Company Officers' }
   ];
 
@@ -3685,7 +3697,7 @@ function selectMentionCandidate(idx, event) {
  * @returns {Array<string>}
  */
 function getAllMentionCandidateNames() {
-  var list = ['all', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Band', 'Officers', 'Jeshua Koh'];
+  var list = ['all', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers', 'Jeshua Koh'];
   if (Array.isArray(_cachedDepartmentMembers)) {
     _cachedDepartmentMembers.forEach(function(m) {
       if (m && m.name && m.name.trim()) list.push(m.name.trim());
@@ -4127,11 +4139,20 @@ async function selectTaskDetailAssignee(ic, name) {
           ? sendPortalPushNotification
           : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
         if (assignDispatcher) {
+          var targetList = [cleanIc, cleanName].filter(Boolean);
+          var mentionRes = (typeof resolveMentionTargets === 'function')
+            ? resolveMentionTargets('@' + cleanName)
+            : { targetUsers: [] };
+          if (Array.isArray(mentionRes.targetUsers)) {
+            mentionRes.targetUsers.forEach(function(u) {
+              if (u && targetList.indexOf(u) === -1) targetList.push(u);
+            });
+          }
           assignDispatcher({
             type: 'task_assigned',
             title: 'Task Assigned: ' + (t.title || 'Task Update'),
             body: 'You have been assigned to: ' + (t.title || 'Task Update'),
-            targetUsers: [cleanIc, cleanName].filter(Boolean),
+            targetUsers: targetList,
             targetDept: t.department || '',
             tab: 'tasks',
             targetId: tid
@@ -4978,7 +4999,17 @@ async function saveTask() {
       if (payload.assignee_name) {
         payload.assignee_name.split(',').forEach(function(n) {
           var trimmed = n.trim();
-          if (trimmed && trimmed !== 'Unassigned') targetUsers.push(trimmed);
+          if (trimmed && trimmed !== 'Unassigned') {
+            if (targetUsers.indexOf(trimmed) === -1) targetUsers.push(trimmed);
+            var mRes = (typeof resolveMentionTargets === 'function')
+              ? resolveMentionTargets('@' + trimmed)
+              : { targetUsers: [] };
+            if (Array.isArray(mRes.targetUsers)) {
+              mRes.targetUsers.forEach(function(tu) {
+                if (tu && targetUsers.indexOf(tu) === -1) targetUsers.push(tu);
+              });
+            }
+          }
         });
       }
       taskDispatcher({

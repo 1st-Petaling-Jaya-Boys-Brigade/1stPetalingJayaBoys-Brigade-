@@ -6,7 +6,7 @@
  * emoji reactions, and admin post/edit/delete operations.
  */
 
-/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sendPortalPushNotification, cleanSnippet */
+/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sendPortalPushNotification, cleanSnippet, resolveMentionTargets */
 
 // ── Default Fallback Announcements (Zero-Blank Offline Resilience) ────────
 var DEFAULT_ANNOUNCEMENTS = [
@@ -494,10 +494,13 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
 }
 
 // ── Data Fetching ──────────────────────────────────────────────────────────
+var _announcementsInitialLoaded = false;
 /**
  * Loads all announcements from Supabase ordered by creation date ascending
  */
-async function loadAnnouncements() {
+async function loadAnnouncements(isSilent) {
+  var silentSync = (typeof isSilent === 'boolean') ? isSilent : (!_announcementsInitialLoaded);
+  _announcementsInitialLoaded = true;
   var version = ++_announcementLoadVersion;
   // Synchronous cache hydration for 0ms instantaneous render on startup
   if (announcements.length === 0 && typeof localStorage !== 'undefined') {
@@ -682,9 +685,9 @@ async function loadAnnouncements() {
   }
   renderAnnouncements();
   if (typeof syncAnnouncementNotifications === 'function') {
-    syncAnnouncementNotifications(announcements);
+    syncAnnouncementNotifications(announcements, silentSync);
   } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
-    window.syncAnnouncementNotifications(announcements);
+    window.syncAnnouncementNotifications(announcements, silentSync);
   }
   var adminList = (typeof document !== 'undefined') ? document.getElementById('admin-ann-list') : null;
   if (adminList) {
@@ -1533,24 +1536,37 @@ async function addAnnouncement() {
         ? sendPortalPushNotification
         : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
       if (fcmDispatcher) {
-        var targetUsers = [];
-        var mentionMatches = (sanitizedBody || '').match(/@([a-zA-Z0-9._-]+)/g) || [];
-        mentionMatches.forEach(function (m) {
-          var cleanM = m.slice(1).trim();
-          if (cleanM && !/^(all|everyone|everybody)$/i.test(cleanM)) {
-            targetUsers.push(cleanM);
-          }
-        });
+        var mentionRes = (typeof resolveMentionTargets === 'function')
+          ? resolveMentionTargets(sanitizedBody || '')
+          : ((typeof window !== 'undefined' && typeof window.resolveMentionTargets === 'function')
+            ? window.resolveMentionTargets(sanitizedBody || '')
+            : { targetUsers: [], topics: [] });
+
         fcmDispatcher({
           type: 'announcement',
           title: title,
           body: cleanSnippetText || 'New company announcement posted. Tap to view full details.',
           tab: 'home',
           targetId: editId || createdAnnId || '',
-          targetUsers: targetUsers
+          targetUsers: mentionRes.targetUsers
         }).catch(function (pushErr) {
           console.warn('Announcement FCM push error:', pushErr);
         });
+
+        if (Array.isArray(mentionRes.topics)) {
+          mentionRes.topics.forEach(function (tName) {
+            if (tName && tName !== 'announcements') {
+              fcmDispatcher({
+                type: 'announcement',
+                title: title,
+                body: cleanSnippetText || 'New company announcement posted. Tap to view full details.',
+                tab: 'home',
+                targetTopic: tName,
+                targetId: editId || createdAnnId || ''
+              }).catch(function () {});
+            }
+          });
+        }
       }
     }
     if (typeof syncAnnouncementNotifications === 'function') {

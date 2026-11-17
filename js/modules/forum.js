@@ -16,7 +16,7 @@
  *    - Supabase bb_config persistence with offline state fallback.
  */
 
-/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet */
+/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet, resolveMentionTargets */
 
 // ── SVG Icon Registry (Zero Emojis) ──────────────────────────────────────────
 var FORUM_ICONS = {
@@ -6218,14 +6218,17 @@ async function submitForumReply(e, postId, customText) {
     if (p.authorEmail && p.authorEmail.toLowerCase() !== email.toLowerCase()) {
       targetUsers.push(p.authorEmail.trim());
     }
-    var mentionMatches = text.match(/@([a-zA-Z0-9._-]+)/g) || [];
+    var mentionRes = (typeof resolveMentionTargets === 'function')
+      ? resolveMentionTargets(text)
+      : ((typeof window !== 'undefined' && typeof window.resolveMentionTargets === 'function')
+        ? window.resolveMentionTargets(text)
+        : { targetUsers: [], topics: [] });
+    if (Array.isArray(mentionRes.targetUsers)) {
+      mentionRes.targetUsers.forEach(function(mUser) {
+        if (mUser && targetUsers.indexOf(mUser) === -1) targetUsers.push(mUser);
+      });
+    }
     var isAllMention = /(?:^|\W)@(all|everyone|everybody)\b/i.test(text);
-    mentionMatches.forEach(function(m) {
-      var cleanM = m.slice(1).trim();
-      if (cleanM && !/^(all|everyone|everybody)$/i.test(cleanM)) {
-        targetUsers.push(cleanM);
-      }
-    });
     if (targetUsers.length > 0 || isAllMention) {
       var cleanReply = (typeof cleanSnippet === 'function')
         ? cleanSnippet(text, 140)
@@ -6241,6 +6244,21 @@ async function submitForumReply(e, postId, customText) {
       }).catch(function(err) {
         console.warn('Forum reply FCM push error:', err);
       });
+
+      if (Array.isArray(mentionRes.topics)) {
+        mentionRes.topics.forEach(function(deptTopic) {
+          if (deptTopic && deptTopic !== 'announcements') {
+            replyDispatcher({
+              type: 'forum_reply',
+              title: author + ' mentioned department in forum reply',
+              body: p.title + ': ' + cleanReply,
+              targetTopic: deptTopic,
+              tab: 'forum',
+              targetId: postId
+            }).catch(function() {});
+          }
+        });
+      }
     }
   }
 }
