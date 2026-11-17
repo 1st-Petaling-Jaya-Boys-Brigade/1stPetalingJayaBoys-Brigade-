@@ -14954,6 +14954,78 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Suite 77: Avatar Visual Consistency & Universal Department Member Mentions Engine ───
+  {
+    console.log('\n--- Suite 77: Avatar Visual Consistency & Universal Department Member Mentions Engine ---');
+    const utilsMod = require('../js/core/utils.js');
+    const memberMod = require('../js/modules/member.js');
+    await memberMod.saveMemberAvatarOutline('jeshuakoh2008@gmail.com', 'rgb', 'jeshuakoh2008@gmail.com', 'Jeshua Koh');
+
+    // 1. Uniform Creator Avatar Rendering Across Tasks & Profile Surfaces
+    const creatorWithIc = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', '080116-14-0615', 24);
+    assert.ok(creatorWithIc.includes('creator-rgb-avatar'), 'Avatar with IC number must include creator-rgb-avatar class');
+    assert.ok(creatorWithIc.includes('avatar-outline-rgb'), 'Avatar with IC number must include avatar-outline-rgb overlay');
+    assert.ok(creatorWithIc.includes('has-custom-outline'), 'Avatar with IC number must include has-custom-outline container class');
+
+    const creatorNoIc = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', '', 24);
+    assert.ok(creatorNoIc.includes('creator-rgb-avatar'), 'Avatar without IC must include creator-rgb-avatar class');
+    assert.ok(creatorNoIc.includes('avatar-outline-rgb'), 'Avatar without IC must include avatar-outline-rgb overlay');
+
+    const creatorWithEmail = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 24);
+    assert.ok(creatorWithEmail.includes('creator-rgb-avatar'), 'Avatar with email must include creator-rgb-avatar class');
+    assert.ok(creatorWithEmail.includes('avatar-outline-rgb'), 'Avatar with email must include avatar-outline-rgb overlay');
+
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh', '080116-14-0615'), true, 'isPortalCreator identifies creator by name and IC number');
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh', 'Jeshua Koh'), true, 'isPortalCreator identifies creator when name is passed in both slots');
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh', 'other@example.com'), false, 'isPortalCreator rejects non-creator emails');
+
+    const outlineByIc = memberMod.getMemberAvatarOutline('080116-14-0615', 'Jeshua Koh');
+    assert.strictEqual(outlineByIc.style, 'rgb', 'getMemberAvatarOutline resolves rgb outline for creator with IC');
+    const outlineByName = memberMod.getMemberAvatarOutline('', 'Jeshua Koh');
+    assert.strictEqual(outlineByName.style, 'rgb', 'getMemberAvatarOutline resolves rgb outline for creator with name only');
+    console.log('  ✔ Uniform Creator avatar RGB outline verified across IC numbers, names, and emails');
+
+    // 2. Department Role and Task Mention Eligibility
+    assert.strictEqual(tasksMod.isMemberDepartmentRole({ name: 'Tester Account', rank: 'Lieutenant', department: 'Officers' }), true, 'Tester Account with Officers department must be eligible');
+    assert.strictEqual(tasksMod.isMemberDepartmentRole({ name: 'Tester Account', rank: 'Lieutenant', department: 'Company Officers' }), true, 'Tester Account with Company Officers must be eligible');
+    assert.strictEqual(tasksMod.isMemberDepartmentRole({ name: 'Alex Tan', rank: 'Corporal', department: 'Media Department' }), true, 'Media Department NCO must be eligible');
+    assert.strictEqual(tasksMod.isMemberDepartmentRole({ name: 'Bryan Lee', rank: 'Sergeant', department: 'HQ Management' }), true, 'HQ Management Sergeant must be eligible');
+    assert.strictEqual(tasksMod.isMemberDepartmentRole({ name: 'Daniel Wong', rank: 'Staff Sergeant', department: 'Secretariat' }), true, 'Secretariat Staff Sergeant must be eligible');
+    assert.strictEqual(tasksMod.isMemberDepartmentRole({ name: 'Recruit Bob', rank: 'Recruit', department: '' }), false, 'Recruit without department must not be eligible');
+    console.log('  ✔ isMemberDepartmentRole accurately validates department members, NCOs, and Officers');
+
+    // 3. Mention Candidate Autocomplete Resolution
+    const testerCandidates = tasksMod.getDepartmentMentionCandidates('Tester');
+    assert.ok(testerCandidates.some(c => c.name === 'Tester Account'), 'getDepartmentMentionCandidates must resolve Tester Account on @Tester query');
+
+    const testerFullCandidates = tasksMod.getDepartmentMentionCandidates('tester account');
+    assert.ok(testerFullCandidates.some(c => c.name === 'Tester Account'), 'getDepartmentMentionCandidates must resolve Tester Account on full query');
+
+    const emptyQueryCandidates = tasksMod.getDepartmentMentionCandidates('');
+    assert.ok(emptyQueryCandidates.some(c => c.name === 'all'), 'Empty query includes @all group');
+    assert.ok(emptyQueryCandidates.some(c => c.name === 'Officers'), 'Empty query includes @Officers group');
+    assert.ok(emptyQueryCandidates.some(c => c.name === 'Tester Account'), 'Empty query includes Tester Account');
+    assert.ok(emptyQueryCandidates.some(c => c.name === 'Jeshua Koh'), 'Empty query includes Jeshua Koh');
+    console.log('  ✔ getDepartmentMentionCandidates resolves Tester Account, Jeshua Koh, and group channels');
+
+    // 4. Mention Highlighting & Pill Rendering
+    const pillHtml = tasksMod.formatCommentMentions('Please ask @Tester Account to verify');
+    assert.ok(pillHtml.includes('<span class="tb-mention-pill">@Tester Account</span>'), 'formatCommentMentions renders golden pill for @Tester Account');
+    const pillDescHtml = tasksMod.formatTaskDescriptionMentions('<p>Action item: @Tester Account to complete</p>');
+    assert.ok(pillDescHtml.includes('<span class="tb-mention-pill">@Tester Account</span>'), 'formatTaskDescriptionMentions preserves HTML and renders golden pill');
+    console.log('  ✔ Mention badge highlighting and pill formatting verified for comments and task descriptions');
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite77 = new Set();
+    const postMatchesSuite77 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite77.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite77.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite77.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite77.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
