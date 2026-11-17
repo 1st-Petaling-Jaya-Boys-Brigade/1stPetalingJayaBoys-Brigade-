@@ -1385,9 +1385,6 @@
       _lastSystemNotifTs = now;
       return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound, options && options.tag, title, body).catch(function() { return false; });
     }
-    if (!isSilentSound && soundEnabled && typeof playNotificationSound === 'function') {
-      playNotificationSound();
-    }
 
     // 2. Native OS System Notification (Windows Desktop Toast / macOS Banner)
     var sysEnabled = true;
@@ -1397,70 +1394,80 @@
       }
     } catch (_) {}
 
-    if (!isForce && !sysEnabled) return null;
+    var desktopNotificationCreated = false;
+    var notifInstance = null;
 
-    if (!isForce && (now - _lastSystemNotifTs < 1500)) return null;
-    _lastSystemNotifTs = now;
+    if (isForce || sysEnabled) {
+      if (isForce || (now - _lastSystemNotifTs >= 1500)) {
+        _lastSystemNotifTs = now;
 
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        var notifTitle = title || "1st Petaling Jaya Boys' Brigade";
-        var iconUrl = (options && options.icon) || 'assets/logo.png';
-        try {
-          if (window.location && typeof URL === 'function') {
-            iconUrl = new URL(iconUrl, window.location.href).href;
-          }
-        } catch (_) {}
-
-        var notifOpts = {
-          body: body || '',
-          icon: iconUrl,
-          badge: iconUrl,
-          tag: (options && options.tag) || ('bb-notif-' + now),
-          renotify: true,
-          requireInteraction: false,
-          vibrate: [200, 100, 200, 100, 200],
-          sound: NOTIF_SOUND_URL,
-          data: {
-            url: (options && options.url) || './#page-home',
-            tab: (options && options.tab) || 'home'
-          }
-        };
-
-        // Directly spawn native desktop OS notification (Windows Action Center Toast)
-        try {
-          var notif = new Notification(notifTitle, notifOpts);
-          notif.onclick = function() {
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          if (Notification.permission === 'granted') {
+            var notifTitle = title || "1st Petaling Jaya Boys' Brigade";
+            var iconUrl = (options && options.icon) || 'assets/logo.png';
             try {
-              window.focus();
-              if (options && typeof options.onClick === 'function') {
-                options.onClick();
-              } else if (options && options.tab && typeof window.switchTabNav === 'function') {
-                window.switchTabNav(options.tab);
+              if (window.location && typeof URL === 'function') {
+                iconUrl = new URL(iconUrl, window.location.href).href;
               }
-              notif.close();
             } catch (_) {}
-          };
-          return notif;
-        } catch (_) {
-          // Mobile fallback for environments that disallow window Notification constructor (e.g. Android Chrome)
-          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+
+            var notifOpts = {
+              body: body || '',
+              icon: iconUrl,
+              badge: iconUrl,
+              tag: (options && options.tag) || ('bb-notif-' + now),
+              renotify: true,
+              requireInteraction: false,
+              vibrate: [200, 100, 200, 100, 200],
+              data: {
+                url: (options && options.url) || './#page-home',
+                tab: (options && options.tab) || 'home'
+              }
+            };
+
+            // Directly spawn native desktop OS notification (Windows Action Center Toast)
             try {
-              var swPromise = navigator.serviceWorker.ready || navigator.serviceWorker.getRegistration();
-              if (swPromise && typeof swPromise.then === 'function') {
-                swPromise.then(function(reg) {
-                  if (reg && typeof reg.showNotification === 'function') {
-                    return reg.showNotification(notifTitle, notifOpts);
+              var notif = new Notification(notifTitle, notifOpts);
+              desktopNotificationCreated = true;
+              notifInstance = notif;
+              notif.onclick = function() {
+                try {
+                  window.focus();
+                  if (options && typeof options.onClick === 'function') {
+                    options.onClick();
+                  } else if (options && options.tab && typeof window.switchTabNav === 'function') {
+                    window.switchTabNav(options.tab);
                   }
-                }).catch(function() {});
+                  notif.close();
+                } catch (_) {}
+              };
+            } catch (_) {
+              // Mobile fallback for environments that disallow window Notification constructor (e.g. Android Chrome)
+              if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+                try {
+                  var swPromise = navigator.serviceWorker.ready || navigator.serviceWorker.getRegistration();
+                  if (swPromise && typeof swPromise.then === 'function') {
+                    swPromise.then(function(reg) {
+                      if (reg && typeof reg.showNotification === 'function') {
+                        return reg.showNotification(notifTitle, notifOpts);
+                      }
+                    }).catch(function() {});
+                  }
+                } catch (_) {}
               }
-            } catch (_) {}
+            }
           }
-          return null;
         }
       }
     }
-    return null;
+
+    // Deduplicate notification sound: If a native desktop OS notification was spawned, Windows / macOS
+    // already sounds its native notification chime. Only trigger in-app Audio chime if desktop notification was NOT spawned.
+    if (!desktopNotificationCreated && !isSilentSound && soundEnabled && typeof playNotificationSound === 'function') {
+      playNotificationSound();
+    }
+
+    return notifInstance;
   }
 
   async function requestNotificationPermission() {
