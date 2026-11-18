@@ -15015,7 +15015,22 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(pillDescHtml.includes('<span class="tb-mention-pill">@Tester Account</span>'), 'formatTaskDescriptionMentions preserves HTML and renders golden pill');
     console.log('  ✔ Mention badge highlighting and pill formatting verified for comments and task descriptions');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Onboarding & Settings Notification Text Cleanliness
+    global.window = global.window || {};
+    const origAndroidFcm = global.window.AndroidFCM;
+    global.window.AndroidFCM = {
+      isIgnoringBatteryOptimizations: () => true,
+      isXiaomiDevice: () => true
+    };
+    const step2Html = memberMod.renderStep2NotificationsHtml();
+    global.window.AndroidFCM = origAndroidFcm;
+
+    assert.ok(step2Html.includes('Instant Background Alerts'), 'Step 2 renders Instant Background Alerts heading');
+    assert.strictEqual(step2Html.includes('WhatsApp-Style'), false, 'Step 2 must not include (WhatsApp-Style)');
+    assert.strictEqual(step2Html.includes('WhatsApp-style'), false, 'Step 2 must not include (WhatsApp-style)');
+    console.log('  ✔ Onboarding notification text verified clean without (WhatsApp-Style)');
+
+    // 6. Strict 388 Unique DOM IDs Invariant
     const postIdsSuite77 = new Set();
     const postMatchesSuite77 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite77.forEach(m => {
